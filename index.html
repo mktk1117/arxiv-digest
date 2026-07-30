@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ロボット・AI 新着論文アーカイブ</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --text: #1a1d21;
+    --muted: #6b7280;
+    --line: #e3e6ea;
+    --accent: #3b6fd4;
+    --focus: #eef3fd;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171b; --card: #1c2027; --text: #e8eaed; --muted: #9aa3ad;
+      --line: #2c323a; --accent: #7aa2f7; --focus: #1e2734;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    line-height: 1.6;
+  }
+  header {
+    position: sticky; top: 0; z-index: 10; background: var(--bg);
+    border-bottom: 1px solid var(--line); padding: 14px 16px 10px;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; }
+  h1 { font-size: 17px; margin: 0 0 10px; }
+  h1 small { color: var(--muted); font-weight: normal; font-size: 13px; margin-left: 8px; }
+  input[type=search] {
+    width: 100%; padding: 9px 12px; font-size: 15px; color: var(--text);
+    background: var(--card); border: 1px solid var(--line); border-radius: 8px;
+  }
+  .filters { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+  .chip {
+    font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 999px; cursor: pointer;
+    background: var(--card); color: var(--muted); border: 1px solid var(--line);
+  }
+  .chip:hover { color: var(--text); }
+  .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .count { font-size: 12px; color: var(--muted); margin: 12px 0 0; }
+  main { max-width: 980px; margin: 0 auto; padding: 4px 16px 48px; }
+  .day { margin-top: 26px; }
+  .day > h2 {
+    font-size: 13px; color: var(--muted); font-weight: 600; margin: 0 0 10px;
+    border-bottom: 1px solid var(--line); padding-bottom: 6px;
+  }
+  .cards { display: grid; gap: 14px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+  .card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    overflow: hidden; display: flex; flex-direction: column;
+  }
+  .card.focus { border-color: var(--accent); background: var(--focus); }
+  .card img { width: 100%; display: block; background: #fff; }
+  .card .body { padding: 12px 14px 14px; display: flex; flex-direction: column; gap: 7px; flex: 1; }
+  .group { font-size: 11px; font-weight: 700; color: var(--muted); }
+  .card.focus .group { color: var(--accent); }
+  .title { font-size: 15px; font-weight: 700; margin: 0; }
+  .title-en { font-size: 12px; color: var(--muted); margin: 0; }
+  .summary { font-size: 13px; margin: 0; }
+  .meta { font-size: 11px; color: var(--muted); margin: 0; }
+  .tags { display: flex; flex-wrap: wrap; gap: 5px; margin-top: auto; padding-top: 4px; }
+  .tag {
+    font: inherit; font-size: 11px; padding: 2px 8px; border-radius: 999px; cursor: pointer;
+    background: transparent; color: var(--accent); border: 1px solid var(--line);
+  }
+  .tag[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
+  a.read { font-size: 12px; color: var(--accent); text-decoration: none; }
+  a.read:hover { text-decoration: underline; }
+  .note { color: var(--muted); font-size: 13px; padding: 40px 0; text-align: center; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <h1>🧪 ロボット・AI 新着論文アーカイブ<small id="updated"></small></h1>
+    <input type="search" id="q" placeholder="タイトル・要約・著者・arXiv ID で検索" autocomplete="off">
+    <div class="filters" id="groups"></div>
+    <div class="filters" id="tags"></div>
+    <p class="count" id="count"></p>
+  </div>
+</header>
+
+<main id="list"><p class="note">読み込み中…</p></main>
+
+<script>
+const GROUPS = { focus: "専門", general: "全般" };
+const state = { entries: [], tags: new Set(), group: null, q: "" };
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => (
+  { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+async function load() {
+  let index;
+  try {
+    index = await (await fetch("data/index.json", { cache: "no-cache" })).json();
+  } catch {
+    $("list").innerHTML = '<p class="note">まだ配信データがありません。</p>';
+    return;
+  }
+
+  const months = index.months || [];
+  const files = await Promise.all(months.map(async (m) => {
+    try { return (await (await fetch(`data/${m}.json`)).json()).entries || []; }
+    catch { return []; }
+  }));
+
+  state.entries = files.flat().sort((a, b) =>
+    (b.date + b.id).localeCompare(a.date + a.id));
+  $("updated").textContent = index.updated ? `最終更新 ${index.updated}` : "";
+  renderFilters();
+  render();
+}
+
+function renderFilters() {
+  $("groups").innerHTML = Object.entries(GROUPS).map(([key, label]) =>
+    `<button class="chip" data-group="${key}" aria-pressed="false">${label}</button>`).join("");
+
+  const counts = new Map();
+  for (const e of state.entries)
+    for (const t of e.tags || []) counts.set(t, (counts.get(t) || 0) + 1);
+
+  $("tags").innerHTML = [...counts.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([tag, n]) =>
+      `<button class="chip" data-tag="${esc(tag)}" aria-pressed="false">${esc(tag)} ${n}</button>`)
+    .join("");
+}
+
+function matches(e) {
+  if (state.group && e.group !== state.group) return false;
+  for (const t of state.tags) if (!(e.tags || []).includes(t)) return false;
+  if (!state.q) return true;
+
+  const hay = [e.title, e.title_ja, e.summary_ja, e.id, (e.authors || []).join(" "),
+    (e.tags || []).join(" "), (e.categories || []).join(" ")].join(" ").toLowerCase();
+  return state.q.split(/\s+/).filter(Boolean).every((w) => hay.includes(w));
+}
+
+function card(e) {
+  const tags = (e.tags || []).map((t) =>
+    `<button class="tag" data-tag="${esc(t)}" aria-pressed="${state.tags.has(t)}">${esc(t)}</button>`
+  ).join("");
+
+  return `<article class="card ${e.group === "focus" ? "focus" : ""}">
+    ${e.image ? `<a href="${esc(e.abs_url)}"><img src="${esc(e.image)}" alt="" loading="lazy"></a>` : ""}
+    <div class="body">
+      <div class="group">${GROUPS[e.group] || ""}</div>
+      <h3 class="title">${esc(e.title_ja || e.title)}</h3>
+      <p class="title-en">${esc(e.title)}</p>
+      <p class="summary">${esc(e.summary_ja)}</p>
+      <p class="meta">${esc((e.authors || []).slice(0, 2).join("、"))}${(e.authors || []).length > 2 ? " ほか" : ""}
+        · ${esc((e.categories || [])[0] || "")} · ${esc(e.id)}</p>
+      <div class="tags">${tags}</div>
+      <a class="read" href="${esc(e.abs_url)}">arXiv で読む →</a>
+    </div>
+  </article>`;
+}
+
+function render() {
+  const hits = state.entries.filter(matches);
+  $("count").textContent = `${hits.length} 件 / 全 ${state.entries.length} 件`;
+
+  if (!hits.length) {
+    $("list").innerHTML = '<p class="note">該当する論文がありません。</p>';
+    return;
+  }
+
+  const byDate = new Map();
+  for (const e of hits) {
+    if (!byDate.has(e.date)) byDate.set(e.date, []);
+    byDate.get(e.date).push(e);
+  }
+
+  $("list").innerHTML = [...byDate.entries()].map(([date, items]) =>
+    `<section class="day"><h2>${esc(date)}</h2>
+      <div class="cards">${items.map(card).join("")}</div></section>`).join("");
+
+  for (const b of document.querySelectorAll("[aria-pressed]"))
+    b.setAttribute("aria-pressed",
+      b.dataset.tag ? state.tags.has(b.dataset.tag) : state.group === b.dataset.group);
+}
+
+document.addEventListener("click", (ev) => {
+  const button = ev.target.closest("[data-tag], [data-group]");
+  if (!button) return;
+
+  if (button.dataset.tag) {
+    const tag = button.dataset.tag;
+    state.tags.has(tag) ? state.tags.delete(tag) : state.tags.add(tag);
+  } else {
+    state.group = state.group === button.dataset.group ? null : button.dataset.group;
+  }
+  render();
+});
+
+$("q").addEventListener("input", (ev) => {
+  state.q = ev.target.value.trim().toLowerCase();
+  render();
+});
+
+load();
+</script>
+</body>
+</html>
