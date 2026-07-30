@@ -6,8 +6,8 @@
    "id": "2607.26434",
    "group": "focus",
    "title": "Reinforcement Learning on Cost-Constrained Quadrupedal Hardware",
-   "title_ja": "コスト制約のある四足歩行ハードウェアにおける強化学習",
-   "summary_ja": "Mini Pupper 2等の低価格四足歩行ロボットで生じる50ms超の通信遅延や観測ノイズに対し、生物学的なフィードバック機構に着想を得たSim-to-Real手法を提案。通信遅延に伴う部分観測MDP化を克服し、実機環境で安定した歩行制御ポリシーの学習を実現した。",
+   "title_ja": "低コスト四足歩行ハードウェアにおける強化学習",
+   "summary_ja": "Mini Pupper 2などの低コスト四足歩行ロボットで生じる50ms以上の応答遅延とノイズによるsim-to-realギャップに対処する強化学習手法を提案。生物学に着想を得た遅延・ノイズ処理により部分観測問題を克服し、格安実機での歩行制御性能を大幅に向上させた。",
    "authors": [
     "Javier C. Weddington",
     "Bence P. \\\"Olveczky",
@@ -32,8 +32,8 @@
    "id": "2607.26985",
    "group": "focus",
    "title": "SymmGrid: Super-Scaling On-Robot Learning with Parallelized Symmetries and Egocentric-Exocentric Visual Perception",
-   "title_ja": "SymmGrid: 並列化された対称性と視覚知覚によるロボット上学習の超スケーリング",
-   "summary_ja": "実機上での強化学習（オンロボット学習）の効率を高めるため、幾何学的対称性を利用した軌道レベルデータ拡張フレームワークSymmGridを提案。MDP上の対称性木構造を用いて一人称・三人称視点画像や自己受容感覚を並列変換・データ拡張し、実機学習時間を大幅に削減した。",
+   "title_ja": "SymmGrid: 並列化対称性と主観・客観視覚認識による実機上ロボット学習の超大規模拡張",
+   "summary_ja": "実機上での強化学習（on-robot learning）の低速さを解決するため、対称性ツリーに基づくデータ拡張フレームワークSymmGridを提案。幾何学的変換を並列適用して状態・行動ペアを拡張することで、カメラ視覚と固有感覚を用いた実機RLの学習速度を大幅に向上させた。",
    "authors": [
     "Gabe Everett",
     "Brice Gunter",
@@ -50,7 +50,7 @@
    "tags": [
     "reinforcement-learning",
     "control",
-    "hardware"
+    "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2607.26985",
    "image": "figures/2026-07-30/2607.26985.jpg"
@@ -61,8 +61,8 @@
    "id": "2607.26460",
    "group": "focus",
    "title": "RLMM-Flow: A Flow-based Mobile Manipulation Framework with Latent-Space Reinforcement Learning",
-   "title_ja": "RLMM-Flow: 潜在空間強化学習を用いたフローベース移動マニピュレーション",
-   "summary_ja": "モバイルマニピュレータの全身運動制御において、エキスパート実演からのフロー方策事前学習と潜在空間での強化学習（RL）事後学習を融合したRLMM-Flowを提案。模倣学習単体を超えて全身動作の自己衝突回避や軌道平滑性を最適化し、タスク成功率を向上させた。",
+   "title_ja": "RLMM-Flow: 潜在空間強化学習を用いたフローベースモバイルマニピュレーションフレームワーク",
+   "summary_ja": "モバイルマニピュレーションにおける全身運動制御のため、エキスパート軌道から学習するフロー方策と潜在空間強化学習を組み合わせたRLMM-Flowを提案。模倣学習で多峰な運動事前分布を獲得後、RLによる後方学習でエキスパートデータを超えるスムーズで安全な動作を生成可能にした。",
    "authors": [
     "Shuhang Wang",
     "Ziming Li",
@@ -72,9 +72,10 @@
     "cs.RO"
    ],
    "tags": [
-    "reinforcement-learning",
     "control",
-    "manipulation"
+    "reinforcement-learning",
+    "manipulation",
+    "navigation"
    ],
    "abs_url": "https://arxiv.org/abs/2607.26460",
    "image": "figures/2026-07-30/2607.26460.jpg"
@@ -85,8 +86,8 @@
    "id": "2607.27205",
    "group": "general",
    "title": "TurboVLA: Real-Time Vision-Language-Action Model at 32 Hz on an RTX 4090 with <1 GB VRAM",
-   "title_ja": "TurboVLA: RTX 4090上で32 Hz動作と1 GB未満のVRAMを実現するリアルタイムVLA",
-   "summary_ja": "従来のLLMを中心とする経路を見直し、視覚と言語の入力を独立エンコードして直接融合するV+L->A構造のTurboVLAを提案。計算・メモリのオーバヘッドを劇的に削減し、単一のRTX 4090上で32Hzの高速推論と1GB未満のVRAM消費量によるリアルタイム制御を可能にした。",
+   "title_ja": "TurboVLA: RTX 4090上で32HzかつVRAM 1GB未満で動作するリアルタイム視覚言語行動モデル",
+   "summary_ja": "従来のLLMを媒介するVLA構造を刷新し、視覚と言語を独立符号化して直接統合するV+L->Aマッピング方式TurboVLAを提案。大幅な計算量削減を実現し、RTX 4090環境にて1GB未満のVRAM消費かつ32Hzの高速リアルタイム制御を達成した。",
    "authors": [
     "Hengyi Xie",
     "Chenfei Yao",
@@ -105,8 +106,9 @@
    ],
    "tags": [
     "vision-language-action",
-    "control",
-    "manipulation"
+    "manipulation",
+    "perception",
+    "control"
    ],
    "abs_url": "https://arxiv.org/abs/2607.27205",
    "image": "figures/2026-07-30/2607.27205.jpg"
@@ -117,8 +119,8 @@
    "id": "2607.26579",
    "group": "general",
    "title": "ContactFlow: A video action conditioning that transfers across embodiments",
-   "title_ja": "ContactFlow: 異形ロボット間で転移可能なビデオアクション条件付け",
-   "summary_ja": "アクターの外見や運動学を排除し、アクターと対象物間の3D接触点軌道で操作を表現する形態非依存の表現「Contact Flow」を提案。人間と様々なロボット間で共有可能な制御信号を提供し、異なる形態間でのゼロショット転移や世界モデルを用いた予測・計画の精度向上を実現した。",
+   "title_ja": "ContactFlow: 異種エンボディメント間を転移するビデオ行動条件付け",
+   "summary_ja": "ロボットと対象物間の3D接触点の軌跡として操作行動を符号化するエンボディメント不可知な表現手法Contact Flowを提案。特定のグリッパ外観や運動学に依存しない shared conditioning 信号を提供し、人間デモから各種ロボットへの行動転移や動画ワールドモデルの制御性を改善した。",
    "authors": [
     "Sami Azirar",
     "Enrico Pallotta",
@@ -132,8 +134,9 @@
     "cs.CV"
    ],
    "tags": [
-    "world-model",
     "manipulation",
+    "perception",
+    "world-model",
     "imitation-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2607.26579",
@@ -145,8 +148,8 @@
    "id": "2607.26855",
    "group": "general",
    "title": "NeoRacer: An Open, Standardized 1:12 Scale Autonomous Race Car for Benchmarking and Education",
-   "title_ja": "NeoRacer: 自律走行のベンチマークと教育のためのオープンな1:12スケールレースカー",
-   "summary_ja": "ロボティクス研究の再現性比較を容易にするため、オープンソースの1:12スケール自律走行車プラットフォーム「NeoRacer」を開発。NVIDIA Jetson Orinを搭載し、低コストでありながら十分な計算力を提供することで、標準化された制御・自動運転のベンチマーク基盤を実現した。",
+   "title_ja": "NeoRacer: ベンチマークと教育のためのオープンかつ標準化された1:12スケール自律走行レーシングカー",
+   "summary_ja": "制御・自律走行研究の再現性を高めるため、NVIDIA Jetson Orinを搭載した1:12スケールのオープンソース自律走行レーシングカーNeoRacerを開発。低価格でありながら強力な計算基盤を備え、モジュール式ソフトウェアと高品質ハードウェアにより標準化された実験プラットフォームを提供する。",
    "authors": [
     "Koneshka Bandyopadhyay",
     "Ansh Mehta",
@@ -160,8 +163,9 @@
    ],
    "tags": [
     "autonomous-driving",
+    "benchmark",
     "hardware",
-    "benchmark"
+    "control"
    ],
    "abs_url": "https://arxiv.org/abs/2607.26855",
    "image": "figures/2026-07-30/2607.26855.jpg"
