@@ -1,6 +1,172 @@
 {
  "entries": [
   {
+   "date": "2026-07-31",
+   "rank": 0,
+   "id": "2607.28623",
+   "group": "focus",
+   "title": "PAC-MAN: Perception-Aware CBF-RL for Whole-Body Safety in Humanoid Dodgeball",
+   "title_ja": "PAC-MAN：ヒューマノイドのドッジボールにおける全体系安全性を実現する認識アウェアなCBF-RL",
+   "summary_ja": "ヒューマノイドロボットのドッジボールにおいて全体系の安全性を維持するPAC-MANを提案。頭部カメラの深度画像から飛来するボールを認識しつつ、制御バリア関数（CBF）と強化学習を統合して全身の衝突回避動作を獲得。実機およびシミュレーションにて特権情報オラクルに迫る回避性能を達成した。",
+   "authors": [
+    "Lizhi Yang",
+    "Junheng Li",
+    "Aaron D. Ames"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2607.28623",
+   "image": "figures/2026-07-31/2607.28623.jpg"
+  },
+  {
+   "date": "2026-07-31",
+   "rank": 1,
+   "id": "2607.26434",
+   "group": "focus",
+   "title": "Reinforcement Learning on Cost-Constrained Quadrupedal Hardware",
+   "title_ja": "コスト制約のある四足歩行ハードウェア上での強化学習",
+   "summary_ja": "低価格な四足歩行ロボット（Mini Pupper 2）における50ms超のモータ伝送遅延とノイズによるsim-to-realギャップを克服する強化学習手法を提案。生物学的なフィードバック処理に着想を得た定式化により、低コストハードウェア上でも頑健な歩行方策の学習と実機展開を実現した。",
+   "authors": [
+    "Javier C. Weddington",
+    "Bence P. \\\"Olveczky",
+    "Stephen A. Baccus"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "reinforcement-learning",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2607.26434",
+   "image": "figures/2026-07-31/2607.26434.jpg"
+  },
+  {
+   "date": "2026-07-31",
+   "rank": 2,
+   "id": "2607.26985",
+   "group": "focus",
+   "title": "SymmGrid: Super-Scaling On-Robot Learning with Parallelized Symmetries and Egocentric-Exocentric Visual Perception",
+   "title_ja": "SymmGrid：並列化された対称性と自他中心視覚知覚による実機ロボット学習の超大規模加速",
+   "summary_ja": "実機ロボット上での直接強化学習（On-Robot Learning）を高速化するデータ拡張法SymmGridを提案。マルコフ決定過程における空間的・幾何学的対称性を利用し、一人称・三人称画像や固有感覚データに並列変換を適用することで、実機訓練の時間コストを大幅に削減した。",
+   "authors": [
+    "Gabe Everett",
+    "Brice Gunter",
+    "Ryan Vander Stelt",
+    "Cleiver Ruiz-Martinez",
+    "Blake Hull",
+    "Juan Rojas"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2607.26985",
+   "image": "figures/2026-07-31/2607.26985.jpg"
+  },
+  {
+   "date": "2026-07-31",
+   "rank": 3,
+   "id": "2607.27784",
+   "group": "general",
+   "title": "DexDirect: Direct Kinesthetic Arm Guidance for Efficient Dexterous Demonstration Collection",
+   "title_ja": "DexDirect：効率的な多指操作デモ収集のための直接的なダイレクトアーム教示",
+   "summary_ja": "多指ハンド操作デモを効率収集するシステムDexDirectを提案。操作者が重力補償された6自由度アームを直接操作しつつ、単一Webカメラで他方の手を追従して13自由度ハンドへマッピングする。従来手法と比較して17.2倍および3.2倍多くの成功デモを収集可能であることを実証した。",
+   "authors": [
+    "Beom Jun Kim",
+    "Shiu-Jen Wang",
+    "Jonathan Liu",
+    "Alvin Zhu",
+    "Quanyou Wang",
+    "Hanzhang Fang",
+    "Feng Xu",
+    "Mingzhang Zhu",
+    "Yuchen Cui",
+    "Dennis W. Hong"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "teleoperation",
+    "manipulation",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2607.27784",
+   "image": "figures/2026-07-31/2607.27784.jpg"
+  },
+  {
+   "date": "2026-07-31",
+   "rank": 4,
+   "id": "2607.28391",
+   "group": "general",
+   "title": "TacWAM: Anchor-Guided World Action Model with Mechanics-Aware Tactile Prediction",
+   "title_ja": "TacWAM：力学アウェアな触覚予測を備えたアンカー誘導型ワールドアクションモデル",
+   "summary_ja": "接触豊かなロボット操作向けに力学を考慮した触覚ワールドアクションモデルTacWAMを提案。空間配置を整合させた触覚エンコーダにより視覚・力覚・変形情報を統合し、将来の触覚画像や密な力場を予測することで、視覚のみのモデルより正確なアクション生成と力学予測を実現した。",
+   "authors": [
+    "Lei Jin",
+    "Yiding Ma",
+    "Xin Zhang",
+    "Chen Gao",
+    "Wei Wu",
+    "Yong Li"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "manipulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2607.28391",
+   "image": "figures/2026-07-31/2607.28391.jpg"
+  },
+  {
+   "date": "2026-07-31",
+   "rank": 5,
+   "id": "2607.28416",
+   "group": "general",
+   "title": "FasTac: A Curved Multispectral Vision-Based Tactile Sensor for High-Speed High-Precision 3D Shape and Force Perception",
+   "title_ja": "FasTac：高速・高精度な3次元形状および力覚認識のための曲面型マルチスペクトル視覚触覚センサ",
+   "summary_ja": "器用な操作に適した曲面型の視覚ベース触覚センサFasTacを開発。単一画像センサによる多波長照度ステレオ法とFPGAによるハードウェア加速を組み合わせ、高速かつ高精度な3次元表面形状復元と3軸力推定をコンパクトな形状で実現した。",
+   "authors": [
+    "Xiaofan Lu",
+    "Kaiji Huang",
+    "Jiahui Chen",
+    "Yuankai Lin",
+    "Hua Yang",
+    "Zhouping Yin"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "perception",
+    "hardware",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2607.28416",
+   "image": "figures/2026-07-31/2607.28416.jpg"
+  },
+  {
    "date": "2026-07-30",
    "rank": 0,
    "id": "2607.26434",
