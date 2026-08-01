@@ -1,0 +1,171 @@
+{
+ "entries": [
+  {
+   "date": "2026-08-01",
+   "rank": 0,
+   "id": "2607.28623",
+   "group": "focus",
+   "title": "PAC-MAN: Perception-Aware CBF-RL for Whole-Body Safety in Humanoid Dodgeball",
+   "title_ja": "PAC-MAN: ヒューマノイドの全身体安全性を実現する知覚考慮型CBF-RL",
+   "summary_ja": "ヒューマノイドによるドッジボール回避運動のため、制御バリア関数（CBF）と強化学習を統合したPAC-MANを提案。頭部カメラの領域分割深度画像のみを観測としつつ、CBF指導と対敵運動事前分布により全身の接触回避を実現。実機検証にて特権的な状態オラクルに近い回避成功率を達成。",
+   "authors": [
+    "Lizhi Yang",
+    "Junheng Li",
+    "Aaron D. Ames"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2607.28623",
+   "image": "figures/2026-08-01/2607.28623.jpg"
+  },
+  {
+   "date": "2026-08-01",
+   "rank": 1,
+   "id": "2607.28560",
+   "group": "focus",
+   "title": "X-NavDP: Generalizing Navigation Diffusion Policy to Novel Behavior and Embodiments with Group Q-score Reweighted Matching",
+   "title_ja": "X-NavDP: グループQスコア重み付けマッチングによるナビゲーションDiffusion Policyの般化",
+   "summary_ja": "単一のオラクルから学習したナビゲーション用Diffusion Policyを、異なるロボット形態や未知の行動へ般化させる強化学習手法を提案。Qスコアに基づく重み付けマッチングにより拡散方策の勾配不安定性を解消。局所観測のみで死角からの脱出や長距離回避行動を達成。",
+   "authors": [
+    "Tianyu Yang",
+    "Yiming Zeng",
+    "Wenzhe Cai",
+    "Yuqiang Yang",
+    "Jiaqi Peng",
+    "Hui Cheng",
+    "Jiangmiao Pang",
+    "Tai Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "navigation",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2607.28560",
+   "image": "figures/2026-08-01/2607.28560.jpg"
+  },
+  {
+   "date": "2026-08-01",
+   "rank": 2,
+   "id": "2607.28625",
+   "group": "focus",
+   "title": "ACE-Data-0: Human-Centric Ambient Capture as Embodied Data Engine",
+   "title_ja": "ACE-Data-0: 身体的AIデータエンジンとしての人間中心アンビエントキャプチャ",
+   "summary_ja": "身体的AIにおけるデータ不足を解消するため、実環境の居住空間を同期撮影環境に変えるデータエンジン「ACE」を開発。卓上スケールでの精密な手先操作と部屋スケールでの全身運動・一人称視点知覚を統合的に計測可能。多層的なモダリティを同期した高品質なデータ収集基盤を提供する。",
+   "authors": [
+    "Yukang Cao",
+    "Haozhe Xie",
+    "Beichen Wen",
+    "Runmao Yao",
+    "Yinghao Liu",
+    "Yue Huang",
+    "Zhichao Liao",
+    "Yunxiang Wang",
+    "Haiheng Liu",
+    "Xingshun Tian",
+    "Dawei Su",
+    "Long Zhuo",
+    "Dacheng Tao",
+    "Xiaogang Wang",
+    "Liang Pan",
+    "Ziwei Liu"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "dataset",
+    "perception",
+    "humanoid"
+   ],
+   "abs_url": "https://arxiv.org/abs/2607.28625",
+   "image": "figures/2026-08-01/2607.28625.jpg"
+  },
+  {
+   "date": "2026-08-01",
+   "rank": 3,
+   "id": "2607.28596",
+   "group": "general",
+   "title": "FA-RDP: A Frequency-Adaptive Reactive Diffusion Policy for Contact-Rich Manipulation",
+   "title_ja": "FA-RDP: 接触豊富な操作のための周波数適応型リアクティブDiffusion Policy",
+   "summary_ja": "接触を伴うロボット操作において、接触前後の要求特性の違いに対応する周波数適応型Diffusion Policyを提案。接触前は多峰性を保つ低周波・多ステップ生成を行い、接触後は力覚フィードバックに高速反応する高周波推論へ動的に切り替える。接触タスクでの応答性と柔軟性を両立。",
+   "authors": [
+    "Lifeng Zhuo",
+    "Wendi Chen",
+    "Han Xue",
+    "Shirun Tang",
+    "Jun Lv",
+    "Cewu Lu",
+    "Chuan Wen"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2607.28596",
+   "image": "figures/2026-08-01/2607.28596.jpg"
+  },
+  {
+   "date": "2026-08-01",
+   "rank": 4,
+   "id": "2607.28443",
+   "group": "general",
+   "title": "One Future, Every Robot: Label-Efficient Collective-State Prediction with Decentralized JEPA",
+   "title_ja": "CS-JEPA: 分散型JEPAによるラベル効率に優れた集団状態予測",
+   "summary_ja": "群ロボットにおいて、局所観測と制限された通信のみから将来の集団全体状態を予測する分散型アーキテクチャCS-JEPAを提案。グローバルな集約やエピソード時計を不要とし、自己準拠的な学習手法によりラベル効率良く共通の表現空間を獲得。分散システムにおける将来予測性能を実証。",
+   "authors": [
+    "Alan-Barsag Gazzaev",
+    "Alexey Garvilov",
+    "Sergey Muravyov"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "multi-robot",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2607.28443",
+   "image": "figures/2026-08-01/2607.28443.jpg"
+  },
+  {
+   "date": "2026-08-01",
+   "rank": 5,
+   "id": "2607.28451",
+   "group": "general",
+   "title": "Machines that know they are aging: a framework for hardware-aware autonomous intelligence",
+   "title_ja": "AAAI: ハードウェアの経年劣化を考慮する自律知能フレームワーク",
+   "summary_ja": "バッテリー劣化やセンサードリフト、タイミング誤差などのハードウェアの経年劣化を直接推論や計画に組み込む「経年変化対応自律知能（AAAI）」を提案。構成要素の劣化状態を常時自己診断し、推論モデルとの不整合によるミッション失敗を未然に防ぐ健全性考慮型の制御基盤を構築。",
+   "authors": [
+    "Cheng Siong Chin",
+    "Jianhua Zhang",
+    "Mohan Venkateshkumar"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "hardware",
+    "safety",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2607.28451",
+   "image": null
+  }
+ ]
+}
