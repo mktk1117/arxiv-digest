@@ -1,6 +1,174 @@
 {
  "entries": [
   {
+   "date": "2026-08-02",
+   "rank": 0,
+   "id": "2607.28623",
+   "group": "focus",
+   "title": "PAC-MAN: Perception-Aware CBF-RL for Whole-Body Safety in Humanoid Dodgeball",
+   "title_ja": "PAC-MAN: ヒューマノイドのドッジボールにおける全身安全性のための知覚認識型CBF-RL",
+   "summary_ja": "頭部カメラのセグメンテーション付き深度画像のみを入力とするヒューマノイド向け全身安全制御フレームワークPAC-MANを提案。制御バリア関数（CBF）による安全指導と敵対的運動事前分布を組み合わせた強化学習により、回避動作と飛来物回避を実現。シミュレーションおよび実機での検証において、特権情報を持つオラクルに近い回避性能を実証した。",
+   "authors": [
+    "Lizhi Yang",
+    "Junheng Li",
+    "Aaron D. Ames"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2607.28623",
+   "image": "figures/2026-08-02/2607.28623.jpg"
+  },
+  {
+   "date": "2026-08-02",
+   "rank": 1,
+   "id": "2607.27782",
+   "group": "focus",
+   "title": "RedFlow: Redirect Failure into Action-Level Corrections for Flow-matching VLA Policy",
+   "title_ja": "RedFlow: フローマッチングVLA方策のための失敗動作レベル補正リダイレクション",
+   "summary_ja": "フローマッチング型VLA方策において、展開時の分布シフトによる失敗軌跡をアクションレベルの補正指導へ変換するオフライン強化学習手法RedFlowを提案。文脈認識補正アライメントとフロー評価価値重み付けから構成され、軌跡全体を廃棄せず局所的な失敗から効果的に学習する。実験において従来のオフラインRLを上回る学習効率と成功率向上を達成した。",
+   "authors": [
+    "Zhengyang Yan",
+    "Junhao Li",
+    "Fangqi Zhu",
+    "Zijun Wang",
+    "Quanxin Shou",
+    "Yikun Miao",
+    "Xiaoyi Pang",
+    "Zicong Hong",
+    "Song Guo"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "vision-language-action",
+    "control",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2607.27782",
+   "image": "figures/2026-08-02/2607.27782.jpg"
+  },
+  {
+   "date": "2026-08-02",
+   "rank": 2,
+   "id": "2607.28560",
+   "group": "focus",
+   "title": "X-NavDP: Generalizing Navigation Diffusion Policy to Novel Behavior and Embodiments with Group Q-score Reweighted Matching",
+   "title_ja": "X-NavDP: グループQスコア再重み付けマッチングによるナビゲーションディフュージョン方策の一般化",
+   "summary_ja": "単一ロボットの教示データで学習されたナビゲーションディフュージョン方策を、未知のロボット形態や死角脱出などの複雑環境へ適合させる強化学習手法を提案。確率密度の計算が困難なディフュージョン方策の勾配不安定性を克服するため、グループQスコアに基づく再重み付けを導入。オンボード局所観測のみで未知の機構への高い汎化性能を示した。",
+   "authors": [
+    "Tianyu Yang",
+    "Yiming Zeng",
+    "Wenzhe Cai",
+    "Yuqiang Yang",
+    "Jiaqi Peng",
+    "Hui Cheng",
+    "Jiangmiao Pang",
+    "Tai Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "navigation",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2607.28560",
+   "image": "figures/2026-08-02/2607.28560.jpg"
+  },
+  {
+   "date": "2026-08-02",
+   "rank": 3,
+   "id": "2607.28416",
+   "group": "general",
+   "title": "FasTac: A Curved Multispectral Vision-Based Tactile Sensor for High-Speed High-Precision 3D Shape and Force Perception",
+   "title_ja": "FasTac: 高速・高精度な3D形状および力認識のための曲面型多スペクトル視覚触覚センサ",
+   "summary_ja": "3軸力推定と3D表面復元を同時に行うコンパクトな曲面型視覚触覚センサFasTacを開発。単一の画像センサで多スペクトル撮影を行い、FPGA上のハードウェア加速を用いて高速・高精度な法線推定と力推定を実現。多指ハンド指先への実装に適しており、高速かつ高精度な接触状態のセンシングを可能にした。",
+   "authors": [
+    "Xiaofan Lu",
+    "Kaiji Huang",
+    "Jiahui Chen",
+    "Yuankai Lin",
+    "Hua Yang",
+    "Zhouping Yin"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2607.28416",
+   "image": "figures/2026-08-02/2607.28416.jpg"
+  },
+  {
+   "date": "2026-08-02",
+   "rank": 4,
+   "id": "2607.28198",
+   "group": "general",
+   "title": "UniCross: Unified Cross-Skill Dexterous Manipulation Synthesis",
+   "title_ja": "UniCross: 統合されたクロススキル多指ハンド操作合成フレームワーク",
+   "summary_ja": "多指ハンドにおける「把握」「移動」「手内回転」「手内並進」の4つの基本操作スキルを、単一の定式化と統一された行動制約でモデル化するUniCrossを提案。従来のようにスキルごとにモデルや制約を分けることなく、シームレスなスキルの遷移と長時間の複合操作を可能にした。",
+   "authors": [
+    "Hui Zhang",
+    "Julian Ferchow",
+    "Jie Song",
+    "Mirko Meboldt"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "manipulation",
+    "grasping",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2607.28198",
+   "image": "figures/2026-08-02/2607.28198.jpg"
+  },
+  {
+   "date": "2026-08-02",
+   "rank": 5,
+   "id": "2607.27890",
+   "group": "general",
+   "title": "Static In, Dynamic Out: Counterfactual Action Augmentation for Moving Object Manipulation",
+   "title_ja": "Static In, Dynamic Out: 移動物体操作のための反実仮想アクション増強",
+   "summary_ja": "静止物体の教示データのみで訓練された視覚運動方策を、移動する物体の操作へ適応させる反実仮想増強手法SIDOを提案。物体の将来位置予測と、相対姿勢を維持するように教示アクションチャンクを変形させる補正を結合。コンベア上の移動物体や揺れる物体に対し、追加の動的データなしで高い成功率を達成した。",
+   "authors": [
+    "Woo Chul Shin",
+    "Zhenyang Chen",
+    "Alfred Cueva",
+    "Nadun Ranawaka Arachchige",
+    "Yingyan Celine Lin",
+    "Benjamin Joffe",
+    "Shreyas Kousik",
+    "Danfei Xu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "imitation-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2607.27890",
+   "image": "figures/2026-08-02/2607.27890.jpg"
+  },
+  {
    "date": "2026-08-01",
    "rank": 0,
    "id": "2607.28623",
