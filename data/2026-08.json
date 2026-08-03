@@ -1,6 +1,168 @@
 {
  "entries": [
   {
+   "date": "2026-08-03",
+   "rank": 0,
+   "id": "2607.29625",
+   "group": "focus",
+   "title": "Balancing of Humanoid with Object Mass: Trade-off Analyses and Lifting Control",
+   "title_ja": "物体質量を考慮したヒューマノイドのバランシング解析と持ち上げ制御",
+   "summary_ja": "ヒューマノイドが重量物を持ち上げる際の動的安定性を保つため、全身ダイナミクスと足部接触から物体質量の非線形影響を定量解析した。重心状態空間におけるバランス状態境界（BSB）を定式化し、安定した持ち上げ制御を可能にするフレームワークを構築した。",
+   "authors": [
+    "Hyunjong Song",
+    "William Z. Peng",
+    "Joo H. Kim"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2607.29625",
+   "image": null
+  },
+  {
+   "date": "2026-08-03",
+   "rank": 1,
+   "id": "2607.28952",
+   "group": "focus",
+   "title": "Advances, challenges, and opportunities for legged robots",
+   "title_ja": "脚ロボットの最近の進展・課題・今後の展望",
+   "summary_ja": "四足歩行およびヒューマノイドロボットを対象に、ハードウェア、移動制御（locomotion）、自律性、データ、応用事例の観点から最新動向を俯瞰する調査論文。社会的影響や倫理課題を含め、脚ロボットが直面する主要な未解決課題と今後の研究機会を整理している。",
+   "authors": [
+    "Jonas Frey",
+    "Mat\\'ias Mattamala",
+    "Hae-Won Park",
+    "Mayank Mittal",
+    "Georg Martius",
+    "Maike Osborne",
+    "Robert Sparrow",
+    "Marco Hutter"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "quadruped",
+    "locomotion",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2607.28952",
+   "image": "figures/2026-08-03/2607.28952.jpg"
+  },
+  {
+   "date": "2026-08-03",
+   "rank": 2,
+   "id": "2607.29613",
+   "group": "focus",
+   "title": "WCM: A World Critic Model for Vision-Language-Action Reinforcement Learning",
+   "title_ja": "WCM：VLAの強化学習に向けたワールドクリティックモデル",
+   "summary_ja": "VLAモデルの強化学習において、観測履歴の欠落による状態近似誤差を解決するWorld Critic Model（WCM）を提案。時間交差ダイナミクスを自己監督学習で補うことで、価値関数の評価精度向上とRLトレーニングの安定化を達成した。",
+   "authors": [
+    "Senyu Fei",
+    "Xiaopeng Yu",
+    "Siyin Wang",
+    "Xianzhong Zhao",
+    "Jingjing Gong",
+    "Xipeng Qiu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CL",
+    "cs.CV"
+   ],
+   "tags": [
+    "vision-language-action",
+    "reinforcement-learning",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2607.29613",
+   "image": "figures/2026-08-03/2607.29613.jpg"
+  },
+  {
+   "date": "2026-08-03",
+   "rank": 3,
+   "id": "2607.29231",
+   "group": "general",
+   "title": "TacPrint: A Wearable Fingertip Tactile Sensor for Human-to-Robot Contact Reproduction",
+   "title_ja": "TacPrint：人間の接触操作をロボットへ再現するウェアラブル指先触覚センサ",
+   "summary_ja": "人間の操作データを収集するウェアラブル指先触覚センサTacPrintを開発。24個の静電容量素子とシリコン突起を対応させ、Real-to-Sim-to-Realパイプラインにより35×26解像度の接触深度マップを高精度に推定・再現できることを実証した。",
+   "authors": [
+    "Yongxi Liu",
+    "Chaofan Zhang",
+    "Xingyu Zhang",
+    "Xiangyin Bao",
+    "Boyue Zhang",
+    "Shaowei Cui",
+    "Shuo Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "perception",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2607.29231",
+   "image": "figures/2026-08-03/2607.29231.jpg"
+  },
+  {
+   "date": "2026-08-03",
+   "rank": 4,
+   "id": "2607.29567",
+   "group": "general",
+   "title": "TransGraspNet: Physically and Geometrically Consistent Manipulation of Transparent Labware",
+   "title_ja": "TransGraspNet：透明な実験器具の物理的・幾何学的一貫性を考慮した操作",
+   "summary_ja": "液体を含む透明な化学実験器具の把握に向け、幾何学と物理の一貫性を考慮したTransGraspNetを提案。境界歪みや深度推定誤差の影響を抑え、アーム運動時でも液体のこぼれや滑りを生じさせない安定な把握計画を実現した。",
+   "authors": [
+    "Hailing Hu",
+    "Mingyi Zhu",
+    "Yiquan An",
+    "Yifei Tian",
+    "Tianyou Zuo",
+    "Lifeng Zhou"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "grasping",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2607.29567",
+   "image": "figures/2026-08-03/2607.29567.jpg"
+  },
+  {
+   "date": "2026-08-03",
+   "rank": 5,
+   "id": "2607.29237",
+   "group": "general",
+   "title": "CorrelationFlow: A Training-Free Geometric Approach for LiDAR Scene Flow Estimation",
+   "title_ja": "CorrelationFlow：LiDARシーンフロー推定のための学習不要な幾何学的アプローチ",
+   "summary_ja": "LiDARシーンフロー推定の既存深層学習モデルの課題に対し、学習不要な幾何学的フレームワークCorrelationFlowを提案。鳥瞰図（BEV）上での連結成分ラベリングと相関最大化を組み合わせることで、遠方や高速移動物体でも高精度に運動推定した。",
+   "authors": [
+    "Minh-Quan Dao",
+    "Yancong Lin",
+    "Julie Stephany Berrio Perez",
+    "Holger Caesar"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.RO"
+   ],
+   "tags": [
+    "perception",
+    "autonomous-driving"
+   ],
+   "abs_url": "https://arxiv.org/abs/2607.29237",
+   "image": "figures/2026-08-03/2607.29237.jpg"
+  },
+  {
    "date": "2026-08-02",
    "rank": 0,
    "id": "2607.28623",
