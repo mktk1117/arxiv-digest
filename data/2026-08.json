@@ -1,6 +1,166 @@
 {
  "entries": [
   {
+   "date": "2026-08-04",
+   "rank": 0,
+   "id": "2608.00500",
+   "group": "focus",
+   "title": "First Deployable Dynamic-CoM: A Unified Policy and Method-Agnostic Benchmark for Humanoid Single-Leg Balance",
+   "title_ja": "Dynamic-CoM：ヒューマノイドの一脚立位バランスのための統一ベンチマークと実機展開可能な制御手法",
+   "summary_ja": "既存の汎用ヒューマノイド制御方針が1脚立位バランステストで全滅することを示し、一脚バランス評価の統一ベンチマーク「Dynamic-CoM」を提案する。オンボードのIMUとエンコーダからキャプチャポイント（xCoM）を正確に再構成することで、実機センサーのみで安定した一脚立位バランスを実現する制御手法を提示する。",
+   "authors": [
+    "Yikai Zhou",
+    "Xingyun Wang",
+    "Jieming Cui",
+    "Bozhou Chen",
+    "Yikai Fan",
+    "Yixin Zhu",
+    "Wenxin Li"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "benchmark",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.00500",
+   "image": "figures/2026-08-04/2608.00500.jpg"
+  },
+  {
+   "date": "2026-08-04",
+   "rank": 1,
+   "id": "2608.00820",
+   "group": "focus",
+   "title": "LooperMuscle: Fast and Stable Learning of Humanoid Whole-Body Tracking via Structured Mixture-of-Experts",
+   "title_ja": "LooperMuscle：構造化MoEを用いたヒューマノイド全身トラッキングの高速かつ安定な学習",
+   "summary_ja": "ヒューマノイドの全身運動トラッキングにおいて、強化学習のスピードと性能のトレードオフを解消するフレームワークLooperMuscleを提案する。構造化Mixture-of-Expertsアクター、エキスパート認識型分布クリティック、寄与に応じたリプレイバッファを導入し、FastSAC級の高速学習とPPOレベルの追従精度を両立させた。",
+   "authors": [
+    "Boyi Liu",
+    "Qijin Li",
+    "Tianqi Yu",
+    "Qinrui Yan",
+    "Xingxing Zuo"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.00820",
+   "image": "figures/2026-08-04/2608.00820.jpg"
+  },
+  {
+   "date": "2026-08-04",
+   "rank": 2,
+   "id": "2608.02069",
+   "group": "focus",
+   "title": "Open-DiffLoco: Open-Source Differentiable Learning for Deployable Blind Quadruped Locomotion",
+   "title_ja": "Open-DiffLoco：可微分シミュレーションによる実地配備可能な盲目四足歩行のオープンソース学習フレームワーク",
+   "summary_ja": "可微分シミュレータMJX環境下でSHACアルゴリズムを用いて四足歩行ポリシーを高速学習するオープンソース基盤「Open-DiffLoco」を提案する。特権情報に依存しない受容感覚のみの方策を構築し、報酬設計の手間を削減しつつ実機ロボットへのダイレクトなゼロショット転送（Sim-to-Real）を実現した。",
+   "authors": [
+    "Martin Opat"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "reinforcement-learning",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.02069",
+   "image": "figures/2026-08-04/2608.02069.jpg"
+  },
+  {
+   "date": "2026-08-04",
+   "rank": 3,
+   "id": "2608.01733",
+   "group": "general",
+   "title": "TWINS: A Tactile Wearable Isomorphic Arm Networked System for Contact-Rich Manipulation Learning",
+   "title_ja": "TWINS：全身接触マニピュレーション学習のための触覚ウェアラブル同形アームシステム",
+   "summary_ja": "アームや胸部などの身体表面を用いた接触を伴うマニピュレーション操作の教示と実行を可能にするシステム「TWINS」を提案する。操作者が着用するウェアラブルデバイスと同形の二本腕ロボットに分散触覚センサを組み込み、従来困難だった大面積な接触状態のセンシングと直感的な遠隔操作データ収集を実現した。",
+   "authors": [
+    "Takahide Kitamura",
+    "Masaki Murooka",
+    "Natsuki Yamanobe",
+    "Yukiyasu Domae"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "hardware",
+    "teleoperation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.01733",
+   "image": "figures/2026-08-04/2608.01733.jpg"
+  },
+  {
+   "date": "2026-08-04",
+   "rank": 4,
+   "id": "2608.00730",
+   "group": "general",
+   "title": "Push-Wiper: Toward General-Purpose Robotic Cleaning across Varied Stains and Surfaces with Segmented Pushing Trajectories",
+   "title_ja": "Push-Wiper：分割押し軌道とDiffusion Policyを用いた多様な汚れに対応する汎用ロボット清掃",
+   "summary_ja": "拭き取り時に広がりやすい粘性汚れの清掃問題を「段階的な押し集め」として再定義した制御フレームワークPush-Wiperを提案する。スポンジによる分割押し軌道で汚れを集約した後、拡散方策（Diffusion Policy）を用いて適応的な押し動作を生成し、表面を傷つけず効率的に清掃・自己洗浄を行う。",
+   "authors": [
+    "Renhao Lu",
+    "Mingxin Wang",
+    "Chenyang Cao",
+    "Yang Yang",
+    "Guoping Pan",
+    "Kangkang Dong",
+    "Yi Cheng",
+    "Houde Liu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "imitation-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.00730",
+   "image": "figures/2026-08-04/2608.00730.jpg"
+  },
+  {
+   "date": "2026-08-04",
+   "rank": 5,
+   "id": "2608.00931",
+   "group": "general",
+   "title": "Stipple: Real-Time Incremental Gaussian Splatting with Visual-Inertial Tracking",
+   "title_ja": "Stipple：視覚慣性トラッキングを用いたリアルタイム漸進的3D Gaussian Splatting",
+   "summary_ja": "ロボットの即時環境把握に向けて、視覚慣性オドメトリ（VIO）と3D Gaussian Splatting（3DGS）を統合した「Stipple」を提案する。キーフレーム処理と幾何学的制約により、計算負荷の高い前処理なしでカメラ追従（トラッキング）と高品位な3D空間の逐次再構成をリアルタイムで同時実行する。",
+   "authors": [
+    "Kilian Northoff",
+    "Mateo de Mayo",
+    "Daniel Cremers"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "perception",
+    "navigation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.00931",
+   "image": "figures/2026-08-04/2608.00931.jpg"
+  },
+  {
    "date": "2026-08-03",
    "rank": 0,
    "id": "2607.29625",
