@@ -1,6 +1,175 @@
 {
  "entries": [
   {
+   "date": "2026-08-05",
+   "rank": 0,
+   "id": "2608.02653",
+   "group": "focus",
+   "title": "Light-Loco-Parkour: Versatile Perceptive Whole-Body Locomotion via Multi-Skill Distillation",
+   "title_ja": "Light-Loco-Parkour: 技能蒸留による多目的な知覚的全身歩行制御",
+   "summary_ja": "オンボードの深度情報と速度指令のみから、歩行・バランス・登攀・飛び降り・乗り越えを自律的に判断して実行するヒューマノイド向け全身知覚歩行システムを提案。複数スキルの蒸留を通じて単一のデプロイ可能なポリシを構築し、外部参照入力や実行時モーションマップなしで障害物地形を踏破できる。",
+   "authors": [
+    "Hongming Chen",
+    "Zhuoran Li",
+    "Hongxi Wang",
+    "Jiangpeng Hu",
+    "Ziliang Li",
+    "Peize Liu",
+    "QingRui Zhao",
+    "Xuhao Liu",
+    "Liang Pan",
+    "Ximin Lyu",
+    "Yuntao Ma",
+    "Tingxiang Fan"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.02653",
+   "image": "figures/2026-08-05/2608.02653.jpg"
+  },
+  {
+   "date": "2026-08-05",
+   "rank": 1,
+   "id": "2608.03234",
+   "group": "focus",
+   "title": "Learning Context-Aware Motion Priors for Humanoid Control",
+   "title_ja": "ヒューマノイド制御のためのコンテキスト考慮型運動事前分布の学習",
+   "summary_ja": "ヒューマノイドの自然な動作学習に向け、タスクコンテキストに応じて適切な運動事前分布を動的に適応させるCMP（Context-Aware Motion Priors）を提案。手動のスキルラベルやデータ分割なしに、高アドバンテージなタスク軌道を用いて整合性を評価し、無関係な動作指示を回避しながら効率的な強化学習を実現する。",
+   "authors": [
+    "Yunyang Mo",
+    "Yi Gu",
+    "Yangchen Zhou",
+    "Hanyang Cao",
+    "Renjing Xu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning",
+    "locomotion"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.03234",
+   "image": "figures/2026-08-05/2608.03234.jpg"
+  },
+  {
+   "date": "2026-08-05",
+   "rank": 2,
+   "id": "2608.01506",
+   "group": "focus",
+   "title": "Rapid Embodiment Adaptation for Quadrupedal Locomotion",
+   "title_ja": "四足歩行ロボットのための高速な身体変化適応",
+   "summary_ja": "関節可動域制限や胴体質量の変化など、ロボットの身体的特性の変化に対して約0.5秒でオンライン適応する四足歩行制御フレームワークを提案。多種多様な身体パラメタのランダム化下で学習した汎用ポリシと、短期の相互作用履歴から現在のハードウェア状態を識別する適応モジュールを組み合わせてリアルタイム適応を実現した。",
+   "authors": [
+    "Dichen Li",
+    "Bo Ai",
+    "Nico Bohlinger",
+    "Jan Peters",
+    "Hao Su",
+    "Henrik I. Christensen"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "reinforcement-learning",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.01506",
+   "image": "figures/2026-08-05/2608.01506.jpg"
+  },
+  {
+   "date": "2026-08-05",
+   "rank": 3,
+   "id": "2608.03051",
+   "group": "general",
+   "title": "CUDA MPC: A GPU-Native Solver for Model Predictive Control",
+   "title_ja": "CUDA MPC: 模型予測制御のためのGPUネイティブソルバー",
+   "summary_ja": "高速な力学系や高次元モデルでのモデル予測制御（MPC）を実現するため、メモリ転送や繰り返しカーネル呼び出しのオーバーヘッドを排したGPUネイティブなMPCソルバーを開発。時間軸平行型のADMM分割と統合CUDAカーネルの設計により、カーネル1回の呼び出しで最適化全体を完了させ大幅な高速化を実証した。",
+   "authors": [
+    "Babak Akbari",
+    "Melissa Greeff"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.DC",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "control",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.03051",
+   "image": "figures/2026-08-05/2608.03051.jpg"
+  },
+  {
+   "date": "2026-08-05",
+   "rank": 4,
+   "id": "2608.03052",
+   "group": "general",
+   "title": "How Should Vision-Language-Action Models Use Proprioceptive State?",
+   "title_ja": "Vision-Language-Actionモデルは固有感覚状態をどう扱うべきか？",
+   "summary_ja": "VLAモデルにおいてロボットの固有感覚（プロプリオセプティブ）状態を入力としてどのように統合すべきかを体系的に調査。テキスト化、VLM接頭辞プロジェクション、アクションエキスパート直接入力などの構成や、過去履歴のフレーム数の影響を制御実験を通して評価し、閉ループ制御における最適な設計指針を明らかにした。",
+   "authors": [
+    "Yiren Zhao",
+    "Ziyang Chen",
+    "Ziyang Rao",
+    "Pengteng Li",
+    "He Zhang",
+    "Weiyu Guo",
+    "Yandong Guo",
+    "Rushi Dai"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "control",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.03052",
+   "image": "figures/2026-08-05/2608.03052.jpg"
+  },
+  {
+   "date": "2026-08-05",
+   "rank": 5,
+   "id": "2608.03295",
+   "group": "general",
+   "title": "GraspMeanFlow: SE(3)-Equivariant MeanFlow for Few-Step 6-DoF Grasp Generation",
+   "title_ja": "GraspMeanFlow: 少数ステップでの6-DoF把握生成に向けたSE(3)等変MeanFlow",
+   "summary_ja": "ロボットの6自由度把握姿勢生成において、従来の生成モデルが抱える多数の評価ステップによる遅延を解決するSE(3)等変MeanFlowフレームワークを提案。有限時間区間における平均速度を学習することで、数ステップのサンプリング処理で幾何学的整合性と回転・平行移動の等価性を保った把握姿勢を高速生成する。",
+   "authors": [
+    "Jiyong Kwon",
+    "Yikun Bai",
+    "Amirhossein Mollaali",
+    "Guang Lin"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "grasping",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.03295",
+   "image": "figures/2026-08-05/2608.03295.jpg"
+  },
+  {
    "date": "2026-08-04",
    "rank": 0,
    "id": "2608.00500",
