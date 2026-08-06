@@ -1,6 +1,179 @@
 {
  "entries": [
   {
+   "date": "2026-08-06",
+   "rank": 0,
+   "id": "2608.04657",
+   "group": "focus",
+   "title": "MobileWAM: Bridging World Action Models to Mobile Manipulation with Chain-of-Foresight",
+   "title_ja": "MobileWAM: Chain-of-Foresightを用いた移動マニピュレーション向けワールドアクションモデル",
+   "summary_ja": "移動と全身制御が複雑に結合する移動マニピュレーションに向け、大規模動画拡散トランスフォーマーと軽量アクションエキスパートを融合したMobileWAMを提案。事前学習された動画像生成モデルの運動事前知識を全身制御へ変換し、移動と操作の不均一なダイナミクスを統合して環境変化に対する高い制御性能を実現した。",
+   "authors": [
+    "Zehua Fan",
+    "Junjie He",
+    "Wenxuan Song",
+    "Xi Wang",
+    "Wenqi Lyu",
+    "Linge Zhao",
+    "Fuhao Li",
+    "Zihan You",
+    "Yifei Yang",
+    "Kaiming Xu",
+    "Qi Jiang",
+    "Yue Jiang",
+    "Haoang Li",
+    "Cheng Chi",
+    "Bailin Li",
+    "Yan Wang"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "locomotion",
+    "manipulation",
+    "control",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.04657",
+   "image": "figures/2026-08-06/2608.04657.jpg"
+  },
+  {
+   "date": "2026-08-06",
+   "rank": 1,
+   "id": "2608.04842",
+   "group": "focus",
+   "title": "RORA: Realistic Object Reconstruction with Articulation",
+   "title_ja": "RORA: 運動機構を備えた現実物体の高品質再構成",
+   "summary_ja": "ロボット学習におけるsim-to-realギャップを低減するため、可動関節を持つ現実物体をシミュレーション可能なアセットとして再構成するエンドツーエンドパイプラインRORAを提案。動的スキャンを必要とせず、複数関節を持つ複雑な構造に対しても正確な可動機構と見た目を維持したアセット構築を実現する。",
+   "authors": [
+    "Hyesung Lee",
+    "Youngseon Lee",
+    "Kyutae Lee",
+    "Dongjun Lee",
+    "Yongseok Lee"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.GR"
+   ],
+   "tags": [
+    "sim-to-real",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.04842",
+   "image": "figures/2026-08-06/2608.04842.jpg"
+  },
+  {
+   "date": "2026-08-06",
+   "rank": 2,
+   "id": "2608.05084",
+   "group": "focus",
+   "title": "Learning When to Stop: Prefix-Optimal Dynamic Diffusion Policies for Continuous Control",
+   "title_ja": "停止タイミングの学習：連続制御のための接頭辞最適動的ディフュージョン方策",
+   "summary_ja": "連続制御におけるディフュージョン方策の推論計算コストを削減するため、POGPを提案。逆拡散プロセスの各ステップにおける価値関数をベルマン型再帰処理で学習し、タスク性能を維持しつつタスクの難易度に応じて最適なデノイズステップ数で早期停止する決定規則を実現した。",
+   "authors": [
+    "Rohit Kumar Salla",
+    "Manoj Saravanan",
+    "Simon Stepputtis"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.05084",
+   "image": "figures/2026-08-06/2608.05084.jpg"
+  },
+  {
+   "date": "2026-08-06",
+   "rank": 3,
+   "id": "2608.04343",
+   "group": "general",
+   "title": "Design and Flight of an Ion-propelled Micro Hovercraft Leveraging Ground Proximity Effects",
+   "title_ja": "地面効果を利用したイオン推進マイクロホバークラフトの設計と飛行",
+   "summary_ja": "可動部のない静音推進機構として期待される電磁航空ダイナミクス推進を用い、地面効果を活用して浮上するセンチメートルスケールのマイクロホバークラフトを設計。スカート形状や電極構成の実験的評価に基づき試作を行い、低高度飛行において高推力密度と効率を両立できることを実機飛行実験で実証した。",
+   "authors": [
+    "C. Luke Nelson",
+    "Grant Nations",
+    "Mrinmoy Modak",
+    "Daniel S. Drew"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "drone"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.04343",
+   "image": "figures/2026-08-06/2608.04343.jpg"
+  },
+  {
+   "date": "2026-08-06",
+   "rank": 4,
+   "id": "2608.04196",
+   "group": "general",
+   "title": "SiMDex: Mining Similar Egocentric Videos for Cross-Embodiment Dexterous Manipulation",
+   "title_ja": "SiMDex: 異種ロボットによる器用な操作のための類似一人称視点動画マイニング",
+   "summary_ja": "人間の一人称視点動画から器用なハンド操作に真に役立つデータを抽出するフレームワークSiMDexを提案。約3,200万個の一人称視点動画サンプルから3段階のパイプラインでロボットデモに関連するデータを選択し、VLAモデルの事後学習においてタスク成功率を大きく向上させた。",
+   "authors": [
+    "Nie Lin",
+    "Takehiko Ohkawa",
+    "Sijin Chen",
+    "Ruoshi Wen",
+    "Zhuohang Li",
+    "Liqun Huang",
+    "Zhengming Zhu",
+    "Yiming Bao",
+    "Yunfei Li",
+    "Minjie Cai",
+    "Xiao Ma",
+    "Wei Xu",
+    "Yoichi Sato"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "manipulation",
+    "imitation-learning",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.04196",
+   "image": "figures/2026-08-06/2608.04196.jpg"
+  },
+  {
+   "date": "2026-08-06",
+   "rank": 5,
+   "id": "2608.04612",
+   "group": "general",
+   "title": "GASP: GPU-Accelerated Safe Planner for Real-Time Collision-Aware Motion Generation with Latent Trajectory Sampling",
+   "title_ja": "GASP: 潜在軌道サンプリングによるリアルタイム衝突回避運動生成のためのGPU加速安全プランナー",
+   "summary_ja": "既知環境における関節空間のリアルタイム運動生成に向け、GPU加速プランナーGASPを提案。CVAEにより複数の軌道候補をサンプリングし、Bスプラインの制御点処理とGPU並列検証を組み合わせることで、非定常な初期・終端条件を満たすミリ秒単位の衝突回避計画を実現した。",
+   "authors": [
+    "Colin Merk",
+    "Stefanos Charalambous",
+    "Peter D\\\"urr",
+    "Farshad Khadivar"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "planning",
+    "control",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.04612",
+   "image": "figures/2026-08-06/2608.04612.jpg"
+  },
+  {
    "date": "2026-08-05",
    "rank": 0,
    "id": "2608.02653",
