@@ -1,6 +1,168 @@
 {
  "entries": [
   {
+   "date": "2026-08-07",
+   "rank": 0,
+   "id": "2608.06375",
+   "group": "focus",
+   "title": "$\\omega$-0: A Latent Predictive World Action Model for Concurrent Humanoid Loco-Manipulation",
+   "title_ja": "ω-0：ヒューマノイドの移動・操作同時実行のための潜在予測ワールド・アクションモデル",
+   "summary_ja": "ヒューマノイドの移動と操作を統合する並行移動操作に向けて、全身のアクション潜在変数を直接予測する統合モデル「ω-0」を提案。言語指示・視覚・固有感覚情報から将来映像の生成を経ずに制御器適合アクションを出力し、実機での協調行動を実現した。",
+   "authors": [
+    "Zhe Li",
+    "Zhenzhe Zhang",
+    "Yangyang Wei",
+    "Wenjie Zhang",
+    "Xichen Yuan",
+    "Peiyuan Zhi",
+    "Gen Li",
+    "Xinying Guo",
+    "Fengjie Gao",
+    "Jianfei Yang",
+    "Shanghang Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.06375",
+   "image": "figures/2026-08-07/2608.06375.jpg"
+  },
+  {
+   "date": "2026-08-07",
+   "rank": 1,
+   "id": "2608.05975",
+   "group": "focus",
+   "title": "TRACE: Learned Proprioceptive Odometry for Legged Robots under Unreliable Contact Conditions",
+   "title_ja": "TRACE：滑りや接地不良に強い脚ロボット向け学習型固有感覚オドメトリ",
+   "summary_ja": "接地の信頼性が低い環境下において、IMUと関節センサ情報から相対位置や速度を予測する学習型固有感覚オドメトリ手法TRACEを提案。足ごとの状態に適応するアテンション機構により、閾値設定に頼らず接地の滑り等の影響を緩和し、ロバストな自己位置推定を可能にした。",
+   "authors": [
+    "Taehyeon Kong",
+    "Woojin Kim",
+    "Jemin Hwangbo"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "perception",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.05975",
+   "image": "figures/2026-08-07/2608.05975.jpg"
+  },
+  {
+   "date": "2026-08-07",
+   "rank": 2,
+   "id": "2608.05647",
+   "group": "focus",
+   "title": "KILVO: Kinematic-Inertial-LiDAR-Visual Odometry with Robust Multimodal Adaptation for Humanoid Robots",
+   "title_ja": "KILVO：ヒューマノイドのための運動学・慣性・LiDAR・視覚オドメトリ",
+   "summary_ja": "ヒューマノイドに標準搭載された脚部エンコーダ、IMU、LiDAR、カメラを統合するオドメトリKILVOを提案。脚部運動学を高頻度で非同期処理しつつ、LiDARによる幾何事前情報とカメラの光学的誤差補正を順番に更新するESIKFにより、高精度な自己位置推定を実現した。",
+   "authors": [
+    "Jixin Gao",
+    "Fucheng Liu",
+    "Teng Zhang",
+    "Fusheng Zha"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "perception",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.05647",
+   "image": "figures/2026-08-07/2608.05647.jpg"
+  },
+  {
+   "date": "2026-08-07",
+   "rank": 3,
+   "id": "2608.06210",
+   "group": "general",
+   "title": "VIDP: Variable Impedance Diffusion Policy for Compliant Robot Manipulation from Diverse Demonstrations",
+   "title_ja": "VIDP：多様な実演データからの順応的操作に向けた可変インピーダンス・ディフュージョン・ポリシー",
+   "summary_ja": "接触豊富な操作タスクにおいて動的環境に適応するため、可変インピーダンスディフュージョンポリシー（VIDP）を提案。力覚データのない実演軌道から位置の変化と意図的な順応性を分離して剛性を推定・学習し、複雑な接触操作での成功率とロバスト性を向上させた。",
+   "authors": [
+    "Hisham Khalil",
+    "Neil Fernandes",
+    "Thomas M. Kwok",
+    "Hsiu-Chin Lin",
+    "Yue Hu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "control",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.06210",
+   "image": "figures/2026-08-07/2608.06210.jpg"
+  },
+  {
+   "date": "2026-08-07",
+   "rank": 4,
+   "id": "2608.05586",
+   "group": "general",
+   "title": "PathCover: A Fast Convex Decomposition along a Path via Randomized Iterative Space Partitioning (RISP) on Point Clouds",
+   "title_ja": "PathCover：点群上のランダム化逐次空間分割による経路沿いの高速凸分解",
+   "summary_ja": "生の点群データから障害物のない凸多面体空間を高速生成する枠組みPathCoverを提案。ランダム化逐次空間分割（RISP）により期待線形時間で動作し、MPCや軌道最適化で直接利用可能な通過可能領域をセンサレートの処理速度で構築可能にした。",
+   "authors": [
+    "Kunal S. Narkhede",
+    "Abhijeet M. Kulkarni",
+    "Guoquan Huang",
+    "Ioannis Poulakakis"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "planning",
+    "navigation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.05586",
+   "image": "figures/2026-08-07/2608.05586.jpg"
+  },
+  {
+   "date": "2026-08-07",
+   "rank": 5,
+   "id": "2608.05715",
+   "group": "general",
+   "title": "Hijacking Robots with a Piece of Paper: A Systematic Study of Physical Prompt Injection in VLM-Controlled Robots",
+   "title_ja": "紙切れ1枚でロボットを乗っ取る：VLM制御ロボットにおける物理プロンプトインジェクションの体系的研究",
+   "summary_ja": "VLMを計画器として用いるロボットシステムに対し、視野内に配置されたテキストで指示を上書き・誤動作させる物理プロンプトインジェクションの脆弱性を検証。4つの攻撃カテゴリと20のプロンプトからなるベンチマークを構築し、実空間におけるセキュリティリスクを提示した。",
+   "authors": [
+    "S. M . Bhagya P. Samarakoon",
+    "M. A. Viraj J. Muthugala",
+    "W. K. R. Sachinthana",
+    "Mohan Rajesh Elara"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "vision-language-action",
+    "safety",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.05715",
+   "image": "figures/2026-08-07/2608.05715.jpg"
+  },
+  {
    "date": "2026-08-06",
    "rank": 0,
    "id": "2608.04657",
