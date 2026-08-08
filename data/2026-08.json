@@ -1,6 +1,132 @@
 {
  "entries": [
   {
+   "date": "2026-08-08",
+   "rank": 0,
+   "id": "2608.06375",
+   "group": "focus",
+   "title": "$ω$-0: A Latent Predictive World Action Model for Concurrent Humanoid Loco-Manipulation",
+   "title_ja": "$ω$-0: ヒューマノイドの並行移動操作のための潜在予測型ワールドアクションモデル",
+   "summary_ja": "ヒューマノイドロボットが移動・姿勢制御・全身バランス維持・物体操作を同時に行う移動操作（loco-manipulation）を実現する潜在予測型ワールドアクションモデル$ω$-0を提案。将来のビデオ再構成を行わず、言語指示・視覚観測・固有感覚状態から実機コントローラと互換性のある全身アクション潜在表現を直接予測し、実機ヒューマノイドでの全身協調タスクを成功させている。",
+   "authors": [
+    "Zhe Li",
+    "Zhenzhe Zhang",
+    "Yangyang Wei",
+    "Wenjie Zhang",
+    "Xichen Yuan",
+    "Peiyuan Zhi",
+    "Gen Li",
+    "Xinying Guo",
+    "Fengjie Gao",
+    "Jianfei Yang",
+    "Shanghang Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "world-model",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.06375",
+   "image": "figures/2026-08-08/2608.06375.jpg"
+  },
+  {
+   "date": "2026-08-08",
+   "rank": 1,
+   "id": "2608.06374",
+   "group": "general",
+   "title": "DyPES-VLA: Learning Shared Dynamics Priors and Embodiment-Specific Control for Cross-Embodiment Manipulation",
+   "title_ja": "DyPES-VLA: 異種ロボット間マニピュレーションのための共通動力学事前分布と形態特有制御の学習",
+   "summary_ja": "異なるロボット形態間で汎用的に機能するVLAモデルの構築に向け、共通の動力学事前分布と形態固有の制御を分離して学習するDyPES-VLAを提案。多様なデータから共通動態を捉えることで、複雑な手動の前処理なしに異種エンボディメント間での知識転移と高精度なマニピュレーション制御を実現した。",
+   "authors": [
+    "Junfeng Li",
+    "Junjie He",
+    "Zhide Zhong",
+    "Yangyang Zheng",
+    "Pingyue Sheng",
+    "Jiayu Dong",
+    "Ruixin Li",
+    "Haodong Yan",
+    "Jiaguan Zhu",
+    "Tianran Zhang",
+    "Runze Yu",
+    "Wen Chen",
+    "Liuqing Yang",
+    "Yuxiang Gao",
+    "Haoang Li"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "vision-language-action",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.06374",
+   "image": "figures/2026-08-08/2608.06374.jpg"
+  },
+  {
+   "date": "2026-08-08",
+   "rank": 2,
+   "id": "2608.06332",
+   "group": "general",
+   "title": "GeniWorld: A Generalizable Interactive World Model for Robotic Manipulation via Visual Actions",
+   "title_ja": "GeniWorld: 視覚的アクションを用いたロボット操作向け汎化型インタラクティブ・ワールドモデル",
+   "summary_ja": "未知環境に対するロボット方策の堅牢性を高めるため、視覚的アクション表現を利用したインタラクティブな世界モデルGeniWorldを提案。URDFに基づく描画処理で数値アクションを視覚表現へ変換し、事前学習済み動画生成モデルを活用することで、分布外の未知シナリオに対しても高い動作制御性と汎化性能を達成した。",
+   "authors": [
+    "Chenghao Gu",
+    "Hanyang Yu",
+    "Jingbo Zhang",
+    "Haitao Lin",
+    "Wenyao Zhang",
+    "Jinghe Wang",
+    "Hanglei Jin",
+    "Shuzhao Xie",
+    "Jingyan Jiang",
+    "Zhi Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "world-model",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.06332",
+   "image": "figures/2026-08-08/2608.06332.jpg"
+  },
+  {
+   "date": "2026-08-08",
+   "rank": 3,
+   "id": "2608.06210",
+   "group": "general",
+   "title": "VIDP: Variable Impedance Diffusion Policy for Compliant Robot Manipulation from Diverse Demonstrations",
+   "title_ja": "VIDP: 多様な実演データからの順応的ロボット操作に向けた可変インピーダンス拡散方策",
+   "summary_ja": "接触の多い複雑なマニピュレーションにおいて柔軟な適応性を発揮するため、倣い学習により可変インピーダンススキルを獲得する拡散方策（VIDP）を提案。力覚情報を含まない運動軌道のばらつきから、空間配置の変化による幾何学的適応と意図的なインピーダンス変化を分離して推定し、適切な剛性制御を実現した。",
+   "authors": [
+    "Hisham Khalil",
+    "Neil Fernandes",
+    "Thomas M. Kwok",
+    "Hsiu-Chin Lin",
+    "Yue Hu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "imitation-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.06210",
+   "image": "figures/2026-08-08/2608.06210.jpg"
+  },
+  {
    "date": "2026-08-07",
    "rank": 0,
    "id": "2608.06375",
