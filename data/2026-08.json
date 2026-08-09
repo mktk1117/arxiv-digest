@@ -1,6 +1,192 @@
 {
  "entries": [
   {
+   "date": "2026-08-09",
+   "rank": 0,
+   "id": "2608.06375",
+   "group": "focus",
+   "title": "$ω$-0: A Latent Predictive World Action Model for Concurrent Humanoid Loco-Manipulation",
+   "title_ja": "$ω$-0: ヒューマノイドの同時移動操作に向けた潜在予測全身ワールドアクションモデル",
+   "summary_ja": "ヒューマノイドの移動と操作を統合した同時移動操作（loco-manipulation）を実現する潜在予測型全身ワールドアクションモデル「$ω$-0」を提案。動画再構成を行わず、言語指示と画像・固有感覚入力から直接制御器に適した全身アクションの潜在変数を予測する。実機ヒューマノイドにおいて、バランス維持と物体操作を単一の協調動作として円滑に実行可能であることを示した。",
+   "authors": [
+    "Zhe Li",
+    "Zhenzhe Zhang",
+    "Yangyang Wei",
+    "Wenjie Zhang",
+    "Xichen Yuan",
+    "Peiyuan Zhi",
+    "Gen Li",
+    "Xinying Guo",
+    "Fengjie Gao",
+    "Jianfei Yang",
+    "Shanghang Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "control",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.06375",
+   "image": "figures/2026-08-09/2608.06375.jpg"
+  },
+  {
+   "date": "2026-08-09",
+   "rank": 1,
+   "id": "2608.05975",
+   "group": "focus",
+   "title": "TRACE: Learned Proprioceptive Odometry for Legged Robots under Unreliable Contact Conditions",
+   "title_ja": "TRACE: 不確実な接地条件における脚ロボットのための学習型固有感覚オドメトリ",
+   "summary_ja": "接地状態やスリップが不確実な環境下で機能する脚ロボット向け固有感覚オドメトリ推定器「TRACE」を提案。IMUと関節履歴から直近の相対変位や速度を直接予測する。手動の接地閾値に依存せず、足ごとのクロスアテンションでトークンを適応的に重み付けし、物理に着想を得た補助損失と直接指導で学習させることで、劣悪な接地環境でも高い自己位置推定精度を実現した。",
+   "authors": [
+    "Taehyeon Kong",
+    "Woojin Kim",
+    "Jemin Hwangbo"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "locomotion",
+    "quadruped",
+    "perception",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.05975",
+   "image": "figures/2026-08-09/2608.05975.jpg"
+  },
+  {
+   "date": "2026-08-09",
+   "rank": 2,
+   "id": "2608.05948",
+   "group": "focus",
+   "title": "GAUGE: A Measurement-Grounded Benchmark for Physical Fidelity in Simulation Engines and Video World Models",
+   "title_ja": "GAUGE: 物理シミュレータと動画ワールドモデルの物理的再現性を評価するリアルワールド基準ベンチマーク",
+   "summary_ja": "物理シミュレータと動画生成ワールドモデルの両方が、現実世界の物理法則をどの程度再現できているかを直接評価する診断ベンチマーク「GAUGE」を提案。剛体、柔軟ケーブルなど22種類の制御されたタスク群を含み、知覚的類似性ではなく実測データに基づく物理的整合性を検証する。シミュレータや基盤モデルの再現性の差異と限界を詳細に明らかにした。",
+   "authors": [
+    "Shuai Wang",
+    "Yaxin Feng",
+    "Xuekun Jiang",
+    "Shihan Tian",
+    "Ningyu Yan",
+    "Xing Shen",
+    "Chaoyang Lyu",
+    "Hui Wang",
+    "Yunsong Zhou",
+    "Hanqing Wang",
+    "Jiangmiao Pang",
+    "Yang Xiang",
+    "Xing Gao",
+    "Chunhua Shen",
+    "Weinan Zhang"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.CV",
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "world-model",
+    "benchmark",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.05948",
+   "image": "figures/2026-08-09/2608.05948.jpg"
+  },
+  {
+   "date": "2026-08-09",
+   "rank": 3,
+   "id": "2608.05715",
+   "group": "general",
+   "title": "Hijacking Robots with a Piece of Paper: A Systematic Study of Physical Prompt Injection in VLM-Controlled Robots",
+   "title_ja": "紙切れ1枚でロボットを乗っ取る：VLM制御ロボットにおける物理的プロンプト注入の体系的研究",
+   "summary_ja": "Vision-Language Model（VLM）をプランナーとするロボットに対し、視界内に配置した対立的テキストによる「物理的プロンプト注入攻撃」を体系的に評価。間接的標識、タスク再定義、権限偽装、衝突注入の4カテゴリの攻撃プロンプトを構築し評価した。実験により、実空間に置いた単純な紙片によってVLMの推理が誤導され、ロボットの動作が意図的に乗っ取られる脆弱性を実証した。",
+   "authors": [
+    "S. M . Bhagya P. Samarakoon",
+    "M. A. Viraj J. Muthugala",
+    "W. K. R. Sachinthana",
+    "Mohan Rajesh Elara"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "vision-language-action",
+    "safety",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.05715",
+   "image": "figures/2026-08-09/2608.05715.jpg"
+  },
+  {
+   "date": "2026-08-09",
+   "rank": 4,
+   "id": "2608.06210",
+   "group": "general",
+   "title": "VIDP: Variable Impedance Diffusion Policy for Compliant Robot Manipulation from Diverse Demonstrations",
+   "title_ja": "VIDP: 多様な実演からの順応的ロボット操作のための可変インピーダンス拡散方策",
+   "summary_ja": "豊富な接触を伴う操作タスクにおいて、機械的順応性を動的に適応させる「Variable Impedance Diffusion Policy (VIDP)」を提案。力の情報を含まない運動学的なデモから、幾何学的変化と意図的なコンプライアンスを区別して可変インピーダンスを推論するイミテーション学習法を確立。接触力学の正確なモデル化なしに、多様な環境下で頑健な接触操作を実現した。",
+   "authors": [
+    "Hisham Khalil",
+    "Neil Fernandes",
+    "Thomas M. Kwok",
+    "Hsiu-Chin Lin",
+    "Yue Hu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "control",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.06210",
+   "image": "figures/2026-08-09/2608.06210.jpg"
+  },
+  {
+   "date": "2026-08-09",
+   "rank": 5,
+   "id": "2608.05799",
+   "group": "general",
+   "title": "XEWorld: Can Action-Conditioned World Models Generalize to Unseen Robot Embodiments?",
+   "title_ja": "XEWorld: アクション条件付きワールドモデルは未知のロボット形態に汎化できるか？",
+   "summary_ja": "ロボット操作用のアクション条件付きワールドモデルが未知の形態（エンボディメント）に汎化できるかを検証するベンチマーク「XEWorld」を構築。物理的に同一のシーン内で未見のロボットを評価した結果、現在のモデルは物理的な運動学の類似性ではなく2D視覚パターンの類似性に依存して描画していることが判明し、構造的なボトルネックを明らかにした。",
+   "authors": [
+    "Yixiang Chen",
+    "Jiabing Yang",
+    "Yuan Xu",
+    "Qisen Ma",
+    "Keji He",
+    "Peiyan Li",
+    "Kai Wang",
+    "Ziheng He",
+    "Xiangnan Wu",
+    "Jing Liu",
+    "Nianfeng Liu",
+    "Yan Huang",
+    "Liang Wang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "world-model",
+    "simulation",
+    "benchmark",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.05799",
+   "image": "figures/2026-08-09/2608.05799.jpg"
+  },
+  {
    "date": "2026-08-08",
    "rank": 0,
    "id": "2608.06375",
