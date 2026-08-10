@@ -1,6 +1,187 @@
 {
  "entries": [
   {
+   "date": "2026-08-10",
+   "rank": 0,
+   "id": "2608.06907",
+   "group": "focus",
+   "title": "Spatiotemporal Agility: Time-Constrained Reinforcement Learning for Vision-Guided Dynamic Quadrupedal Interception",
+   "title_ja": "Spatiotemporal Agility: 視覚誘導による動的四足歩行捕獲のための時間制約付き強化学習",
+   "summary_ja": "四足歩行ロボットによる時間制約下の動的ボールキャッチタスクに向け、着地点・時間の予測視覚モジュールと目標直接追従の強化学習方策を統合した手法を提案。センサ遅延に対応し、リアルタイムな視覚誘導による敏捷な動的インターセプト動作を実現した。",
+   "authors": [
+    "Yidong Zhu",
+    "Zibo Dai",
+    "Tongning Zhang",
+    "Leixin Chang",
+    "Hua Chen"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.06907",
+   "image": null
+  },
+  {
+   "date": "2026-08-10",
+   "rank": 1,
+   "id": "2608.07328",
+   "group": "focus",
+   "title": "Learning Fault-Tolerant Locomotion with Adaptive Gait Timing",
+   "title_ja": "適応的ゲイトタイミングを用いた故障許容型歩行制御の学習",
+   "summary_ja": "アクチュエータの出力喪失時における四足歩行ロボットの故障許容型歩行を深層強化学習で実現する手法を提案。特権情報を利用する非対称Actor-Critic構成を用いて固有感覚から特権状態を再構成し、アクチュエータの制約が厳しい大型機体でも安定した歩行コーディネーションと動作維持を達成。",
+   "authors": [
+    "Giovanbattista Gravina",
+    "Luca Rossini",
+    "Carlo Rizzardo",
+    "Arturo Laurenzi",
+    "Nikos Tsagarakis"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.07328",
+   "image": "figures/2026-08-10/2608.07328.jpg"
+  },
+  {
+   "date": "2026-08-10",
+   "rank": 2,
+   "id": "2608.06481",
+   "group": "focus",
+   "title": "LyEvO: Lyapunov-Guided Evolutionary Optimization for Safe and Robust Sim-to-Real Policy Learning",
+   "title_ja": "LyEvO: 安全かつ頑健なSim-to-Real方策学習のためのリアプノフガイド進化最適化",
+   "summary_ja": "Sim-to-Real転送における方策の安全性と頑健性を保証するため、リアプノフ安定解析、制約付き進化最適化、統計的モデル検証（SMC）を統合したLyEvOを提案。ダイナミクスから試算した安定領域内のシナリオで方策の最適化と検証、領域拡張を反復し、現実展開可能な方策を獲得する。",
+   "authors": [
+    "Riccardo Curcio",
+    "Hongpeng Cao",
+    "Marco Caccamo"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG",
+    "cs.NE"
+   ],
+   "tags": [
+    "sim-to-real",
+    "reinforcement-learning",
+    "control",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.06481",
+   "image": "figures/2026-08-10/2608.06481.jpg"
+  },
+  {
+   "date": "2026-08-10",
+   "rank": 3,
+   "id": "2608.06650",
+   "group": "general",
+   "title": "SoRoMoX: Fast, Differentiable, and Parallelizable Soft Robot Models",
+   "title_ja": "SoRoMoX: 高速・微分可能・並列化可能なソフトロボットモデル",
+   "summary_ja": "Cosserat-rod理論などに基づく柔軟ロボットモデルをPython/JAX上で実装した高速かつ微分可能なシミュレーションフレームワークSoRoMoXを提案。GPU並列化やJITコンパイルに対応し、制御や学習に直接利用可能な慣性行列やヤコビアン等の厳密な派生物を提供する。",
+   "authors": [
+    "Maximilian St\\\"olzle",
+    "Solange Gribonval",
+    "Daniel Feliu-Talegon",
+    "Vito Daniele Perfetta",
+    "Michele Martini",
+    "Chuhan Zhang",
+    "Kiwan Wong",
+    "Mohammed Tarnini",
+    "Anup Teejo Mathew",
+    "Federico Renda",
+    "Daniela Rus",
+    "Cosimo Della Santina"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "simulation",
+    "control",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.06650",
+   "image": "figures/2026-08-10/2608.06650.jpg"
+  },
+  {
+   "date": "2026-08-10",
+   "rank": 4,
+   "id": "2608.07045",
+   "group": "general",
+   "title": "C2Dex: Contact-Consistent Reconstruction and Retargeting for Dexterous Manipulation from Monocular Video",
+   "title_ja": "C2Dex: 単眼動画からの巧みなハンド操作のための接触整合的な再構成とリターゲティング",
+   "summary_ja": "単眼の人間操作動画から多指ロボットハンドへ動作転送を行うC2Dexを提案。物体側の安定した接触領域と局所ジオメトリを共有表現として保持することで、時間的に不連続で物理的に不合理になりがちな単眼動画からの接触状態を維持した高品質なリターゲティングを実現した。",
+   "authors": [
+    "Jie Ren",
+    "Zhehao Jiang",
+    "Yinhong Yang",
+    "Haorui Jia",
+    "Han Jiang",
+    "Ben Li",
+    "Yao Yao",
+    "Cheng Lin",
+    "Qiu Shen",
+    "Zhenshan Bing",
+    "Xiao-Xiao Long",
+    "Xun Cao"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "manipulation",
+    "perception",
+    "teleoperation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.07045",
+   "image": "figures/2026-08-10/2608.07045.jpg"
+  },
+  {
+   "date": "2026-08-10",
+   "rank": 5,
+   "id": "2608.07005",
+   "group": "general",
+   "title": "Real-time Whole-Body Motion Planning for Mobile Manipulators Carrying Arbitrarily Shaped Payloads via Kinematically-Coupled SVSDF",
+   "title_ja": "運動学的に結合したSVSDFによる任意形状ペロードを搬送する移動マニピュレータのリアルタイム全身運動計画",
+   "summary_ja": "複雑な形状の荷物を搬送する移動マニピュレータ向けに、ロボットと荷物の正確な形状を保ったまま高速干渉チェックを行うリアルタイム全身運動計画フレームワークを提案。連鎖分解型カーネル干渉判定とSVSDFベースの最適化により、障害物環境下での安全な実行可能軌道を生成する。",
+   "authors": [
+    "Yisheng Li",
+    "Longji Yin",
+    "Tingrui Zhang",
+    "Ruize Xue",
+    "Haoda Zhu",
+    "Nan Chen",
+    "Siqi Liang",
+    "Yuxi Liu",
+    "Fu Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "planning",
+    "control",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.07005",
+   "image": "figures/2026-08-10/2608.07005.jpg"
+  },
+  {
    "date": "2026-08-09",
    "rank": 0,
    "id": "2608.06375",
