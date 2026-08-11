@@ -1,6 +1,181 @@
 {
  "entries": [
   {
+   "date": "2026-08-11",
+   "rank": 0,
+   "id": "2608.07746",
+   "group": "focus",
+   "title": "LUCID: Latent-Skill Unified Control via Imagined Dynamics for Long-Horizon Humanoid Loco-Manipulation",
+   "title_ja": "LUCID: 潜在スキルと動画像ダイナミクスの予測に基づくヒューマノイドの長航続移動操作",
+   "summary_ja": "ヒューマノイドによる長時間の移動操作に向けた階層型モデルベース強化学習フレームワークLUCIDを提案。再利用可能な全身スキルを敵対的模倣学習で獲得し、学習したダイナミクスモデル上の妄想ロールアウトにより高レベルの方策を計画する。複雑な一連のタスクを効率的に遂行可能。",
+   "authors": [
+    "Cheng Guo",
+    "Mingzhe Ni",
+    "Angelo Cangelosi",
+    "Arash Ajoudani"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.07746",
+   "image": "figures/2026-08-11/2608.07746.jpg"
+  },
+  {
+   "date": "2026-08-11",
+   "rank": 1,
+   "id": "2608.09762",
+   "group": "focus",
+   "title": "Efficient Real-World Online Reinforcement Learning for Robot Manipulation via Centralized Training and Critic Decomposition",
+   "title_ja": "集中学習と批評家分解を用いたロボット操作のための効率的な実機オンライン強化学習",
+   "summary_ja": "実環境での直接的な方策改善を目指し、集中学習分散実行（CTDE）とハイブリッド報酬構造（HRA）を組み合わせた実機オンライン強化学習フレームワークを提案。人による介入を取り入れつつ、複数エージェントの同時学習に伴う非定常性を緩和し、幅広いランダム化範囲でのサンプル効率的な学習を実現した。",
+   "authors": [
+    "Changhao Li",
+    "Yifang Zhang",
+    "Heng Zhang",
+    "Davide Torielli",
+    "Damiano Gasperini",
+    "Arturo Laurenzi",
+    "Luca Muratore",
+    "Arash Ajoudani",
+    "Nikos Tsagarakis"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.09762",
+   "image": "figures/2026-08-11/2608.09762.jpg"
+  },
+  {
+   "date": "2026-08-11",
+   "rank": 2,
+   "id": "2608.09853",
+   "group": "focus",
+   "title": "RynnValue: Scaling Robotic Value Foundation Models with Temporal Distance",
+   "title_ja": "RynnValue: 時間的距離を用いたロボット向け価値基盤モデルのスケーリング",
+   "summary_ja": "ロボット操作に向けたオープンソースの価値基盤モデルRynnValueを提案。既存の報酬モデルのような選好や相対進行度ではなく、観測から目標までの時間的距離（Cost-to-go）を学習信号とすることで、異なる機体やデータソースを跨いだスケーラブルな学習を実現。7,000時間超の多様なデータセットで高い性能を検証した。",
+   "authors": [
+    "Dongchi Huang",
+    "Hongyin Zhang",
+    "Bohan Hou",
+    "Siteng Huang",
+    "Zhian Su",
+    "Hang Guo",
+    "Tong Lu",
+    "Zhaofeng Xu",
+    "Jiahao Tang",
+    "Jianfei Yang",
+    "Donglin Wang",
+    "Peixi Peng",
+    "Mingxiu Chen",
+    "Deli Zhao",
+    "Xin Li"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "manipulation",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.09853",
+   "image": "figures/2026-08-11/2608.09853.jpg"
+  },
+  {
+   "date": "2026-08-11",
+   "rank": 3,
+   "id": "2608.07573",
+   "group": "general",
+   "title": "Projection-Retraction MPPI: Exact Constraint-Manifold Control for Manipulators",
+   "title_ja": "Projection-Retraction MPPI: マニピュレータの厳密な制約多様体制御",
+   "summary_ja": "閉運動鎖や関節制限、障害物回避などの厳密な等式・不等式制約を MPPI 制御内で保証する Projection-Retraction MPPI (PR-MPPI) を提案。サンプリングの各ステップで速度を拘束多様体へ射影および引き戻すことで、ペナルティ関数に頼らず制約を厳密に満たした最適な軌道生成をリアルタイムで実現する。",
+   "authors": [
+    "Seulchan Lee",
+    "Leesai Park",
+    "Minhyeong Kang",
+    "Sanghyun Kim"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "planning",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.07573",
+   "image": "figures/2026-08-11/2608.07573.jpg"
+  },
+  {
+   "date": "2026-08-11",
+   "rank": 4,
+   "id": "2608.07600",
+   "group": "general",
+   "title": "AdaDexGrasp: Adaptive Dexterous Grasping via 3D Visuo-Tactile Representation Fusion",
+   "title_ja": "AdaDexGrasp: 3D視触覚統合表現による適応的多指ハンド把握",
+   "summary_ja": "対象物の3D幾何情報と接触後の触覚信号を統合する視触覚融合把握フレームワークを提案。触覚フィードバックを物体の3D表現に紐付けることで、把握の生成・実行可能性の予測・接触後の適応的微修正を一貫して行い、未知物体や接触面での滑りに対する把持の頑健性と適応性を大幅に向上させた。",
+   "authors": [
+    "Xirui Liang",
+    "Jiaqi Liang",
+    "Jingkai Xu",
+    "Yuran Wang",
+    "Ruochong Li",
+    "Yuanpei Chen",
+    "Masayoshi Tomizuka",
+    "Wei Zhan",
+    "Ruihai Wu"
+   ],
+   "categories": [
+    "cs.RO",
+    "eess.IV"
+   ],
+   "tags": [
+    "manipulation",
+    "grasping",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.07600",
+   "image": "figures/2026-08-11/2608.07600.jpg"
+  },
+  {
+   "date": "2026-08-11",
+   "rank": 5,
+   "id": "2608.09198",
+   "group": "general",
+   "title": "Ultra-Low-Impedance Robotic Gripper for High-Bandwidth and Transparent Physical Interaction",
+   "title_ja": "高帯域かつ透過的な物理的相互作用を実現する超低インピーダンスロボットグリッパ",
+   "summary_ja": "ダイレクトドライブモーターと1:2の低減速比差動機構を組み合わせた9自由度3指グリッパを開発。駆動系の質量を基部に集約して可動部の慣性を最小化し、外部力覚センサに頼らずに低い機械的インピーダンスと高帯域な透明性の高い物理的相互作用・接触力制御を実現した。",
+   "authors": [
+    "Joon Lee",
+    "Ari Choi",
+    "Seokhwan Jeong"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "grasping",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.09198",
+   "image": "figures/2026-08-11/2608.09198.jpg"
+  },
+  {
    "date": "2026-08-10",
    "rank": 0,
    "id": "2608.06907",
