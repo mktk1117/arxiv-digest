@@ -1,6 +1,165 @@
 {
  "entries": [
   {
+   "date": "2026-08-12",
+   "rank": 0,
+   "id": "2608.10220",
+   "group": "focus",
+   "title": "Whole-Body Planning for Humanoids Navigating Confined Spaces via Self-Collision Avoidance References",
+   "title_ja": "狭所空間を移動するヒューマノイドのための自己衝突回避参照を用いた全身計画",
+   "summary_ja": "密集障害物や複雑な自己衝突制約が存在する狭小空間をヒューマノイドが移動するための3段階全身計画フレームワークを提案。微分可能な衝突回避を可到達性制約式に統合し、立体形状モデル上で動的に実現可能な運動経路を直接最適化することで局所解に陥る問題を解決した。",
+   "authors": [
+    "Carlos Gonzalez",
+    "Luis Sentis"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "planning",
+    "control",
+    "locomotion"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.10220",
+   "image": "figures/2026-08-12/2608.10220.jpg"
+  },
+  {
+   "date": "2026-08-12",
+   "rank": 1,
+   "id": "2608.10387",
+   "group": "focus",
+   "title": "Hip Energized Monopedal Hopping",
+   "title_ja": "股関節エネルギーを活用した1脚ロボットの跳躍制御",
+   "summary_ja": "ピッチ軸が拘束されていない平面1脚ロボットにおいて、ピッチ安定化時の反作用トルクを減衰補償用のエネルギーとして回収・活用する新手法を提案。ステップ方策により前後速度と到達高度を制御し、ハイブリッド平均化解析を用いて閉形式の固定点と固有値を解明した。",
+   "authors": [
+    "Shane Rozen-Levy",
+    "Griffon McMahon",
+    "Daniel Koditschek"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "control",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.10387",
+   "image": "figures/2026-08-12/2608.10387.jpg"
+  },
+  {
+   "date": "2026-08-12",
+   "rank": 2,
+   "id": "2608.07542",
+   "group": "focus",
+   "title": "An AI Scientist that Doesn't Drift: Taste, Structure, and Falsifiable Findings in a Quadruped Navigation Research Loop",
+   "title_ja": "四足歩行ロボットのナビゲーション研究における目標ドリフトを防ぐAI Scientist",
+   "summary_ja": "シミュレーション環境における四足歩行ロボットのナビゲーション方策の一般化性能を検証する自律型研究ループシステムを開発。仮説と結果を改変させない「実験カード」や明確に役割分担されたサブエージェント構造を導入することで、LLM研究エージェントの目標ドリフトを防ぎ、反証可能な実験サイクルを実現した。",
+   "authors": [
+    "Yiwen Zhang",
+    "Eloise Zeng",
+    "Jaeha Lee",
+    "Tony Yue Yu"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.LG",
+    "cs.MA",
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "navigation",
+    "reinforcement-learning",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.07542",
+   "image": "figures/2026-08-12/2608.07542.jpg"
+  },
+  {
+   "date": "2026-08-12",
+   "rank": 3,
+   "id": "2608.10383",
+   "group": "general",
+   "title": "Real-World Cooperative Bimanual Dexterous Grasp of Large Objects from Single-View Observations",
+   "title_ja": "単一視点観測に基づく大型物体の実機双腕巧み把握",
+   "summary_ja": "大型物体の双腕巧み把握を実現するため、実機ロボットによるマルチモーダルデータセットとDDPM（拡散確率モデル）に基づく把握姿勢生成手法を提案。単一視点画像とセグメンテーション結果から関節レベルの把握姿勢を直接生成し、実機システムにおいて高い成功率で大型物体の協調把握を実証した。",
+   "authors": [
+    "Ziming Li",
+    "Mingxuan Wu",
+    "Jiaqi Zhang",
+    "Hongfei Li",
+    "Yan Gan",
+    "Deqiang Ouyang",
+    "Ning Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "grasping",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.10383",
+   "image": "figures/2026-08-12/2608.10383.jpg"
+  },
+  {
+   "date": "2026-08-12",
+   "rank": 4,
+   "id": "2608.10987",
+   "group": "general",
+   "title": "Aerial Layouting: Design and Control of a Compliant and Actuated End-Effector for Precise In-flight Marking on Ceilings",
+   "title_ja": "天井への高精度描画に向けた受動柔軟性を持つ駆動型エンドエフェクタの設計と制御",
+   "summary_ja": "建設現場等での天井マーキング作業に向け、ドローン（空中ロボット）に装着する1自由度の柔軟かつ駆動可能なエンドエフェクタと制御手法を提案。飛行中の機体動揺をエンドエフェクタが受動的・アクティブに吸収・補正することで、実機実験においてミリメートル単位の高精度な天井墨出し動作を達成した。",
+   "authors": [
+    "Christian Lanegger",
+    "Marco Ruggia",
+    "Marco Tognon",
+    "Lionel Ott",
+    "Roland Siegwart"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "drone",
+    "hardware",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.10987",
+   "image": "figures/2026-08-12/2608.10987.jpg"
+  },
+  {
+   "date": "2026-08-12",
+   "rank": 5,
+   "id": "2608.08814",
+   "group": "general",
+   "title": "360CityArena: A Realistic Virtual Urban Navigation Benchmark for Embodied Agents",
+   "title_ja": "360CityArena: リアルな仮想都市環境におけるナビゲーションベンチマーク",
+   "summary_ja": "実世界の都市環境と評価環境のギャップを埋めるため、秋葉原エリアで撮影された602個の360度動画（85本の通り）を基に構築された都市ナビゲーションベンチマークを提案。環境理解や経路推論など3カテゴリ・175個のタスクを含み、写真のようにリアルな広域環境における身体的エージェントの探索能力を評価できる。",
+   "authors": [
+    "Kenta Watanabe",
+    "Atsuyuki Miyai",
+    "Mizuki Takenawa",
+    "Kiyoharu Aizawa",
+    "Toshihiko Yamasaki"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "navigation",
+    "benchmark",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.08814",
+   "image": "figures/2026-08-12/2608.08814.jpg"
+  },
+  {
    "date": "2026-08-11",
    "rank": 0,
    "id": "2608.07746",
