@@ -1,6 +1,184 @@
 {
  "entries": [
   {
+   "date": "2026-08-13",
+   "rank": 0,
+   "id": "2608.12063",
+   "group": "focus",
+   "title": "Learning Loco-Manipulation From SMPC Demonstrations With Sparse Offline-to-Online RL",
+   "title_ja": "SMPCデモンストレーションとスパースオフライン-オンライン強化学習によるロコ・マニピュレーションの学習",
+   "summary_ja": "移動と操作を統合するロコ・マニピュレーションにおいて、緻密な報酬設計の手間を解消する手法を提案。シミュレーション上のサンプルベースMPC（SMPC）を自動エキスパートとして大量のオフラインデータを生成し、スパース報酬のもとでオフライン・オンラインRLを適用する。これにより、ダイナミクスを考慮した安定した全身運動制御を高速かつ手動調整なしに学習可能とした。",
+   "authors": [
+    "Martin Schuck",
+    "Maks Sorokin",
+    "Simone Manni",
+    "Duy Ta",
+    "Angela P. Schoellig",
+    "Marco Hutter",
+    "Simon Le Cleac'H",
+    "Jan Br\\\"udigam"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "locomotion",
+    "manipulation",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.12063",
+   "image": "figures/2026-08-13/2608.12063.jpg"
+  },
+  {
+   "date": "2026-08-13",
+   "rank": 1,
+   "id": "2608.11731",
+   "group": "focus",
+   "title": "ContactIPM: A Structure-Exploiting Interior-Point Solver for Contact-Implicit Trajectory Optimization",
+   "title_ja": "ContactIPM: 接触暗黙的軌道最適化のための構造活用型内点法ソルバー",
+   "summary_ja": "接触シーケンスの事前指定を不要とする接触暗黙的軌道最適化（CITO）に向けた新しい主デュアル内点法ソルバーContactIPMを提案。補完性制約の退化に対処するためバリア結合型弾性内点緩和を組み込み、最適制御の段階的構造を活用して計算効率を高めた。物理的整合性と計算安定性を両立させ、複雑な接触を伴うロボットの運動計画・制御を実現する。",
+   "authors": [
+    "Yucheng Chen"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "planning",
+    "locomotion"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.11731",
+   "image": "figures/2026-08-13/2608.11731.jpg"
+  },
+  {
+   "date": "2026-08-13",
+   "rank": 2,
+   "id": "2608.11769",
+   "group": "focus",
+   "title": "Policy-Induced Hand Priors in Humanoid Dual-Arm Manipulation: Diagnosing and Mitigating Initial-Pose Dependence",
+   "title_ja": "ヒューマノイド双腕操作における方策誘導型ハンド事前分布：初期姿勢依存性の診断と緩和",
+   "summary_ja": "VLA方策に基づくヒューマノイド双腕操作において、ロボットの初期姿勢によって不適切なハンド選択や失敗が生じる問題（Hand Prior）を評価・診断。新指標HandPriorScore等を導入し、17種類の初期姿勢と複数のVLA方策を用いて相互作用を解析した。初期姿勢によるタスク成功率の大幅な変動を明らかにするとともに、その緩和に向けた知見を提示している。",
+   "authors": [
+    "Chaeyeon Jung",
+    "Juyoun Park"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "manipulation",
+    "vision-language-action",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.11769",
+   "image": null
+  },
+  {
+   "date": "2026-08-13",
+   "rank": 3,
+   "id": "2608.11739",
+   "group": "general",
+   "title": "G0.5: One Autoregressive Stream for Robot Reasoning and Action",
+   "title_ja": "G0.5: ロボットの推論と行動のための単一自己回帰ストリーム",
+   "summary_ja": "従来のVLAモデルがVLMと独立した行動抽出モジュールを結合していたのに対し、単一のTransformerデコーダで推論と行動トークンを統一的に自己回帰出力するG0.5を提案。異種ロボット行動を共有語彙にマッピングするトークナイザやChain-of-Thought系列を導入。基礎モデル規模での統一的学習を実現し、多様なタスクで高い操作性能を実証した。",
+   "authors": [
+    "Yicheng Liu",
+    "Zibin Dong",
+    "Baijun Ye",
+    "Tianyuan Yuan",
+    "Tao Jiang",
+    "Anqi Yang",
+    "Shicheng Cao",
+    "Haonan Liu",
+    "Yue Sun",
+    "Zihan Guo",
+    "Xiao Liu",
+    "Dong Ke",
+    "Changxun Pan",
+    "Chenru Wu",
+    "Tailai Cheng",
+    "Xiaoshu Ren",
+    "Xinlei Zhang",
+    "Jianning Cui",
+    "Zijie Zhao",
+    "Haoyu Zhang",
+    "Kaiming Xu",
+    "Haodong Yang",
+    "Bowen Zhang",
+    "Jiahui Niu",
+    "Shaoting Zhu",
+    "Shiduo Zhang",
+    "Hang Zhao"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.11739",
+   "image": "figures/2026-08-13/2608.11739.jpg"
+  },
+  {
+   "date": "2026-08-13",
+   "rank": 4,
+   "id": "2608.11895",
+   "group": "general",
+   "title": "Scalable Multi-Agent Maze Traversal with Local Communication",
+   "title_ja": "局所通信を用いた大規模マルチエージェント迷路踏破",
+   "summary_ja": "未知の洞窟や配管のような迷路環境において、局所通信のみを用いて複数ロボットが協調移動する分散アルゴリズムを提案。エージェントが順次進入し、リーダー・フォロワー関係とリーダーの動的切り替えにより衝突を回避しつつ全体を探索する。理論的に完全性を証明するとともに、通信制約下での拡張可能な探索・ナビゲーションを実現した。",
+   "authors": [
+    "Julian Rau",
+    "Jahir Argote-Gerald",
+    "Grace McFassel",
+    "Genki Miyauchi",
+    "Paul Trodden",
+    "Roderich Gro{\\ss}"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.MA"
+   ],
+   "tags": [
+    "multi-robot",
+    "navigation",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.11895",
+   "image": "figures/2026-08-13/2608.11895.jpg"
+  },
+  {
+   "date": "2026-08-13",
+   "rank": 5,
+   "id": "2608.11409",
+   "group": "general",
+   "title": "From Self-Normal-Positioning to Omni-Directional Tracking: Real-Time Surface Modeling Enabled Probe Tilt Control for Robotic Ultrasound Imaging",
+   "title_ja": "自己法線位置決めから全方向追従へ：リアルタイム表面モデリングによるロボット超音波画像化のためのプローブ傾斜制御",
+   "summary_ja": "超音波診断において、患部表面に対して垂直保持だけでなく任意の傾斜角を保つための全方向プローブ姿勢制御フレームワークを提案。リアルタイムで局所表面をモデリングし、目標とする傾斜角を維持しながら滑らかな倣い制御を行う。心臓超音波検査等において、安定した高品質画像の取得と操作負担の軽減を実現した。",
+   "authors": [
+    "Xihan Ma",
+    "Haichong Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "medical",
+    "control",
+    "hardware",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.11409",
+   "image": "figures/2026-08-13/2608.11409.jpg"
+  },
+  {
    "date": "2026-08-12",
    "rank": 0,
    "id": "2608.10220",
