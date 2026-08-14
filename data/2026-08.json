@@ -1,6 +1,278 @@
 {
  "entries": [
   {
+   "date": "2026-08-14",
+   "rank": 0,
+   "id": "2608.12860",
+   "group": "focus",
+   "title": "HumanoidVLN: A Physics-Grounded Simulator and Benchmark for Vision-Language Navigation Across Diverse Humanoid Embodiments",
+   "title_ja": "HumanoidVLN: 多様なヒューマノイド形態に対応する物理ベースの視覚言語ナビゲーションシミュレータとベンチマーク",
+   "summary_ja": "二足歩行に伴う物理制約やカメラ揺れを考慮したヒューマノイド向けVLNのシミュレータとベンチマークを提案。NVIDIA Isaac Simを基盤とし、Unitree G1/H1を含む4種類のロボット形態（10〜12自由度、身長1.17〜1.80m）に対応する階層型制御スタックを構築した。歩行ダイナミクスが視覚言語ナビゲーション性能に及ぼす影響を統一的に評価可能にしている。",
+   "authors": [
+    "Quan-Dung Pham",
+    "Anh Dao",
+    "The-Anh Nguyen",
+    "Minh Nguyen-Dinh",
+    "Phuong Nam Dang",
+    "Tri Pham",
+    "Hung Tran",
+    "Bach Dao",
+    "Tuyen P. Le",
+    "Truong Nguyen",
+    "Quan Nguyen"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "simulation",
+    "benchmark",
+    "locomotion"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.12860",
+   "image": "figures/2026-08-14/2608.12860.jpg"
+  },
+  {
+   "date": "2026-08-14",
+   "rank": 1,
+   "id": "2608.13555",
+   "group": "focus",
+   "title": "HumanTracker: Towards Comprehensive and Human-Aligned Motion Tracking Benchmark",
+   "title_ja": "HumanTracker: 人間の知覚と物理特性に即したヒューマノイド運動追従ベンチマーク",
+   "summary_ja": "遠隔操作や全身模倣におけるヒューマノイドの運動追従を評価するため、足のスケーティングや不正確な接地タイミングなどの物理アーティファクトを捉えるベンチマークを提案。プロの実演者から収集した約153時間の光学式モーションデータを収録している。従来の運動学的誤差に留まらず、知覚的・物理的な妥当性を定量評価できる指標を導入した。",
+   "authors": [
+    "Dairu Liu",
+    "Zekun Qi",
+    "Jiayu Zeng",
+    "Ruixi Yu",
+    "Yu Guan",
+    "Yintianrun Zhang",
+    "Xuchuan Chen",
+    "Sikai Liang",
+    "Zekai Li",
+    "Chenghuai Lin",
+    "Xinqiang Yu",
+    "Wenyao Zhang",
+    "He Wang",
+    "Li Yi"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "humanoid",
+    "benchmark",
+    "control",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.13555",
+   "image": "figures/2026-08-14/2608.13555.jpg"
+  },
+  {
+   "date": "2026-08-14",
+   "rank": 2,
+   "id": "2608.13026",
+   "group": "focus",
+   "title": "Temporal GRPO: Beyond Trajectory-Level Credit in Vision-Language-Action Reinforcement Learning",
+   "title_ja": "Temporal GRPO: 視覚・言語・行動強化学習における軌道レベルを超えたクレジット割り当て",
+   "summary_ja": "VLA方策のRL事後学習において、ロールアウト全体への一律なアドバンテージ付与によるクレジット割り当ての誤りを解決する手法を提案。タスクを検出可能なステージに分割し、同一ステージに到達したロールアウト間で比較してステージ固有のアドバンテージを適用する。これにより途中で失敗した軌道でも前半の成功行動が不当に抑制されるのを防ぐ。",
+   "authors": [
+    "Yao Zhou",
+    "Hang Gao",
+    "Fengge Wu",
+    "Changwen Zheng",
+    "Wenwen Qiang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.13026",
+   "image": null
+  },
+  {
+   "date": "2026-08-14",
+   "rank": 3,
+   "id": "2608.12306",
+   "group": "focus",
+   "title": "Redistribution-based Cost Inference Improves Sparse Safe Offline RL",
+   "title_ja": "再分配型コスト推論によるスパースな安全オフライン強化学習の改善",
+   "summary_ja": "軌道レベルのスパースな停止信号しか得られない安全オフラインRLにおいて、ステップ毎のコストを推論するRCIフレームワークを提案。リターン分解を用いて不安全な遷移のシグナルを密なコストに変換し、制約付きCMDP方策を学習する。理論的に実行可能方策集合を維持しつつ、安全制約の遵守とタスク性能の両立を大幅に向上させた。",
+   "authors": [
+    "Ebenezer Gelo (University of the Witwatersrand)",
+    "Geraud Nangue Tasse (University of the Witwatersrand)",
+    "Steven James (University of the Witwatersrand)",
+    "Benjamin Rosman (University of the Witwatersrand)"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.AI"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.12306",
+   "image": "figures/2026-08-14/2608.12306.jpg"
+  },
+  {
+   "date": "2026-08-14",
+   "rank": 4,
+   "id": "2608.13438",
+   "group": "general",
+   "title": "ContactGuard: Pre-Contact Execution Monitoring with Action-Conditioned Latent World Models",
+   "title_ja": "ContactGuard: 行動条件付き潜在ワールドモデルによる接触前実行モニタリング",
+   "summary_ja": "接触リッチな操作において、ロボットが実際に接触する前に失敗を予測・検知するモニタリング手法を提案。ラベルなしロボット軌道から学習した潜在ワールドモデルを用い、方策が計画した行動チャンクの短期的な視覚的結末を予測して失敗の恐れがある場合に動作を中断する。手先カメラ環境下での押し倒しや滑りなどの接触失敗を未然に防止する。",
+   "authors": [
+    "Gehan Zheng",
+    "Matthew Johnson-Roberson",
+    "Weiming Zhi"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "manipulation",
+    "world-model",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.13438",
+   "image": "figures/2026-08-14/2608.13438.jpg"
+  },
+  {
+   "date": "2026-08-14",
+   "rank": 5,
+   "id": "2608.13014",
+   "group": "general",
+   "title": "EgoPHI: Estimating Contact and Force from Egocentric Vision",
+   "title_ja": "EgoPHI: 一人称視点画像からの接触マップおよび3D力分布の推定",
+   "summary_ja": "単眼RGB画像と物体幾何から、手と物体のメッシュ上における密な接触マップと3D力分布を同時に推定する手法を提案。物理シミュレーションを用いて既存データセットに頂点単位の力正解ラベルを付与するパイプラインを構築した。物体把持や操作時における人間と環境の物理的相互作用の正確なモデリングを実現する。",
+   "authors": [
+    "Andela Ilic",
+    "Rachel Schuchert",
+    "Yijing Jiang",
+    "Christian Holz"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.GR",
+    "cs.HC",
+    "cs.RO"
+   ],
+   "tags": [
+    "perception",
+    "simulation",
+    "grasping"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.13014",
+   "image": "figures/2026-08-14/2608.13014.jpg"
+  },
+  {
+   "date": "2026-08-14",
+   "rank": 6,
+   "id": "2608.13362",
+   "group": "general",
+   "title": "NestDex: Nested Policy Learning with Copilot Assisted Teleoperation for Dexterous Manipulation",
+   "title_ja": "NestDex: 巧緻マニピュレーションのためのコパイロット支援遠隔操作と入れ子型方策学習",
+   "summary_ja": "多指ハンドを用いた巧緻操作において、教示データ収集の負担を軽減する入れ子型方策学習フレームワークを提案。学習済みの手先スキルを活用し、操作者は腕の制御と1自由度のクラッチ操作のみで手先スキルを切り替え可能にした。アーム制御と複雑な指先の接触動作を協調させ、効率的なデモ収集と方策獲得を可能にする。",
+   "authors": [
+    "James Zhao",
+    "Jinhe Tang",
+    "Mingyuan Ba",
+    "Weiming Zhi"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "teleoperation",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.13362",
+   "image": "figures/2026-08-14/2608.13362.jpg"
+  },
+  {
+   "date": "2026-08-14",
+   "rank": 7,
+   "id": "2608.13489",
+   "group": "general",
+   "title": "DreamX-Phi 1.0: Action-Conditioned Video World Model for Robotic Manipulation",
+   "title_ja": "DreamX-Phi 1.0: ロボット操作のための動作条件付き動画ワールドモデル",
+   "summary_ja": "現在フレームとエンドエフェクタのSE(3)動作指令系列から将来の観測動画を予測するワールドモデルを提案。各アームの幾何変換をアテンションに埋め込むPRoPE型幾何エンコーディングを導入し、複数アームの誤認識や物体の見失いを防止する。指示された軌道に忠実かつ幾何学的に整合した高精度な予測動画の生成を実現した。",
+   "authors": [
+    "DreamX Team",
+    "Rui Chen",
+    "Xiangxiang Chu",
+    "Geng Li",
+    "Jifan Li",
+    "Qingfeng Shi",
+    "Datao Tang",
+    "Jing Tang",
+    "Jun Wang",
+    "Pengfei Zhang"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "manipulation",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.13489",
+   "image": "figures/2026-08-14/2608.13489.jpg"
+  },
+  {
+   "date": "2026-08-14",
+   "rank": 8,
+   "id": "2608.12416",
+   "group": "general",
+   "title": "RoboSynChallenge: Mastering Real-World Dexterity via Generalizing Synthesized Manipulation Skills",
+   "title_ja": "RoboSynChallenge: 合成操作スキルの汎化による実世界巧緻性の習得",
+   "summary_ja": "実機データの不足を解消し操作方策の汎化性を評価するための新しいベンチマークとコンペティションを提案。大規模な合成データ生成と標準化された実機ロボット評価を統合し、様々なタスクや難易度に対応している。シミュレーションで合成された状態・行動データから実環境へ転移可能な巧緻スキルの獲得度合いを定量化する。",
+   "authors": [
+    "Runyi Zhao",
+    "Ruixin Wu",
+    "Chengkun Li",
+    "Hongrui Zhang",
+    "Ang Li",
+    "Ruixing Jin",
+    "Yueci Deng",
+    "Yingying Guo",
+    "Lihe Ding",
+    "Shaocong Dong",
+    "Tianfan Xue",
+    "Yanjun Gao",
+    "Yudong Luo",
+    "Pascal Poupart",
+    "Simo Wu",
+    "Kui Jia",
+    "Wei-shi Zheng",
+    "Guiliang Liu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "benchmark",
+    "sim-to-real",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.12416",
+   "image": "figures/2026-08-14/2608.12416.jpg"
+  },
+  {
    "date": "2026-08-13",
    "rank": 0,
    "id": "2608.12063",
