@@ -1,6 +1,90 @@
 {
  "entries": [
   {
+   "date": "2026-08-15",
+   "rank": 0,
+   "id": "2608.13415",
+   "group": "focus",
+   "title": "Deliberate Practice: Learning Robot Skills under a Budget",
+   "title_ja": "意図的練習：限られた予算下でのロボットスキル学習",
+   "summary_ja": "連続的なタスクにおいて、限られた練習予算内でロボットスキルを自律学習する能動学習手法「Deliberate Practice (DP)」を提案。スキル習得にかかる時間とそれが解禁するタスク計画の累積報酬を推定し、双線形計画法により最適なスキル練習配分を厳密に計算します。これにより予算内で最大の累積報酬を達成します。",
+   "authors": [
+    "Shivam Vats",
+    "Sudarshan Harithas",
+    "Mete Tuluhan Akbulut",
+    "Arvind Raghunathan",
+    "George Konidaris"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "planning",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.13415",
+   "image": "figures/2026-08-15/2608.13415.jpg"
+  },
+  {
+   "date": "2026-08-15",
+   "rank": 1,
+   "id": "2608.13453",
+   "group": "general",
+   "title": "UniTexture: Cross-Task Universal Adversarial Textures for Vision-Language-Action Models",
+   "title_ja": "UniTexture: Vision-Language-Actionモデルに対するタスク横断的ユニバーサル敵対的テクスチャ",
+   "summary_ja": "操作タスク向けの汎用VLAモデルに対し、単一の3Dオブジェクト上のテクスチャを用いて複数タスクにわたる動作予測の逸脱を引き起こす敵対的攻撃手法「UniTexture」を提案。マルチタスクVLAが持つタスク横断的な脆弱性を明らかにし、物理世界におけるロボット動作の安全評価に貢献します。",
+   "authors": [
+    "Yukun Dai",
+    "Mingzhe Dai",
+    "Tianshi Wang",
+    "Fengling Li",
+    "Jingjing Li",
+    "Lei Zhu"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.AI"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.13453",
+   "image": "figures/2026-08-15/2608.13453.jpg"
+  },
+  {
+   "date": "2026-08-15",
+   "rank": 2,
+   "id": "2608.12743",
+   "group": "general",
+   "title": "Spatial Memory Agent: Experience-Grounded Procedure Memory for Spatial Intelligence",
+   "title_ja": "空間記憶エージェント：空間知能のための経験に基づく手続き記憶",
+   "summary_ja": "具現化エージェントやロボットの計画に向け、モデルのパラメータ更新や外部の専門空間ツールを用いずに空間推論能力を向上させる「Spatial Memory Agent」を提案。経験に基づく手続き記憶を活用し、フリーズされたVLMエージェントの自己進化的な空間計画・推論を実現します。",
+   "authors": [
+    "Haokai Zhang",
+    "Yuhang Ding",
+    "Yunshu Zhou",
+    "Xinze Du",
+    "Shengtao Zhang",
+    "Zhiyue Zhao",
+    "Yuling Xi",
+    "Hao Chen"
+   ],
+   "categories": [
+    "cs.AI"
+   ],
+   "tags": [
+    "planning",
+    "llm-agent",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.12743",
+   "image": "figures/2026-08-15/2608.12743.jpg"
+  },
+  {
    "date": "2026-08-14",
    "rank": 0,
    "id": "2608.12860",
