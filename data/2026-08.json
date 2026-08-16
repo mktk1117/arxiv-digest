@@ -1,6 +1,223 @@
 {
  "entries": [
   {
+   "date": "2026-08-16",
+   "rank": 0,
+   "id": "2608.13422",
+   "group": "focus",
+   "title": "Attention from Action, for Action: Emergent Visual Bottlenecks for Policy Learning",
+   "title_ja": "行動からの注目を方策学習へ：行動から創発する視覚的ボトルネック",
+   "summary_ja": "視覚運動方策の学習効率を高めるため、アノテーションなしで重要な関心領域（ROI）を絞り込む視覚ボトルネック手法を提案。従来の手法が固定的なクロップ位置に依存していたのに対し、制御に必要な視覚的証拠がエンドエフェクタから離れている場合や時間変化する場合でも柔軟に適応するメカニズムを構築した。",
+   "authors": [
+    "Zheyu Zhuang",
+    "Ruiyu Wang",
+    "Nick Heppert",
+    "Johannes Fabian Hahn",
+    "Abhinav Valada",
+    "Florian T. Pokorny",
+    "Danica Kragic"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "perception",
+    "manipulation",
+    "imitation-learning",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.13422",
+   "image": "figures/2026-08-16/2608.13422.jpg"
+  },
+  {
+   "date": "2026-08-16",
+   "rank": 1,
+   "id": "2608.13095",
+   "group": "focus",
+   "title": "Semantic Radiance Fields as Simulators for Spatial Reasoning in Real-World Scenes",
+   "title_ja": "実環境における空間推論シミュレータとしてのセマンティック放射輝度場",
+   "summary_ja": "具現化エージェントの空間推論の訓練・評価に向け、セマンティック放射輝度場（SRF）をシミュレータとして活用する手法を提案。事前学習済み視覚モデルの2Dセグメンテーションを3D放射輝度場に統合することで、実環境の高い幾何・外観リアリズムと真値セマンティクス取得の両立を実現した。",
+   "authors": [
+    "Nico Heider",
+    "Michał Jan Włodarczyk",
+    "Katarzyna Wasielewska-Michniewska",
+    "Przemysław Hołda",
+    "Martin Schieck",
+    "Marcin Paprzycki",
+    "Maria Ganzha",
+    "Bogdan Franczyk"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "simulation",
+    "perception",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.13095",
+   "image": "figures/2026-08-16/2608.13095.jpg"
+  },
+  {
+   "date": "2026-08-16",
+   "rank": 2,
+   "id": "2608.13395",
+   "group": "focus",
+   "title": "FIRE-VLA: Failure-Informed Self-Evolution for Vision-Language-Action Models in Autonomous Driving",
+   "title_ja": "FIRE-VLA: 自動運転向けVLAモデルにおける失敗情報を活用した自己進化",
+   "summary_ja": "強化学習に基づくVLAモデル学習において、ロールアウト全体が低報酬で失敗する場合の相対的信号の不足を解決する自己進化フレームワークを提案。低報酬・低多様性のグループを検出し、初期モデルからの自己蒸留をトリガーとすることで、失敗軌道から特権的教師信号を抽出して方策を改善する。",
+   "authors": [
+    "Hao Dou"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "vision-language-action",
+    "autonomous-driving"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.13395",
+   "image": "figures/2026-08-16/2608.13395.jpg"
+  },
+  {
+   "date": "2026-08-16",
+   "rank": 3,
+   "id": "2608.12917",
+   "group": "focus",
+   "title": "Towards Socially Compliant Navigation in Deep Reinforcement Learning via Proxemics-Based Reward Modeling",
+   "title_ja": "近接空間学に基づく報酬モデリングによる深層強化学習での社会順応型ナビゲーション",
+   "summary_ja": "混雑環境での自律移動において、タスク達成と社会的規範の両立を図る深層強化学習向け報酬手法を提案。Hallのプロクセミクス理論に基づく放射状ガウス混合場として歩行者の個人空間をモデル化し、効率性を損なわずに高密度かつ解釈性の高い社会的学習信号を提供する。",
+   "authors": [
+    "Takieddine Soualhi",
+    "Jacques Saraydaryan",
+    "Laetitia Matignon"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "navigation",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.12917",
+   "image": "figures/2026-08-16/2608.12917.jpg"
+  },
+  {
+   "date": "2026-08-16",
+   "rank": 4,
+   "id": "2608.13474",
+   "group": "general",
+   "title": "Decoding Task Progress from VLA Representations",
+   "title_ja": "VLA表現からのタスク進捗度の解読",
+   "summary_ja": "汎用操作向けVLAモデルの内部表現解析に取り組み、π0.5の残差ストリームからタスク進捗度（正規化された残り時間）が線形プローブにより解読可能であることを発見。この信号はロボットデータでの学習前のPaliGemmaバックボーンに既に存在し、未知タスクにも汎化することを示した。",
+   "authors": [
+    "Atiksh Bhardwaj",
+    "Edward Weiyi Duan",
+    "Prithwish Dan",
+    "Wei-Chiu Ma",
+    "Preston Culbertson"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.13474",
+   "image": "figures/2026-08-16/2608.13474.jpg"
+  },
+  {
+   "date": "2026-08-16",
+   "rank": 5,
+   "id": "2608.13049",
+   "group": "general",
+   "title": "H2R-Bench: Benchmarking Human-to-Robot Manipulation Video Generation in World Models",
+   "title_ja": "H2R-Bench: ワールドモデルにおける人からロボットへの操作動画生成ベンチマーク",
+   "summary_ja": "一人称視点の人間操作動画からロボット視点の操作動画を合成するワールドモデルのクロスエンボディメント転移能力を評価するベンチマーク「H2R-Bench」を提案。身体構造の差異を埋める動画生成モデルの性能を体系的に測定可能にした。",
+   "authors": [
+    "Dingyi Rong",
+    "Yue Shi",
+    "Chaofan Ma",
+    "Jiezhang Cao",
+    "Zongrui Wang",
+    "Zeyu Zhang",
+    "Yao Mu",
+    "Guangtao Zhai",
+    "Ning Liu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "world-model",
+    "benchmark",
+    "manipulation",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.13049",
+   "image": "figures/2026-08-16/2608.13049.jpg"
+  },
+  {
+   "date": "2026-08-16",
+   "rank": 6,
+   "id": "2608.13220",
+   "group": "general",
+   "title": "FAM-DQ: A Dual-Quadrotor-Based Fully Actuated Aerial Manipulator for High-Torque Interaction",
+   "title_ja": "FAM-DQ: 高トルクインタラクションのための二重クアッドロータ完全駆動型空中マニピュレータ",
+   "summary_ja": "高い接触力とトルクを要する空中マニピュレーション向けに、受動関節とギア駆動サーボを介して2つの推進モジュールを接続した完全駆動型空中ロボットFAM-DQを提案。位置と姿勢の干渉を低減し、精密な手先制御と高トルク出力を両立させた。",
+   "authors": [
+    "Xuwei Yang",
+    "Ruoyu Ren",
+    "Ziqian Guo"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "drone",
+    "manipulation",
+    "control",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.13220",
+   "image": "figures/2026-08-16/2608.13220.jpg"
+  },
+  {
+   "date": "2026-08-16",
+   "rank": 7,
+   "id": "2608.13284",
+   "group": "general",
+   "title": "Predictive Relative-Velocity Steering for Safe Robotic Manipulator Teleoperation in Dynamic Environments",
+   "title_ja": "動的環境におけるロボットマニピュレータの安全な遠隔操作のための予測相対速度ステアリング",
+   "summary_ja": "通信遅延や操作者の注意不足による衝突を防ぐため、エンドエフェクタ速度指令レベルで動作する軽量な衝突回避フレームワークを提案。衝突時間（TTC）予測とロドリゲスの回転公式を用いた相対速度ベクトルの修正により、人間らしい遠隔操作を阻害せずに安全性を確保する。",
+   "authors": [
+    "Changhao Hu",
+    "Zeyi Liu",
+    "Songqiao Hu",
+    "Shuang Liu",
+    "Zihan Meng",
+    "Xiao He"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "teleoperation",
+    "manipulation",
+    "safety",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.13284",
+   "image": "figures/2026-08-16/2608.13284.jpg"
+  },
+  {
    "date": "2026-08-15",
    "rank": 0,
    "id": "2608.13415",
