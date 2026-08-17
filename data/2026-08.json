@@ -1,6 +1,292 @@
 {
  "entries": [
   {
+   "date": "2026-08-17",
+   "rank": 0,
+   "id": "2608.14135",
+   "group": "focus",
+   "title": "AgilePE: Autonomous UAV Pursuit-Evasion via Self-Play Reinforcement Learning",
+   "title_ja": "自己対戦強化学習による自律型UAVの追跡・回避システム「AgilePE」",
+   "summary_ja": "UAVの機敏な追跡・回避タスクに対し、自己対戦強化学習とSim-to-Real展開を統合したエンドツーエンド制御システムを提案。機体状態の観測から推力および角速度コマンド（CTBR）を直接出力し、緊密に結合したダイナミクスと相手の挙動変化に対応する。シミュレータ学習から実機へのゼロショット転移を達成した。",
+   "authors": [
+    "Wenhao Tang",
+    "Tianyang Chen",
+    "Zhejun Cui",
+    "Boyuan An",
+    "Jiayu Chen",
+    "Ruize Zhang",
+    "Huidong Liu",
+    "Tianyue Wu",
+    "Qingmin Liao",
+    "Fei Gao",
+    "Yu Wang",
+    "Chao Yu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control",
+    "sim-to-real",
+    "drone"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.14135",
+   "image": "figures/2026-08-17/2608.14135.jpg"
+  },
+  {
+   "date": "2026-08-17",
+   "rank": 1,
+   "id": "2608.14498",
+   "group": "focus",
+   "title": "Rollplex: Cross-Phase GPU Spatial Sharing for Vision Language Model Post-Training",
+   "title_ja": "Rollplex: 視覚言語モデルの強化学習事後学習向けGPU空間共有基盤",
+   "summary_ja": "ロボットなどの身体化エージェント向けVLMの強化学習（RL）事後学習を高速化するGPU実行基盤を提案。ロールアウト、参照スコアリング、方策更新を直列実行する従来パイプラインに対し、生成応答に依存しないプレフィックス処理とロールアウトデコードをGPU上で空間共有して並行実行することで計算資源の無駄を解消した。",
+   "authors": [
+    "Hanfeng Lu",
+    "Tianyu Feng",
+    "Suyi Li",
+    "Yuheng Zhao",
+    "Wei Gao",
+    "Shaopan Xiong",
+    "Ju Huang",
+    "Siran Yang",
+    "Jiamang Wang",
+    "Lin Qu",
+    "Wei Wang"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.DC"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "vision-language-action",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.14498",
+   "image": "figures/2026-08-17/2608.14498.jpg"
+  },
+  {
+   "date": "2026-08-17",
+   "rank": 2,
+   "id": "2608.13600",
+   "group": "focus",
+   "title": "Continual Evolution Strategies in Control Tasks",
+   "title_ja": "制御タスクにおける継続的進化戦略の有効性検証",
+   "summary_ja": "タスク変化に適応しつつ過去のスキルを忘却しない継続的制御タスクにおいて進化戦略（ES）を検証した研究。MuJoCoの移動（locomotion）タスクを用いた実験により、単純なESで生じる破滅的忘却に対し、経験再生機構（Replay）を導入することで過去タスクの保持と正の転移が大幅に改善されることを示した。",
+   "authors": [
+    "Nicola Pitzalis",
+    "Eleni Nisioti",
+    "Antonio Carta",
+    "Davide Bacciu",
+    "Andrea Cossu"
+   ],
+   "categories": [
+    "cs.NE",
+    "cs.LG"
+   ],
+   "tags": [
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.13600",
+   "image": "figures/2026-08-17/2608.13600.jpg"
+  },
+  {
+   "date": "2026-08-17",
+   "rank": 3,
+   "id": "2608.13625",
+   "group": "focus",
+   "title": "Reward Machines for Signal Temporal Logic",
+   "title_ja": "信号時相論理のためのリワードマシンによる強化学習制御合成",
+   "summary_ja": "実数値時系列の仕様を記述する信号時相論理（STL）を満たす制御方策を強化学習で獲得するため、リワードマシン（RM）を活用する手法を提案。従来のSTLロバストネススコアのみを報酬とするアプローチが抱える局所解やスパース性の問題を緩和し、複雑な動的システムにおいて仕様を満たす方策の学習効率を高めた。",
+   "authors": [
+    "Alper Kamil Bozkurt",
+    "Shangtong Zhang",
+    "Yuichi Motai"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.13625",
+   "image": null
+  },
+  {
+   "date": "2026-08-17",
+   "rank": 4,
+   "id": "2608.13904",
+   "group": "focus",
+   "title": "Communication in modular robotic motor control: Bilateral controllers under realistic constraints",
+   "title_ja": "筋骨格系モータ制御における左右両半球型モジュール間通信コントローラ",
+   "summary_ja": "筋骨格ロボットの運動制御において、脳の左右半球構造に着想を得たモジュール型リカレントコントローラを提案。GRUベースの2モジュール間を遅延のある学習可能チャネルで結合し、信号依存性ノイズとエネルギーコストの制約下で最適化することで、単一アーキテクチャを上回る高速動作とロバストな姿勢安定化を両立した。",
+   "authors": [
+    "Jingwen Li",
+    "Levin Kuhlmann",
+    "Jason Friedman",
+    "Gideon Kowadlo"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.13904",
+   "image": null
+  },
+  {
+   "date": "2026-08-17",
+   "rank": 5,
+   "id": "2608.14028",
+   "group": "general",
+   "title": "AdvDex: Learning Dexterous Manipulation from Human Demonstrations via Joint-Aligned Actions and Adversarial Learning",
+   "title_ja": "AdvDex: 関節整合と敵対的学習による人間デモからの巧緻操作学習",
+   "summary_ja": "人間とロボットのデモデータから巧緻マニピュレーションを学習するVLAフレームワーク。大規模マルチモーダル人間操作データセット「OmniShare」を構築し、運動学的な関節整合と敵対的特徴学習によってロボットの外見差を吸収し、エンボディメントを超えた操作スキルの般化を実現した。",
+   "authors": [
+    "Zhiyue Zhao",
+    "Jingyi Wu",
+    "Hairuo Liu",
+    "Mingyu Liu",
+    "Liyang Li",
+    "Hengdi Zhang",
+    "Tong He",
+    "Zhengxue Cheng"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "manipulation",
+    "vision-language-action",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.14028",
+   "image": "figures/2026-08-17/2608.14028.jpg"
+  },
+  {
+   "date": "2026-08-17",
+   "rank": 6,
+   "id": "2608.14379",
+   "group": "general",
+   "title": "Reflex: Enabling Fast and Predictive Vision-Language-Action Models for Reaction-Critical Manipulation",
+   "title_ja": "Reflex: 反応性が重視される動的操作のための高速予測型VLAモデル",
+   "summary_ja": "動的環境での即座の反応が求められる操作タスク向けベンチマーク「ReflexBench」とモデル「ReflexVLA」を提案。シミュレータ進行とロボット制御を分離し非同期推論レイテンシを評価できる環境を整え、大規模データに過度に依存せず高速・予測的な行動生成を実現した。",
+   "authors": [
+    "Yuxuan Chen",
+    "Wanruo Zhang",
+    "Xiao Li"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "manipulation",
+    "vision-language-action",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.14379",
+   "image": null
+  },
+  {
+   "date": "2026-08-17",
+   "rank": 7,
+   "id": "2608.14049",
+   "group": "general",
+   "title": "FlatLab: A Unified Methodology Framework and Simulation-Based Benchmark for Robotic Manipulation of Flat Objects",
+   "title_ja": "FlatLab: 薄平物体のロボット操作のための統合手法フレームワークとベンチマーク",
+   "summary_ja": "把持が困難な薄平物体の操作に向け、点群から操作戦略を予測する生成モジュールと長期計画を実行するモジュールを分離した統合フレームワークを提案。シミュレーションデータ変換と対照学習により物体幾何や摩擦の違いに頑健な戦略表現を学習し、シミュレーションベンチマークで高い成功率を示した。",
+   "authors": [
+    "Xingyu Zhu",
+    "Wenshuo Han",
+    "Zhouyu Wang",
+    "Yuran Wang",
+    "Ruihai Wu",
+    "Hao Dong",
+    "Fan Tang",
+    "Hechang Chen",
+    "Hyung Jin Chang",
+    "Yixing Gao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "benchmark",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.14049",
+   "image": "figures/2026-08-17/2608.14049.jpg"
+  },
+  {
+   "date": "2026-08-17",
+   "rank": 8,
+   "id": "2608.14160",
+   "group": "general",
+   "title": "OccPlanner: Goal-Aware Occupancy-Conditioned Diffusion Planner for Pixel-Goal Navigation",
+   "title_ja": "OccPlanner: ピクセル目標ナビゲーションのための局所3D占有グリッド条件付き拡散プランナ",
+   "summary_ja": "カメラ画像上のピクセル指定目標に対するナビゲーション手法。単眼動画から局所3D占有情報を注釈するパイプライン「L3ROcc」を構築し、エゴセントリック空間での目標同定と3D占有特徴を条件付けた拡散モデルにより、距離情報のない画像目標に対して衝突フリーな連続軌道計画を実現した。",
+   "authors": [
+    "Binling Huang",
+    "Nianjin Ye",
+    "Xi Yang",
+    "Liang Hu",
+    "Zhou Huang",
+    "Shuang Wei",
+    "Longrui Yang",
+    "Yanchi Chen",
+    "Lanpeng Jia"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "navigation",
+    "planning",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.14160",
+   "image": null
+  },
+  {
+   "date": "2026-08-17",
+   "rank": 9,
+   "id": "2608.14082",
+   "group": "general",
+   "title": "PILOT: Privileged Imitation Learning for End-to-End Motion Planning of Autonomous UAVs under Partial Observability",
+   "title_ja": "PILOT: 部分観測下における自律型UAVのエンドツーエンド動作計画のための特権模倣学習",
+   "summary_ja": "障害物の多い環境における視覚ベースUAV動作計画のための特権模倣学習フレームワーク。時系列CNN（TCN）で過去の深度画像とオドメトリを統合して部分観測を補い、計算負荷の高い最適制御エキスパートから安全性・動特性制約を考慮した二重目的関数によって生徒方策へ知識蒸留を行う。",
+   "authors": [
+    "Qingrui Zhang",
+    "Feng Xue",
+    "Xiang Zhou",
+    "Chenghao Yu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "planning",
+    "imitation-learning",
+    "drone"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.14082",
+   "image": null
+  },
+  {
    "date": "2026-08-16",
    "rank": 0,
    "id": "2608.13422",
