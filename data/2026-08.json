@@ -37,6 +37,37 @@
   },
   {
    "date": "2026-08-17",
+   "rank": 0,
+   "id": "2608.13719",
+   "group": "focus",
+   "title": "Coverage Aware Active Evaluation for Failure Discovery with Paired Systems",
+   "title_ja": "対となるシステムを用いた不具合探索のためのカバレッジ考慮型アクティブ評価",
+   "summary_ja": "シミュレータ等の低忠実度プロキシと実機のsim-to-realギャップを克服し、限られた実機テスト予算内で効率的に故障事例を発見する手法を提案。プロキシ評価と少数の実機評価結果を統合して実機テスト用シナリオを能動的に選択し、重大な不具合の予測精度を向上させた。",
+   "authors": [
+    "Anjali Parashar",
+    "Rachel Luo",
+    "Apoorva Sharma",
+    "Sushant Veer",
+    "Edward Schmerling",
+    "Carson Sobolewski",
+    "Mingxin Yu",
+    "Chuchu Fan",
+    "Marco Pavone"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "sim-to-real",
+    "safety",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.13719",
+   "image": "figures/2026-08-17/2608.13719.jpg"
+  },
+  {
+   "date": "2026-08-17",
    "rank": 1,
    "id": "2608.14498",
    "group": "focus",
@@ -70,6 +101,56 @@
   },
   {
    "date": "2026-08-17",
+   "rank": 1,
+   "id": "2608.14332",
+   "group": "focus",
+   "title": "CORAL: Curriculum-Optimized Reward Adaptation for LiDAR-Based Goal-Directed Urban Driving",
+   "title_ja": "CORAL: LiDARを用いた目標指向型都市走行のためのカリキュラム最適化報酬適応",
+   "summary_ja": "長距離走行タスクにおいて競合する複数の目標行動を学習するため、経路長と行動制約を段階的に厳しくする5段階カリキュラムと、進行度や安全性・滑らかさの重みを適応変化させる報酬設計を提案。マルチストリームActor-Critic強化学習により安定した方策獲得を実現した。",
+   "authors": [
+    "Anisa Saleem",
+    "Duksu Kim"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control",
+    "autonomous-driving"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.14332",
+   "image": null
+  },
+  {
+   "date": "2026-08-17",
+   "rank": 2,
+   "id": "2608.13678",
+   "group": "focus",
+   "title": "hint$^2$: Hierarchical World Models for Inference-Time Temporal Logic Guidance",
+   "title_ja": "hint^2: 推論時時相論理誘導のための階層型ワールドモデル",
+   "summary_ja": "学習済み方策が生成する短ホライズンのアクションチャンクを、長期的な線形時相論理（LTL）仕様に適合させる階層型ワールドモデル手法hint^2を提案。閉ループ再計画を行いながら非マルコフ的な時間構造や安全制約を満たす誘導を可能にした。",
+   "authors": [
+    "Moritz Zoellner",
+    "Anastasios Manganaris",
+    "Ahmed H. Qureshi",
+    "Rohan Paleja"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "world-model",
+    "control",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.13678",
+   "image": "figures/2026-08-17/2608.13678.jpg"
+  },
+  {
+   "date": "2026-08-17",
    "rank": 2,
    "id": "2608.13600",
    "group": "focus",
@@ -94,6 +175,38 @@
    ],
    "abs_url": "https://arxiv.org/abs/2608.13600",
    "image": "figures/2026-08-17/2608.13600.jpg"
+  },
+  {
+   "date": "2026-08-17",
+   "rank": 3,
+   "id": "2608.13924",
+   "group": "focus",
+   "title": "BICPO-VLA: Behavior-Identified Continuation Preference Optimization for Smooth Asynchronous Vision-Language-Action Control",
+   "title_ja": "BICPO-VLA: 滑らかな非同期VLA制御のための行動同定継続選好最適化",
+   "summary_ja": "ロボットの非同期制御における推論遅延中の状態ドリフトと制御引き継ぎ時の非互換性を解決する手法を提案。指示認識型因果履歴エンコーダとHaar部分空間分解により、アクションチャンクを基盤係数と残差に分解して高速・滑らかな動作生成を実現した。",
+   "authors": [
+    "Ming Shang",
+    "Yuchen Huang",
+    "Jiaoyang Chen",
+    "Haoyuan Hu",
+    "Han Yu",
+    "Liping Song",
+    "Luyun Feng",
+    "Shuo Bao",
+    "Wei Dong",
+    "Xinzhou Wang",
+    "Fuchun Sun"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "control",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.13924",
+   "image": "figures/2026-08-17/2608.13924.jpg"
   },
   {
    "date": "2026-08-17",
@@ -124,6 +237,35 @@
   {
    "date": "2026-08-17",
    "rank": 4,
+   "id": "2608.14207",
+   "group": "focus",
+   "title": "MMUSV-Sim: A Perception-Oriented Simulation and Data-Generation Platform for Multi-USV Cooperative Perception",
+   "title_ja": "MMUSV-Sim: 協調知覚のための知覚指向型シミュレーションおよびデータ生成プラットフォーム",
+   "summary_ja": "Unreal Engine 5とProject AirSimを基盤とし、複数水上艇の協調知覚開発向けシミュレーション環境MMUSV-Simを構築。多様な気象・波浪条件や環境アセットを備え、RGB、深度、セマンティクスなどのマルチモーダルデータを一括生成できる。",
+   "authors": [
+    "Ziao Li",
+    "Jianxiong Ye",
+    "Biao Tang",
+    "Leping Zhang",
+    "Kun Zuo",
+    "Siyu Huang",
+    "Chenqiang Gao"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "simulation",
+    "multi-robot",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.14207",
+   "image": "figures/2026-08-17/2608.14207.jpg"
+  },
+  {
+   "date": "2026-08-17",
+   "rank": 4,
    "id": "2608.13904",
    "group": "focus",
    "title": "Communication in modular robotic motor control: Bilateral controllers under realistic constraints",
@@ -144,6 +286,31 @@
    ],
    "abs_url": "https://arxiv.org/abs/2608.13904",
    "image": null
+  },
+  {
+   "date": "2026-08-17",
+   "rank": 5,
+   "id": "2608.14448",
+   "group": "general",
+   "title": "Control-Informed Constraint Adaptation in Minimum-Time Trajectory Planning for Autonomous Racing",
+   "title_ja": "自律レーシング向け最小時間軌道計画における制御情報に基づく制約適応",
+   "summary_ja": "車両ダイナミクスの限界域で走るレースカー向けに、実行誤差から学習するオンライン軌道計画手法を提案。実行時の系統的な追従誤差を計測して空間的制約を動的に適応・拡張することで、保守的な安全マージンを排除し時間最適走行を達成した。",
+   "authors": [
+    "Ann-Kathrin Schwehn",
+    "Alexander Langmann",
+    "Mattia Piccinini",
+    "Johannes Betz"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "planning",
+    "autonomous-driving"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.14448",
+   "image": "figures/2026-08-17/2608.14448.jpg"
   },
   {
    "date": "2026-08-17",
@@ -202,6 +369,65 @@
   },
   {
    "date": "2026-08-17",
+   "rank": 6,
+   "id": "2608.14047",
+   "group": "general",
+   "title": "Evolve Vision-Language-Action Model into an Agent with On-the-fly Tool-use",
+   "title_ja": "即時ツール利用を備えたエージェントへのVision-Language-Actionモデルの進化",
+   "summary_ja": "VLAモデルに外部ツール利用機能を組み込むフレームワークARTを提案。低レベル視覚やアフォーダンス等のモジュールを活用して連続行動空間の探索複雑度を低減し、3万本のツール利用軌道データセットを通じて高い汎化性と低データ依存性を実証した。",
+   "authors": [
+    "Yi Ding",
+    "Yanzhao Yu",
+    "Xili Dai",
+    "Xianbiao Qi",
+    "Peiwen Sun",
+    "Xueqian Wang",
+    "Xiangyu Yue",
+    "Jianan Wang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "vision-language-action",
+    "llm-agent",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.14047",
+   "image": "figures/2026-08-17/2608.14047.jpg"
+  },
+  {
+   "date": "2026-08-17",
+   "rank": 7,
+   "id": "2608.14239",
+   "group": "general",
+   "title": "A Temporal Barrier Framework for Collision Avoidance in Multi-Agent Autonomous Aerial Vehicles",
+   "title_ja": "自律型無人航空機群の衝突回避のための時間バリアフレームワーク",
+   "summary_ja": "動的環境下でのマルチドローンの安全な近接飛行のため、敵対的衝突余裕時間（aTTC）指標を導入。距離ではなく時間を直接バリアとして組み込んだaTTC-CBF（制御バリア関数）を構築し、過度な減速を抑えつつ先読み的な衝突回避制御を実現した。",
+   "authors": [
+    "Benedikt Barthel Sorensen",
+    "Mitchell Black",
+    "Erfaun Noorani",
+    "Themistoklis Sapsis"
+   ],
+   "categories": [
+    "eess.SY",
+    "cs.RO",
+    "cs.SY",
+    "math.OC"
+   ],
+   "tags": [
+    "control",
+    "drone",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.14239",
+   "image": "figures/2026-08-17/2608.14239.jpg"
+  },
+  {
+   "date": "2026-08-17",
    "rank": 7,
    "id": "2608.14049",
    "group": "general",
@@ -234,6 +460,34 @@
   {
    "date": "2026-08-17",
    "rank": 8,
+   "id": "2608.14244",
+   "group": "general",
+   "title": "Vibration Suppression in Collaborative Flexible Payload Manipulation Using Passive Force Control",
+   "title_ja": "受動的力制御を用いた協調的柔軟可搬質量マニピュレーションにおける振動抑制",
+   "summary_ja": "核融合炉保守などを想定した大型柔軟構造物の協調搬送において、横振動を抑制する制御戦略を提案。2台の産業用ロボットをリーダー・フォロワー構成で配置し、受動的力制御を介して搬送中の構造物振動を効果的に低減することを示した。",
+   "authors": [
+    "Alaa Abderrahim",
+    "Antonio Rosales",
+    "Ferdinando Milella",
+    "Markku Suomalainen",
+    "Shuai Li"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "manipulation",
+    "control",
+    "multi-robot"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.14244",
+   "image": "figures/2026-08-17/2608.14244.jpg"
+  },
+  {
+   "date": "2026-08-17",
+   "rank": 8,
    "id": "2608.14160",
    "group": "general",
    "title": "OccPlanner: Goal-Aware Occupancy-Conditioned Diffusion Planner for Pixel-Goal Navigation",
@@ -259,6 +513,32 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2608.14160",
+   "image": null
+  },
+  {
+   "date": "2026-08-17",
+   "rank": 9,
+   "id": "2608.14406",
+   "group": "general",
+   "title": "Effect of Twisted-Yarn Architecture on Pressure and Proximity Sensing Characteristics of Textile Capacitive Sensors for Robotic Skin",
+   "title_ja": "ロボットスキン向け織布静電容量センサの圧力・近接検出特性に対する撚り糸構造の影響",
+   "summary_ja": "ロボット用触覚スキンに向け、PDMS被覆銀めっき糸を用いた撚り糸構造の静電容量型センサを開発。1層・2層・4層の撚り構造における電極重なり面積や繊維間距離が圧力・近接覚の感度特性に与える影響を系統的に定量化した。",
+   "authors": [
+    "Ishtia Zahir",
+    "Eslam Saleh",
+    "Maryam Rezayati",
+    "G\\\"uunter Grabher",
+    "Gaffar Hossain"
+   ],
+   "categories": [
+    "cs.RO",
+    "physics.ins-det"
+   ],
+   "tags": [
+    "hardware",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.14406",
    "image": null
   },
   {
