@@ -1,6 +1,318 @@
 {
  "entries": [
   {
+   "date": "2026-08-18",
+   "rank": 0,
+   "id": "2608.15766",
+   "group": "focus",
+   "title": "Tac4Loco: Learning Spatiotemporal Plantar Pressure Representations for Humanoid Locomotion",
+   "title_ja": "Tac4Loco: ヒューマノイド歩行のための時空間足底圧力表現の学習",
+   "summary_ja": "不整地でのヒューマノイド歩行において、足底の接触状態の不確実性に対応するため、時空間足底圧力データを直接表現学習して強化学習方策に統合する手法Tac4Locoを提案。接地予測と接地時のリアルタイムフィードバックを密に結合し、未知地形に対する歩行の堅牢性を大幅に向上させた。",
+   "authors": [
+    "Ziyun Liu",
+    "Sikai Guo",
+    "Zheng Li",
+    "Jiahang Cao",
+    "Haichao Liu",
+    "Pei Qu",
+    "Yinghong Zhang",
+    "Jinni Zhou",
+    "Jun Ma"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.15766",
+   "image": "figures/2026-08-18/2608.15766.jpg"
+  },
+  {
+   "date": "2026-08-18",
+   "rank": 1,
+   "id": "2608.16837",
+   "group": "focus",
+   "title": "HAF: Adapting Generalist VLAs to Humanoid Whole-Body Loco-manipulation via Hierarchical Action Flow and Spectral Latent RL",
+   "title_ja": "HAF: 階層的アクションフローとスペクトル潜在強化学習によるヒューマノイド全身移動操作",
+   "summary_ja": "汎用VLAモデルをヒューマノイドの全身移動操作に適応させるHAFを提案。歩行・腰姿勢・双腕操作を分離して協調させる階層的アクションフローと、計算負荷を抑えて実機展開時の最適化を可能にするスペクトル潜在空間での強化学習を導入し、効率的な全身協調制御を実現した。",
+   "authors": [
+    "Langzhe Gu",
+    "Chengkai Hou",
+    "Meng Li",
+    "Xinhua Wang",
+    "Jiaming Liu",
+    "Xinyuan Lv",
+    "Bowei Zhang",
+    "Shuanghao Bai",
+    "Guangrun Li",
+    "Jingyang He",
+    "Gaole Dai",
+    "Ziluo Ding",
+    "Zhiyuan Xu",
+    "Kuan Cheng",
+    "Jian Tang",
+    "Zhengping Che",
+    "Shanghang Zhang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.16837",
+   "image": "figures/2026-08-18/2608.16837.jpg"
+  },
+  {
+   "date": "2026-08-18",
+   "rank": 2,
+   "id": "2608.16164",
+   "group": "focus",
+   "title": "Trajectory-Level Automatic Curriculum Learning for Legged Locomotion on Unstructured Terrain",
+   "title_ja": "非整地脚ロボット歩行のための軌道レベル自動カリキュラム学習",
+   "summary_ja": "難易度の明示的な順序付けが困難な非整地環境において、地形マップから直接学習タスクを生成する軌道レベル自動カリキュラム学習フレームワークTACLを提案。方策の進行度に応じて難易度関数をオンライン更新し、早期の探索失敗を防ぎつつ多様な未知地形への汎化性能を高めた。",
+   "authors": [
+    "Rocky Liu",
+    "Tengyu Liu",
+    "Baoxiong Jia",
+    "Fangwei Zhong",
+    "Xinyi Tong",
+    "Hongzhao Xie",
+    "Siyuan Huang"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "reinforcement-learning",
+    "quadruped",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.16164",
+   "image": "figures/2026-08-18/2608.16164.jpg"
+  },
+  {
+   "date": "2026-08-18",
+   "rank": 3,
+   "id": "2608.16195",
+   "group": "focus",
+   "title": "RoboStriker: Latent-Space Strategic Games for Autonomous Humanoid Boxing",
+   "title_ja": "RoboStriker: 自律ヒューマノイドボクシングのための潜在空間戦略ゲーム",
+   "summary_ja": "ヒューマノイドによる格闘・ボクシングなど接触豊富かつ動的なタスクにおいて、生のアクション空間での強化学習による関節破綻を防ぐため、潜在空間での2プレイヤーゼロサムマルコフゲームとして定式化。物理的実現可能性を担保しながら戦略的行動と敏捷な全身運動の獲得を実現した。",
+   "authors": [
+    "Kangning Yin",
+    "Kaige Liu",
+    "Zhe Cao",
+    "Wentao Dong",
+    "Weishuai Zeng",
+    "Tianyi Zhang",
+    "Qiang Zhang",
+    "Jingbo Wang",
+    "Jiangmiao Pang",
+    "Yang Li",
+    "Ming Zhou",
+    "Weinan Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.16195",
+   "image": "figures/2026-08-18/2608.16195.jpg"
+  },
+  {
+   "date": "2026-08-18",
+   "rank": 4,
+   "id": "2608.16222",
+   "group": "focus",
+   "title": "HiPHI: A Large-Scale Benchmark for High-Precision Human Motion and Object-Interaction",
+   "title_ja": "HiPHI: 高精度な人間動作と物体相互作用の大規模ベンチマーク",
+   "summary_ja": "ヒューマノイドの全身動作および物理的相互作用の学習のため、600時間以上に及ぶ高精度な全身モーションキャプチャデータセットHiPHIを構築。言語フレームワークFrameNetに基づき多様な動作と相互作用マニホールドを体系的に網羅し、模倣学習や全身方策の基盤を提供する。",
+   "authors": [
+    "Jiahao Ji",
+    "Ji Ma",
+    "Runhan Zhang",
+    "Runyi Yu",
+    "Wenjia Wang",
+    "Weiheng Chi",
+    "Qianqian Peng",
+    "Weichao Yan",
+    "Yongfei Gu",
+    "Ye Tian",
+    "Ting Wu",
+    "Longwei Li",
+    "Chun Yuan",
+    "Ruoli Dai",
+    "Lei Han"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "humanoid",
+    "dataset",
+    "benchmark",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.16222",
+   "image": "figures/2026-08-18/2608.16222.jpg"
+  },
+  {
+   "date": "2026-08-18",
+   "rank": 5,
+   "id": "2608.15897",
+   "group": "general",
+   "title": "Tactile Sim2Real without Tactile Simulation via Bottlenecked Latent Reconstruction",
+   "title_ja": "ボトルネック潜在再構成による触覚シミュレーション不要の触覚Sim-to-Real",
+   "summary_ja": "触覚センサのシミュレーションモデル作成コストを解消するため、シミュレータ上で点群や接触力からなる簡略なオラクル触覚を用いて方策を学習し、実環境で実センサの潜在表現をオラクルに射影・整列させるSBLRを提案。特定センサの詳細モデリングなしに実機への転移を実証した。",
+   "authors": [
+    "Fan Yang",
+    "Youngsun Wi",
+    "Jinhao Yu",
+    "Nima Fazeli",
+    "Dmitry Berenson"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "sim-to-real",
+    "manipulation",
+    "perception",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.15897",
+   "image": "figures/2026-08-18/2608.15897.jpg"
+  },
+  {
+   "date": "2026-08-18",
+   "rank": 6,
+   "id": "2608.15917",
+   "group": "general",
+   "title": "Pre-training Visual Dexterity in Simulation",
+   "title_ja": "シミュレーションによる視覚的器用操作の事前学習",
+   "summary_ja": "多指ハンドによる器用な操作の大規模データ不足を解決するため、VRを用いてシミュレーション内で人間が直接仮想物体を操作するデータ収集・事前学習フレームワークSPDを提案。実機遠隔操作や手先姿勢推定の課題を回避し、実機への効率的なファインチューニングを可能にした。",
+   "authors": [
+    "Sarthak Kamat",
+    "Adam Rashid",
+    "Satvik Sharma",
+    "Aseem Doriwala",
+    "Chelsea Finn",
+    "Phillip Isola",
+    "C. Karen Liu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "manipulation",
+    "simulation",
+    "teleoperation",
+    "grasping"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.15917",
+   "image": "figures/2026-08-18/2608.15917.jpg"
+  },
+  {
+   "date": "2026-08-18",
+   "rank": 7,
+   "id": "2608.15560",
+   "group": "general",
+   "title": "ReForce: Learning Force-aware Retargeting for Dexterous Manipulation",
+   "title_ja": "ReForce: 器用なマニピュレーションのための力覚考慮型リターゲティング学習",
+   "summary_ja": "人間のデモを多指ロボットハンドに転移する際、幾何学的運動だけでなく接触力を再現する手法ReForceを提案。大規模シミュレーションで学習した力追従モデルにより運動学的リターゲティングに力の残差補正を加えることで、接触状態を精密に再現した操作を可能にした。",
+   "authors": [
+    "Yuhang Wu",
+    "Lingqi Zeng",
+    "Changwei Jing",
+    "Jianglong Ye",
+    "Xiaolong Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "teleoperation",
+    "simulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.15560",
+   "image": "figures/2026-08-18/2608.15560.jpg"
+  },
+  {
+   "date": "2026-08-18",
+   "rank": 8,
+   "id": "2608.14822",
+   "group": "general",
+   "title": "Imagining Recovery: Inference-Time Counterfactual Realignment for Vision-Language-Action Models",
+   "title_ja": "想像による復旧: 視覚・言語・行動モデルの推論時反実仮想アライメント",
+   "summary_ja": "VLAモデルが環境変化や外乱を受けた際、追加の学習や失敗データを必要とせず推論時のみで復旧を行う訓練不要フレームワークCoReを提案。逸脱検知時に直近の正常状態からゴールに向かう継続を合成画像で反実仮想的に生成・補正し、閉ループ実行の破綻を防ぐ。",
+   "authors": [
+    "Yanyan Zhang",
+    "Disheng Liu",
+    "Kai Ye",
+    "Chaoda Song",
+    "Xinpeng Li",
+    "Mohsen Hariri",
+    "Vikash Singh",
+    "Yu Yin",
+    "Vipin Chaudhary"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation",
+    "planning",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.14822",
+   "image": "figures/2026-08-18/2608.14822.jpg"
+  },
+  {
+   "date": "2026-08-18",
+   "rank": 9,
+   "id": "2608.15461",
+   "group": "general",
+   "title": "Detachable Wire Drive : Reconfigurable Robot Architecture with Shared Actuators",
+   "title_ja": "着脱式ワイヤ駆動: アクチュエータ共有型再構成可能ロボット",
+   "summary_ja": "モジュールごとに専用モータを配置することによる重量・コスト増を解決するため、モータをベースユニットに集約しワイヤ駆動経路を着脱・切り替え可能なWire Detach Unit機構を提案。同一のアクチュエータ群を共有しながら多様な形態へ適応可能なロボットシステムを実現した。",
+   "authors": [
+    "Takahiro Hattori",
+    "Kento Kawaharazuka",
+    "Kei Okada"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.15461",
+   "image": "figures/2026-08-18/2608.15461.jpg"
+  },
+  {
    "date": "2026-08-17",
    "rank": 0,
    "id": "2608.14135",
