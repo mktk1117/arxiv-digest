@@ -1,6 +1,284 @@
 {
  "entries": [
   {
+   "date": "2026-08-19",
+   "rank": 0,
+   "id": "2608.17027",
+   "group": "focus",
+   "title": "FetchMan: Learning Visual Humanoid Loco-Manipulation Policies from Simulated Experiences",
+   "title_ja": "FetchMan: シミュレーション経験からの視覚的ヒューマノイド・ロコマニピュレーション方策の学習",
+   "summary_ja": "未知の環境や物体に適応するヒューマノイドの視覚的全身移動操作（ロコマニピュレーション）方策をシミュレータ上で学習する手法を提案。合成デモの模倣学習だけでは性能に限界があることを示し、模倣後に強化学習で自己改善するパイプラインを構築して実機へゼロショット転移を達成した。",
+   "authors": [
+    "Omar Rayyan",
+    "Zhi Li",
+    "Max Argus",
+    "Yuxin Jiang",
+    "Chang Yu",
+    "Chenfanfu Jiang",
+    "Yuchen Cui"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.17027",
+   "image": "figures/2026-08-19/2608.17027.jpg"
+  },
+  {
+   "date": "2026-08-19",
+   "rank": 1,
+   "id": "2608.17320",
+   "group": "focus",
+   "title": "Robust Brachiation on a Life-Sized Dual-Arm Robot Using Waypoint-Guided Reinforcement Learning",
+   "title_ja": "ウェイポイント誘導強化学習を用いた等身大双腕ロボットによるロバストなブラキエーション",
+   "summary_ja": "足場のない環境を腕で移動するブラキエーション（雲梯渡り）を等身大双腕ロボットで実現する手法を提案。模倣データがない高難度タスクに対し、非線形な全身協調動作を誘導するWaypoint-Guided RL（WGRL）を開発し、精密な把握とバー離し動作を学習させた。",
+   "authors": [
+    "Ayumu Iwata",
+    "Kento Kawaharazuka",
+    "Keita Yoneda",
+    "Takahiro Hattori",
+    "Kei Okada"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.17320",
+   "image": "figures/2026-08-19/2608.17320.jpg"
+  },
+  {
+   "date": "2026-08-19",
+   "rank": 2,
+   "id": "2608.17030",
+   "group": "focus",
+   "title": "Lambda-Hold Control: Human-Like Movement Emerges from a Minimal Task Reward in Predictive Musculoskeletal Simulation",
+   "title_ja": "ラムダホールド制御：予測筋骨格シミュレーションにおいて最小限のタスク報酬から創発する人間らしい運動",
+   "summary_ja": "過剰駆動な人体筋骨格モデルにおける強化学習の高次元探索問題を解決するため、平衡点仮説に着想を得たλ-holdコントローラを提案。伸張反射機構により筋活性度を自動計算させることで、複雑な運動模倣報酬なしに最小限のタスク報酬から人間らしい協調運動を創発させた。",
+   "authors": [
+    "Jun Hyuk Lee",
+    "Chihyeong Lee",
+    "Jooeun Ahn"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.GR",
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.17030",
+   "image": "figures/2026-08-19/2608.17030.jpg"
+  },
+  {
+   "date": "2026-08-19",
+   "rank": 3,
+   "id": "2608.17453",
+   "group": "focus",
+   "title": "EATR-Stereo: Embodiment-Aware Routing of Paired Stereo Evidence for Humanoid Vision-Language-Action Control",
+   "title_ja": "EATR-Stereo: ヒューマノイドVLA制御のためのステレオ視覚情報の身体認識ルーティング",
+   "summary_ja": "頭部ステレオカメラを搭載したヒューマノイドの長期タスクVLA制御向けフレームワークを提案。主視点トークンを保持しつつ補助視点から整列トークンを生成するクロスビュールーティングと、身体部位ごとの固有受容感覚エンコーダを統合し、事前学習表現を損なわずに多視点制御を可能にした。",
+   "authors": [
+    "Songwei Wu",
+    "Rui Zhao",
+    "Fan Yang",
+    "Zhongqiang Nie",
+    "Zhiduo Jiang",
+    "Wandong Sun",
+    "Yuwei Li",
+    "Yang Liu",
+    "Hong Liu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "vision-language-action",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.17453",
+   "image": "figures/2026-08-19/2608.17453.jpg"
+  },
+  {
+   "date": "2026-08-19",
+   "rank": 4,
+   "id": "2608.17584",
+   "group": "focus",
+   "title": "HODAgent: Towards On-Demand, Responsive Humanoids for Physical World Human Interaction",
+   "title_ja": "HODAgent: 実世界での人間対話に向けたオンデマンドで応答性の高いヒューマノイド",
+   "summary_ja": "実サービス環境でのヒューマノイド向けSystem-2型エージェントアーキテクチャを提案。動作中の中断や新規指示の受付、タスク修正、結果検証を可能にする半二重通信構造を備え、シミュレーションおよびUnitree G1実機ロボット上で高精度な対話的タスク遂行を実証した。",
+   "authors": [
+    "Wang Warren Chen",
+    "Jiahao Zhang",
+    "Zhenjiang Li",
+    "Mingxu Wang",
+    "Lei Yi",
+    "Yuchen Kang",
+    "Shuo Sun",
+    "Ziping Chen",
+    "Jie Chen"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "llm-agent",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.17584",
+   "image": "figures/2026-08-19/2608.17584.jpg"
+  },
+  {
+   "date": "2026-08-19",
+   "rank": 5,
+   "id": "2608.18077",
+   "group": "general",
+   "title": "Hydra-0: Action Flow for Generalist World Modeling and Control",
+   "title_ja": "Hydra-0: 汎用ワールドモデリングと制御のためのアクションフロー",
+   "summary_ja": "ロボットのアクションをピクセル単位の運動（Action Flow）として表現する汎用ワールドモデルを提案。多様な形態・タスク・環境間で行動結果の予測を統一し、従来手法比でロボット運動誤差を90.4%削減するとともに、動画からの逆行動推定による制御も可能にした。",
+   "authors": [
+    "Hongyu Li",
+    "Bowen Wen",
+    "Xinghao Zhu",
+    "Yixuan Wang",
+    "Yilun Du",
+    "Yunzhu Li",
+    "George Konidaris",
+    "Stan Birchfield",
+    "Soha Pouya",
+    "Chenran Li",
+    "Yan Chang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "control",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.18077",
+   "image": "figures/2026-08-19/2608.18077.jpg"
+  },
+  {
+   "date": "2026-08-19",
+   "rank": 6,
+   "id": "2608.17432",
+   "group": "general",
+   "title": "UniReflex: Plug-and-Play Force Control for Pretrained Generative Policies via Fast-Slow Reflex",
+   "title_ja": "UniReflex: 高速-低速反射機構を用いた事前学習済み生成方策向けプラグアンドプレイ力制御",
+   "summary_ja": "事前学習済み生成型模倣学習方策のバックボーンを再学習することなく、可変インピーダンス制御（VIC）を付加するUniReflexを提案。方策ヘッドの潜在表現から能動力と外力応答を分離した高速反射ネットワークを駆動し、接触リッチなタスクにおける力調整を後付けで実現した。",
+   "authors": [
+    "Yan Huang",
+    "Shoujie Li",
+    "Ziwu Song",
+    "Wenbo Ding"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "imitation-learning",
+    "control",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.17432",
+   "image": "figures/2026-08-19/2608.17432.jpg"
+  },
+  {
+   "date": "2026-08-19",
+   "rank": 7,
+   "id": "2608.17962",
+   "group": "general",
+   "title": "PRISM: Precision and contact-rich Real-world Industrial Skill dataset with Multimodal sensing",
+   "title_ja": "PRISM: マルチモーダルセンシングを備えた精密・接触リッチな実世界産業スキルデータセット",
+   "summary_ja": "従来の低接触ピック＆プレースとは異なり、電子部品の挿抜やコンベヤ仕分けなど精密な接触・力制御が求められる産業用操作に特化した大規模データセット。5,000本以上の遠隔操作軌道（計45時間）と力覚・触覚を含むマルチモーダルデータを収録する。",
+   "authors": [
+    "Tengbo Yu",
+    "Jiahao Wu",
+    "Hanning Wang",
+    "Rui Chen",
+    "Chuanhou Liu",
+    "Chuang Sun",
+    "Hangxin Liu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "dataset",
+    "manipulation",
+    "teleoperation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.17962",
+   "image": "figures/2026-08-19/2608.17962.jpg"
+  },
+  {
+   "date": "2026-08-19",
+   "rank": 8,
+   "id": "2608.17601",
+   "group": "general",
+   "title": "Physics-Informed Sliding-Window Particle Filtering for Tactile-Only In-Hand 6-DoF Object Pose Refinement",
+   "title_ja": "触覚のみによる手先把持6自由度物体姿勢精緻化のための物理考慮型スライディングウィンドウ粒子フィルタ",
+   "summary_ja": "視覚が遮蔽された把持状態において、手全体の触覚センサ情報のみから物体の6自由度姿勢を推定・維持するSE(3)上の粒子フィルタ手法を提案。符号付き距離の一貫性や摩擦円錐条件、非接触の負の証拠を統合した尤度関数を用い、高精度な姿勢推定を実現した。",
+   "authors": [
+    "Lingjun Shao",
+    "Ying Zhang",
+    "Xiangfei Li",
+    "Xiangyang Li",
+    "Huan Zhao",
+    "Zhenyu Wang",
+    "Han Ding"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "perception",
+    "grasping",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.17601",
+   "image": null
+  },
+  {
+   "date": "2026-08-19",
+   "rank": 9,
+   "id": "2608.17496",
+   "group": "general",
+   "title": "Calibrated Predictive Safety for Heterogeneous Robots: An Action-Conditioned JEPA Framework with Model-Based Safety Shields",
+   "title_ja": "異種ロボットのための較正済み予測型安全性: 行動条件付きJEPAとモデルベース安全シールドの統合",
+   "summary_ja": "VLA方策の汎化性と古典的制御の安全保証を両立するため、行動条件付きJEPAワールドモデルとロボット固有の安全シールドを統合。JEPAが候補行動からタスク進捗と物理的リスクを事前予測し、シールド機構で安全な行動を選択・実行する枠組みを構築した。",
+   "authors": [
+    "Kaiming Zhong",
+    "Tianhua Liu",
+    "Yue Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "safety",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.17496",
+   "image": null
+  },
+  {
    "date": "2026-08-18",
    "rank": 0,
    "id": "2608.15766",
