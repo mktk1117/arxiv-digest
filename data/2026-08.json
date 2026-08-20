@@ -1,6 +1,335 @@
 {
  "entries": [
   {
+   "date": "2026-08-20",
+   "rank": 0,
+   "id": "2608.18234",
+   "group": "focus",
+   "title": "GigaBrain-WBC-0.5: A Behavior World Model for Robust Whole-Body Control with Environment Interaction",
+   "title_ja": "GigaBrain-WBC-0.5: 環境相互作用を伴うロバストな全身制御のための行動ワールドモデル",
+   "summary_ja": "従来の全身動作追従方策が平坦な環境に限定されていた課題に対し、環境接触がダイナミクスに与える影響を学習する行動ワールドモデルGigaBrain-WBC-0.5を提案。参照モーションの単なる拡充に頼らず、環境依存の物理的制約下でもバランスを保つ全身制御を実現する基盤モデルを構築した。",
+   "authors": [
+    "Ziyang Cheng",
+    "Tianshu Tang",
+    "Jinxin Lan",
+    "Xinze Chen",
+    "Yuhan Gong",
+    "Zhichao Liu",
+    "Changzhong Wu",
+    "Yahao Mao",
+    "Zongyan Deng",
+    "Mingxuan Ma",
+    "Huasen Xi",
+    "Yilong Liu",
+    "Yutong Wu",
+    "Xiaofeng Wang",
+    "Yang Wang",
+    "Yun Ye",
+    "Guan Huang",
+    "Xiaojie Jin",
+    "Zheng Zhu",
+    "Jiwen Lu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "world-model",
+    "locomotion"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.18234",
+   "image": "figures/2026-08-20/2608.18234.jpg"
+  },
+  {
+   "date": "2026-08-20",
+   "rank": 1,
+   "id": "2608.18552",
+   "group": "focus",
+   "title": "Real-Time Control-Constrained DDP for Underactuated Balancing of Legged Robots",
+   "title_ja": "脚ロボットの劣駆動バランシングのためのリアルタイム制御制約付きDDP",
+   "summary_ja": "制御制約を伴う脚ロボットのバランシング制御において、KKT逆行列計算を反復せず能動制約を特定する加速射影勾配法ベースのDDP手法「ABC-DDP」を提案。仮想制約の導入により動的に実行不可能な初期化からでも安定して最適化でき、実時間MPCによるロバストなバランス制御を可能にした。",
+   "authors": [
+    "SeongWon Nam",
+    "Hyunyong Lee",
+    "Hansol Kang",
+    "Jiman Park",
+    "Yeongwoo Son",
+    "Bumsu Yi",
+    "Jaeyoung Oh",
+    "Hyouk Ryeol Choi"
+   ],
+   "categories": [
+    "cs.RO",
+    "math.OC"
+   ],
+   "tags": [
+    "quadruped",
+    "control",
+    "locomotion"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.18552",
+   "image": "figures/2026-08-20/2608.18552.jpg"
+  },
+  {
+   "date": "2026-08-20",
+   "rank": 2,
+   "id": "2608.19182",
+   "group": "focus",
+   "title": "ADEPT: Accelerating Dexterity via Pre-Training and Post-Training using Reinforcement Learning",
+   "title_ja": "ADEPT: 強化学習を用いた事前学習と事後学習による器用さの加速",
+   "summary_ja": "多自由度ロボットハンド向けに、汎用的な物体リポーズタスクでRL事前学習を行い下流タスクへ適応させる枠組みADEPTを提案。ゼロからの学習が難しい複雑動作を効率的に獲得し、視覚・触覚知覚から直接動作する高自由度マニピュレーションのsim-to-real転移を実現した。",
+   "authors": [
+    "Jayjun Lee",
+    "Jessica Yin",
+    "Asif Rana",
+    "Nicholas Blauch",
+    "Sam Mady",
+    "Mohak Bhardwaj",
+    "Nima Fazeli",
+    "Nathan Ratliff",
+    "Karl Van Wyk",
+    "Ankur Handa"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "sim-to-real",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.19182",
+   "image": "figures/2026-08-20/2608.19182.jpg"
+  },
+  {
+   "date": "2026-08-20",
+   "rank": 3,
+   "id": "2608.17163",
+   "group": "focus",
+   "title": "Q-Learning With World Models",
+   "title_ja": "ワールドモデルを用いたQ学習",
+   "summary_ja": "実世界ロボティクスで高次元・長期タスクにおいてモデルベースRLが抱える複利誤差の課題に対し、ワールドモデルを活用した効率的なオフポリシーQ学習手法を提案。VLAモデルのRLファインチューニングなどのサンプル効率と信頼性を大幅に向上させた。",
+   "authors": [
+    "Perry Dong",
+    "Yueru Jia",
+    "Chelsea Finn",
+    "Dorsa Sadigh"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.AI"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "world-model",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.17163",
+   "image": "figures/2026-08-20/2608.17163.jpg"
+  },
+  {
+   "date": "2026-08-20",
+   "rank": 4,
+   "id": "2608.17423",
+   "group": "focus",
+   "title": "Prism-GRPO: Faster VLA Policy Optimization via Splitting Same-outcome Groups",
+   "title_ja": "Prism-GRPO: 同一結果グループの分割によるVLA方策最適化の高速化",
+   "summary_ja": "クリティック不要な強化学習手法GRPOをVLA方策へ適用する際、初期学習時に失敗群が捨てられサンプルが無駄になる問題に着目。二値の成否報酬に軌道レベルの実行品質スコアを付与してグループを分割するPrism-GRPOを提案し、ロボットロールアウトの無駄を低減して学習を高速化した。",
+   "authors": [
+    "Zeyun Deng",
+    "Yuzhe Lu",
+    "Yawei Wang",
+    "Linbo Liu",
+    "Qing Ping",
+    "Han Ding",
+    "Guande Wu",
+    "Panpan Xu",
+    "Jun Huan"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "vision-language-action",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.17423",
+   "image": "figures/2026-08-20/2608.17423.jpg"
+  },
+  {
+   "date": "2026-08-20",
+   "rank": 5,
+   "id": "2608.18433",
+   "group": "general",
+   "title": "The Embodiment Gap in Robot Foundation Models",
+   "title_ja": "ロボット基盤モデルにおけるエンボディメント・ギャップ",
+   "summary_ja": "ロボット基盤モデルやVLAにおける汎化性能と、特定の実機ロボットへデプロイする際に生じるギャップ（エンボディメント・ギャップ）を体系化したサーベイ論文。何が再利用可能で何を追加実装すべきかを整理し、実機適応の設計指針を提示している。",
+   "authors": [
+    "Yukiyasu Domae",
+    "Keisuke Shirai",
+    "Hanbit Oh",
+    "Ryoichi Nakajo",
+    "Tomohiro Motoda",
+    "Koshi Makihara",
+    "Masaki Murooka",
+    "Takuma Yagi",
+    "Yoshiaki Bando",
+    "Ryo Hanai"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "vision-language-action",
+    "hardware",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.18433",
+   "image": "figures/2026-08-20/2608.18433.jpg"
+  },
+  {
+   "date": "2026-08-20",
+   "rank": 6,
+   "id": "2608.18948",
+   "group": "general",
+   "title": "RoboEdit: Turning Human Manipulation Videos into Scalable Robot Experience",
+   "title_ja": "RoboEdit: 人間の操作動画を拡張性の高いロボット経験へと変換する技術",
+   "summary_ja": "人間の物体操作動画からロボットの3D手先状態を整合させた動画を自動生成する編集パイプラインRoboEdit-ADCを提案。7種類のロボット身体に対応した17万4000ペア（1400万フレーム）の大規模データセットRoboEdit-14Mを構築した。",
+   "authors": [
+    "Yaowei Guo",
+    "Zeng Tao",
+    "Yuxin Jiang",
+    "Yunuo Chen",
+    "Zhiyang Dou",
+    "Yuxiang Ma",
+    "Yin Yang",
+    "Demetri Terzopoulos",
+    "Ying Jiang",
+    "Chenfanfu Jiang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "dataset",
+    "imitation-learning",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.18948",
+   "image": "figures/2026-08-20/2608.18948.jpg"
+  },
+  {
+   "date": "2026-08-20",
+   "rank": 7,
+   "id": "2608.18701",
+   "group": "general",
+   "title": "SoftVTBench: A Deformation-Aware Visuo-Tactile Dataset and Benchmark for Deformable-Object Manipulation",
+   "title_ja": "SoftVTBench: 変形を考慮した柔軟物操作のための視覚・触覚データセットとベンチマーク",
+   "summary_ja": "滑りや過剰な圧縮を防ぐ物理的インタラクション品質を評価するため、多視点RGBと2指触覚センサ情報を同期させた4,000件のエキスパートデモを含む柔軟物操作ベンチマークSoftVTBenchを構築。物理的整合性を伴う操作方策の評価基盤を提供する。",
+   "authors": [
+    "Bowen Jing",
+    "Mingxin Wang",
+    "Ruiyang Hao",
+    "Chenchen Ge",
+    "Hanwen Shen",
+    "Junjie He",
+    "Yang Cui",
+    "Yiming Hou",
+    "Weitao Zhou",
+    "Jiawei Wang",
+    "Minglei Li",
+    "Dandan Zhang",
+    "Ding Zhao",
+    "Houde Liu",
+    "Xiaofan Li",
+    "Si Liu",
+    "Ping Luo",
+    "Haibao Yu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "dataset",
+    "benchmark",
+    "manipulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.18701",
+   "image": "figures/2026-08-20/2608.18701.jpg"
+  },
+  {
+   "date": "2026-08-20",
+   "rank": 8,
+   "id": "2608.18840",
+   "group": "general",
+   "title": "Beyond Placement and Articulation: Usage-Driven Code Scenes for Embodied Interaction",
+   "title_ja": "配置と関節構造を超えて: 身体的インタラクションのための用途駆動型コードシーン生成",
+   "summary_ja": "Embodied AIやシミュレーション学習向けに、3D環境をコードとして自動生成するフレームワークRoomWrightを提案。タスク中心のオブジェクトアフォーダンスと機能的用途を考慮したシーン合成をLLMエージェントにより実現する。",
+   "authors": [
+    "Zijian Xiao",
+    "Zipeng Ye",
+    "Jinkun Hao",
+    "Xiong Yang",
+    "Yuchen Xie",
+    "Ran Yi"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "simulation",
+    "llm-agent",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.18840",
+   "image": "figures/2026-08-20/2608.18840.jpg"
+  },
+  {
+   "date": "2026-08-20",
+   "rank": 9,
+   "id": "2608.18618",
+   "group": "general",
+   "title": "LabDex: A Hierarchical Benchmark for Dexterous Manipulation in Laboratories",
+   "title_ja": "LabDex: 実験室における器用なマニピュレーションのための階層的ベンチマーク",
+   "summary_ja": "化学実験室での自律的な器具操作と多段階実験手順の実行を目的とし、原子スキルから長期実験までを階層的にカバーする実世界データセットおよびベンチマークLabDexを提案。器用なロボットハンドによる精密操作の学習と評価基盤を提供する。",
+   "authors": [
+    "Zhipeng Tang",
+    "Sihang Chen",
+    "Sha Zhang",
+    "Peihao Yang",
+    "Yan Liu",
+    "Wentao Zhao",
+    "Xinrui Liu",
+    "Rui Huang",
+    "Wensheng Du",
+    "Yuting Huang",
+    "Jiajun Deng",
+    "Lidian Wang",
+    "Yuan Zhang",
+    "Yanyong Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "benchmark",
+    "dataset",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.18618",
+   "image": "figures/2026-08-20/2608.18618.jpg"
+  },
+  {
    "date": "2026-08-19",
    "rank": 0,
    "id": "2608.17027",
