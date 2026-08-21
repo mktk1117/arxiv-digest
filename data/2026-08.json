@@ -1,6 +1,293 @@
 {
  "entries": [
   {
+   "date": "2026-08-21",
+   "rank": 0,
+   "id": "2608.19955",
+   "group": "focus",
+   "title": "MILD: Tractable Terrain Modeling for Learning Improved Bipedal Locomotion on Deformable Surfaces",
+   "title_ja": "MILD：変形可能地盤における二足歩行学習のための扱いやすい地形モデリング",
+   "summary_ja": "変形地盤での二足歩行実現に向け、足部と地形の相互作用を忠実に模擬する離散要素接触ソルバーMILDを提案。深層強化学習を用い、潜在変調と固有受容推定により地形適応型の歩行制御器を訓練し、従来手法を上回る性能を示した。",
+   "authors": [
+    "Zeren Luo",
+    "Jiahui Zhang",
+    "Zhe Xu",
+    "Wanyue Li",
+    "Xinqi Li",
+    "Xuechao Chen",
+    "Zhangguo Yu",
+    "Annan Tang",
+    "Peng Lu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "reinforcement-learning",
+    "simulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.19955",
+   "image": "figures/2026-08-21/2608.19955.jpg"
+  },
+  {
+   "date": "2026-08-21",
+   "rank": 1,
+   "id": "2608.20087",
+   "group": "focus",
+   "title": "Towards Professional Tennis Styles for Humanoid Robots with Adaptive Motion Planning and Tracking",
+   "title_ja": "AdaPT：適応的な運動計画と追従によるヒューマノイドロボットのプロ風テニス動作の実現",
+   "summary_ja": "放送動画からプロのテニス動作スタイルを学習しヒューマノイドで再現する適応的動作計画・追従フレームワークAdaPTを提案。運動学的計画と追従制御を階層分離し、sim-to-realギャップを克服して実機でのサーブやラリー動作を実証した。",
+   "authors": [
+    "Tao Huang",
+    "Ruofei Liu",
+    "Xuchen Tang",
+    "Xinyin Zhang",
+    "Junli Ren",
+    "Huayi Wang",
+    "Feiyu Jia",
+    "Yukai Qi",
+    "Kangning Yin",
+    "Weishuai Zeng",
+    "Lipeng Chen",
+    "Xi Li",
+    "Ting Wu",
+    "Kailin Li",
+    "Ruoli Dai",
+    "Jingbo Wang",
+    "Lei Han",
+    "Jiangmiao Pang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "planning",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.20087",
+   "image": "figures/2026-08-21/2608.20087.jpg"
+  },
+  {
+   "date": "2026-08-21",
+   "rank": 2,
+   "id": "2608.19977",
+   "group": "focus",
+   "title": "Learning Highly Dynamic Skills Transition for Quadruped Jumping Through Constrained Space",
+   "title_ja": "制約空間を跳躍通過する四脚ロボットのための高ダイナミックなスキル遷移学習",
+   "summary_ja": "狭小ゲートを素早く跳躍通過する四脚ロボット制御に向け、階層型強化学習パイプラインを提案。動物の模倣学習で多様な低レベルスキルを獲得し、高レベル制御器が視覚情報と各スキルの制約に基づき衝突のない俊敏な動作を生成・遷移させる。",
+   "authors": [
+    "Zeren Luo",
+    "Jiahui Zhang",
+    "Yimin Han",
+    "Ji Ma",
+    "Minghao Lu",
+    "Ioannis Havoutis",
+    "Peng Lu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.19977",
+   "image": "figures/2026-08-21/2608.19977.jpg"
+  },
+  {
+   "date": "2026-08-21",
+   "rank": 3,
+   "id": "2608.20114",
+   "group": "focus",
+   "title": "DECOWAM: Decoupled Whole-Body World-Action Model for Legged Mobile Manipulation",
+   "title_ja": "DECOWAM：脚移動マニピュレーションのための分離型全身ワールドアクションモデル",
+   "summary_ja": "移動マニピュレーションにおいて、カメラの自己運動とベースおよびアームの動作を明示的に分離して予測する全身ワールドアクションモデルDECOWAMを提案。実機四脚マニピュレータデータセットARMDOGを構築し有効性を検証した。",
+   "authors": [
+    "Siyuan Ma",
+    "Boshi Zhang",
+    "Yutian Zhang",
+    "Qinglian Wu",
+    "Jiaqi Zhai",
+    "Dong Wei",
+    "Qiaojun Yu"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "world-model",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.20114",
+   "image": "figures/2026-08-21/2608.20114.jpg"
+  },
+  {
+   "date": "2026-08-21",
+   "rank": 4,
+   "id": "2608.19375",
+   "group": "focus",
+   "title": "Learning the Right Abstraction: Neural Reduced Dynamics for Complex Robot Control",
+   "title_ja": "適切な抽象化の学習：複雑なロボット制御のためのニューラル縮退ダイナミクス",
+   "summary_ja": "高忠実度シミュレータの高コスト性を解消するため、制御に必要な物理特性を保持した低次元状態を学習するニューラル縮退ダイナミクス（NRD）を提案。大規模な強化学習において高いスループットと効率的な方策獲得を両立する。",
+   "authors": [
+    "Harry Zhang",
+    "Dan Negrut"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "simulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.19375",
+   "image": "figures/2026-08-21/2608.19375.jpg"
+  },
+  {
+   "date": "2026-08-21",
+   "rank": 5,
+   "id": "2608.19574",
+   "group": "general",
+   "title": "HiTac-WAM: A Hierarchical Tactile World Action Model for Contact-Rich Robot Manipulation",
+   "title_ja": "HiTac-WAM：接触豊富なロボット操作のための階層的触覚ワールドアクションモデル",
+   "summary_ja": "候補アクションに対して将来の触覚状態系列を予測する触覚ワールドアクションモデルHiTac-WAMを提案。接触状態、3D変形場、滑りリスクへと階層的に分解して予測することで、複雑な接触を伴うマニピュレーション方策の性能を向上させた。",
+   "authors": [
+    "Chao Xue",
+    "Chaofan Zhang",
+    "Wenxuan Ma",
+    "Guocai Yao",
+    "Shaowei Cui",
+    "Shuo Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "world-model",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.19574",
+   "image": "figures/2026-08-21/2608.19574.jpg"
+  },
+  {
+   "date": "2026-08-21",
+   "rank": 6,
+   "id": "2608.19490",
+   "group": "general",
+   "title": "Fine-Tuning VLAs with Self-Demonstrated Generative Control for Multi-Task Manipulation",
+   "title_ja": "マルチタスク操作のための自己生成制御によるVLAモデルのファインチューニング",
+   "summary_ja": "新しいロボットへの展開時にVLAモデルの事前学習能力が低下する問題に対し、ゼロショットVLAから生成した自己相互作用ロールアウトを追加データとして微調整する手法を提案。指示追従性を維持しつつ新規機体への適応を成功させた。",
+   "authors": [
+    "Prachi Garg",
+    "Steve Xing",
+    "Prahit Yaugand",
+    "Saurabh Gupta",
+    "Derek Hoiem"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.19490",
+   "image": "figures/2026-08-21/2608.19490.jpg"
+  },
+  {
+   "date": "2026-08-21",
+   "rank": 7,
+   "id": "2608.19372",
+   "group": "general",
+   "title": "The Missing Touch: Spatially Distributed Tactile Feedback Brings Teleoperation Closer to Human Dexterity",
+   "title_ja": "失われた触覚：空間分布型触覚フィードバックが遠隔操作を人間の器用さに近づける",
+   "summary_ja": "遠隔操作データ収集において人間の器用さとの差を生む要因が触覚の欠如にあることに着目。2自由度の力覚フィードバック装置と32自由度の指先触覚ディスプレイを組み合わせ、局所的な触覚提示が遠隔操作タスクの性能を大幅に改善することを示した。",
+   "authors": [
+    "Rohan Kota",
+    "Gregory Reardon",
+    "J. Edward Colgate"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "teleoperation",
+    "hardware",
+    "grasping"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.19372",
+   "image": "figures/2026-08-21/2608.19372.jpg"
+  },
+  {
+   "date": "2026-08-21",
+   "rank": 8,
+   "id": "2608.19759",
+   "group": "general",
+   "title": "GOAG: Generative and Object-Agnostic Grasp Planner for Dexterous Robotic Manipulation",
+   "title_ja": "GOAG：器用なロボット操作のための生成型・物体非依存把持プランナー",
+   "summary_ja": "多指ハンド把持において、ハンドと物体が接触点で同じ表面幾何を共有する点に着目し、グリッパーの接触面分布の潜在表現を学習する生成モデルGOAGを提案。物体依存のデータセットに頼らず、未知物体に対しても有効な把持姿勢を生成可能にした。",
+   "authors": [
+    "Julien Merand",
+    "Boris Meden",
+    "Mathieu Grossard",
+    "Liming Chen"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "grasping",
+    "manipulation",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.19759",
+   "image": "figures/2026-08-21/2608.19759.jpg"
+  },
+  {
+   "date": "2026-08-21",
+   "rank": 9,
+   "id": "2608.20208",
+   "group": "general",
+   "title": "RoMAN-Flow: Taming Autoregressive Normalizing Flows for Offline Reinforcement Learning in Robotic Manipulation",
+   "title_ja": "RoMAN-Flow：ロボット操作のオフライン強化学習に向けた自己回帰Normalizing Flowの効率化",
+   "summary_ja": "正確な尤度評価が可能な自己回帰Normalizing Flow（AR-NF）方策のサンプリング遅延ボトルネックを解決するオフライン強化学習フレームワークRoMAN-Flowを提案。拡散モデル等に代わる表現力と効率的な方針最適化をマニピュレーションで実証した。",
+   "authors": [
+    "Shaoxuan Wang",
+    "Guangting Zheng",
+    "Rui Huang",
+    "Zhipeng Tang",
+    "Sha Zhang",
+    "Jiajun Deng",
+    "Yanyong Zhang"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.20208",
+   "image": "figures/2026-08-21/2608.20208.jpg"
+  },
+  {
    "date": "2026-08-20",
    "rank": 0,
    "id": "2608.18234",
