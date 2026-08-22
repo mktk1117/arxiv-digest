@@ -1,6 +1,286 @@
 {
  "entries": [
   {
+   "date": "2026-08-22",
+   "rank": 0,
+   "id": "2608.20251",
+   "group": "focus",
+   "title": "Video2DoorTraversal: Push Door Traversal via Simulated Door Twins",
+   "title_ja": "Video2DoorTraversal: シミュレーション上のドアツインを用いた押し扉通過",
+   "summary_ja": "車輪脚ロボット向けに実環境のRGB動画1本から関節構造と外観を持つシミュレーション用ドアツインを再構築し、強化学習と実機展開を行うフレームワークを提案。シミュレーション内で実行可能なデモを自動生成し、ベースとアームを協調制御するデュアル深度ポリシーArticuACTを学習することで、sim-to-realによる高い扉通過性能を実現した。",
+   "authors": [
+    "Xincheng Tang",
+    "Yiji Chen",
+    "Youhan Xie",
+    "Wanyu Li",
+    "Zhengjie Shu",
+    "Lai Jiang",
+    "Wenkang Hu",
+    "Yitong Li",
+    "Jinchuang Zhang",
+    "Xibin Song",
+    "Ruigang Yang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "manipulation",
+    "sim-to-real",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.20251",
+   "image": "figures/2026-08-22/2608.20251.jpg"
+  },
+  {
+   "date": "2026-08-22",
+   "rank": 1,
+   "id": "2608.19684",
+   "group": "focus",
+   "title": "Learning Hierarchical Skill Policies with Offline Quality-Diversity Reinforcement Learning",
+   "title_ja": "オフライン品質多様性強化学習による階層的スキルポリシーの学習",
+   "summary_ja": "事前収集データから高品質かつ多様な低レベルスキルを抽出し、タスク解決のための高レベル方策を学習するオフライン強化学習手法QDOSを提案。従来のVAEに基づく教師なし抽出がデータの質に依存する課題に対し、品質・多様性（QD）最適化をオフラインRLに組み込むことで、データセット内の低品質な軌道の影響を抑え、下流タスクのサンプル効率と適応性を向上させた。",
+   "authors": [
+    "Tanachai Anakewat",
+    "Takayuki Osa",
+    "Tatsuya Harada"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.19684",
+   "image": "figures/2026-08-22/2608.19684.jpg"
+  },
+  {
+   "date": "2026-08-22",
+   "rank": 2,
+   "id": "2608.19891",
+   "group": "focus",
+   "title": "EXIMO: VLM Guided Exploration of VLA Policies",
+   "title_ja": "EXIMO: VLMによる探索誘導を用いたVLAポリシーの強化学習",
+   "summary_ja": "事前学習済みVision-Language-Action（VLA）モデルを強化学習でオンザフライにファインチューニングする際のサンプル非効率性を解決する手法を提案。VLMを活用してタスク達成に必要な探索をガイドすることで、大規模な遠隔操作データを追加収集することなく、長時間のタスクにおいても効率的な方策学習を可能にした。",
+   "authors": [
+    "Bhavya Sukhija",
+    "Oliver Groth",
+    "Mohit Shridhar",
+    "Tim Hertweck",
+    "Michael Bloesch",
+    "Markus Wulfmeier",
+    "Abbas Abdolmaleki",
+    "Martin Riedmiller"
+   ],
+   "categories": [
+    "cs.AI"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "vision-language-action",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.19891",
+   "image": "figures/2026-08-22/2608.19891.jpg"
+  },
+  {
+   "date": "2026-08-22",
+   "rank": 3,
+   "id": "2608.19613",
+   "group": "focus",
+   "title": "What Matters for Latent Actions in Robot Learning",
+   "title_ja": "ロボット学習における潜在行動の本質的要因の解明",
+   "summary_ja": "ラベルなし動画から学習する潜在行動モデル（LAM）の体系的な実証研究を実施。代表的なLAM手法を共通のオートエンコーディングフレームワークに統合し、アーキテクチャ設計や潜在空間の正則化などの各要素が下流のマニピュレーションタスク性能に与える影響を多角的な実験により明らかにした。",
+   "authors": [
+    "Xizhou Bu",
+    "Qingda Hu",
+    "Lei Zhou",
+    "Lingfeng Zhang",
+    "Yingbo Tang",
+    "Zihao Liu",
+    "Xinyi Tao",
+    "Zhiqiang Ma",
+    "Qingqiu Huang",
+    "Chufeng Tang",
+    "Hongbo Wang",
+    "Jing Zhang",
+    "Jiayi Ma",
+    "Hangjun Ye",
+    "Wei Li",
+    "Xiaoshuai Hao"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "imitation-learning",
+    "benchmark",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.19613",
+   "image": "figures/2026-08-22/2608.19613.jpg"
+  },
+  {
+   "date": "2026-08-22",
+   "rank": 4,
+   "id": "2608.19589",
+   "group": "focus",
+   "title": "OrthoSkillVLA: Continual Skill Learning via Gradient-Informed Skill Subspace Adaptation",
+   "title_ja": "OrthoSkillVLA: 勾配情報に基づくスキル部分空間適応による継続的スキル学習",
+   "summary_ja": "VLAモデルに新規スキルを順次適応させる際の破滅的忘却を防ぐ継続学習手法を提案。VLMの表現空間と速度マッピングの役割の違いを分析し、直交部分空間でパラメータ更新を制限する勾配に基づく適応機構を導入。モデルサイズを肥大化させることなく既存スキルの保持と新規スキルの獲得を両立させた。",
+   "authors": [
+    "Jiaqi Wang",
+    "Zhou Fang",
+    "Qiongfeng Shi",
+    "Yi Zhou"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "vision-language-action",
+    "imitation-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.19589",
+   "image": "figures/2026-08-22/2608.19589.jpg"
+  },
+  {
+   "date": "2026-08-22",
+   "rank": 5,
+   "id": "2608.19776",
+   "group": "general",
+   "title": "CoToGrasp: Contact-Topology-Conditioned Dexterous Grasp Synthesis via Canonical Workspace Learning",
+   "title_ja": "CoToGrasp: 正準作業空間学習による接触トポロジー条件付き多指把持合成",
+   "summary_ja": "特定の接触トポロジー（指先の接触関係）を指定して安定した多指把持姿勢を生成する生成モデルCoToGraspを提案。物体に依存しない正準作業空間特徴を用いることで、物体アノテーション付きデータセットなしで学習可能とし、下流のタスクに応じた機能的な器用把持の生成を実現した。",
+   "authors": [
+    "Julien Merand",
+    "Boris Meden",
+    "Liming Chen",
+    "Mathieu Grossard"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "grasping",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.19776",
+   "image": "figures/2026-08-22/2608.19776.jpg"
+  },
+  {
+   "date": "2026-08-22",
+   "rank": 6,
+   "id": "2608.19740",
+   "group": "general",
+   "title": "Keeping the Franka Emika Panda alive: a ROS 2 stack with a reliable position interface",
+   "title_ja": "Franka Emika Pandaの信頼性の高い位置インターフェースを備えたROS 2スタック",
+   "summary_ja": "Franka Emika Pandaの外部位置制御における振動や保護停止の原因がサンプリングジッターや通信タイミングにあることを解明し、安定した制御を実現するオープンソースROS 2スタックを開発。リアルタイム通信を分離した非同期ハードウェアIFと参照軌道生成により、安全で高精度な位置制御を復元した。",
+   "authors": [
+    "Antonio Langella",
+    "Davide Risi",
+    "Vincenzo Petrone",
+    "Enrico Ferrentino",
+    "Pasquale Chiacchio"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.19740",
+   "image": "figures/2026-08-22/2608.19740.jpg"
+  },
+  {
+   "date": "2026-08-22",
+   "rank": 7,
+   "id": "2608.19661",
+   "group": "general",
+   "title": "World-Model-Grounded LLM Planning for AUV and ASV Navigation Near Offshore Wind Farms",
+   "title_ja": "洋上風力発電所周辺の自律艇向けワールドモデル準拠LLMプランニング",
+   "summary_ja": "物理的直感を持たないLLMによる行動計画のドリフトや衝突を防ぐため、物理準拠のニューラルワールドモデルと組み合わせた航法計画手法を提案。勾配ベースの軌道最適化とMPC型の閉ループ再計画により、AUVやASVの6自由度推進を正確に予測制御し、洋上インフラ近傍の安全な航行を実現した。",
+   "authors": [
+    "Markus Buchholz",
+    "Ignacio Carlucho",
+    "Yvan R. Petillot"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "planning",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.19661",
+   "image": "figures/2026-08-22/2608.19661.jpg"
+  },
+  {
+   "date": "2026-08-22",
+   "rank": 8,
+   "id": "2608.20043",
+   "group": "general",
+   "title": "Wave-Based Bilateral Teleoperation between Nonlinear Manipulators with Direct Contact Force Feedback",
+   "title_ja": "直接接触力フィードバックを伴う非線形マニピュレータ間の波動に基づく双方向遠隔操作",
+   "summary_ja": "通信遅延が存在する環境下で、環境力を直接マスター側にフィードバックして透明性を高める非線形マニピュレータのバイラテラル遠隔操作手法を提案。受動性不足をLMIアプローチで定量化し、厳密受動通信則で補償することで、閉ループ系の安定性を理論的に保証した。",
+   "authors": [
+    "G. Q. Bao Tran",
+    "Takanori Miyoshi",
+    "Ho Duc Tho"
+   ],
+   "categories": [
+    "eess.SY",
+    "cs.RO",
+    "math.DS",
+    "math.OC"
+   ],
+   "tags": [
+    "teleoperation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.20043",
+   "image": "figures/2026-08-22/2608.20043.jpg"
+  },
+  {
+   "date": "2026-08-22",
+   "rank": 9,
+   "id": "2608.19729",
+   "group": "general",
+   "title": "SafeBranch: Branch-Pair Safety Alignment for Embodied Agents",
+   "title_ja": "SafeBranch: 体現エージェントのための分岐ペア安全アライメント",
+   "summary_ja": "VLMベースのエージェントが安全制約を満たして行動するための学習フレームワークを提案。軌道内の安全クリティカルなステップから安全な分岐と危険な分岐のペアを抽出し、対照的にアライメントすることで、タスク成功率を損なわずに危険行動を大幅に削減することに成功した。",
+   "authors": [
+    "Hyunse Lee",
+    "Jiwoo Jeong",
+    "Haneul Lee",
+    "Kyochul Jang",
+    "Youngjae Yu",
+    "Woojin Lee"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.CV",
+    "cs.RO"
+   ],
+   "tags": [
+    "safety",
+    "imitation-learning",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.19729",
+   "image": "figures/2026-08-22/2608.19729.jpg"
+  },
+  {
    "date": "2026-08-21",
    "rank": 0,
    "id": "2608.19955",
