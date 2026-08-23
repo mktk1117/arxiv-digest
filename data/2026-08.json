@@ -1,6 +1,148 @@
 {
  "entries": [
   {
+   "date": "2026-08-23",
+   "rank": 0,
+   "id": "2608.20084",
+   "group": "general",
+   "title": "Evidence-Gated Task and Motion Planning with Vision-Language Models",
+   "title_ja": "視覚言語モデルを用いた証拠獲得・実行可能性ゲーティングによるタスク＆モーションプランニング",
+   "summary_ja": "部分観測環境での長期間マニピュレーションにおいて、VLMの事前知識への過信による失敗を防ぐフレームワークEAFGを提案。VLMによる探索的サブゴールで視覚的証拠を獲得し、幾何学的実行可能性を検証してから行動を実行する。",
+   "authors": [
+    "Tsunehiko Tanaka",
+    "Matthew Stephenson",
+    "Alistair Macvicar",
+    "Edgar Simo-Serra"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "planning",
+    "manipulation",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.20084",
+   "image": "figures/2026-08-23/2608.20084.jpg"
+  },
+  {
+   "date": "2026-08-23",
+   "rank": 1,
+   "id": "2608.20308",
+   "group": "general",
+   "title": "DreamHand: Repurposing Video Diffusion Models for Occlusion-Robust Egocentric 3D Hand Motion Recovery",
+   "title_ja": "DreamHand: 遮蔽に頑健な一人称視点3D手先運動復元のための動画拡散モデルの再利用",
+   "summary_ja": "一人称視点動画からのマニピュレーションデータ抽出に向け、動画拡散モデル（VDM）を決定論的幾何エンコーダとして再利用する手法DreamHandを提案。単一フォワードパスで遮蔽や視野外の手先の3D軌道を高精度に復元する。",
+   "authors": [
+    "Yufei Liu",
+    "Xixi Wang",
+    "Hao Li",
+    "Ganlong Zhao",
+    "Kaitong Cai",
+    "Chengkai Jin",
+    "Chunxiao Liu",
+    "Jianbo Liu",
+    "Siyuan Huang",
+    "Xingang Pan",
+    "Hongsheng Li"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "manipulation",
+    "perception",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.20308",
+   "image": "figures/2026-08-23/2608.20308.jpg"
+  },
+  {
+   "date": "2026-08-23",
+   "rank": 2,
+   "id": "2608.20275",
+   "group": "general",
+   "title": "DART-S: Reachability-Audited Active-Suspension Preconditioning for Off-Road Vehicle Jumps",
+   "title_ja": "DART-S: オフロード車両ジャンプのための到達可能性監査付きアクティブサスペンション事前制御",
+   "summary_ja": "車両ジャンプ時の離陸前サスペンション制御によりピッチや角運動量を事前調整するDART-Sを提案。局所キャリブレーションマップと到達可能性監査を組み合わせ、BeamNGでの600回の試行で指定通りの安全な挙動遷移を実現した。",
+   "authors": [
+    "Yu Hu",
+    "Fangzhou Zhao",
+    "Liang Chen",
+    "Chen Min",
+    "Wei Li",
+    "Mingyuan Sang",
+    "Jiajia Ma",
+    "Shican Chen",
+    "Di Pang",
+    "Baolei Chen"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "simulation",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.20275",
+   "image": "figures/2026-08-23/2608.20275.jpg"
+  },
+  {
+   "date": "2026-08-23",
+   "rank": 3,
+   "id": "2608.20284",
+   "group": "general",
+   "title": "Towards Surgical World-Action Modeling: A Preliminary Joint Visual-Trajectory Forecasting for Surgical Motion Planning",
+   "title_ja": "手術用ワールド・アクションモデルに向けて: 動作計画のための視覚と軌道の同時予測",
+   "summary_ja": "手術ロボットの動作計画において、器具の軌道予測と手術部位の視覚的状態変化を別個に扱っていた問題を解決するため、視覚と軌道を統合的に同時予測するワールド・アクションモデルの枠組みを提案した。",
+   "authors": [
+    "Weiliang Huang",
+    "Huanrong Liu",
+    "Bob Zhang",
+    "Qi Dou",
+    "Zhen Chen",
+    "Yun Gu",
+    "Guy Rosman",
+    "Qingbiao Li"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.RO"
+   ],
+   "tags": [
+    "medical",
+    "world-model",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.20284",
+   "image": null
+  },
+  {
+   "date": "2026-08-23",
+   "rank": 4,
+   "id": "2608.19968",
+   "group": "general",
+   "title": "PVRA: A Pointwise Key-point Voting Framework for Robotic Assembly",
+   "title_ja": "PVRA: ロボット組み立てのための点群キーポイント投票フレームワーク",
+   "summary_ja": "ロボットによる逐次組み立て作業向けに、RGB-D入力から組み立て依存関係を学習して実行可能な動作を出力する3Dキーポイントベースのモジュール学習フレームワークPVRAを提案した。",
+   "authors": [
+    "Kulunu Samarawickrama",
+    "Roel Pieters"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "manipulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.19968",
+   "image": null
+  },
+  {
    "date": "2026-08-22",
    "rank": 0,
    "id": "2608.20251",
