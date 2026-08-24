@@ -1,6 +1,292 @@
 {
  "entries": [
   {
+   "date": "2026-08-24",
+   "rank": 0,
+   "id": "2608.20823",
+   "group": "focus",
+   "title": "Natural Sit-to-Stand Motion Synthesis For Humanoids via Guided Assistance Curricula and Staged Rewards",
+   "title_ja": "誘導アシストカリキュラムと段階的報酬によるヒューマノイドの自然な着座・起立動作生成",
+   "summary_ja": "参照軌道やデモを用いずに、強化学習（PPO）でヒューマノイドの自然な着座から起立（STS）動作を獲得する手法を提案。初期探索を支援する骨盤アシスト力と椅子の高さを連動させたカリキュラム、および段階的な報酬設計を導入した。これにより、様々な椅子の高さに対してスムーズで安定した起立動作の自律的な学習を実現した。",
+   "authors": [
+    "Meet Pal Singh",
+    "Vyankatesh Ashtekar",
+    "Ashish Dutta"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.20823",
+   "image": "figures/2026-08-24/2608.20823.jpg"
+  },
+  {
+   "date": "2026-08-24",
+   "rank": 1,
+   "id": "2608.20852",
+   "group": "focus",
+   "title": "Demonstration-Guided Humanoid Stand-Up on an Emulated Deformable Surface",
+   "title_ja": "模擬柔軟地面上におけるデモ誘導型ヒューマノイド起き上がり動作の実現",
+   "summary_ja": "29自由度のUnitree G1ヒューマノイドを対象に、剛体地面での人間デモを活用して柔軟地面から起き上がる参照誘導型強化学習フレームワークを提案。MuJoCoの接触パラメータで地面の柔軟性を模擬し、残差関節位置制御と骨盤高さなどの復帰目標報酬を組み合わせた。剛体地面から徐々に剛性を下げる学習により、変形地形での起き上がりを達成した。",
+   "authors": [
+    "Aniruddh Kushwah",
+    "Vyankatesh Ashtekar",
+    "Ashish Dutta"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "reinforcement-learning",
+    "control",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.20852",
+   "image": "figures/2026-08-24/2608.20852.jpg"
+  },
+  {
+   "date": "2026-08-24",
+   "rank": 2,
+   "id": "2608.20936",
+   "group": "focus",
+   "title": "Graph-Operator World Models for Morphology-Parameter Generalization in Continuous Control",
+   "title_ja": "連続制御における形態パラメータ汎化のためのグラフ作用素ワールドモデル",
+   "summary_ja": "リンク長や質量などの形態パラメータが変化した際にも適応可能な連続制御向けワールドモデルGraphOp-WMを提案。ロボットの幾何学的・運動学的構造を属性付きグラフとして表現し、状態遷移を形態非依存の演算子と形態依存の局所力学に分離してモデル化する。これにより、未知の形態パラメータを持つ類似ロボットへの高い汎化性能を示した。",
+   "authors": [
+    "Xu Yang",
+    "Yiqin Yang",
+    "Qianchuan Zhao"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.20936",
+   "image": "figures/2026-08-24/2608.20936.jpg"
+  },
+  {
+   "date": "2026-08-24",
+   "rank": 3,
+   "id": "2608.21204",
+   "group": "focus",
+   "title": "Beyond Imitation: Self-Improving Robot Policies via Off-Policy Q-Planning",
+   "title_ja": "模倣を超えて：オフポリシーQプランニングによるロボット方策の自己改善",
+   "summary_ja": "大規模な視覚運動行動クローニング（BC）方策に軽量なオフポリシーQ関数を統合する「Q-Planning」を提案。Q関数は成功デモだけでなく展開時の失敗データも吸収して価値を推定し、推論時にモデルフリーなプランニングでBC方策の行動を修正する。これにより、大規模VLAの再学習コストを抑えつつ自律的な自己改善を可能にした。",
+   "authors": [
+    "Varun Giridhar",
+    "Anant Khandelwal",
+    "Jeremy A. Collins",
+    "Ignat Georgiev",
+    "Animesh Garg"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "imitation-learning",
+    "reinforcement-learning",
+    "planning",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.21204",
+   "image": "figures/2026-08-24/2608.21204.jpg"
+  },
+  {
+   "date": "2026-08-24",
+   "rank": 4,
+   "id": "2608.20909",
+   "group": "focus",
+   "title": "Decoupling Policy Extraction for Offline Reinforcement Learning",
+   "title_ja": "オフライン強化学習における方策抽出の分離",
+   "summary_ja": "オフライン強化学習で生じるActor更新時の分布外行動へのドリフトや過大評価の増幅を防ぐため、方策抽出プロセスを分離する手法を提案。データセットが固定されるオフライン設定特有の課題に対し、Criticの保守的な価値評価とActorの改善ステップを適切に切り離すことで、安定した方策学習と既存アルゴリズムを上回るベンチマーク性能を実証した。",
+   "authors": [
+    "Xuyao Lin",
+    "Yixiang Shan",
+    "Jinru Duan",
+    "Tao Yang",
+    "Xinyu Zhao",
+    "Runyu Lei",
+    "Yiming Zhao",
+    "Jiaxin Fan",
+    "Zongbao Feng",
+    "Peng Jia"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.20909",
+   "image": "figures/2026-08-24/2608.20909.jpg"
+  },
+  {
+   "date": "2026-08-24",
+   "rank": 5,
+   "id": "2608.20556",
+   "group": "general",
+   "title": "Logic-VLA: A Temporal Logic Conditioned Vision-Language-Action Model",
+   "title_ja": "Logic-VLA: 信号時相論理を条件付けたVision-Language-Actionモデル",
+   "summary_ja": "自然言語指示だけでは曖昧になりがちな時空間要件や安全制約を厳密に満たすため、信号時相論理（STL）を推論時に条件付けるVLAモデルを提案。構文グラフベースのSTLエンコーダを用いた教師あり微調整と、フローマッチングによる軌道レベルの選好最適化を行う。これにより、厳格な時系列制約や安全要件を満たすロボット行動生成を実現した。",
+   "authors": [
+    "Celina Shiyu Wang",
+    "Yiqi Zhao",
+    "Junjie Ye",
+    "Yue Wang",
+    "Jyotirmoy V. Deshmukh"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "vision-language-action",
+    "safety",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.20556",
+   "image": "figures/2026-08-24/2608.20556.jpg"
+  },
+  {
+   "date": "2026-08-24",
+   "rank": 6,
+   "id": "2608.20784",
+   "group": "general",
+   "title": "Rethinking Demonstration Unlearning in Imitation Learning for Robotics",
+   "title_ja": "ロボティクス模倣学習における実演データ忘却の再考",
+   "summary_ja": "模倣学習モデルから特定の人間実演データを削除するアンラーニングの評価手法を再考。閉ループ制御において編集済み方策が再学習時と同等の挙動を示すか、および監査モデルから痕跡が消去されたかを測る2軸の監査枠組みを提案した。既存の忘却手法が閉ループ動作において元の挙動や痕跡を保持してしまう課題を明らかにした。",
+   "authors": [
+    "Jiazhuo Li",
+    "Yu Zhang",
+    "Yiming Fei",
+    "Kangkang Dong",
+    "Xiaojun Zhu",
+    "Houde Liu",
+    "Jinze Tao"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "imitation-learning",
+    "benchmark",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.20784",
+   "image": "figures/2026-08-24/2608.20784.jpg"
+  },
+  {
+   "date": "2026-08-24",
+   "rank": 7,
+   "id": "2608.20546",
+   "group": "general",
+   "title": "Koala Gripper: Co-designing Robotic Grippers and Data-Capture Devices for Scaling Dexterous Manipulation Learning",
+   "title_ja": "Koala Gripper: 巧緻なマニピュレーション学習を拡張するロボットグリッパーとデータ収集デバイスの協調設計",
+   "summary_ja": "手持ち式データ収集デバイスと実機ロボットグリッパーの機構を同時に最適化する協調設計フレームワークを提案。人間工学的制約とロボットの把持能力を両立する「Koala Gripper」を開発した。従来の平行グリッパーと比べて把持能力と器用さを大幅に向上させ、大規模な模倣学習データ収集の効率化に寄与した。",
+   "authors": [
+    "Amar Hajj-Ahmad",
+    "Zubin Kremer Guha",
+    "Tim Fofonoff",
+    "Zhi Ern Teoh",
+    "Ciar\\'an T. O'Neill",
+    "Ben Thacher",
+    "Igor Fala",
+    "Vidullan Surendran",
+    "Murphy Wonsick",
+    "Peter Whitney",
+    "David Watkins"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "grasping",
+    "manipulation",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.20546",
+   "image": "figures/2026-08-24/2608.20546.jpg"
+  },
+  {
+   "date": "2026-08-24",
+   "rank": 8,
+   "id": "2608.21031",
+   "group": "general",
+   "title": "PhysCaP: Grounding Code-as-Policy Agent with Physics-Informed Exploration",
+   "title_ja": "PhysCaP: 物理情報に基づく能動的探索を備えたCode-as-Policyエージェント",
+   "summary_ja": "受動的な視覚観察だけでは推定が困難な物体の質量や剛性などの潜在的物理特性を、ロボットの固有感覚を介した能動的接触探索によって推定するCode-as-Policy手法を提案。追加センサ不要の物理特性抽出モジュールと探索効率を最適化するデュアルエージェント構成により、正確な物理パラメータに基づくマニピュレーションコード生成を実現した。",
+   "authors": [
+    "Chen-Yu Lin",
+    "Jing-Wen Chen",
+    "Hsueh-En Chang",
+    "Hung-An Chen",
+    "Sheng-Hsun Chang",
+    "Chi-Pin Huang",
+    "Fu-En Yang",
+    "Min-Hung Chen",
+    "Yi-Ting Chen",
+    "Yu-Chiang Frank Wang",
+    "Shao-Hua Sun"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "llm-agent",
+    "perception",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.21031",
+   "image": "figures/2026-08-24/2608.21031.jpg"
+  },
+  {
+   "date": "2026-08-24",
+   "rank": 9,
+   "id": "2608.20735",
+   "group": "general",
+   "title": "ForeTime-VLA: Causal Future-Token Distillation from a World Action Model for Conveyor-Belt Manipulation",
+   "title_ja": "ForeTime-VLA: ベルトコンベア操作に向けた世界行動モデルからの因果的未来トークン蒸留",
+   "summary_ja": "動的物体の操作において接触イベントを予測するため、動画世界モデル（Fast-WAM）の未来予測特徴を軽量なVLA方策に蒸留する手法を提案。オフラインで未来の潜在状態を圧縮し、推論時は過去フレームの履歴から因果的に予測することで、低遅延を維持しながらコンベアベルト上の物体把持など高度な動的操作を達成した。",
+   "authors": [
+    "Siyuan Ma",
+    "Yutian Zhang",
+    "Boshi Zhang",
+    "Qinglian Wu",
+    "Jiaqi Zhai",
+    "Dong Wei",
+    "Xiaojin Huang"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "world-model",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.20735",
+   "image": "figures/2026-08-24/2608.20735.jpg"
+  },
+  {
    "date": "2026-08-23",
    "rank": 0,
    "id": "2608.20084",
