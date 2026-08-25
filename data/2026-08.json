@@ -1,6 +1,306 @@
 {
  "entries": [
   {
+   "date": "2026-08-25",
+   "rank": 0,
+   "id": "2608.22033",
+   "group": "focus",
+   "title": "DELTA: Deformable Elevation-Based Local Terrain Attention Encoder for Sparse-Terrain Quadrupedal Locomotion",
+   "title_ja": "DELTA: スパース地形での四足歩行に向けた変形可能標高局所地形アテンションエンコーダ",
+   "summary_ja": "不連続で疎な地形において正確な足配置を行う四足歩行強化学習手法を提案。状態に応じたサンプリング位置を予測し、適応的な局所標高特徴からトークンを生成する変形可能アテンション機構DELTAを導入した。従来の密な標高マップ処理に伴う計算コストを抑えつつ、未知のスパース地形での安定した踏み込みと高い歩行走破性を実現した。",
+   "authors": [
+    "Sanghyun Park",
+    "Moonkyu Jung",
+    "Jemin Hwangbo"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "quadruped",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.22033",
+   "image": "figures/2026-08-25/2608.22033.jpg"
+  },
+  {
+   "date": "2026-08-25",
+   "rank": 1,
+   "id": "2608.22278",
+   "group": "focus",
+   "title": "DreamMimic: Learning Visuomotor Whole-Body Loco-Manipulation via World Model",
+   "title_ja": "DreamMimic: ワールドモデルを介した視覚運動全身移動マニピュレーションの学習",
+   "summary_ja": "ヒューマノイドロボットにおける視覚ベースの全身移動マニピュレーション（Loco-Manipulation）フレームワークを提案。特権情報を持つ教師方策を、ワールドモデルによる予測的潜在ダイナミクスを介して生徒方策へ蒸留する。予測的特徴を活用することで長大なタスクにおける部分観測性や接触リッチなダイナミクスへの対応力を高めている。",
+   "authors": [
+    "Jie Yin",
+    "Xingyu Lai"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.22278",
+   "image": "figures/2026-08-25/2608.22278.jpg"
+  },
+  {
+   "date": "2026-08-25",
+   "rank": 2,
+   "id": "2608.21550",
+   "group": "focus",
+   "title": "GOLEM: Modular Humanoid Autonomy Towards Electric Vehicle Battery Disassembly",
+   "title_ja": "GOLEM: EVバッテリー解体に向けたモジュール型ヒューマノイド自律システム",
+   "summary_ja": "Unitree H1-2ヒューマノイドを用いたEVバッテリー解体のためのオープンソースシステムアーキテクチャ。歩行、操作、動的安定性、ナビゲーション、空間メモリを独立モジュール化し、MuJoCoおよびIsaac Labのデジタルツイン環境と実機で共通のROS 2インターフェースを提供することで、アルゴリズムの容易な交換・検証を可能にした。",
+   "authors": [
+    "Max Conway",
+    "William Xie",
+    "Allen Devaraj",
+    "Yutong Zhang",
+    "Niraj Pudasaini",
+    "Mateo Feit",
+    "Adam Abid",
+    "Zachary Allen",
+    "Chen Liu",
+    "Xuan Tan",
+    "Jensen Lavering",
+    "Jason Chen",
+    "Lyle Antieau",
+    "Anthony Von Pischke",
+    "Alessandro Roncone",
+    "Zachary Sunberg",
+    "Nikolaus Correll"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "simulation",
+    "locomotion",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.21550",
+   "image": "figures/2026-08-25/2608.21550.jpg"
+  },
+  {
+   "date": "2026-08-25",
+   "rank": 3,
+   "id": "2608.22629",
+   "group": "focus",
+   "title": "Enhancing Sim2Real Transfer for Torque-Controlled Robots through Real2Sim Dynamics Estimation and Reinforcement Learning",
+   "title_ja": "Real2Simダイナミクス推定と強化学習によるトルク制御ロボットのSim2Real転移の強化",
+   "summary_ja": "トルク制御ロボットアームにおける強化学習方策のSim-to-Real転移を改善するパイプラインを提案。実機軌道との誤差を遺伝的アルゴリズムで最小化して摩擦や慣性などの動力学パラメータを同定（Real2Sim）し、ドメインランダム化と組み合わせて学習を行う。Franka Emika Panda実機で低レベルトルク制御の安定した転移を確認した。",
+   "authors": [
+    "Davide Bargellini",
+    "Alex Pasquali",
+    "Andrea Govoni",
+    "Riccardo Zanella",
+    "Gianluca Palli"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "sim-to-real",
+    "reinforcement-learning",
+    "control",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.22629",
+   "image": "figures/2026-08-25/2608.22629.jpg"
+  },
+  {
+   "date": "2026-08-25",
+   "rank": 4,
+   "id": "2608.22296",
+   "group": "focus",
+   "title": "TONAV: Task-Oriented Navigation and Action-Velocity Chunk Learning for Articulated Object Quadrupedal Mobile Manipulation",
+   "title_ja": "TONAV: 関節物体を対象とする四足移動マニピュレーションのためのタスク指向ナビゲーションと行動・速度チャンク学習",
+   "summary_ja": "四足ロボットによる関節物体（ドアや引き出し等）の操作に向け、タスク指向ナビゲーションと操作制御を統合した手法を提案。遠隔操作時の位置・速度連動により実機ダイナミクスを捉えつつ、目標接近後のマニピュレーション準備状態への遷移と、接触を伴う継続的なインタラクションの安定性を向上させた。",
+   "authors": [
+    "Haoran Lin",
+    "Mingyu Yang",
+    "Pengfei Qi",
+    "Kehan Chen",
+    "Qiang Diao",
+    "Liangji Zeng",
+    "Wenrui Chen",
+    "Yaonan Wang",
+    "Kailun Yang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "quadruped",
+    "manipulation",
+    "navigation",
+    "teleoperation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.22296",
+   "image": "figures/2026-08-25/2608.22296.jpg"
+  },
+  {
+   "date": "2026-08-25",
+   "rank": 5,
+   "id": "2608.22100",
+   "group": "general",
+   "title": "Contact-Rich Robotic Manipulation in Construction via Zero-Shot Learning: A Diffusion Policy-Guided Adaptive Control",
+   "title_ja": "拡散方策誘導型適応制御による建設向け接触リッチロボット操作",
+   "summary_ja": "厳しい公差や製作誤差が存在する建築部材組立に向け、シミュレーションデータで事前学習したDiffusion PolicyとL1型適応コントローラを統合。未モデル化の接触ダイナミクスを実機適応制御で補正することで、木工仕口接合や配管継ぎ手などの接触リッチなタスクをゼロショットで高精度に達成した。",
+   "authors": [
+    "Roman Ibrahimov (Princeton University)",
+    "Salma Mozaffari (Princeton University)",
+    "Arash Adel (Princeton University)"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "control",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.22100",
+   "image": "figures/2026-08-25/2608.22100.jpg"
+  },
+  {
+   "date": "2026-08-25",
+   "rank": 6,
+   "id": "2608.21400",
+   "group": "general",
+   "title": "Active Interaction-Aware Model Predictive Path Integral via Ego-Conditioned Generative Predictions",
+   "title_ja": "自車条件付き生成予測モデルを用いた能動的インタラクション認識MPPI",
+   "summary_ja": "混雑した交通流における自動運転に向け、自車の将来行動を条件とする自己回帰型生成予測モデルをMPPI（モデル予測経路積分制御）に統合したプランニング手法。周辺車両の確率的・マルチモーダルな反応を考慮したネスト型サンプリングにより、インタラクションを能動的に考慮した軌道生成と衝突リスク評価を実現した。",
+   "authors": [
+    "Khaled A. Mustafa",
+    "Mohamed-Khalil Bouzidi",
+    "Christian Schlauch",
+    "Ahmad Gazar",
+    "Nadja Klein",
+    "Joerg Reichardt",
+    "Javier Alonso-Mora"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "autonomous-driving",
+    "planning",
+    "control",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.21400",
+   "image": "figures/2026-08-25/2608.21400.jpg"
+  },
+  {
+   "date": "2026-08-25",
+   "rank": 7,
+   "id": "2608.21740",
+   "group": "general",
+   "title": "CounterAlign: Counterfactual Supervision for Vision-Language-Action Models",
+   "title_ja": "CounterAlign: Vision-Language-Actionモデルのための反実仮想的監督",
+   "summary_ja": "エキスパートのデモデータのみからオフライン強化学習用の負例監督信号を生成する手法。指示文のリラベリングにより、成功軌道を活用して指示に反する行動に対する密な修正信号を構築する。外部報酬設計や非エキスパートデータの収集を必要とせずに、VLAモデルの指示追従精度と頑健性を向上させた。",
+   "authors": [
+    "Haru Kondoh",
+    "Kei Ota",
+    "Asako Kanezaki",
+    "Yueh-Hua Wu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "reinforcement-learning",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.21740",
+   "image": "figures/2026-08-25/2608.21740.jpg"
+  },
+  {
+   "date": "2026-08-25",
+   "rank": 8,
+   "id": "2608.22637",
+   "group": "general",
+   "title": "OmniCAD: A Large-Scale Benchmark for 3D Spatial Reasoning in Robotics Assemblies",
+   "title_ja": "OmniCAD: ロボット組立における3D空間推論のための大規模ベンチマーク",
+   "summary_ja": "ロボット機構や自動車部品など多岐にわたる工業製品を対象とした、組立向け3D空間推論ベンチマーク。2万5000件の機械アセンブリと21種の結合関係を含み、部品レベルの空間配置や拘束関係の推論など、VLM等の空間認識能力を精密に評価可能なデータセットと評価基盤を提供する。",
+   "authors": [
+    "Mingjia Wang",
+    "Taiting Lu",
+    "Ziwei Dong",
+    "Sisong Bei",
+    "Jingying Zeng",
+    "Runze Liu",
+    "Kaiyuan Lin",
+    "Hongxing Pan",
+    "Kai Zhang",
+    "Yizheng Hou",
+    "Yangshoudu Zheng",
+    "Chenchen Guo",
+    "Weiyuan Meng",
+    "Shubin Lyu",
+    "Zhijun Zheng",
+    "Dexu Wang",
+    "Xinyu Bai",
+    "Shurui Qian",
+    "Zhangzixin",
+    "Mengyu Pan",
+    "Guoliang Shi",
+    "Ling Ma",
+    "Yifan Yang",
+    "Qi He",
+    "Yi-Chao Chen",
+    "Yincheng Jin",
+    "Sung-Liang Chen",
+    "Mahanth Gowda"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "benchmark",
+    "dataset",
+    "perception",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.22637",
+   "image": "figures/2026-08-25/2608.22637.jpg"
+  },
+  {
+   "date": "2026-08-25",
+   "rank": 9,
+   "id": "2608.23163",
+   "group": "general",
+   "title": "Spinning Quadrotor: Hover Thrust Augmentation with Passive Lifting Surfaces",
+   "title_ja": "回転型クアッドローター: 受動翼によるホバリング推力増強",
+   "summary_ja": "ホバリング中に能動的なヨー回転抑制を行わず、あえて定常旋回させることで受動翼から揚力を得る新しいクアッドローター構造を提案。低レイノルズ数領域の翼型解析とハードウェア実験を実施し、従来の姿勢制御で浪費されていた電力を揚力に変換して必要推力を22%削減できることを示した。",
+   "authors": [
+    "Aniketh Parkala",
+    "Harikumar Kandath"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "drone",
+    "hardware",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.23163",
+   "image": "figures/2026-08-25/2608.23163.jpg"
+  },
+  {
    "date": "2026-08-24",
    "rank": 0,
    "id": "2608.20823",
