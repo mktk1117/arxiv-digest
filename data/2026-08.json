@@ -1,6 +1,296 @@
 {
  "entries": [
   {
+   "date": "2026-08-26",
+   "rank": 0,
+   "id": "2608.24217",
+   "group": "focus",
+   "title": "CARO: Contact-Agnostic Residual Observation for Zero-Shot Robust Quadruped Locomotion",
+   "title_ja": "ゼロショットで堅牢な四足歩行のための接触非依存残差観測フレームワークCARO",
+   "summary_ja": "四足ロボットのオンライン適応のため、固定ベースのオイラー・ラグランジュモデルと外乱オブザーバをRLループに組み込み、トルクレベルの残差観測を構築する手法を提案。トルクセンサや明示的な接触推定、浮動ベース速度計測を要さず、モデル化誤差を捉えて適応する。特殊な外乱カリキュラムなしの学習で、実機において未知の外乱や不整地に対するゼロショットでの頑健な歩行を実現した。",
+   "authors": [
+    "Zihan Yang",
+    "Shixuan Han",
+    "Kexin Guo",
+    "Xiang Yu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "reinforcement-learning",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.24217",
+   "image": "figures/2026-08-26/2608.24217.jpg"
+  },
+  {
+   "date": "2026-08-26",
+   "rank": 1,
+   "id": "2608.24479",
+   "group": "focus",
+   "title": "WarpSAC: Towards the Pinnacle of Scalable Off-policy RL by Rethinking Exploration and Exploitation",
+   "title_ja": "大規模並列シミュレーション向けオフポリシー強化学習フレームワークWarpSAC",
+   "summary_ja": "大規模並列シミュレーション環境でのオフポリシー強化学習において、リプレイバッファのデータ体制に応じた安定化機構の再検証を行い、WarpSACを提案。データ量に応じたパラメータ正規化の調整や年齢バイアス付きリプレイ重み付けなどを導入した。8つのベンチマークファミリーにおいて、ロボット制御タスクの学習効率とスケーラビリティを大幅に向上させた。",
+   "authors": [
+    "Zihao Wu",
+    "Hongyao Tang",
+    "Yi Ma",
+    "Huizhong Song",
+    "Pengyi Li",
+    "Yifu Yuan",
+    "Fei Ni",
+    "Jinyi Liu",
+    "Wei Wei",
+    "Jianrong Wang",
+    "Yan Zheng",
+    "Jianye Hao"
+   ],
+   "categories": [
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "simulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.24479",
+   "image": "figures/2026-08-26/2608.24479.jpg"
+  },
+  {
+   "date": "2026-08-26",
+   "rank": 2,
+   "id": "2608.23887",
+   "group": "focus",
+   "title": "Interpreting Control Latents for System Identification via Conditional Flow Matching",
+   "title_ja": "条件付きフローマッチングによるシステム同定のための制御潜在変数の解釈",
+   "summary_ja": "潜在変数条件付き適応方策において、ブラックボックス化していた潜在変数を条件付きフローマッチングにより物理モデルの分布へとデコードする手法を提案。方策を変更することなく、閉ループの潜在変数からクアッドロータ等の物理パラメータ分布を復元する。これにより、オンラインの予測的安全性フィルタリングやシミュレータ内での高精度なシステム同定が可能となった。",
+   "authors": [
+    "Dingqi Zhang",
+    "Ruiqi Zhang",
+    "Mark W. Mueller"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "reinforcement-learning",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.23887",
+   "image": "figures/2026-08-26/2608.23887.jpg"
+  },
+  {
+   "date": "2026-08-26",
+   "rank": 3,
+   "id": "2608.23831",
+   "group": "focus",
+   "title": "Learning to Act While Waiting: RL Finetuning of Generalist Robot Policies Under Inference Latency",
+   "title_ja": "推論遅延下での汎用ロボット方策の強化学習ファインチューニング基盤ARLI",
+   "summary_ja": "VLAなどの大規模方策における推論遅延がマルコフ性を損ないRLの継続学習を破綻させる問題に対し、遅延を考慮した非同期強化学習フレームワークARLIを提案。中間情報を活用して遅延中の行動決定と状態遷移を整合させる。実機マニピュレーションやシミュレーションにおいて、推論遅延が存在する状況下でも方策の安定したオンラインRL改善を達成した。",
+   "authors": [
+    "Brian Zhu (Siemens)",
+    "Momen Khalil (Siemens)",
+    "E Harrison (UC Berkeley)",
+    "Emanuele Poggi (Siemens)",
+    "Philipp Schmitt (Siemens)",
+    "Bernd Kast (Siemens)",
+    "Philine Meister (Siemens)",
+    "Pranav Atreya (UC Berkeley)",
+    "Qiyang Li (UC Berkeley)",
+    "Finn Ferchau (Siemens)",
+    "Cesar Colmenero (Siemens)",
+    "Yash Shahapurkar (Siemens)",
+    "Gokul Narayanan (Siemens)",
+    "Melih Erdogan (Siemens)",
+    "Kai Wurm (Siemens)",
+    "Georg von Wichert (Siemens)",
+    "Oier Mees (Microsoft",
+    "ETH Zurich",
+    "UC Berkeley)",
+    "Eugen Solowjow (Siemens)",
+    "Andrew Wagenmaker (UC Berkeley)",
+    "Sergey Levine (UC Berkeley)"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "vision-language-action",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.23831",
+   "image": "figures/2026-08-26/2608.23831.jpg"
+  },
+  {
+   "date": "2026-08-26",
+   "rank": 4,
+   "id": "2608.23258",
+   "group": "focus",
+   "title": "Progressively Learning Heterogeneous Skills in a Unified Latent Space",
+   "title_ja": "統一潜在空間における異種スキルの漸進的学習フレームワークHetSkills",
+   "summary_ja": "物理ベースのキャラクターやロボット制御において、多様なデータ源やタスクから異種スキルを統一潜在空間内で漸進的に学習する手法を提案。共通のモーションデコーダを基盤とし、テキスト指示による動作生成など異なる教師信号のスキルをシームレスに統合・再利用する。スキルの干渉を防ぎながら、高品質で汎用的な全身運動制御を実現した。",
+   "authors": [
+    "Yue-Yi Zhang",
+    "Ming Gong",
+    "Linpu He",
+    "Wei-Shi Zheng",
+    "Zhilin Zhao"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.23258",
+   "image": "figures/2026-08-26/2608.23258.jpg"
+  },
+  {
+   "date": "2026-08-26",
+   "rank": 5,
+   "id": "2608.24212",
+   "group": "general",
+   "title": "NeoWorld-Pro: Programming Interactive Scenes from Monocular Images for Embodied Simulation",
+   "title_ja": "NeoWorld-Pro: 単眼画像から手続き型プログラミングにより物理シミュレーション環境を構築",
+   "summary_ja": "単眼RGB画像からインタラクティブな物理シミュレーション環境を自動生成するフレームワーク。MLLMのコード生成能力を活用して物体の幾何形状、関節機構、物理特性を記述するプログラムを出力し、物理シミュレーション検証ループを介して妥当性を担保する。身体性AIの学習用アセット生成を大幅に効率化した。",
+   "authors": [
+    "Yumeng He",
+    "Yichen Song",
+    "Xiaotian Yang",
+    "Weijia Zhang",
+    "Zanwei Zhou",
+    "Junru Gong",
+    "Xiaokang Yang",
+    "Yunbo Wang"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "simulation",
+    "perception",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.24212",
+   "image": "figures/2026-08-26/2608.24212.jpg"
+  },
+  {
+   "date": "2026-08-26",
+   "rank": 6,
+   "id": "2608.24885",
+   "group": "general",
+   "title": "Do Robotic World Models Really Follow Actions? Diagnosing and Aligning Action-Conditioned Generation for Policy Learning",
+   "title_ja": "WorldEcho: ロボット用ワールドモデルの行動追従性診断と整合",
+   "summary_ja": "行動条件付きワールドモデルがエキスパート以外の行動にも正確に追従して未来予測を生成できるかを評価するベンチマークWorldEchoを提案。視覚的整合性とSE(3)軌道整合性を用いて検証した結果、既存モデルが分布外の行動指示を無視・歪曲する問題を特定し、方策学習用シミュレータとしての課題と改善指針を示した。",
+   "authors": [
+    "Sixiang Chen",
+    "Jiaming Liu",
+    "Jixian Wu",
+    "Yichen Guo",
+    "Tinghao Wang",
+    "Siyuan Qian",
+    "Hao Chen",
+    "Jiajun Cao",
+    "Jian Tang",
+    "Shanghang Zhang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "world-model",
+    "benchmark",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.24885",
+   "image": "figures/2026-08-26/2608.24885.jpg"
+  },
+  {
+   "date": "2026-08-26",
+   "rank": 7,
+   "id": "2608.23869",
+   "group": "general",
+   "title": "Gen2Physics: Grounding Generated 3D Meshes in Physics via Multi-View Material Decomposition",
+   "title_ja": "Gen2Physics: 生成3Dメッシュの多視点材料分解による物理シミュレーション対応化",
+   "summary_ja": "生成された3Dメッシュを物理シミュレーションで利用可能にするため、材質コンポーネントへ自動分解し物性を付与するフレームワークを提案。ViTによる高密度な材料セグメンテーションと2D-3D整合投影、VLMによる物性割り当てを統合し、標準物理エンジンに即座に投入可能なシミュレーションアセットを生成する。",
+   "authors": [
+    "Mauro Comi",
+    "Jordi Serrano Berbel",
+    "Kevis-Kokitsi Maninis",
+    "Philipp Henzler",
+    "Manuel Sanchez"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "simulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.23869",
+   "image": "figures/2026-08-26/2608.23869.jpg"
+  },
+  {
+   "date": "2026-08-26",
+   "rank": 8,
+   "id": "2608.24162",
+   "group": "general",
+   "title": "Robust Slip Detection and Material Classification via Spatiotemporal Transformers on a Uniformly-Illuminated Visuo-Tactile Sensor",
+   "title_ja": "均一照明視覚触覚センサと時空間Transformerによる高精度すべり検出および材料分類",
+   "summary_ja": "サブミリ精度の深度再構成が可能な均一RGB照明を備えた視覚触覚センサと認識基盤を提案。15種類の物体からなる多視点触覚データセットを構築し、時空間Transformerを用いて従来の2値分類を超えた方向を含むすべり検出と材料分類を同時に高精度で達成した。",
+   "authors": [
+    "Ziyang Ma",
+    "Yuhao Sun",
+    "Zichen Ai",
+    "Xiangyang Ji",
+    "Bin Fang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "perception",
+    "grasping",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.24162",
+   "image": "figures/2026-08-26/2608.24162.jpg"
+  },
+  {
+   "date": "2026-08-26",
+   "rank": 9,
+   "id": "2608.24026",
+   "group": "general",
+   "title": "NeurRAFT: Robot Motion Planning via Anchor-Level Flow Matching with Clearance-Aware Preference Tuning",
+   "title_ja": "NeurRAFT: アンカーレベルのフローマッチングとクリアランス選好調整による動作計画",
+   "summary_ja": "密なウェイポイント系列ではなくコンパクトなアンカーウェイポイント上で動作する生成型モーションプランナーを提案。ヤコビアン重み付け損失によるフローマッチング学習と障害物クリアランスを考慮した選好チューニングを組み合わせ、混雑した環境でも高速かつ衝突のない滑らかな軌道生成を実現した。",
+   "authors": [
+    "Sibo Tian",
+    "Chang Liu",
+    "Minghui Zheng",
+    "Xiao Liang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "planning",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.24026",
+   "image": "figures/2026-08-26/2608.24026.jpg"
+  },
+  {
    "date": "2026-08-25",
    "rank": 0,
    "id": "2608.22033",
