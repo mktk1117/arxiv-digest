@@ -1,6 +1,311 @@
 {
  "entries": [
   {
+   "date": "2026-08-27",
+   "rank": 0,
+   "id": "2608.25405",
+   "group": "focus",
+   "title": "LAC: Linear and Angular Compliance for Humanoid Whole-body Control",
+   "title_ja": "LAC：ヒューマノイドの全身制御のための並進・回転コンプライアンス制御",
+   "summary_ja": "ヒューマノイドの上半身に加わる外力レンチに対して並進および回転のコンプライアンスを同時に実現する全身制御フレームワークLACを提案。外力・偶力イベントを付与した拡張データセットを構築し、受動的な運動連鎖からの仮想トルクを用いた仮想アドミタンス制御を導入することで、安定した物理接触インタラクションを可能にした。",
+   "authors": [
+    "Yang Liu",
+    "Zhongkai Gu",
+    "Wei Zhu",
+    "Mitsuhiro Hayashibe"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.25405",
+   "image": "figures/2026-08-27/2608.25405.jpg"
+  },
+  {
+   "date": "2026-08-27",
+   "rank": 1,
+   "id": "2608.25192",
+   "group": "focus",
+   "title": "CRESSim-Neo: A Batched GPU Simulation Engine for Surgical Robotics and Robot Learning",
+   "title_ja": "CRESSim-Neo：手術ロボティクスとロボット学習のためのバッチ化GPUシミュレーションエンジン",
+   "summary_ja": "剛体、変形体組織、流体、糸状構造のPosition-Based Simulationとバッチレンダリングを統合したGPUシミュレーションエンジンを提案。物理および描画バッファへの直接アクセスとDLPackによるPyTorchとのゼロコピー連携を実現し、GPU内で完結する高速なロボット学習パイプラインを提供する。",
+   "authors": [
+    "Yafei Ou",
+    "Ahnaf Naheen",
+    "Tleukhan Mussin",
+    "Hans Jarales",
+    "Melwin Moncy",
+    "Mahdi Tavakoli"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "reinforcement-learning",
+    "medical"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.25192",
+   "image": "figures/2026-08-27/2608.25192.jpg"
+  },
+  {
+   "date": "2026-08-27",
+   "rank": 2,
+   "id": "2608.25366",
+   "group": "focus",
+   "title": "RAEM: Robust Autonomous Exploration for Multi-Floor Environments with a Quadruped Robot",
+   "title_ja": "RAEM：四脚ロボットによる多層階環境のロバストな自律探査",
+   "summary_ja": "四脚ロボットが階段を含む多層階構造の建物を探査するための自律探査フレームワークを提案。グローバルトモグラフィマップの維持負荷や階段部での疎なLiDAR点群による局所通行性推定の劣化に対処し、多層階の連結構造を効率的に把握してロバストな経路計画と移動探査を実現する。",
+   "authors": [
+    "Zikang Yuan",
+    "Yuan Ren",
+    "Yian Wang",
+    "Yixue Wang",
+    "Enze Fang",
+    "Xuewei Zhang",
+    "Junda Cheng",
+    "Chi Chen",
+    "Chin-Pang Ho",
+    "Lijun Zhu",
+    "Shaohang Xu",
+    "Kwang-Ting Cheng",
+    "Xin Yang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "navigation",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.25366",
+   "image": "figures/2026-08-27/2608.25366.jpg"
+  },
+  {
+   "date": "2026-08-27",
+   "rank": 3,
+   "id": "2608.26053",
+   "group": "focus",
+   "title": "$R^3$: Training Robots to Reason in Natural Language via Reinforcement Learning",
+   "title_ja": "R^3：強化学習を通じて自然言語で推論するようロボットを訓練する手法",
+   "summary_ja": "VLMが自然言語で推論を行って低レベル方策を誘導する事後学習手法R^3を提案。エキスパートの軌跡で中間訓練した後、ルールベースの検証器を用いた強化学習で長時間の推論チェーンを最適化し、長期間タスクの進捗追跡や誤りからの復帰能力を向上させた。",
+   "authors": [
+    "Lehong Wu",
+    "Yuxiao Qu",
+    "Zheyuan Hu",
+    "Ivan Zhang",
+    "Limin Wei",
+    "Zackory Erickson",
+    "Aviral Kumar"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CL",
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "manipulation",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.26053",
+   "image": "figures/2026-08-27/2608.26053.jpg"
+  },
+  {
+   "date": "2026-08-27",
+   "rank": 4,
+   "id": "2608.25666",
+   "group": "focus",
+   "title": "PRISM: Projection-Integrated Sampling-Based MPC with Bayesian Cost Tuning for Bimanual Manipulation",
+   "title_ja": "PRISM：双腕マニピュレーションのための射影統合型サンプリングベースMPCとベイズコスト調整",
+   "summary_ja": "GPU並列物理シミュレータをオンライン世界モデルとして活用するサンプリングベースMPCフレームワークPRISMを提案。QPによる射影を用いて軌道探索と運動学的実行可能性を分離し、ベイズ最適化によるコスト関数の自動調整と組み合わせることで、接触を伴う双腕協調動作を実時間で生成する。",
+   "authors": [
+    "Alinjar Dan",
+    "Iryna Hurova",
+    "Karl Kruusam\\\"ae",
+    "Arun Kumar Singh"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "simulation",
+    "manipulation",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.25666",
+   "image": "figures/2026-08-27/2608.25666.jpg"
+  },
+  {
+   "date": "2026-08-27",
+   "rank": 5,
+   "id": "2608.26058",
+   "group": "general",
+   "title": "One Policy, Many Embodiments: Unified Camera-Centric Action Geometry Pre-training for Heterogeneous Embodied Manipulation",
+   "title_ja": "単一ポリシーで多様な身体に対応：不均一な身体性マニピュレーションのためのカメラ中心行動幾何事前学習",
+   "summary_ja": "ロボットの構造、カメラ配置、行動空間の差異を吸収するカメラ中心の統一幾何行動表現UCAG-Pを提案。異なるロボットデータセットを共通の3D幾何空間に射影して事前学習を行うことで、ロボット個別の明示的なリターゲティングなしに汎用的な操作方策の学習を可能にした。",
+   "authors": [
+    "Xiaomi Embodied Intelligence Team",
+    "University of Macau",
+    ":",
+    "Shaoqing Xu",
+    "Fang Li",
+    "Guozhi Zhan",
+    "Zhixiang Duan",
+    "Yuhan Wang",
+    "Yuechen Luo",
+    "Shengyin Jiang",
+    "Hanbing Li",
+    "Zhiying Du",
+    "Longlong Wang",
+    "Longmei Jiang",
+    "Weixiang Liang",
+    "Ying Gong",
+    "Yong Pan",
+    "Ziping Zhao",
+    "Zhiyuan Chen",
+    "Yangwei You",
+    "Kun Ma",
+    "Qinyuan Liu",
+    "Hangjun Ye",
+    "Zhi-xin Yang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.26058",
+   "image": "figures/2026-08-27/2608.26058.jpg"
+  },
+  {
+   "date": "2026-08-27",
+   "rank": 6,
+   "id": "2608.25798",
+   "group": "general",
+   "title": "TacForcing: Streaming Action Generation with Execution-Time Tactile Feedback",
+   "title_ja": "TacForcing：実行時触覚フィードバックを伴うストリーミング行動生成",
+   "summary_ja": "接触を伴うマニピュレーションにおいて、動作チャンク実行中の遅延した触覚情報をリアルタイムに反映するTacForcingを提案。別個の高周波制御器を用意する代わりに、直近の触覚系列を入力とする自己回帰的トランスフォーマーを採用し、接触状態の変化に即応するストリーミング動作生成を実現した。",
+   "authors": [
+    "Jianbo Zhou",
+    "Boyuan Zhao",
+    "Yuzheng Zhang",
+    "Yiyang Chen",
+    "Wenxin Chen",
+    "Qiuyue Li",
+    "Xiangyang Gu",
+    "Yuhan Cao",
+    "Xiao Xia",
+    "Yanzhe Hu",
+    "Zhijie Deng"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "manipulation",
+    "vision-language-action",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.25798",
+   "image": "figures/2026-08-27/2608.25798.jpg"
+  },
+  {
+   "date": "2026-08-27",
+   "rank": 7,
+   "id": "2608.25659",
+   "group": "general",
+   "title": "GaussianDream++: Efficient 3D Gaussian World Modeling for Robotic Manipulation",
+   "title_ja": "GaussianDream++：ロボット操作のための効率的な3Dガウス世界モデリング",
+   "summary_ja": "ロボット操作において3D幾何構造と短時間の物理変化を予測する世界モデルGaussianDream++を提案。現在の3Dガウス再構成と未来の予測を分離してコンパクトな表現に落とし込み、低計算コストかつ高精度に未来の観測変化と動作を予測して言語指示タスクの成功率を高めた。",
+   "authors": [
+    "Yuqing Jiang",
+    "Zijian Zhang",
+    "Weitao Zhou",
+    "Jiawei Wang",
+    "Junjie He",
+    "Lei Yang",
+    "Haifang Qing",
+    "Si Liu",
+    "Ding Zhao",
+    "Ping Luo",
+    "Haibao Yu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "manipulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.25659",
+   "image": "figures/2026-08-27/2608.25659.jpg"
+  },
+  {
+   "date": "2026-08-27",
+   "rank": 8,
+   "id": "2608.25427",
+   "group": "general",
+   "title": "SUPER ODOMETRY 2.0: Resilient Odometry via Hierarchical Adaptation",
+   "title_ja": "SUPER ODOMETRY 2.0：階層的適応による耐障害性オドメトリ",
+   "summary_ja": "煙、砂嵐、雪、暗所などの極限環境下でのセンサ縮退に対応するセンサフュージョンオドメトリフレームワークを提案。低次から高次への4段階の適応モジュールからなる階層構造により、動的に特徴選択や状態方向、推定エンジンを切り替えて高精度かつロバストな自己位置推定を実現する。",
+   "authors": [
+    "Shibo Zhao",
+    "Sifan Zhou",
+    "Yuchen Zhang",
+    "Ji Zhang",
+    "Chen Wang",
+    "Wenshan Wang",
+    "Sebastian Scherer"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "perception",
+    "navigation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.25427",
+   "image": "figures/2026-08-27/2608.25427.jpg"
+  },
+  {
+   "date": "2026-08-27",
+   "rank": 9,
+   "id": "2608.25284",
+   "group": "general",
+   "title": "Generative Action-Chunk Sampling for Adaptive Stiffness Control in Physical Human-Robot Collaboration",
+   "title_ja": "物理的協調作業における適応的剛性制御のための生成型アクションチャンクサンプリング",
+   "summary_ja": "人間の意図の明確さに応じてロボットの剛性を適応的に切り替える制御手法を提案。観測条件付きの事前分布から複数の未来動作チャンクをサンプリングし、そのばらつき度合いに応じて関節剛性と減衰を連続的に調整することで、人間の誘導の容易さと支援の確実性を両立させた。",
+   "authors": [
+    "Aoi Otake",
+    "Ferdinand Hartmann",
+    "Ko Igari",
+    "Shingo Murata"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "control",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.25284",
+   "image": "figures/2026-08-27/2608.25284.jpg"
+  },
+  {
    "date": "2026-08-26",
    "rank": 0,
    "id": "2608.24217",
