@@ -1,6 +1,287 @@
 {
  "entries": [
   {
+   "date": "2026-08-28",
+   "rank": 0,
+   "id": "2608.26583",
+   "group": "focus",
+   "title": "SOLO: Stable Omni-terrain Long-Horizon Perceptive Humanoid Locomotion",
+   "title_ja": "SOLO: 視覚知覚に基づくヒューマノイドの安定した全地形長距離歩行制御",
+   "summary_ja": "視覚に基づくヒューマノイド歩行における誤差蓄積を解決するフレームワークSOLOを提案。フーリエ符号化クエリにより鋭い地形境界を復元するQuery Reconstructorと、教師生徒間の状態不一致を報酬に組み込むTA-MSE蒸留を導入し、複雑地形の長距離歩行を安定化させた。",
+   "authors": [
+    "Pihai Sun",
+    "Gang Han",
+    "Jingkai Sun",
+    "Jiahao Ma",
+    "Zeran Su",
+    "Zelin Tao",
+    "Peiran Liu",
+    "Shuai Shi",
+    "Wei Cui",
+    "Zifan Wang",
+    "Jialin Yu",
+    "Wen Zhao",
+    "Kangning Yin",
+    "Jiaxu Wang",
+    "Jiahang Cao",
+    "Lingfeng Zhang",
+    "Hao Cheng",
+    "Jian Tang",
+    "Yijie Guo",
+    "Qiang Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "humanoid",
+    "reinforcement-learning",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.26583",
+   "image": "figures/2026-08-28/2608.26583.jpg"
+  },
+  {
+   "date": "2026-08-28",
+   "rank": 1,
+   "id": "2608.26505",
+   "group": "focus",
+   "title": "Closing the Loop on the Poppy Humanoid: Bipedal Locomotion with Linear-Quadratic Control and Learned Cost Functions",
+   "title_ja": "Poppyヒューマノイドの閉ループ化：線形二次制御と学習されたコスト関数による二足歩行",
+   "summary_ja": "低コストなPoppyヒューマノイド実機上で信頼性の高い自立二足歩行を実現する手法を提案。開ループ軌道追従データからLQRコントローラ用の二次コスト関数を学習することで、標準ハードウェア上で実用的な閉ループ歩行制御を達成した。",
+   "authors": [
+    "Xulin Chen",
+    "Borui He",
+    "Ruipeng Liu",
+    "Naveed Tahir",
+    "Zhenyu Gan",
+    "Garrett E. Katz"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "humanoid",
+    "control",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.26505",
+   "image": "figures/2026-08-28/2608.26505.jpg"
+  },
+  {
+   "date": "2026-08-28",
+   "rank": 2,
+   "id": "2608.27033",
+   "group": "focus",
+   "title": "Riemann-1.0: An Embodied World Action Model for Physical AI",
+   "title_ja": "Riemann-1.0: フィジカルAIのための身体化ワールドアクションモデル",
+   "summary_ja": "多視点画像、ロボット状態、行動を因果的自己回帰シーケンスとして統合モデル化するRiemann-1.0を提案。オンライン方策実行と行動条件付きワールドシミュレータを単一モデルで両立し、異種ロボット形態を跨いだ学習基盤を構築した。",
+   "authors": [
+    "Haofeng Sun",
+    "Jiangbo Pei",
+    "Fei Kang",
+    "Zexiang Liu",
+    "Yaokun Li",
+    "Boyi Jiang",
+    "Hua Xue",
+    "Cindy Zhou",
+    "Wei Li",
+    "Yichen Wei",
+    "Mengyin An",
+    "Fanliang Zhao",
+    "Biao Jiang",
+    "Zile Wang",
+    "Yang Liu",
+    "Yangguang Li"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "simulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.27033",
+   "image": "figures/2026-08-28/2608.27033.jpg"
+  },
+  {
+   "date": "2026-08-28",
+   "rank": 3,
+   "id": "2608.26947",
+   "group": "focus",
+   "title": "4DSynth: Controllable Procedural World Synthesis for Dynamic Embodied Simulation",
+   "title_ja": "4DSynth: 動的身体化シミュレーションのための制御可能なプロシージャル環境生成",
+   "summary_ja": "言語指示や単一画像などから、明示的なジオメトリ、動くアクター、衝突のない軌道、物理シミュレーション状態を備えた4D動的環境を生成するシステムを提案。身体化エージェント学習のための多様で編集可能な対話環境の大規模構築を可能にした。",
+   "authors": [
+    "Zehao Qi",
+    "Haochen Luo",
+    "Jia-Wang Bian",
+    "Zeyu Ma",
+    "Shuyang Sun"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "simulation",
+    "dataset",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.26947",
+   "image": "figures/2026-08-28/2608.26947.jpg"
+  },
+  {
+   "date": "2026-08-28",
+   "rank": 4,
+   "id": "2608.26800",
+   "group": "focus",
+   "title": "Rapid On-Robot Learning for Dynamic Manipulation Skills: Robot Juggling",
+   "title_ja": "動的操作スキルの実機高速オンライン学習：ロボットジャグリング",
+   "summary_ja": "大きなsim-to-realギャップが存在する状況下で、双腕ロボットがジャグリング動作を数分で実機獲得するオンライン学習手法を提案。グローバルな事前モデルを保持しつつ蓄積経験から局所モデルを正則化学習することで、安定的かつ効率的なスキル獲得を実現した。",
+   "authors": [
+    "Taeyoon Lee",
+    "Chunpeng Wang",
+    "Christopher G. Atkeson",
+    "Alfred A. Rizzi",
+    "Nicolas Rojas"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "sim-to-real",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.26800",
+   "image": "figures/2026-08-28/2608.26800.jpg"
+  },
+  {
+   "date": "2026-08-28",
+   "rank": 5,
+   "id": "2608.26673",
+   "group": "general",
+   "title": "PredVLA: A Sub-Million-Parameter Predictive-Coding Policy for Robot Manipulation",
+   "title_ja": "PredVLA: 100万パラメータ未満の予測符号化によるロボット操作方策",
+   "summary_ja": "わずか68万パラメータでロボットデータによる事前学習なしに動作する言語条件付き予測符号化方策を提案。感覚予測誤差からのオンライン推論を通じて潜在状態を更新し、LIBEROベンチマークで大規模VLAモデルに匹敵する85.4%の成功率を達成した。",
+   "authors": [
+    "Hiroki Sawada",
+    "Shunichi Kasahara"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.26673",
+   "image": "figures/2026-08-28/2608.26673.jpg"
+  },
+  {
+   "date": "2026-08-28",
+   "rank": 6,
+   "id": "2608.26314",
+   "group": "general",
+   "title": "Dispersive Forward Tree Search for Optimal Control: Coverage, Complexity, and Computation",
+   "title_ja": "最適制御のための分散前方木探索：被覆性・計算量・計算手法",
+   "summary_ja": "微分平坦な非線形システム向けに、有限サンプル下での決定論的準最適性が保証された前方伝播型キノダイナミックプランナーを提案。局所分散制御コマンドの木構造展開により、境界値問題を解くことなく保証付きの準最適軌道を効率的に探索する。",
+   "authors": [
+    "Shashank A. Deshpande",
+    "Jonathan P. How"
+   ],
+   "categories": [
+    "cs.RO",
+    "math.OC"
+   ],
+   "tags": [
+    "planning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.26314",
+   "image": "figures/2026-08-28/2608.26314.jpg"
+  },
+  {
+   "date": "2026-08-28",
+   "rank": 7,
+   "id": "2608.26645",
+   "group": "general",
+   "title": "FLARE: A Failure-Aware Framework for Autonomous Correction and Recovery in Visual-Language Robotic Manipulation",
+   "title_ja": "FLARE: 視覚言語ロボット操作における自律的修正と復帰のための失敗考慮フレームワーク",
+   "summary_ja": "把持失敗や落下などの実行エラーから自律復帰する能力をVLAモデルに付与するFLAREを提案。摂動注入によるリトライ機構と、グリッパー状態に基づき初期復帰を判断するリセット機構により、長工程操作タスクの成功率を大幅に向上させた。",
+   "authors": [
+    "Ganlong Zhao",
+    "Zijia Tang",
+    "Xingping Chen",
+    "Zhanghui Kuang",
+    "Ye Tian",
+    "Guanbin Li"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.26645",
+   "image": "figures/2026-08-28/2608.26645.jpg"
+  },
+  {
+   "date": "2026-08-28",
+   "rank": 8,
+   "id": "2608.27158",
+   "group": "general",
+   "title": "Diffusion Policies for Short-Horizon Planning in Robot Crowd Navigation",
+   "title_ja": "ロボット群衆ナビゲーションにおける短時間計画のための拡散方策",
+   "summary_ja": "密な人流下での安全なナビゲーションに向け、拡散モデルで短時間の行動チャンクを生成するPDPOを提案。模倣データで事前学習した後にデノイジング過程を意思決定としてPPOでオンライン微調整し、多様な衝突回避戦略を実現した。",
+   "authors": [
+    "Wendong Li",
+    "Jochen Garcke"
+   ],
+   "categories": [
+    "cs.LG"
+   ],
+   "tags": [
+    "navigation",
+    "reinforcement-learning",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.27158",
+   "image": "figures/2026-08-28/2608.27158.jpg"
+  },
+  {
+   "date": "2026-08-28",
+   "rank": 9,
+   "id": "2608.26622",
+   "group": "general",
+   "title": "Relaxation-Aware Multimodal Sensing of Soft Gripper Driven by Structure-Perception-Learning",
+   "title_ja": "構造・知覚・学習の統合によるソフトグリッパの応力緩和を考慮したマルチモーダルセンシング",
+   "summary_ja": "粘弾性による把持力低下（応力緩和）に対処する可変剛性ソフトグリッパを開発。オンボード視覚と赤外線サーモグラフィで変形と温度場を実時間追従し、把持力減衰を正確に推定・補償することで安定した把持維持を実現した。",
+   "authors": [
+    "Yanzhe Wang",
+    "Hao Wu",
+    "Ziyi Zheng",
+    "Huixu Dong"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "grasping",
+    "hardware",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.26622",
+   "image": "figures/2026-08-28/2608.26622.jpg"
+  },
+  {
    "date": "2026-08-27",
    "rank": 0,
    "id": "2608.25405",
