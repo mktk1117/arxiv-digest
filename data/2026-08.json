@@ -1,6 +1,189 @@
 {
  "entries": [
   {
+   "date": "2026-08-29",
+   "rank": 0,
+   "id": "2608.27406",
+   "group": "focus",
+   "title": "CLAP: Cross-Embodiment Video World Models are Zero-Shot Physical Simulators",
+   "title_ja": "CLAP: クロスエンボディメント動画世界モデルによるゼロショット物理シミュレータ",
+   "summary_ja": "人間や多様なロボット形態の動画から物理法則を汎化学習し、ゼロショット物理シミュレータとして機能するクロスエンボディメント行動条件付き動画生成フレームワークCLAPを提案。形態間で異なる行動表現を統一的に扱い、多様な実環境動画を活用した物理シミュレーションを可能にする。",
+   "authors": [
+    "Kechen Liu",
+    "Ola Shorinwa"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "world-model",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.27406",
+   "image": "figures/2026-08-29/2608.27406.jpg"
+  },
+  {
+   "date": "2026-08-29",
+   "rank": 1,
+   "id": "2608.27073",
+   "group": "focus",
+   "title": "SpatialCrafter: Single Image World Modeling with Generative 3D Proxies",
+   "title_ja": "SpatialCrafter: 生成的3Dプロキシを用いた単一画像からの世界モデリング",
+   "summary_ja": "単一画像から探索可能な3Dシーンを生成する世界モデルフレームワークSpatialCrafterを提案。大域的な3Dプロキシ生成と外観洗練の2段階に分解し、PaSS Flowモジュールによってビデオ拡散モデル特有の3D不整合や長期ドリフトを抑制し高忠実度なシーン構築を実現する。",
+   "authors": [
+    "Chuan Fang",
+    "Lingteng Qiu",
+    "Yixun Liang",
+    "Rui Chen",
+    "Kunming Luo",
+    "Zhaohua Zheng",
+    "Tongyuan Bai",
+    "Feipeng Tian",
+    "Zilong Dong",
+    "Zihan Zhou",
+    "Ping Tan"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "simulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.27073",
+   "image": "figures/2026-08-29/2608.27073.jpg"
+  },
+  {
+   "date": "2026-08-29",
+   "rank": 2,
+   "id": "2608.26578",
+   "group": "general",
+   "title": "TrapVLA: Trapping Vision-Language-Action Models in Configured Failure Modes",
+   "title_ja": "TrapVLA: 設定された失敗モードにVLAモデルを陥れるバックドア攻撃",
+   "summary_ja": "VLAモデルに対する新しいバックドア攻撃手法Configured Failure Trappingを提案。ステルステキストトリガーによりロボットに特定の位置オフセット把持など設定された失敗動作を誘発させる攻撃であり、合成データエンジンと忠実度測定ツールにより検出が困難な脆弱性を実証した。",
+   "authors": [
+    "Jun-Hui Liu",
+    "Kun-Yu Lin",
+    "Yi-Lin Wei",
+    "Xu-Han Chen",
+    "Yinghao Li",
+    "Zhuohao Li",
+    "Yuan-Ming Li",
+    "Qing Zhang",
+    "Xiaoyi Fan",
+    "Dongmei Jiang",
+    "Yan Li",
+    "Wei-Shi Zheng"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "vision-language-action",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.26578",
+   "image": "figures/2026-08-29/2608.26578.jpg"
+  },
+  {
+   "date": "2026-08-29",
+   "rank": 3,
+   "id": "2608.27407",
+   "group": "general",
+   "title": "Reconstructing Humans and Objects in Interaction using Large Reconstruction Models",
+   "title_ja": "大規模再構成モデルを用いた人間と物体のインタラクションの3D復元",
+   "summary_ja": "単一画像から詳細な3次元の人間と物体のインタラクション（3D HOI）を復元するフレームワークMILOを提案。大規模再構成モデル（LRM）の視覚能力を活用することで、従来のパラメトリックモデルや2D接触拘束のフィッティングに頼らず、オクルージョンや物体形状の多様性に頑健な復元を達成した。",
+   "authors": [
+    "Agniv Chatterjee",
+    "Georgios Pavlakos"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "perception",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.27407",
+   "image": "figures/2026-08-29/2608.27407.jpg"
+  },
+  {
+   "date": "2026-08-29",
+   "rank": 4,
+   "id": "2608.27226",
+   "group": "general",
+   "title": "DINOcular: Self-Supervised Visuospatial Representations",
+   "title_ja": "DINOcular: 自己教師あり学習による視覚空間表現",
+   "summary_ja": "RGB-D観測から視覚・空間の結合表現を自己教師あり学習するフレームワークDINOcularを提案。パッチ間およびパッチ内の融合を通じて深度由来の幾何学的事前知識を視覚バックボーンに統合し、意味論的特徴を保ちつつ3D認識能力を向上させ、既存手法を上回る空間表現を獲得する。",
+   "authors": [
+    "Farkhat Almukhamedov",
+    "Sami Azirar",
+    "Hermann Blum"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "perception",
+    "navigation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.27226",
+   "image": "figures/2026-08-29/2608.27226.jpg"
+  },
+  {
+   "date": "2026-08-29",
+   "rank": 5,
+   "id": "2608.26214",
+   "group": "general",
+   "title": "Surgical Video Generation From Diffusion to World Models: A Survey",
+   "title_ja": "拡散モデルから世界モデルへ：手術動画生成に関するサーベイ",
+   "summary_ja": "手術動画生成技術に関する2024〜2026年の研究動向を無条件生成、条件付き生成、世界モデル型生成の3つに分類して整理したサーベイ論文。データのプライバシーや希少性を克服し、術中シミュレーションやロボット方策学習の基盤となる生成手法の発展と課題を包括的に議論している。",
+   "authors": [
+    "Fuxiang Huang",
+    "Chenxu Zhang",
+    "Liang Han",
+    "Lei Zhang"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "medical",
+    "world-model",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.26214",
+   "image": "figures/2026-08-29/2608.26214.jpg"
+  },
+  {
+   "date": "2026-08-29",
+   "rank": 6,
+   "id": "2608.26720",
+   "group": "general",
+   "title": "Parameter Efficient Continual Learning for Sparse Event-Based Transformers",
+   "title_ja": "スパースイベントベースTransformerのためのパラメータ効率の高い継続学習",
+   "summary_ja": "イベントベースのスパイク型Vision Transformerに向けたパラメータ効率の良い継続学習フレームワークsLoThを提案。動的環境で次々に得られるイベントデータに対し、メモリと計算リソースの厳しい制約下で過去の知識を維持しながら新規タスクへの適応を低消費電力で実現する。",
+   "authors": [
+    "Vaishnavi Nagabhushana",
+    "Kartikay Agrawal",
+    "Ayon Borthakur"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "perception",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.26720",
+   "image": "figures/2026-08-29/2608.26720.jpg"
+  },
+  {
    "date": "2026-08-28",
    "rank": 0,
    "id": "2608.26583",
