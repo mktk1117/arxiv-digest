@@ -1,6 +1,274 @@
 {
  "entries": [
   {
+   "date": "2026-08-30",
+   "rank": 0,
+   "id": "2608.26571",
+   "group": "focus",
+   "title": "Arrive and Survive: Scaling Safe Goal-Conditioned Policy Learning from One-Bit Failure Signals",
+   "title_ja": "到達と生存：1ビットの失敗シグナルから安全なゴール条件付き方策学習をスケールさせる手法",
+   "summary_ja": "対比強化学習（CRL）において失敗終了時に生じるゴール到達価値の過大評価バイアスを理論的に解明し、安全性を担保する方策学習法を提案。失敗による確率損失を補正することで、危険な遷移の過剰評価を防ぎ、安全なゴール到達を可能にする。",
+   "authors": [
+    "Guopeng Li",
+    "Yiyang Duan",
+    "Yiru Jiao",
+    "Chengcheng Xu"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "safety",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.26571",
+   "image": "figures/2026-08-30/2608.26571.jpg"
+  },
+  {
+   "date": "2026-08-30",
+   "rank": 1,
+   "id": "2608.27259",
+   "group": "focus",
+   "title": "Making Latent Evolution Explicit: Operator-Structured Transitions for World Action Models",
+   "title_ja": "潜在進化の明示化：ワールドアクションモデルのための作用素構造化遷移",
+   "summary_ja": "ロボット方策のためのワールドアクションモデルにおいて、Transformerのトークン相互作用ではなく学習された作用素空間で時間発展を明示的に捉えるLEONを提案。潜在空間での制御関連状態のダイナミクス予測精度を向上させる。",
+   "authors": [
+    "Xiaoxiao Lu",
+    "Yunlong Dong",
+    "Jiahao Shi",
+    "Ye Yuan"
+   ],
+   "categories": [
+    "cs.LG"
+   ],
+   "tags": [
+    "world-model",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.27259",
+   "image": null
+  },
+  {
+   "date": "2026-08-30",
+   "rank": 2,
+   "id": "2608.26788",
+   "group": "focus",
+   "title": "Decoupling Planning and Control for Instructable Agents",
+   "title_ja": "指示可能なエージェントのための計画と制御の分離",
+   "summary_ja": "低レイテンシ・高周波制御を行うワールドモデル制御器と、高レベルなテキスト指示を疎に生成するVLMプランナーを疎結合したInstruct-to-Actを提案。環境変化に対応しつつ高速かつ汎用的な指示追従動作を実現する。",
+   "authors": [
+    "Zineng Tang",
+    "Kelsey R. Allen",
+    "Sjoerd van Steenkiste",
+    "Ishita Dasgupta",
+    "Alane Suhr"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.CL",
+    "cs.MA",
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "control",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.26788",
+   "image": "figures/2026-08-30/2608.26788.jpg"
+  },
+  {
+   "date": "2026-08-30",
+   "rank": 3,
+   "id": "2608.26103",
+   "group": "focus",
+   "title": "Zero-WAM: In-Context World-Action Modeling from Human Videos for Open-Ended Task Generalization",
+   "title_ja": "Zero-WAM: 未知タスク汎化のための人間動画からのインコンテキスト・ワールドアクションモデリング",
+   "summary_ja": "タスク指示として人間の実演動画を入力とし、パラメータ更新なしで未知タスクを実行する因果型ビデオ・アクションモデルZero-WAMを提案。動画が持つタスク進展の手がかりを活用し、ゼロショットでの汎化性能を達成する。",
+   "authors": [
+    "Jiaming Zhou",
+    "Qihang Zhang",
+    "Gangwei Xu",
+    "Cunxin Fan",
+    "Yujie Zhao",
+    "Ruilin Wang",
+    "Yiming Luo",
+    "Shuai Yang",
+    "Xing Zhu",
+    "Yujun Shen",
+    "Junwei Liang",
+    "Yinghao Xu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "world-model",
+    "imitation-learning",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.26103",
+   "image": "figures/2026-08-30/2608.26103.jpg"
+  },
+  {
+   "date": "2026-08-30",
+   "rank": 4,
+   "id": "2608.27079",
+   "group": "focus",
+   "title": "GRAFT: Grounded and Efficient Online Reinforcement Adaptation for Fine-Grained Robot Manipulation",
+   "title_ja": "GRAFT: 微細ロボット操作のための接地された効率的オンライン強化学習適応",
+   "summary_ja": "事前学習済みVLAモデルを実機相互作用を通じて微細操作タスクへオンライン適応させる強化学習フレームワーク。領域レベルの視覚的接地と効率的な更新機構を導入し、限られた実機試行からタスク関連領域を学習して適応を加速する。",
+   "authors": [
+    "Yibo Qiu",
+    "Haoliang Ye",
+    "Shu'ang Sun",
+    "Zan Huang",
+    "Ronald X Xu",
+    "Mingzhai Sun"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "vision-language-action",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.27079",
+   "image": "figures/2026-08-30/2608.27079.jpg"
+  },
+  {
+   "date": "2026-08-30",
+   "rank": 5,
+   "id": "2608.27384",
+   "group": "general",
+   "title": "FlashVLA: Streaming Action Decoding for Fast and Asynchronous VLA Inference",
+   "title_ja": "FlashVLA: 高速かつ非同期なVLA推論のためのストリーミング行動デコーディング",
+   "summary_ja": "フローマッチング型VLAモデルの推論遅延と非同期実行時の時間的不整合を解消するストリーミング行動デコーディング基盤。制御周波数を高め、実機マニピュレーション展開におけるアイドリング時間削減と高精度な動作を両立する。",
+   "authors": [
+    "Zekai Li",
+    "Jiaming Tang",
+    "Zhijian Liu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.27384",
+   "image": "figures/2026-08-30/2608.27384.jpg"
+  },
+  {
+   "date": "2026-08-30",
+   "rank": 6,
+   "id": "2608.27371",
+   "group": "general",
+   "title": "Embodied Scene Rearrangement Planning",
+   "title_ja": "身体性シーン再配置計画",
+   "summary_ja": "自己中心視点映像と俯瞰目標配置のみから家具を再配置する長期的計画タスクESRPおよびベンチマークESRP-Benchを提案。OmniGibson上で5,400以上のシーンペアを構築し、部分観測と遮蔽が存在する環境での計画手法を評価可能にする。",
+   "authors": [
+    "Canzhi Chen",
+    "Zan Wang",
+    "Siqi Zhu",
+    "Qi Wu",
+    "Yixuan Li",
+    "Wei Liang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "planning",
+    "benchmark",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.27371",
+   "image": "figures/2026-08-30/2608.27371.jpg"
+  },
+  {
+   "date": "2026-08-30",
+   "rank": 7,
+   "id": "2608.26883",
+   "group": "general",
+   "title": "Active Surface-Driven Reconfigurable Gripper: Robust Grasping and Sequential Manipulation of Thin Objects",
+   "title_ja": "能動表面駆動型再構成グリッパー：薄物物体の頑健な把持と連続操作",
+   "summary_ja": "薄物（本など）の把持のため、能動表面を備えた親指と劣駆動フィンガーを組み合わせたグリッパーを開発。複雑なアーム制御を行わずに手内での対象物再配置を可能にし、高精度な接近動作を不要にすることで把持の頑健性を向上させた。",
+   "authors": [
+    "Ziyi Zheng",
+    "Keqi Zhu",
+    "Hao Wu",
+    "Yanzhe Wang",
+    "Huixu Dong"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "grasping",
+    "hardware",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.26883",
+   "image": "figures/2026-08-30/2608.26883.jpg"
+  },
+  {
+   "date": "2026-08-30",
+   "rank": 8,
+   "id": "2608.27221",
+   "group": "general",
+   "title": "Tensegrity Continuum Robots Enable Task-Adaptive Morphologies for Cooperative Behaviors",
+   "title_ja": "協調動作に向けたタスク適応型形態を可能にするテンセグリティ連続体ロボット",
+   "summary_ja": "柔軟なテンセグリティ構造と爪型結合機構を統合し、タスクに応じて自己再構成が可能なモジュール式連続体ロボットを開発。構造的柔軟性による環境適応と、複数モジュールの合体による協調マニピュレーションを両立する。",
+   "authors": [
+    "Mahmud Hasan Saikot",
+    "Sydney Spiegel",
+    "Sudheera Akalanka Kariyawasam",
+    "Andrew Stefka",
+    "Josh Chrisler",
+    "Jianguo Zhao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "multi-robot"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.27221",
+   "image": "figures/2026-08-30/2608.27221.jpg"
+  },
+  {
+   "date": "2026-08-30",
+   "rank": 9,
+   "id": "2608.26888",
+   "group": "general",
+   "title": "Beyond Shallow-Water Photorealism: Physically and Sensor-Grounded Simulation for Deep-Sea Robotics",
+   "title_ja": "深海ロボティクスのための物理・センサ準拠シミュレーション",
+   "summary_ja": "深海環境の物理現象に焦点を当て、Stonefishシミュレータを高次流体力学、テラメカニクス、確率的IMU/DVLドリフト、深海光学モデルなどで拡張。実機の挙動とセンサ計測を高精度に再現する物理基盤を提供する。",
+   "authors": [
+    "Michele Grimaldi",
+    "Enrico Di Maria",
+    "Ignacio Carlucho",
+    "Yvan R. Petillot"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.26888",
+   "image": "figures/2026-08-30/2608.26888.jpg"
+  },
+  {
    "date": "2026-08-29",
    "rank": 0,
    "id": "2608.27406",
