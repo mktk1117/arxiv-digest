@@ -1,6 +1,256 @@
 {
  "entries": [
   {
+   "date": "2026-08-31",
+   "rank": 0,
+   "id": "2608.28090",
+   "group": "focus",
+   "title": "Stay Seated: Learning Omnidirectional Humanoid Locomotion on a Passive Mobile Chair with Casters",
+   "title_ja": "座ったままで：キャスター付き受動移動椅子を用いたヒューマノイドの全方位移動学習",
+   "summary_ja": "着座時の身体支持を椅子に委ねる人間の動作に着想を得て、受動キャスター椅子に乗ったヒューマノイドの全方位移動方策を強化学習で獲得する手法を提案。モーション模倣報酬を使わず、固有受容感覚と速度指令のみで椅子と床面の間欠的な推進力を生み出す制御を実現した。",
+   "authors": [
+    "Kango Yanagida",
+    "Kazuki Miyazawa",
+    "Takato Horii"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.28090",
+   "image": "figures/2026-08-31/2608.28090.jpg"
+  },
+  {
+   "date": "2026-08-31",
+   "rank": 1,
+   "id": "2608.28140",
+   "group": "focus",
+   "title": "Contact-Guided Exploration for Non-Prehensile Locomanipulation with Multi-Critic RL",
+   "title_ja": "マルチクリティック強化学習による接触誘導型探索を用いた非把持ロコマニピュレーション",
+   "summary_ja": "移動マニピュレータによる重い物体の押し・整列などの非把持マニピュレーション向けに、マルチクリティック強化学習を用いた接触誘導型探索戦略を提案。専用の探索クリティックが密な接触報酬でエンドエフェクタを適切な接触点へ誘導し、接触のスパース性とハイブリッド動力学の課題を解決する。",
+   "authors": [
+    "Simone Tolomei",
+    "Mayank Mittal",
+    "Franco Angelini",
+    "Manolo Garabini",
+    "Paolo Salaris",
+    "Marco Hutter"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "locomotion",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.28140",
+   "image": "figures/2026-08-31/2608.28140.jpg"
+  },
+  {
+   "date": "2026-08-31",
+   "rank": 2,
+   "id": "2608.28578",
+   "group": "focus",
+   "title": "Aero Hand Open: A Simulation-Ready Tendon-Driven Hand for Dexterous Manipulation Learning",
+   "title_ja": "Aero Hand Open：器用なマニピュレーション学習のためのシミュレーション対応腱駆動ハンド",
+   "summary_ja": "関節からアクチュエータを逃がすことで低コスト・軽量化を実現したオープンソースの腱駆動ロボットハンドを提案。劣駆動伝達系のシミュレータ統合および学習を可能にし、腱駆動機構特有のモデル化の難しさを解消して器用な操作学習基盤を提供する。",
+   "authors": [
+    "Nan Wang",
+    "Mohit Yadav",
+    "Jonathan Wulff",
+    "Aidan Rosenbaum",
+    "Kezhou Chen",
+    "Yuvan Sharma",
+    "Xu Dong",
+    "Yiwei Tao"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "hardware",
+    "manipulation",
+    "simulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.28578",
+   "image": "figures/2026-08-31/2608.28578.jpg"
+  },
+  {
+   "date": "2026-08-31",
+   "rank": 3,
+   "id": "2608.28213",
+   "group": "focus",
+   "title": "PAMoR: Parameterized Affective Motion Generation in Real Time for Humanoid Robots",
+   "title_ja": "PAMoR：ヒューマノイドロボット向けリアルタイム・パラメータ化情動動作生成",
+   "summary_ja": "ヒューマノイドの感情表現を伴う動作を生成するため、姿勢の拡張性と運動エネルギーから閉形式で計算されるValence-Arousal座標を直接制御パラメータとする手法を提案。人間のアノテーションなしに動作と感情の事前分布を共有潜在空間で結合し、リアルタイム生成を可能にした。",
+   "authors": [
+    "Yan Pan",
+    "Lingfan Bao",
+    "Tianhu Peng",
+    "Chengxu Zhou"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.28213",
+   "image": "figures/2026-08-31/2608.28213.jpg"
+  },
+  {
+   "date": "2026-08-31",
+   "rank": 4,
+   "id": "2608.27497",
+   "group": "general",
+   "title": "Beyond Relative Geometry: Metric-Aware Geometry Perception for Robotics",
+   "title_ja": "相対幾何を超えて：ロボティクスのための実スケール認識型幾何知覚",
+   "summary_ja": "従来の3D再構成が持つ任意スケールによる不整合を解消し、実世界スケールの距離・寸法を正確に推定するエンドツーエンドのプラグアンドプレイ幾何知覚フレームワークMAGPを提案。ロボットの操作方策と直接幾何情報を整合させることが可能となる。",
+   "authors": [
+    "Fengjun Zhong",
+    "Congjia Chen",
+    "Zhaoxu Liu",
+    "Jinyang Du",
+    "Yuchen Gong",
+    "Enqi Mao",
+    "Ruihao Gong",
+    "ShuJie Wang",
+    "Xianglong Liu",
+    "Zhongliang Qiao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "perception",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.27497",
+   "image": "figures/2026-08-31/2608.27497.jpg"
+  },
+  {
+   "date": "2026-08-31",
+   "rank": 5,
+   "id": "2608.27609",
+   "group": "general",
+   "title": "PHR-VLA: Planning Horizon Reasoning for Vision-Language-Action Models",
+   "title_ja": "PHR-VLA：Vision-Language-Actionモデルのための計画ホライズン推論",
+   "summary_ja": "現在の観測のみに依存しがちなVLAモデルに対し、将来の動特性の特権的潜在表現を補助ヘッドで学習時にアライメントすることで、計画ホライズン推論を可能にする枠組みを提案。接触を伴う細かなマニピュレーションタスクでの性能を向上させた。",
+   "authors": [
+    "Davood Soleymanzadeh",
+    "Kaidi Zhang",
+    "Zhiyuan Zhang",
+    "Bihao Zhang",
+    "Xiao Liang",
+    "Yu She",
+    "Minghui Zheng"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.27609",
+   "image": "figures/2026-08-31/2608.27609.jpg"
+  },
+  {
+   "date": "2026-08-31",
+   "rank": 6,
+   "id": "2608.28570",
+   "group": "general",
+   "title": "ChainSplat: A Physics-Inspired Screw-Theoretic Model for Learning Deformable Linear Object Dynamics from Multi-View RGB Videos",
+   "title_ja": "ChainSplat：多視点RGB動画からの線状柔軟物体ダイナミクス学習のためのスクリュー理論に基づく物理モデル",
+   "summary_ja": "ケーブルやロープ等の線状柔軟物体（DLO）の3D幾何、外観、運動学、動力学を多視点RGB動画から同時に学習する物理統合型フレームワークを提案。スクリュー理論に基づく低次元状態表現により、モデルベース制御における計算効率と追従性を大幅に向上させた。",
+   "authors": [
+    "Seungyeon Kim",
+    "No\\'emie Jaquier"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "perception",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.28570",
+   "image": "figures/2026-08-31/2608.28570.jpg"
+  },
+  {
+   "date": "2026-08-31",
+   "rank": 7,
+   "id": "2608.28266",
+   "group": "general",
+   "title": "CoCoBench: A Cooperative Coordination Benchmark for Embodied Multi-Agent Task Planning",
+   "title_ja": "CoCoBench：具現化マルチエージェントタスク計画のための協調調整ベンチマーク",
+   "summary_ja": "マルチモーダルLLM駆動のエージェントシステムにおける、作業の重複や順序違反、リソース競合などの協調失敗を詳細に診断可能なマルチエージェント協調ベンチマークを提案。897件の検証済みインスタンスにより協調メカニズムの綿密な評価を実現する。",
+   "authors": [
+    "Yang Chen",
+    "Ye-Xin Xie",
+    "Lirong Che",
+    "Danyang Peng",
+    "Yuzhe Yang",
+    "Peiwen Lin",
+    "Xu Cao",
+    "Chuang Wang",
+    "Lei Yuan",
+    "Jian Su",
+    "Lan-Zhe Guo"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "benchmark",
+    "multi-robot",
+    "planning",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.28266",
+   "image": "figures/2026-08-31/2608.28266.jpg"
+  },
+  {
+   "date": "2026-08-31",
+   "rank": 8,
+   "id": "2608.27628",
+   "group": "general",
+   "title": "One year in a forest: Analyzing the challenges of autonomous navigation in subarctic environments",
+   "title_ja": "森林での1年間：亜寒帯環境における自律ナビゲーションの課題分析",
+   "summary_ja": "GNSSやクラウドが遮断される亜寒帯の北方林において、自律移動ロボットを通年配備し計64kmに及ぶ走行実験を実施したフィールドレポート。季節変動や樹木遮蔽に伴う各種センサの課題を実データに基づいて包括的に分析している。",
+   "authors": [
+    "Mat\\v{e}j Boxan",
+    "Nicolas Lauzon",
+    "Veronica Vannini",
+    "Mathis Turgeon-Roy",
+    "Fran\\c{c}ois Pomerleau"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "navigation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.27628",
+   "image": "figures/2026-08-31/2608.27628.jpg"
+  },
+  {
    "date": "2026-08-30",
    "rank": 0,
    "id": "2608.26571",
