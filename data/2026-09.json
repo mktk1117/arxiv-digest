@@ -1,6 +1,289 @@
 {
  "entries": [
   {
+   "date": "2026-09-02",
+   "rank": 0,
+   "id": "2609.01418",
+   "group": "focus",
+   "title": "Provably Safe Sim-to-Real Transfer",
+   "title_ja": "証明可能に安全なSim-to-Real転移",
+   "summary_ja": "シミュレータで学習した方策を実環境へ展開する際の不一致に対処するため、安全性制約を満たしながら実システムで安全に探索・データ収集を行う強化学習フレームワークを提案。理論的に安全性が保証されたSim-to-Real転移手法を確立した。",
+   "authors": [
+    "Tingting Ni",
+    "Maryam Kamgarpour"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.AI"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "sim-to-real",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.01418",
+   "image": "figures/2026-09-02/2609.01418.jpg"
+  },
+  {
+   "date": "2026-09-02",
+   "rank": 1,
+   "id": "2608.28693",
+   "group": "focus",
+   "title": "RoboGesture: Real-Time Semantic-aligned Co-Speech Gestures Generation for Humanoid Interaction",
+   "title_ja": "RoboGesture: ヒューマノイド対話のための意味整合リアルタイム音声同期ジェスチャ生成",
+   "summary_ja": "音声に応答してヒューマノイドがリアルタイムに意味のあるジェスチャを生成・実行する枠組みを提案。300以上のカテゴリを持つデータセットを構築し、物理的安全性を考慮したSim-to-Real制御系を統合して実機での対話動作を実現した。",
+   "authors": [
+    "Zifan Wang",
+    "Ziang Ren",
+    "Pengyang Shi",
+    "Zirui Wang",
+    "Chenghuai Lin",
+    "Tianze Wang",
+    "Zekun Qi",
+    "Liangliang Zhao",
+    "He Wang",
+    "Li Yi"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "sim-to-real",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.28693",
+   "image": "figures/2026-09-02/2608.28693.jpg"
+  },
+  {
+   "date": "2026-09-02",
+   "rank": 2,
+   "id": "2608.31167",
+   "group": "focus",
+   "title": "SUN: Persistent Programs For Language-Grounded Control-to-Learning-to-Real Policies",
+   "title_ja": "SUN: 言語に基づく制御・学習・実機方策のための永続的プログラム",
+   "summary_ja": "モデル予測制御（MPC）と強化学習（RL）をシームレスに繋ぐ実行可能プログラムSUNを提案。幾何・接触関係をMPCコストやRL報酬、診断ガードへ自動コンパイルし、長期間マニピュレーションにおける言語指示から実機実行までの挙動の乖離を防ぐ。",
+   "authors": [
+    "Weiqi Wang",
+    "Zhi Li",
+    "Yudong Lei",
+    "David Martinez",
+    "Xiaofeng Gao",
+    "Yuxin Jiang",
+    "Chenfanfu Jiang",
+    "Yingnian Wu",
+    "Demetri Terzopoulos",
+    "Ran Gong"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "control",
+    "reinforcement-learning",
+    "sim-to-real",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.31167",
+   "image": "figures/2026-09-02/2608.31167.jpg"
+  },
+  {
+   "date": "2026-09-02",
+   "rank": 3,
+   "id": "2609.01596",
+   "group": "focus",
+   "title": "Facet-0: A Robotic Foundation Model for Contact-Rich Precise Manipulation",
+   "title_ja": "Facet-0: 接触リッチで精密なマニピュレーションのためのロボット基盤モデル",
+   "summary_ja": "サブミリ単位の精密組み立てに向け、行動に伴う接触レンチを予測・評価する基盤モデルを提案。マルチモーダル表現学習とRL事後学習を統合し、Flow Matchingによる行動と手首レンチプロファイルの同時生成により高精度な力制御を実現した。",
+   "authors": [
+    "Haoyuan Deng",
+    "Haichao Liu",
+    "Wenkai Guo",
+    "Yuan Ling",
+    "Zaijia Yang",
+    "Yuanjiang Xue",
+    "Haosheng Sun",
+    "Liangzi Wang",
+    "Ziwei Wang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "manipulation",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.01596",
+   "image": "figures/2026-09-02/2609.01596.jpg"
+  },
+  {
+   "date": "2026-09-02",
+   "rank": 4,
+   "id": "2608.29061",
+   "group": "focus",
+   "title": "PathBridger: Subgoal Bridges for Offline Goal-Conditioned Reinforcement Learning",
+   "title_ja": "PathBridger: オフラインゴール条件付き強化学習のためのサブゴールブリッジ",
+   "summary_ja": "長期間オフラインゴール条件付き強化学習（GCRL）において、サブゴール間の状態空間パスを明示的にブリッジする手法を提案。固定データセットから疎な報酬信号を効率的に伝播させ、環境との追加対話なしに高精度なゴール到達を可能にした。",
+   "authors": [
+    "Soohyun Choi",
+    "Seonvin Cho",
+    "Songnam Hong"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.29061",
+   "image": null
+  },
+  {
+   "date": "2026-09-02",
+   "rank": 5,
+   "id": "2608.28995",
+   "group": "general",
+   "title": "Hydra: A Navigation World Action Model with Discrete Latent Planning and Continuous Flow-Matching Execution",
+   "title_ja": "Hydra: 離散潜在プランニングと連続Flow-Matching実行を備えたナビゲーション用ワールド行動モデル",
+   "summary_ja": "ワールドモデルを用いたリアルタイム実機制御のボトルネックである高次元ピクセル空間のデコードを解消するため、サンプラーと評価器をモデル内部に統合したHydraを提案。離散潜在空間での探索とFlow Matchingによる連続実行を両立した。",
+   "authors": [
+    "Mohammad Nazeri",
+    "Alexandyr Card",
+    "Samira Huber",
+    "Anuj Pokhrel",
+    "Yujun Wang",
+    "Ruben Hammele",
+    "Daeun Song",
+    "S\\\"oren Pirk",
+    "Xuesu Xiao"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "world-model",
+    "navigation",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.28995",
+   "image": "figures/2026-09-02/2608.28995.jpg"
+  },
+  {
+   "date": "2026-09-02",
+   "rank": 6,
+   "id": "2608.29432",
+   "group": "general",
+   "title": "SMILE: Smooth Motion for Improved Long-Horizon VLA Execution",
+   "title_ja": "SMILE: 長期間VLA実行改善のための滑らかな動作生成",
+   "summary_ja": "VLAモデルの行動チャンクに含まれるジッターや外れ値を抑えるため、Bスプライン曲線の係数を予測して滑らかな軌道へデコードするインターフェースSMILEを提案。モデル規模を維持したまま長期間実行の精度と推論効率を向上させた。",
+   "authors": [
+    "Jongwoo Park",
+    "E-Ro Nguyen",
+    "Kanchana Ranasinghe",
+    "Cristina Mata",
+    "Xiang Li",
+    "Michael S Ryoo"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "imitation-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.29432",
+   "image": "figures/2026-09-02/2608.29432.jpg"
+  },
+  {
+   "date": "2026-09-02",
+   "rank": 7,
+   "id": "2608.29080",
+   "group": "general",
+   "title": "GHOST in the Robots: Real-Time Exocentric Dual-Robot VR Teleoperation from Onboard Cameras",
+   "title_ja": "GHOST: 車載カメラからのリアルタイム三人称デュアルロボットVR遠隔操作",
+   "summary_ja": "単一のオペレータが2台のモバイルマニピュレータを同時に直感的に操作できるVR遠隔操作システムを提案。RGB-Dカメラの点群をリアルタイムに統合して三人称視点の作業空間を構築し、車載センサのみで低遅延な直接低レベル制御を可能にした。",
+   "authors": [
+    "Yichen Wei",
+    "Faisal Zaghloul",
+    "Soujanya C Aryal",
+    "Aanya K. Agrawal",
+    "Chengfan Li",
+    "Jason Xinyu Liu",
+    "James Tompkin",
+    "Stefanie Tellex"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "teleoperation",
+    "multi-robot",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.29080",
+   "image": "figures/2026-09-02/2608.29080.jpg"
+  },
+  {
+   "date": "2026-09-02",
+   "rank": 8,
+   "id": "2608.30368",
+   "group": "general",
+   "title": "SpectraTac: A Compact Camera-Free Optical Tactile Sensor with Distributed Color Sensing",
+   "title_ja": "SpectraTac: 分散カラー計測による小型カメラレス光学式触覚センサ",
+   "summary_ja": "RGB照明と空間分散カラーセンサを組み合わせ、カメラや結像光学系を用いずに接触によるエラストマー変形を低次元空間スペクトル特徴として取得する小型・低計算負荷な触覚センサを開発した。",
+   "authors": [
+    "Hao Wu",
+    "Haotian Guo",
+    "Yu Feng",
+    "Yutong Wang",
+    "Yanzhe Wang",
+    "Jianshu Zhou"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2608.30368",
+   "image": "figures/2026-09-02/2608.30368.jpg"
+  },
+  {
+   "date": "2026-09-02",
+   "rank": 9,
+   "id": "2609.00555",
+   "group": "general",
+   "title": "Potential-Guided Particle Steering for Negation-Constrained Dexterous Grasping",
+   "title_ja": "否定制約付き巧緻把持のためのポテンシャル誘導粒子ステアリング",
+   "summary_ja": "「本体を避けて取っ手を把持せよ」といった否定制約を含む言語指示に対し、追加学習なしで回避領域を考慮した把持姿勢を生成する推論時フレームワークを提案。ポテンシャル場に基づく粒子ステアリングにより制約を満たす把持を実現した。",
+   "authors": [
+    "Geonho Kim",
+    "SooGon Kim",
+    "Jongmin Lee"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "grasping",
+    "manipulation",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.00555",
+   "image": "figures/2026-09-02/2609.00555.jpg"
+  },
+  {
    "date": "2026-09-01",
    "rank": 0,
    "id": "2608.29769",
