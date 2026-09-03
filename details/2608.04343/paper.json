@@ -1,0 +1,142 @@
+{
+ "tldr_ja": "可動部のないイオン推進（電気空気力学推進）にスカートを取り付けて地面効果を最大限に引き出すことで、手のひらサイズで完全無音のホバークラフトを実現した論文です。自重約1.6 gに対して推力効率16 mN/W、ペイロード約1.5 gを達成し、制御なしで安定した浮上と外乱復帰を示しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "手のひらサイズのイオン推進マイクロホバークラフトの外観です。中央の多段イオン推進コアと周囲の薄膜スカートで構成されており、プロペラなどの可動部が一切ないにもかかわらず、外部給電による持続的な浮上と受動的な姿勢安定を実現しています。",
+  "caption": "Fig. 1: A palm-sized ion-propelled micro hovercraft capable of sustained tethered flight and passive disturbance rejection without closed-loop control.",
+  "image": "details/2608.04343/F1.jpg"
+ },
+ "overview_ja": "ドローンなどのマイクロ航空ロボットは人間と協調する屋内環境での活躍が期待されていますが、高速回転するプロペラの危険性と激しい騒音が大きな課題となっています。そこで注目されているのが、電界でイオンを加速して空気流を生み出す電気空気力学（EAD）推進です。可動部がなく完全無音という利点がある一方で、推力効率が極めて低く、自律飛行が難しいという壁がありました。\n\n著者らは、EADスラスタが地面のすぐ近くで動作する際に得られる「地面効果」に着目しました。推進器の下にスカート（覆い）を取り付けて吹き出し気流を閉じ込めれば、ホバークラフトのように下面の圧力を高めて大きな揚力を生み出せるのではないかと考えたのです。\n\nそこで、スカートの傾斜角や深さ、中央プレートの配置などを系統的に変更できる実験装置を作り、推力と効率の変化を徹底的に調べました。その結果、外側に大きく開く末広がり（ダイバージェント）形状のスカートと適切な底面プレートを組み合わせることで、単体スラスタに比べて推力が800%以上も向上することが判明しました。\n\nこの知見をもとに作られた実機は自重約1.6 gで、16 mN/Wという従来の同規模EAD機の10倍以上の推力効率を達成しました。さらに、棒で小突くような強い外乱に対しても制御ループなしで自律的に姿勢と高度を復元し、長時間の連続浮上と50回以上の離着陸にも耐える高い堅牢性を実証しました。",
+ "contributions_ja": [
+  "地面効果による圧力回復を積極的に利用した、世界初のイオン推進マイクロホバークラフトを提案・実証したこと",
+  "スカート形状（角度・深さ・排気比）や底面プレート配置が推力・効率に与える影響を系統的な実験で明らかにしたこと",
+  "自重約1.6 gに対して16 mN/Wの推力効率と約1.5 gの追加ペイロードを達成し、同規模のEAD機を1桁上回る性能を示したこと",
+  "フィードバック制御を行わずに、地面効果に固有の剛性のみで高度維持と強い外乱の受動的復帰ができることを示したこと"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "プロペラも騒音もない、新しい浮上ロボットを目指して",
+   "summary_ja": "小型ドローンはプロペラの危険性と騒音が室内利用の大きな障壁となっています。本研究は、完全無音・可動部なしのイオン推進にスカートを組み合わせ、地面効果を最大化することでこの問題を打破するマイクロホバークラフトを提案します。",
+   "details_ja": "人間と同じ空間で働く小型ドローンにとって、高速回転するプロペラによる接触事故の危険性と、耳障りな飛行騒音は致命的な問題です。職場や倉庫で人間とロボットがストレスなく共存するには、静かで安全な代替推進技術が欠かせません。\n\nそこで期待されるのが電気空気力学（EAD: Electroaerodynamic）推進です。強電界で空気をイオン化し、加速されたイオンが中性空気分子と衝突することで風を生み出します。可動部品が存在しないため完全無音で構造もシンプルですが、従来の空中浮遊型EAD機は推力効率が非常に低く、電源を積んで自律飛行する見通しが立っていませんでした。\n\nここでのブレークスルーは「地面効果」の活用です。壁や地面の近くでは流体力学的な相互作用によって推力が増加することが知られていますが、最近の研究でEADスラスタはローターや羽ばたき機よりもはるかに大きな地面効果の恩恵を受けることが分かってきました。本研究はこの現象をロボット本体の設計に初めて組み込み、受動スカートを備えた手のひらサイズのマイクロホバークラフトを開発しました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "(a) 3段あるイオン加速ステージの1つの構造。エミッタ先端のコロナ放電で生じたイオンが中性空気と衝突し、コレクタグリッドを通る下向き気流を作ります。(b) ホバークラフト内部の気流の流れ。地面に衝突した気流が壁面噴流となって広がり、スカート内部の静圧を高めるとともに、中央に向かって衝突・再循環することでファウンテンリフト（吹きだまりによる押し上げ力）を発生させます。",
+     "caption": "Fig. 2: (a) Schematic of one of the three ion acceleration stages. Ions are ejected from the corona plasma around the emitter tips and collide with neutral air molecules, producing a net airflow through the collector grid. (b) Depiction of the induced airflow through a cross-section of the hovercraft (inset). Air is accelerated through the thruster stages and impinges on the ground plane to form a wall jet. Wall jet collisions produce fountain lift.",
+     "image": "details/2608.04343/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Background and Related Work",
+   "heading_ja": "イオン推進の限界と地面効果による圧力回復の可能性",
+   "summary_ja": "従来のEAD機は空中での推力発生に頼っていたため、空間電荷制限による効率の限界に悩まされてきました。一方、空気をスカートで閉じ込めて底面圧力を高めるホバークラフトの原理をEADに適用した先行研究はなく、本研究がその先駆けとなります。",
+   "details_ja": "### II-A Electroaerodynamic Propulsion\nEAD推進はイオンと空気分子の運動量交換によって推力を得ます。数センチ規模の小型機から固定翼機まで実証されていますが、これまでの小型EADロボットはすべて遮るもののない空中（自由流）での飛行を目指していました。そのため、空間電荷制限ドリフトに伴う「推力を上げると効率が落ちる」という物理的なトレードオフに縛られ、浮上時間を延ばすことが困難でした。\n\n### II-B Proximity-Mediated Lift Enhancement\n地面の近くを飛ぶと、吹き下ろしの誘導速度が低下して揚力が増す「地面効果」が生じます。さらに、下向きの気流をスカートやダクトで横方向に閉じ込めると、地面に沿って広がる噴流（壁面噴流）がせき止められ、機体下面の静圧が一気に上昇します。大型のホバークラフトはこの「圧力支持クッション」を利用していますが、マイクロサイズかつEAD推進器と組み合わせた研究はこれまで存在しませんでした。\n\n### II-C Proximity Effects in Electroaerodynamic Systems\n近年、EADスラスタ単体を地面に近づけると、ローター機を上回る推力増幅が起きることが報告されました。しかし、それは固定された試験治具での基礎計測にとどまっており、機体として自立飛行できる構造に統合した例はありませんでした。本研究はその物理現象を実際の浮上ロボットへと昇華させた点が新しいアプローチです。",
+   "figures": []
+  },
+  {
+   "heading": "III Methods",
+   "heading_ja": "推力を生む多段電極コアと、ミリ単位で探る実験装置",
+   "summary_ja": "3段直列のリング状イオン推進コアを真鍮箔の微細加工と3Dプリントで高精度に作製しました。スカートの角度や深さ、底面プレートの配置を自在に変えられる計測治具を用意し、3Dプリンタを改造した自動試験装置で地面効果の特性を評価しました。",
+   "details_ja": "### III-A Thrusters and Airframe\n推進コアは3段のイオン加速ステージを直列に重ねた構造です。各ステージはエミッタ（放電電極）とコレクタ（回収電極）からなり、電極間ギャップは2 mmに設定されています。厚さ25 μmの真鍮箔をUVレーザーで微細加工し、プレス金型でエミッタ先端を垂直に折り曲げてコロナ放電を安定して起こす鋭利な針を形成しています。\n\n電極は同心円状の2重リング配置（直径40 mm）で、エミッタ針は約3 mm間隔で並んでいます。静電的な干渉を抑えるため、ステージ同士は3 mm離して積層しました。機体の軽量化のため、フレームは光造形（SLA）3Dプリンタで薄肉一体成形しています。また、底面の中央には直径20 mmの極薄ポリフェニルエーテル（PEI）製センタープレートを配置し、その垂直位置 $h$ や、スカートの傾斜角 $\\theta$、深さ $d$ などの幾何形状パラメータを柔軟に変更できるモジュール設計にしました。\n\n### III-B Experimental Setup\n地面との距離 $z$ を精密に制御しながら推力と電気特性を測るため、家庭用3Dプリンタ（Ender-3 Pro）を改造した自動計測リグを構築しました。ノズルの代わりにガラス製の地面プレートを取り付け、Gコードによってマイクロメートル単位で昇降させます。\n\n推進器は上向き（地面に向けて吹き出す向き）にロードセルへ固定され、天井からの反射流の影響を避けるため十分な高さを確保しています。最大2.5 kVの高電圧を印加し、電圧・イオン電流・推力を100 ms刻みで同期記録しながら、地面に近づけた状態（IGE: in-ground-effect）と離れた状態（OGE: out-of-ground-effect）の性能比を網羅的に測定しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "(a) ホバークラフトの設計パラメータ。スカート深さ $d$、傾斜角 $\\theta$、排気半径 $R$、推進コア半径 $r$、中央プレート位置 $h$ などを定義しています。(b) レーザー加工された真鍮製エミッタとコレクタの同心円パターン。(c) 3Dプリントされたフレーム、電極、スカートの分解組み立て図です。",
+     "caption": "Fig. 3: (a) Top-down and cross-section views showing parameters of interest, including the outer device diameter, number of stages ( $3$ ), center plate position ( $h$ ), skirt depth ( $d$ ), skirt angle ( $\\theta$ ), the skirt starting radius ( $r$ , corresponding to the thruster exhaust radius), and the exit radius ( $R$ ). (b) Geometric parameters of the electrodes, with the emitter on the top and collector on the bottom. Each emitter is spaced approximately 3 mm along the circumference. (c) ",
+     "image": "details/2608.04343/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "(a) 3Dプリンタを改造した自動試験装置。ガラス製地面プレートの高さ $z$ をGコードで精密に制御します。(b) ロードセル上に取り付けられたテストデバイス。部品を迅速に交換できるモジュール構造になっており、さまざまなスカート形状を素早く評価できます。",
+     "caption": "Fig. 4: (a) The automated testing setup uses a modified 3D printer to coordinate acquisition of data with precise movement of the ground plane. The thruster is oriented with its exhaust directed upwards towards the ground plane. (b) Close view of the device-under-test with load cell visible. An experimental stand-in for the free-standing hovercraft enables rapid component swaps.",
+     "image": "details/2608.04343/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Results and Discussion",
+   "heading_ja": "スカート設計の最適化と、驚きの安定浮上デモ",
+   "summary_ja": "スカートを外側に広げるほど、また底面プレートをツライチに配置するほど、下面の静圧が高まり推力と効率が大幅に向上することが分かりました。最適設計を施した実機は、完全無音かつ制御なしで安定して浮上し、棒で突く外乱にもびくともしませんでした。",
+   "details_ja": "### IV-A Baseline Ground-Proximity Performance\nまずスカートのない推進コア単体でテストしたところ、地面に1 mmまで近づけても推力向上は約8%、効率向上は約4%にとどまりました。これだけでは自重を支えて浮上することは到底できず、気流を閉じ込めて圧力を稼ぐ幾何構造（スカート）が不可欠であることが明確になりました。\n\n### IV-B Skirt Angle\nスカートの傾斜角 $\\theta$ を比較した結果、下すぼまりの収束型（$\\theta < 0$）は流路を塞いで推力を落とすのに対し、外に開く末広がり型（$\\theta > 0$）は目覚ましい効果を発揮しました。$\\theta = 45^{\\circ}$ のスカートでは、地面近傍での推力が120%、効率が70%も向上しました。地面とスカートの間に高圧領域が広がり、圧力積分の面積が増えたためです。\n\n### IV-C Airframe Center Plate\n推進器の中央に配置するセンタープレートの位置 $h$ を検証しました。プレートをスラスタ底部と同一平面（$h = 0$）に置いた場合が最も高性能で、$\\theta = 65^{\\circ}$ のスカートではプレートなしに比べて推力が50%以上、効率が40%向上しました。下面の無駄な空間を減らして静圧の逃げを防ぐ効果が効いています。また、中間の距離では地面に吸い寄せられるサックダウン現象が見られますが、超低高度を飛ぶホバークラフトにとってはこれが逆に上下の姿勢を安定させる天然のバネとして働きます。\n\n### IV-D Skirt Ratio\nスカートの深さ $d$ を深くして開口半径 $R$ を広げるほど、推力と効率は単調に増加しました。$\\theta = 75^{\\circ}$、深さ13.5 mmの最大構成では、スカートなしの基準状態に比べて推力が約840%も爆発的に増加しました。機体自重を引いた正味の余剰推力（ペイロード容量）も約1.5 g確保できることが確認されました。\n\n### IV-E & IV-F Lift-Off and Hover Demonstration & Characterization\nこの最適形状を採用した自重約1.6 gの実機を製作し、印加電圧約2500 Vで浮上実験を行いました。機体は高さ1〜2 mmで極めて安定したホバリングを維持しました。棒で本体やスカートを突いて大きく傾かせても、制御ループなしで瞬時に元の高度と水平姿勢に復元します。地面に近づくと反発圧力が強まり、離れると揚力が抜けるという受動的な復元力が働いているためです。\n\nさらに、10分以上の連続飛行や54回の連続離着陸を行っても電極の劣化や火花放電（アーク）は一切見られず、推力効率は16 mN/W（従来機の10倍以上）に達しました。従来の地面効果モデル（Cheeseman-Bennett式）では説明できない急峻な圧力上昇とサックダウンを忠実に表す新しい実験式も提案されています。\n\n### IV-G & IV-H Acoustic Signature & Vehicle Dynamics\n市販ドローン（Crazyflie 2.1）や車輪型ロボット（HeRo 2.0）と騒音を比較したところ、本機は動画の音声スペクトルが部屋の空調音（HVAC）に完全に埋もれるほど無音でした。高速度カメラによる解析では、離陸速度9.6 mm/s、着陸速度-7.3 mm/sの滑らかで減衰の効いた垂直ダイナミクスが確認されました。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "スカート角度 $\\theta$ による地面効果の違い。内側に絞った収束スカート（$\\theta = -25^{\\circ}, -45^{\\circ}$）は性能を落とすのに対し、外に広げた末広がりスカート（$\\theta = 25^{\\circ}, 45^{\\circ}$）は地面近傍（$z/r < 0.2$）で推力比 $F/F_0$ と効率比 $\\eta/\\eta_0$ を劇的に向上させることが分かります。",
+     "caption": "Fig. 6: Force and efficiency relative to the control device’s out-of-ground-effect value for different skirt angles as a function of $z/r$ ratio with both convergent and divergent skirt angles tested.",
+     "image": "details/2608.04343/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "センタープレートの高さ $h$ とスカート角度が推力・効率に与える影響。プレートを底面とツライチ（$h = 0$）に置いた構成が最も高い性能を示し、地面近傍での圧力保持に大きく貢献していることが分かります。下段のグラフでは中距離で推力比が1を下回るサックダウン現象も確認できます。",
+     "caption": "Fig. 7: Relative force and efficiency in-ground-effect versus center plate position and skirt angle (top) and relative force versus distance from the ground for fixed skirt angle and different center plate positions (bottom). Top data at $z=1$ mm. $NA$ refers to configuration with no center plate.",
+     "image": "details/2608.04343/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "スカート排気半径比 $R/r$ に対する推力比、効率、正味推力 $F_{net}$、面積推力密度の変化。開口部を大きく広げるほど推力と効率は単調に増加し、$\\theta = 75^{\\circ}$ の最大サイズでは自重を差し引いても10 mN以上の余剰推力（正味揚力）が得られています。",
+     "caption": "Fig. 8: Relative force in-ground-effect, efficiency in-ground-effect, net force (produced force minus vehicle weight), and areal thrust density as functions of skirt exhaust radius $R$ to exhaust radius $r$ . Skirt depth $d$ is fixed at 4.5 mm, 9 mm, and 13.5 mm for the different skirt ratios. All data were collected at approximately 2500 V at a $z$ of 1 mm (i.e., $z/r$ of 0.05).",
+     "image": "details/2608.04343/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Limitations and Future Work",
+   "heading_ja": "完全自律化と実環境への適応に向けた課題",
+   "summary_ja": "現在は外部電源からの給電に依存しているため、超軽量な高電圧DC-DCコンバータの搭載が自律化の鍵となります。また、推進器の電極配置の最適化や、凹凸のある床面・障害物の影響の解明が今後の課題です。",
+   "details_ja": "本研究は画期的な成果を示したものの、いくつか重要な課題が残されています。\n\n- **電源の自立化**: 現在は細いワイヤーで外部の高電圧電源と繋がれたテザー飛行です。完全に自立して動き回るには、グラム単位の超軽量・超高圧DC-DCコンバータと小型バッテリーを機体に搭載する必要があります。\n- **推進コアの探索余地**: 電極間のギャップやリングの直径などは先行研究の値を固定して使っており、地面効果ホバークラフトに特化した電極パラメータの同時最適化を行えば、さらに効率を伸ばせる可能性があります。\n- **床面環境の影響**: 実験は滑らかなガラス板の上で行われました。実用環境では床の凹凸、溝、障害物などによってスカート下のエアクッションの圧力が抜けてしまう可能性があるため、不整地でのロバスト性の検証が必要です。\n- **水平方向の移動と制御**: 本論文では垂直浮上と受動安定性のみを実証しています。前進や旋回を行うには、電極を円周方向に分割して推力のバランスを崩す（偏向推力）などのアクティブ制御機構を組み込む必要があります。",
+   "figures": []
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "まとめ：静かな空飛ぶマイクロロボットの新たな扉",
+   "summary_ja": "地面効果による圧力回復を積極的に活かすことで、推力効率16 mN/Wを誇る完全無音のイオン推進マイクロホバークラフトを実現しました。本研究は、低高度を静かに移動する次世代マイクロロボットの設計基盤を築くものです。",
+   "details_ja": "本研究は、可動部品を一切持たず、実質的にゼロ騒音で持続浮上できるイオン推進マイクロホバークラフトの設計・飛行実証に世界で初めて成功しました。\n\nスカート角度 $\\theta = 75^{\\circ}$、深さ $d = 13.5$ mmの最適設計により、推進器単体に比べて推力を800%以上も増幅させ、自重1.6 gに対して約1.5 gの追加積載能力を達成しました。さらに、地面効果特有の空気力学的ダンピングによって、アクティブな制御回路を持たずに安定ホバリングと外乱復帰ができることも証明されました。\n\nこの成果は、これまで「効率が低すぎて飛ばない」と見なされがちだった小型EAD推進にまったく新しい活路を開くものです。静粛性と安全性が極限まで求められる人間協調型の屋内マイクロロボットに向けて、確かな一歩を踏み出しました。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「推力不足」に悩む推進技術でも、地面効果やスカートによる圧力回復を利用すれば実用レベルの揚力に変換できる",
+  "末広がり（ダイバージェント）のスカートと底面プレートの組み合わせが、下面の静圧を高める上で決定的な役割を果たす",
+  "地面効果の非線形な反発力（クッション効果）を利用することで、姿勢制御マイコンなしでも受動的な外乱復帰が可能になる",
+  "EAD推進はプロペラやモーターと異なり、空調ノイズに埋もれるレベルの完全無音飛行を実現できる唯一無二の強みがある"
+ ],
+ "limitations_ja": [
+  "高電圧（約2500 V）を外部電源から供給するテザー接続であり、電源自立飛行には至っていない",
+  "浮上高度が1〜2 mmと極めて低いため、平坦でない床面や段差ではエアクッションが破綻しやすい",
+  "前後左右への並進移動や旋回を行うための能動的な推力偏向機構がまだ実装されていない"
+ ],
+ "keywords": [
+  "Electroaerodynamic propulsion",
+  "Micro air vehicle",
+  "Ground effect",
+  "Hovercraft",
+  "Silent robotics"
+ ],
+ "id": "2608.04343",
+ "title": "Design and Flight of an Ion-propelled Micro Hovercraft Leveraging Ground Proximity Effects",
+ "title_ja": "地面効果を利用したイオン推進マイクロホバークラフトの設計と飛行",
+ "authors": [
+  "C. Luke Nelson",
+  "Grant Nations",
+  "Mrinmoy Modak",
+  "Daniel S. Drew"
+ ],
+ "date": "2026-08-06",
+ "group": "general",
+ "tags": [
+  "hardware",
+  "drone"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.04343",
+ "pdf_url": "https://arxiv.org/pdf/2608.04343",
+ "summary_ja": "可動部のない静音推進機構として期待される電磁航空ダイナミクス推進を用い、地面効果を活用して浮上するセンチメートルスケールのマイクロホバークラフトを設計。スカート形状や電極構成の実験的評価に基づき試作を行い、低高度飛行において高推力密度と効率を両立できることを実機飛行実験で実証した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.04343"
+}
