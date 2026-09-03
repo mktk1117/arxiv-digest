@@ -1,0 +1,131 @@
+{
+ "tldr_ja": "ヒューマノイドロボットが視覚情報だけを頼りに全身で物を運んだり動かしたりする「全身移動操作」を、世界モデル（World Model）を用いた知識蒸留によって高精度に実現するフレームワーク「DreamMimic」を提案しました。特権情報を持つ教師から視覚生徒ポリシーへ知識を移す際、世界モデルの予測ダイナミクスを活用することで、長時間の接触タスクにおける誤差の蓄積を大幅に抑えられます。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "DreamMimicの全体フレームワークです。シミュレータの特権情報（接触や正確な物体姿勢など）を使って学習した複数の専門家教師をまとめ、世界モデルの潜在ダイナミクスを介して視覚生徒ポリシーへ蒸留します。さらにPCG（Performance-Conditioned Guidance）によって、生徒の習熟度に応じて教師の介入度合いを適応的にコントロールします。",
+  "caption": "Fig. 1 : Overview of the DreamMimic framework: Multiple specialist teachers trained with privileged simulation observations are consolidated into a unified privileged teacher, which guides a vision-based student via Performance-Conditioned Guidance (PCG). PCG adaptively balances teacher supervision and student exploration according to their relative performance. The student operates on non-privileged proprioception, a compact goal condition, and world-model features inferred from depth and segme",
+  "image": "details/2608.22278/F1.jpg"
+ },
+ "overview_ja": "人型ロボットが日常空間や工場で作業するためには、カメラなどの視覚情報をもとに歩行と物体の操作を同時にこなす「全身移動操作（loco-manipulation）」が欠かせません。しかし、物体を押したり持ち上げたりする動作は接触が頻繁に切り替わる不連続な物理現象であり、しかもカメラ画像だけでは物体の裏側や接触の瞬間が隠れてしまう「部分観測」の問題があります。シミュレータ上の特権情報（物体の真の3次元座標や接触力など）を使えば上手に動く教師ポリシーを作れますが、これを実機で使える視覚ベースの生徒ポリシーに蒸留（模倣学習）しようとすると、ステップが進むにつれて小さな予測誤差が雪だるま式に膨らんでしまい、途中で転倒したり物体を落としたりしてしまうのが大きな課題でした。\n\nそこで著者らは、本来は計画（プランニング）や想像上の強化学習に使われる「世界モデル（RSSM: 再帰型状態空間モデル）」を、ポリシー蒸留のための「予測的な特徴抽出器」兼「将来のダイナミクスを揃える物差し」として再定義する手法「DreamMimic」を考案しました。世界モデルが生徒の視覚・自己受容感覚の履歴から未来の潜在状態を予測し、その潜在空間上で生徒の行動が生み出す未来の軌道が教師の行動による軌道と一致するように多段階で制約をかけます。さらに、接触状態や物体姿勢、報酬などを予測する補助タスクを追加し、教師の介入度合いを生徒の習熟度に合わせて自動調整するPCGという仕組みも組み込みました。\n\n検証として、大規模な人間・物体相互作用データセット（OMOMOおよびBEHAVE）を用い、重いテーブルの運搬や椅子の持ち上げ、箱の移動などの長時間タスクで評価を行いました。その結果、従来の視覚エンコーダを用いた模倣学習や画像からの単段世界モデル強化学習を圧倒し、OMOMOデータセットで92.2%という極めて高い成功率を達成しました。さらに別形態の人型ロボット（Unitree G1）や別シミュレータ（Isaac Sim）への適用可能性も示し、世界モデルが視覚ヒューマノイド制御の安定化に強力な武器になることを実証しました。",
+ "contributions_ja": [
+  "世界モデル（RSSM）をプランニングではなく、視覚ポリシー蒸留における予測的特徴空間および行動条件付き多段階アライメントの教師信号として再定義した点。",
+  "接触ラベルや物体状態、特権状態、報酬を予測する補助ヘッドを世界モデルに導入し、視覚履歴から接触リッチな相互作用に必要な特徴を潜在表現に保持させた点。",
+  "教師と生徒の相対的な報酬スコアに基づいて指導環境の比率を動的に調整し、時期尚早な自立や過剰な教師介入を防ぐPCG（Performance-Conditioned Guidance）を提案した点。",
+  "OMOMOおよびBEHAVEデータセットにおいて従来の視覚ベースラインを大幅に上回る追従性能を達成し、Unitree G1や異なるシミュレータ環境でも頑健に動作することを示した点。"
+ ],
+ "sections": [
+  {
+   "heading": "I INTRODUCTION",
+   "heading_ja": "なぜヒューマノイドの視覚移動操作は難しく、世界モデルが効くのか",
+   "summary_ja": "人型ロボットの全身移動操作は、不連続な接触や高次元な行動空間、視覚の部分観測性のせいで学習が極めて困難です。特権情報を使った教師からの蒸留は有望ですが、長期タスクでは誤差が蓄積して破綻しやすいという壁がありました。DreamMimicは世界モデルを予測的な表現学習と多段階アライメントの手段として活用することで、この長期的なドリフト問題を根本から解決します。",
+   "details_ja": "人型ロボットが工場自動化や日常生活支援で活躍するためには、視覚フィードバックを受けながら全身で移動と操作を両立させる必要があります。しかし、物体の接触タイミングや結合状態を正しく把握することは、手や体で視界が遮られやすいカメラ画像のみでは至難の業です。\n\n先行研究の多くは物体操作を含まない歩行単体に特化しているか、シミュレータでしか得られない「特権情報」（物体の完全な姿勢や接触グラフなど）に頼っています。こうした特権情報を deploy 可能な視覚ポリシーに落とし込む蒸留手法も研究されていますが、単一ステップの模倣学習では、わずかな知覚のずれが時間経過とともに蓄積し、やがてロボットがバランスを崩して倒れてしまいます。\n\n近年、世界モデル（環境のダイナミクスを潜在空間で予測するモデル）が脚式歩行や自動運転で注目を集めていますが、接触が激しく自由度の高いヒューマノイドの全身操作に適用された例はほとんどありませんでした。そこで本研究は、世界モデル（Dreamerで使われるRSSM）をプランニングに使うのではなく、生徒ポリシーの「予測的表現バックボーン」として、そして「将来数ステップの行動影響を教師と一致させるための監視信号」として転用するDreamMimicを提案しました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "DreamMimicの適用範囲と能力のまとめです。部分観測下での全身相互作用（左上）や多様なタスク（右上）に対応し、SMPL-XモデルからUnitree G1への形態転移（左下）、長時間の接触を伴う移動操作（右下）まで安定して実行できることを示しています。",
+     "caption": "Fig. 2 : DreamMimic supports vision-based humanoid loco-manipulation through world-model-assisted policy distillation. Distilling privileged specialist teachers into a visual student enables whole-body interaction under partial observability (top left) and diverse behaviors (top right). The same framework transfers across morphologies, including SMPL-X and Unitree G1 (bottom left), and sustains long-horizon contact-rich loco-manipulation (bottom right).",
+     "image": "details/2608.22278/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "先行研究の歩み：物理キャラクタ制御、視覚強化学習、そして世界モデル",
+   "summary_ja": "本研究は、物理ベースの全身キャラクタ制御、視覚からのポリシー学習（教師生徒蒸留）、ロボティクス向け世界モデルという3つの分野の交差点に位置しています。これまでの研究が直面していた「特権情報依存」「視覚強化学習の不安定さ」「世界モデルの適用限界」という課題を、新しい蒸留フレームワークで打破します。",
+   "details_ja": "本論文の立ち位置を理解するために、3つの文脈を整理しておきましょう。\n\n- **物理ベースのキャラクタ制御**: 近年、強化学習や模倣学習によって人型モデルの高度な運動やスポーツ動作が可能になりましたが、実機へ移す際のボトルネックは「特権的な観測」への依存でした。InterMimicなどの先行研究が特権的な汎用ポリシーの大規模学習を可能にしましたが、本研究はそれをオンボードセンサのみで動く視覚生徒へ蒸留する一歩先を目指します。\n\n- **ロボットのための視覚ポリシー学習**: 画像から直接強化学習を行うアプローチは、次元の高さと報酬遅延のせいで極めて不安定です。DAggerなどの模倣学習や教師生徒アプローチが有効ですが、部分観測下では分布シフトや誤差蓄積が起きます。本研究は、世界モデルによる時間的一貫性を持った教師信号と、生徒のパフォーマンスに応じた適応的な指導スケジュール（PCG）を組み合わせてこの問題を解決します。\n\n- **ロボット制御における世界モデル**: DreamerやDayDreamerなどは潜在空間で未来を想像して学習する枠組みですが、ヒューマノイドのような高次元・高接触タスク（HumanoidBenchなど）では単独での学習がうまく進まないことが知られていました。本研究のユニークな点は、世界モデルを直接のポリシー学習ではなく、「視覚蒸留を安定化させるためのガイド役」として活用した点にあります。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "DreamMimicの核心：世界モデルを蒸留の「羅針盤」にするアーキテクチャ",
+   "summary_ja": "特権情報を持つ教師ポリシーの知識を、オンボードの深度・セグメンテーション画像と自己受容感覚のみで動く生徒ポリシーへ蒸留します。生徒側ではRSSM世界モデルが未来の潜在状態や接触・物体姿勢・報酬を予測し、その予測特徴量をポリシーへ入力するとともに、将来$H$ステップの潜在軌道が教師の行動結果と一致するように制約をかけます。",
+   "details_ja": "DreamMimicの具体的な構造と学習パイプラインは、以下の要素で構成されています。\n\n- **問題設定（POMDP）**: シミュレータの真の状態 $\\boldsymbol{x}_t$ にはアクセスできず、ロボットは自身の関節情報などの自己受容感覚 $\\boldsymbol{p}_t$、深度・セグメンテーション画像、およびコンパクトな目標指令 $\\boldsymbol{g}_t$（目標物体姿勢や手足のキーポイント目標）のみを受け取ります。\n\n- **特権教師ポリシー**: 物体の真の姿勢や接触グラフ、接触ラベルをすべて見ることができる特権環境で強化学習（PPO）を用いて学習させた専門家ポリシー群です。InterMimicの手法に倣い、多様なシナリオをカバーする教師を用意します。\n\n- **生徒ポリシーへの入力設計**: 生徒のポリシーネットワークは生の画像を直接受け取りません。代わりに世界モデル（RSSM）が視覚・自己受容履歴からエンコードした決定論的隠れ状態 $\\boldsymbol{h}_t$ と、補助ヘッドが予測した報酬 $\\hat{r}_t$、特権状態 $\\hat{\\boldsymbol{x}}^{\\text{priv}}_t$、接触 $\\hat{\\boldsymbol{c}}_t$、物体状態 $\\hat{\\boldsymbol{o}}^s_t$ を、軽量Transformerで統合してアクターに入力します。\n\n- **世界モデルの予測学習と補助ヘッド**: 世界モデルはDreamer型のRSSMを採用し、画像と自己受容感覚の再構成（RecH）に加えて、接触や物体姿勢などのタスク重要変数を予測する補助ヘッドを備えています。これにより、潜在空間が「接触を伴う相互作用に必要な特徴」を強く保持するようになります。\n\n- **多段階潜在蒸留（Multi-step Latent Distillation）**: 通常の蒸留は現時刻のアクション $\\boldsymbol{a}_t$ だけを合わせますが、DreamMimicでは世界モデルのダイナミクスをフリーズさせた状態で、生徒のアクションを選んだ場合と教師のアクションを選んだ場合の未来 $H$ ステップ（本実験では $H=3$）の潜在状態 $\\boldsymbol{z}_{t+k}$ の乖離（$\\mathcal{L}_{\\text{latent}}$）をペナルティとして課します。これにより、行動がもたらす「未来の帰結」まで教師と揃えることができます。\n\n- **PCG（Performance-Conditioned Guidance）**: 教師主導の環境と生徒主導の環境の比率 $\\rho$ を、固定スケジュールで減衰させるのではなく、生徒と教師の移動平均報酬の比率（相対パフォーマンス）に基づいて適応的に制御します。生徒が未熟なときはしっかり手本を見せ、自立してきたら生徒自身の探索に任せることで、安定した学習を実現します。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "世界モデルの全体フレームワークです。観測から決定論的状態 $h_t$ と確率的状態 $s_t$ を更新し、観測の再構成だけでなく、接触（CPH）、特権状態（RPH）、物体状態（OSPH）、報酬の各補助予測ヘッドによって潜在表現を豊かにします。ポリシーはこの予測特徴量を受け取って行動を決定します。",
+     "caption": "Fig. 3 : Overview of the world model framework. A Dreamer-style world model jointly learns predictive latent dynamics from visual and proprioceptive observations and provides action-conditioned multi-step latent targets to stabilize policy learning.",
+     "image": "details/2608.22278/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "実験結果：圧倒的な追従安定性とアブレーションで見えた各要素の効き目",
+   "summary_ja": "OMOMOとBEHAVEという2つの大規模データセットで検証した結果、DreamMimicはベースラインを大幅に引き離す成功率（OMOMOで92.2%）を達成しました。アブレーションにより多段階潜在監視や補助予測ヘッドの重要性が証明され、Unitree G1やIsaac Sim環境でも安定した動作が確認されました。",
+   "details_ja": "実験の主要なポイントと結果は以下の通りです。\n\n- **評価設定とデータセット**: SMPL-X（153自由度の人体モデル）を用い、OMOMO（大テーブル、椅子、プラスチック箱など5種の物体）とBEHAVE（バックパック、コンテナ、スツールなど長時間シーケンス）で評価しました。評価指標は成功率（Succ.）、生存ステップ数（Time）、ロボット関節追従誤差（$E_r$）、物体追従誤差（$E_o$）です。\n\n- **定量評価（Table I & II）**: OMOMOにおいて、ResNet-18やViTを用いた直接エンコーダ型の生徒モデルやRL単体ベースラインが苦戦する中、DreamMimicは成功率92.2%を記録しました。物体の質量を増加させた過酷な負荷テストでも高い追従精度を維持しました。また、画像からゼロから強化学習する単段Dreamerは生存時間こそ少し伸びたものの、本タスクのような高接触・多自由度環境ではほとんどタスクを達成できませんでした。\n\n- **アブレーション研究（何が効いていたのか？）**:\n  - *多段階潜在監視*: $H=3$ ステップの潜在アライメントを外すと、OMOMOの成功率は92.2%から70.6%へと一気に急落しました。単一ステップの模倣だけでは長期の誤差蓄積を防げないことが実証されました。\n  - *補助予測ヘッド*: 再構成損失（RecH）だけにすると成功率は86.3%に落ち、物体誤差が拡大しました。物体状態予測などを加えることで、物体の追従誤差が12.7cmから8.8cmまで大幅に改善しました。\n  - *ポリシーへの予測特徴入力*: 予測ヘッドを損失関数として使うだけでポリシーに入力しない場合、成功率は84.3%（負荷テストでは33.3%）まで低下しました。\n  - *指導スケジュール（PCG）*: BEHAVEデータセットにおいて、エポック数で機械的に教師割合を減らすナイーブな減衰と比べ、PCGは追従誤差と持続時間で明確に優れた結果を示しました。\n\n- **定性評価と汎化性（Fig. 4, 5, 6）**: ベースライン手法が物体の持ち上げ時にバランスを崩して転倒するのに対し、DreamMimicは安定してテーブルを持ち上げて歩行を継続できました。さらに、42自由度のヒューマノイドロボット「Unitree G1」への適用（Fig. 5）や、Isaac Gymで学習してIsaac Sim（Isaac Lab）で動かすシミュレータ間転送（Fig. 6）でも安定した全身相互作用が確認されました。\n\n- **失敗例の分析**: カメラの死角になるような激しいオクルージョン（遮蔽）や、視覚的に接触位置が曖昧な場面では依然として失敗が発生します。またUnitree G1では、上半身の手先把持力が足りずに重い物体を持ち上げきれず「押す」動作に退行してしまうケースも見られました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "接触リッチな移動操作における定性比較です。上がDreamMimic、下がResNet-18ベースラインです。DreamMimicは大きなテーブルを持ち上げて運ぶ際もバランスを保ち続けますが、ベースラインは安定した接触を作れず転倒してしまいます。",
+     "caption": "Fig. 4 : Qualitative comparison on contact-rich loco-manipulation. DreamMimic maintains stable interaction and balance over long horizons, while the baseline often fails to sustain contact and collapses.",
+     "image": "details/2608.22278/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "Isaac GymにおけるUnitree G1ロボット（42自由度）での定性比較です。DreamMimic（上段）はバランスを維持したまま安定して箱を押して移動させていますが、単段Dreamerベースライン（下段）は接触の瞬間に不安定になり転倒しています。",
+     "caption": "Fig. 5 : Qualitative comparison on the Unitree G1 humanoid in Isaac Gym. DreamMimic generates stable pushing behavior with consistent balance and object interaction, whereas the Dreamer baseline becomes unstable during contact and falls.",
+     "image": "details/2608.22278/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "Isaac Sim上でのシミュレータ間ゼロショット転送テストです。Isaac Gymで学習したDreamMimicポリシーが、木の椅子や大きなテーブルとの複雑な全身インタラクションをIsaac Sim環境でも安定してこなしています。",
+     "caption": "Fig. 6 : Qualitative test in Isaac Sim. DreamMimic performs stable whole-body interactions with a wooden chair and a large table.",
+     "image": "details/2608.22278/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめ：世界モデルは視覚全身制御の「安定化装置」になる",
+   "summary_ja": "本研究は、世界モデルの潜在ダイナミクスを活用して視覚ヒューマノイドの全身移動操作を安定して蒸留する「DreamMimic」を提案しました。長期的なドリフトを抑える多段階潜在アライメント、相互作用を捉える補助タスク、習熟度に応じた指導スケジュール（PCG）を組み合わせることで、高難度なタスクで高い追従性能を達成しました。",
+   "details_ja": "DreamMimicは、世界モデルの役割を「プランニングの道具」から「表現学習と多段階蒸留の安定化装置」へとシフトさせることで、接触が激しく自由度の高いヒューマノイドロボットの視覚制御に新たなブレークスルーをもたらしました。\n\nシミュレータ特権教師の高い運動能力を損なうことなく、部分観測であるカメラ視覚生徒へと移譲できるこの枠組みは、将来的な実機ヒューマノイドへの展開に向けた重要なステップと言えます。今後は、実機カメラでの遮蔽に対する頑健性の向上や、触覚センサの統合、手指の詳細な力制御との連携が期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "世界モデル（RSSM）はプランニングだけでなく、模倣学習における「多段階の潜在アライメント指標」および「予測的特徴抽出器」として非常に有効に機能する。",
+  "視覚からの長期接触タスクでは、単一ステップのアクション一致損失だけでは不十分であり、行動が引き起こす数ステップ先の潜在状態のズレを抑えることが決定的に重要。",
+  "教師と生徒の指導割合は、固定ステップでの減衰よりも、リアルタイムの相対報酬スコアに基づいて動的に調整する（PCG）ほうがハイパーパラメータ調整に依存せず安定する。",
+  "特権状態や接触ラベルを予測する補助タスクを世界モデルに課すことで、潜在空間が接触リッチな操作に必要な幾何・物理特徴を都合よく保持してくれる。"
+ ],
+ "limitations_ja": [
+  "実験はシミュレーション環境（Isaac Gym / Isaac Sim）のみで行われており、実機ハードウェアでの物理実験による検証がまだ行われていない点。",
+  "入力として完全な深度画像とセグメンテーション画像を前提としており、現実のカメラノイズや不完全な知覚パイプラインに対するロバスト性が未知数である点。",
+  "手先が物体で完全に遮蔽された極端なオクルージョン環境下では、世界モデルの予測精度が落ちて破綻するケースが残っている点。",
+  "動作リターゲティングの精度の問題により、G1のような実ロボットモデルでは手先の緻密な把持力が不足し、持ち上げ動作が押し動作に退行しやすい点。"
+ ],
+ "keywords": [
+  "Humanoid Loco-Manipulation",
+  "World Model",
+  "Policy Distillation",
+  "Visuomotor Control",
+  "RSSM",
+  "Imitation Learning"
+ ],
+ "id": "2608.22278",
+ "title": "DreamMimic: Learning Visuomotor Whole-Body Loco-Manipulation via World Model",
+ "title_ja": "DreamMimic: ワールドモデルを介した視覚運動全身移動マニピュレーションの学習",
+ "authors": [
+  "Jie Yin",
+  "Xingyu Lai"
+ ],
+ "date": "2026-08-25",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "locomotion",
+  "manipulation",
+  "world-model"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.22278",
+ "pdf_url": "https://arxiv.org/pdf/2608.22278",
+ "summary_ja": "ヒューマノイドロボットにおける視覚ベースの全身移動マニピュレーション（Loco-Manipulation）フレームワークを提案。特権情報を持つ教師方策を、ワールドモデルによる予測的潜在ダイナミクスを介して生徒方策へ蒸留する。予測的特徴を活用することで長大なタスクにおける部分観測性や接触リッチなダイナミクスへの対応力を高めている。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.22278"
+}
