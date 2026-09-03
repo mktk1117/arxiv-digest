@@ -1,0 +1,139 @@
+{
+ "tldr_ja": "動画拡散モデルを画像生成器ではなく「決定論的な幾何エンコーダ」として再利用することで、一人称視点映像から遮蔽や画面外への消失に強い高精度な3D両手軌道を高速に復元する手法「ACE-Ego-Hand」を提案しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "ACE-Ego-Handの全体構成です。動画をVAEで圧縮したあと、事前学習済み拡散モデル（Wan DiT）にノイズなし（$\\sigma=0$）で1回だけ通し、ブロック15から特徴量を抽出します。この特徴量からRay Headと双方向時空間デコーダが、外部検出器なしで両手の3D形状・姿勢・カメラ座標系での並進を復元します。",
+  "caption": "Figure 2 : Overview of ACE-Ego-Hand. Raw video is encoded into latents by the Wan VAE and processed by the Wan DiT ( $\\sigma=0$ ). Block-15 features (grayed blocks skipped) branch to the Ray Head and Bidirectional Spatiotemporal Decoder. Only the patch embedding, LoRA, Ray Head, and Decoder are trained (parameter accounting in Appendix B ). Camera intrinsics supervise the Ray Head and the $K$ -free camera fit during training. At test time they are discarded ( $K$ -free) or used only as the beari",
+  "image": "details/2608.20308/F2.jpg"
+ },
+ "overview_ja": "人間の一人称視点（エゴセントリック）動画は、ロボットの器用なマニピュレーション学習にとって宝の山です。しかし、そこからロボットの学習に使えるメートル単位（実スケール）の3D手軌道を復元するのは極めて困難でした。手と物体が重なる激しい遮蔽や、激しい頭部運動によって手が画面外（Out of Sight: OOS）に完全に出てしまう事態が頻発するためです。これまでの手法はフレームごとの検出器や短時間のウィンドウに頼っていたため、手が一度見えなくなると見失い、復帰時にも追跡が途切れてしまいがちでした。\n\nそこで著者らは、物理的な連続性や物体との相互作用を事前学習で豊富に獲得している「動画拡散モデル（VDM）」に着目しました。先行研究でも拡散モデルを使う試みはありましたが、多ステップのノイズ除去サンプリングを行ってピクセルを描画し、そこから姿勢を推定するという遠回りな構成で、推論が遅く生成ノイズが混入する問題がありました。本研究の核心的なひらめきは、「拡散モデルは描画器としてではなく、確定的なエンコーダとして使うのが最も効果的である」という点です。\n\n本研究では、拡散モデルをノイズなしで1回だけ順伝播させる「決定論的クリーン潜在エンコーダ」として活用し、動画クリップ全体を双方向に推論するデコーダと、カメラ内部パラメータがなくても機能する視線レイベースの解法を組み合わせたフレームワーク「ACE-Ego-Hand」を開発しました。5つのベンチマークで評価した結果、激しい遮蔽を含むARCTICで誤差を30%、HOT3Dで40%削減し、画面外の手を含めると46〜61%もの誤差低減を達成しました。さらに推論速度も従来の生成型手法に比べ33倍高速（約63 fps）に達しています。",
+ "contributions_ja": [
+  "動画拡散モデルを反復サンプリングする生成器ではなく、決定論的な特徴抽出器（クリーン潜在エンコーダ）として再定義し、外部検出器不要のオフライン・クリップレベル3D手復元を実現したこと。",
+  "クリップ全体の文脈を双方向Attentionで捉え、手の骨格に紐づくクエリと動画全体で一意な手形状事前分布を融合して、画面外や遮蔽時の手を破綻なく補間・復元する双方向時空間デコーダを提案したこと。",
+  "拡散モデルの潜在表現から3D視線レイ（視線方向ベクトル）を推定し、カメラ内部パラメータ（焦点距離等）の事前キャリブレーションなしでもメートル単位の位置を解く手法を構築したこと。",
+  "5つのエゴセントリックデータセットで従来SOTAを大幅に上回り、特に画面外を含む手軌道の復元精度を劇的に向上させたこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ一人称視点の手軌道復元は難しく、拡散モデルをどう使うべきなのか",
+   "summary_ja": "一人称視点動画での3D手動線復元は、物体による遮蔽や頭部運動によるフレームアウトが最大の障壁です。本論文では、反復生成の遅延とアーティファクトを回避しつつ、拡散モデルの強力な物理ダイナミクス事前知識を1回の順伝播で引き出す新アプローチを提示します。",
+   "details_ja": "一人称視点動画からロボットの模倣学習データを抽出する際、手と物体の激しい干渉（HOI: Hand-Object Interaction）による遮蔽と、カメラを装着した頭部の素早い動きによって手が画面外（OOS: Out of Sight）へ頻繁に消え去る現象が大きな課題となります。\n\n従来の3D手姿勢推定手法は、フレームごとの検出・切り抜き（crop）やSLAMベースの追跡に依存していました。しかし、手が一時的に視野角から外れると過去の文脈が途切れ、再び現れたときに追跡の連続性が失われてしまいます。著者らは、この問題の本質は「動画クリップ全体を一度に俯瞰して推論するオフラインの時空間推論タスク」であると主張します。\n\n画面外にある手の自然なダイナミクスを補間・再構築するには、物理法則や動作の事前知識が欠かせません。事前学習済みの動画拡散モデル（VDM）はそうした事前知識を持っていますが、先行研究のようにノイズ除去を何十ステップも繰り返して画像を生成し、そこから姿勢を取り出すパイプラインは極めて遅く、生成特有の歪みも混入します。また、カメラ座標系での直接回帰はカメラ自身の急激な動きと手の運動が混ざり合い、事前のカメラ校正値（内部パラメータ）にも強く縛られてしまいます。\n\nそこでACE-Ego-Handでは、VDMを「決定論的クリーン潜在エンコーダ」として1回だけ順伝播させ、LoRAで3D幾何タスクにエンドツーエンド適応させます。さらに、双方向時空間デコーダと視線レイに基づくカメラソルバーを組み合わせることで、校正値不要（K-free）かつ画面外でも滑らかなメートル単位の3D両手軌道復元を可能にしました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "単眼フレーム処理・動画追跡・動画生成モデルの活用史",
+   "summary_ja": "従来の手法は「検出・切り抜き・回帰」を行う単一フレーム手法や、短期ウィンドウの動画モデルが主流でした。本研究は、動画拡散モデルの重み活性を単一パスで読み出す表現学習の文脈に立ち、生成オーバーヘッドを排した幾何認識エンコーダを提案します。",
+   "details_ja": "既存研究は主に3つの系統に分かれます。\n\n- 単一フレームによる手復元:\n多くの手法（HaMeRやWiLoRなど）は「検出して、切り抜いて、MANOパラメータ（手の3Dメッシュ表現規格）を回帰する」パイプラインを踏襲しています。エゴセントリック向けにカメラ校正を考慮する手法（WildHandsやEgoForce）も登場しましたが、切り抜き領域に依存する限界は残ります。手が大きく隠れたり視野から外れたりすると、そもそも何も出力できません。\n\n- 動画ベースの手動作復元:\n複数フレームを統合して遮蔽を補う研究（OmniHands）や、動作事前分布を用いて見えない手を補間する研究（GENMOやEgoH4）があります。しかし、これらも依然としてフレーム単位の検出器を前段に必要としていたり、正規化された姿勢空間だけで補間を行っており、動画全体の視覚的文脈を直接フル活用できていませんでした。\n\n- 表現としての生成動画モデル:\n動画拡散モデルを下流タスクに応用する流れには、「生成プロセス自体を誘導するアプローチ」と「モデル内部の活性値を読み出すアプローチ」の2つがあります。先行研究のViDiHandは前者に近く、幾何学的オーバーレイを生成させるために12〜25ステップのサンプリングを行い、バックボーンを固定して特徴量を抽出していました。これに対して本研究は、完全にクリーンな潜在変数から1回の順伝播で特徴を読み出し、さらにバックボーンを直接3D目的関数で訓練ループ内で微調整（LoRA）する道を選びました。",
+   "figures": []
+  },
+  {
+   "heading": "3 ACE-Ego-Hand",
+   "heading_ja": "決定論的拡散エンコーダと双方向デコーダのメカニズム",
+   "summary_ja": "入力動画をWan 2.2拡散モデルのブロック15まで通してリッチな特徴を抽出し、双方向Attentionとレイ予測型カメラソルバーによって、関節位置・手姿勢・カメラ座標系並進を一度に解き明かします。",
+   "details_ja": "ACE-Ego-Handの全体パイプラインは、以下の3つのモジュールで構成されています。\n\n3.1 生成器からエンコーダへ（Deterministic Clean-Latent Encoder）:\nベースとなる拡散トランスフォーマー（Wan 2.2 DiT）に対し、ノイズレベル $\\sigma=0$（完全なクリーン状態）で動画潜在変数を入力します。全30ブロックのうち前半16ブロック（ブロック15まで）で計算を打ち切ることで、計算量を約半分に削減しながら高精度な特徴グリッド $F$ を取得します。また、アテンションやFFN層にLoRAを組み込み、パッチ埋め込み層とともに3D教師信号でエンドツーエンドに学習させることで、汎用的な特徴を幾何認識に適した表現へと進化させています。\n\n3.2 双方向時空間デコーダ（Bidirectional Spatiotemporal Decoder）:\n特徴グリッドから両手の情報を読み出すため、フレームごとに「手トークン2個（左右）」「関節トークン42個（各手21関節）」「レジスタトークン4個」の計48個のクエリを用意します。各関節クエリは空間クロスアテンションを通じて2Dアンカー位置を確率的に捉え、時間方向はRotary位置埋め込みを用いた因果性のない（双方向の）自己アテンションで前後の文脈を統合します。また、エゴセントリック動画では手の物理的な大きさは変わらないため、Shape Headが動画全体の手トークンを時間プーリングして手形状パラメータ $\\hat{\\beta}$ をクリップ全体で1回だけ予測し、形状のブレ（チラつき）を防ぎます。\n\n3.3 レイベース・カメラソルバー（Ray-Based Camera Solver）:\nカメラ内部パラメータへの依存を断ち切るため、特徴量から各セルの視線方向レイ $\\hat{r}$ を予測するRay Headを備えています。3D並進の決定には混合PnP（Perspective-n-Point）法を採用しました。ネットワークは奥行き $\\hat{t}_z = \\exp(\\hat{\\zeta})$ のみを回帰し、画面内の並進 $(t_x, t_y)$ は予測された2D関節アンカーと視線レイから重み付き最小二乗法で代数的に解きます。これにより、テスト時にカメラ校正値が与えられなくても（K-free）、高精度にメートル単位の3D配置が可能になります。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "双方向時空間デコーダのアーキテクチャです。空間Cross-Attentionと時間Self-Attentionを4層交互に繰り返し、関節・姿勢・カメラヘッドからMANOパラメータを出力します。予測された視線レイ（Ray PE）が幾何情報として注入され、内部パラメータがなくてもPnPソルバーで正確な3D並進が求まります。",
+     "caption": "Figure 3 : Architecture of the Bidirectional Spatiotemporal Decoder. The predicted ray field $\\hat{r}$ enters as a ray PE added to the spatial PE. Four layers alternate Spatial Cross-Attention with Temporal Self-Attention. The readout heads emit MANO parameters and feed the mixed-PnP translation solve. Our two configurations differ architecturally only in the bearing source, derived from the predicted ray field $\\hat{r}$ ( $K$ -free, shown) or computed from camera intrinsics (standard).",
+     "image": "details/2608.20308/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "遮蔽や画面外消失を克服する圧倒的な精度とリアルタイム性",
+   "summary_ja": "ARCTIC、HOT3D、HOI4Dなどの5つのベンチマークで10のベースラインと比較し、主要指標48項目中45項目でSOTAを獲得しました。特に画面外での復元精度が大幅に向上し、推論速度も63 fpsを達成しています。",
+   "details_ja": "4.1 実験設定:\n学習にはARCTIC、HOT3D、H2O、OakInk2などのエゴセントリック動画やレンダリングデータ、単一画像データセットを混合して使用し、HOI4Dは学習に使わないゼロショット評価用データとしました。評価指標には、手首アライメント後の3D関節位置誤差（MPJPE-p）、検出見逃しペナルティを含む指標、画面外（OOS）の手も含めた誤差（MPJPE +OOS）などを用いています。\n\n4.2 主要結果:\n画面内に手が見えている状況において、ACE-Ego-Handは先行最高水準のViDiHandに比べ、MPJPE-pをARCTICで30%（21.67 mm → 15.26 mm）、広角なHOT3Dで40%（21.51 mm → 12.89 mm）、ゼロショットのHOI4Dで23%削減しました。検出精度（F1スコア）もほぼ飽和水準に達しています。さらに、カメラ校正値を与えない「K-free」設定でも、校正値ありの設定とほぼ同等の精度を維持しました。\n特筆すべきは画面外（OOS）の復元性能です。画面外の手を含めた評価（MPJPE +OOS）では、ViDiHandに対してARCTICで45.9%、HOT3Dで61.1%もの誤差低減を記録しました。純粋に画面外のフレームだけに限定した評価（MPJPE OOS）でも約35〜38 mmに留まり、120〜150 mm台で破綻していた既存手法を圧倒しています。\nまた推論速度は1台のA100 GPUで63.1 fpsを記録し、ViDiHand（1.91 fps）の約33倍の高速化を達成しました。\n\n4.3 アブレーション研究:\n動画バックボーンの比較実験（表2）では、素のRGB画像（46.50 mm）やVAE潜在変数（32.50 mm）を入力とするよりも、Wan 2.2拡散モデルを用いた場合（16.95 mm）に誤差が半減しました。自己教師あり学習のV-JEPA 2に置き換えた場合、画面内の精度は保たれるものの、画面外誤差（MPJPE OOS）が41.5 mmから66.1 mmへと大きく悪化しました。この結果は、生成事前学習によって獲得された時空間ダイナミクスが、見えない手を予測する上で極めて有効であることを裏付けています。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "ARCTIC（上）とHOT3D（下）における定性比較です。既存手法が遮蔽時に片手を見失ったり、手首の軌道が激しくブレたりしているのに対し、本手法（Ours）は激しい手同士の重なりや画面外への出入りがあっても、滑らかで真値に張り付くような3D軌道を維持できています。",
+     "caption": "Figure 4 : Qualitative comparison on ARCTIC (top) and HOT3D (bottom). For each dataset: the predicted mesh on the input frame, and the recovered hands in a shared world frame with wrist trails. Every method predicts in the camera frame, and the world view places those predictions with the ground-truth camera poses, so the view shows placement, not recovered camera motion. Under bimanual occlusion on ARCTIC several baselines recover only one hand. On wide-angle HOT3D they scatter the hands across",
+     "image": "details/2608.20308/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion and Discussion",
+   "heading_ja": "研究のまとめと今後の展望",
+   "summary_ja": "拡散モデルを確定的な幾何エンコーダとして再利用することで、遮蔽に強い高速な3D手追跡を実現しました。クリップ全体の文脈を活用するオフライン設計であるため、ロボット操作データの大量生成に最適な基盤となります。",
+   "details_ja": "本研究は、動画拡散モデルを多ステップの画像生成器としてではなく、1パスで実行可能な幾何エンコーダとして再活用する新しいパラダイム「ACE-Ego-Hand」を提示しました。双方向時空間デコーダと視線レイに基づくカメラソルバーの組み合わせにより、計算コストを大幅に抑えつつ、遮蔽や一時的なフレームアウトに対してかつてない頑健性を達成しました。\n\nこの成果は、膨大な人間の一人称行動動画を、ロボットが模倣学習可能な高品質なマニピュレーション動作データへと変換する強力な足がかりとなります。\n\n現在の制約事項としては、予測された視線レイが学習データに含まれるカメラ光学系（画角など）の外側では汎化しにくい点や、クリップ全体を一度に処理するオフライン処理を前提としている点が挙げられます。今後は、オンラインでのロボット実機制御に向けて因果型（ストリーミング型）モデルへ蒸留することなどが有望な展望として議論されています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：実装の詳細、長尺動画への汎用性、ロボットハンドへのリターゲティング",
+   "summary_ja": "Rotary位置埋め込みによる長尺シーケンスへの適応性、カメラ未校正時の画像端での挙動解析、そして復元した両手軌道を多指ロボットハンド（Inspire Hand）に適用したデモについて報告されています。",
+   "details_ja": "- 速度と精度のトレードオフ（図F5）:\nベンチマーク平均の3D誤差と推論速度を比較すると、ACE-Ego-Handは既存の最高精度手法よりもはるかに高精度でありながら、60 fpsを超える速度域に位置しており、圧倒的なパレート優位性を示しています。\n\n- 画像周辺部でのカメラフィッティング効果:\nカメラ校正値を使わないK-free構成において、視線レイをそのまま読み出すと画像端で方向の不確実性が高まり、並進誤差が跳ね上がります。本手法の閉形式カメラフィッティングを挟むことで、画面端や画面外の手に対する並進誤差を大幅に抑制できることが確認されました。\n\n- クリップ長の汎化性とタップ深度:\n時間アテンションにRotary相対位置埋め込みを採用しているため、学習時の81フレームを超えて動画全体（数百〜1000フレーム以上）を1回の順伝播でデコード可能です。また、バックボーンのブロック15で途中の特徴量を引き抜く（タップする）設計により、計算量を抑えつつフルレイヤーと同等の表現力を維持できることが実験的に示されています。\n\n- ロボットハンドへのリターゲティング（図F9）:\n復元されたメートル単位の3D手関節位置から指の屈曲角度を計算し、多指ロボットハンド「Inspire Hand」へと動作を転送しました。動画内の複雑な物体操作や道具の扱いが、ロボットハンド上で極めて自然かつ同期して再現できることが確認され、ロボット模倣学習データ生成器としての実用性が実証されています。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "精度と推論速度の比較（Figure S1）です。縦軸がMPJPE-p誤差（低いほど良い）、横軸が1台のA100における秒間処理フレーム数（FPS、対数軸）です。本手法（星印）は、最高精度を大幅に更新しながら63 fpsという高速推論を両立しています。",
+     "caption": "Figure S1 : Accuracy against speed. We plot MPJPE-p averaged over ARCTIC, HOT3D, and HOI4D against end-to-end clip throughput on one A100, excluding model loading, video decoding, and rendering. Both ACE-Ego-Hand configurations run at the same speed.",
+     "image": "details/2608.20308/F5.jpg"
+    },
+    {
+     "key": "F9",
+     "caption_ja": "一人称動画からロボットハンドへのリターゲティング例（Figure S6）です。入力RGB（左）、ACE-Ego-Handが復元した手メッシュ（中央）、Inspire Handへの転送結果（右）が並んでおり、指の細かな屈曲が高精度にロボットへ写し取られていることが分かります。",
+     "caption": "Figure S6 : From egocentric video to a dexterous hand, step by step. One clip from each of ARCTIC, HOT3D, H2O, and OakInk2. Columns: source RGB, the hand mesh recovered by ACE-Ego-Hand, and the trajectory retargeted to an Inspire Hand. Finger flexion is mapped from the predicted 3D joints rather than from the MANO articulation parameters.",
+     "image": "details/2608.20308/F9.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "動画拡散モデルは反復生成（サンプリング）させなくても、クリーン潜在空間における単一フォワードパスの特徴量自体が強力な物理・時空間事前分布を持っている。",
+  "見えない手（画面外・遮蔽）の復元には、判別型の自己教師ありモデル（V-JEPA等）よりも生成型の事前学習モデルのほうが予測能力において優れている。",
+  "視線レイ（Ray）を潜在特徴から予測してPnPで解く構成にすることで、テスト時にカメラの内部パラメータが未知であっても、メートル単位の正確な3D手配置が可能になる。",
+  "クリップ全体の双方向コンテキストを一括処理することで、フレームごとの検出器やトラッカーが抱えていたドリフトや追跡消失の問題を根本から回避できる。"
+ ],
+ "limitations_ja": [
+  "クリップ全体を双方向に俯瞰して解くオフライン前提の構造であるため、そのままではロボットのリアルタイムなクローズドループ制御には使えない（模倣学習データの収集・前処理向け）。",
+  "画面外（OOS）の復元精度向上は主に手首アライメント後の関節角度・姿勢（MPJPE OOS）で検証されており、画像手がかりのない画面外での絶対的な深さ・並進位置の保証には依然として不確実性が残る。",
+  "カメラ内部パラメータ不要のソルバーはピンホール幾何を前提として線形回帰を行っているため、魚眼レンズのような極端な広角・非線形歪みを持つカメラでは精度が落ちる場合がある。"
+ ],
+ "keywords": [
+  "Video Diffusion Models",
+  "Egocentric 3D Hand Pose Estimation",
+  "Embodied AI",
+  "Occlusion Robustness",
+  "Out-of-Sight Motion Recovery",
+  "Camera Intrinsics-Free"
+ ],
+ "id": "2608.20308",
+ "title": "DreamHand: Repurposing Video Diffusion Models for Occlusion-Robust Egocentric 3D Hand Motion Recovery",
+ "title_ja": "DreamHand: 遮蔽に頑健な一人称視点3D手先運動復元のための動画拡散モデルの再利用",
+ "authors": [
+  "Yufei Liu",
+  "Xixi Wang",
+  "Hao Li",
+  "Ganlong Zhao",
+  "Kaitong Cai",
+  "Chengkai Jin",
+  "Chunxiao Liu",
+  "Jianbo Liu",
+  "Siyuan Huang",
+  "Xingang Pan",
+  "Hongsheng Li"
+ ],
+ "date": "2026-08-23",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "perception",
+  "dataset"
+ ],
+ "categories": [
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.20308",
+ "pdf_url": "https://arxiv.org/pdf/2608.20308",
+ "summary_ja": "一人称視点動画からのマニピュレーションデータ抽出に向け、動画拡散モデル（VDM）を決定論的幾何エンコーダとして再利用する手法DreamHandを提案。単一フォワードパスで遮蔽や視野外の手先の3D軌道を高精度に復元する。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.20308"
+}
