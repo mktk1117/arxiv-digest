@@ -1,0 +1,141 @@
+{
+ "tldr_ja": "ヒューマノイドロボット向けに対話音声から意味とリズムが一致したジェスチャをストリーミング生成するロボット中心型フレームワーク「RoboGesture」を提案し、Unitree G1実機での安全かつ低遅延な対話動作を実現した。",
+ "overview_ja": "ヒューマノイドロボットが人間の発話に即座に応答し、文脈の意味やリズムに同期した身振り手振りを交えて対話することは、自然な人間・ロボット対話（HRI）の実現に不可欠です。しかし、高品質で意味注釈が付与された大規模な音声・動作ペアデータの不足、オンライン生成時に過去の動作の慣性に引きずられて音声特徴を無視してしまう「モダリティ食（Modality Eclipse）」問題、そして実機特有の自己衝突や激しい関節振動といった物理的安全性の担保という3つの課題が存在していました。\n\n本研究は、これらを解決するためにデータ構築、モデル設計、安全制御を包括的に統合した「RoboGesture」を提案します。まず、300以上の動作カテゴリを含む高精度な「RoboGestureデータセット」を構築し、ロボットの関節空間上で自己衝突のない半合成データを自動生成するパイプラインを確立しました。モデル面では、音声トークンから韻律とマクロな意味を分離抽出する階層的アライナーと、Anti-Inertia CFGマスキングを備えたConditional Flow Matchingベースの連続拡散トランスフォーマー（DiT）を導入し、音声駆動のストリーミング動作生成を実現しています。さらに、推論時にはMPCベースの安全フィルタにより自己衝突を防止します。\n\nUnitree G1ロボット（Dexterous Hand搭載）を用いた検証により、提案手法は先行研究と比較して動作の忠実度、ビート同期性、意味的整合性、衝突防止性能のすべてにおいて最先端の性能を達成しました。実機システム全体として約120 FPSの超高速な動作生成と約5.6 msのフィルタ処理を実現し、低遅延で自然な対話ループの動作を実証しました。",
+ "contributions_ja": [
+  "ロボット関節空間上でEnd-to-Endかつストリーミング動作生成を行う、データ・モデル・制御を統合したヒューマノイド対話フレームワークを構築した。",
+  "300以上のジェスチャカテゴリを収録し、ロボットの運動学に最適化された衝突のない大規模半合成データセット生成パイプラインを確立した。",
+  "音声の階層的音響・意味アライナーと、過去動作の慣性ショートカットを防ぐAnti-Inertia CFGマスキングを備えた連続拡散ベースの動作生成器を提案した。",
+  "リアルタイムMPC安全フィルタを組み込み、Unitree G1実機上で人間と低遅延に対話・ジェスチャ応答を行う完全なシステムを実証した。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "序論",
+   "summary_ja": "ヒューマノイドが自然に対話するには、意味とリズムが同期した安全なジェスチャを低遅延で生成する必要があります。既存手法にはデータ不足、動作慣性への過剰依存、実機での衝突リスクという3つの壁があり、本論文はデータ・モデル・制御を共設計したロボット中心の解決策を提案します。",
+   "details_ja": "ヒューマノイドロボットが人間の発話を聴き取り、同期した意味のある身振りや手振りを交えて応答する能力は、介助、教育、協調作業などの現場でロボットを真のパートナーへと昇華させるための鍵となります。しかし、これを実現するには以下の3つの深刻な課題が存在します。\n\n- 第一に、きめ細かな意味注釈が付与された大規模な音声・動作ペアデータの不足です。従来手法はテキストを中間表現に用いたりヒューリスティックな後処理に頼ったりしていましたが、これらは音声の抑揚などの韻律情報や微細な時間整合性を損なう原因となっていました。\n- 第二に、ストリーミング（オンライン）生成時における「モダリティ食（Modality Eclipse）」の発生です。明示的な意味モデルや制御機構がない場合、生成モデルは直前の動作パターンを漫然と継続するショートカットに陥り、新たに入力された音響信号に適切に応答しなくなります。\n- 第三に、バーチャルアバターと実機ヒューマノイドの間に横たわるSim-to-Realギャップです。人間の骨格空間で生成された動作をオンラインリターゲティングとPD制御でロボットに追従させると、激しい振動や自己衝突を引き起こし、安全性が担保できません。\n\nこれらの課題に対処するため、本研究はロボット中心（Robot-centric）のアプローチを採用し、最初からヒューマノイドの関節空間で学習・生成を行う統合フレームワークを構築しました。300以上のカテゴリを持つRoboGestureデータセットと半合成データ生成パイプラインを開発し、音声から音響・意味情報を分離する階層的アライナー、動作慣性を断ち切るAnti-Inertia CFGマスキングを備えたストリーミング拡散トランスフォーマー、そして実機用のMPC安全フィルタを提案しています。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Works",
+   "heading_ja": "関連研究",
+   "summary_ja": "実機ヒューマノイドとの対話はアバターアニメーションと異なり、ハードウェア制約や安全性への厳格な対応が求められます。先行の音声駆動ジェスチャ生成手法はテキスト依存や後処理に課題を抱えていたのに対し、本手法はロボット空間でのEnd-to-End学習とテキストフリーな音声駆動を実現します。",
+   "details_ja": "2.1 ヒューマノイドとの社会的対話（Human-Humanoid Social Interaction）\nアバター環境を用いた対話研究（SOLAMIなど）が進展しているものの、仮想空間と物理ロボットの間には重大なドメインギャップが存在します。従来の人体表現からロボットへのオンラインリターゲティング手法では、関節限界の超過や自己衝突をリアルタイムに回避しつつ繊細な動作を再現することが困難でした。また、ロボット工学における従来の社会的対話システムはルールベースや振る舞い木（Behavior Tree）に依存しており、発話と身振りが自然に連動する人間の複雑な対話表現を捉えきれませんでした。これに対し本研究は、事前処理としてロボットの動作空間へ統一し、ロボット空間上で直接マルチモーダルモデルを学習させることでこれらの問題を根本から回避します。\n\n2.2 発話随伴ジェスチャ生成（Co-speech Gesture Generation）\n近年の深層学習ベースの手法（LivelySpeaker, DiffSHEG, Semantic Gesticulator, SemTalkなど）は、テキストやCLIP埋め込みを利用して言語的意味と動作を一致させようとしてきました。しかし、Semantic GesticulatorのようなLLM検索ベースの手法は後処理に依存するためリアルタイムのストリーミング処理に不向きであり、SemTalkなどのテキスト依存手法は発話直前の予備動作（声を発する前に体を引く、手を構えるなど）や細かな抑揚のタイミングを捉えられません。本研究はテキストを介さず音声トークンから直接音響・意味的特徴を抽出する設計を採用し、低遅延かつ高精度な同期を実現します。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "手法",
+   "summary_ja": "Unitree G1の上半身41自由度を対象とし、音声トークンから音響・意味特徴を抽出する階層的アライナー、CFMに基づくストリーミング拡散動作生成器、MPC衝突防止フィルタの3要素で構成されます。2段階学習とAnti-Inertia CFGマスキングにより、過去の動作への依存を抑えて音声駆動を促します。",
+   "details_ja": "対象とするロボットはUnitree G1ヒューマノイドとBrainCo製多指ハンドで、上半身・腕の17自由度および両手24自由度の計41自由度（DoF）を制御対象とします。1秒のアクションチャンクを30フレーム（T=30）とし、直前2チャンク分（T_hist=2T）の履歴を参照しながらストリーミング生成を行います。\n\n3.1 階層的意味・音響アライナー（Hierarchical Semantic-Acoustic Aligner）\n音声のトークン化にはMimiコーデックを用います。浅い層からは急速なエネルギー変化を捉える低レベル音響特徴を抽出し、ビートヘッド（Beat Head）に供給して関節角速度ノルムと音響オンセット強度からなるビートターゲットを回帰学習します。深い層からはマクロな意味特徴を抽出し、セマンティックヘッド（Semantic Head）を通じて300クラスの離散ジェスチャ分類を行います。これにより、テキスト変換で失われがちな抑揚や発話直前の準備動作（Pre-phonetic anticipation）を的確に抽出します。\n\n3.2 ストリーミング条件付き動作生成器（Streaming Conditional Motion Generator）\n離散トークンによる誤差累積を避けるため、連続状態空間でConditional Flow Matching（CFM）に基づくDiffusion Transformer（DiT）を採用しました。条件付けには2重の機構を導入しています。\n- フレーム単位の微細整合（Cross-Attention）: アライナーの浅層・深層特徴および過去動作チャンクをKey-Valueとしてクロスアテンションに投入し、時間同期と滑らかな遷移を実現します。\n- 大域的変調（FiLM）: アライナーで圧縮された大域的意味指示をAffine変換としてDiTの中間層に注入し、局所的なノイズに埋もれない感情や対話トーンを決定付けます。\n\n3.3 MPCベースの衝突回避フィルタ（MPC-based Collision-avoidance Filter）\n推論時に生成された軌道はリアルタイムMPCモジュールを通過します。速度、軌道追従、平滑化コストを持つ凸2次計画問題（QP）として定式化され、OSQPソルバーを用いてフレームあたり5.6 msで解かれます。これにより、自己衝突フレーム率を4.16%から0.13%へと大幅に低減します。\n\n3.4 学習戦略と目的関数（Training Recipes and Objectives）\n2段階学習を採用しています。第1段階ではDiTを凍結し、1,000時間の半合成データを用いてアライナーの分類損失とビート回帰損失を最適化します。第2段階ではDiTを結合学習します。この際、「モダリティ食」を回避するため、過去動作条件を15%の確率でランダムに遮断する「Anti-Inertia CFG Masking」を導入し、モデルが音声信号から能動的に制御信号を拾うように強制します。損失関数には、手先（重み4.0）や意味区間（重み5〜10）を強調した時空間重み付き速度マッチング損失と、隣接フレーム間の変位差を抑えて高周波振動を防ぐ運動学的整合性損失（Kinetic Consistency Loss, L_kin）を用います。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "RoboGestureの全体パイプライン。(a) 音声トークンから音響・意味特徴を分離学習する階層的アライナーの事前学習、(b) Anti-Inertia CFGマスキングと時空間重み付けを用いたDiT動作生成器の結合学習、(c) 実機配備時の上流音声LLMからMPC安全フィルタを介したストリーミング実行の流れを示しています。",
+     "caption": "Figure 1: Overview of RoboGesture. (a) The Semantic-Acoustic Aligner is pre-trained to decouple multi-granular audio cues from streaming tokens. (b) The Motion Generator synthesizes motions via Conditional Flow Matching, jointly conditioned on hierarchical audio features and historical motion to maintain autoregressive consistency. (c) During inference, the pipeline seamlessly integrates with upstream Speech-LLMs and employs a safety filter to drive physical humanoid robots in real-time.",
+     "image": "details/2608.28693/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Automatic Semi-Synthetic Data Generation",
+   "heading_ja": "半合成データの自動生成",
+   "summary_ja": "実機対応のデータ不足を解消するため、300以上のカテゴリを持つRoboGestureデータセットを構築しました。LLM、TTS、BEATモデルを統合した5段階の自動合成パイプラインにより、衝突のないロボット固有の音声・動作ペアデータを大量に生成します。",
+   "details_ja": "4.1 リターゲティングと衝突回避（Retargeting and Collision-Avoidance）\n身体動作にはGeneral Motion Retargeting（GMR）を、手先の多指動作にはDex-Retargetingを拡張して適用しました。指ごとの非均等スケーリングや手首から指先への幾何学的オフセット補正を導入することで、人間とロボットハンド（BrainCo）の寸法差を正確に埋めています。得られた全データはMPC安全フィルタを通して自己貫通を排除しています。\n\n4.2 RoboGestureデータセット（RoboGesture Dataset）\n先行のSeGデータセット（200クラス以上）やEgoGesture（83クラス）をベースに、日常対話に必要なカテゴリをアンケート等で補強し、計300以上のジェスチャカテゴリを定義しました。モーションキャプチャで新規収録したデータや修正データをG1ロボットへリターゲティングし、実機上で再生テストを行って実行可能性（Reachability）を確認した高品質な動作ライブラリです。\n\n4.3 半合成データ生成パイプライン（Semi-Synthetic Data Generation Pipeline）\n以下の5段階で、感情豊かな音声と動作のペアデータを自動生成します。\n- シナリオ生成: LLMを用いて感情情報を含む多様な日常会話スクリプトを生成。\n- ジェスチャタグ付け: LLMがRoboGestureライブラリから適切な意味的ジェスチャを選択し、最適な挿入タイミングを決定。\n- マルチモーダル合成: 感情対応TTSによる単語タイムスタンプ付き音声と、BEATで学習したリズム動作を生成。\n- 時間的ブレンディング: 人間の準備動作を模倣し、対応するキーワード発声の0.4秒前に意味的ジェスチャを開始させ、5次多項式補間によりリズム動作と滑らかにブレンド。\n- 安全性最適化: ブレンドされた軌道にMPC衝突回避フィルタを適用し、完全に安全な半合成データ（1,000時間規模）を確立。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "RoboGestureデータセットの構成。SeGデータセットの貫通不具合（腕と胴体の衝突など）の修正、EgoGestureの手先のみの動作に対する全身動作の付加、および新規収録動作を組み合わせ、詳細な意味ラベルを付与して実機対応させた様子を示しています。",
+     "caption": "Figure 2: Visualization of RoboGesture Dataset. RoboGesture refines the SeG dataset by correcting motion penetration issues (e.g., avoiding arm–body collisions), augments the EgoGesture dataset with full-body motion, and additionally incorporates newly collected ones. Each sample is annotated with detailed semantic labels.",
+     "image": "details/2608.28693/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Experiments",
+   "heading_ja": "実験",
+   "summary_ja": "標準ベンチマークBEATおよび新設のSemanticBEAT上で、LivelySpeaker、DiffSHEG、SemTalk、Semantic Gesticulatorと比較しました。客観指標および200名による主観評価の双方で最高水準を達成し、Unitree G1実機でのストリーミング対話も実証しました。",
+   "details_ja": "5.1 発話随伴ジェスチャ生成の評価\n評価指標として、実動作分布との近似度（FGD）、発話オンセットとのビート同期度（BC）、動作多様性（DIV）、自己衝突率（Col）、関節位置誤差（MSE）を使用しました。\n- 定量評価: BEATベンチマークにおいて、提案手法は先行手法（LivelySpeaker, DiffSHEG, SemTalk, Semantic Gesticulator）を凌駕し、最良のFGD（0.624）、BC（0.841）、MSE（3.633）を達成しました。衝突率（Col）は0.88%（SemanticBEATでは0.13%）と極めて低く、他手法（4%〜8%以上）と比較して圧倒的な物理的妥当性を示しました。\n- 主観評価: 200組の比較ペアを用いたユーザスタディにおいて、リズム整合性（RA）、意味的正確性（SA）、物理・手先の一貫性（PHC）、総合的な好み（OP）の全次元でベースラインを大きく上回る評価を得ました。\n\n5.2 アブレーション研究（Ablation Study）\n各構成要素の妥当性を200名の参加者による評価で検証しました。\n- 半合成データを取り除くと（w/o Semi-data）、意味的ジェスチャが消失して単なるリズム動作に縮退し、SAと手先の詳細度（HD）が著しく悪化しました。\n- 過去動作コンテキストを削除すると（w/o Context Motion）、動作の跳躍や不連続が発生して自然さ（HN）が大幅に低下しました。\n- FiLMや意味分類課題、CFGマスキングの除外も意味精度を低下させ、特にCFGなしではモデルが過去状態の惰性のみで動作を予測する傾向が確認されました。\n- 運動学的損失（w/o KA Loss）やMPCフィルタ（w/o Filter）の排除は、高周波の揺れや衝突の増加を招き、滑らかさを損なうことが実証されました。\n\n5.3 実機による社会的対話の評価\nUnitree G1実機（BrainCoハンド搭載）を用い、ストリーミングASR、LoRA微調整済みQwen3-4B-Instruct、TTS、および提案の動作生成スタックを統合したシステムを構築しました。動作生成器は1秒チャンクを約0.25秒（約120 FPS相当）で処理し、MPCフィルタは1フレームあたり5.6 msで動作するため、ロボットの制御周波数（30 Hz）を余裕で上回る低遅延な実機対話を達成しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "生成されたジェスチャの定性比較。ベースライン（Semantic Gesticulator等）で見られる手先と胴体の深刻な自己貫通を本手法が完全に回避している点（左）、および発話中の「OK」という指示に対して本手法のみが正確で微細な指先の「OKサイン」を再現できている点（中央）が確認できます。",
+     "caption": "Figure 3: Qualitative comparison of generated co-speech gestures. We present three representative scenarios to highlight the advantages of our method. Left: Baseline methods (e.g., SG) occasionally suffer from severe self-penetration (highlighted by the orange box), whereas our model ensures physical safety and strictly avoids self-collisions. Middle: Given the explicit semantic cue “OK”, our model successfully synthesizes the precise, fine-grained “OK” hand gesture, while baselines fail to capt",
+     "image": "details/2608.28693/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "結論",
+   "summary_ja": "ヒューマノイドが同期した発話と身振りで自然に対話するための、データ・モデル・制御を統合したロボット中心フレームワークを提案しました。実機実験を通じて、従来基準を超える意味整合性と安全性を備えたストリーミング対話動作の生成が確認されました。",
+   "details_ja": "本研究では、ヒューマノイドロボットが発話に同期した表情豊かな身振りをリアルタイムかつ安全に行うための包括的フレームワーク「RoboGesture」を提示しました。本論文の主な成果は以下の通りです。\n\n- データ、モデリング、実機制御を共設計した統合アーキテクチャの実現。\n- 300以上の動作クラスを持ち、ロボットの運動学に即した安全な大規模半合成データ生成パイプラインの確立。\n- 過去動作の慣性に依存するショートカットを防止し、音響信号から直接リズムと意味を抽出して連続的に動作を生成するポリシの実装。\n\nUnitree G1実機を用いた検証実験により、本手法がベースラインと比較して極めて安全で、発話の意味およびリズムに高精度に同期した対話動作を生成できることが示されました。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録",
+   "summary_ja": "ロボット空間学習の必要性、実機対話システムのモジュール詳細、モダリティ食の実証実験、データセットの詳細仕様、評価指標の算出方法、および限界点について詳述されています。",
+   "details_ja": "付録では、本文を補完する重要な技術的詳細と検証が述べられています。\n\n- ロボット空間学習の妥当性（Appendix A）: 人体空間で動作を生成してからリターゲティングする従来手法では、特異姿勢への突入、反復計算による遅延の累積、リンク体積の無視による自己衝突と激しい振動が避けられません。ロボットの関節空間で直接学習することが、実機での安全性と低遅延達成に不可欠です。\n- 実機システムの遅延内訳（Appendix B）: 応答文生成を担うQwen3-4B-InstructにはLoRA微調整を施し、応答冒頭に[chat]や[excited]などの感情タグを出力させてTTSの表現力を高めています。ストリーミング動作生成器は120 FPS、MPC安全フィルタは5.6 ms/frameで動作し、システム遅延の大部分は音声認識（ASRの発話終了検知0.5秒）やTTSによる最初の音声チャンク生成時間（1.5秒未満）に起因しています。\n- モダリティ食の定量的検証（Appendix C）: 過去動作と音声を入れ替える摂動実験において、アライナーを持たないモデル（Only-DiT）は過去動作への感度が音声への感度の4.57倍に達したのに対し、提案手法は2.04倍に抑制されました。また、音声をシャッフルした際のFGD悪化幅は提案モデルで+8.53と顕著であり、音声条件を無視せず能動的に制御に利用していることが証明されました。\n- RoboGestureデータセットの詳細（Appendix D）: SeG、EgoGesture、新規収録の3系統から300以上のカテゴリを統合し、実機検証とMPCフィルタを通じて物理的に実行可能な動作のみで構成されています。\n- 限界と倫理的配慮（Appendix F）: 対象が上半身の対話動作に限定されている点、合成データの分布に依存する点、実世界運用時には非常停止等のハードウェア保護機構が依然として必須である点が挙げられています。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "付録Dで示されたRoboGestureデータセットの全容。SeGから引き継いだ日常動作、EgoGestureから全身動作へと拡張した手のジェスチャ、アンケートに基づき新規収録した多彩な身振りが、すべてUnitree G1の運動制約に適合するように整理されていることが分かります。",
+     "caption": "Figure 5: Visualization of RoboGesture Dataset. RoboGesture is a comprehensive full-body gesture dataset comprising over 300 high-quality motion classes collected from EgoGesture, SeG, full-body mocap recordings, online sources, and user surveys. All gestures are retargeted, optimized for physical feasibility, and validated on a real humanoid robot, ensuring human-like expressiveness while remaining fully executable on hardware.",
+     "image": "details/2608.28693/F5.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "アバター用のアニメーション手法を実機にオンラインリターゲティングする従来のアプローチを脱却し、学習・生成パイプライン全体を最初からロボット関節空間で閉じる設計が実機安全性と低遅延化に極めて有効である。",
+  "自己回帰やストリーミング生成器では、モデルが過去動作の慣性ショートカットに陥る「モダリティ食」が起きやすいため、Anti-Inertia CFGマスキングのような条件ドロップアウトが音声追従性の確保に不可欠である。",
+  "テキストを中間表現とせず、音声コーデック（Mimi等）から音響（浅層）と意味（深層）を階層的に抽出することで、発話直前の準備動作や抑揚に即した微細な同期が可能になる。",
+  "生成モデルの確率的な出力に対して、推論時に軽量な凸2次計画法ベースのMPC安全フィルタ（数ミリ秒で動作）を組み合わせる2段構えの安全設計が実機配備で実用的である。"
+ ],
+ "limitations_ja": [
+  "動作生成の対象が上半身および多指ハンド（41自由度）に限定されており、移動（ロコモーション）や環境内の物体把持・操作といった下半身を含む全身行動との統合は含まれていない。",
+  "大量の学習データ（1,000時間）の多くがLLMと既存モデルを組み合わせた半合成パイプラインに依存しているため、合成環境特有のバイアスや多様性の偏りが残る可能性がある。",
+  "動作生成スタック自体は超高速（120 FPS）であるものの、上流の対話システム（ASRの発話終了判定やTTSの音声チャンク化）に起因する約1.5秒程度の初期遅延がシステム全体として残存している。"
+ ],
+ "keywords": [
+  "Humanoid Interaction",
+  "Co-speech Gesture Generation",
+  "Conditional Flow Matching",
+  "Robot-centric Learning",
+  "Model Predictive Control"
+ ],
+ "id": "2608.28693",
+ "title": "RoboGesture: Real-Time Semantic-aligned Co-Speech Gestures Generation for Humanoid Interaction",
+ "title_ja": "RoboGesture: ヒューマノイド対話のための意味整合リアルタイム音声同期ジェスチャ生成",
+ "authors": [
+  "Zifan Wang",
+  "Ziang Ren",
+  "Pengyang Shi",
+  "Zirui Wang",
+  "Chenghuai Lin",
+  "Tianze Wang",
+  "Zekun Qi",
+  "Liangliang Zhao",
+  "He Wang",
+  "Li Yi"
+ ],
+ "date": "2026-09-02",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "control",
+  "sim-to-real",
+  "dataset"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.28693",
+ "pdf_url": "https://arxiv.org/pdf/2608.28693",
+ "summary_ja": "音声に応答してヒューマノイドがリアルタイムに意味のあるジェスチャを生成・実行する枠組みを提案。300以上のカテゴリを持つデータセットを構築し、物理的安全性を考慮したSim-to-Real制御系を統合して実機での対話動作を実現した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.28693"
+}
