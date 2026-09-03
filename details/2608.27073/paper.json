@@ -1,0 +1,138 @@
+{
+ "tldr_ja": "たった1枚の画像から大域的な3Dプロキシ（大まかな3D形状）を丸ごと生成し、それを動画拡散モデルで補正・高精細化することで、激しいカメラ視点変化でも幾何学的破綻や蓄積ドリフトが起きないシーン動画生成を実現した論文です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "SpatialCrafterの全体構想です。1枚の入力画像と任意のカメラ軌道から、まずシーン全体をカバーする「大域的3Dプロキシ（大まかな3Dガウス表現）」を一括生成し、それをガイドとして活用することで、幾何学的整合性のとれた高品質なRGB-D動画シーケンスを生成します。",
+  "caption": "Figure 1. SpatialCrafter enables 3D-consistent world modeling from a single image. Given an input image and a user-defined camera trajectory, SpatialCrafter first generates a global 3D proxy, then synthesizes a photorealistic RGB-D video that progressively reveals the surrounding environment.",
+  "image": "details/2608.27073/F1.jpg"
+ },
+ "overview_ja": "ロボットが未知の環境を行動・計画するためには、周囲の3D空間を正しく想像する「世界モデル（World Model）」が不可欠です。近年、動画拡散モデル（VDM）の強力な事前学習知識を活用して単一画像からシーンを探索する試みが盛んですが、従来のVDMは明示的な3D構造を持たないため、急な旋回や長距離移動で壁が歪む「幾何学的ドリフト」に悩まされてきました。一部の手法は点群などの3Dプロキシ（幾何情報の代理）を入力視点から復元して使いますが、これらは「見えている範囲」しか復元できないため、死角に入るたびにモデルが場当たり的な妄想（ハルシネーション）を繰り返し、破綻が蓄積してしまいます。\n\nそこで著者らは、「復元（Reconstruction）に頼るから死角で破綻するなら、最初からシーン全体の3D構造を丸ごと『生成（Generation）』してしまえばいい」という逆転の発想に至りました。提案された『SpatialCrafter』は二段階構成をとります。第1段階では、入力画像に厳密にアラインした大域的3Dプロキシ（粗い3Dガウス表現）を生成モデルで一括予測します。第2段階では、この粗い3D形状に沿ってレンダリングした粗いRGB-D映像を、動画拡散モデルを「遅延レンダラー（Generative Deferred Refiner）」として活用することで、超リアルな映像へとリペイント・補正します。\n\nさらに、この学習に必要な大規模3Dデータ不足を解決するため、高品質な合成・実環境ハイブリッドの115Kシーンからなる新データセットを構築しました。合成データおよび実環境データセット（RE10K、DL3DV）での実験において、提案手法は長距離・ループ状のカメラ軌道でも視点復帰時の誤差や幾何学的歪みを大幅に抑制し、圧倒的なSOTA（最高性能）を達成しました。",
+ "contributions_ja": [
+  "未観測領域でのハルシネーションや蓄積ドリフトを根本から防ぐため、単一画像からシーン全体の3D構造を一括予測する「生成的3Dプロキシ」パラダイムを提案したこと。",
+  "入力画像と生成3Dプロキシの空間ズレを防ぐ「PaSS-Flow」モジュール、および事前学習済み動画モデルの表現力を保ちつつ粗い幾何を注入・補正する「Parallel Geometry Injection」と「Proxy-Aware Corruption」を開発したこと。",
+  "合成データと実写動画を統合し、正確な幾何アノテーションを付与した初の単一画像シーン生成用ハイブリッドデータセット（11.5万シーン）を構築したこと。",
+  "合成・実写ベンチマークにおいて、81フレームに及ぶ急激なカメラ移動やループ軌道でも一貫した幾何整合性と最高峰の画質を実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1. Introduction",
+   "heading_ja": "なぜ既存の世界モデルは視界の外で破綻するのか？",
+   "summary_ja": "動画拡散モデル（VDM）を用いた世界モデルは表現力が高いものの、明示的な3D整合性を保つのが困難です。従来の「部分的な3D復元」をガイドにする手法では未観測領域で妄想が暴走してしまうため、本研究ではシーン全体を生成する「大域的3Dプロキシ」による二段階アプローチを提案します。",
+   "details_ja": "ロボットナビゲーションや具現化AI（Embodied AI）において、エージェントが複雑な3D環境を予測・推論するための世界モデルの構築は極めて重要です。近年は膨大なWeb動画から知識を学んだ動画拡散モデル（VDM）をベースにする手法が注目されていますが、VDM単体には明示的な3D幾何の制約がありません。\n\n過去のフレームをキャッシュする「2Dメモリ方式」では、急なカメラ回転や遮蔽に弱く、歪みが避けられません。一方、入力画像から単眼深度推定などで点群を再構成して案内役にする「3Dプロキシ方式」も登場していますが、ここに大きな落とし穴がありました。それは、プロキシが「入力視点から見えた表面の復元（Reconstructive proxy）」に過ぎない点です。カメラが回り込んで死角に入ると3Dガイドが途切れるため、VDMは確率的な当て推量（ハルシネーション）で穴埋めせざるを得ず、徐々に空間構造が崩壊していきます。\n\nそこで本論文が提案するのが『SpatialCrafter』です。見えている部分の復元に頼るのではなく、最初から「シーン全体の3D構造を丸ごと予測する生成モデル」を走らせ、大域的3Dプロキシを作ります。そして第2段階で、その粗い3Dモデルからレンダリングした映像をVDMで美しく整えるという二段階パイプラインを設計しました。\n\nこれを実現するには、入力画像と生成3Dプロキシの座標系のズレをなくすこと、そして粗いプロキシのノイズに過学習しない精緻化の仕組みが必要です。本研究はこれらの課題を鮮やかに解決しています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "従来の復元型プロキシ（Voyager）と提案する生成型プロキシの比較です。左の復元型は視点移動で見えない領域が黒い欠損となり、VDMの出力に激しい幾何歪みやドリフトが発生します。対して右の提案手法はシーン全体の大域的3Dプロキシを最初から生成するため、大きな視点変化でも破綻しません。",
+     "caption": "Figure 2. Reconstructive vs. generative 3D proxies. Conditioning on an incomplete proxy (partial point clouds), as in Voyager ( Huang et al., 2025a ) , leads to severe geometric distortion, inconsistent lighting, and progressive content drift under large camera motion. In contrast, leveraging a global 3D proxy from a separate, native generator, our method yields photometrically and geometrically coherent novel view synthesis (zoom in for details).",
+     "image": "details/2608.27073/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2. Related Work",
+   "heading_ja": "2Dメモリ vs 3Dプロキシ：先行研究の限界と立ち位置",
+   "summary_ja": "カメラ制御可能な動画生成には、過去フレームを参照する「2Dメモリ」と、点群などを保持する「3Dプロキシ」の2大潮流があります。本研究は、部分的な復元に頼る既存の3Dプロキシや視点固定のパノラマの限界を克服し、直接3Dシーン全体を予測する新たな立ち位置を確立しました。",
+   "details_ja": "画像から3Dシーンを生成する試みには、NeRFや3D Gaussian Splatting（3DGS）を最適化するアプローチがありますが、シーン全体では計算が重く、テクスチャがぼやけがちでした。\n\nこれに対し、動画拡散モデル（VDM）を活用する研究が急速に進んでいます。そのアプローチは大きく2つに分かれます。\n\n- 2D画像メモリ方式（DFoTやWorldStereoなど）：過去に生成したフレームを外部メモリとして保持し、自己回帰的に参照します。しかし、単眼深度の誤差が時間とともに蓄積し、元の場所に戻ったときに整合性が取れなくなる「ループクローズの失敗」やスケールドリフトが不可避でした。\n- 3Dプロキシ方式（ViewCrafterやVoyagerなど）：明示的な点群をメモリとして使います。静的な手法は死角を埋められず、生成フレームを逐次点群に追加するインクリメンタル手法は「VDMが誤って生成したハルシネーションが次の3Dプロキシを汚染する」という悪循環に陥ります。\n- パノラマプロキシ（Matrix-3Dなど）：360度パノラマを展開して点群化しますが、単一の撮影中心から見た2D表現であるため、カメラが大きく並進移動したときの遮蔽や視差（パララックス）を本質的に扱えません。\n\nSpatialCrafterは、動画を生成し始める前に、ネイティブな3D生成モデルを用いてシーン全体のグローバルな3D表現を一括予測します。これにより、従来の逐次復元ループの罠を回避することに成功しました。",
+   "figures": []
+  },
+  {
+   "heading": "3. Preliminaries",
+   "heading_ja": "土台となる技術：TRELLISと潜在動画拡散モデル",
+   "summary_ja": "本手法の第1段階は構造化潜在表現（SLAT）を用いる3D生成モデル「TRELLIS」を、第2段階は最先端の動画基盤モデル「Wan 2.1」をベースにしています。いずれもノイズから目的分布へのベクトル場を学習するフロー・マッチング（Flow Matching）に基づいています。",
+   "details_ja": "本研究の基盤となる2つの重要なモデルについて整理します。\n\nまず第1段階の3Dプロキシ生成には、3D生成モデル「TRELLIS」の枠組みを採用しています。TRELLISは疎なボクセルフィールド $\\mathcal{P}=\\{\\mathbf{p}_i\\}_{i=1}^{K}$ を生成したのち、各ボクセルの潜在特徴量 $\\mathbf{x}_i$ を予測して「SLAT（Structured LATent）」と呼ばれる表現を作ります。これを3DGSデコーダ $\\mathcal{D}_{\\text{3D}}$ に通すことで、高速にレンダリング可能な3Dガウス表現 $\\mathcal{X}$ へと変換します。この学習には、ガウスノイズから目標状態への最適な軌道を直線的に結ぶConditional Flow Matching（CFM）が用いられます。\n\n第2段階の動画精緻化には、動画拡散基盤モデル「Wan 2.1」を利用します。入力動画は因果的VAEエンコーダ $\\mathcal{E}_{\\text{vid}}$ により、時間方向に4倍、空間方向に8倍圧縮された16チャンネルの潜在変数 $\\mathbf{z}$ に落とし込まれます。動画生成も同様にFlow Matchingの枠組み（DiTアーキテクチャ）で行われ、テキスト条件 $\\mathbf{c}_{\\text{txt}}$ やノイズレベルに応じて潜在変数を更新していきます。",
+   "figures": []
+  },
+  {
+   "heading": "4. Methodology",
+   "heading_ja": "二段階パイプラインの全貌：3D幾何の予測と動画への遅延レンダリング",
+   "summary_ja": "入力画像から点群アンカーを用いて位置ズレのない大域的3Dプロキシを生成し（PaSS-Flow）、そのレンダリング結果を動画モデルに入力して高品質化します（Generative Deferred Refiner）。学習時にはプロキシの欠損に強くなるデータ摂動（PAC）を導入し、さらに11.5万シーンの大規模データセットを独自構築しました。",
+   "details_ja": "システムの入力は単一の参照画像 $\\mathbf{I}_0$ とカメラ軌道 $\\mathcal{T}$、出力は時空間で一貫したRGB-D動画シーケンスです。大きく3つの要素から構成されています。\n\n4.1 大域的3Dプロキシ生成（PaSS-Flow）\n単一画像からの3D生成で最大の難所は、生成された3D空間と入力画像のカメラ座標系との「空間的な位置ズレ」です。このズレがあると、下流の動画モデルに致命的なゴーストが生じます。そこで著者らは「点群アンカー付き疎構造フロー（PaSS-Flow）」を提案しました。入力画像とその推定深度から求めた部分点群をボクセル化し、明示的な幾何アンカー $\\mathcal{V}_{\\text{cond}}$ としてDiTに入力します。これにより、自由生成ではなく「幾何アンカーに拘束された3D補完タスク」へと定式化し、入力画像と完全に一致した大域的3Dプロキシを生成させます。\n\n4.2 生成的遅延レファイナー（Generative Deferred Refiner）\n得られた粗い3Dプロキシから、指定軌道に沿って粗いRGB-D動画シーケンスをレンダリングします。これをグラフィックスの「ディファードレンダリング（遅延描画）」のように、動画基盤モデルで高周波なテクスチャの描き込みと幾何の修復を行います。工夫は2点あります。\n- Parallel Geometry Injection：粗いRGBと深度の潜在変数を横方向に並べて結合し（$\\mathbf{z}_{\\text{geo}}$）、事前学習済みVDMの潜在変数とチャンネル結合します。事前学習の重みは固定し、DiT内のLoRAパラメータのみを微調整することで、モデル本来のリアルな質感生成能力を破壊せずに幾何情報を注入します。\n- Proxy-Aware Corruption (PAC)：推論時に生成される3Dプロキシには、どうしてもボケや穴（欠損）といったアーティファクトが含まれます。そこで学習時、粗いRGB-Dにガウスブラー、ブロックノイズ、部分的な深度削除といった摂動を確率的に加えます。これにより、モデルは「物理構造に依存すべき部分」と「欠損を自律的にインペイントすべき部分」を賢く判断できるようになります。\n\n4.3 大規模ハイブリッドデータエンジンの構築\n屋内の合成パノラマデータ（SpatialGen）と実写動画（RealEstate10K、DL3DV）を統合しました。実写動画からはViPEとDAv3を併用して一貫した深度を推定し、高品質な点群を復元しました。低品質な復元を厳格にフィルタリングし、最終的に115,295ペアの3Dシーン生成データと、87,115ペアの動画生成データを構築しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "SpatialCrafterのパイプライン全体図です。上段の3Dプロキシ生成では入力画像から点群アンカー（PaSS）を用いて粗い3Dガウス表現を生成します。下段では指定軌道の粗いRGB-D動画をレンダリングし、PAC摂動を加えつつ動画DiT（LoRA）を通して高精細なRGB-D動画へと仕上げます。",
+     "caption": "Figure 3. Overview of SpatialCrafter . Given a single image and a camera trajectory, we first construct a global 3D proxy using a native 3D generator with Point-Anchored Sparse Structure (PaSS) Flow Matching. This proxy then serves as a reliable coarse 3D prior for the Generative Deferred Refiner, which transforms it into photorealistic RGB-D video sequences via Parallel Geometry Injection and Proxy-Aware Corruption.",
+     "image": "details/2608.27073/F3.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "11.5万シーンを誇るハイブリッドデータセットの構築パイプラインです。合成データ（SpatialGen）と実写動画（DL3DV, RE10K）から一貫した幾何を抽出し、粗い3Dガウス表現とペアになる高品質な動画・テキストキャプションを生成しています。",
+     "caption": "Figure 5. Dataset construction pipeline . We process hybrid data sources by extracting synthetic point clouds and estimating depth for real-world footage, then decode the geometry into coarse 3D Gaussians and render them along camera trajectories to form coarse RGB-D sequences. Pairing these with clean ground-truth videos and text captions yields the large-scale dataset used to train both stages of our framework.",
+     "image": "details/2608.27073/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5. Experiments",
+   "heading_ja": "81フレームの長距離探索でも崩れない圧倒的な3D一貫性",
+   "summary_ja": "合成・実写のベンチマークにおいて、81フレームという長尺かつ過酷なカメラ移動で評価を行いました。SpatialCrafterは画質（FVD、PSNR）と幾何整合性（再投影誤差RPE、再訪誤差RVE）の全指標で既存手法を凌駕し、アブレーション実験でも各モジュールの必然性が証明されました。",
+   "details_ja": "評価実験は、合成環境のSpatialGen-Video（104シーン、ループ軌道）および実環境のRE10K、DL3DVで実施されました。すべての手法に共通の入力画像とカメラ軌道を与え、81フレームという長尺動画を生成させて比較しています。\n\n比較対象には、2Dメモリ方式（DFoT, GeometryForcing）および復元型3Dプロキシ方式（ViewCrafter, GEN3C, Voyager）を選定しました。さらに、データセットの恩恵とアーキテクチャの優位性を切り分けるため、Voyagerを本研究のデータセットで再学習させた「Voyager †」も用意しました。\n\n定量評価（Table 1）の結果、SpatialCrafterは全データセットでトップの成績を収めました。\n- SpatialGen-Videoにおいて、動画品質を測るFVDで193.54（次点はVoyager †の232.88）、幾何誤差を測るRPEで0.093（次点はVoyager †の0.125）を達成。\n- RE10KでもFVD 148.71、PSNR 17.185と圧倒的でした。\n- 注目すべきはVoyager †との比較です。高品質データで再学習したVoyager †は元のVoyagerより性能が向上したものの、依然としてSpatialCrafterの幾何整合性には遠く及びませんでした（RPEやRVEで大差）。これは、性能向上の本質がデータだけでなく「大域的生成プロキシ」という設計思想にあることを示しています。\n\n定性評価（Figure 7左）でも、既存手法は急旋回時に壁が消失したり静止画のように固まったりするのに対し、提案手法は窓の外のビル群や室内の奥まで整合性を保ちながら描画できています。\n\nアブレーション実験（Table 2, Figure 7右）では、以下の事実が明らかになりました。\n- PaSS-Flowを抜くと入力画像との座標がズレて出力が大きく歪むこと（Figure 4参照）。\n- カメラ軌道パラメータのみの条件付けでは長距離でドリフトすること（Figure 7a）。\n- 深度なし（RGBのみ）だと未観測領域で不整合が起きること（Figure 7b）。\n- PAC（摂動学習）がないと、プロキシの未観測の黒い穴をそのまま出力に残してしまうこと（Figure 7c）。PACを入れることで、穴を自然にインペイントする頑健性が身につくことが実証されました。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "左側は既存手法との比較で、極端な視点変化において従来法が崩壊（Voyager）や静止（GeometryForcing）する中、提案手法（Ours）のみが破綻なく追従しています。右側はアブレーション実験で、(a)カメラのみ、(b)RGBのみ、(c)PACなし（黒い欠損が残る）に対する提案モデルの優位性を示しています。",
+     "caption": "Figure 7. Qualitative results on ablation study. We compare the video models in our four training stages. Our full model achieves the highest quality.",
+     "image": "details/2608.27073/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6. Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "単一画像からのシーン探索において、大域的3Dプロキシの生成と動画拡散モデルの精緻化を組み合わせたSpatialCrafterを提案しました。幾何学的な破綻や蓄積ドリフトを効果的に克服し、ロボティクスや世界モデル研究に向けた強固な基盤を築きました。",
+   "details_ja": "本論文では、単一画像から探索可能な3Dシーン動画を生成する新しい二段階フレームワーク『SpatialCrafter』を提案しました。従来の動画世界モデルが抱えていた「部分的な復元に頼るがゆえのハルシネーションと幾何ドリフト」という根本課題に対し、「大域的な3D幾何を丸ごと生成してから動画モデルで磨き上げる」という明確な解答を示しました。\n\n技術的には、入力画像と厳密に整合させるPaSS-Flow、動画拡散モデルの事前学習知識を壊さないParallel Geometry Injection、そしてプロキシの不完全性を克服するProxy-Aware Corruptionを導入しました。さらに、11.5万シーンに及ぶ世界最大級のハイブリッドデータセットを構築・公開した点もコミュニティへの大きな貢献です。\n\n広角なカメラ移動や長距離ループでも幾何整合性を崩さない本手法は、ロボットの自己位置推定やシミュレーション環境構築、プランニング用世界モデルの実現に向けて極めて有望な一歩と言えます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「復元」から「生成」への転換：部分点群の逐次復元に頼ると死角で必ず破綻するため、3Dプロキシ自体を生成モデルで一括予測する設計が長距離探索には不可欠。",
+  "アンカー拘束による空間アライメント：3D生成モデル特有の座標系の揺らぎは、入力画像から逆投影した部分点群を条件（アンカー）として注入することで綺麗に解決できる。",
+  "不完全性を前提とした学習（PAC）：下流の動画拡散モデルを訓練する際、あえて粗いプロキシにブラーや欠損などのノイズを加えることで、推論時のアーティファクトを自己修復する頑健性が手に入る。"
+ ],
+ "limitations_ja": [
+  "二段階パイプラインの計算コスト：3Dプロキシ生成と動画DiTによる精緻化を順次行うため、ロボット実機での完全なリアルタイムオンライン制御には推論速度のさらなる高速化が必要。",
+  "極端に広大・複雑なシーンへのスケーラビリティ：大域的3Dプロキシ（ボクセル・3DGS）の表現解像度に依存するため、複数の部屋をまたぐような超大規模環境ではメモリ消費や表現限界が生じる可能性がある。"
+ ],
+ "keywords": [
+  "World Models",
+  "Video Diffusion Models",
+  "3D Gaussian Splatting",
+  "Single Image to 3D",
+  "Novel View Synthesis",
+  "Flow Matching"
+ ],
+ "id": "2608.27073",
+ "title": "SpatialCrafter: Single Image World Modeling with Generative 3D Proxies",
+ "title_ja": "SpatialCrafter: 生成的3Dプロキシを用いた単一画像からの世界モデリング",
+ "authors": [
+  "Chuan Fang",
+  "Lingteng Qiu",
+  "Yixun Liang",
+  "Rui Chen",
+  "Kunming Luo",
+  "Zhaohua Zheng",
+  "Tongyuan Bai",
+  "Feipeng Tian",
+  "Zilong Dong",
+  "Zihan Zhou",
+  "Ping Tan"
+ ],
+ "date": "2026-08-29",
+ "group": "focus",
+ "tags": [
+  "world-model",
+  "simulation",
+  "perception"
+ ],
+ "categories": [
+  "cs.CV",
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.27073",
+ "pdf_url": "https://arxiv.org/pdf/2608.27073",
+ "summary_ja": "単一画像から探索可能な3Dシーンを生成する世界モデルフレームワークSpatialCrafterを提案。大域的な3Dプロキシ生成と外観洗練の2段階に分解し、PaSS Flowモジュールによってビデオ拡散モデル特有の3D不整合や長期ドリフトを抑制し高忠実度なシーン構築を実現する。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.27073"
+}
