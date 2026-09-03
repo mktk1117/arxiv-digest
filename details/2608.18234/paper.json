@@ -1,0 +1,155 @@
+{
+ "tldr_ja": "ヒューマノイドの全身制御において、単に動作を真似るだけでなく「次の状態」と「次に実行可能な行動分布」を同時に予測する振る舞い世界モデル（Behavior World Model）を提案し、段差や椅子との接触インタラクション、無茶な指示に対する安全な縮約、転倒からの自己復帰を単一のポリシーで実現しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "GigaBrain-WBC-0.5のシステム全体像です。モーションデータから3D接触形状を自動注釈して学習環境を構築し、Causal Transformerベースの世界モデルが関節指令・次状態・次行動分布を同時予測することで、実機での高精度な全身追従から環境接触、転倒復帰、異機体への転移までを実現しています。",
+  "caption": "Figure 1 : GigaBrain-WBC-0.5: the first Behavior World Model for humanoid whole-body control. GigaBrain-WBC-0.5 couples automatic motion–terrain annotation with a causal Behavior World Model. Recovering full 3D contact geometry from ordinary retargeted motions scales spatially grounded interaction training beyond flat-ground corpora, enabling the policy to exploit environmental contacts. Jointly predicting the action, next proprioceptive state and next-command distribution lets the same network ",
+  "image": "details/2608.18234/F1.jpg"
+ },
+ "overview_ja": "近年のヒューマノイド制御では、大規模な人間のモーションデータを模倣学習（Imitation Learning）させることで、走る・跳ぶ・起き上がるといった多彩なスキルを1つのポリシーにまとめる手法が主流になりつつあります。しかし、これまでの研究の大半は何もない「平坦な地面」を前提としていました。そのため、椅子に座る、段差に登るといった環境との接触が生じると、ダイナミクス（力学特性）の急変に対応できずに破綻してしまうという大きな課題がありました。\n\nそこで著者らは、ロボットを単なる「受動的な動作トラッカー（追従器）」にするのではなく、自身の行動が次にどのような状態や行動の選択肢を生むのかを内包する「振る舞い世界モデル（Behavior World Model）」として学習させることを思いつきました。具体的には、通常のモーションキャプチャデータから運動学的な接地判定を行って椅子や階段などの3D障害物形状を自動復元するパイプラインを構築し、大規模な環境接触データを生成しました。そしてTransformerモデルに、現在の制御入力だけでなく「次の固有受容感覚（プロプリオセプション）」と「次に可能な潜在行動の混合分布」を同時に予測させました。\n\nシミュレーションおよび実機（Unitree G1、Maker L01）で検証したところ、本手法は従来の平地向け大規模トラッカーを圧倒しました。段差や台への接触を伴うタスクの成功率は従来ベストの19%前後から81.3%へと4.3倍に跳ね上がり、実現不可能な無茶な動作指示に対してもフリーズせず「可能な範囲でベストを尽くす動作」へ自動投影して83.1%生存、さらに転倒状態からの復帰率は99.3%に達しました。\n\nこれにより、人間がVRゴーグルなどから大雑把な動作指示を与えるだけで、ロボットが環境の幾何形状に合わせて賢く体を預け、外乱や無理なコマンドにも粘り強く対応できる極めて頑健な全身制御インターフェースが実現できることが示されました。",
+ "contributions_ja": [
+  "全身制御ポリシーを「行動」「次状態」「次の潜在行動分布」を同時予測するCausal Transformerとして定式化し、環境ダイナミクスを内包する振る舞い世界モデル（Behavior World Model）を構築した点",
+  "モーションデータの運動学から足や体の接触痕跡を検出し、シミュレータにそのまま読み込める3D接触ジオメトリを自動生成する注釈パイプラインを開発した点",
+  "世界モデル自身が予測した行動分布を再利用し、分布外の無茶な指示を最寄りの実行可能な動作へオンラインで滑らかに射影するステートレスな幾何フィルタを提案した点",
+  "転倒復帰を別モードに分離せず同一ポリシー内の振る舞いとして統合し、シミュレーションおよび実機（G1、L01）で圧倒的な環境適応性と耐外乱性を示した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "平地を飛び出し、環境と触れ合う全身制御へ",
+   "summary_ja": "既存の大規模全身動作トラッカーは平地でのみ機能し、段差や椅子といった環境との接触によるダイナミクスの変化に対応できませんでした。本研究では、環境と相互作用しつつ無茶な指示や転倒にも耐えるため、自身が次に取りうる振る舞いを予測する世界モデル「GigaBrain-WBC-0.5」を提案します。",
+   "details_ja": "ヒューマノイドロボットの真価は、人間向けに作られた複雑な環境で全身を使って作業できる点にあります。近年の全身制御（Whole-Body Control: WBC）では、何万ものモーションクリップを強化学習で模倣させることで、歩行、屈伸、ダンスなどを1つのポリシーでこなす大規模トラッカーが登場しています。こうしたモデルは、VR操縦者や上位のVision-Language-Action（VLA）モデルが大雑把な指示を出すだけで、低レイヤ側でバランスや物理的整合性を吸収してくれる極めて優秀な「インターフェース」として機能します。\n\nしかし、従来のトラッカーには決定的な弱点がありました。それは「何もない平らな地面」でしか訓練されていないことです。ロボットが椅子に座ったり、重い荷物を持ったり、段差に足をかけたりすると、反力を受ける高さや重心位置といったダイナミクスが根本から変化します。既存手法はこの変化を認識することも利用することもできませんでした。その最大の要因は、環境形状と全身動作が対になったデータセットの不足にあります。\n\nさらに厄介なのが「コマンドの頑健性」です。平地であれば学習データを増やせばどんな無茶な指示でも転ばなくなりますが、環境が存在すると「平地では可能だが階段の上では不可能な動作」が生まれます。つまり実行可能な動作の集合が環境条件付きになるため、単純にデータを増やすだけでは対応できません。\n\nそこで本研究では、制御入力を出力するだけでなく「次の自身の身体状態」と「次に取れる行動コマンドの分布」を同時に予測するCausal Transformer、すなわち振る舞い世界モデル（Behavior World Model）を提案します。また、通常のモーションデータから3D接触形状を逆算する自動注釈パイプラインと、世界モデルの予測分布を用いて無茶な指示を安全な範囲へ引き戻すオンラインフィルタを組み合わせることで、環境接触と究極の頑健性を兼ね備えた単一の全身制御ポリシーを実現しました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "GigaBrain-WBC-0.5の概念図です。モーションデータから3D地形を自動注釈して学習させ、行動・次状態・次行動分布を同時予測するCausal Transformerによって、平地追従だけでなく環境接触、転倒復帰、異機体転移までを網羅しています。",
+     "caption": "Figure 1 : GigaBrain-WBC-0.5: the first Behavior World Model for humanoid whole-body control. GigaBrain-WBC-0.5 couples automatic motion–terrain annotation with a causal Behavior World Model. Recovering full 3D contact geometry from ordinary retargeted motions scales spatially grounded interaction training beyond flat-ground corpora, enabling the policy to exploit environmental contacts. Jointly predicting the action, next proprioceptive state and next-command distribution lets the same network ",
+     "image": "details/2608.18234/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "大規模動作追従と環境接触制御の交差点",
+   "summary_ja": "大規模な模倣学習に基づく平地トラッカーと、段差踏破などに特化した環境適応型コントローラという、これまで分断されていた2つの潮流を整理します。本手法は、全身の自由度を保ちながら環境接触を取り込み、転倒復帰まで単一モデルに統合した点で一線を画します。",
+   "details_ja": "関連研究は大きく3つのグループに分類されます。\n\n### 全身動作トラッカーと行動基底モデル\nSONICやHoloMotion-1、Humanoid-GPTのように、大量のMoCap（モーションキャプチャ）データを模倣させて単一のポリシーを作るアプローチが急速に発展しています。しかし、これらは平坦な何もないシーンで訓練されているため、床以外の物体に触れる能力がありません。また、動作カバレッジを広げると追従精度が落ちる「汎化の壁」も指摘されていました。\n\n### 地形・物体と相互作用する全身制御\n階段や不整地を踏破する研究やパルクール制御、大物マニピュレーションの研究も存在します。しかし、それらの多くはルート速度（腰の移動速度）だけを入力とする移動特化型であり、上半身や腕まで含めたリアルタイムの全身遠隔操作インターフェースとしては使えません。動作とシーンを同時に扱う先行研究（SceneBotなど）もありますが、2.5次元の標高マップに限定されていたり、リンクごとの接触フラグを外部から与える必要があったりと、操作者の自由度に制約がありました。\n\n### 分布外コマンドと転倒への頑健性\n無茶な指示が来た際に安全な動作へ制限する研究や、倒れた状態から立ち上がる専用コントローラ（HoSTなど）の研究もあります。しかし、転倒のたびに起き上がり専用コントローラへ制御を切り替えると、操作者のタスクが中断されてしまいます。本研究では、起き上がりも通常動作の1つとしてトラッカー自身に学習させ、さらに世界モデルの予測分布を用いて、追加の分類器なしに無茶な指示をオンラインで安全側に射影する仕組みを導入しています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "振る舞い世界モデルと3D地形の自動生成",
+   "summary_ja": "29自由度のヒューマノイドを対象に、動作指示を潜在空間に埋め込んでCausal Transformerに入力し、行動・次状態・次行動分布（GMM）を同時予測します。モーションから3D接触形状を自動抽出する技術と、予測分布を用いた閉形式の安全射影フィルタを組み合わせました。",
+   "details_ja": "本手法の中核をなす設計とアルゴリズムは以下の通りです。\n\n### 3.1 問題設定\nロボットにはUnitree G1（29自由度）を用い、50 HzでPD制御を行います。ポリシーへの入力は、プロプリオセプション $\\bm{s}_t \\in \\mathbb{R}^{67}$（重力ベクトル、角速度、関節角・角速度など）、前回の行動 $\\bm{a}_{t-1} \\in \\mathbb{R}^{29}$、および未来10フレーム分の参照動作ウィンドウ $\\bm{c}_t \\in \\mathbb{R}^{440}$ です。\n\n### 3.2 振る舞い世界モデルの構造\n参照動作 $\\bm{c}_t$ はノイズ付加と一部マスキングを経て、MLPエンコーダにより64次元の潜在コマンド $\\bm{z}_t^{\\mathrm{raw}}$ へ変換されます。ここで重要なのは、学習時のみ有限スカラー量子化器（FSQ: 空間を離散的な格子状に丸める手法）とデコーダを用いた再構成ループを設けている点です。これにより、潜在空間が一部の次元に偏らず滑らかに分散し、後述の混合ガウス分布でのモデル化が容易になります。\n\nネットワーク本体は6層のCausal Transformer（ローカルアテンション窓幅32フレーム、KVキャッシュ付き）で構成され、最終隠れ層から以下の3つのヘッドで出力を得ます:\n- **ポリシーヘッド**: 関節目標角度 $\\bm{a}_t$\n- **状態予測ヘッド**: 次の身体状態 $\\bm{s}_{t+1}$\n- **振る舞いヘッド**: 次の潜在コマンドの予測分布 $\\mathcal{G}_{t+1}$（4成分の対角共分散GMM）\n\n次状態の予測により「現在どのような接触力を受けているか」が内部表現に刷り込まれ、次コマンド分布の予測により「この地形・環境下で次に何ができるか」をモデル自身が把握できるようになります。\n\n### 3.3 自動3D地形アノテーション\n通常のMoCapデータから環境ジオメトリを復元するため、まず足先などの接触リンク表面のサンプリング点をMuJoCoでキネマティクス再生します。速度が閾値以下かつ一定以上の法線減速度を示した瞬間を「接触」として検出し、3D点群化します。次にロボット全体との干渉判定（ペネトレーションフィルタ）を通し、ロボットがめり込んでいない安全な点だけを残してDBSCANクラスタリングを行い、直方体の3Dプリミティブ（椅子、階段の踏面、箱など）を自動生成します。\n\n### 3.4 分布外（OOD）コマンドのオンラインフィルタリング\n展開時、前ステップで予測された混合ガウス分布 $\\mathcal{G}_{t-1}$ を使って、今届いたコマンド $\\bm{z}_t^{\\mathrm{raw}}$ のマハラノビス距離を評価します。最も尤もらしいガウス成分 $k^{\\star}$ を選んだ後、安全半径 $R_{\\mathrm{safe}}$ を超えていれば、その成分の中心 $\\bm{\\mu}_{k^{\\star}}$ に向けて放射状にスケーリング（縮約）します。これにより、ロボットは停止することなく「意図を汲み取った可能な限りのベストエフォート動作」を継続します。計算コストは1 ms未満で、安全半径は実行時にスカラー値1つで調整可能です。\n\n### 3.5 学習手順\nIsaac Lab上でPPOを用いて強化学習を行います。転倒状態からの復帰カリキュラムや手首・胴体へのランダム外乱力を導入しています。また、この学習済み重みは、別のロボット（Maker L01）へも簡単なファインチューニングのみで転移可能です。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "GigaBrain-WBC-0.5のアーキテクチャ詳細です。(a) 参照ウィンドウを潜在表現へ符号化し、(b) 6層のCausal Transformerで行動、次状態、次行動分布（GMM）を同時予測します。(c) 展開時には前ステップの予測分布を用いて無茶な指示を安全境界上へ射影します。",
+     "caption": "Figure 2 : GigaBrain-WBC-0.5 overview. (a) The reference window $c_{t}$ is perturbed with noise and, for the robot-relative root translation, intermittently masked, then mapped by an MLP encoder to the latent behavior command $z_{t}^{raw}$ ; a finite scalar quantizer and a decoder reconstruct the clean reference for a training-only cycle-consistency loss (dashed). (b) $[s_{t},a_{t-1},z_{t}]$ is processed by a 6-layer causal Transformer with a KV cache; three heads emit the action $a_{t}$ , the n",
+     "image": "details/2608.18234/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "モーションから3D地形を自動復元するパイプラインです。(a) 動作のキネマティクス再生から (b) 速度・減速度による接地判定を行い、(c) 接触点群を蓄積。(d) 身体との干渉除去とクラスタリングを経て、(e) シミュレータで使える3D直方体プリミティブへ変換します。",
+     "caption": "Figure 3 : From motion to spatial terrain. (a) A retargeted motion is replayed kinematically. (b) Contact detection flags frames where a sampled surface point’s normal and tangential velocity fall below threshold (arrows show incoming velocity at the moment of contact). (c) Detected contacts accumulate into a 3D point cloud. (d) Points are grouped into collision-safe clusters after the whole-body penetration filter. (e) Each cluster is fitted with proper primitives, giving the 3D terrain used fo",
+     "image": "details/2608.18234/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "未知の段差、無茶な指示、転倒に耐え抜く実力",
+   "summary_ja": "MuJoCoでのSim-to-Sim評価において、地形接触タスクの成功率81.3%、物理的に不可能な指示に対する生存率83.1%、転倒復帰率99.3%を達成し、既存の大規模トラッカー（SONIC等）を圧倒しました。実機でも段差昇降や荷物運搬、外乱からの復帰を確認しました。",
+   "details_ja": "シミュレーション評価および実機実験により、提案手法の有効性を検証しました。\n\n### 4.1 実験設定とベースライン\nテストセットとして、通常の平地追従（Standard）、物理的に実行不能な動作（OOD）、段差や家具との接触動作（Terrain）、転倒初期姿勢からの復帰（Fall）の4領域を用意しました。比較対象にはSONIC、HoloMotion-1、Humanoid-GPTという最新の大規模トラッカー3種を採用し、すべて同一条件（MuJoCo内での全尺再生、実機で取得できないルート絶対位置はマスク）でSim-to-Sim評価を行いました。\n\n### 4.2 動作トラッキング性能の比較\n- **Standard（平地）**: キーポイント位置誤差（MPKPE）は76.6 mm、成功率（SR）は96.3%を記録し、平地特化のベースライン群（SONIC: 82.3 mm, 94.1%）を上回る最高精度を達成しました。\n- **Terrain（地形接触）**: ベースラインは接触を外乱と誤認して軒並み14〜19%の成功率へ急落したのに対し、本手法は81.3%の成功率を維持し、MPKPEも93.3 mmに抑えました（最強ベースライン比で成功率4.3倍、誤差3.0分の1）。\n- **OOD（無茶な指示）**: 物理的に不可能な参照動作に対し、ベースラインの生存率が50〜70%に留まる中、本手法はオンラインフィルタにより83.1%生存し、指示の意図に最も近い動作を保ちました。\n- **Fall（転倒復帰）**: ベースラインの復帰率が0.7〜5.9%（ほぼ起き上がれず床で暴れる状態）だったのに対し、本手法は99.3%の確率で起き上がり動作へ復帰しました。関節ジャーク（躍度）も1050.6 $\\mathrm{rad/s^3}$ と最も滑らかでした。\n\n### 4.3 環境インタラクションと実機検証\n自動注釈された地形データの人間による目視監査では、92%の動作で正しい幾何形状が復元されていることが確認されました。Unitree G1を用いた実機比較では、同一の遠隔操作コマンドを与えた際、SONICが箱に座れず中腰で固まるのに対し、本手法は箱に体重を預けて腰掛け、段差へ登り、荷物を抱えたまま段差を降りる一連の動作を滑らかに完遂しました。\n\n### 4.4 頑健性と異機体転移\n椅子や台を急に引き抜く実験では、ロボットは非常停止して荷物を落とすことなく、安定したベストエフォート姿勢へ移行しました。また、足払いで転倒させられても、別モードへ切り替えることなく自然に立ち上がって追従を再開しました。さらに、G1で学習した世界モデルをMaker L01へファインチューニングしたところ、短時間で物流・家庭内タスクへの適応に成功しました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "実機Unitree G1での環境インタラクション比較です。左がSONIC、右が提案手法です。箱への着座(a)、段差の昇降(b)、荷物保持(c)、消火器の持ち上げ(d)、荷物を持った状態での段差歩行(e)において、提案手法のみが接触力を有効に使ってタスクを達成しています。",
+     "caption": "Figure 5 : Environment interaction on hardware. Matched hardware comparisons in (a)–(d), with SONIC [ 23 ] on the left and GigaBrain-WBC-0.5 on the right, driven simultaneously by the same operator command. (a) Ours loads the box as a seat while SONIC remains in a half-squat. (b) Ours steps onto the platform and stabilizes; SONIC fails to climb it. (c) Ours lifts and holds the box while SONIC loses a stable grasp. (d) Ours completes a kneel-to-stand transition to lift a 2 kg fire extinguisher wh",
+     "image": "details/2608.18234/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "指示の破綻や物理外乱に対する頑健性です。(a, b) 座ろうとした椅子や足場が取り除かれても転倒せずベストエフォート姿勢へ着地します。(c) 蹴られて転倒しても単一ポリシーのまま滑らかに立ち上がります。(d, e) 複雑な旋回蹴り動作に対し、フィルタ有効時（ON）は転倒を未然に防いでいます。",
+     "caption": "Figure 7 : Robustness to unsafe commands and to physical disturbances. (a, b) Removing the chair or platform invalidates the original command, yet the policy settles into a stable best-effort behavior instead of a emergency stop, in which case the carried object would be dropped. (c) The same tracking policy recovers from a kick-induced fall without a separate recovery controller. (d, e) Under the same self-interfering and challenging spinning-kick reference in simulation, disabling the safety f",
+     "image": "details/2608.18234/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "実機で実現された多様な全身動作ギャラリーです。跳躍や高蹴りなどの俊敏な運動(a)から、テーブル拭き等の家庭タスク(b)、物流搬送(c)までを単一コントローラで実行し、Maker L01機体への転移も示されています。",
+     "caption": "Figure 8 : Whole-body motion capability. Agile motion, household tasks and industrial tasks, all produced by one tracking policy under live whole-body command. Frames are badged with the robot they were recorded on: the controller runs on a Unitree G1 and, after the fine-tuning of Section 3.5 , on a Maker L01.",
+     "image": "details/2608.18234/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "環境を知る世界モデルが全身制御の常識を変える",
+   "summary_ja": "行動だけでなく自己の未来を予測する「振る舞い世界モデル」により、環境接触への適応と過酷な外乱への頑健性を単一ポリシーで両立できることを示しました。今後は非接触面の幾何復元や、直接的な物理リスク推定への拡張が期待されます。",
+   "details_ja": "本研究では、ヒューマノイド全身制御のための振る舞い世界モデル「GigaBrain-WBC-0.5」を提案しました。従来のトラッカーに欠けていた「環境との接触」と「不可能な指示に対する頑健性」は、制御器自身に自己の未来（次状態と次行動分布）を予測させることで一体的に解決できるという設計思想を実証しました。\n\nモーションデータからの自動3D地形復元パイプラインと、世界モデルの予測分布に基づく閉形式のオンライン射影フィルタを組み合わせることで、シミュレーション上の地形適応（成功率81.3%）、無茶な指示への耐性（83.1%）、転倒からの自己復帰（99.3%）においてベースラインを圧倒し、実機環境でもその驚異的な粘り強さを証明しました。\n\n一方で、論文中ではいくつかの限界も挙げられています。現在のオンラインフィルタはシミュレーションで主に検証されており、安全半径 $R_{\\mathrm{safe}}$ は機体やチェックポイントごとに再調整が必要な点、また物理的な破損リスクそのものを直接計算しているわけではなく「学習経験との類似度」で弾いているため、危険回避が確率的である点が挙げられます。また、地形復元は実際に身体が接触した場所しか復元できないため、触れていない周囲の障害物までは表現できません。今後は接触しない幾何形状の復元や、世界モデルの状態予測を直接的な物理リスク指標へ結びつける研究が期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "全身制御ポリシーに行動だけでなく「次状態」と「次行動分布」を同時予測させると、モデル内部に接触ダイナミクスと環境の許容行動が自然に表現される",
+  "通常のモーションキャプチャデータでも、運動学的な接地・減速シグナルを抽出すれば高品質な3D接触ジオメトリを自動生成でき、環境接触学習へ大規模に転用できる",
+  "世界モデル自身が出力する次ステップの予測分布（GMM）を使えば、追加の分類器なしに閉形式でOODコマンドを安全側に引き戻す「ベストエフォート制御」が可能になる",
+  "転倒復帰を別個のステートマシンに分離せず、同一ポリシーの1つの振る舞いとして統合することで、タスクを中断しない極めて頑健な遠隔操作・全身制御基盤が作れる"
+ ],
+ "limitations_ja": [
+  "自動地形アノテーションは実際に体が接触した部位の痕跡から復元するため、周囲に存在していても触れなかった障害物や完全な環境形状は復元できない",
+  "オンラインフィルタの安全半径パラメータは機体やモデルごとに手動調整が必要であり、物理的な転倒・破壊リスクを直接数理最適化して防いでいるわけではない",
+  "ルート位置の絶対座標フィードバックを排したため、平地におけるルート移動速度の追従精度が一部ベースラインよりわずかに劣るトレードオフがある"
+ ],
+ "keywords": [
+  "Humanoid Whole-Body Control",
+  "Behavior World Model",
+  "Physics-based Motion Tracking",
+  "Environment Interaction",
+  "Out-of-Distribution Filtering"
+ ],
+ "id": "2608.18234",
+ "title": "GigaBrain-WBC-0.5: A Behavior World Model for Robust Whole-Body Control with Environment Interaction",
+ "title_ja": "GigaBrain-WBC-0.5: 環境相互作用を伴うロバストな全身制御のための行動ワールドモデル",
+ "authors": [
+  "Ziyang Cheng",
+  "Tianshu Tang",
+  "Jinxin Lan",
+  "Xinze Chen",
+  "Yuhan Gong",
+  "Zhichao Liu",
+  "Changzhong Wu",
+  "Yahao Mao",
+  "Zongyan Deng",
+  "Mingxuan Ma",
+  "Huasen Xi",
+  "Yilong Liu",
+  "Yutong Wu",
+  "Xiaofeng Wang",
+  "Yang Wang",
+  "Yun Ye",
+  "Guan Huang",
+  "Xiaojie Jin",
+  "Zheng Zhu",
+  "Jiwen Lu"
+ ],
+ "date": "2026-08-20",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "control",
+  "world-model",
+  "locomotion"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.18234",
+ "pdf_url": "https://arxiv.org/pdf/2608.18234",
+ "summary_ja": "従来の全身動作追従方策が平坦な環境に限定されていた課題に対し、環境接触がダイナミクスに与える影響を学習する行動ワールドモデルGigaBrain-WBC-0.5を提案。参照モーションの単なる拡充に頼らず、環境依存の物理的制約下でもバランスを保つ全身制御を実現する基盤モデルを構築した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.18234"
+}
