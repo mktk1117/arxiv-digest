@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>論文まとめ</title>
+<style>
+  :root {
+    --bg: #f6f7f9;
+    --card: #ffffff;
+    --text: #1a1d21;
+    --muted: #6b7280;
+    --line: #e3e6ea;
+    --accent: #3b6fd4;
+    --focus: #eef3fd;
+    --warn: #fff7e6;
+    --warn-line: #f2d9a6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #14171b; --card: #1c2027; --text: #e8eaed; --muted: #9aa3ad;
+      --line: #2c323a; --accent: #7aa2f7; --focus: #1e2734;
+      --warn: #2a2418; --warn-line: #4d4022;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
+    line-height: 1.75; font-size: 15px;
+  }
+  a { color: var(--accent); }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 16px 16px 64px; }
+  .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 14px; }
+  .top a { text-decoration: none; font-size: 13px; }
+  .group {
+    font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 999px;
+    background: var(--card); border: 1px solid var(--line); color: var(--muted);
+  }
+  .group.focus { background: var(--focus); border-color: var(--accent); color: var(--accent); }
+  h1 { font-size: 22px; line-height: 1.4; margin: 0 0 6px; }
+  .title-en { color: var(--muted); font-size: 14px; margin: 0 0 10px; }
+  .meta { font-size: 13px; color: var(--muted); margin: 0 0 10px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 12px; }
+  .tag {
+    font-size: 11px; padding: 2px 9px; border-radius: 999px;
+    color: var(--accent); border: 1px solid var(--line); background: var(--card);
+  }
+  .links { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
+  .links a {
+    font-size: 13px; text-decoration: none; padding: 7px 14px; border-radius: 8px;
+    border: 1px solid var(--accent); color: var(--accent); background: var(--card);
+  }
+  .links a.primary { background: var(--accent); color: #fff; }
+  .box {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 14px 16px; margin: 0 0 18px;
+  }
+  .box.tldr { border-color: var(--accent); background: var(--focus); }
+  .box h2 { font-size: 13px; margin: 0 0 6px; color: var(--muted); font-weight: 700; letter-spacing: .02em; }
+  .box p { margin: 0; }
+  .box ul { margin: 0; padding-left: 20px; }
+  .box li { margin: 3px 0; }
+  .toc { font-size: 13px; }
+  .toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 24px; }
+  .toc li { break-inside: avoid; margin: 2px 0; }
+  .toc a { text-decoration: none; }
+  @media (max-width: 520px) { .toc ol { columns: 1; } }
+  section.chapter { margin: 30px 0 0; }
+  section.chapter h2 { font-size: 18px; margin: 0; line-height: 1.4; }
+  section.chapter h2 small { display: block; font-size: 12px; color: var(--muted); font-weight: normal; }
+  section.chapter .body { margin-top: 8px; }
+  section.chapter .body p { margin: 0 0 10px; }
+  section.chapter .body ul { margin: 0 0 10px; padding-left: 22px; }
+  section.chapter .body li { margin: 3px 0; }
+  code { font-size: 90%; background: var(--focus); padding: 0 4px; border-radius: 4px; }
+  figure {
+    margin: 14px 0 16px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; overflow: hidden;
+  }
+  figure img { display: block; width: 100%; background: #fff; }
+  figcaption { padding: 10px 14px 12px; font-size: 13px; }
+  figcaption .orig { display: block; color: var(--muted); font-size: 11px; margin-top: 4px; }
+  figcaption .key { font-weight: 700; color: var(--accent); margin-right: 6px; }
+  .box.limits { background: var(--warn); border-color: var(--warn-line); }
+  .footer { margin-top: 36px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; }
+  .note { color: var(--muted); font-size: 14px; padding: 48px 0; text-align: center; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"><p class="note">読み込み中…</p></div>
+
+<script>
+const GROUPS = { focus: "専門分野", general: "ロボティクス全般" };
+const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => (
+  { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+
+// **太字** と `コード` だけ解釈する
+function inline(s) {
+  return esc(s)
+    .replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>")
+    .replace(/`([^`]+)`/g, "<code>$1</code>");
+}
+
+// 空行で段落、行頭の「- 」で箇条書きにする
+function renderBody(text) {
+  const out = [];
+  let para = [], list = [];
+  const flushPara = () => { if (para.length) { out.push(`<p>${inline(para.join(" "))}</p>`); para = []; } };
+  const flushList = () => { if (list.length) { out.push(`<ul>${list.map((l) => `<li>${inline(l)}</li>`).join("")}</ul>`); list = []; } };
+
+  for (const raw of String(text ?? "").split("\n")) {
+    const line = raw.trim();
+    const bullet = line.match(/^(?:[-*•・]|\d+[.)])\s+(.*)$/);
+    if (!line) { flushPara(); flushList(); continue; }
+    if (bullet) { flushPara(); list.push(bullet[1]); continue; }
+    flushList(); para.push(line);
+  }
+  flushPara(); flushList();
+  return out.join("");
+}
+
+function figure(f) {
+  return `<figure>
+    <a href="${esc(f.image)}" target="_blank" rel="noopener"><img src="${esc(f.image)}" alt="${esc(f.caption || f.key)}" loading="lazy"></a>
+    <figcaption><span class="key">図 ${esc(f.key.replace(/^F/, "").replace(/^P/, "p."))}</span>${inline(f.caption_ja)}
+      ${f.caption ? `<span class="orig">${esc(f.caption)}</span>` : ""}</figcaption>
+  </figure>`;
+}
+
+function render(d) {
+  document.title = `${d.title_ja || d.title} | 論文まとめ`;
+  const authors = (d.authors || []).slice(0, 4).join("、") + ((d.authors || []).length > 4 ? " ほか" : "");
+  const sections = d.sections || [];
+
+  return `
+    <div class="top">
+      <a href="./">← 論文アーカイブ</a>
+      <span class="group ${d.group === "focus" ? "focus" : ""}">${esc(GROUPS[d.group] || "")}</span>
+    </div>
+    <h1>${esc(d.title_ja || d.title)}</h1>
+    <p class="title-en">${esc(d.title)}</p>
+    <p class="meta">${esc(authors)}${d.date ? ` · 配信 ${esc(d.date)}` : ""} · ${esc((d.categories || [])[0] || "")} · ${esc(d.id)}</p>
+    <div class="tags">${[...(d.tags || []), ...(d.keywords || [])].map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>
+    <div class="links">
+      <a class="primary" href="${esc(d.abs_url)}">arXiv で読む</a>
+      <a href="${esc(d.pdf_url)}">PDF</a>
+      ${d.html_url ? `<a href="${esc(d.html_url)}">HTML 版</a>` : ""}
+    </div>
+
+    ${d.tldr_ja ? `<div class="box tldr"><h2>要点</h2>${renderBody(d.tldr_ja)}</div>` : ""}
+
+    ${sections.length ? `<div class="box toc"><h2>目次</h2><ol>${sections.map((s, i) =>
+      `<li><a href="#sec-${i + 1}">${esc(s.heading_ja || s.heading)}</a></li>`).join("")}</ol></div>` : ""}
+
+    ${sections.map((s, i) => `
+      <section class="chapter" id="sec-${i + 1}">
+        <h2>${esc(s.heading_ja || s.heading)}${s.heading && s.heading_ja ? `<small>${esc(s.heading)}</small>` : ""}</h2>
+        <div class="body">${renderBody(s.summary_ja)}</div>
+        ${(s.figures || []).map(figure).join("")}
+      </section>`).join("")}
+
+    ${(d.takeaways_ja || []).length ? `<div class="box" style="margin-top:30px"><h2>持ち帰るポイント</h2>
+      <ul>${d.takeaways_ja.map((t) => `<li>${inline(t)}</li>`).join("")}</ul></div>` : ""}
+    ${(d.limitations_ja || []).length ? `<div class="box limits"><h2>限界・気になる点</h2>
+      <ul>${d.limitations_ja.map((t) => `<li>${inline(t)}</li>`).join("")}</ul></div>` : ""}
+
+    <p class="footer">このまとめは ${esc(d.model || "Gemini")} が論文の${d.source === "pdf" ? "PDF" : "HTML 版"}から自動生成したものです（${esc(d.generated || "")}）。
+      正確な内容は <a href="${esc(d.abs_url)}">原文</a> を確認してください。</p>`;
+}
+
+async function load() {
+  const id = new URLSearchParams(location.search).get("id");
+  const app = document.getElementById("app");
+  if (!id || !/^[\w.\-/]+$/.test(id)) {
+    app.innerHTML = '<p class="note">論文が指定されていません。<a href="./">アーカイブへ戻る</a></p>';
+    return;
+  }
+  try {
+    const res = await fetch(`details/${id}/paper.json`, { cache: "no-cache" });
+    if (!res.ok) throw new Error(res.status);
+    app.innerHTML = render(await res.json());
+    if (location.hash) document.querySelector(location.hash)?.scrollIntoView();
+  } catch {
+    app.innerHTML = `<p class="note">この論文のまとめはまだありません。<br>
+      <a href="https://arxiv.org/abs/${esc(id)}">arXiv で読む</a> · <a href="./">アーカイブへ戻る</a></p>`;
+  }
+}
+
+load();
+</script>
+</body>
+</html>
