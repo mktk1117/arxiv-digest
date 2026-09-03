@@ -1,0 +1,135 @@
+{
+ "tldr_ja": "テキストや間取り図、たった1枚の写真から、動く人物や物理演算を含む編集可能な4Dシミュレーション環境を丸ごとプロシージャル生成するシステム「4DSynth」を開発し、最新VLMのナビゲーション性能の限界を明らかにしました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "4DSynthの全体パイプラインです。ユーザーの指示をパースし、4つの経路のいずれかで幾何構造を確定させた後、共通のStage上で動的キャラクターの軌道やカメラワークを幾何整合性を保ちながら計画してシミュレータへ出力します。",
+  "caption": "Fig. 2: 4DSynth as a two-tier execution pipeline. Parse normalizes the user conditions into a 4D specification. Tier 1 realizes the scene through one of four routes; Finalize then fixes the geometry, walkability, and inventory of the final Stage (only native outdoor scenes go through coarse-to-final materialization). In parallel, Animation selects, imports, and measures motion assets to produce an animation plan; Nav joins that plan with the final Stage to produce collision-free actor tracks, an",
+  "image": "details/2608.26947/F2.jpg"
+ },
+ "overview_ja": "家庭内などで自律的に動くロボット（Embodied AI）を育てるには、見た目が多様なだけでなく、障害物が動いたり物理的に干渉できたりする動的な環境が欠かせません。しかし、従来の手作業による環境構築はコストが高すぎますし、近年の動画生成や4D生成AIによる表現は、見た目は綺麗でもロボットが干渉できる実体（コライダーや編集可能なパラメータ）を持っていませんでした。\n\nそこで著者らは、プロシージャル（手続き型）生成技術を基盤としたエンドツーエンドの4D世界生成パイプライン「4DSynth」を考案しました。テキストによる指示、間取りマスク、あるいは1枚の部屋の写真といった様々な入力から、共通の内部表現「Stage」を経由して、衝突判定や歩行可能領域、動く人間のアニメーションが幾何学的に破綻しないシミュレーション空間を一括生成します。\n\n本手法の実用性を検証するため、生成された122の物理対応室内シーンから、動的な歩行者が存在する333個のナビゲーション・操作タスク「4DSynth-Nav」を自動構築しました。ここに最新のVision-Language Model（VLM）であるQwen3-VLとGemini 3.1 Proを投入して評価したところ、最高峰のGeminiでも成功率は33.3%にとどまり、目標が初期視界の外にある場合や複数段階のタスクにおいて、エラーが蓄積して立ち往生してしまう実態が浮き彫りになりました。",
+ "contributions_ja": [
+  "テキスト、間取りマスク、単一写真など多様な入力経路を共通の内部幾何表現「Stage」に統合するプロシージャル生成アーキテクチャの確立",
+  "アセットの実測値に基づき、キャラクターやカメラの衝突回避軌道を自動計画して物理シミュレータ（Isaac Sim）向けOpenUSDを出力する幾何拘束4D合成技術",
+  "動的障害物を含む333タスクからなる完全自動生成ベンチマーク「4DSynth-Nav」の構築と、最新VLMエージェントの体系的な失敗分析"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜロボットには「編集できる4D空間」が必要なのか？",
+   "summary_ja": "ロボット学習用の環境構築は、見た目の多様性、物理構造、時間変化（4D）を両立させることが難しく、分断されたツールに頼っていました。4DSynthは、多様な入力から編集可能で物理シミュレーション対応の4D環境を一貫して生成する統合システムを提案します。",
+   "details_ja": "ロボットが実世界で賢く動くためには、見た目がリアルで部屋ごとに構造が異なり、人間などの動的な物体が存在するシミュレーション環境が必要です。しかしこれまでは、間取りを生成するシミュレータ、言語からシーンを作るシステム、人体の動きを扱う環境が別々に存在しており、これらを1つの編集可能なシーンとして統合するのは極めて困難でした。\n\n本論文で言う「4D環境」とは、単に動く映像をレンダリングする技術ではなく、「明確な3Dジオメトリに、時間変化するアクターやカメラの状態が紐づいた環境」を指します。ジオメトリを陽に保持することで、物体の衝突判定、支持関係（何の上に何が載っているか）、プロシージャルパラメータがレンダリングや物理シミュレーションの段階まで破綻せずに残る点が大きな強みです。\n\nシステムは、ユーザーのテキスト指示をエージェント型コントローラが解釈し、4つの生成ルートを通じて共通の「Stage」を構築します。その幾何構造の上でキャラクターのアニメーションやカメラ軌道を計画し、最終的にIsaac Simなどで直接動かせるOpenUSD形式へとエクスポートします。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "既存のシミュレータや4D生成AIと何が違うのか？",
+   "summary_ja": "既存研究は、固定された静的アセットを扱うプラットフォームや、見た目重視で干渉できない4D生成が中心でした。4DSynthは、手続き型生成による編集可能性と幾何的一貫性を保ちながら、動的な人間と物理シミュレーションを融合した点に新規性があります。",
+   "details_ja": "ロボティクス向けのシミュレーション基盤にはAI2-THORやHabitat、iGibson、SAPIENなどがありますが、これらは既存のシーンコレクション上でタスクを実行することを重視しており、環境そのものをゼロから柔軟に生成するわけではありません。\n\n一方、ProcTHORやInfinigenのようなプロシージャル生成技術や、HolodeckのようにLLMを活用して部屋を作る研究も登場しています。しかし4DSynthが解く課題は、ネイティブ生成、間取り図、単一画像からの復元という異なる入力経路を束ね、動的アクターとカメラまで幾何整合性を保って動かすという、システムレベルの統合です。\n\nまた、近年のText-to-4D手法（NeRFや3D Gaussian Splattingを用いたもの）は非常にリアルな動画を作れますが、ロボットが歩ける床領域や衝突判定、後からのパラメータ編集機能を持っていません。4DSynthはあえて明示的なオブジェクトとプロシージャルアセットにマッピングすることで、見た目の完全一致と引き換えに「ロボットが干渉して編集できること」を最優先に設計されています。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "4DSynthのアーキテクチャ：入力から物理シミュレーションまで",
+   "summary_ja": "4つの生成経路から共通の幾何表現「Stage」を作り、その上でキャラクターやカメラの軌道を最適化します。最終的に、手続き型マテリアルから質量や摩擦を算出してIsaac Sim向けに物理対応シーンを書き出します。",
+   "details_ja": "4DSynthは意味制御、シーン実体化、幾何拘束4D合成の3つの階層に分かれています（図 F2）。\n\n■ III-A 制御可能なシーン合成\nシーンの生成経路は大きく2系統・計4種類あります。1つ目はカテゴリ指定だけで部屋や広大な自然環境（8種類のバイオーム）を生成するネイティブ生成です。2つ目は外部入力をコンパイルする系統で、テキストや間取りマスクから生成する経路（図 F3）と、単一の写真から実体化する「Real-to-Sim」経路（図 F4）があります。写真入力では、単眼深度推定やセグメンテーションで3Dプロキシを推定した後、プロシージャルアセットへマッピングして形状を確定させ、最後に実画像に合わせてマテリアルや色味を調整します。屋外シーンでは、カメラから見える領域に詳細を配置する性質上、粗いモデルでアクターの仮軌道を引いた後に詳細化する「粗密ループ」を採用しています。\n\n■ III-B 共通Stage上での4Dアニメーション\n生成された幾何構造から、高さ場と歩行可能領域 $\\mathcal{W}$ を持つ「Stage」を抽出します。アクター $i$ の身体半径 $r_i$ に応じて歩行可能領域を収縮（Erosion）させた $\\mathcal{F}_i = \\operatorname{Erode}(\\mathcal{W}, r_i)$ 上で、$A^*$ アルゴリズムにより衝突のない軌道を計画します。アクターには実測された身長や自然な歩行速度が割り当てられ、複数人がいる場合は互いに回避しながら歩行します。\n\n■ III-C 幾何整合性のある観測合成\nカメラの演出意図（旋回、ズームなど）と幾何的制約を分離して処理します。カメラが壁やアクターの体内にめり込まないよう、厳密モードまたは高速モードで軌道を修正し、被写体がフレーム内に自然に収まり続けるよう最適化します。\n\n■ III-D 物理シミュレーションへのエクスポート\n完成した4DシーンはNVIDIA Isaac Sim用のOpenUSD形式に変換されます。各アセットの手続き型マテリアル情報から密度や摩擦係数が自動計算され、可動オブジェクトには剛体コライダーが付与されます。歩行キャラクターは設定された軌道をなぞるキネマティックなカプセル障害物として扱われます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "4DSynthの全体実行パイプラインです。ユーザー条件のパースから、4経路によるシーン構築、共通Stage上でのアニメーション・カメラ経路計画を経て、動画やシミュレーション用USDが出力される流れが分かります。",
+     "caption": "Fig. 2: 4DSynth as a two-tier execution pipeline. Parse normalizes the user conditions into a 4D specification. Tier 1 realizes the scene through one of four routes; Finalize then fixes the geometry, walkability, and inventory of the final Stage (only native outdoor scenes go through coarse-to-final materialization). In parallel, Animation selects, imports, and measures motion assets to produce an animation plan; Nav joins that plan with the final Stage to produce collision-free actor tracks, an",
+     "image": "details/2608.26947/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "テキストやマスクからシーンを生成する流れです。中間表現「Canonical Layout IR」を介して、部屋構造の生成、家具の配置、足りない要素の自動補完という3段階でシーンが仕上がっていく様子が示されています。",
+     "caption": "Fig. 3: Text- and mask-conditioned scene compilation. A scene-layout description or an annotated mask is normalized into a Canonical Layout IR recording rooms, openings, objects, support chains, and metric layout. The shared procedural backend builds the room structure, instantiates and places the specified assets, and fills in compatible content during completion. The three bird’s-eye-view panels show the same scene after structure construction, placement, and completion.",
+     "image": "details/2608.26947/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "単一画像からのReal-to-Simコンパイルの流れです。深度推定や3Dプロキシ検出によって大まかな配置を認識した後、プロシージャルアセットに置き換えて形状を凍結し、最後に見た目（マテリアル）を合わせて編集可能なシーンを作ります。",
+     "caption": "Fig. 4: Single-image real-to-sim compilation. Hybrid perception extracts objects, openings, metric depth, and posed 3D proxies; grounding links each observed instance to a procedural factory. Metric reasoning consolidates this evidence into a PerceivedScene with room geometry, object scale, support, and facing. Procedural realization builds the room shell, instantiates sized native assets, and freezes the geometry before source-guided material alignment produces an editable scene that matches th",
+     "image": "details/2608.26947/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "定性的な生成結果と、333タスクのナビゲーション検証",
+   "summary_ja": "生成された環境は間取りの再現度が高く、自由に再編集が可能です。このシーンから自動生成したベンチマーク「4DSynth-Nav」でVLMを評価したところ、最高峰のモデルでも成功率は33.3%にとどまりました。",
+   "details_ja": "■ IV-A 定性的なシーン合成結果\n間取りマスクからの生成（図 F5）では、2Dの制約を正確に反映しながら、部屋ごとの照明や家具を持つ3D空間が生成されています。また、単一画像入力（図 F6）では、先行研究のVIGAと比較して壁面や開口部、補助的な家具の配置をより破綻なく維持できており、しかも後から自由にパラメータを編集できます。図 F7のように、屋内・屋外を問わず衝突のないキャラクターの歩行と自然なカメラワークが実現されています。\n\n■ IV-B & IV-C 4DSynth-Navベンチマークの構築と難易度設計\n122の物理対応室内シーンから、人の手作業なしで333個のナビゲーション＆ピック・アンド・プレースタスクを自動生成しました。動く人間が動的障害物として配置されています。難易度は2つの軸（サブタスク数、初期の目標可視性）により3段階に設定されています。L1は目標が初期視界外にある1段階タスク、L2は目標が視界内にある2段階タスク、L3は目標が初期視界外にある2段階タスクです。\n\n■ IV-D & IV-E 実験設定と結果\nQwen3-VL-30B-A3B-ThinkingとGemini 3.1 Proの2つのVLMエージェントを評価しました。エージェントは1人称視点の画像と指示を受け取り、5歩先までの行動計画を出力します。\n結果として、Qwen3-VLの成功率（SR）はわずか13.2%（サブタスク進捗率SP: 22.4%）、Gemini 3.1 ProはSR 33.3%（SP: 40.7%）となりました。Geminiは目標が見えていない探索（L1）では57.5%のSRを記録し探索能力の高さを見せましたが、2段階タスクのL3になるとSRは18.2%まで急落しました。\n\n■ IV-F 軌跡の分析\n両モデルとも、サブタスク進捗率（SP）に比べて最終成功率（SR）が大きく落ち込んでいます。図8に示されるように、最初の目標には到達できても、第2段階に入った瞬間に状況の遷移を正しく認識できず、目標から遠ざかるように大回りしてタイムアウトしてしまうという「エラーの蓄積」が顕著に見られました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "間取りマスク（AおよびB）から合成された複数部屋の住宅例です。左端の入力図面から、俯瞰図（BEV）およびリビング、寝室、キッチンなどのリアルな3D部屋が正確に再現されています。",
+     "caption": "Fig. 5: Layout-conditioned synthesis for two blueprint masks (A and B). Each row shows, left to right, the authored input, the final procedural bird’s-eye view (BEV), and selected living-room, bedroom/dining-room, and kitchen renders. The multi-room organization and the authored furniture arrangement are preserved, and the 2D constraints become editable procedural geometry with room-specific materials and lighting.",
+     "image": "details/2608.26947/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "1枚の入力写真から復元したシーンの定性比較です。先行手法VIGA（中段）と比べて、著者らの手法（下段）は部屋の壁面やドア、細かな家具の配置をしっかりと捉え、編集可能なプロシージャルアセットとして再構成できています。",
+     "caption": "Fig. 6: Qualitative comparison with VIGA on eight shared single-image inputs. Rows show the input photograph, the VIGA reconstruction, and our appearance-aligned procedural result under a common 4:3 viewport. Across these examples our compiler more consistently recovers explicit room surfaces, openings, secondary furniture, and separately editable object instances while keeping the dominant layout and appearance. The comparison is qualitative; we do not infer a metric ranking from it.",
+     "image": "details/2608.26947/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "生成された4D環境のレンダリング例です。屋内（上段）と広大な屋外（下段）において、アクターの歩行軌道（オレンジ実線）とカメラ軌道（青破線）が幾何構造と干渉せずに調和して動いていることが確認できます。",
+     "caption": "Fig. 7: Synthesized 4D environments. Each row pairs an overhead rendering of the final scene with four frames sampled at the numbered times. Solid orange and dashed blue curves are the measured actor-root and solved camera trajectories; the purple marker in the indoor scene is the in-place dancing actor. Environment, actors, and camera are baked into one editable 4D scene.",
+     "image": "details/2608.26947/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "4DSynthは、多様な入力から編集可能で物理対応の4D環境を統合生成する実用的なパイプラインを確立しました。今後は、ロボットに反応して避けてくれる人間や関節を持つ可動家具の導入、より多様なエージェントの検証を目指します。",
+   "details_ja": "本研究では、自然言語、間取り図、単一写真から、編集可能で動的キャラクターを含む4D環境を生成する「4DSynth」を提案しました。共通のStageとWorldStateにより、手作業の3Dモデリングを一切挟むことなく、レンダリング、物理シミュレーション、タスク自動生成を一気通貫で処理できます。\n\nまた、自動構築した「4DSynth-Nav」ベンチマークを通じて、最新のVLMであっても動的障害物や多段階タスク、初期の死角が存在する状況では大幅に性能が低下することを実証しました。\n\n著者は今後の展望として、入力に対する忠実度や制御性のさらなる定量化、ロボットに反応して道を譲るようなインタラクティブな人間アクターの追加、引き出しやドアといった関節を持つオブジェクトの拡充を挙げています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「見た目の4D」から「物理・編集可能な4D」へ：NeRFやGaussian Splattingの見た目重視アプローチと異なり、ロボティクス応用には陽な幾何構造とプロシージャルな実体を持つ環境生成が極めて有効である。",
+  "共通表現（Stage）の重要性：テキスト・図面・画像という全く異なる入力経路を、歩行可能領域や衝突判定を持つ単一の中間表現に集約することで、後段のアニメーションやカメラ計画パイプラインを完全に共通化できる。",
+  "最新VLMエージェントの現在地：Gemini 3.1 Proのような強力なフロンティアモデルであっても、動的障害物が存在し目標が視界外にある2段階タスクでは成功率が2割を切るなど、実環境配備には大きな課題が残されている。"
+ ],
+ "limitations_ja": [
+  "人間のインタラクション欠如：現状の歩行キャラクターは事前にベイクされた軌道をなぞるキネマティックな障害物であり、ロボットの接近に反応して立ち止まったり避けたりはしない。",
+  "家具などの関節可動性：ドアや引き出しといった可動機構（articulated objects）の物理シミュレーションはまだ十分に組み込まれていない。",
+  "単一画像復元の外観忠実度：1枚の写真からのReal-to-Simでは、既存のプロシージャルアセットに置き換える設計のため、実画像と完全に同一の形状アセットを再現できるわけではない。"
+ ],
+ "keywords": [
+  "Embodied AI",
+  "Procedural Generation",
+  "4D Simulation",
+  "Real-to-Sim",
+  "Vision-Language Navigation"
+ ],
+ "id": "2608.26947",
+ "title": "4DSynth: Controllable Procedural World Synthesis for Dynamic Embodied Simulation",
+ "title_ja": "4DSynth: 動的身体化シミュレーションのための制御可能なプロシージャル環境生成",
+ "authors": [
+  "Zehao Qi",
+  "Haochen Luo",
+  "Jia-Wang Bian",
+  "Zeyu Ma",
+  "Shuyang Sun"
+ ],
+ "date": "2026-08-28",
+ "group": "focus",
+ "tags": [
+  "simulation",
+  "dataset",
+  "planning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.26947",
+ "pdf_url": "https://arxiv.org/pdf/2608.26947",
+ "summary_ja": "言語指示や単一画像などから、明示的なジオメトリ、動くアクター、衝突のない軌道、物理シミュレーション状態を備えた4D動的環境を生成するシステムを提案。身体化エージェント学習のための多様で編集可能な対話環境の大規模構築を可能にした。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.26947"
+}
