@@ -1,0 +1,145 @@
+{
+ "tldr_ja": "EVバッテリーの解体という危険で精密な実タスクを題材に、全身型ヒューマノイドの制御・ナビ・操作・記憶を独立して差し替え・比較できるオープンソース基盤「GOLEM」を構築し、実機のHyundai Ioniq 5パックからボルトを抜き取る評価を通じて各モジュールの誤差の蓄積を明らかにしました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "現代自動車（Hyundai）のIoniq 5バッテリーパックを前に、ガントリー型解体セル「RAPID」の横で作業を行うUnitree H1-2ヒューマノイドロボットです。人間向けに設計された作業現場に、自律ヒューマノイドをシームレスに組み込めることを示しています。",
+  "caption": "Fig. 1 : A Unitree H1-2 humanoid working alongside the gantry-based RAPID disassembly cell [ 1 ] on a Hyundai Ioniq 5 battery pack. Golem augments automation infrastructure designed around human workers with humanoid autonomy.",
+  "image": "details/2608.21550/F1.jpg"
+ },
+ "overview_ja": "使用済み電気自動車（EV）のリチウムイオンバッテリーは、貴重な資源を回収するために解体する必要があります。しかし、高電圧や発火、有毒ガスの危険が伴う過酷な作業であり、パックごとに構造が異なるため従来の専用産業用ロボットだけでは柔軟に対応できません。そこで、人間用の設備にそのまま入れる等身大ヒューマノイドの導入が期待されていますが、既存のエンドツーエンド（End-to-End）学習ポリシーは小型機向けが多く、大型バッテリーを扱えるフルサイズ機で多様なアルゴリズムを公平に評価・統合する仕組みが不足していました。\n\n本研究では、Unitree H1-2を対象としたオープンソースのモジュール型システムアーキテクチャ「GOLEM」を提案しました。歩行、上半身マニピュレーション、動的バランス、ナビゲーション、空間メモリなどを抽象インターフェースで疎結合化し、MuJoCoやIsaacLabのシミュレータ（デジタルツイン）と実機をROS 2のDocker環境で透過的に切り替えられるようにしています。\n\n検証では「能力の梯子（Capability Ladder）」と呼ぶ段階的な実験を行い、各機能が全体に与える誤差を測定しました。6mの歩行ナビゲーション精度、外乱に対する直立安定性、そして実機Ioniq 5バッテリーパックからのボルト引き抜きタスクを評価しています。\n\nその結果、視覚サーボを用いた把持成功率は、吊り具で支えた状態（Tethered）で97%だったものが、自律直立（Standing）で87%、ナビゲーション後の位置ズレを含めると37%へと低下することが判明しました。シミュレーションでは見落とされがちな足元の揺れや移動誤差が、精密な解体作業のボトルネックになっていることが明確に示されました。",
+ "contributions_ja": [
+  "実機のHyundai Ioniq 5バッテリーパックを対象に、等身大ヒューマノイド（Unitree H1-2）によるボルト除去タスクを3段階の自律レベル（吊り下げ・自律直立・移動後直立）で実証しました。",
+  "シミュレータ（MuJoCoおよびIsaacLab）と実機で完全に一致するROS 2/DDSインターフェースを提供し、強化学習やモデル予測制御などのモジュールを容易に差し替え・比較できるオープンソース基盤「GOLEM」を開発しました。",
+  "各モジュールを梯子のように1段ずつ積み上げて誤差要因を切り分ける評価体系（Capability Ladder）を提示し、シミュレーションと実機における接触・視覚・揺れのギャップを定量化しました。",
+  "言語指示による空間メモリ（Language-Conditioned Spatial Memory）の複数のバックエンドをGOLEMの共通インターフェース上で比較するケーススタディを実施しました。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜEVバッテリー解体に等身大ヒューマノイドが必要なのか？",
+   "summary_ja": "EVバッテリーのリサイクル解体は極めて危険で人手依存度の高い作業ですが、専用自動化設備では多様なバッテリー形状に追従できません。本論文では、人間用の作業環境に適応可能な大型ヒューマノイドを活用するため、オープンソースのモジュール型開発基盤「GOLEM」を提案しています。",
+   "details_ja": "EVバッテリーの解体は、希少な貴金属を回収するために不可欠な工程です。しかし、充電状態が不明なパックには感電、発煙、有毒ガス、発火といった重大な危険がつきまといます。ボルトを外す作業だけでも手作業の約75%を占めており、作業員への身体的負担も甚大です。\n\n従来の自動化設備（ガントリー型ロボットなど）は特定のパックに特化しており、多種多様なバッテリー形状に柔軟に対応できません。解体工場自体が人間を前提に作られているため、スロープや特別な固定台を増設することなく導入できるヒューマノイドロボットは非常に魅力的な選択肢です。\n\nしかし、近年の強化学習による全身制御は、Unitree G1のような小型ロボット（全高1.32m、重量35kg）を対象にしたものが大半でした。重量400kg、1.2m×2mもある実車のHyundai Ioniq 5バッテリーパックを扱うには、Unitree H1-2（全高1.78m、重量70kg、膝トルク360Nm）のような大型機がどうしても必要になります。\n\nそこで本研究は、H1-2向けのエンドツーエンドなシステムアーキテクチャ「GOLEM（Generalized Open Library of Embodied Modules）」を開発しました。ブラックボックスな単一ポリシーに頼るのではなく、歩行、操作、安定化、ナビゲーションを独立したモジュールとして構成し、シミュレーションと実機で公平に比較できる環境を整えています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "Hyundai Ioniq 5バッテリーパックの前で作業するUnitree H1-2。固定式の自動化装置（RAPID）と共存しながら、人間用の作業エリアで柔軟に立ち回れるヒューマノイドの利点を示しています。",
+     "caption": "Fig. 1 : A Unitree H1-2 humanoid working alongside the gantry-based RAPID disassembly cell [ 1 ] on a Hyundai Ioniq 5 battery pack. Golem augments automation infrastructure designed around human workers with humanoid autonomy.",
+     "image": "details/2608.21550/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "全身制御や自動解体の先行研究とGOLEMの立ち位置",
+   "summary_ja": "EV解体自動化、強化学習による全身制御、ロボット用ミドルウェアの3つの観点から先行研究を整理しています。GOLEMは、既存の特化型ツールや学習手法を共通インターフェースで束ね、公平な比較と実践的なタスク遂行を可能にする統合プラットフォームとして位置づけられます。",
+   "details_ja": "本章では、関連する先行研究を3つの領域に分けて整理しています。\n\n- EVバッテリーのロボット解体：\n先行研究の多くはハイブリッド車向けの小型パックやタスク計画に留まっていました。先行研究「RAPID」は800V級フルサイズパックのネジ緩めを自動化しましたが、緩めたボルトを穴から引き抜く「ペグ・ホール分離（peg-hole separation）」は依然として難関です。GOLEMは、人間向け施設においてRAPID等の専用装置を補完する役割を果たします。\n\n- 学習ベースの全身制御と移動マニピュレーション：\n人の動作追従や敵対的強化学習を用いたALMIなど、高度な歩行・全身制御が登場しています。しかし、単一のエンドツーエンド方策ではアルゴリズムごとの強みや弱みを客観的に比較することが困難でした。GOLEMは、モデル予測制御（MPC）と学習ベース方策（RL）を同一の枠組み内で差し替え可能にしています。\n\n- ミドルウェアとシミュレーション：\nROS 2、MuJoCo、IsaacLab、動作計画のOMPL、ナビゲーションのNav2など、専門的なツールは数多く存在します。しかし、これらをフルスタックとして結合する作業には膨大なエンジニアリング労力が必要でした。GOLEMは抽象インターフェースとDockerコンテナを提供することで、その統合コストを大幅に削減します。",
+   "figures": []
+  },
+  {
+   "heading": "III System Architecture",
+   "heading_ja": "シミュレータと実機が完全に一致する4層のモジュール構造",
+   "summary_ja": "GOLEMは、コンテナ化された実行環境、ハードウェアインターフェース、コア機能（制御・ナビ・認識）、高次スキル（把持・メモリ）の4層で構成されます。実機とMuJoCo/IsaacLabで同一のROS 2インターフェースを公開するため、コードを書き換えることなくシミュレーションから実機へと移行できます。",
+   "details_ja": "GOLEMの全体像は図F2に示す4つのレイヤーで成り立っています。\n\n- コンテナ型ロボット構成（III-A）：\nシステムはCycloneDDSを介して通信するDockerコンテナ群として実装されています。シミュレータ（MuJoCoまたはIsaacLab）は実機と全く同じROS 2トピックやサービスを公開するため、DDSドメインを切り替えるだけで実機と仮想環境の切り替えが完了します。\n\n- ハードウェアインターフェース（III-B）：\n安全性のため、すべての関節指令は低レイヤの安全コントローラを経由します。定格の90%を超えるトルクや状態の途絶を検知すると即座に停止し、物理的な非常停止ボタン（Arduino経由）も常時監視します。手先には低コスト（約460ドル、自重414g）で力制御が可能なMAGPIEハンドを搭載し、手のひらに埋め込まれたRealSense D405カメラで至近距離（7〜50cm）の高精度な視覚サーボを実現しています。\n\n- コア機能レイヤー（III-C）：\n下半身制御（Lower-Body Control）では、速度指令 $u_{\\mathrm{base}}=(v_x, v_y, \\omega_z)$ を受け取り、MPCベース（MJPC）、敵対的強化学習（ALMI）、Unitree標準方策の3種類を切り替えられます。上半身制御（Upper-Body Control）では、Pinkによる微分逆運動学（IK）とOMPLのRRT-Connectを組み合わせ、球体近似モデル（MorphIt）により干渉チェック時間を38.8μsから5.8μsへと6.7倍高速化しました。ナビゲーションにはFAST-LIO（LiDAR-IMUオドメトリ）とNav2を使用します。\n\n- 高次スキル（III-D）：\n把持スキルでは、開ループの点群ベース把持生成手法と、手のひらカメラによる閉ループ視覚サーボをサポートします。また、VLMapsやReMEmbRを用いた時空間メモリ（Spatiotemporal Memory）を備え、視界外にある物体の位置を過去の観測から検索して自律的に移動・作業することが可能です。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "GOLEMの全体アーキテクチャ。実機・MuJoCo・IsaacLabを接続するハードウェア層から、下半身・上半身制御、ナビゲーション、物体検出、そして把持や空間メモリといった高次スキル層までがモジュール化されて連携します。",
+     "caption": "Fig. 2 : Golem is an open-source ROS2 development platform for industrial humanoid robots, targeting real-world EV battery disassembly. Four interoperable layers connect (1) Robot interfaces engines (real, MuJoCo, IsaacLab/PhysX) through (2) hardware interfaces for motor control and perception to (3) capabilities spanning learned & model-based control, navigation, and object localization, and (4) skills for precise manipulation and spatial memory. Evaluation spans RoboCasa kitchen [ 26 ] and Hyu",
+     "image": "details/2608.21550/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "能力の梯子を登る：ナビ・耐外乱立ち・ボルト抜きの実機検証",
+   "summary_ja": "モジュールを1つずつ追加して誤差の伝播を追う「能力の梯子（Capability Ladder）」形式で実験を行いました。ナビゲーションによる到達誤差は平均13.0cm、押しに対する直立回復率は学習ベースのALMIが93%を記録し、実機ボルト抜きでは視覚サーボにより吊り下げ時97%、自律直立時87%の成功率を達成しました。",
+   "details_ja": "実験は、各機能の誤差がどう累積するかを突き止めるため、順を追って実施されました。\n\n- 歩行とナビゲーション精度（IV-A）：\nFAST-LIOとNav2を用い、6m離れた目標地点への歩行を20回評価しました。20回中19回（95%）で到達に成功し、目標地点周りの平均動径誤差は13.0cm（$\\sigma_x=6.83\\text{cm}, \\sigma_y=11.43\\text{cm}$）でした（図F3）。この±十数cmの停止位置のバラつきが、次の作業に要求される許容誤差となります。\n\n- 外乱に対する直立適応性（IV-B）：\n力センサ付きロッドで骨盤を押す実験を行いました（図F4）。サンプリング型MPC（MJPC）は押されると重心（CoM）マージンが単調に悪化し、平均4.68秒で非常停止が必要になりました。一方、強化学習ベースのALMIは一時的にバランスを崩しても踏みとどまり、15回中14回（93%）で正の重心マージンへ復帰しました。このため、以後の直立作業にはALMIを採用しています。\n\n- マニピュレーションとボルト抜き（IV-C）：\n実機のIoniq 5パックから緩められたボルトを抜き取るタスクを検証しました（図F5）。\n1. 吊り具サポート（Tether）：重心の揺れを排除した状態では、手のひらカメラを用いた閉ループ視覚サーボ（C-VS）が96.7%の成功率を達成しました。一方、単発の認識に頼る開ループ手法は実機の校正誤差や深度ノイズに弱く全滅しました。\n2. 自律直立（Stand）：ALMIで直立させると、実機特有の足元の揺れ（揺れのRMSがシミュレーションの0.1mmに対し実機は4.6mm、最大変位18.0mm）が発生し、成功率は86.7%に低下しました。失敗原因は引き抜き時の軸ズレによる引っかかりです。\n3. 移動後の直立（Var. Stand）：ナビゲーション後の停止位置のバラつきを含めると、成功率は37%まで落ち込みました。作業台に近すぎたり遠すぎたりして腕の可動域を外れることが主な原因です。\n\n- 空間メモリの比較実験（IV-D）：\nキッチン環境（RoboCasa）において、VLMapsやSigLIP+FAISSなどの空間メモリを比較しました。VLMによる再ランキングを導入すると物体の移動に対する識別精度が向上する一方、検索レイテンシが約1,000倍に増大するなど、共通インターフェースを通じた明確なトレードオフが示されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "6m歩行ナビゲーションにおける停止位置の誤差分布。19回の試行で平均動径誤差は13.02cmとなり、このベース配置のバラつきがマニピュレーション時の初期誤差としてそのまま引き継がれます。",
+     "caption": "Fig. 3 : Six meter start-to-goal walking accuracy using the FAST-LIO and Nav2 navigation stack to localize from noisy initialization with an off-the-shelf Unitree walking policy.",
+     "image": "details/2608.21550/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "直立時における外乱応答の比較（MJPC vs ALMI）。黒線が加えられた外力、緑線が支持多角形に対する重心（CoM）マージンです。ALMI（右）は強い力で押されてマージンが一時的に負になっても、自律的に踏みとどまって回復しています。",
+     "caption": "Fig. 4 : Standing with force adaptivity, MPC vs. RL We evaluate standing robustness with (a) a pushing rod mounted with a ATI Mini45 six-axis load cell applying an oppositional force to the robot torso, (b-c) indicated in black until the robot loses balance, measured by the center-of-mass (CoM) margin from the support polygon ( green ) becoming negative (horizontal red line). Both standing methods exhibit similar initial force adaptivity, but (b) sampling-based model predictive control (MJPC) is",
+     "image": "details/2608.21550/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "冷蔵庫ドア開け（シミュレーション）およびIoniq 5ボルト抜き（シミュレーションと実機）の成功率と重心マージン。実機ボルト抜きでは、閉ループ視覚サーボ（C-VS）を用いることで、自律直立時でも高い成功率を維持できることが分かります。",
+     "caption": "Fig. 5 : (a) Grasp success on fridge-handle opening and Ioniq 5 screw picking, at three autonomy levels: Tether (hoist-assisted), Stand (ALMI balancing), Var. Stand (base pose from the navigation placement distribution). Methods: centroid (Cent.), antipodal (Antip.), GraspGenX [ 14 ] (GGX), reachability-reranked GGX (GGX-F), centroid visual servoing (C-VS). (b) Episode-level average CoM margin; negative values ( red ) indicate a recovery step or fall. Boxes are median and IQR, 10–90 % whiskers.",
+     "image": "details/2608.21550/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "明らかになったSim-to-Realギャップと今後の課題",
+   "summary_ja": "GOLEMのモジュール構造により、実タスクにおける最大の失敗要因がマニピュレーションそのものではなく、足元の移動・停止位置の誤差にあることが突き止められました。シミュレーションは接触リッチな作業や微小な揺れを過小評価しやすいため、部品単位の責任追跡と安全性の担保が今後の鍵となります。",
+   "details_ja": "本論文では、EVバッテリー解体という実社会の重要課題に向けて、モジュール型の全身自律システム「GOLEM」を提案し、Unitree H1-2実機での検証を行いました。\n\nモジュールごとに切り分けて評価するアプローチによって、非常に重要な洞察が得られました。ボルト引き抜き作業の失敗の主因は、手先の把持アルゴリズムではなく、ロボットが歩行して作業位置に到達した際のベース位置のバラつき（ナビゲーション誤差）にありました。つまり、今後のヒューマノイド研究においては、目標位置へ高精度に再位置決め（リロケーション）する技術が決定的に重要になります。\n\nまた、シミュレーション（デジタルツイン）の限界も浮き彫りになりました。シミュレータ上では静止しているように見えても、実機では足元が数ミリ単位で常時揺れており、視覚センサのキャリブレーション誤差や接触時の摩擦と合わさることで、開ループ制御を破綻させます。\n\n人間と協働する産業現場へのヒューマノイド導入において、「どのモジュールが原因で失敗したのか」を特定できる説明可能性は、単なる研究上の関心を超えて安全性の必須要件となります。GOLEMはそのための強固な足がかりを提供します。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "ヒューマノイドの実タスク失敗は手先ではなく足元から生じる：ボルト引き抜きの成否を分けた最大の要因は、ナビゲーション後の停止位置誤差（平均13cm）による腕の可動域外れでした。",
+  "シミュレータの接触・揺れモデルを過信しない：シミュレータ上ではほぼゼロ（0.1mm）だった直立時の揺れが実機ではRMS 4.6mm発生し、開ループの把持は実機で完全に失敗しました。手のひらカメラによる閉ループ視覚サーボが必須です。",
+  "強化学習（RL）と制御工学（MPC）の適材適所：外乱からの復帰には敵対的学習を用いたALMIが圧倒的に強く、軌道追従や干渉回避には最適化ベースのIK/OMPLが有効という、ハイブリッド運用の有効性が実証されました。",
+  "モジュール化と共通インターフェースの重要性：シミュレータと実機で完全に一致するROS 2インターフェースを作ることで、アルゴリズムの差し替えと公平なベンチマーク評価が劇的に容易になります。"
+ ],
+ "limitations_ja": [
+  "歩行ナビゲーション後の微小な再位置決め（再ポジショニング）モジュールが未実装であり、歩行停止位置の誤差を作業直前に足踏み等で自己修正できません。",
+  "ボルトを垂直にまっすぐ引き抜く精密なインピーダンス/力制御が不十分で、アームの関節限界付近で動作計画が非線形になるとボルトが穴の内壁に噛み込んで摩擦負け（スリップ）を起こします。",
+  "現状のIsaacLab環境はハードウェアインターフェースのみの検証に留まっており、MuJoCoと同等レベルの全モジュール統合には至っていません。"
+ ],
+ "keywords": [
+  "Humanoid Robots",
+  "EV Battery Disassembly",
+  "Modular Software Architecture",
+  "Sim-to-Real Transfer",
+  "Visual Servoing",
+  "Whole-Body Control"
+ ],
+ "id": "2608.21550",
+ "title": "GOLEM: Modular Humanoid Autonomy Towards Electric Vehicle Battery Disassembly",
+ "title_ja": "GOLEM: EVバッテリー解体に向けたモジュール型ヒューマノイド自律システム",
+ "authors": [
+  "Max Conway",
+  "William Xie",
+  "Allen Devaraj",
+  "Yutong Zhang",
+  "Niraj Pudasaini",
+  "Mateo Feit",
+  "Adam Abid",
+  "Zachary Allen",
+  "Chen Liu",
+  "Xuan Tan",
+  "Jensen Lavering",
+  "Jason Chen",
+  "Lyle Antieau",
+  "Anthony Von Pischke",
+  "Alessandro Roncone",
+  "Zachary Sunberg",
+  "Nikolaus Correll"
+ ],
+ "date": "2026-08-25",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "simulation",
+  "locomotion",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.21550",
+ "pdf_url": "https://arxiv.org/pdf/2608.21550",
+ "summary_ja": "Unitree H1-2ヒューマノイドを用いたEVバッテリー解体のためのオープンソースシステムアーキテクチャ。歩行、操作、動的安定性、ナビゲーション、空間メモリを独立モジュール化し、MuJoCoおよびIsaac Labのデジタルツイン環境と実機で共通のROS 2インターフェースを提供することで、アルゴリズムの容易な交換・検証を可能にした。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.21550"
+}
