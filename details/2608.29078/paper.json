@@ -1,0 +1,124 @@
+{
+ "tldr_ja": "作業環境をスマホ等で撮影した短い動画と自然言語の指示を与えるだけで、人間のデモ収集なしにシミュレーション上で大量の教師データを自動生成し、実機向けVLAモデルを適応させるフレームワーク「DREAM」を提案した論文です。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "DREAMの全体パイプラインです。実環境の動画と自然言語指示から3D Gaussian Splattingによるデジタルツインを構築し、LLMによる記号的ゴール定義、TAMPによる動作計画、軌道拡張、フォトリアルなレンダリングを経てVLAのファインチューニング用データを自動生成します。",
+  "caption": "Fig. 2: The DREAM pipeline. Given a short RGB video of the target workspace and a language instruction, DREAM reconstructs a metrically aligned digital twin, translates the instruction into symbolic goals and staged success criteria with a large language model, generates feasible robot trajectories with TAMP, augments them across randomized object configurations, and renders them into photorealistic image–action demonstrations. The resulting synthetic dataset is used to fine-tune a pretrained VL",
+  "image": "details/2608.29078/F2.jpg"
+ },
+ "overview_ja": "視覚言語行動（VLA）モデルは汎用的なロボット操作の実現に向けて注目されていますが、新しい現場に導入する際には、机の模様や照明、カメラ位置などのドメインギャップにより、その現場に合わせた追加データ（ファインチューニング用データ）が必要になることが多々あります。しかし、作業現場ごとに人間がテレオペレーション（遠隔操作）でデモデータを集めるのは、時間的にも人件費的にも非常に大きな負担です。\n\nそこで本研究が提案するのが「DREAM」です。DREAMのアイデアは極めて明快で、「現場の短い動画」と「言葉によるタスク指示」を入力するだけで、現場のデジタルツインを構築し、ロボットの動作軌道をシミュレータ上で自動生成してしまおうという試みです。見た目は3D Gaussian Splattingで実写そっくりに再現し、物理と動作計画は軽量なCAD・メッシュモデルで解くという「見た目と物理の分離」を行うことで、複雑な実世界のシーンでも破綻のない実行可能なデータを合成します。\n\n実機のxArm7ロボットを用いた実験では、まず再構築されたシミュレータ上での方策評価が実機での成功率と極めて高い相関（$r=0.98\\sim 0.99$）を持つことを確認しました。さらに、自動生成データを増やしてVLA（SmolVLAおよび$\\pi_{0.5}$）を学習させたところ、人間の手作業による100エピソードのテレオペデータを上回るタスク成功率を達成できることを実証しました。",
+ "contributions_ja": [
+  "現場の短い動画と自然言語指示のみから、人間の手によるデモ収集を一切挟まずに実機VLA用の教師データを自動生成するパイプライン「DREAM」を提案した点",
+  "外見再現（3D Gaussian Splatting）と物理・幾何計画（IsaacLab + TAMP）を分離し、高精度なメッシュ再構築なしに実行可能かつ見た目が一致したデータを生成可能にした点",
+  "再構築環境での評価結果が実機性能の順位付けと完全に一致すること（MMRV = 0.000）を定量的に示した点",
+  "生成データの1本あたりの価値はテレオペより低いものの、計算機時間でスケールさせることで最終的に人間のテレオペデータと同等以上の実機性能へ引き上げられることを示した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "現場ごとのデータ収集コストをゼロにしたい",
+   "summary_ja": "事前学習済みVLAモデルは新しい現場にそのまま持ち込むと失敗しやすく、環境適応のための行動付きデータが不可欠です。しかし環境ごとに人間の遠隔操作でデータを集めるのは現実的ではないため、本論文では動画と指示文から自律的にデータを生成する「DREAM」を提案します。",
+   "details_ja": "VLA（Vision-Language-Action）モデルは、カメラ画像と自然言語の指示からロボットの関節・手先動作を直接出力する基盤モデルとして急速に発展しています。しかし、事前の大規模学習データに含まれていない新しい作業台、照明、物体の配置、障害物がある環境に持ち込むと、そのまま（Zero-shot）ではうまく動かないケースが依然として多く存在します。\n\n性能を引き出すには導入先の現場環境に特化したファインチューニングデータが必要ですが、人間がロボットを遠隔操作してデータを集めるのは大変です。現場ごとにオペレータを拘束し、安全を監視しながら、失敗するたびに実世界で物体を手で並べ直す必要があるためです。\n\nこれに対し、少量のデモをシミュレーションで増強する手法や、スキャンデータから環境を再構築する研究も現れていますが、依然として「初期の人間デモ（シードデモ）」を必要とするものがほとんどでした。\n\nそこで著者らは、ターゲット環境をスマートフォンなどの一般的なカメラで撮影した短い動画と、言語による指示だけを与えれば、人間のデモを一切必要とせずに現場特化型の訓練データを全自動生成するフレームワーク「DREAM（Deployment-Time Demonstration Generation via Real-to-Sim for Scalable Policy Adaptation）」を開発しました。実機環境での検証を通じ、シミュレーションが訓練データ源として信頼できるか、そして人間の遠隔操作に対してどれほど効率的にスケールするかを明らかにしています。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "既存の自動データ生成手法と何が違うのか？",
+   "summary_ja": "計画ベースのデモ生成、人間デモのデータ拡張、実環境スキャンに基づくReal-to-Simなどの先行研究を整理しています。DREAMの独自性は、シードデモを全く使わず、言語指示から直接TAMPで長大な動作を計画し、かつ実写再構築シーンでレンダリングする点にあります。",
+   "details_ja": "本論文に関連する技術は、大きく3つの系統に分類されます。\n\n- 動作計画に基づくデータ生成：\n人間が操作する代わりに、把持計画やタスク＆モーションプランニング（TAMP）を使ってロボットの軌道を自動合成する手法です。離散的なタスク手順と連続的な幾何軌道を同時に解くことで、長期的なタスクのデータを生成できます。しかし、これまでの手法の多くは手動で作成されたCADシミュレーション環境で動作しており、実機カメラ画像との見た目のギャップ（Visual Sim-to-Real Gap）が課題でした。\n\n- 人間デモからのデータ拡張：\nMimicGenなどに代表されるアプローチで、人間が取得したわずか数本のデモ軌道を、物体の配置を変えたシミュレータ上で変換・再利用して数千本に増やす手法です。非常に効率的ですが、本質的に「最初の高品質な人間デモ」が存在することが前提となっていました。\n\n- 実環境の再構築（Real-to-Sim）：\nNeRFや3D Gaussian Splatting（3DGS）を用いて現場の見た目をそのままシミュレータに取り込む研究（RialToやRoboSplatなど）です。見た目のギャップは劇的に縮まりますが、既存研究では物体の軌道を人手デモからコピーするか、強化学習や単純なスクリプト動作に依存していました。\n\nDREAMはこれらを巧みに融合させています。現場を3DGSで高精度に再現しつつ、言語指示からLLMとTAMPを組み合わせて完全にゼロからマルチステップの実行可能軌道を計画・拡張するため、人間の初期デモが一切不要という決定的な違いがあります。",
+   "figures": []
+  },
+  {
+   "heading": "III Proposed System",
+   "heading_ja": "DREAMの仕組み：見た目と物理を分離して解く",
+   "summary_ja": "DREAMはデジタルツイン再構築、TAMPによるデモ合成、デモのデータ拡張、レンダリングとデータセット構築の4段階で動作します。最大の設計思想は「視覚的リアリズム（3DGS）」と「物理・運動計画（軽量メッシュ）」を分離し、水密メッシュのない複雑な実環境でも破綻なく動作を生成することです。",
+   "details_ja": "DREAMのパイプラインは、以下の4つのステップで構成されています。\n\n- III-A デジタルツインの再構築：\n手持ちカメラの動画からCOLMAPでカメラ姿勢を推定し、3D Gaussian Splatting（3DGS）でシーンを最適化します。単眼動画からの再構築はスケールと座標系が不定ですが、DREAMはマーカーを貼り付ける代わりに、動画内に映るロボット自身の外見を利用します。撮影時の関節角度からロボットの基準点群を作り、SAM3による領域分割と多視点投票、FPFH特徴量とRANSAC、scaled ICPを組み合わせることで、ロボットのベース座標系（メートル単位）へ自動で位置合わせします。さらに、背景・ロボット各リンク・操作対象物体を個別のガウシアン資産として分解します。物体モデルは写真数枚から3D生成モデル（TRELLIS）で作成し、衝突メッシュを紐付けます。\n\n- III-B TAMPによるデモ合成：\n計画に必要な記号的ゴールと成功判定基準は、LLM（GPT-4o-mini）があらかじめ用意された述語群（On(x, y)など）の中から選択・代入する形で出力します。LLMに独自の意味を作らせず文法チェックを行うため、モデルのハルシネーションによる誤った行動ラベルの生成を防ぐことができます。初期状態からcuTAMPを用いてPDDLスケルトンを探索し、拡散モデルベースの把持生成器（GraspGen）とGPU並列粒子最適化、cuRoboによる関節空間軌道計画で、物理的に干渉のない実行可能軌道を生成します。\n\n- III-C デモの拡張（Augmentation）：\nTAMPの計算コストを抑えるため、少数のソースデモ（約50本）をもとに、物体の初期配置をランダム化してMimicGenスタイルの軌道変換を行います。TAMPの計画構造が保持されているため、サブタスク境界（持ち上げ後など）を正確に切り出し、新しい物体位置へ剛体変換して補間動作で接続します。物理的妥当性フィルタを通すことで、無効な軌道を弾きます。\n\n- III-D レンダリングと方策学習：\n記録された関節・物体軌道をもとに、分解しておいた3DGS資産を再結合してカメラ画像をレンダリングします。すべての資産が同一のガウシアン集合にまとめられるため、ロボットと物体の遮蔽関係（オクルージョン）は深度ソートされたアルファブレンディングによって追加の計算なしに自然に解決されます。最終的にLeRobot形式で出力され、VLAモデルをファインチューニングします。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "DREAMの全体パイプラインの構成図です。左側のシーン再構築、中央上のTAMPによる基本デモ合成、中央下のデータ拡張・フィルタリング、右側のレンダリングとVLAファインチューニングの流れが、見た目と物理を分離して効率的に行われていることが分かります。",
+     "caption": "Fig. 2: The DREAM pipeline. Given a short RGB video of the target workspace and a language instruction, DREAM reconstructs a metrically aligned digital twin, translates the instruction into symbolic goals and staged success criteria with a large language model, generates feasible robot trajectories with TAMP, augments them across randomized object configurations, and renders them into photorealistic image–action demonstrations. The resulting synthetic dataset is used to fine-tune a pretrained VL",
+     "image": "details/2608.29078/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "実機検証：自動生成データは人間の遠隔操作を超えられるか？",
+   "summary_ja": "xArm7を用いた2つのタスクで検証を行いました。実験1では再構築環境での評価が実機性能の順位と完全に一致することを示し、実験2では生成データを増やすことで人間の100デモによる学習を上回る実機成功率（最高93.3%）を達成できることを実証しました。",
+   "details_ja": "実機実験では、xArm7ロボットと2台のRealSenseカメラ（俯瞰固定＋手先手持ち）を使用し、単一ステップの「BlockIntoBowl（青いブロックを赤いボウルに入れる）」と、複数ステップの「FruitPacking（バナナと桃を順に赤い皿に載せる）」の2タスクで評価しました。方策にはVLAモデルのSmolVLAと$\\pi_{0.5}$、および比較用のDiffusion Policyを用いています。\n\n- IV-B 実験1: Sim-to-Real相関の検証（RQ1）：\n再構築されたシミュレータが信頼できる評価環境になっているかを確かめるため、同一のチェックポイントをシミュレータと実機の両方で動かしました。その結果、ピアソンの積率相関係数はBlockIntoBowlで$r=0.98$、FruitPackingで$r=0.99$となり、方策間の順位の逆転度合いを表すMMRV（Mean Maximum Rank Violation）は両タスクとも完全な相関を示す$0.000$を記録しました。シミュレータ上の成功率は実機より7〜14%ほど低めに出る傾向（悲観的）がありますが、方策の優劣は実機と全く同じ順序で判定できることが分かりました。\n\n- IV-C 実験2: データ収集時間と性能スケーリング（RQ2）：\n人間のテレオペデータ（10, 50, 100本）と、DREAMによる自動生成データ（100, 500, 1000本）でVLAを学習させ、実機成功率を比較しました。\n結果として、生成データを1000本までスケールさせた場合、BlockIntoBowlでは$\\pi_{0.5}$が93.3%（テレオペ100本の86.7%を上回る）、SmolVLAが80.0%（テレオペ100本の73.3%を上回る）に達しました。FruitPackingでも$\\pi_{0.5}$は86.7%を達成し、テレオペ100本の80.0%を超えました。\n\nコスト面では、テレオペはデモ本数に比例して人間の拘束時間が増え続けます。一方、DREAMは初期の動画撮影・位置合わせ・TAMPソースデモ作成に一定の固定計算時間（BlockIntoBowlで約36分、FruitPackingで約95分）がかかるものの、人間の作業時間は撮影と指示入力の数分間だけで済みます。実時間の損益分岐点はそれぞれ73本、168本であり、それ以上の本数を集める場合はDREAMの方が実時間でも高速になります。生成データは軌道の冗長性やノイズを含むため1本あたりの品質はテレオペに劣りますが、計算機時間を使って大量に生成することでその欠点を克服できることが示されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "評価に用いられた2つの卓上マニピュレーションタスク（BlockIntoBowlとFruitPacking）の様子です。左側が再構築されたデジタルツイン、右側が実機環境を示しており、背景の布の模様や物体の見え方が極めて忠実に再現されていることが確認できます。",
+     "caption": "Fig. 3: The two tabletop manipulation tasks. For each task, the left image compares the initial state in the reconstructed digital twin (Simulation) with the corresponding real workspace (Real), and the right image shows the target state, rendered in the reconstructed simulation, together with the language instruction. In (a) BlockIntoBowl , the robot places a blue block into a red bowl. In (b) FruitPacking , the robot places a banana and a peach onto a red plate in sequence.",
+     "image": "details/2608.29078/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "シミュレーションと実機における方策成功率の相関図です。各プロットが同一チェックポイントを表しており、両タスクともに$r \\ge 0.98$かつMMRV=0.000と、シミュレータが実機の性能順位を完璧に予測できていることを示しています。",
+     "caption": "Fig. 4: Sim-to-real correlation of policy performance. Each point represents a policy checkpoint trained with a particular dataset size and random seed. The horizontal axis shows real-world success rate, and the vertical axis shows success rate in the reconstructed simulation. Colors distinguish the two tasks, while marker shapes distinguish the three policy architectures (Diffusion Policy, SmolVLA, and $\\pi_{0.5}$ ). The dashed line represents equal simulated and real-world performance.",
+     "image": "details/2608.29078/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "累積データ取得時間に対する実機成功率のスケーリング曲線です。テレオペ（黄色）は人間の作業時間が比例して増えますが、DREAM（青色）は初期の計算コストを超えると急速にデータを量産でき、最終的にテレオペ100デモの性能を上回る結果となっています。",
+     "caption": "Fig. 5: Real-world success rate as a function of cumulative data acquisition time for BlockIntoBowl (top) and FruitPacking (bottom). Each panel compares SmolVLA and $\\pi_{0.5}$ trained on demonstrations obtained through human teleoperation or generated by DREAM . Human-teleoperation datasets contain 10, 50, and 100 demonstrations, whereas DREAM datasets contain 100, 500, and 1000 demonstrations.",
+     "image": "details/2608.29078/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "DREAMは、現場動画と言語指示から人間の追加デモなしにVLAモデルを適応させる有望なフレームワークです。現状は静的な環境と剛体が前提ですが、変形物体や接触リッチなタスクへの拡張が今後の重要な課題として挙げられています。",
+   "details_ja": "本研究で提案されたDREAMは、実環境の短いキャプチャ動画と言語タスク指定から、実行可能なデジタルツインを構築し、TAMPとデータ拡張を組み合わせて大量のファインチューニングデータを自律生成するシステムです。\n\nこれにより、新しい環境へVLAポリシーを導入する際、人手による現場特化のデモ収集という最大のボトルネックを大幅に軽減できることが実証されました。特に、シミュレータ上の評価が実機と強く相関すること、そして生成デモの本数をスケールさせることで人間の遠隔操作と同等以上の実機性能を達成できるという知見は、今後のロボット基盤モデルの実用化において大きな意義を持ちます。\n\n一方で、現在のフレームワークは剛体を中心とした卓上の静的な環境を前提としています。著者らは今後の展望として、布やロープのような変形可能物体（Deformable objects）、関節を持つ機構部品（Articulated objects）、より繊細な接触を伴うタスクへの拡張を挙げています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「見た目の再現（3DGS）」と「物理・計画（IsaacLab + TAMP）」を分ける設計により、実世界の水密メッシュ化という困難な問題を回避しつつ高品質なデータ生成が可能になる",
+  "自動生成されたデモ軌道は人間デモよりノイズを含み1本当たりの学習効率は劣るが、GPU計算機時間を投じて10倍の規模にスケールさせることで人間デモの性能を凌駕できる",
+  "実環境から適切にスケールを合わせて再構築したシミュレータは、実機の方策性能の順位付けをほぼ完璧に再現できる（MMRV=0.000）ため、オフライン評価環境としても極めて有用である"
+ ],
+ "limitations_ja": [
+  "対象が静的な環境かつ剛体・単純な支持面の上に限定されており、柔軟物や関節付き物体、複雑な接触を伴う作業には未対応である点",
+  "TAMPによる初期ソースデモ（約50本）の生成時間がタスクのホライゾン長に伴って急増し、プランナーの成功率低下が固定計算コストを押し上げる点",
+  "容量が小さく表現力の低いモデル（SmolVLAなど）では、長ホライゾンタスクにおいて拡張データのノイズに耐えきれず性能が頭打ちになる現象が見られた点"
+ ],
+ "keywords": [
+  "Vision-Language-Action Models",
+  "Real-to-Sim",
+  "3D Gaussian Splatting",
+  "Task and Motion Planning",
+  "Data Generation",
+  "Imitation Learning"
+ ],
+ "id": "2608.29078",
+ "title": "DREAM: Deployment-Time Demonstration Generation via Real-to-Sim for Scalable Policy Adaptation",
+ "title_ja": "DREAM：スケーラブルな方策適応のためのReal-to-Simによるデプロイ時デモ生成",
+ "authors": [
+  "Makoto Sato",
+  "Tatsuya Matsushima",
+  "Yutaka Matsuo",
+  "Yusuke Iwasawa"
+ ],
+ "date": "2026-09-01",
+ "group": "general",
+ "tags": [
+  "vision-language-action",
+  "sim-to-real",
+  "simulation",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.29078",
+ "pdf_url": "https://arxiv.org/pdf/2608.29078",
+ "summary_ja": "VLAモデルを新環境に適応させる際、人間による遠隔操作デモなしで微調整データを生成するReal-to-SimフレームワークDREAMを提案。対象環境を再構成し、LLMを用いて指示からタスクゴールと成功基準を自動定義してシミュレーション内でデータを合成することで、高効率な方策適応を可能にした。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.29078"
+}
