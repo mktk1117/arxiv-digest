@@ -1,0 +1,144 @@
+{
+ "tldr_ja": "ロボットごとの身体や行動空間の違いを無理に共通化せず、「物理現象の予測（ダイナミクス事前知識）」は全体で共有し、「動作の生成」はMoEでロボット別に分担するVLAモデル「DyPES-VLA」を提案しました。シミュレーションと実機の多様なロボット（単腕・双腕・人型）において、単一チェックポイントで従来を大きく上回る操作性能を達成しています。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "DyPES-VLAの学習パラダイムを示した図です。単腕・双腕・人型といった多様なロボットデータから、未来画像生成ヘッドを通じて共通の「ダイナミクス事前知識」を獲得し、各ロボット固有の制御はMoE構造のアクションヘッドに任せることで、行動空間の無理な統一なしに高い転移性能を実現しています。",
+  "caption": "Figure 1 : We propose a paradigm that learns from heterogeneous cross-embodiment data. Our DyPES-VLA learns shared dynamics priors and embodiment-specific control. The former is supervised by a future generation head, and the latter is achieved by an MoE action head.",
+  "image": "details/2608.06374/F1.jpg"
+ },
+ "overview_ja": "多様なロボットに対応できる汎用操作ポリシーの実現を目指し、Vision-Language-Action（VLA）モデルを異種ロボット（クロスエンボディメント）データで学習させる取り組みが盛んに行われています。しかし、従来の手法には大きな壁が2つありました。1つ目は、行動ラベルの予測誤差だけで学習するため、大量の人間やロボットの動画に含まれる物体運動や接触などの「物理的なダイナミクス」を十分に活用できていない点です。2つ目は、関節構成や制御周期が全く異なるロボットの行動空間を、手動の座標変換や逆運動学で無理やり単一のフォーマットに押し込めて学習させていた点です。これではロボット特有の運動学制約と共通の物理知識が混ざり合ってしまいます。\n\nそこで著者らは、「全ロボットで共有すべき物理知識」と「ロボット固有の制御」をモデル構造から分離する「DyPES-VLA」を開発しました。具体的には、共通のクエリ表現に対して「少し先の未来フレームを予測する」生成タスクを課すことで、行動ラベルのない動画からも物体運動や接触変化の事前知識を埋め込みます。そして行動生成には、時間方向のAttention層は共有しつつ、ロボットごとに個別のFFN（Feed-Forward Network）専門家モジュールへ静的にルーティングするMoE（Mixture-of-Experts）アクションヘッドを採用しました。これにより、各ロボットの生（ネイティブ）の行動空間を直接出力できます。\n\n検証では、単腕（LIBERO）、双腕（RoboTwin 2.0）、人型（RoboCasa-GR1）という全く構造の異なる3つのシミュレーションベンチマークを単一のチェックポイントで評価し、すべてのベンチマークでSOTAを達成しました。さらに実機でも、単腕（FR3）、双腕（COBOT Magic）、人型（Unitree G1）の3台を同一モデルで動かし、先行研究を大きく突き放す75.6%の成功率を記録しています。",
+ "contributions_ja": [
+  "「共有ダイナミクス事前知識」と「エンボディメント固有制御」を明確に分離する新しいクロスエンボディメント学習パラダイムを提案した点",
+  "行動ラベルのない動画から未来予測を通じて物体運動や接触変化を学べるクエリインターフェースを導入し、推論時には未来生成ヘッドを切り離して高速動作を可能にした点",
+  "各ロボットのネイティブな行動空間を直接扱えるMoEアクションヘッドを導入し、手動の行動空間アライメントを不要にした点",
+  "単腕・双腕・人型にわたるシミュレーション3種と実機3種の双方で、単一チェックポイントによる最高水準の汎用操作性能を実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "ロボットごとに体が違っても、物理の法則は同じはず",
+   "summary_ja": "単一のVLAモデルを多様なロボット形態に対応させる際の課題を整理し、DyPES-VLAの設計思想を述べています。従来の手動による行動空間統合と行動予測のみの学習限界を打破するため、未来予測による共有物理知識の獲得とMoEによるロボット別制御を組み合わせる枠組みを提案しています。",
+   "details_ja": "近年、VLA（Vision-Language-Action）モデルは目覚ましい成果を上げていますが、その多くは特定のロボットハードウェアに強く依存しています。様々なロボットに汎用的に対応するモデルを作る際の核心的な問いは、「何を全ロボットで共有し、何を個別のロボット専用に残すべきか」ということです。\n\n著者らは、従来のクロスエンボディメントVLAが抱える2つの根本的な弱点を指摘します。\n- 1つ目は「ダイナミクス事前知識の未活用」です。行動予測ラベルだけを教師信号にしているため、ネット上や手持ちの大量の動画（人間やロボットの作業動画）に豊富に含まれる物体移動、接触、環境変化などの物理パターンを十分に活用できていません。\n- 2つ目は「無理な行動空間の統一」です。手先座標系への手動マッピングや逆運動学による正規化は、ロボットの形態が増えるほどスケールせず、本来別々に扱うべき「共通の物理的相互作用」と「ロボット個別の制御セマンティクス」を不用意に混ざり合わせてしまいます。\n\nこの課題を解決するため、著者らはDyPES-VLAを提案しました。本研究では、単腕（Franka Panda / FR3）、双腕（ALOHA-AgileX / COBOT Magic）、人型（Fourier GR-1 / Unitree G1）という自由度も形態も異なる3系統のロボットを対象に設定しています。VLMの潜在クエリに対して未来予測タスクを課すことで共通の物理ダイナミクスを学ばせ、そのクエリを行動生成用のMoEヘッドに渡して各ロボットのネイティブな行動空間へ直接デコードします。これにより、事前の手動アライメントなしに異種ロボットの知識を融合することに成功しました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "DyPES-VLAの学習コンセプトです。上段の異種ロボットデータから、VLMと未来予測ヘッドを通じて共通の物理事前知識を獲得し、下段のMoEアクションヘッドによって各ロボット固有の制御コマンドへと変換します。",
+     "caption": "Figure 1 : We propose a paradigm that learns from heterogeneous cross-embodiment data. Our DyPES-VLA learns shared dynamics priors and embodiment-specific control. The former is supervised by a future generation head, and the latter is achieved by an MoE action head.",
+     "image": "details/2608.06374/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "異種ロボット学習と未来予測モデルの系譜",
+   "summary_ja": "単一ロボット特化型から汎用型へと進化してきたVLA研究の流れと、異種ロボット対応に向けた先行アプローチを分類しています。また、世界モデルや未来予測を取り入れた手法との違いを明確にし、DyPES-VLAの立ち位置を位置づけています。",
+   "details_ja": "クロスエンボディメントなVLA研究は、ロボットごとの差異（エンボディメント固有性）をモデルのどの段階で処理するかによって大きく3つに分類できます。\n\n- 共通行動空間への写像型：手動で統一の手先座標系を設計したり、潜在空間へマッピングする手法です。しかし、これらはロボット特有の関節制限と共通知識を混濁させてしまいます。\n- プロンプト・文脈付与型：共通のネットワークを保ちつつ、ロボットIDやソフトプロンプトで条件付ける手法です。しかし、根本的な自由度の差や運動学の違いを受け止めきれない傾向があります。\n- アーキテクチャのモジュール分離型：入力部や出力ヘッドをロボットごとに分担させる手法です。DyPES-VLAはこの系統を発展させ、共有インターフェースを「未来予測で鍛えられたクエリ状態」という上流部分に配置し、下流の専門家モジュールへ流す構造を採っています。\n\n一方、未来予測を用いた学習（World-Action ModelsやUWMなど）も近年盛んですが、未来の画像生成と行動生成を同時に推論時に行うものは計算負荷が高く、リアルタイム制御のボトルネックになります。DyPES-VLAは、未来予測を「共通物理表現を鍛えるための正則化・事前学習」としてのみ使い、推論時には未来生成ヘッドを完全に切り離せる設計になっている点が決定的に異なります。",
+   "figures": []
+  },
+  {
+   "heading": "3 Methodology",
+   "heading_ja": "未来を予測して物理を学び、専門家が腕を動かす仕組み",
+   "summary_ja": "DyPES-VLAの構成要素と2段階の学習手順を解説しています。VLMをベースに共有クエリを生成し、SANAベースの未来予測ヘッドで物理を学習させ、Diffusion TransformerベースのMoEヘッドでネイティブ行動を出力します。",
+   "details_ja": "DyPES-VLAの全体構造は図 F2 に示すように、共有クエリインターフェース、未来生成ヘッド、MoEアクションヘッドの3要素で構成されています。\n\n3.1 & 3.2 共有クエリインターフェース\n視覚画像、自然言語指示、そしてロボットメタデータ $m_e$（ロボット種別、制御周期、カメラ配置など）をVLM（Qwen3-VL-2B）に入力します。このシーケンスの末尾に $N=96$ 個の学習可能なクエリートークンを連結し、最終層の隠れ状態からクエリ状態 $\\mathbf{Z}$ を抽出します。この $\\mathbf{Z}$ こそが、未来予測と行動生成をつなぐ共有インターフェースとなります。\n\n3.3 ダイナミクス事前知識の学習\n未来生成ヘッドには画像生成モデル「SANA-600M」を採用しています。現在の観測から時間オフセット $\\Delta_e$（各ロボットのアクションチャンク長に対応）だけ先の未来フレームを予測します。重要なのは、このヘッドに現在の画像そのものを直接渡さず、クエリ状態 $\\mathbf{Z}$ のみをクロスアテンションで渡す点です。これにより、未来を予測するために必要な物体運動や接触状態の変化が、すべて $\\mathbf{Z}$ の中に凝縮されるよう強制されます。\n\n3.4 エンボディメント固有のMoEアクションヘッド\n行動生成にはFlow Matchingに基づくDiffusion Transformer（DiT）を用います。入力行動と出力速度の変換は、各ロボット専用の軽量なエンコーダ・デコーダが担当します。DiT内部では、時間方向を捉えるSelf-Attention層やクエリ $\\mathbf{Z}$ を参照するCross-Attention層は全ロボットで共有し、その後のFFN（Feed-Forward Network）層のみをロボットメタデータに応じた専門家（Expert）に静的ルーティングします。これにより、時間的な運動構造は共有しつつ、各ロボット固有の運動学制約を個別のFFNが吸収します。\n\n3.5 2段階の学習パイプライン\n- Stage 1（事前学習）：行動ラベルのない人間操作動画（EgoDex）やシミュレーション動画を使い、未来予測損失のみでVLMと未来生成ヘッドを学習させます。\n- Stage 2（共同学習）：行動ラベル付きのマルチロボットデータを用い、未来予測損失と行動生成損失を同時に最適化します。推論時には未来生成ヘッドを取り外すため、余計な計算コストは一切かかりません。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "DyPES-VLAの全体アーキテクチャと学習の流れです。(a) VLMが観測と指示から共有クエリ状態を抽出し、未来生成ヘッドとMoEアクションヘッドへ渡します。(b) 行動ラベルなし動画で物理を学ぶStage 1と、実データで共同学習するStage 2の2段階で構成されています。",
+     "caption": "Figure 2 : Overview of our DyPES-VLA. (a) A pretrained Vision Language Model maps observations, instructions, embodiment metadata, and learnable query tokens into query states that carry the shared dynamics priors. A future generation head predicts the future frame from these states, and an embodiment-specific Mixture-of-Experts (MoE) action head decodes them into actions in each embodiment’s native action space. The action head shares attention layers across embodiments, while a static router s",
+     "image": "details/2608.06374/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "単一モデルで単腕・双腕・人型を制覇、実機でも驚異の75.6%",
+   "summary_ja": "シミュレーション3種と実機3種を用いてDyPES-VLAの有効性を検証しています。単一チェックポイントでありながら既存のベンチマーク特化型SOTAを上回り、実機実験でもベースラインを大きく引き離す性能を実証しました。また、アブレーションや線形プローブ解析により、未来予測が接触予測能力を向上させていることを明らかにしました。",
+   "details_ja": "実験では、DyPES-VLAが異種ロボット環境でどれだけ汎用的に機能するかを徹底的に検証しています。\n\n4.1 & 4.2 シミュレーション結果（Q1）\n単一のチェックポイント（モデルの重み）を用い、追加ファインチューニングなしで3つの代表的ベンチマークを評価しました。\n- RoboTwin 2.0（14自由度 双腕）：通常設定88.78%、背景や照明を乱したランダム設定89.26%、平均89.02%を記録し、競合する汎用モデルQwen-VLA（86.65%）を2.37ポイント上回りました。\n- RoboCasa-GR1（29自由度 人型）：成功率59.25%を達成し、ベンチマーク特化型SOTAであるABot-M0（58.3%）や世界モデルベースのLDA-1B（55.4%）を凌駕しました。\n- LIBERO（7自由度 単腕）：成功率98.0%に達し、Fast-WAM（97.6%）などを超えて最高峰の成績を収めました。\n\n4.3 実機ロボットでの評価（Q1）\nシミュレーションで学習した重みをベースに、3つの実機プラットフォーム（7自由度 単腕FR3、14自由度 双腕COBOT Magic、人型Unitree G1）でキウイの収納、水注ぎ、本棚への本の配置の3タスクを共同ファインチューニングしました。独立に学習したACTの平均成功率が32.4%、強力な汎用モデルGR00T-N1.6が59.6%にとどまる中、DyPES-VLAは75.6%という圧倒的な成功率を記録しました。\n\n4.4 アブレーション研究（Q2, Q3, Q4）\n未来予測損失を除去すると、RoboTwin 2.0で2.4ポイント、RoboCasa-GR1で2.5ポイント低下しました。また、MoEを単一の密なFFNに置き換えると最大2.1ポイント低下し、メタデータコンテキストの除去でも性能低下が見られました。\n\n4.5 潜在表現のプローブ解析（Q2）\n未来予測が本当に物理を捉えているかを確かめるため、固定したクエリ状態 $\\mathbf{Z}$ から「未来の接触開始（Onset）」と「接触解除（Release）」を線形プローブで識別できるかテストしました。未来予測ありのモデルは、なしのモデルに比べてAUROCやAUPRCが大幅に向上しており、クエリ内に接触ダイナミクスの予測情報が線形分離可能な形で保持されていることが裏付けられました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "実機3機種（上段：FR3単腕、中段：COBOT Magic双腕、下段：Unitree G1人型）におけるキウイ収納タスクの実行フレームです。単一のファインチューニング済みチェックポイントから、各ロボットの自由度と身体性に適した滑らかな動作が直接生成されています。",
+     "caption": "Figure 3 : Real-world rollouts of our DyPES-VLA using a single checkpoint jointly finetuned on demonstrations from three physical embodiments with distinct morphologies. Each row shows the hardware setup followed by six keyframes (left to right) of one representative task per platform: an FR3 single-arm robot (top), a COBOT Magic dual-arm robot (middle), and a G1 humanoid (bottom).",
+     "image": "details/2608.06374/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめ：身体が違っても物理は1つ、制御はそれぞれ",
+   "summary_ja": "研究の成果を総括しています。共有ダイナミクス事前知識の学習とMoEによるロボット別制御を組み合わせたDyPES-VLAが、単腕・双腕・人型にわたる異種ロボット操作において極めて有効な統一基盤になることを示しました。",
+   "details_ja": "本論文では、形態の異なるロボット間で操作知識を共有するための新しいパラダイムを提示し、それを具体化した「DyPES-VLA」を提案しました。\n\nこのアプローチの強みは、行動ラベルのない動画から未来予測を通じて物体運動や接触などの「物理のルール」を学び、それをMoE構造を通じて各ロボット固有の制御へと無理なく落とし込める点にあります。単腕、双腕、人型という構造の大きく異なる3系統のロボット群において、シミュレーション・実機の双方で従来の特化型および汎用型モデルを上回る成果を上げました。手動のアライメントを必要としない本手法は、今後さらに多種多様なロボットや実世界データへとスケールアップしていくための有力な道筋を示しています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：ベンチマーク詳細結果と追加の実機定性評価",
+   "summary_ja": "RoboCasa-GR1の全24タスクおよびRoboTwin 2.0の全50タスクの詳細な成功率を報告し、さらに実機における水注ぎや本棚配置タスクの成功シーケンスを紹介しています。",
+   "details_ja": "付録では、本文で紹介しきれなかった詳細な実験データと実機 rollouts が網羅されています。\n\n- RoboCasa-GR1の内訳：全24タスク（計1,200回の試行）において、可動収納への出し入れタスクで55.3%、容器間の移動タスクで60.6%と、タスクの難度に関わらず安定したパフォーマンスを示しています。\n- RoboTwin 2.0の内訳：全50タスクにおいて、通常環境で平均88.78%、照明や配置をランダム化した過酷な環境でも平均89.26%を達成しており、視覚的・空間的な外乱に対する強固な頑健性が確認されました。\n- 追加の実機タスク：図 F4 に示す「コップの水をボウルに注ぐ」タスクや、図 F5 の「本を棚に立てる」タスクにおいても、単腕・双腕・人型の各ハードウェアがそれぞれの腕の自由度を適切に使って作業を完遂している様子が確認できます。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "実機3機種（FR3、COBOT Magic、G1）による水注ぎタスクの実行風景です。注ぎ口の位置合わせや傾き制御など、繊細な接触と軌道の調整がどのロボットでも適切に行われています。",
+     "caption": "Figure S1 : Additional real-world qualitative results for water pouring on FR3, COBOT Magic, and G1. Each row shows six chronological frames under the instruction “Pour water from the cup into the bowl.”",
+     "image": "details/2608.06374/F4.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "異種ロボット学習では、行動空間を無理に1つに統一するよりも、「物理ダイナミクスは全体で共有し、行動生成はMoEのFFNでロボットごとに分担する」設計が極めて効果的です。",
+  "未来予測タスクを潜在クエリ表現の正則化として使うことで、行動ラベルのない動画（人間の作業動画など）から接触や物体運動の事前知識を効率よく吸収できます。",
+  "推論時には未来画像生成ヘッドを完全に切り離す構成にすることで、世界モデルのような高負荷な画像生成を伴わずに高速な制御周期を維持できます。",
+  "シミュレーションで異種ロボットを共同学習した単一の重みは、実機の単腕・双腕・人型ロボット群へ転移させるための強力な事前学習基盤となります。"
+ ],
+ "limitations_ja": [
+  "ロボットのルーティングがメタデータに基づく静的ルーティングであるため、全く未知の関節構成を持つ新規ロボットへゼロショットで直接適応することはできず、新しいExpertの学習が必要です。",
+  "自己受容感覚（プロプリオセプション：現在の関節角度情報など）を入力に使っておらず視覚情報のみに頼っているため、カメラの死角やオクルージョンが大きい状況下での精密位置決めには課題が残る可能性があります。",
+  "事前学習の未来予測ターゲットが主カメラの単一視点フレームに依存しているため、複数カメラ間の幾何学的整合性まではダイナミクスとして明示的に学習されていない可能性があります。"
+ ],
+ "keywords": [
+  "Vision-Language-Action (VLA)",
+  "Cross-Embodiment Manipulation",
+  "Dynamics Priors",
+  "Mixture of Experts (MoE)",
+  "Future Prediction",
+  "Diffusion Transformer"
+ ],
+ "id": "2608.06374",
+ "title": "DyPES-VLA: Learning Shared Dynamics Priors and Embodiment-Specific Control for Cross-Embodiment Manipulation",
+ "title_ja": "DyPES-VLA: 異種ロボット間マニピュレーションのための共通動力学事前分布と形態特有制御の学習",
+ "authors": [
+  "Junfeng Li",
+  "Junjie He",
+  "Zhide Zhong",
+  "Yangyang Zheng",
+  "Pingyue Sheng",
+  "Jiayu Dong",
+  "Ruixin Li",
+  "Haodong Yan",
+  "Jiaguan Zhu",
+  "Tianran Zhang",
+  "Runze Yu",
+  "Wen Chen",
+  "Liuqing Yang",
+  "Yuxiang Gao",
+  "Haoang Li"
+ ],
+ "date": "2026-08-08",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "vision-language-action",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.06374",
+ "pdf_url": "https://arxiv.org/pdf/2608.06374",
+ "summary_ja": "異なるロボット形態間で汎用的に機能するVLAモデルの構築に向け、共通の動力学事前分布と形態固有の制御を分離して学習するDyPES-VLAを提案。多様なデータから共通動態を捉えることで、複雑な手動の前処理なしに異種エンボディメント間での知識転移と高精度なマニピュレーション制御を実現した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.06374"
+}
