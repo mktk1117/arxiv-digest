@@ -1,0 +1,139 @@
+{
+ "tldr_ja": "四足歩行ロボットによる関節物体（引き出しや扉など）の操作において、言語推論と適応制御で操作準備完了位置へ移動するナビゲーションと、位置・速度を同時学習して安定接触を維持するポリシーを統合したフレームワーク「TONAV」を提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "TONAVの基本コンセプト。目標付近で止まるだけの従来手法と異なり、操作準備が整う位置まで段階的に接近した上で、位置と速度を同時に考慮した制御により滑らかで途切れのない接触操作を実現します。",
+  "caption": "Fig. 1 : Illustration of articulated-object quadrupedal mobile manipulation, with progressive target approaching followed by position-velocity-based sustained-contact manipulation for smoother and more stable interaction.",
+  "image": "details/2608.22296/F1.jpg"
+ },
+ "overview_ja": "家庭環境で引き出しを閉めたり、棚の扉を開けたりする「関節物体（回転軸やスライド機構を持つ物体）のモバイルマニピュレーション」は、ロボットにとって極めて難易度の高いタスクです。従来のシステムには2つの大きな壁がありました。1つ目は、既存の物体ナビゲーションが「物体の1〜2m手前」で停止してしまい、アームが届かない、または関節の可動域限界に達してしまう「ナビゲーションと操作のギャップ」です。2つ目は、操作ポリシーが関節位置のみを予測するため、物体の拘束軌道に沿って動かす際に動作のカクつきや接触の外れ、追従遅延が起きる問題です。\n\n本論文では、これらの課題を解決する統合フレームワーク「TONAV」を提案しています。まずナビゲーション側では、マルチモーダル大規模言語モデル（MLLM）を用いたPerception-Planning Chain-of-Thought（PP-CoT）で大域的な経路を小目標へ分解し、さらにAdaptive Approach Module（AAM）によって視覚遅延をカルマンフィルタで補償しながら、アームが最も動かしやすい「操作準備完了位置」まで台車を微調整します。\n\nそして操作側では、教示段階から位置と速度を結合したインピーダンス制御（AVTF）を用いて高品質なデータを収集し、ポリシー学習（Action-Velocity Chunk Learning）で将来の位置列と速度列を同時に予測させています。実機実験（Unitree Go2-WとPiperアーム）の結果、TONAVはナビゲーション成功率60.00%（従来比+33.33〜+46.67ポイント）、操作成功率80.00%（従来比+33.33〜+53.33ポイント）という圧倒的な性能向上を示しました。",
+ "contributions_ja": [
+  "MLLMによるPP-CoTと視覚遅延補償付き適応接近モジュール（AAM）を組み合わせ、操作準備完了位置へ台車を収束させるタスク指向ナビゲーションを確立した点",
+  "教示時のマスタ・スレーブ間遅延と動作の不整合を低減するため、位置と速度を連動させた遠隔操作フレームワーク（AVTF）を開発した点",
+  "アクションチャンク学習において位置と速度のシーケンスを同時予測し、チャンク内の運動一貫性損失を導入することで持続接触操作の安定性を大幅に向上させた点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "近づくだけでは操作できない：タスク指向ナビと持続接触の壁",
+   "summary_ja": "モバイルマニピュレーションでは「操作に適した台車位置への到達」と「接触を保った安定した軌道追従」の両立が不可欠です。従来の物体ナビゲーションは停止位置が大雑把すぎ、操作ポリシーは位置予測のみに頼るため動作の破綻が起きていました。",
+   "details_ja": "モバイルマニピュレーションは家庭用ロボットなどの基盤技術ですが、実用化には密接に絡み合った2つの課題があります。\n\n第1の課題は「タスク指向ナビゲーション」です。従来の物体探索ナビゲーションは、目標の1〜2m以内に近づけば成功とみなすものが主流でした。しかし、これではロボットの向きがずれていたり、引き出しに近すぎてアームを伸ばせなかったり、逆に遠すぎて届かなかったりします。タスクを完遂するためには、アームの可動空間（ワークスペース）を考慮した「操作準備完了（manipulation-ready）位置」まで段階的に台車を誘導する必要があります。\n\n第2の課題は「持続的な接触操作（sustained-contact manipulation）」です。引き出しや便座のような関節物体は、物体自体の機構に拘束された軌道に沿って動かさなければなりません。模倣学習で用いられるアクションチャンク（行動のシーケンス予測）は強力ですが、多くは関節位置のみを予測対象としています。位置情報だけでは「どのくらいの速度で推移すべきか」という運動ダイナミクスが抜けてしまい、応答遅延やチャンク境界でのカクつき、接触の離脱が発生しやすくなります。\n\nTONAVは、MLLMによる推論と適応的接近を組み合わせたナビゲーションと、位置・速度を結合した遠隔操作およびチャンク学習を統合することで、この2つの壁を一気に打ち破ることを目指しています。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "関連研究：二極化するナビゲーションとモジュール化の限界",
+   "summary_ja": "これまでのナビゲーションは「遠くから目標周辺への誘導」と「周辺での微調整」に分断されており、一貫したアプローチが不足していました。またモバイル操作における台車位置決定も経験的ルールに依存しており、拘束の強い関節物体には不十分でした。",
+   "details_ja": "ロボットナビゲーションの研究は、大きく「大域的な目標誘導」と「ラストワンマイルの微調整」の2層に分かれています。\n\n- 目標誘導ナビゲーション：視覚言語ナビゲーション（VLN）やオープン語彙探索により、未知環境でも指示に従って移動できるようになってきましたが、ゴール地点の精度は粗いままです。\n- ラストワンマイルナビゲーション：模倣学習や強化学習、大規模データからの把持可能ベース位置学習などが試みられていますが、大域ナビゲーションから連続的・閉ループに接続する枠組みが欠けていました。\n\n一方、移動と操作を統合するモバイルマニピュレーションでは、エンドツーエンド手法とモジュール型手法が存在します。エンドツーエンド学習はデータ収集コストが膨大になるため、ナビと操作を分けるモジュール型が実用的です。しかし、既存のモジュール型手法が用いる「ベース位置スコアリング」や「把持領域サンプリング」といった経験則（ヒューリスティクス）は、厳密な台車位置と連続的な接触拘束が求められる関節物体の操作には適応しきれないという限界がありました。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "TONAVの構造：推論・適応ナビから位置・速度チャンク学習まで",
+   "summary_ja": "TONAVは上位のナビゲーション系と下位の操作系で構成されます。LLM推論（PP-CoT）と視覚追従（AAM）で台車を位置決めし、位置・速度を結合した遠隔教示（AVTF）とチャンク学習で滑らかな接触操作を実現します。",
+   "details_ja": "TONAVのシステム全体は、大きくナビゲーションブランチとマニピュレーションブランチに分かれています。\n\nIII-A 位置・速度結合テレオペレーションフレームワーク（AVTF）\n従来の教示ではマスタ側のアーム角度（位置）のみを送信していましたが、これでは応答遅れが生じます。そこで、連続するマスタ位置の差分から関節速度 $\\dot{\\mathbf{q}}_{t}^{m,\\mathrm{ref}}$ を推定して上限クリッピングを施し、位置と速度の両方をスレーブアームへ送出します。スレーブ側はMITスタイルのインピーダンス制御器によって $220\\,\\mathrm{Hz}$ で追従します。制御ループと記録ループ（$30\\,\\mathrm{Hz}$）を分離することで、映像取得や保存による制御遅延を防ぎ、時間的整合性の高い教示データを記録します。\n\nIII-B 知覚・計画思考連鎖（PP-CoT）\n言語指示から直接動作を生成すると誤認識が起きやすいため、2段階のプロンプトでMLLMを駆動します。第1段階（知覚）では目標物体・目印（ランドマーク）・進入可能領域を同定し、第2段階（計画）ではそれらを結ぶ可視ルートと「直進」「目印で左折」「停止」などの小目標指示列を生成します。\n\nIII-C 適応接近モジュール（AAM）\nオープン語彙検出器とSAM2で目標物体のマスクを取得し、カメラ座標系での3D位置を算出します。ここでSAM2の処理遅延によるカメラの移動ずれを補償するため、自己運動を考慮したカルマンフィルタを導入しています。フィルタリングされた目標位置から「水平方向の画像中心ずれ $e^u_t$」と「目標離隔距離の誤差 $e^d_t$」を計算し、アームのワークスペースに最適な設定距離 $d^\\star$ へ収束するように台車の旋回・直進を切り替えて制御します。\n\nIII-D 連続接触のためのアクション・ベロシティ・チャンク学習\n操作ポリシーにはACTベースのCVAEを採用し、視覚特徴とプロプリオセプションから、将来の位置チャンク $\\hat{\\mathbf{q}}$ だけでなく速度チャンク $\\hat{\\dot{\\mathbf{q}}}$ も並列デコーダで予測します。損失関数には、実際のスレーブ関節位置に対するL1損失 $\\mathcal{L}_{\\mathrm{pos}}$、速度監督損失 $\\mathcal{L}_{\\mathrm{vel}}$、そして予測位置の時間差分と予測速度の整合性を保つ運動一貫性損失 $\\mathcal{L}_{\\mathrm{con}}$ を導入しました。これにより、チャンク接続部でのカクつきを防ぎ、拘束軌道上で押し引きする動作が格段に安定します。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "AVTFのタイミング同期構造。$220\\,\\mathrm{Hz}$の高速な位置・速度インピーダンス追従と、$30\\,\\mathrm{Hz}$のカメラ画像・状態記録を分離し、タイムスタンプに基づいて整合性を担保しています。",
+     "caption": "Fig. 3 : Position-velocity-coupled teleoperation with $220\\,\\mathrm{Hz}$ position-velocity tracking, $30\\,\\mathrm{Hz}$ camera observations, and timestamp-based alignment across latency-varying modalities.",
+     "image": "details/2608.22296/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "TONAVの全体フレームワーク。上段のナビゲーションブランチ（PP-CoTとAAM）で操作可能位置に到達し、下段の操作ブランチで位置と速度のチャンクを同時予測して滑らかに操作します。",
+     "caption": "Fig. 4 : Overview of TONAV with an upper navigation branch and a lower manipulation branch. The upper branch combines hierarchical task reasoning and adaptive last-mile navigation to reach a manipulation-ready configuration, while the lower branch learns action-velocity chunks from motion-consistent demonstrations for smooth and stable sustained-contact manipulation.",
+     "image": "details/2608.22296/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "適応接近モジュール（AAM）の詳細。拡散ポリシーによる大まかな接近の後、SAM2による追跡結果をカルマンフィルタで自己運動補償し、正確な相対角度と距離へアライメントします。",
+     "caption": "Fig. 5 : Illustration of the Adaptive Approach Module (AAM). AAM performs coarse approaching with a diffusion policy and fine target refinement with visual feedback.",
+     "image": "details/2608.22296/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "実機実験：ナビゲーションと接触操作の成功率が大幅に向上",
+   "summary_ja": "四足歩行ロボット（Go2-W）とPiperアームを用い、「引き出しを閉める」「スタンド照明をつける」「便座のフタを下げる」の3タスクで検証しました。TONAVはナビゲーション成功率60.00%、操作成功率80.00%を達成し、既存ベースラインを大きく凌駕しました。",
+   "details_ja": "実機ハードウェアにはUnitree Go2-W（車輪付き四足ロボット）と2台のPiperアーム（教示用マスタと機体搭載スレーブ）を使用しました。\n\n定量評価（ナビゲーション）：\n3つのタスク（Close Drawer, Turn On Lamp, Lower Toilet Lid）におけるナビゲーション成功率を評価したところ、TONAVは全体で $60.00\\%$ を達成しました。これは既存のVLN手法であるStreamVLN（$13.33\\%$）やInternNav（$26.67\\%$）を大きく引き離しています。StreamVLNなどは物体の近くには行けるものの、台車の向きや距離がずれてアームが届かない失敗が多発しました。\nまたアブレーション実験では、PP-CoTを外すとQwen-3.7-Maxの成功率が $60.00\\%$ から $26.67\\%$ へ急落し、思考連鎖によるサブゴール分解が必須であることが確認されました。\n\n定量評価（マニピュレーション）：\n操作準備完了位置から開始する条件下で操作性能を比較しました。従来のACTやDiffusion Policy（DP）は位置のみの予測で、成功率はわずか $13.33\\%$ でした。これに対し、位置・速度結合教示データを用い、速度予測と運動一貫性損失を備えたTONAVは $80.00\\%$ の成功率を記録しました。位置・速度制御なしの教示データで学習したTONAVでも $53.33\\%$ に達しており、アーキテクチャ自体の優位性と高品質教示データの相乗効果が実証されました。\n\n定性評価・軌道解析：\n関節角度の推移グラフ（図 F8）を比較すると、ACTやDPは目標物体の反力やチャンク境界で関節角度に激しい振動（ジッター）が生じているのに対し、TONAVは滑らかで途切れのないカーブを描いています。便座を下げるような連続接触タスクでも、エンドエフェクタが対象から滑り落ちることなく最後まで押し切ることができました。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "引き出しタスクにおけるナビゲーションの定性比較。ベースラインは目標付近で止まるものの向きが悪くアームが限界に達しますが、提案手法は操作可能な位置・向きへ的確に回り込んでいます。",
+     "caption": "Fig. 7 : Qualitative comparison of task-oriented navigation. Ours progressively approaches the target, refines the base pose for manipulation readiness, and closes the drawer within the manipulable workspace using AVTF-based control (see Sec. III-A ).",
+     "image": "details/2608.22296/F7.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "照明スイッチ操作と便座下げタスクの動作比較。ACTやDPは接触が外れたり途中で止まったりしますが、TONAVは拘束軌道に沿って安定した接触を保ちタスクを完遂しています。",
+     "caption": "Fig. 6 : Qualitative comparison on the two tasks. Ours leverages action–velocity demonstrations and chunk learning to achieve smoother motion and more stable sustained-contact manipulation than ACT [ 28 ] and DP [ 29 ] .",
+     "image": "details/2608.22296/F6.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "引き出しを閉める際の関節角度軌道（Piper関節1〜3）。ACTやDPで見られる振動やカクつきが、TONAVでは速度監督と一貫性損失により劇的に抑制されています。",
+     "caption": "Fig. 8 : Joint-angle trajectories of Piper Joints 1–3 during the Close Drawer task. Ours yields smoother trajectories with reduced oscillation than ACT [ 28 ] and DP [ 29 ] .",
+     "image": "details/2608.22296/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望：接触リッチなモバイル操作の新たな標準へ",
+   "summary_ja": "段階的なタスク指向ナビゲーションと位置・速度チャンク学習を統合したTONAVの有効性が実証されました。今後は触覚センサの統合や、未知の家具配置に対する汎化性能の向上が期待されます。",
+   "details_ja": "本論文では、四足歩行ロボットによる関節物体のモバイルマニピュレーションに対して、ナビゲーションから接触操作までを一貫して扱うTONAVを提案しました。\n\n成功の鍵となったのは、「単に近づくのではなく操作準備完了位置へ台車を導く2段階ナビゲーション」と、「どこへ動くか（位置）だけでなく、どう動くか（速度）を同時にモデル化するチャンク学習」の融合です。これにより、ハードウェア的な追従遅れや動作の振動を抑え、安定した持続接触操作が可能になりました。\n\n著者らは今後の展望として、外乱に対してより粘り強く対応するための触覚センシングの導入や、多様な部屋レイアウト・初期配置に対するさらなる汎化能力の拡張を挙げています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「物体の近くに行く」ことと「操作できる位置に行く」ことは別問題であり、アームのワークスペースに合わせたラストワンマイルのアライメント機構が不可欠。",
+  "アクションチャンク学習において位置だけでなく速度も予測・監督し、両者の一貫性を制約に入れることで、接触タスク特有のカクつきや追従遅延が大幅に抑制される。",
+  "遠隔教示（テレオペ）の段階から位置・速度を結合したインピーダンス追従を行うことで、高品質で時間的一貫性のあるデモデータが収集できる。"
+ ],
+ "limitations_ja": [
+  "外乱や予期せぬ接触力の変化に即座に適応するための力覚・触覚フィードバックが現状では統合されていない点。",
+  "長時間のタスクや、家具の配置が大きく異なる未知の環境に対する幾何学的な汎化性については追加の検証が必要な点。"
+ ],
+ "keywords": [
+  "Quadrupedal Mobile Manipulation",
+  "Task-Oriented Navigation",
+  "Action Chunking",
+  "Velocity Supervision",
+  "Articulated Object Manipulation"
+ ],
+ "id": "2608.22296",
+ "title": "TONAV: Task-Oriented Navigation and Action-Velocity Chunk Learning for Articulated Object Quadrupedal Mobile Manipulation",
+ "title_ja": "TONAV: 関節物体を対象とする四足移動マニピュレーションのためのタスク指向ナビゲーションと行動・速度チャンク学習",
+ "authors": [
+  "Haoran Lin",
+  "Mingyu Yang",
+  "Pengfei Qi",
+  "Kehan Chen",
+  "Qiang Diao",
+  "Liangji Zeng",
+  "Wenrui Chen",
+  "Yaonan Wang",
+  "Kailun Yang"
+ ],
+ "date": "2026-08-25",
+ "group": "focus",
+ "tags": [
+  "quadruped",
+  "manipulation",
+  "navigation",
+  "teleoperation"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.22296",
+ "pdf_url": "https://arxiv.org/pdf/2608.22296",
+ "summary_ja": "四足ロボットによる関節物体（ドアや引き出し等）の操作に向け、タスク指向ナビゲーションと操作制御を統合した手法を提案。遠隔操作時の位置・速度連動により実機ダイナミクスを捉えつつ、目標接近後のマニピュレーション準備状態への遷移と、接触を伴う継続的なインタラクションの安定性を向上させた。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.22296"
+}
