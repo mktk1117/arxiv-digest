@@ -1,0 +1,133 @@
+{
+ "tldr_ja": "トルク制御ロボットのSim2Real（シミュレータから実機への移行）を成功させるため、実機軌道を用いた遺伝的アルゴリズムによるダイナミクス同定と、領域ランダム化を組み合わせた「Real2Sim2Real」パイプラインを提案した論文です。7自由度アームの実機において、シミュレータ上で直接トルク指令を学習した強化学習ポリシーの安定な実機転移を実証しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "提案されたReal2Sim2Realパイプラインの全体像です。実機から得た軌道データを用いて摩擦や慣性パラメータを同定し（Real2Sim）、高精度化したシミュレータ上で領域ランダム化を併用して強化学習を行い、Gazeboでの中間検証を経て実機へ安全にポリシーを展開します。",
+  "caption": "Fig. 1: Diagram illustrating the workflow for validating and executing an RL policy in both simulation and Real-World scenarios. The process includes parameter estimation (e.g., torque/position curves, friction, inertias, and gravity compensation), training via RL (TQC with GridSearch optimization), policy validation, and execution for Real2Sim and Sim2Real applications.",
+  "image": "details/2608.22629/F1.jpg"
+ },
+ "overview_ja": "ロボットアームで繊細かつ力強い接触動作を実現するには、関節トルクを直接制御する低レベルなトルク制御が理想的です。しかし、実機でトルク制御の強化学習（RL）を直接行うと、装置の破損や安全性の問題があり、学習にも膨大な時間がかかります。そこで物理シミュレータで学習した方策を実機に移すSim2Realが使われますが、トルク制御ではわずかな摩擦や慣性のモデル化誤差が命取りとなり、実機が激しく発振したり停止したりする「リアリティ・ギャップ」が極めて深刻でした。\n\nそこで著者らは、実機データからシミュレータの物理パラメータを逆同定してモデル精度を高めた上で、強化学習と領域ランダム化を行う「Real2Sim2Real」パイプラインを着想しました。まず、標準的なロボット記述ファイル（URDFなど）の数値に頼るのをやめ、実機アームを動かした際の軌道データと遺伝的アルゴリズム（GA）を組み合わせて、方向依存性を持つ動摩擦係数や静止摩擦、重力補償オフセット、各リンクの慣性テンソルを徹底的に同定しました。この高精度シミュレータ環境下で、連続空間制御に強い強化学習アルゴリズム「TQC」を用いて目標位置到達タスクを学習させます。\n\n検証では、物理エンジンが異なるMuJoCoとGazebo間でのSim2Sim検証を行った後、7自由度の実機Franka Emika Pandaロボットに展開しました。パラメータ同定を行わないモデルではシミュレータと実機でトルクや挙動が完全に乖離していたのに対し、提案手法でキャリブレーションした環境で学習したポリシーは、実機上でも発振することなく極めて滑らかに目標位置へ到達できることを示しました。",
+ "contributions_ja": [
+  "低レベルなトルク制御型マニピュレータにおいて、実機軌道マッチングと遺伝的アルゴリズムを融合した高精度なダイナミクス同定手法（Real2Sim）を確立した点",
+  "方向依存の動摩擦モデル、実測に基づく静止摩擦しきい値、および重力補償オフセットを組み込んだ忠実度の高いシミュレーション環境を構築した点",
+  "TQCアルゴリズムと滑らかな動作を促す報酬設計により、Sim2Sim（MuJoCoからGazebo）および実機（Sim2Real）へゼロショットで安定転移可能な制御ポリシーを実現した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜトルク制御のSim2Realはこれほど難しいのか？",
+   "summary_ja": "環境との柔軟なインタラクションには関節トルク制御が適していますが、実機での直接強化学習は危険を伴うためシミュレーションが不可欠です。しかし、シミュレータと実機の物理特性の不一致（リアリティ・ギャップ）により、シミュレータで学習したポリシーは実機で破綻しがちです。本研究では、実機同定と強化学習を組み合わせたReal2Sim2Realパイプラインによってこの課題の解決を図ります。",
+   "details_ja": "ロボットが環境と物理的に接触しながら作業を行う際、位置制御よりも関節トルクを直接指令する「トルク制御」のほうが、外力にしなやかに追従できるため極めて有望です。しかし、実機上でトルク指令を試行錯誤しながら強化学習（RL）で最適化するのは、ロボット自体の故障や周囲の安全面から非常に危険であり、膨大な時間もかかります。\n\nそのため、まずはシミュレータ内で安全かつ高速に学習させ、得られた制御ポリシーを実機に移植する「Sim2Real転移」が標準的なアプローチとなります。ところが、ここで立ちはだかるのがシミュレータと実世界との物理的な乖離、いわゆる「リアリティ・ギャップ（Reality Gap）」です。位置制御であればモータ内部のサーボ系がある程度の外乱を打ち消してくれますが、トルク制御では摩擦、慣性モーメント、重力補償のわずかな狂いがロボットの挙動に直接ダイレクトに跳ね返ってきます。結果として、シミュレータ上では完璧に動いていたポリシーが、実機に乗せたとたんにガタガタと振動したり、目標に届かなかったりする失敗が頻発します。\n\nこうした背景から本研究では、7自由度アーム「Franka Emika Panda」を対象に、実機挙動にシミュレータを極限まで近づけるキャリブレーション手法と、ロバストな強化学習手法を統合したフレームワークを提案しています。ここでのポイントは、環境と接触する前の自由空間におけるトルク制御ポリシーを、いかに安定して実機へ着地させるかという基礎固めに焦点を当てている点です。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "本研究の全体ワークフローです。左端の実機同定（Estimation）で実測トルク・位置から摩擦や慣性を求め、MuJoCoでの強化学習（Training）、Gazeboでの中間検証（Validation）を経て、最終的な実機実行（Execution）へとつなぐ一連の流れが示されています。",
+     "caption": "Fig. 1: Diagram illustrating the workflow for validating and executing an RL policy in both simulation and Real-World scenarios. The process includes parameter estimation (e.g., torque/position curves, friction, inertias, and gravity compensation), training via RL (TQC with GridSearch optimization), policy validation, and execution for Real2Sim and Sim2Real applications.",
+     "image": "details/2608.22629/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Works",
+   "heading_ja": "リアリティ・ギャップを埋める2大アプローチとその限界",
+   "summary_ja": "シミュレーションと実機の差を埋めるアプローチには、物理パラメータを揺らす「領域ランダム化」と、実機データに挙動を寄せる「軌道マッチング」があります。トルク制御における複雑なモータ特性や干渉に対応するためには、これらを適切に組み合わせる必要があります。本論文は遺伝的アルゴリズムによる軌道同定をベースに領域ランダム化を重ねるアプローチを位置づけています。",
+   "details_ja": "関節空間でロボットを直接学習させる手法は、ロボットのダイナミクスをフルに活用できるため接触動作などにおいて高い性能を発揮します。しかし、その成否はシミュレータ内の物理モデルの正確さに強く依存します。このリアリティ・ギャップを乗り越えるために、これまで主に2つの手法が研究されてきました。\n\n1つ目は「領域ランダム化（Domain Randomization: DR）」です。これは学習中に摩擦、質量、リンク慣性などのシミュレーションパラメータを意図的にランダムに変動させることで、実環境のばらつきや不確実性に対して頑健なポリシーを獲得させる手法です。広く使われている強力なアプローチですが、元のシミュレータの基準値が実機から大きく外れていると、いくらランダム化しても実機のダイナミクスをカバーできず、学習が収束しにくくなるという問題があります。\n\n2つ目は「軌道マッチング（Trajectory Matching）」です。実機で取得した関節軌道データと、シミュレータ上で同じ指令を与えたときの挙動の誤差を最小化するように、物理パラメータを逆同定するアプローチです。\n\n本論文の立ち位置は、この両者のいいとこ取りをすることにあります。まず実機データに基づく軌道マッチングと遺伝的アルゴリズム（GA）を用いて、関節の非対称な摩擦やリンク慣性をピンポイントで精密に推定します。そして、その最適化されたパラメータを中心とした狭い範囲に絞って領域ランダム化を適用します。これにより、学習を不安定にすることなく、実機への確実な適応力を引き出す構成をとっています。",
+   "figures": []
+  },
+  {
+   "heading": "III Methodologies",
+   "heading_ja": "遺伝的アルゴリズムによる物理同定と滑らかさを生む報酬設計",
+   "summary_ja": "ロボットの運動方程式に基づき、回転方向で異なる動摩擦、静止摩擦、重力補償オフセット、慣性テンソルを遺伝的アルゴリズムで同定する定式化を行いました。学習フェーズでは、Cartesian空間の目標到達誤差に加えて関節速度・加速度にペナルティを課す滑らかな報酬関数を設計し、TQCアルゴリズムでトルク指令ポリシーを学習します。",
+   "details_ja": "本手法のコアは、徹底的なパラメータ同定（Real2Sim）と、安定したトルクを出力させるための強化学習設計の2点にあります。\n\n### III-A 強化学習の定式化と報酬設計\n強化学習のエージェントには7自由度のFranka Emika Pandaを用い、ワークスペース内の目標位置（直交座標系）へエンドエフェクタを到達させるトルク指令を学習させます。割引累積報酬の最大化を目指しますが、トルク制御で最も問題になるのが急激なトルク変化によるロボットの激しい振動です。そこで本研究では次のような工夫を凝らした報酬関数 $r$ を設計しました：\n\n$r$ は目標位置への正規化距離 $d$ に対するペナルティ項（重み $k_1=2$）に加え、関節角速度 $\\dot{\\theta}_i$ と関節角加速度 $\\ddot{\\theta}_i$ に対する抑制項を含んでいます。特に速度と加速度のペナルティには $\\tanh$ 関数を適用し、かつ加速度項の分母に定数（$k_4=1.15, k_5=0.03, k_6=0.15$）を配することで、急峻な値の暴走を抑えつつ数値的安定性を確保しています。これにより、目標に向かって最短で急加速するのではなく、省エネルギーで滑らかに減速してピタッと止まる動作が自然に学習されます。\n\n### III-B パラメータ同定の最適化問題\nロボットの標準的な運動方程式 $\\tau = M(q)\\ddot{q} + C(q, \\dot{q})\\dot{q} + G(q)$ に対し、シミュレータに標準で付属するモデルをそのまま使わず、摩擦と慣性を個別に詳細モデル化しました。\n- 動摩擦トルク $\\tau_{f,j}$：各関節 $j$ に対し、3つの係数 $\\varphi_{1,j}, \\varphi_{2,j}, \\varphi_{3,j}$ を持つ速度依存モデルを採用し、回転方向（正・負）による非対称性を考慮できるようにしました。\n- 静止摩擦トルク $\\tau^{\\mathrm{st}}_j$：微小速度域（$|\\dot{q}_j| < \\dot{q}_{\\min}$）において、設定した離脱トルクしきい値を超えない限り関節の動きをキャンセルするデッドゾーン処理をシミュレータ内に実装しました。\n- 軌道誤差の最小化：実機の軌道 $\\mathbf{y}_{\\text{real}}(t)$ とシミュレーション軌道 $\\mathbf{y}_{\\text{sim}}(t, \\mathbf{p})$ の差の二乗積分を誤差関数 $E(\\mathbf{p})$ と定義し、遺伝的アルゴリズム（GA）を回してパラメータ群 $\\mathbf{p}$（各関節の慣性テンソルや摩擦パラメータ）を探索・最適化しました。",
+   "figures": []
+  },
+  {
+   "heading": "IV Experiments and Results",
+   "heading_ja": "アルゴリズム比較から実機検証まで：パラメータ調整がもたらす圧倒的な差",
+   "summary_ja": "DDPG、SAC、TD3、TQCを比較し、最も学習が安定したTQCを選定しました。GAによる同定でシミュレータと実機のトルク応答が一致することを確認し、MuJoCoで領域ランダム化を施して学習したポリシーをGazeboおよび実機へ投入しました。結果として、発振のない極めてスムーズな目標到達が実機で確認されました。",
+   "details_ja": "実験は「アルゴリズム選定」「パラメータ同定の精度評価」「Sim2Sim検証」「実機Sim2Real転移」の4段階で綿密に進められました。\n\nまずRLアルゴリズムの選定（Fig. 2）では、DDPG、SAC、TD3、TQCの4種類をグリッドサーチでチューニングして比較しました。その結果、過大評価を抑制する機能を持つTQC（Truncated Quantile Critics）が他を大きく引き離して最も高い平均報酬を記録し、ハイパーパラメータへの感度も低かったため、以降の実験にはすべてTQCを採用しています。\n\n### パラメータ同定の効果（IV-A）\n同定前のシミュレータでは、重力補償の不備や未同定の関節ダイナミクスにより、実機とシミュレータの関節位置推移が全く一致していませんでした（Fig. 3(a), (b)）。実機で各関節に微小トルクを徐々に加えて動き出す瞬間を捉えることで正負の静止摩擦トルクを特定し、さらに重力補償のオフセットトルクを手動調整しました。その上で遺伝的アルゴリズムを適用したところ、関節1や関節2の位置推移は実機とシミュレータでほぼ重なり合うレベルまで精度が劇的に改善しました（Fig. 3(c), (d)）。\n\n### Sim2SimとSim2Realの検証（IV-B, IV-C）\n学習は高速なMuJoCo環境で行いました。その際、同定した21個の摩擦パラメータを $\\pm 10\\%$、42個のリンク慣性テンソル要素を $\\pm 5\\%$ の範囲でランダムに揺らす領域ランダム化を導入しました。この変動幅は予備実験に基づき、学習の収束性と実環境への汎化性のバランスから決定されたものです。\n\n実機へ展開する前に、異なる物理計算特性を持つGazeboシミュレータへポリシーを適用したところ（Sim2Sim）、目標到達の立ち上がり速度にわずかな差異は生じたものの、いずれの目標地点でも最終報酬は安定して MuJoCo と同等の高水準に達しました（Fig. 4）。\n\nそして最終関門である実機Franka Emika Pandaへの展開（Sim2Real）です。実機アームはバックラッシ（ギアの噛み合わせの隙間）や配線の引きずり抵抗、制御遅延といった未モデル化外乱を抱えていますが、エージェントは一度も破綻することなくスムーズに手先をランダムな目標位置まで誘導し、その位置を安定して維持し続けました（Fig. 8）。実機軌道では目標付近でごくわずかなふらつきが見られる場面もありましたが、追加の微調整なしでそのまま動作しており、同定の精度の高さと領域ランダム化のロバスト性が明確に裏付けられました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "4つの強化学習アルゴリズム（DDPG, SAC, TD3, TQC）の学習曲線比較です。青線のTQCが一貫して高い平均報酬を達成しており、トルク制御における高い安定性とロバスト性を示しています。",
+     "caption": "Fig. 2: Episode mean reward comparison across DDPG, SAC, TD3, and TQC algorithms. TQC demonstrates consistently higher rewards, underscoring its superior performance and robustness in our environment.",
+     "image": "details/2608.22629/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "パラメータ最適化の前（a, b）と後（c, d）における、シミュレータ（橙）と実機（青）の関節位置応答の比較です。最適化前は両者の軌道が完全に乖離していますが、同定後はほぼ完全に一致していることが分かります。",
+     "caption": "Fig. 3: Comparison of the Sim2Real RL model transfer for the Panda robot. (a) Joint 1 torque comparison without parameter tuning. (b) Joint 2 torque comparison without parameter tuning. (c) Joint 1 torque comparison with parameter tuning. (d) Joint 2 torque comparison with parameter tuning.",
+     "image": "details/2608.22629/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "MuJoCo（青）で学習したTQCポリシーをGazebo（赤）上でテストした際の報酬推移です。異なる物理エンジン間でも、数ステップの遅れを伴いつつ最終的にはほぼ同じ報酬値に収束しています。",
+     "caption": "Fig. 4: Comparison of the TQC agent’s performance in the MuJoCo and Gazebo simulators. The plots display the rewards obtained across four random goal scenarios, emphasizing the performance variations resulting from the distinct dynamics and properties of each simulation environment.",
+     "image": "details/2608.22629/F4.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "MuJoCoシミュレータ（青）と実機環境（緑）における4つの異なる目標位置への到達性能比較です。実機では途中にわずかな外乱の影響が見られるものの、確実に目標値へと追従しています。",
+     "caption": "Fig. 8: Comparison between MuJoCo and Real-World for four random goals. MuJoCo shows smoother transitions while Gazebo introduces disturbances mimicking physical inconsistencies, serving as an intermediate test-bed before real deployment.",
+     "image": "details/2608.22629/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusions",
+   "heading_ja": "まとめと今後の展望：物理モデルの精度向上がSim2Realを拓く",
+   "summary_ja": "遺伝的アルゴリズムによるダイナミクス同定、領域ランダム化、TQCを融合したReal2Sim2Realパイプラインを確立し、トルク制御アームの安定なSim2Real転移を実証しました。今後は対象を物体との接触を伴うマニピュレーションタスクや、オンラインでの同定、他プラットフォームへの拡張へと発展させる予定です。",
+   "details_ja": "本研究は、低レベルなトルク制御型ロボットにおいて、丁寧な物理パラメータ同定（Real2Sim）がいかにSim2Real転移の成功を左右するかを明確に示しました。シミュレータ組み込みのデフォルトパラメータに依存せず、実測データに基づき方向依存の摩擦やリンク慣性を個別に関数化して遺伝的アルゴリズムで最適化することで、シミュレータの再現性を大幅に向上させることができました。\n\nさらに、滑らかな運動を促進する報酬設計とTQCの組み合わせ、そして推定値を基準にした適度な領域ランダム化によって、バックラッシやケーブル抵抗が存在する現実世界でもビクともしない堅牢な制御が可能になりました。MuJoCoからGazebo、そして実機へと段階を踏んだ検証により、単一の物理エンジンに過適合していないことも証明されています。\n\n今後の課題としては、接触のない目標到達タスクから、組み立て作業などの「接触を伴う高難度マニピュレーション」への拡張が挙げられています。また、今回は事前にオフラインで行ったシステム同定をロボット動作中にリアルタイムで行うオンライン同定技術や、人間協調作業を見据えた安全制約付き強化学習・コンプライアンス制御との統合が期待されています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "トルク制御のSim2Realでは、シミュレータの既定値（URDF等）を信じず、方向依存の摩擦や静止摩擦、慣性テンソルを実測・同定することが成否の決定打になる",
+  "領域ランダム化は闇雲に広範囲を振るのではなく、高精度に同定した基準値の周辺（摩擦±10%、慣性±5%など）に絞って適用するのが学習安定と汎化の両立に有効",
+  "連続空間のトルク制御における強化学習アルゴリズムとしては、過大評価に強いTQCがDDPGやSAC、TD3と比べても極めて高い安定性と頑健性を発揮する",
+  "Sim2Realの前に、MuJoCoとGazeboのように特性の異なるシミュレータ間でSim2Sim検証を挟むフローは、ポリシーの過適合を防ぐ安全策として実用的である"
+ ],
+ "limitations_ja": [
+  "検証されているタスクが自由空間内での手先位置到達（Reaching）にとどまり、環境との激しい接触や衝突を伴うマニピュレーションまでは検証されていない点",
+  "重力補償のトルクオフセット調整や静止摩擦の離脱トルク特定など、一部のパラメータ同定工程に手動の試行錯誤が残っている点",
+  "パラメータ同定が事前のオフライン処理であるため、アームの経年劣化や温度変化に伴うグリス摩擦の変動など、稼働中の動的変化には即座に追従できない点"
+ ],
+ "keywords": [
+  "Sim2Real",
+  "Torque Control",
+  "Reinforcement Learning",
+  "System Identification",
+  "Genetic Algorithm",
+  "Domain Randomization"
+ ],
+ "id": "2608.22629",
+ "title": "Enhancing Sim2Real Transfer for Torque-Controlled Robots through Real2Sim Dynamics Estimation and Reinforcement Learning",
+ "title_ja": "Real2Simダイナミクス推定と強化学習によるトルク制御ロボットのSim2Real転移の強化",
+ "authors": [
+  "Davide Bargellini",
+  "Alex Pasquali",
+  "Andrea Govoni",
+  "Riccardo Zanella",
+  "Gianluca Palli"
+ ],
+ "date": "2026-08-25",
+ "group": "focus",
+ "tags": [
+  "sim-to-real",
+  "reinforcement-learning",
+  "control",
+  "simulation"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.SY",
+  "eess.SY"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.22629",
+ "pdf_url": "https://arxiv.org/pdf/2608.22629",
+ "summary_ja": "トルク制御ロボットアームにおける強化学習方策のSim-to-Real転移を改善するパイプラインを提案。実機軌道との誤差を遺伝的アルゴリズムで最小化して摩擦や慣性などの動力学パラメータを同定（Real2Sim）し、ドメインランダム化と組み合わせて学習を行う。Franka Emika Panda実機で低レベルトルク制御の安定した転移を確認した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.22629"
+}
