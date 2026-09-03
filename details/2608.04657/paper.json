@@ -1,0 +1,138 @@
+{
+ "tldr_ja": "大規模な動画生成モデルの物理事前知識をモバイルマニピュレーションに導入し、移動と操作の干渉を防ぐ専門家混合（MoE）と、未来の潜在状態を再帰的に予測する訓練手法（CoF）によって、推論コストを増やさずに高精度かつ高速な全身制御を実現した論文です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "MobileWAMの全体像です。事前学習済み動画生成モデルと行動専門家を統合し、訓練時のみ未来予測（Chain-of-Foresight）で潜在表現を鍛えます。推論時は動画生成を省いて高速動作し、シミュレーション（ManiSkill-HAB）と実機ロボット（ARX Lift2）の両方で既存手法を大きく上回る成功率を達成しています。",
+  "caption": "Figure 1: MobileWAM at a glance. Top-left: five real-robot tasks of increasing horizon ( $T_{a}$ – $T_{e}$ ) on an ARX Lift2. Top-center/right: Mixture-of-Transformers fuses video and action experts; Chain-of-Foresight (training only) chains future-latent predictions via an RNN-style belief; Mobile MoE routes locomotion, manipulation, and shared experts via a soft router. Bottom-left: ManiSkill-HAB mean S.R. 73.0%, leading all listed baselines. Bottom-right: real-robot success rates vs. $\\pi_{0.",
+  "image": "details/2608.04657/F1.jpg"
+ },
+ "overview_ja": "ロボットが部屋中を移動しながら物を操作するモバイルマニピュレーションは、卓上作業と比べて視点が目まぐるしく変化し、移動と操作が複雑に絡み合うため、極めて難易度が高い課題です。近年、Web規模の動画で学習した世界モデル（動画生成拡散モデル）をロボット操作に応用する試みが注目されていますが、これまではカメラ視点が固定された卓上作業ばかりに適用されていました。\n\nそこで著者らは、動画生成モデルの豊かな物理事前知識をモバイルマニピュレーションへと橋渡しする「MobileWAM」を提案しました。移動とアーム操作という性質の異なる動作が互いに干渉する問題に対しては、フィードフォワード層を「移動」「操作」「共通」の3つに分けるMobile MoEを開発しました。さらに、長期的な因果関係を捉えるため、未来の潜在状態を数珠つなぎに予測する「Chain-of-Foresight（CoF）」を導入しました。重要なのは、推論時には未来予測の枝を切り離し、現在の画像に対する単一の特徴抽出器として使うため、動画生成を待つことなく通常のポリシーと同じ高速性で動作できる点です。\n\n検証では、大規模シミュレータManiSkill-HABの7タスクにおいて平均成功率73.0%を記録し、点群や特権情報を使う既存のSOTA手法をRGB画像のみで凌駕しました。さらに実機の車輪型双腕ロボットARX Lift2にデプロイし、引き出しを開けて物を出し入れする長期タスクで従来モデル（$\\pi_{0.5}$）に大差をつけて勝利しました。動画世界モデルがモバイルロボットの全身協調において真価を発揮することを示した画期的な成果です。",
+ "contributions_ja": [
+  "動画生成拡散モデルを全身モバイルマニピュレーションへ体系的に適用し、RGB画像のみ・1段階の学習でManiSkill-HABのSOTAを更新したこと",
+  "未来の潜在特徴量をRNN形式で再帰的に予測することで、推論コストを一切増やさずに長期の時空間・因果一貫性を高める訓練手法「Chain-of-Foresight」を提案したこと",
+  "行動モデル内部で移動・操作・共通の3エキスパートを動的にルーティングし、ダイナミクスの異なる動作同士の干渉を防ぐ「Mobile MoE」を導入したこと",
+  "実機モバイルマニピュレータARX Lift2に実装し、タスクの工程が長くなるほど強力なベースライン（$\\pi_{0.5}$）に対して差を広げて優位性を示したこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜモバイルマニピュレーションに動画世界モデルが必要なのか",
+   "summary_ja": "モバイルマニピュレーションは単なる「移動＋卓上操作」の足し算ではなく、視点変化・マルチモーダル性・因果関係の深さが掛け合わされた本質的に難しい問題です。これらを解決するには世界がどう変化するかを予測する物理事前知識が不可欠であり、動画拡散モデルの導入が極めて自然な解決策になります。",
+   "details_ja": "卓上操作と移動マニピュレーションの間には、決定的な3つのギャップが存在します。\n\n1つ目は「視点（Viewpoint）」です。卓上ではカメラが固定されていますが、移動ロボットではロボット自身の移動（エゴモーション）に伴ってカメラが激しく動き回り、自己視点変化に頑健な視覚認識が求められます。\n2つ目は「マルチモーダル性（Multimodality）」です。台車が動けるため、同じ作業目標を達成する台車とアームの軌道パターンが無数に存在し、行動分布が非常に複雑になります。\n3つ目は「因果関係（Causality）」です。最初の台車移動で生じたわずかな位置ズレが、その後の把持を失敗させます。つまり、単なるステップ数の長さではなく「因果関係の深さ」が本質的な難しさなのです。\n\n従来のVLA（Vision-Language-Action）モデルのような浅い画像-行動マッピングではこの複雑さに対処できず、これまでの研究は3D点群や特権的な正解セグメンテーション情報に頼ってきました。一方で、Web動画で事前学習された動画拡散トランスフォーマーは豊かな物理法則や世界の推移を内包しており、世界行動モデル（World Action Model: WAM）として注目されています。しかし、従来研究は固定台の卓上ロボットばかりを対象としており、動画モデルの真の強みを生かしきれていませんでした。MobileWAMはこのギャップを埋めるための体系的なアーキテクチャとして提案されました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "世界行動モデルとモバイルマニピュレーションの交差点",
+   "summary_ja": "既存の世界行動モデル（WAM）は卓上操作に偏っており、モバイルマニピュレーション研究はモジュール分離型か特殊な3D表現・特権情報に依存していました。MobileWAMはこれらを統合し、RGB画像のみから動画生成の事前知識を直接全身制御へと引き出します。",
+   "details_ja": "本研究の立ち位置は、大きく3つの研究系統の交差点にあります。\n\n- 世界行動モデル（World Action Models: WAM）の潮流:\n未来の観測を生成的に想像することで物理的表現を獲得するモデルです。初期は動画生成と行動生成を分けた2段階手法でしたが、近年はMotusやLingBot-VAのように単一の拡散トランスフォーマーで完結させる手法が登場しています。しかし、これらはすべて固定台の卓上作業を前提としていました。\n\n- モバイルマニピュレーションのアプローチ:\nナビゲーションと操作を分離するモジュール型は、段階間の誤差蓄積という弱点があります。一方、エンドツーエンドの模倣学習（$\\pi_0$系やAC-DiTなど）は全身協調に挑んでいますが、3D点群データの入力や、正解の物体マスクといった特権的な補助監督信号を必要とするものが主流でした。MobileWAMは、そうした人手による複雑なパイプラインを排し、事前学習済み動画モデルの力でRGBのみから一貫性を獲得します。\n\n- 補助タスクとしての未来予測:\nピクセルそのものを生成する代わりに、未来の潜在特徴量を予測させることで表現学習を強化するアプローチです。LLMにおける次トークン予測やNext-Latent Predictionから着想を得ていますが、MobileWAMのChain-of-Foresight（CoF）は「物理世界の時間発展を再帰的にチェーンする」点で独自です。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "MobileWAMの構造：MoEと未来予測チェーンによる全身制御",
+   "summary_ja": "動画拡散モデル（World Expert）と行動生成モデル（Action Expert）を層ごとのJoint Attentionで結合します。移動と操作の干渉を防ぐ3専門家のMobile MoEと、未来の潜在状態を数珠つなぎに予測するCoFを組み込み、推論時は現在の特徴量キャッシュを使って超高速に動作します。",
+   "details_ja": "MobileWAMの具体的な仕組みは次の要素で構成されています。\n\n3.1 全体概要と入出力:\n時刻 $t$ において、頭部と手先の2台のRGBカメラ画像、固有受容感覚 $\\bm{s}_t$（関節位置・速度・オドメトリの18次元）、言語指示 $\\ell$ を受け取ります。出力は $H=4$ ステップ分の全身行動チャンク $\\bm{a}_{t:t+H}$ で、アーム（7軸）、グリッパ、頭部パン・チルト、昇降胴体、台車速度の合計13次元を同時に指令します。\n\n3.2 World Expert（動画バックボーン）:\n事前学習済みのWan動画拡散トランスフォーマー（30ブロック、隠れ層幅3072）を採用。3D VAEで時間方向に4倍圧縮されており、潜在空間の1ステップが行動チャンク長（$H=4$）と完全に一致します。頭部と手先のカメラ画像は横に連結され、アテンションを通じて自然に視点間の一貫性が担保されます。\n\n3.3 Action Expert と Mobile MoE:\n行動側は幅1024の軽量トランスフォーマーです。全30層の各層で、動画側の視覚トークンと行動トークンが層ごとの結合アテンション（Joint Attention）を行います。ここで重要なのが「Mobile MoE」です。空間を移動する台車制御と、繊細な接触を要するアーム操作を同じ重みで処理すると、互いの勾配が破壊的に干渉（Destructive Interference）してしまいます。そこで行動モデルの全FFN層を「共通（Shared）」「移動（Locomotion）」「操作（Manipulation）」の3つのエキスパートに分割しました。行動トークンから抽出した運動意図に基づいてソフトルータが重み付けし、干渉なく特化させます。\n\n3.4 Chain-of-Foresight (CoF):\n「次に何が起きるか？」だけでなく「その次は？さらにその次は？」という長期の因果関係をモデルに教え込むため、バックボーンの4つの層（第4, 12, 20, 30層）から特徴量を抽出し、未来の潜在状態 $\\bm{z}_1, \\dots, \\bm{z}_K$ をRNNのように再帰的に予測させます。各ステップの信念状態 $\\bm{h}_k$ が次のステップへ世界の状態を引き渡します。\n\n3.5 アテンションマスクと推論の効率化:\n動画トークンは行動トークンを見ず、行動トークンは現在の観測トークンのみを参照する「非対称マスク」を採用しています。これにより、推論時には動画生成やCoFの計算を完全に切り捨て、現在画像のバックボーン出力を1回キャッシュするだけで、行動のノイズ除去を反復実行できます。これにより、従来の動画生成型WAMに比べて5〜8倍の高速化を達成しました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "MobileWAMのアーキテクチャ。(a) 非対称アテンションで動画モデルと行動モデルを結合。(b) 訓練時のみ機能するChain-of-Foresight（CoF）で未来の潜在状態を数珠つなぎに予測。(c) 移動・操作・共通の3エキスパートを行動意図に応じて動的に使い分けるMobile MoEの構造です。",
+     "caption": "Figure 2: MobileWAM architecture. (a) Main model. The world and action experts fuse via asymmetric layerwise joint attention (actions read visuals; visuals never read actions); language and proprioception are injected via per-block cross-attention; every feed-forward layer of the action expert is a three-expert mobile MoE (shared $\\oplus$ locomotion $\\oplus$ manipulation) softly routed by motion-intent embeddings. (b) Chain-of-Foresight. Four uniformly spaced backbone layers fuse into belief $\\b",
+     "image": "details/2608.04657/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "シミュレーションと実機で実証された圧倒的な性能と汎化力",
+   "summary_ja": "ManiSkill-HABベンチマークで平均成功率73.0%を達成し、既存のSOTAを大幅に更新しました。CoFやMoEの各設計が効果的であることをアブレーションで確認し、実機ロボットARX Lift2による家庭環境タスクでも従来モデル（$\\pi_{0.5}$）を全タスクで凌駕しました。",
+   "details_ja": "4.1 実験設定:\nシミュレーションはFetchロボットを用いた家庭環境再配置ベンチマーク「ManiSkill-HAB（SetTable）」の7タスクで評価しました。各タスク1,000本の軌道データを用いて1段階で学習します。入力はRGB画像のみで、深度や点群は一切使いません。\n\n4.2 SOTAとの比較:\nTable 1において、MobileWAMは平均成功率73.0%を記録し、比較対象の全手法（AnchorVLAの64.0%、AC-DiTの55.6%、RDTの42.9%など）に大差をつけてトップに立ちました。他手法がゼロ近くまで性能崩壊する難タスクも含め、7タスク中5タスクで最高スコアを獲得しています。\n\n4.3 アブレーション研究:\n- 各コンポーネントの効果（Table 2）: ベースWAM（65.4%）にCoFを加えると68.9%（+3.5ポイント）に向上し、さらにMobile MoEを加えると73.0%（+4.1ポイント）へと着実に性能が積み上がりました。\n- 並列予測 vs 直列チェーン（Table 3）: 未来を並列に予測するだけでは52.3%にとどまりますが、CoFのようにトランスフォーマーで再帰的にチェーンさせると58.2%まで跳ね上がりました（簡易予算5,000ステップでの比較）。因果関係を数珠つなぎで渡すことの重要性が証明されています。\n- MoEの設計（Table 6）: 移動と操作を別々のネットワークにハードに分離すると性能が低下しました。共通表現を保ちながらソフトに役割分担するMoEが最も優れています。\n\n4.4 推論速度と実機デプロイ:\n推論時間は1サイクル約938msで、動画全体を生成してから動くMotus（約5.0秒）やLingBot-VA（約8.2秒）より5〜8倍高速です（Table 7）。また、実機のARX Lift2を用いた5つの家庭タスク（$T_a$〜$T_e$）において、最新の$\\pi_{0.5}$と比較したところ、全タスクでMobileWAMが勝利しました（Table 8）。特に「引き出しを開け、棚から物を取り、引き出しに入れて閉める」という最長の複合タスク$T_e$では、$\\pi_{0.5}$の成功率が0%だったのに対し、MobileWAMは15%を達成し、長期因果タスクでの強さを実証しました。\n\n4.5 失敗分析:\n失敗の約40%は微細な位置決め誤差（把持や配置の許容誤差外れ）、約25%は予期せぬ接触でした。特にアームの可動域限界付近での失敗が多く、幾何学的な厳密さが今後の課題として挙げられています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "冷蔵庫からの取り出しタスクで予測された未来動画の比較。(a)〜(d)の提案手法は台車の接近に伴ってリンゴが正しく拡大し形状が保たれていますが、(e)〜(h)の単なる微調整モデルは遠近法を無視して歪んでしまっています。",
+     "caption": "Figure 3: Generated futures during fridge picking. (a)–(d): our full model (CoF + mobile MoE); (e)–(h): the Wan backbone merely fine-tuned on the same data. Ours preserves perspective and shape consistency under base motion; the baseline distorts both.",
+     "image": "details/2608.04657/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "MobileWAMは、動画生成モデルの事前知識をモバイルマニピュレーションへと適応させる強力なフレームワークを確立しました。MoEによる動作干渉の解消とCoFによる因果学習により、推論コストゼロで全身協調制御の性能を大きく引き上げることに成功しました。",
+   "details_ja": "本研究は、動画生成世界モデルをモバイルマニピュレーションに本格統合した先駆的な成果です。層ごとのJoint Attentionによる動画と行動の融合、移動と操作を両立させるMobile MoE、そして推論時に一切の追加計算を発生させないChain-of-Foresightという3つの柱により、RGB画像のみ・単一ステージのシンプルな学習パイプラインで最高性能を達成しました。\n\n今後は、強化学習や人間による介入データを用いた事後学習（Post-training）、RGBにとどまらない幾何情報の統合、さらには動画モデルの大規模事前学習段階からCoFを組み込むことなどが有望な方向性として挙げられています。著者らは「モバイルマニピュレーションこそが、世界行動モデルが最も真価を発揮する主戦場である」と結んでいます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：実装の詳細と実機・シミュレーション環境の舞台裏",
+   "summary_ja": "モデルパラメータや損失関数の重み、実機ARX Lift2とシミュレータManiSkill-HABの詳細な実験プロトコルが記されています。Wi-Fi経由のリモートGPU推論による実機展開や、MoEのルータが実際の台車・アーム速度ときれいに連動している解析結果が示されています。",
+   "details_ja": "付録には、論文の再現や実機実装に役立つ重要な詳細情報が含まれています。\n\n- 実装と最適化パラメータ:\n動画バックボーンは約6.5B規模（Wanベース、30ブロック、隠れ層3072）で、VAEとT5テキストエンコーダは凍結しています。行動側は30ブロック、隠れ層1024です。Flow Matchingの損失重みは動画・行動ともに1.0、CoFは$\\lambda=0.1$とし、深さに応じた減衰重み$\\bm{w}=(0.4, 0.2, 0.1)$（チェーン長$K=3$）を設定しています。\n\n- 実機実験システム（ARX Lift2）:\n車輪型台車と昇降胴体、単腕を備えたロボットです。車載PCでは大規模モデルを動かせないため、2基のNVIDIA A800を搭載した外部サーバとWi-Fiで通信し、画像送信から行動チャンク受信まで約938msのサイクルで遠隔推論を行っています。\n\n- Mobile MoEのルーティング解析（Figure S8）:\n訓練済みモデルのルータの重みを分析したところ、台車速度が支配的な局面では自動的に「移動エキスパート」の重みが増加し、アーム操作が支配的な局面では「操作エキスパート」が選ばれていました。明示的な正則化損失を与えていないにもかかわらず、運動意図に応じた望ましい役割分担が自然に創発していることが確認されています。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "実機ロボットARX Lift2による5つの評価タスク（$T_a$〜$T_e$）。引き出しの開閉から棚と引き出しをまたぐ複合的な長工程タスクまで、自己視点の移動を伴いながら滑らかに実行しています。",
+     "caption": "Figure S5: Real-robot task suite on the ARX Lift2. Representative rollout strips for all five tasks $T_{a}$ – $T_{e}$ , ordered by increasing horizon. (a) $T_{a}$ : Open Drawer. (b) $T_{b}$ : Shelf to Target. (c) $T_{c}$ : Pick to Shelf. (d) $T_{d}$ : Deposit and Close. (e) $T_{e}$ : Compound sequence.",
+     "image": "details/2608.04657/F8.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "動画生成モデルの豊かな物理事前知識は、視点が激しく動き因果関係が深いモバイルマニピュレーションでこそ真価を発揮する",
+  "移動と操作というダイナミクスが異なる自由度をエンドツーエンドで学ぶ際は、MoEを用いてフィードフォワード層を分けることで干渉を防ぎ性能を大幅に伸ばせる",
+  "訓練時のみ未来の潜在表現をRNN形式で再帰予測させる「Chain-of-Foresight」は、推論コストを1ミリ秒も増やさずに長期の一貫性を獲得できる非常に優れた学習手法である",
+  "非対称アテンションと現在フレームのキャッシュを活用することで、動画モデルの重厚な事前知識を活用しつつ、実機で実用的なミリ秒単位の制御ループを実現できる"
+ ],
+ "limitations_ja": [
+  "ロボットの可動域限界（ワークスペースの境界付近）において微小な位置決め誤差が生じやすく、把持や配置の失敗の主因になっている",
+  "現状はRGB画像のみを入力としているため、ミリメートル精度の接触や薄い障害物の回避など、厳密な幾何学的一貫性の担保には限界がある",
+  "約6.5Bパラメータのモデルであるため、実機ロボットのオンボード計算機ではリアルタイム推論できず、A800等の強力な外部GPUサーバとの高速Wi-Fi通信に依存している"
+ ],
+ "keywords": [
+  "World Action Model",
+  "Mobile Manipulation",
+  "Diffusion Transformer",
+  "Chain-of-Foresight",
+  "Mixture of Experts"
+ ],
+ "id": "2608.04657",
+ "title": "MobileWAM: Bridging World Action Models to Mobile Manipulation with Chain-of-Foresight",
+ "title_ja": "MobileWAM: Chain-of-Foresightを用いた移動マニピュレーション向けワールドアクションモデル",
+ "authors": [
+  "Zehua Fan",
+  "Junjie He",
+  "Wenxuan Song",
+  "Xi Wang",
+  "Wenqi Lyu",
+  "Linge Zhao",
+  "Fuhao Li",
+  "Zihan You",
+  "Yifei Yang",
+  "Kaiming Xu",
+  "Qi Jiang",
+  "Yue Jiang",
+  "Haoang Li",
+  "Cheng Chi",
+  "Bailin Li",
+  "Yan Wang"
+ ],
+ "date": "2026-08-06",
+ "group": "focus",
+ "tags": [
+  "locomotion",
+  "manipulation",
+  "control",
+  "world-model"
+ ],
+ "categories": [
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.04657",
+ "pdf_url": "https://arxiv.org/pdf/2608.04657",
+ "summary_ja": "移動と全身制御が複雑に結合する移動マニピュレーションに向け、大規模動画拡散トランスフォーマーと軽量アクションエキスパートを融合したMobileWAMを提案。事前学習された動画像生成モデルの運動事前知識を全身制御へ変換し、移動と操作の不均一なダイナミクスを統合して環境変化に対する高い制御性能を実現した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.04657"
+}
