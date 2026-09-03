@@ -78,6 +78,8 @@
   section.chapter .body { margin-top: 8px; }
   .layer { font-size: 11px; color: var(--muted); font-weight: 700; letter-spacing: .04em; margin: 26px 0 8px; text-transform: uppercase; }
   section.chapter .body p { margin: 0 0 10px; }
+  section.chapter .body h3 { font-size: 15px; margin: 18px 0 6px; padding-left: 10px; border-left: 3px solid var(--line); }
+  .box h3 { font-size: 14px; margin: 12px 0 4px; }
   section.chapter .body ul { margin: 0 0 10px; padding-left: 22px; }
   section.chapter .body li { margin: 3px 0; }
   code { font-size: 90%; background: var(--focus); padding: 0 4px; border-radius: 4px; }
@@ -121,8 +123,10 @@ function renderBody(text) {
 
   for (const raw of String(text ?? "").split("\n")) {
     const line = raw.trim();
+    const heading = line.match(/^#{1,6}\s+(.*)$/);
     const bullet = line.match(/^(?:[-*•・]|\d+[.)])\s+(.*)$/);
     if (!line) { flushPara(); flushList(); continue; }
+    if (heading) { flushPara(); flushList(); out.push(`<h3>${inline(heading[1])}</h3>`); continue; }
     if (bullet) { flushPara(); list.push(bullet[1]); continue; }
     flushList(); para.push(line);
   }
