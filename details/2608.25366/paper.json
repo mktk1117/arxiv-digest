@@ -1,0 +1,137 @@
+{
+ "tldr_ja": "四足歩行ロボットが階段を含む多層階ビルを自律探査・地図作成するための新フレームワーク「RAEM」を開発しました。ローカルな断層地図と3Dグリッド、グローバルな標高対応トポロジカルグラフを巧みに組み合わせることで、計算負荷を抑えつつ階段での転倒や経路断絶を防ぎ、実機で5階分の連続踏破を達成しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "RAEMの全体コンセプトを示す図です。(a)多層階の重なりを捉える標高対応トポロジカルグラフ、(b)階段歩行時のふらつきを防ぐ踏面中央への視点アライメント、(c)点群欠損によるトポロジー切断を救済するグリッド探索、(d)物理的に到達不能な視点の自動破棄という4つの重要機能が連携して頑健な立体探査を実現します。",
+  "caption": "Fig. 1: Illustration of the proposed autonomous exploration framework for multi-floor environments, which consists of four main capabilities: (a) online elevation-aware topological graph construction in multi-floor structures; (b) centerline-constrained viewpoint generation on staircases to prevent the quadruped robot from falling due to yaw variations on stairs; (c) traversable grid-based path searching to compensate for topological failures in stairwells due to sparse and fragmented point clou",
+  "image": "details/2608.25366/F1.jpg"
+ },
+ "overview_ja": "ビルやプラントなどの屋内環境をロボットが自律探査する場合、車輪型よりも踏破性の高い四足歩行ロボットが期待されています。しかし、従来の地上ロボット向け探査アルゴリズムの多くは2次元格子や標高マップに依存しており、フロア同士が上下に重なり合う構造や階段を正しく扱えませんでした。立体構造をスライス状に捉える断層（トモグラフィ）地図を使う手法もありますが、大域的な断層地図をオンラインで更新し続けると計算負荷が膨大になり、リアルタイムな探査計画が破綻してしまいます。さらに、階段を下から見上げたときはLiDARの計測角が浅くなって点群がまばらになり、経路が途切れたり視点が散らばってロボットが旋回中に転倒する危険もありました。\n\nそこで著者らは、ローカルな立体解析とグローバルなトポロジー表現を分離した階層型フレームワーク「RAEM」を考案しました。ロボット周辺の局所領域でのみGPU並列化を用いて軽量な局所断層地図と3Dグリッド地図を生成し、大域的には標高を考慮した疎なトポロジカルグラフ（移動経路ネットワーク）を順次構築します。さらに、階段の踏面中央に視点を配置してヨー軸の急激な揺れを抑える機構や、トポロジーが途切れても局所グリッド上で迂回経路を見つけ出すデュアルパス探索を導入しました。\n\n検証では、Gazeboシミュレータ上で螺旋階段やクランク状階段を含む4つの多層階環境を用意し、既存の先端手法（TARE、FAEL、HPHS）と比較しました。既存手法がいずれも2階以上へ進めない中、RAEMはすべての環境で安定して100%の探査を完遂しました。さらに実機のUnitree Go2を用い、オンボードのJetson Orin NXのみで5階建て階段室の連続自律探査に成功し、実環境での高い信頼性と計算安定性を実証しました。",
+ "contributions_ja": [
+  "大域的な断層地図の更新を回避し、GPU並列化による局所断層・3Dグリッドと大域トポロジカルグラフを組み合わせたハイブリッドな移動可能性（トラバーサビリティ）表現を提案しました。",
+  "局所断層地図の上下層の幾何関係から、進入可能・自由・占有空間を明示的に判定する軽量な3Dグリッド地図の超高速GPU生成パイプラインを構築しました。",
+  "階段での点群欠損に起因する視点の散らばりを防ぐ「階段中央アライメント」を導入し、四足歩行ロボットの旋回ブレによる転倒リスクを排除しました。",
+  "トポロジーが局所的に分断された場合でも自律的に局所グリッドから安全な上昇経路を復旧する「デュアルパス探索機構」を確立しました。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜ四足歩行ロボットの多層階探査は難しいのか？",
+   "summary_ja": "地上ロボットによる多層階建物の自律探査は、従来の平面的な地図表現では上下の重なりや階段を扱えないという本質的な課題を抱えています。多層ナビゲーション用の断層地図をそのまま探査に適用すると膨大な計算負荷がかかり、階段での点群欠損によってロボットが不安定になる問題が生じます。RAEMはこれらの問題を局所・大域の表現分離と階段特化の制御戦略によって解決します。",
+   "details_ja": "ビルの3次元測量や施設点検において、地上ロボットはドローンに比べて可搬重量が大きく稼働時間も長いという強力な利点を持っています。しかし、従来の地上探査手法のほとんどは2次元グリッドや標高マップ（高さを1つの値で表す地図）を使っており、真上に床や天井がある「重なり構造」や階段を平坦化してしまうため、多層階環境では機能しません。\n\n多層階ナビゲーション向けに提案された断層（トモグラフィ）地図は立体構造の移動可能性を表現できますが、自律探査にそのまま持ち込むと2つの壁にぶつかります。\n- 第一に、大域的な断層地図の維持と経路再計画には莫大な計算コストがかかり、次々と未探索領域（フロンティア）を追いかける探査計画のリアルタイム性を損ないます。\n- 第二に、搭載LiDARが低い位置にあるため、階段を見上げるときに入射角が浅くなり、点群がまばら（スパース）かつ断片化してしまいます。その結果、生成される視点がジグザグに散らばり、ロボットが階段上で無理な旋回を行って転倒したり、地図上の接続が途切れて経路探索に失敗したりします。\n\nRAEM（Robust Autonomous Exploration for Multi-Floor Environments）は、これらのボトルネックを局所解析と大域表現の分離によって打破します。ロボット周囲の限定領域でのみGPUを用いて局所断層地図と3Dグリッドを生成し、大域的には標高を認識するトポロジカルグラフを段階的に紡いでいくことで、計算時間を劇的に削減しつつ安定した多層階探査を可能にしました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "RAEMが備える4つのコア機能です。多層の重なりを表現する標高対応トポロジーの構築(a)、階段踏面の中央に視点を補正して直進登坂させるアライメント(b)、接続断絶時にグリッド探索へ切り替えるデュアルパス探索(c)、登坂に伴う点群充実による到達不能視点の破棄(d)により、過酷な階段環境を突破します。",
+     "caption": "Fig. 1: Illustration of the proposed autonomous exploration framework for multi-floor environments, which consists of four main capabilities: (a) online elevation-aware topological graph construction in multi-floor structures; (b) centerline-constrained viewpoint generation on staircases to prevent the quadruped robot from falling due to yaw variations on stairs; (c) traversable grid-based path searching to compensate for topological failures in stairwells due to sparse and fragmented point clou",
+     "image": "details/2608.25366/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "ドローン、平面ロボット、多層ナビゲーションの狭間にあった技術的空白",
+   "summary_ja": "ドローン向け探査手法は自由空間を立体的に捉えますが、接地して歩行するロボットに必要な地形の移動可能性判定が欠けています。一方、既存の地上ロボット向け探査は平面仮定に縛られており、ナビゲーション用の多層地図は事後的な探索計算が重すぎてオンライン探査には適していませんでした。",
+   "details_ja": "多層階探査に関連する先行研究は、主に3つの分野に大別されます。\n\n- UAV（ドローン）向け探査:\nドローンは3次元空間を自由に飛翔できるため、UFOMapやOctoMapなどの3D占有グリッドを用いて自由空間の境界にあるフロンティアを求め、障害物のない空間にトポロジカルグラフを張るアプローチ（FUELやECHOなど）が主流です。しかし、これらは空間の抜けやすさだけを評価しており、地面の傾斜や段差の歩きやすさといった地上ロボット特有の移動可能性（トラバーサビリティ）を一切考慮していません。\n\n- AGV（地上走行ロボット）向け探査:\nTAREやFAELといった代表的な手法は、計算効率を高めるために2次元グリッドや標高マップを採用しています。これらは単一フロアの探査では極めて強固ですが、高さ方向の情報を1枚の平面に押しつぶしてしまうため、フロアが上下に重なるビルや階段を認識できず、立体的な建物全体を探索することが構造上不可能です。\n\n- 多層階ナビゲーション:\nPCT-Plannerなどの先行研究は、複数の2.5Dスライスを束ねた大域断層地図を導入し、張り出し構造や多層階の歩行可能領域を巧みにモデル化しました。しかし、これはあらかじめ完全な地図があることを前提としたナビゲーション向けであり、断片的な点群からオンラインで頻繁に再計画を繰り返す自律探査では計算負荷が爆発します。また、階段下からの観測不良に対する頑健性も不足していました。\n\nRAEMは、これらの間に存在していた「立体構造を扱いつつ、軽量かつ足場の不安定さに耐えうる探査表現」という空白を埋めるものです。",
+   "figures": []
+  },
+  {
+   "heading": "IV Methodology",
+   "heading_ja": "局所と大域を切り分けるハイブリッド構造と階段特化の安全機構",
+   "summary_ja": "ロボット周囲の局所断層地図と明示的に分類された軽量3DグリッドをGPU上で超高速に生成し、大域的にはCPU上で標高対応のトポロジカルグラフを更新します。階段では視点を踏面中央へ引き戻す機構と、トポロジー断絶時に局所グリッドを用いて経路を繋ぎ直すデュアルパス探索により、安全かつ連続的な登坂を実現します。",
+   "details_ja": "システム全体は、GPUとCPUの得意分野を明確に分担させた異種並列パイプラインで構築されています。\n\n- システム概要（IV-A）:\n点群の幾何解析やグリッド生成など並列性の高い局所処理をGPUに集約し、大域的なトポロジカルグラフの管理、フロンティア抽出、大域経路計画をCPUが担います。\n\n- 局所断層地図の構築（IV-C）:\nロボットを中心とする固定サイズの局所領域 $\\mathcal{B}_{local}$ 内で、等間隔の水平面群を用いて点群をスライスします。各スライス $S_k$ には床面標高、天井標高、移動コストのみを保持させます。床と天井の間隔（クリアランス）が最低高さを満たしているか、また床面の傾斜勾配が安全基準内かを判定し、危険な縁（エッジ）には高い侵入コストを課します。\n\n- 局所3Dグリッド地図のGPU生成（IV-D）:\n断層地図の2.5Dスライス情報から、GPUのスレッド並列処理によって鉛直カラムごとにグリッド状態を「未知・占有・自由・通行可能（traversable）」の4値に瞬時に分類します。床面直上の1セルだけを通行可能セルとし、下層の天井と上層の床に挟まれた空間は建築スラブ（床構造）と見なして占有セルと判定します。さらに通行可能セルを水平方向に1セル膨張させて階段領域の接続性を補強します。\n\n- スライス別障害物抽出と大域トポロジー構築（IV-E, IV-F）:\n各スライスの進入不能セルを2D平面に射影して2次元ツリー構造を構築し、高速な障害物距離クエリを可能にします。この距離情報と局所グリッドの衝突判定を用い、安全な通行可能領域に頂点をサンプリングしてエッジを張ることで、多層の重なりを捉えた標高対応トポロジカルグラフをインクリメンタルに拡張します。\n\n- 視点生成と階段中央アライメント（IV-G）:\nフロンティアをクラスタリングした後に候補視点を生成し、計算量を抑制します。特に階段を検出した場合、足場を踏み外すリスクを防ぐため、通行可能セルを領域拡張法でグルーピングして踏面（ステップ）の幾何学的中心線へと視点位置を強制的に補正します。\n\n- デュアルパス探索（IV-H）:\n階段下からの観測が不完全でトポロジカルグラフが切断されていても、局所3Dグリッド上の通行可能セルを直接A-star探索するフォールバック機構を備えています。これにより、トポロジーが復旧する前でも安全に上階へ向かう誘導経路を生成できます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "RAEMの全体システム構成です。GPUが局所断層地図、局所3Dグリッド、スライス別障害物ツリーを並列処理で高速生成し、CPUがそれらを受け取って大域トポロジー更新、視点選定、デュアルパス探索を実行する協調アーキテクチャになっています。",
+     "caption": "Fig. 2: System overview of RAEM. The framework explicitly leverages GPU parallelization for the rapid generation of local tomography map, local 3D grid map, and the extraction of slice-based obstacles. Concurrently, the CPU manages a continuously updated occupancy grid for identifying frontiers. These detected frontiers, combined with the GPU-derived local spatial representations, directly drive the core modules, including elevation-aware topological graph construction, viewpoint generation, and",
+     "image": "details/2608.25366/F2.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "局所3Dグリッドの構築ロジックです。(a)-(c)で単一スライスの床・天井から通行可能空間と自由空間を同定し、(d)(e)で隣接スライス間の隙間を占有スラブとして埋め、(f)で通行可能セルを安全に膨張させて階段の接続性を高めます。",
+     "caption": "Fig. 4: Illustration of construction processes of the local 3D grid map $\\mathcal{M}^{L}_{grid}$ . (a)-(c) illustrate the intermediate grid state assignments processed through the structural logic of individual slices. (d) and (e) demonstrate the structural logic across multiple slices, where previously unassigned spatial grids bounded between the ceiling of a lower slice and the ground of an adjacent upper slice are rigorously classified as occupied grids (red) representing solid architectural ",
+     "image": "details/2608.25366/F4.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "フロンティアからの視点生成プロセスです。(a)フロンティア周辺にサンプルを配置して表面へ投影、(b)スライスごとに障害物距離を評価して候補を選定、(c)可視フロンティアが最大の点を選び、(d)階段領域では踏面の中央位置へ視点を引き戻します。",
+     "caption": "Fig. 7: Illustration of viewpoint generation. (a) Raw samples are evaluated where invalid points (green) are discarded, and valid points (red) are vertically projected to surface-level positions (orange). (b) Projected points are categorized according to the specific slice scopes they fall into (e.g., blue and brown subsets). After eliminating points located too close to obstacles (red crosses), the remaining safe points are clustered using collision-free circles to extract candidate viewpoints.",
+     "image": "details/2608.25366/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "階段におけるデュアルパス探索の動作例です。(a)点群の疎さからトポロジカルグラフが途切れても、(b)局所3Dグリッドの通行可能セル上をA-starで直接探索し、上階の視点へ至る黄色の誘導経路を確実に導出します。",
+     "caption": "Fig. 8: Illustration of the dual path searching approach for staircases. (a) Graph-based searching fails due to topological discontinuity. (b) The fallback traversable-grid based searching successfully resolves a valid trajectory (yellow path) to the upper-floor viewpoint.",
+     "image": "details/2608.25366/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Experiments",
+   "heading_ja": "シミュレーション完全踏破と実機5階建て階段室の自律制覇",
+   "summary_ja": "Gazeboシミュレータの4つの多層階環境において既存の代表的3手法と比較し、唯一すべての環境で100%の探査率を達成しました。アブレーション実験ではGPUによる18倍の高速化や階段中央補正による転倒防止効果を証明し、実機のGo2を用いた実験ではオンボードPCのみで5階建ての階段室を登り切る頑健性を示しました。",
+   "details_ja": "実験はシミュレーションと実機実験の双方で詳細に行われました。\n\n- シミュレーション比較評価（V-A）:\n螺旋階段を含む3階建て（$scene\\_1$）、クランク階段の3階建て（$scene\\_2$）、多部屋構造の2階建て（$scene\\_3$）、狭隘通路とブラインドコーナーを含む複雑な4階建て（$scene\\_4$）を用意しました。TARE、FAEL、HPHSと比較した結果、TAREとFAELは平面前提の地図表現であるため1階の探査後に上階へ進めず、局所プランナ依存のHPHSは複雑環境で失敗を繰り返しました。対してRAEMは各環境20回の試行すべてで完全探査を達成しました。\n\n- 計算コストとアブレーション（V-B〜V-F）:\n1回の計画周期にかかる平均時間は、通路主体の環境で0.1秒未満、開放空間を含む環境でも0.2秒程度と極めて軽量でした。GPUによる局所3Dグリッド構築は、CPU処理に比べて約18倍高速であることが確認されました。また、視点生成をサンプリング方式（FAEL形式）からクラスタリング方式に変えたことで計算時間が約半分に抑えられ、空間の広さによらず一定の応答性を維持できました。\n\n- 階段特化機能の効果検証（V-E, V-F）:\n階段中央アライメントを外すと、階段上で急激なヨー角旋回が発生し、20回中1回でロボットが横転して滑落・大破する致命的な事故が発生しました。中央アライメントを適用した場合は20回すべてで直進的な安定登坂を維持できました。また、デュアルパス探索をトポロジー単体と比較したところ、探索成功率が12/20から20/20へと大幅に向上し、不完全な観測下での突破力が実証されました。\n\n- 実機実験（V-G）:\nUnitree Go2にMid-360S LiDARとJetson Orin NX（16GB）を搭載し、Fast-LIO2をオドメトリとして用いて実証しました。1階から5階まで連続する階段室（$stairwell$）では、4つの踊り場と連続階段を自律的に乗り越えて最上階まで探査をやり遂げました。さらに2フロアにまたがるビル環境2箇所や、広大なエントランスロビー（$lobby$）でも立ち止まることなく滑らかな連続探査に成功しました。",
+   "figures": []
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "まとめと今後の展望：複数ロボット協調によるさらなる大規模探査へ",
+   "summary_ja": "RAEMは局所的な断層地図・3Dグリッドと大域的な標高対応トポロジーを融合し、四足歩行ロボットによる多層階建物の頑健なオンライン自律探査を初めて実用レベルで確立しました。階段での知覚劣化や力学的不安定性も専用のアルゴリズム群で克服されており、今後は複数ロボットによる協調探査への拡張が目指されています。",
+   "details_ja": "本論文では、四足歩行ロボットの運動特性と多層階建築の幾何学的複雑さに適応した自律探査フレームワーク「RAEM」を確立しました。\n\n従来の課題であった大域断層地図の計算爆発に対しては、局所解析（断層・3Dグリッド）と大域計画（トポロジカルグラフ）の巧みな分離によって、リアルタイム性と多層構造の表現力を両立させました。また、ロボット工学の実用上きわめて深刻だった「階段での視点散乱による転倒」と「点群欠損による経路途絶」という2大課題に対し、階段中央アライメントとデュアルパス探索という具体的かつ効果的な解法を提示しました。\n\n著者は本研究の成果をコミュニティに還元するため、論文採択後に全ソースコードを公開することを表明しています。今後は、本手法をベースに複数台のロボットが協調して広大な超高層ビルや複合施設を同時並行でマッピングする大規模探査システムへの発展が期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「局所は高精細な幾何解析（GPU）、大域は軽量なトポロジー（CPU）」という階層的分離は、計算資源が限られた自律探査において極めて有効な設計パターンです。",
+  "階段のような危険地形では、探査の最適性（情報利得）だけでなく、ロボットの旋回ブレを防ぐ幾何的アライメントなどの力学的安定性を計画器側で明示的に担保することが不可欠です。",
+  "観測の蓄積によって後から地図が修復される性質を利用し、一時的なトポロジー切断を局所グリッド探索のフォールバックで補うアプローチは、センサ視野が制限される地上ロボット全般に応用可能です。"
+ ],
+ "limitations_ja": [
+  "現在のシステムは階段を「上る」探査に特化しており、階段を「下りる」フロア間移動には明示的に対応していません。",
+  "下り階段の未対応は、LiDARの固定ピッチ角（下向き45度）による死角と、四足歩行ロボットの降下歩行における動的安定性・制御精度の難しさに起因しています。",
+  "自己位置推定にはFast-LIO2を採用しているため、長大で幾何特徴の乏しい廊下などではオドメトリが破綻するリスクがあり、実験でも一部手動の障害物設置で進入を防ぐ場面がありました。"
+ ],
+ "keywords": [
+  "Autonomous Exploration",
+  "Quadruped Robot",
+  "Multi-Floor Environments",
+  "Tomography Map",
+  "Topological Graph"
+ ],
+ "id": "2608.25366",
+ "title": "RAEM: Robust Autonomous Exploration for Multi-Floor Environments with a Quadruped Robot",
+ "title_ja": "RAEM：四脚ロボットによる多層階環境のロバストな自律探査",
+ "authors": [
+  "Zikang Yuan",
+  "Yuan Ren",
+  "Yian Wang",
+  "Yixue Wang",
+  "Enze Fang",
+  "Xuewei Zhang",
+  "Junda Cheng",
+  "Chi Chen",
+  "Chin-Pang Ho",
+  "Lijun Zhu",
+  "Shaohang Xu",
+  "Kwang-Ting Cheng",
+  "Xin Yang"
+ ],
+ "date": "2026-08-27",
+ "group": "focus",
+ "tags": [
+  "quadruped",
+  "navigation",
+  "planning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.25366",
+ "pdf_url": "https://arxiv.org/pdf/2608.25366",
+ "summary_ja": "四脚ロボットが階段を含む多層階構造の建物を探査するための自律探査フレームワークを提案。グローバルトモグラフィマップの維持負荷や階段部での疎なLiDAR点群による局所通行性推定の劣化に対処し、多層階の連結構造を効率的に把握してロバストな経路計画と移動探査を実現する。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.25366"
+}
