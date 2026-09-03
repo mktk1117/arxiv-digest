@@ -1,0 +1,130 @@
+{
+ "tldr_ja": "通信遅延76ミリ秒という劣悪な300ドルの格安四足歩行ロボットに対し、LSTMを用いた強化学習を行うことで、生物の脊髄のような自律リズム生成機構（CPG）が自然に創発し、複雑な状態推定器なしに安定した実機歩行を実現できることを示しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "低コストなトイ級サーボモータと、研究用の高価なアクチュエータの比較です。(a) 本研究で使った300ドルのMini Pupper 2は、1個8ドルのブラシ付きDCサーボを採用しており、ESP32のシリアル通信を介するため76 msもの巨大な遅延と位置情報しか得られない制約があります。(b) 一方、数十万〜数百万円する研究用ロボットは、トルクや速度が即座に取れて遅延も5 ms未満です。このハードウェア格差をどうソフトウェアで埋めるかが本論文の核心です。",
+  "caption": "Fig. 1: Comparison of actuator architectures. (a) Brushed DC position servo (Mini Pupper 2): $8, position-only feedback, 76 ms communication delay via ESP32 serial path. (b) Brushless quasi-direct-drive motor (research platforms): $200–$500, torque/velocity/position feedback, $<$ 5 ms latency.",
+  "image": "details/2607.26434/F1.jpg"
+ },
+ "overview_ja": "近年、強化学習（RL）を使った四足歩行ロボットの制御は目覚ましい発展を遂げています。しかし、それらの華々しい成功例の多くは、数十万〜数百万円もする高性能なアクチュエータ（準ダイレクトドライブモータなど）を積んだ高級機に依存していました。こうした高級機は遅延がほぼなく（5 ms未満）、トルクや関節速度を高精度にフィードバックできます。\n\n一方で、300ドル程度で手に入るホビー用の格安四足歩行ロボット（Mini Pupper 2など）に強化学習ポリシーを乗せようとすると、絶望的な壁にぶつかります。アクチュエータは安価なブラシ付きサーボで、通信経路の都合上、指令を出してから届くまで76 msもの巨大な通信遅延（トランスポート遅延）が発生します。さらに、センサからは荒い関節位置しか返ってこず、関節速度もトルクも取得できません。このため、マルコフ決定過程（MDP）を前提とした標準的な強化学習では、現実のロボットを全く歩かせることができませんでした。\n\nそこで著者らは、神経科学・生物学の仕組みに着目しました。実は生物の神経系も、脳から筋肉への伝達や感覚フィードバックに100〜160 msもの大きな遅延を抱えています。それでも動物が走れるのは、脊髄にある「CPG（中枢パターン生成器）」が自律的な歩行リズムを作り出し、遅くて不完全な感覚信号に過度に頼らない制御を行っているからです。\n\nこの着想をもとに、著者らは76 msの遅延を組み込んだシミュレーション環境を用意し、MLP、LSTM、GRU、Transformerという4種類のネットワーク構造を比較しました。その結果、過去の隠れ状態を線形に保持できる「シフトレジスタ」的な誘導バイアスを持つLSTMだけが、明示的な周期信号を与えていないにもかかわらず、自律的なリズム（CPG）を自然に学習・創発させることが分かりました。さらに、実機サーボの非線形な挙動を関節ごとの小さなMLPで予測させ、荒れたセンサフィードバックをあえて切り捨てるオープンループ的な配線にすることで、追加のパラメータチューニングをほとんど必要とせずに、格安実機での安定した歩行に成功しました。",
+ "contributions_ja": [
+  "76 msもの極端なアクチュエータ通信遅延と不完全なセンサ情報を持つ格安ロボット（Mini Pupper 2）において、実機歩行を達成する完全なSim-to-Realパイプラインを構築しました。",
+  "遅延環境下でLSTMを強化学習させると、明示的な報酬や事前構造を与えなくても、生物の脊髄のような自律的リミットサイクル（CPG）が自然に創発することを力学系解析で証明しました。",
+  "関節ごとのノイズアブレーション実験を行い、粗悪なハードウェアでは観測フィードバックをあえてゼロ化した方が歩行が安定する「ノイズの逆転現象（閾値σ≈0.2 rad）」を突き止めました。",
+  "長時間の遅延補償にはLSTMを用い、短時間のサーボ動力学予測には状態を持たないMLPを用いるという「階層ごとの時間スケールに応じた最適なモデル分離」を提案しました。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "高級ロボットの特権を崩せ：格安ハードウェアが直面する「76ミリ秒の深淵」",
+   "summary_ja": "強化学習によるロボット歩行の成功は高価なハードウェアに支えられていますが、安価なロボットでは大きな通信遅延とセンサ欠損によって制御が極めて困難になります。この課題は生物の神経系が抱える遅延環境と酷似しており、POMDP（部分観測マルコフ決定過程）として定式化することで解決の糸口が見えてきます。",
+   "details_ja": "強化学習（RL）による四足歩行のデモは世界中で注目を集めていますが、その多くは1万〜15万ドル（約150万〜2000万円以上）もする研究用プラットフォームで行われています。これらには高価な準ダイレクトドライブ（QDD）モータが使われており、遅延は5 ms未満と極めて小さく、トルク・速度・位置のすべてが高精度に取得できます。つまり「お金で遅延と観測の忠実度を買っている」状態でした。\n\n一方、教育やホビー向けの安価なロボット（例えば300ドルのMini Pupper 2）は、1個8ドルのブラシ付きDCサーボモータで動いています。マイコン（ESP32）のシリアル通信などを経由するため、指令値がモータに届くまで76 msもの遅延が発生します。さらに、返ってくる情報は量子化された位置情報のみで、速度もトルクも取得できません。\n\n実機の周波数応答を測定したところ（図 F2）、1〜6 Hzにわたって一定の76 ms遅延が存在し、3 Hzを超えるとサーボの追従性能が激しく劣化することが分かりました。指令が届いた頃には関節の状態がすでに見当違いな場所へ動いているため、単純なフィードバック制御を行うと発振してしまいます。\n\n### I-A Problem Statement\nこの問題を解決するには、単純なネットワークに対して人間が手作業で精巧な状態推定器（オブザーバ）を作るべきでしょうか？ それとも、時間情報を扱えるリカレントなネットワークに遅延ダイナミクスそのものを内部で学習させるべきでしょうか？\n\n遅延が $k$ ステップあるシステムでは、現在の状態 $s_t$ だけでなく、未実行の過去のアクション履歴 $[a_{t-k}, \\dots, a_{t-1}]$ を状態に含めなければマルコフ性が成り立ちません。さらに速度やトルクが観測できないため、この問題は本質的にPOMDP（部分観測マルコフ決定過程）となります。著者らは生物の神経系（筋肉へのフィードバックに100〜160 msの遅延がある）から着想を得て、時間認識能力を持つニューラルネットワークがこの部分観測性をどう解決できるかを検証しました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "実機サーボモータの遅延と周波数応答の同定結果です。正弦波の指令値（青破線）に対して実際の位置（赤実線）をプロットすると、1〜6 Hzにおいて約76 msの一定した通信遅延が存在し、3 Hzを超えると追従性が著しく低下することが見て取れます。",
+     "caption": "Fig. 2: Identification of actuator transport delay and tracking bandwidth. Real servo frequency response: sinusoidal position commands (blue dashed) vs. measured servo position (red solid) at 1–10 Hz. Cross-correlation reveals a constant 76 ms transport delay at 1–6 Hz. Tracking degrades above 3 Hz.",
+     "image": "details/2607.26434/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Methods",
+   "heading_ja": "シミュレーション学習と実機デプロイ：異なる時間スケールをどう繋ぐか",
+   "summary_ja": "NVIDIA Isaac Lab上で76 msの遅延を忠実に再現したアクチュエータモデルを用いてPPOにより学習を行いました。4種類のネットワークを比較したところLSTMのみが安定収束し、実機へのデプロイにはポリシーとサーボ予測モデルを分離する二層アーキテクチャを採用しました。",
+   "details_ja": "### II-A Training\n学習には NVIDIA Isaac Lab（IsaacSim）と PPO（Proximal Policy Optimization）を用い、RTX 4090（1枚）上で4096個の並列環境を走らせました。実機で測定した76 msの遅延を再現するため、500 Hzの物理シミュレーションにおいて33〜43ステップ分の通信遅延（トランスポート遅延）を注入する `DelayedPDActuatorCfg` を構築しました。\n\n観測空間は60次元で、ベースの並進・角速度、投影された重力ベクトル、速度指令、12関節の相対位置、関節速度、関節トルク、前回の行動などで構成されます。\n\n### II-B Network Architectures\nMLP、LSTM、GRU、Transformerの4種類を、同一の環境・報酬設計（カリキュラムなし）で比較しました。驚くべきことに、カリキュラムなしで安定した歩行を獲得できたのはLSTMだけでした。\n\n- MLP：遅延やペナルティを徐々に増やす多段階カリキュラム学習を行わないと収束しませんでした。\n- GRU：同じリカレント構造でありながら、全く歩行を獲得できませんでした。GRUは更新ゲートがステップごとに非線形変換を挟むため、遅延した行動をそのまま保持する「シフトレジスタ（遅延バッファ）」のような線形経路を維持できないためと考えられます。\n- Transformer：今回の学習予算内では収束しませんでした。固定ステップの遅延を単に保持するタスクに対しては、LSTMのセル状態が持つ誘導バイアス（Inductive Bias）が圧倒的に有利に働きます。\n\n### II-C Deployment\n実機へ乗せる際には大きな問題が2つあります。1つ目は実機サーボが位置しか返さない点、2つ目は指令頻度が高すぎるとモータが追従できず誤差が蓄積する点です。そこで制御周波数を25 Hzに落としました。\n\nMLPを展開するには、欠損した速度やトルクを再構成する「合成PDオブザーバ」が必要で、6個以上の手動チューニングパラメータ（剛性、ダンピング、慣性、遅延段数など）を調整しなければなりませんでした。\n\n一方、LSTMのデプロイは非常にシンプルです。実機エンコーダの乱れた値は使わず、ポリシー自身の出力から関節ごとの小さなMLP（サーボ予測モデル）が推定した関節位置をそのまま次の観測として戻す、ほぼオープンループな構成をとります。実機センサから使うのはIMU（ジャイロと重力ベクトル）の6次元（全体のわずか10%）だけで、調整パラメータは指令スケール（0.75倍）のほぼ1つだけです。",
+   "figures": []
+  },
+  {
+   "heading": "III Results",
+   "heading_ja": "驚くべき結果：生物のような自律リズム（CPG）の創発と、ノイズの逆転現象",
+   "summary_ja": "LSTMは報酬関数に周期的な指示を一切与えていないにもかかわらず、脊髄のように自律して歩行リズムを刻むCPG（中枢パターン生成器）を獲得しました。さらにノイズ耐性実験では、劣悪なフィードバック信号はあえて遮断（ゼロ化）した方がロボットが安定して歩けるという衝撃的な事実が明らかになりました。",
+   "details_ja": "### III-A Emergent Central Pattern Generator\nLSTMを学習させた結果、驚くべき現象が確認されました。歩行の周期的な報酬やオシレータ構造を一切与えていないにもかかわらず、隠れ状態の内部で自律的な周期的運動パターン、すなわちCPG（中枢パターン生成器）が創発したのです（図 F4）。\n\n実機上での関節軌道を単一周波数の正弦波にフィッティングしたところ、決定係数 $R^2=0.77$ という極めて高い周期性を示し、全関節が約2.8 Hzで整然と同期してトロット歩行を行っていました。この歩行リズムは感覚フィードバックを遮断しても自律して持続し、IMUから入る重力ベクトルによって傾斜地や段差に対応する柔軟性も見せました。これは、動物が感覚入力を切除（求心路遮断）されても歩行リズムを維持し、内耳の前庭系シグナルでバランスを保つ生物学的CPGの特徴と完全に一致しています。\n\n### III-B Robustness to Observation Delay: LSTM vs. MLP\n学習時の76 msに加え、さらに最大+320 msの観測遅延を追加する過酷なストレステストを行いました（図 F5）。主成分分析（PCA）を用いたアトラクタ解析を行ったところ、LSTMのアクション空間の軌道は+320 msの遅延が加わっても綺麗な楕円形のリミットサイクル（周期的アトラクタ）を維持しました。一方、MLPは遅延が大きくなると軌道が平らな線へと崩壊し、歩行振幅が0.49から0.16へと激減して発振が止まってしまいました。\n\n### III-C Sim-to-Real Deployment\n実機のセンサフィードバックを本当に使うべきなのかを検証するため、関節観測にガウスノイズを加えるアブレーション実験を行いました（図 F7）。その結果、ノイズ標準偏差が $\\sigma \\approx 0.2$ rad を境にパフォーマンスが逆転するクロスオーバー現象を発見しました。ノイズがこの閾値より大きい場合、センサ値をフィードバックするよりも、観測をゼロにして無視した方が遥かに安定して歩けるのです。\n\n実機サーボの位置ノイズは $\\sigma = 0.101$ rad とギリギリ有用な範囲でしたが、差分から計算した関節速度ノイズは $\\sigma = 3.17$ rad/s と閾値を遥かに超えていました。安価なロボットでフィードバックループを閉じると破綻するのは、まさにこの速度ノイズが原因だったのです。\n\nまた、実機のサーボ応答は数式モデル（解析的PDシミュレーション）と大きく乖離していました（誤差0.1〜1.8 rad）。そこで、実機を3往復動かしただけの少量データ（390サンプル）から学習させた「関節ごとの小さなMLP」をサーボ予測器として採用しました（図 F8）。これにより誤差は0.003〜0.03 radへと激減しました。ここでサーボ予測器にLSTMを使ってしまうと、少量データで過学習して予測がドリフトし、ポリシーとの間で悪循環を起こして自滅します。ポリシーには長期の遅延を記憶できるLSTMを、サーボ予測には毎ステップリセットされる状態を持たないMLPを割り当てる設計が、実機成功の決定打となりました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "Mini Pupper 2実機におけるLSTMの創発歩行パターンです。(a) 実機外観。(b) 各脚の腿関節角度、スタンス/スイング位相ダイアグラム、指令アクションの推移を示しています。明示的なリズム報酬を与えていないにもかかわらず、全関節が約2.8 Hzの安定したトロット歩行リズム（CPG）を形成しています。",
+     "caption": "Fig. 4: LSTM emergent gait. (a) Mini Pupper 2. (b) Top: thigh angle traces for the four legs. Bold curves show one rollout, faint curves show 6 independent environments, which converge to consistent apparent CPG oscillations. Middle: gait phase diagram showing diagonal stance/swing coordination (trot-like pattern). Bottom: Thigh action for four legs over several gait cycles. All joints oscillate at approximately 2.8 Hz on hardware.",
+     "image": "details/2607.26434/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "診断用の遅延摂動を加えた際のリミットサイクルアトラクタ解析です。アクション空間のPCA射影を見ると、LSTM（上段）は基準遅延に加えて+160 ms、+320 msの追加遅延が加わっても安定した楕円軌道（リミットサイクル）を維持しているのに対し、MLP（下段）は遅延が増えると軌道が帯状に潰れて振動構造を失っています。",
+     "caption": "Fig. 5: Limit-cycle attractor analysis under diagnostic delay perturbation. PCA projections computed jointly across all delay conditions for consistent axes. Action-space attractors (12-dim $\\to$ PC1–PC2): LSTM orbits are preserved at +320 ms extra delay; MLP orbits collapse into flat horizontal bands, losing oscillatory structure. Top: Internal state attractors (128-dim $\\to$ PC1–PC2): LSTM cell state traces a robust elliptical orbit across 0, +160, +320 ms delay (60.4% variance in 3 PCs). Bott",
+     "image": "details/2607.26434/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "関節観測ノイズと実機歩行性能のアブレーション結果です。ノイズ標準偏差 $\\sigma \\approx 0.2$ rad 付近で性能のクロスオーバーが起き、それ以上のノイズ環境ではフィードバックをゼロにした方が安定することが分かります。実機の速度ノイズ（$\\sigma = 3.17$）はこの閾値を大きく超えているため、オープンループ運用が最適となります。",
+     "caption": "Fig. 7: Observation ablation and sim-to-real deployment. (a) Noise vs. zeroed joint-state ablation showing the crossover at $\\sigma\\approx 0.2$ rad. Observation ablation: gait correlation (relative to full-observation baseline) under Gaussian noise injected into joint-state observations (dims 12–48) vs. zeroed joint state. Both LSTM (corr $=0.826$ when zeroed) and MLP (corr $=0.698$ ) cross over at $\\sigma\\approx 0.2$ rad: noise beyond this level degrades the gait more than having no joint state",
+     "image": "details/2607.26434/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "LSTMデプロイにおける4通りの観測ソースの比較です。解析的なPDシミュレーション（青、RMSE 0.1〜1.8 rad）は実機の挙動（赤）から大きく乖離しますが、データから学習した関節ごとのMLPサーボモデル（黄、RMSE 0.003〜0.03 rad）は実機サーボの応答を極めて正確に再現できています。",
+     "caption": "Fig. 8: Four-way observation source comparison for LSTM deployment: Sim PD (analytic DelayedPDActuator), learned LSTM servo model, learned MLP servo model, and actual real servo response. Per-joint RMSE shown in subplot titles. The MLP servo model (RMSE 0.003–0.03 rad) closely tracks actual servo dynamics across all 12 joints, while the analytic PD sim (RMSE 0.1–1.8 rad) diverges significantly. The LSTM servo model achieves better single-step prediction but accumulates drift during autoregressiv",
+     "image": "details/2607.26434/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Discussion",
+   "heading_ja": "なぜ生物と同じ戦略に至ったのか？ ロボティクスを民主化するアーキテクチャ設計",
+   "summary_ja": "大きな遅延とノイズを持つシステムでは、ハードウェアの精度を上げるのではなく、適切なネットワークの誘導バイアスを選ぶことで課題を克服できます。制御レイヤごとに適切な時間ホライズンを割り当てることが実機適応の鍵となります。",
+   "details_ja": "シミュレーション上で強化学習ポリシーを訓練することは容易になりましたが、高価なハードウェアを使わずに実機へ移す（Sim-to-Real）ことは依然として極めて困難でした。本研究が示した最も重要な洞察は、「ハードウェアの物理的精度をお金で買う代わりに、適切なニューラルネットワークのアーキテクチャ（誘導バイアス）を選ぶことで、遅延とノイズの壁を突破できる」という点です。\n\n生物が大きな神経伝達遅延に対処するために脊髄CPGを発達させたのと全く同じように、遅延を組み込んだPOMDP環境で強化学習を行うと、LSTMは自律的なオシレータへと自己組織化しました。GRUのように隠れ状態の更新に非線形ゲートが強く干渉する構造では、過去のアクションを忠実に持ち運ぶ「シフトレジスタ」としての機能を維持できず、遅延補償に失敗します。また、Transformerは理論上強力ですが、計算コストが膨大で、低コストなハードウェアを動かすためのエッジ環境には向きません。\n\nさらに重要なのは、「制御のレイヤごとに適切な時間ホライズンを使い分ける」という設計思想です。長期的な遅延補償と歩行パターンの維持には、自己回帰的な安定性を持つLSTMポリシーが適しています。しかし、短時間のサーボダイナミクス予測にまでリカレントモデル（LSTM）を使ってしまうと、わずかな予測誤差が自己回帰ループの中で蓄積（ドリフト）し、ポリシーの出力を狂わせてしまいます。短期間の予測にはあえて記憶を持たないステートレスなMLPを配置することで、誤差の伝播を断ち切ることに成功しました。",
+   "figures": []
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめ：低コスト四足歩行ロボットの未来を拓くCPGアプローチ",
+   "summary_ja": "通信遅延76 msを抱える300ドルの格安ロボットに対し、LSTMポリシーと軽量MLPサーボモデルを組み合わせることで、強靭な実機歩行を実現しました。過酷な遅延環境下では、生物のように自律リズムを生成する時間認識型ネットワークが本質的な解決策となります。",
+   "details_ja": "本論文では、76 msの通信遅延とセンサ欠損を持つ300ドルの四足歩行ロボット「Mini Pupper 2」を対象に、完全なSim-to-Realパイプラインを実証しました。\n\nMLPポリシーを実機で動かすには6個以上のパラメータを手動で調整した「合成PDブリッジ」が必要だったのに対し、LSTMポリシーは自律的にCPG（中枢パターン生成器）を獲得し、指令スケールを調整するほぼ1つのパラメータだけで実機に適用可能でした。力学系アトラクタ解析とノイズアブレーション実験により、LSTMが遅延摂動に対して頑健なリミットサイクルを維持できる理由、そして低品質なセンサ信号をあえて捨てるべき理由が理論的・実験的に解明されました。\n\n通信遅延が支配的な低コストプラットフォームにおいて、線形なメモリ経路を持つリカレントアーキテクチャを採用することは、手作業による煩雑なデプロイ調整からエンジニアを解放する強力なアプローチです。大きな遅延が存在する環境では、自律的にリズムを生成するという生物学的戦略こそが、身体性を持った制御（Embodied Control）における普遍的な解法になり得ることを本研究は示唆しています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "アクチュエータの通信遅延が大きい場合、強化学習のポリシーにLSTMを採用すると、明示的な報酬を与えなくても自律歩行リズム（CPG）が自然に創発する。",
+  "低コストなサーボのようにフィードバックノイズが極端に大きい場合（閾値σ≈0.2 rad超）、無理にセンサ値を使ってフィードバックループを閉じるより、観測をゼロ化してオープンループで動かした方が安定する。",
+  "デプロイ時の多層制御において、ポリシーのような大域的制御には記憶を持つLSTMが適しているが、サーボ予測のような局所ダイナミクスには誤差の蓄積を防ぐため記憶を持たないステートレスなMLPが最適である。",
+  "高級なロボットを買わなくても、遅延を明示的に組み込んだPOMDP設計と適切な誘導バイアス（LSTM）を組み合わせることで、300ドルの格安ハードウェアでも高度な強化学習歩行が可能になる。"
+ ],
+ "limitations_ja": [
+  "実機の脚や股関節の機械的な非対称性、およびIMUジャイロのドリフトにより、直進歩行時にわずかに時計回りの弧を描いてしまうハードウェア由来の偏向が残っている。",
+  "サーボダイナミクスを予測するMLPモデルを訓練するために、実機でのデータ収集（オープンループ再生）を事前に行う必要があり、長時間の収集は安価なサーボを破損させるリスクがある。",
+  "検証された移動タスクは平地およびシミュレーション上の緩やかな起伏が中心であり、不整地でのダイナミックな跳躍や急激な外力外乱に対するステップ回復性能までは検証されていない。"
+ ],
+ "keywords": [
+  "Reinforcement Learning",
+  "Sim-to-Real Transfer",
+  "Central Pattern Generator",
+  "Actuator Latency",
+  "Partially Observable Markov Decision Process"
+ ],
+ "id": "2607.26434",
+ "title": "Reinforcement Learning on Cost-Constrained Quadrupedal Hardware",
+ "title_ja": "低コスト四足歩行ハードウェアにおける強化学習",
+ "authors": [
+  "Javier C. Weddington",
+  "Bence P. \\\"Olveczky",
+  "Stephen A. Baccus"
+ ],
+ "date": "2026-07-30",
+ "group": "focus",
+ "tags": [
+  "quadruped",
+  "locomotion",
+  "reinforcement-learning",
+  "sim-to-real"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI"
+ ],
+ "abs_url": "https://arxiv.org/abs/2607.26434",
+ "pdf_url": "https://arxiv.org/pdf/2607.26434",
+ "summary_ja": "Mini Pupper 2などの低コスト四足歩行ロボットで生じる50ms以上の応答遅延とノイズによるsim-to-realギャップに対処する強化学習手法を提案。生物学に着想を得た遅延・ノイズ処理により部分観測問題を克服し、格安実機での歩行制御性能を大幅に向上させた。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2607.26434"
+}
