@@ -1,0 +1,161 @@
+{
+ "tldr_ja": "対照強化学習（CRL）が転倒や衝突などの失敗終了環境で過大評価を起こす原因を理論的に解明し、追加の安全報酬なしに「失敗終了の1ビット信号」だけで安全かつ持続的なゴール到達を実現するSafe-CRLを提案した論文です。",
+ "hero_figure": {
+  "key": "F3",
+  "caption_ja": "失敗終了によって失われる将来の占有量（生存質量）と、Safe-CRLによる2つの補正の全体像です。Critic側では軌道ごとの正規化歪みを重み付きInfoNCEで相殺し、Actor側では欠落した生存質量の対数スコアを加算することで、正しい行動評価を復元しています。",
+  "caption": "Figure 3: Failure termination removes part of the discounted future-goal occupancy. Established CRL normalizes the remaining pre-failure futures, whereas Safe-CRL corrects the trajectory-wise normalization distortion in critic learning and restores the missing survival mass in actor updates.",
+  "image": "details/2608.26571/F3.jpg"
+ },
+ "overview_ja": "近年、大規模なネットワークを活用できる対照強化学習（CRL: Contrastive Reinforcement Learning）が、ゴール条件付き強化学習の有望な枠組みとして注目されています。しかし、ロボットの転倒や障害物への衝突によって即座にエピソードが終了する「失敗終了」がある環境では、致命的な問題が生じます。\n\n従来のCRLでは、失敗する直前までの将来状態だけを正例として取り出し、それらを確率の合計が1になるように正規化して対照学習を行います。実はここに落とし穴があります。すぐ後にクラッシュする短い軌道も、長く安定して生き残る軌道も、同じ「1」という重みに引き伸ばされてしまうのです。その結果、危険な直前軌道が過剰に成功例として強化され、ゴールに突っ込んで即座に転倒・激突する「持続不可能なゴール到達」や、危険領域から抜け出せなくなる学習破綻が引き起こされます。\n\nそこで著者らは、失敗によって削ぎ落とされた割引将来占有量を「生存質量（Survival Mass）」と定義し、数学的導出に基づいて2つの最小限の補正を導入しました。Critic側には生存質量で重み付けしたMW-InfoNCE損失を適用し、Actor側には軽量な予測器から得られる対数生存質量スコアを加算する「Safe-CRL」です。\n\n12種類のロボットナビゲーションおよび歩行・移動タスク（Brax/MJX環境）で検証したところ、追加の安全コストや複雑な制約設計を一切使わず、終了判定という「1ビットの信号」のみから劇的な生存時間とゴール到達性能の向上を達成しました。さらに、ネットワークを深くするほど性能がスケールする深層CRLの特性もしっかり維持されています。",
+ "contributions_ja": [
+  "失敗終了を伴う対照強化学習（CRL）において、従来の将来リラベリングが引き起こす系統的な過大評価バイアスと学習破綻メカニズムを理論的に定式化しました。",
+  "Critic学習の歪みを正す「MW-InfoNCE」と、Actor更新で生存質量を復元する「対数生存質量スコア」という2つの軽量かつ理論整合的な補正法（Safe-CRL）を提案しました。",
+  "追加の安全性アノテーションやコスト関数を必要とせず、エピソード終了を表す1ビット信号のみで安全な制御則を学習できる枠組みを確立しました。",
+  "12種類の過酷なナビゲーションおよび歩行タスクにおいて、従来のScaling-CRLを大きく上回る生存時間とゴール滞在時間を達成し、深層化による性能向上（スケーラビリティ）も実証しました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ従来の対照強化学習はゴール直後に自滅してしまうのか？",
+   "summary_ja": "モデルの深層化に適した対照強化学習（CRL）ですが、失敗終了があるタスクではゴール到達直後に衝突・転倒する問題が生じます。本章では、失敗によって失われる将来占有量（生存質量）を無視した正規化がその根本原因であることを指摘し、本研究のリサーチクエスチョンを提示します。",
+   "details_ja": "深層学習モデルを大規模化して方策の表現力を高めるアプローチは、強化学習でも急速に重要性を増しています。特にゴール条件付き強化学習（GCRL）では、疎なゴール到達報酬を自己教師あり学習の対照学習へと変換する対照強化学習（CRL）が、ネットワークの深層化によるスケーリングを可能にする有力な枠組みとして確立されつつあります。\n\nしかし、ロボティクスの実タスクには「失敗終了」がつきものです。四足歩行や人型ロボットの歩行では転倒すると即座にエピソードが終わりますし、ナビゲーションや自動運転でも障害物に衝突すればそこで運行停止となります。こうした安全性が重要な環境で求められるのは、単にゴールに辿り着くだけでなく、生き残り続けること（Arrive and Survive）です。しかも、実用上は人間による細かな安全ペナルティのチューニングや追加のコストアノテーションに頼らず、終了判定という「1ビットの失敗信号」だけで学習できるのが理想です。\n\nところが従来のCRLは、失敗によって将来状態が途切れても、生き残った短いステップだけを集めて全体の確率が1になるように再正規化してしまいます。つまり「何が到達可能か」という情報だけを保持し、「どれだけの将来占有量が生き残っているか（生存質量）」という情報を捨ててしまうのです。\n\nこれにより、2つの深刻な破綻が生じます。1つは、訓練初期のリプレイバッファに溢れる短い失敗軌道が過剰に正例として学習され、危険な行動から抜け出せなくなる「破滅的失敗ブートストラップ」です。もう1つは、図 F2に示すように、猛スピードでゴールに突っ込んで直後に壁に激突したり転倒したりする「持続不可能なゴール到達」です。本論文は、この問題を解決するために、生存質量を正しく復元する拡張法「Safe-CRL」を提案します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "従来のScaling-CRLで見られる持続不可能なゴール到達の例です。(a) Pointエージェントはゴール到達直後に動く障害物と衝突し、(b) Antは猛スピードでゴールに入り壁に激突、(c, d) 歩行ロボットはゴール到達直後に転倒してしまいます。",
+     "caption": "Figure 2: Examples of unsustainable goal reaching under Scaling-CRL. (a) The Point agent reaches the goal region but subsequently collides with a moving obstacle; (b) the Ant reaches the goal at high speed and overshoots into the wall; (c–d) locomotion agents reach the goal but fall immediately afterwards. These examples illustrate that successful short-term goal reaching does not necessarily lead to a stable trajectory under failure termination.",
+     "image": "details/2608.26571/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 The missing survival mass in CRL",
+   "heading_ja": "理論で暴く：失われた「生存質量」と過大評価バイアス",
+   "summary_ja": "失敗終了を伴うMDPにおいて、真のQ値が「失敗を考慮した割引将来占有量」と等価であることを証明します。従来の正規化処理が正の過大評価バイアスを生み、CriticとActorの双方を狂わせる仕組みを数式で明らかにします。",
+   "details_ja": "ここでは問題の核心を理論的に解き明かします。まず前提として、無限ホライズンのMDPであれば、ゴール到達の行動価値関数（Q関数）は割引将来状態占有量と完全に一致することが知られていました。しかし、失敗終了時間 $T_f$ が存在する環境では事情が異なります。\n\n著者らは Proposition 1 として、失敗終了がある場合のゴール到達Q関数が「失敗を考慮した将来ゴール占有量 $\\mu_f^\\pi$」と厳密に一致することを示しました。重要なのは、この $\\mu_f^\\pi$ は確率の総和が1未満になる「劣確率測度」であるという点です。その総質量を著者らは「生存質量 $Z^\\pi(x)$」と名付けました。これは直感的には、幾何分布からサンプリングされた将来ステップが、失敗する前に収まっている確率を表します。\n\nところが、従来のCRLは観測された短い軌道内の有効な状態だけを取り出し、その総和が1になるよう割り戻して（正規化して）対照学習の正例を作ります。これによって生じる推定値 $\\hat{Q}_{\\text{CRL},g}^\\pi(s,a)$ は、真のQ値に対して常に非負の過大評価バイアス（$1/\\hat{Z}_\\tau \\ge 1$ による増幅）を抱えることになります（式 12）。軌道の生存長 $L_\\tau$ が短いほど増幅率は跳ね上がります。\n\nこの正規化の悪影響は、CriticとActorの双方に分離して現れます（図 F3 参照）。\n- Critic側（軌道ごとの正規化歪み）：短い危険な軌道が、長く安全な軌道と全く同じ「重み1」で扱われるため、Criticが学習する条件付きゴール分布そのものが歪んでしまいます（式 13）。\n- Actor側（生存質量の欠落）：たとえCriticの分布形状を正しく修正できたとしても、対照スコアは正規化された分布しか表現できません。真の価値は「正規化分布 $\\times$ 生存質量 $Z^\\pi(x)$」に分解されるため（式 14）、Actorの目的関数から行動依存の生存質量が丸ごと抜け落ちてしまうのです。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "失敗終了に伴う生存質量の欠落と、Safe-CRLの補正アプローチです。従来のCRLが失敗後の占有量を捨てて無理やり正規化していたのに対し、Safe-CRLはCritic側でMW-InfoNCEにより軌道ごとの重みを正し、Actor側で対数生存質量スコアを加算して元の非正規化占有量を復元します。",
+     "caption": "Figure 3: Failure termination removes part of the discounted future-goal occupancy. Established CRL normalizes the remaining pre-failure futures, whereas Safe-CRL corrects the trajectory-wise normalization distortion in critic learning and restores the missing survival mass in actor updates.",
+     "image": "details/2608.26571/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "3 Safe-CRL by restoring the survival mass",
+   "heading_ja": "Safe-CRL：2つのミニマルな修正で安全性を復元する",
+   "summary_ja": "同定された2つの歪みに対し、Critic側には実現生存質量でInfoNCEを重み付ける「MW-InfoNCE」、Actor側には予測された対数生存質量スコアを加算する補正を導入します。追加コストは軽量なZ-encoderを1つ足すだけです。",
+   "details_ja": "理論的な原因が分かれば、解決策は非常にシンプルでエレガントです。論文では2つの修正を導入しています。\n\n### 3.1 Critic側の修正：質量重み付きInfoNCE（MW-InfoNCE）\n各軌道が正例生成時に自身の実現生存質量 $\\hat{Z}_i$ で割られていたのなら、対照損失の行全体に同じ $\\hat{Z}_i$ を掛け直せばよいという発想です（式 15）。Proposition 2 で証明されている通り、この重み付けを行うことで軌道ごとの正規化の偏りが期待値の上で綺麗にキャンセルされ、Criticは真の占有量と同じ形状の条件付き分布を学習できるようになります。\n\n### 3.2 Actor側の修正：対数生存質量補正\nCriticが正しい正規化占有量 $\\bar{\\mu}_f^\\pi$ を捉えたとしても、真の価値にするには生存質量 $Z^\\pi(x)$ を掛ける必要があります。対数密度比の世界では、これは単純に $\\log Z^\\pi(x)$ を足し算することに相当します（Corollary 1、式 18）。これにより、Actorの行動順位付けは真の失敗考慮型Q値と完全に一致します。\n\n### 3.3 実装とZ-encoderの学習\nこれらの補正を行うため、状態・行動から生存質量を予測する軽量なネットワーク「Z-encoder」 $Z_\\psi(s,a) \\in (0, 1)$ を導入します。幾何分布からサンプリングしたホライズン $H_t$ より前に失敗したかどうかを表す二値ラベル $Y_t$ を使い、二値クロスエントロピー損失（式 19）によるモンテカルロ推定で学習させます。Actorの更新時は、対照スコアに $\\log Z_\\psi(s,a)$ を加算し、Z-encoderを通して行動入力に対する勾配を流します。\n\n「失敗を1つの終端状態として対照学習の出力空間に含めればいいのでは？」と思うかもしれませんが、失敗状態は全アンカーで共有されるため負例サンプリングが破綻し、そもそもActorの指示ゴールにもなり得ません。ゴールの空間を汚さず、生存質量だけを外付けで復元するSafe-CRLの設計が極めて理にかなっています。",
+   "figures": []
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "過酷な12種類のロボットタスクで実力を試す",
+   "summary_ja": "Brax/MJXを用いたPoint、Car、Ant、Humanoidの計12タスクで性能を検証します。床の摩擦係数を下げ、アクチュエータ出力を制限することで極めて転倒しやすい難条件を設定し、ベースラインであるScaling-CRLと比較します。",
+   "details_ja": "提案手法の有効性を検証するため、物理シミュレータBrax（MJXバックエンド）上に構築された12種類のナビゲーションおよび移動タスクを用意しました（図 F4）。\n- ナビゲーション（Point Goal, Car Goal）：Safety-Gymnasium由来のタスクで、動く障害物（gremlins）や落とし穴（hazard）への侵入が即座に失敗終了となります。ゴール到達後は新たなゴールが再出現します。\n- 脚ロボットの移動（Ant, Humanoid）：Scaling-CRL由来のタスク群（Goal, Maze, Pitfall）で、転倒すると即座にエピソードが終了します。さらに落とし穴タスクでは危険領域侵入でも終了します。より失敗しやすくするため、地面の滑り摩擦係数を通常の1.0から0.6へと大幅に低減し、Humanoidでは関節トルク（actuator gears）を落とした滑りやすく倒れやすい過酷なダイナミクスに設定しています。\n\n観測空間には、壁や障害物を検知するための2D LiDAR情報（オクルージョン考慮）が含まれています。比較対象には、同一条件下で対照学習を深層化した強固なベースラインである「Scaling-CRL」を採用しました（付録ではSAC-HERとも比較）。ネットワークは主に64層の超深層ResNet構成（Point/Carは8層）を用い、Safe-CRLにはわずか4層のZ-encoderを追加しています。\n\n評価指標には次の3つを採用しています。\n1. Time at goal（ゴール滞在時間）：ゴール領域内に留まり続けたステップ数。到達の速さとその後の安全維持の両方を反映する最重要指標です。\n2. Survival time（生存時間）：失敗終了または制限時間（1000ステップ）までに生き残ったステップ数。\n3. Goal coverage（ゴール網羅率）：少なくとも1回以上ゴールに到達できたエピソードの割合。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "実験で使用された12種類のロボット環境です。Point/Carの二次元ナビゲーションから、滑りやすい床面や落とし穴（青い柱）、迷路を走破するAntおよびHumanoidの高度な移動タスクまで、多様な失敗終了タスクで構成されています。",
+     "caption": "Figure 4: Illustrations of the experimental environments. The goal is represented by a bright green cylinder (for Point and Car Goal) or a meshed sphere (for Ant and Humanoid locomotion tasks). The walls in Maze environments are concrete, while other obstacles, hazards (pitfalls), and moving gremlins (purple spheres in Point Goal and Car Goal) are non-colliding (ghost objects). Contacting maze walls is not a failure; entering a designated task-specific failure region triggers failure termination",
+     "image": "details/2608.26571/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Results and discussion",
+   "heading_ja": "圧倒的な生存能力と、創発する高度な回避行動",
+   "summary_ja": "Safe-CRLは12タスク全てでベースラインを上回るゴール滞在時間と生存時間を記録しました。ネットワーク深層化によるスケーラビリティも維持されており、後退歩行や減速、大回りといった高度な安全回避動作が自律的に創発しました。",
+   "details_ja": "ベンチマーク結果は目覚ましいものでした。Safe-CRLは評価した全12タスクにおいて、Scaling-CRLを上回る平均ゴール滞在時間と平均生存時間を達成しました。\n\n特に転倒しやすい高難度なタスクでの伸びが顕著です。例えばAnt Goalではゴール滞在時間が276.8ステップから684.0ステップへと2.4倍以上に跳ね上がり、Humanoid Goalでは22.2ステップから266.4ステップ、Humanoid Big Pitfallでは8.2ステップから474.1ステップへと劇的な改善を見せました。Scaling-CRLはゴール網羅率は高くても生存時間が極めて短いケースが多く、まさに「突っ込んで自滅する」持続不可能なゴール到達に陥っていたのに対し、Safe-CRLはその弱点を完全に克服しています。\n\nさらに、深層化による性能スケーリング（深さ4層から256層まで）を検証したところ、ネットワークを深くするほどゴール滞在時間・生存時間が伸びるスケーラビリティがSafe-CRLでも維持されていました。驚くべきことに、わずか8層のSafe-CRLが、64層のScaling-CRLと同等以上の性能を発揮しており、サンプル効率の観点でも極めて優秀です。\n\n学習された方策の振る舞い（図 F8）を可視化すると、1ビットの失敗信号しか与えていないにもかかわらず、驚くほど賢い行動が創発していました。\n- Pointロボットは、動く障害物の間をすり抜けるために一度ブレーキを踏んでS字を描くようにリプランニングします。\n- Humanoidは、背後にあるゴールに向かって転倒しないよう後ろ向きに歩行したり、ゴール到達後の勢い余るオーバーステアから体勢を立て直したりします。\n- 落とし穴（Pitfall）環境では、ロボットが事前に進路を変えて大回り（迂回）したり、狭い隙間を慎重に減速して通り抜ける動作が確認されました。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "Safe-CRLによって学習されたポリシーの実行スナップショットです。Pointエージェントの動的障害物回避、Humanoidの後退歩行や転倒からのリカバリー、密集した落とし穴を大回りして回避する長期計画など、高度な安全行動が確認できます。",
+     "caption": "Figure 8: Visualization of the policy learned by Safe-CRL. Each row contains 5 snapshots captured from one evaluation episode, showing the key failure-avoidance behaviours of the agent.",
+     "image": "details/2608.26571/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Ablations",
+   "heading_ja": "何が効いているのか？コンポーネントの徹底検証",
+   "summary_ja": "アブレーション実験により、性能向上の主因はActor側の対数生存質量補正にあることが判明しました。また、重み係数βの検証から、理論に忠実な係数設定（β=1）がバランス良く機能していることが確認されました。",
+   "details_ja": "Safe-CRLを構成する2つの補正（MW-InfoNCEと対数生存質量補正）の役割を切り分けるため、アブレーション実験を行いました（Table 1）。\n\nその結果、MW-InfoNCE単体ではScaling-CRLからの改善はごくわずかであり、性能向上の大半はActor側の「対数生存質量補正（$\\log Z$ 補正）」によってもたらされていることが分かりました。例えばHumanoid Goalにおいて、MW-InfoNCE単体ではゴール滞在時間が28.3ステップにとどまるのに対し、$\\log Z$ 補正のみを適用した場合は288.7ステップへと大幅に向上しました。これは第2章の理論通り、対照学習側の正規化歪みを整えるだけでは不十分で、Actorのポリシー更新に生存質量を直接反映させることが決定的に重要であることを裏付けています。\n\nまた、Actor目的関数における対数生存質量の重み係数 $\\beta$（理論上は $\\beta=1.0$）を 0.2、1.0、5.0 と変化させる実験も行われました。$\\beta$ を大きくすると生存時間は伸びる傾向がありますが、ゴール到達性能とのトレードオフは環境に依存します。Safe-CRLではこれを場当たり的なハイパーパラメータとしてチューニングするのではなく、理論から直接導かれた $\\beta=1$ に固定して強固な結果を出している点も実用上大きなメリットです。",
+   "figures": []
+  },
+  {
+   "heading": "7 Conclusion",
+   "heading_ja": "まとめ：自己教師あり強化学習における「安全」の新常識",
+   "summary_ja": "失敗終了を伴う対照強化学習では、観測された将来の相対関係だけでなく、終了によって失われる「総占有量」を保存することが不可欠です。Safe-CRLは最小限の追加コストでこれを実現し、安全なスケーラブル強化学習の新たな標準を提示しました。",
+   "details_ja": "本論文は、失敗終了が存在する対照強化学習において、失われた生存質量を考慮しない正規化が系統的な過大評価バイアスを引き起こすことを数学的に突き止めました。そして、Critic側の質量重み付きInfoNCEと、Actor側の対数生存質量スコアという2つのシンプルな補正を組み合わせた「Safe-CRL」を提案しました。\n\nSafe-CRLは、複雑な制約付きMDP（CMDP）の定式化や安全コストの報酬エンジニアリングを一切必要とせず、エピソード終了という「1ビットの信号」だけを頼りに、生存時間とゴール到達性能を劇的に引き上げました。大規模モデル時代における自己教師あり強化学習では、「観測された将来状態の分布だけでなく、失われた占有量の絶対値も復元しなければならない」という極めて重要な知見をコミュニティにもたらしています。",
+   "figures": []
+  },
+  {
+   "heading": "8 Related work",
+   "heading_ja": "関連研究との違い：制約付きRLや生存時間モデルとの位置づけ",
+   "summary_ja": "従来のHERやC-learning、Scaling-CRLの流れを汲みつつ、制約付きMDP（CMDP）や生存時間分析アプローチとの決定的な違いを整理します。Safe-CRLはCRLの表現枠組みをそのまま保ちつつ歪みだけを補正する点に新規性があります。",
+   "details_ja": "本研究を取り巻く関連研究は、大きく3つの系統に分かれます。\n\n1. ゴール条件付きRLと対照強化学習（GCRL / CRL）：\nHERに代表される過去の将来リラベリング技術や、それを密度比推定として定式化したCRL、さらに深層化を可能にしたScaling-CRLが存在します。また、確率的ダイナミクスによる選択バイアスを補正するUSHERなどの研究もありますが、失敗終了による「生存質量の消失」という本質的課題に着目した研究はこれまでありませんでした。\n\n2. 生存分析に基づく強化学習（SVL / SRL）：\nエピソード終了までの時間をモデル化するSVLや、ゴール滞在時間（dwell-time）を考慮するSRLなどが近年提案されています。これらはイベント発生までの時間分布を直接モデル化する別のアプローチです。対してSafe-CRLは、CRLの占有量・密度比推定という強力な枠組みをそのまま維持した上で過大評価を取り除くアプローチをとっています。\n\n3. 制約付きマルコフ決定過程（CMDP）：\nCPOやラグランジュ乗数法など、安全性をコスト関数の累積制約として解く安全強化学習の王道分野です。しかしこれらは「危険事象＝即座にエピソード終了」を前提としておらず、明示的なコスト関数の設計が必須となります。Safe-CRLは1ビットの終了信号だけで動作するため、より現場への導入が容易です。",
+   "figures": []
+  },
+  {
+   "heading": "付録（Appendix）",
+   "heading_ja": "付録：計算コスト、TD学習との比較、そして残された課題",
+   "summary_ja": "追加されたZ-encoderの計算オーバーヘッドはわずか2.8%にとどまること、TD学習よりもモンテカルロ推定が安定すること、そして依然として探索の空間的偏りが残るという限界点を考察します。",
+   "details_ja": "付録では、実装と実用性に関わる重要な追加実験データが報告されています。\n\n- 計算オーバーヘッドの小ささ：\n64層の超深層Actor/Criticに対し、追加したZ-encoderはわずか4層です。パラメータ数の増加は約4.2%、実時間での訓練時間の増加は1億環境ステップあたりわずか2.8%（9.07時間から9.32時間へ）に過ぎず、極めて低コストに導入できます（Table D.2）。\n\n- TD学習ではなくモンテカルロ推定を採用する理由：\n生存質量 $Z(s,a)$ をTD学習（Clipped Double-Q）で推定する代替案も検証されましたが（Figure D.3）、Car GoalやHumanoid Goalにおいて性能が著しく低下しました。幾何分布からサンプリングしたステップでの打ち切り判定に基づく二値分類（モンテカルロ推定）の方が、学習が圧倒的に安定することが確認されています。\n\n- 探索の限界（図 F9）：\nSafe-CRLは価値評価の歪みを完璧に修正しますが、CRLが本質的に抱える「探索の偏り」までは解決できません。図 F9 に示すように、ロボットの初期位置から遠い場所や死角となるエリアでは、ゴール到達の成功率に空間的な偏り（非対称性）が残ります。安全な状態表現に基づくいっそう効率的な探索手法との統合が、今後の重要な研究課題として挙げられています。",
+   "figures": [
+    {
+     "key": "F9",
+     "caption_ja": "プレイグラウンド内の異なるゴール位置における成功率のヒートマップです（暗い色ほど低成功率）。初期位置（菱形マーク）からの距離や幾何学的配置によって学習の進捗に偏りがあり、生存質量の復元だけでは探索の不均一性までは解消しきれない限界を示しています。",
+     "caption": "Figure D.4: Success rate for goals at different places in the playground. Darker colors indicate lower goal-reaching success rates. The robot initially faces the +x axis direction ( $\\rightarrow$ ). The diamond marks the initial position of the robot.",
+     "image": "details/2608.26571/F9.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "失敗終了のある環境で従来の対照強化学習（CRL）を使うと、短い失敗軌道が過大評価され、ゴール直後に激突・転倒する行動が強化されてしまいます。",
+  "真の価値関数は「正規化された占有量」と「生存質量」の積に分解できるため、Critic側のInfoNCE行重み付けと、Actor側の対数生存質量加算の2点だけで数学的に厳密な補正が可能です。",
+  "複雑な安全コスト関数やハイパーパラメータチューニングを必要とせず、「失敗して終了した」という1ビットの信号だけで安全な振る舞いを獲得できます。",
+  "計算オーバーヘッドは訓練時間比でわずか2.8%程度であり、ネットワークを深くするほど性能がスケールするCRLの利点も完全に保持されます。"
+ ],
+ "limitations_ja": [
+  "エピソードが終了しないタイプの安全性コスト（継続的な微小ペナルティやCMDP型の制約）には直接対応していません。",
+  "エピソードのタイムリミット打ち切りによる右側打ち切り（right-censoring）の扱いが完全ではなく、タイムリミットまで生き残ったサンプルはすべて「生存」として扱われています。",
+  "CRLが本質的に持つ探索の偏り（遠方や死角にあるゴールに対する到達率のムラ）自体を解消するわけではないため、高度な探索メカニズムとの併用が今後の課題です。"
+ ],
+ "keywords": [
+  "Contrastive Reinforcement Learning",
+  "Goal-Conditioned RL",
+  "Safe Reinforcement Learning",
+  "Survival Mass",
+  "Deep Reinforcement Learning"
+ ],
+ "id": "2608.26571",
+ "title": "Arrive and Survive: Scaling Safe Goal-Conditioned Policy Learning from One-Bit Failure Signals",
+ "title_ja": "到達と生存：1ビットの失敗シグナルから安全なゴール条件付き方策学習をスケールさせる手法",
+ "authors": [
+  "Guopeng Li",
+  "Yiyang Duan",
+  "Yiru Jiao",
+  "Chengcheng Xu"
+ ],
+ "date": "2026-08-30",
+ "group": "focus",
+ "tags": [
+  "reinforcement-learning",
+  "safety",
+  "control"
+ ],
+ "categories": [
+  "cs.LG",
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.26571",
+ "pdf_url": "https://arxiv.org/pdf/2608.26571",
+ "summary_ja": "対比強化学習（CRL）において失敗終了時に生じるゴール到達価値の過大評価バイアスを理論的に解明し、安全性を担保する方策学習法を提案。失敗による確率損失を補正することで、危険な遷移の過剰評価を防ぎ、安全なゴール到達を可能にする。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.26571"
+}
