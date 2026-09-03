@@ -1,0 +1,127 @@
+{
+ "tldr_ja": "厳密な尤度計算ができる自己回帰型正規化流（AR-NF）をロボット操作のオフライン強化学習に導入し、学習時のサンプリング不要な強化学習手法と推論時の1ステップ蒸留によって、高いタスク性能と約8.5倍の高速化を両立した研究です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "RoMAN-Flowの全体構成です。マルチモーダル入力を条件として連続行動チャンクと潜在変数を可逆変換し、オフライン強化学習（NF-IQL）ではデータセット内の行動に対してアドバンテージ重み付き尤度を直接最大化します。推論時は潜在変数からの逆変換により行動を生成します。",
+  "caption": "Figure 1: Overview of RoMAN-Flow. RoMAN-Flow adopts an invertible AR-NF architecture that maps continuous action chunks to latent variables conditioned on multimodal inputs. For imitation learning, it maximizes the exact conditional likelihood of demonstrated action chunks under a Gaussian latent prior. For action generation, it samples latent variables from the Gaussian prior and recovers action chunks through the autoregressive inverse transformation. For likelihood-based reinforcement learnin",
+  "image": "details/2608.20208/F1.jpg"
+ },
+ "overview_ja": "ロボット操作において、近年主流のDiffusion PolicyやFlow Matchingは複雑な行動分布を表現できる一方で、厳密な行動の対数尤度（その行動が選ばれる確率密度）を簡単に計算できません。そのため、言語モデルで大成功を収めているような「尤度を直接押し上げるオフライン強化学習」を適用するのが難しいという課題がありました。離散トークン化を用いた自己回帰モデルなら尤度を扱えますが、量子化誤差によりロボットの滑らかで緻密な連続制御が損なわれがちです。\n\nそこで著者らは、画像生成分野で発展してきた「自己回帰型正規化流（AR-NF）」に着目しました。AR-NFは連続空間のまま高い表現力を持ち、可逆変換によって厳密な尤度を高速に計算できるという理想的な性質を持っています。しかし、AR-NFには「生成（逆変換）が逐次処理になるため遅い」という大きなボトルネックがあり、学習中のサンプリングや実機での高速な推論が困難でした。\n\nこの問題を解決するために提案されたのが「RoMAN-Flow」です。まず強化学習フェーズでは、現在の方策から行動をサンプリングせず、オフラインデータセット内の行動の尤度だけをアドバンテージ（行動の価値の高さ）に応じて引き上げる「NF-IQL」を設計しました。これにより、学習時の逐次生成ループを完全に回避しています。さらに推論フェーズでは、学習済みAR-NFを1ステップで全行動を並列生成する双方向モデルへと蒸留することで、逐次逆変換の手間を解消しました。\n\nシミュレータ環境（MetaWorld、LIBERO、RoboMimic）および双腕・多指ハンドを備えた実機ロボット環境で検証した結果、RoMAN-Flowは従来の強化学習手法やVLAモデルを上回る成功率を達成しました。さらに、1ステップ蒸留によって性能を維持したまま推論遅延を約8.55倍削減できることを実証しました。",
+ "contributions_ja": [
+  "ロボット操作のオフライン強化学習において、連続行動の厳密な尤度評価と高い表現力を両立する自己回帰型正規化流（AR-NF）方策フレームワーク「RoMAN-Flow」を提案したこと。",
+  "現在の方策からの行動サンプリングを一切行わず、データセットの行動の厳密な尤度をアドバンテージ重み付けで直接最適化する「NF-IQL」を開発したこと。",
+  "自己回帰の逐次的な逆変換プロセスを解消し、タスク成功率を維持したまま推論速度を約8.55倍（81.5ms）に高速化する1ステップ方策蒸留法を確立したこと。",
+  "MetaWorld、LIBERO、RoboMimic、および実機の多指ハンドシステムにおいて、最先端の拡散モデルやFlow Matchingベースのベースラインを上回る性能を示したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ今、ロボット制御に「正規化流」なのか？",
+   "summary_ja": "拡散モデルやFlow Matchingは優れた行動生成能力を持つ一方で、厳密な尤度の計算コストが高く、オフライン強化学習での直接最適化が困難でした。本論文は、高い表現力と厳密な尤度計算を併せ持つ自己回帰型正規化流（AR-NF）を採用し、そのサンプリング速度の遅さを克服する新しい枠組みを提案します。",
+   "details_ja": "近年のロボット操作では、大規模なVision-Language-Action（VLA）モデルが注目されていますが、実環境に適応させるには事前に収集されたデータを使ったオフライン強化学習（オフラインRL）による事後学習が極めて重要です。\n\n大規模言語モデル（LLM）の世界では、自己回帰モデルが厳密な対数尤度を算出できるため、DPOなどの尤度ベースの事後強化学習が非常にうまく機能しています。しかしロボット分野では、主流であるDiffusion PolicyやFlow Matchingが厳密な行動尤度を低コストで計算できないため、同様のアプローチが困難でした。一方で、行動を離散トークン化する自己回帰モデルもありますが、量子化によって連続空間の幾何構造や時間的な協調動作が崩れてしまうという欠点があります。\n\nそこで注目したのが、画像生成などで目覚ましい成果を上げている「自己回帰型正規化流（AR-NF）」です。可逆変換と自己回帰構造を組み合わせることで、連続行動をそのまま扱いながら厳密な尤度を計算できます。ただし、AR-NFには「逆変換によるサンプリングが逐次処理になり非常に遅い」という致命的な弱点があります。\n\n本研究のRoMAN-Flowは、この弱点を二段階で克服します。方策の最適化時にはサンプリングを行わずにデータセットの行動尤度を直接重み付け更新し、配備時には1ステップの並列生成モデルへと蒸留します。これにより、表現力・学習効率・推論速度のすべてを兼ね備えた方策を実現しました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "生成方策とオフライン強化学習のこれまで",
+   "summary_ja": "拡散モデルやFlow Matchingを用いたロボット生成方策の強化学習は、尤度計算の難しさから代理損失やサンプリング抽出に依存していました。一方、厳密な密度評価ができる正規化流は表現力不足が課題でしたが、近年のAR-NFの進化によって実用的な選択肢へと浮上しています。",
+   "details_ja": "関連研究は大きく2つの系統に整理できます。\n\n1つ目はロボット学習における生成方策の発展です。マルチモーダルで複雑な行動分布を捉えるため、Diffusion Policyや、$\\pi_0$などの大規模VLAで使われるFlow Matchingが広く普及しました。しかし拡散モデルはノイズ除去スコアに依存し、連続Flowは生成ODEに沿った数値積分が必要なため、手軽に厳密な条件付き行動尤度を評価できません。そのため、強化学習の適用には複雑な代理目的関数が必要でした。\n\n2つ目はオフライン強化学習と正規化流（Normalizing Flows）の流れです。オフラインRLでは、方策がデータセットから乖離して未知の行動を過大評価する分布シフトを抑えるため、アドバンテージ重み付けによる方策抽出（IQLなど）がよく使われます。従来の正規化流（RealNVPなど）は厳密な密度計算ができるものの、表現力が低く複雑なロボット行動のモデリングには不向きでした。\n\nしかし最近では、SimFlowやTarFlowのようにTransformerと自己回帰変換を組み合わせたAR-NFが登場し、高い表現力と厳密な尤度計算を両立できるようになりました。さらにFARMERなどの1ステップ蒸留手法も提案されています。RoMAN-Flowはこれらの知見を統合し、ロボットの連続行動チャンク制御とオフライン強化学習に最適化した初めての体系的なフレームワークです。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "RoMAN-Flowの仕組み：サンプリング不要な強化学習と1ステップ蒸留",
+   "summary_ja": "RoMAN-Flowは、連続行動チャンクを可逆変換するAR-NF方策を構築し、模倣学習で初期化します。強化学習（NF-IQL）では方策からの生成を一切行わず、オフライン行動のアドバンテージ重み付き尤度を並列計算で最大化し、最後に1ステップの学生モデルへと蒸留します。",
+   "details_ja": "RoMAN-Flowのパイプラインは、問題設定、AR-NF方策の構築、NF-IQLによる事後学習、そして1ステップ蒸留の4つの要素から構成されています。\n\n- 問題設定（3.1）: 長さ $H$ の連続行動チャンク $\\mathbf{a}_t = (a_t, \\ldots, a_{t+H-1})$ を単位としてモデル化します。報酬ラベル付きのオフラインデータセットを用いて、環境との追加インタラクションなしで方策を改善します。\n\n- 自己回帰型正規化流方策（3.2）: 事前学習済みVLMなどのマルチモーダルエンコーダで観測をコンテキストトークン $\\mathbf{C}_t$ に変換します。AR-NFにはSimFlow構造を採用し、$L$ 層の可逆フローブロックを通します。各ブロック内のTransformerは前方向のアテンションマスクを持ち、アフィン変換のパラメータ（シフト $\\boldsymbol{\\mu}$ とスケール $\\mathbf{s}$）を行動位置 $j$ ごとに予測します。ヤコビ行列が三角行列になるため、対数尤度 $\\log p_\\theta(\\mathbf{a}_t | \\mathbf{C}_t)$ を全位置で並列かつ厳密に計算できます。一方、行動生成時は逐次的な逆変換が必要になります。\n\n- NF-IQLによる事後学習（3.3）: ここが最大のポイントです。通常のActor-Criticでは方策から行動をサンプリングしてCriticで評価しますが、AR-NFでそれをやると逐次生成のせいで学習が極端に遅くなります。そこで、データセット内の行動だけを使うIQLの枠組みを採用しました。Chunk Transformer Criticで行動プレフィックスごとのQ値を推定し、状態価値 $V$ との差からアドバンテージ $A_t$ を求めます。そして重み $w_t = \\exp(\\beta A_t)$ を用いて、データセット行動の厳密な負の対数尤度を重み付け最小化します。順方向の変換だけで済むため、サンプリング不要で極めて高速に学習できます。\n\n- 1ステップ方策蒸留（3.4）: デプロイ時の遅延を解消するため、学習済みのAR-NFを教師として、双方向アテンションを持つ学生モデルに蒸留します。オフライン行動に微小ノイズを加えた軌道と、事前分布からサンプリングした潜在変数を教師でデコードした軌道の両方を用い、中間フロー状態のアライメント損失と最終行動の再構成損失によって学生を学習させます。これにより、推論時は1ステップの並列処理で行動チャンク全体を一気に生成できるようになります。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "1ステップ方策蒸留の概念図です。逐次的な逆変換を行う自己回帰型の教師モデル（AR-NF Actor）の中間フロー状態と最終行動チャンクを、双方向Transformerで構成された学生モデル（One-step Actor）が一回のフォワードパスで一致させるように学習します。",
+     "caption": "Figure 2: One-step policy distillation. The student model aligns with the teacher’s intermediate reverse states and reconstructs the final action chunk in a single forward pass.",
+     "image": "details/2608.20208/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "シミュレータと実機での検証：高い性能と圧倒的な低遅延",
+   "summary_ja": "MetaWorld-MT50、LIBERO、RoboMimic、および実機の双腕・多指ハンド環境で評価を行いました。RoMAN-Flowはオフライン強化学習により模倣学習から大幅に性能を向上させ、最先端のVLAや拡散モデルを凌駕しつつ、蒸留によって約8.55倍の推論高速化を達成しました。",
+   "details_ja": "広範なシミュレーション環境と実機ロボットを用いて、模倣学習（IL）、強化学習後（NF-IQL）、蒸留後（One-Step）の各段階を厳密に比較評価しました。\n\n- MetaWorld-MT50: 50種類のタスクにおける平均成功率は、ILの72.8%からNF-IQLで81.1%へと大幅に向上しました。特に難易度が高いMedium、Hard、Very Hardで大きな伸びを示しています。蒸留後のOne-Stepモデルも78.5%を維持しました。オンライン強化学習を行う $\\pi_0$ + Flow-SDE（78.1%）と比較しても、完全オフラインのRoMAN-Flow (NF-IQL) の方が3.0ポイント高い成功率を記録しています。\n\n- LIBERO: 4つのスイート全体での平均成功率は、ILの93.5%からNF-IQLで95.3%に向上しました。特に長期タスクであるLIBERO-Longで6.6ポイントの大幅改善が見られました。One-Stepモデルは93.7%を維持し、LIBERO-Longでは教師をわずかに上回る93.0%を達成しました。\n\n- RoboMimic MH: 従来手法SERNF（RealNVP + TD3+BC）との比較を行いました。SquareタスクにおいてSERNFの成功率68%に対し、RoMAN-Flow (NF-IQL) は85%を達成し、One-Stepでも80%と高い成功率を維持しました。\n\n- 実機実験: 7自由度のFrankaアームと12自由度のXHand（多指ハンド）を用い、ビーカーやシリンダーの把持・配置タスクを評価しました。訓練データに含まれない領域に物体を配置するOOD（分布外）設定において、平均成功率はILの57.3%からNF-IQLで81.5%へと24.2ポイントも跳ね上がり、ベースラインの $\\pi_{0.5}$（71.8%）を上回りました。\n\n- 推論速度とモデル容量: LIBERO-Longにおいて、AR-NF教師モデルの生成遅延は約697msでしたが、1ステップ蒸留モデルでは81.5msまで短縮され、約8.55倍の高速化を達成しました。またアクター容量のアブレーションでは、パラメータ数を33.8Mから466.2Mに増やしても性能は横ばいでしたが、685.5M（XL）までスケールさせたところでSquareタスクの成功率が85%へと顕著に向上することが確認されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "MetaWorld、LIBERO-Long、RoboMimic、および実機ロボットにおけるRoMAN-Flowの実行の様子です。右下の実機実験では、Frankaアームと12自由度のXHand多指ハンドを用い、分布外に置かれたビーカーを把持して天秤に載せる高精度な操作に成功しています。",
+     "caption": "Figure 3: Qualitative results of RoMAN-Flow on MetaWorld, LIBERO-Long, RoboMimic, and real-world tasks. Each row shows selected frames from a rollout, while the bottom-right inset presents our real-robot platform with a seven-DoF Franka arm and a twelve-DoF XHand dexterous hand.",
+     "image": "details/2608.20208/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "RoMAN-Flowは、自己回帰型正規化流を行動表現として用いることで、厳密な尤度に基づくオフライン強化学習をロボット操作で実用化しました。学習時のサンプリング不要なアルゴリズムと推論時の1ステップ蒸留により、性能と速度の両立に成功しています。",
+   "details_ja": "本論文では、自己回帰型正規化流（AR-NF）をロボット操作方策として活用するオフライン強化学習フレームワーク「RoMAN-Flow」を提案しました。\n\nAR-NFの持つ「サンプリングの遅さ」という最大のボトルネックに対し、事後学習フェーズでは方策からのサンプリングを排除したNF-IQLを適用し、デプロイフェーズでは1ステップ双方向モデルへの蒸留を行うという明快な解決策を提示しました。シミュレーションおよび実機における実験を通じて、従来の拡散モデルやFlow Matching方策に対する強力かつ実用的な代替手段となり得ることを実証しました。\n\n厳密な尤度評価ができる連続方策という新たな選択肢が確立されたことで、言語モデル分野で培われた豊富なアライメント技術や事後学習手法が、今後ロボティクス分野へさらに波及していくことが期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix: Implementation and Benchmark Details",
+   "heading_ja": "付録：報酬リラベリングの工夫と実験設定の裏側",
+   "summary_ja": "疎な報酬環境での信用割り当てを改善するため、モンテカルロ収益の順位に基づく適応的な報酬リラベリングを導入しています。また、各ベンチマークの観測設定やハイパーパラメータの詳細についても解説されています。",
+   "details_ja": "論文の理解を深めるための重要な実装詳細として、以下の点が挙げられています。\n\n- 報酬リラベリング（6.2）: ロボット操作ではタスク完了時にしか報酬が得られない「疎な報酬」が多いため、TD学習の信用割り当てが難しくなります。そこでHUBLに着想を得て、軌道全体の平均モンテカルロ収益の順位に応じた重み $\\lambda_n$ を用いて、観測された将来収益と価値関数のブートストラップを適応的に内分するリラベリングを導入しました。高評価の軌道ほど実際の将来収益を強く信じる設計になっています。\n\n- バックボーン構成（7.1）: LIBERO、MetaWorld、実機実験ではマルチモーダルエンコーダとして「SmolVLM-500M-Instruct」を採用し、画像・言語・自己受容感覚状態（関節角度など）を統一的に処理しています。一方、RoboMimicでは先行研究（SERNF）との公平な比較のため、ImageNet事前学習済みのResNet-18を2系統（三人称カメラと手先カメラ）使用しています。\n\n- パラメータ数と蒸留の効果（7.1）: SmolVLMベースのAR-NF方策は約1.45Bパラメータですが、1ステップ蒸留後の学生モデルは約0.56Bパラメータと、モデルサイズ自体も半分以下に軽量化されています。またRoboMimicでは、アクター部分が0.95Bから78.2Mへと大幅に圧縮されています。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "LIBEROベンチマークにおける代表的な成功ロールアウトです。空間配置の変化（Spatial）、対象物体の変化（Object）、言語指示の変化（Goal）、そして複数ステップにわたる長期タスク（Long）の各スイートにおいて、正確な操作シーケンスを実行できています。",
+     "caption": "Figure 6: Qualitative rollouts of RoMAN-Flow on representative tasks from the LIBERO benchmark.",
+     "image": "details/2608.20208/F6.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "「連続空間のまま厳密な対数尤度が計算できる」AR-NFは、尤度ベースの強化学習（DPOやIQLなど）をロボット方策に適用する上で極めて相性が良い。",
+  "自己回帰モデルの「生成が遅い」という弱点は、学習時にはサンプリングフリーな目的関数（IQL）を使い、推論時には1ステップ蒸留を行うという二段階のアプローチで完全に回避できる。",
+  "モデル規模のアブレーションが示すように、繊細な接触を伴う高難易度タスク（Squareなど）では、アクター容量を十分に大きく（約0.7B規模へ）スケーリングさせることが性能向上の鍵となる。"
+ ],
+ "limitations_ja": [
+  "1ステップ蒸留によって大半の性能は維持されるものの、タスクによっては（MetaWorldやRoboMimicなど）教師モデルに対して数パーセントの性能低下が見られる点。",
+  "オフライン強化学習フェーズでデータセットの行動のみに依存するため、データセット内に高品質または改善の手がかりとなる軌道が全く存在しない場合には性能向上が頭打ちになる点。",
+  "AR-NFアクターの表現力を最大限に引き出すためには、比較的大規模なパラメータ数（数百メガ〜1B規模）が必要となり、学習時のGPUメモリ消費が大きくなる点。"
+ ],
+ "keywords": [
+  "Autoregressive Normalizing Flows",
+  "Offline Reinforcement Learning",
+  "Implicit Q-Learning",
+  "Policy Distillation",
+  "Robotic Manipulation"
+ ],
+ "id": "2608.20208",
+ "title": "RoMAN-Flow: Taming Autoregressive Normalizing Flows for Offline Reinforcement Learning in Robotic Manipulation",
+ "title_ja": "RoMAN-Flow：ロボット操作のオフライン強化学習に向けた自己回帰Normalizing Flowの効率化",
+ "authors": [
+  "Shaoxuan Wang",
+  "Guangting Zheng",
+  "Rui Huang",
+  "Zhipeng Tang",
+  "Sha Zhang",
+  "Jiajun Deng",
+  "Yanyong Zhang"
+ ],
+ "date": "2026-08-21",
+ "group": "general",
+ "tags": [
+  "reinforcement-learning",
+  "manipulation",
+  "control"
+ ],
+ "categories": [
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.20208",
+ "pdf_url": "https://arxiv.org/pdf/2608.20208",
+ "summary_ja": "正確な尤度評価が可能な自己回帰Normalizing Flow（AR-NF）方策のサンプリング遅延ボトルネックを解決するオフライン強化学習フレームワークRoMAN-Flowを提案。拡散モデル等に代わる表現力と効率的な方針最適化をマニピュレーションで実証した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.20208"
+}
