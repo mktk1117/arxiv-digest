@@ -1,0 +1,125 @@
+{
+ "tldr_ja": "物体点群に対するSE(3)等変性を保ったまま、わずか数ステップのネットワーク評価で高精度な6自由度把持姿勢を生成できる「GraspMeanFlow」を提案し、従来手法を大幅に上回る速度と成功率を実証した論文です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "GraspMeanFlowの全体概要図です。物体点群と事前分布からサンプリングされた把持姿勢、時間ペア $(s, t)$ を入力とし、SE(3)等変性を保つネットワークが有限区間の平均速度を予測します。これにより、わずかなステップ数（Eulerサンプラーやexp-SO(3)サンプラー）で正確な把持姿勢を生成できます。",
+  "caption": "Figure 1: Overview of the proposed GraspMeanFlow framework. Given an object point cloud $\\mathcal{P}$ , a current grasp pose $T_{t}$ initialized from the object-centered prior at $t=1$ , and a time pair $(s,t)$ with $s<t$ , the SE(3)-equivariant average-velocity network predicts the interval-averaged angular and linear velocities $(\\omega_{\\theta}^{\\mathrm{avg}},\\,{v}_{\\theta}^{\\mathrm{avg}})$ . An Euler or exp- $SO(3)$ sampler then uses these predictions to transport $T_{t}$ to the earlier-time",
+  "image": "details/2608.03295/F1.jpg"
+ },
+ "overview_ja": "ロボットによるマニピュレーションでは、観測された物体点群から6自由度の把持姿勢を多様かつ高精度に生成することが極めて重要です。近年、物体の回転や平行移動に対して一貫した姿勢を生成できるSE(3)等変フローモデル（EquiGraspFlowなど）が登場しましたが、これらは常微分方程式を数値積分してサンプリングするため、数十回以上のネットワーク評価（NFE）を要し、リアルタイム性が求められるロボット現場でのボトルネックとなっていました。\n\nそこで著者らは、ユークリッド空間の高速生成手法として注目されるMeanFlow（有限時間区間の平均速度を直接学習する枠組み）をSE(3)多様体へ拡張する「GraspMeanFlow」を提案しました。回転群 $\\mathrm{SO}(3)$ の非可換性に対処するため、時間順序指数（time-ordered exponential）を用いて平均速度を定式化し、区間内の剛体変位を厳密に再現できるようにしています。さらに、時間ペア $(s, t)$ の入力を等変性を壊さずに受け取るアーキテクチャや、数値的に不安定になりがちな微分恒等式を回避する半群（semigroup）損失を導入しました。\n\nACRONYMデータセットを用いた検証では、GraspMeanFlowの1ステップ生成（NFE 1）で、従来のフローモデルが5ステップかけて到達する分布精度（EMD）を達成しました。また、わずか5ステップの生成において把持成功率を最大24.3ポイント向上させ、物体の姿勢変化にも厳密に等変であることを示しました。",
+ "contributions_ja": [
+  "非可換なSE(3)多様体上で剛体変位を厳密に再現する平均速度を時間順序指数により定義し、少数ステップ生成でも等変性が維持される理論的保証を与えた点",
+  "Vector Neuronバックボーンにパラメータをほぼ増やさず、SO(3)等変性を保ったまま2時刻 $(s, t)$ を入力できる時間埋め込み機構を提案した点",
+  "ヤコビアン・ベクトル積（JVP）を完全に排除して安定学習を可能にする半群損失（GMF-SG）と、JVPに基づく微分恒等式に最適輸送カップリングを組み合わせたモデル（GMF-JVP）の2つを提示した点",
+  "ACRONYMベンチマークにおいて、5ステップ（NFE 5）という極少ステップ領域で既存手法を最大24.3ポイント上回る把持成功率を達成した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "等変フローを数ステップで動かしたい：MeanFlowへの挑戦",
+   "summary_ja": "点群からの6自由度把持姿勢生成において、SE(3)等変フローモデルは高い回転ロバスト性を持ちますが、サンプリングに数十ステップの積分が必要でした。本論文は、有限区間の平均速度を予測するMeanFlowをSE(3)に拡張することで、等変性を保ったまま数ステップでの生成を実現します。",
+   "details_ja": "3次元点群から平行グリッパーの6自由度把持姿勢 $T=(R, x) \\in \\mathrm{SE}(3)$ を生成する問題は、成功姿勢がマルチモーダルであるため条件付き生成モデルとして定式化されます。特に近年提案されたEquiGraspFlowは、モデル構造自体にSE(3)等変性を組み込むことで、データ拡張なしに物体の回転・移動に追従する優れた性能を示しました。\n\nしかし、こうしたフローモデルや拡散モデルに共通する最大の課題はサンプリング速度です。連続時間速度場を数値積分するため、1回の把持姿勢生成に数十回（EquiGraspFlowでは4次Runge-Kutta法で80回）ものネットワーク評価が必要です。実環境のマニピュレーションではシーンが変わるたびに数百の把持候補を瞬時に生成・評価したいため、理想的には1〜数ステップで同等の把持分布をサンプリングできる必要があります。\n\nそこで注目されるのが、瞬間速度ではなく有限区間の「平均速度」を直接予測するMeanFlowです。しかし把持姿勢が存在するSE(3)空間、特に3次元回転群 $\\mathrm{SO}(3)$ は非可換であるため、ユークリッド空間のように速度を単純積分しても終点の姿勢とは一致しません。ユークリッド表現に変換してしまうと多様体の幾何学的構造や等変性が失われてしまいます。\n\n本論文では、時間順序指数を用いてSE(3)上の平均速度を定義し、点群条件付き等変生成の枠組み「GraspMeanFlow」を構築しました。これにより、モデル容量を増やすことなく、わずか数回のステップで高品質な把持姿勢を生成することに成功しています。",
+   "figures": []
+  },
+  {
+   "heading": "2 Background",
+   "heading_ja": "SE(3)の基礎とフローマッチング、ユークリッドMeanFlow",
+   "summary_ja": "剛体変換SE(3)の運動方程式や、姿勢生成におけるフローマッチングの仕組みを整理します。また、有限区間の平均速度を学習するユークリッド空間のMeanFlowの基本恒等式について振り返ります。",
+   "details_ja": "剛体変換群 $\\mathrm{SE}(3)$ は回転行列 $R \\in \\mathrm{SO}(3)$ と平行移動ベクトル $x \\in \\mathbb{R}^3$ から構成されます。角速度 $\\omega \\in \\mathbb{R}^3$ と並進速度 $v \\in \\mathbb{R}^3$ を用いると、剛体姿勢の軌道は空間固定座標系において $\\dot{R} = [\\omega] R$、$\\dot{x} = v$ と表されます。ここで $[\\cdot]$ は3次元ベクトルから歪対称行列への写像（外積に対応）です。\n\n6自由度把持生成におけるフローマッチングでは、単純な事前分布（点群重心を中心とする正規分布と一様回転）から正解把持分布への確率経路を設計し、中間時刻 $t$ における瞬間速度場 $(\\omega_\\theta, v_\\theta)$ を学習します。推論時は $t=1$ から $t=0$ まで数値積分を行います。\n\n一方、MeanFlowでは時刻区間 $[s, t]$ にわたる平均速度 $u(s, t, z_t) = \\frac{1}{t-s} \\int_s^t v_\\tau d\\tau$ をモデル化します。これを時間 $t$ で微分することで、平均速度と瞬間速度を結ぶMeanFlow恒等式が得られ、ヤコビアン・ベクトル積（JVP）を用いた回帰ターゲットとして学習を行います。本論文はこの枠組みを非可換なLie群であるSE(3)へと拡張します。",
+   "figures": []
+  },
+  {
+   "heading": "3 Our Method: SE(3)-MeanFlow for 6-DoF Grasp Generation",
+   "heading_ja": "SE(3)上の平均速度をどう定義し、どう等変に学習するか",
+   "summary_ja": "非可換な回転に対応するため時間順序指数を用いてSE(3)平均速度を定義し、等変フロー写像による分布の不変性を証明しました。学習損失としては、JVPの不安定さを回避する「半群損失」と、JVPに基づく「微分恒等式損失」の2通りの実装を提案しています。",
+   "details_ja": "提案手法GraspMeanFlowの核となるアイデアと設計は以下の通りです。\n\n- **SE(3)上の平均速度の定式化**: 区間 $[s, t]$ の平均速度 $(\\omega^{\\mathrm{avg}}, v^{\\mathrm{avg}})$ を、その区間の剛体変位を1ステップで再現するLie代数要素として定義します。回転側は非可換性を扱うため時間順序行列指数 $\\mathcal{T}\\!\\exp$ を用いて $R_t R_s^\\top = \\exp((t-s)[\\omega^{\\mathrm{avg}}])$ と表されます。\n- **微分恒等式とその課題**: これを時間 $t$ で微分すると $\\mathrm{SO}(3)$ の左ヤコビアン $J$ を含む微分恒等式が得られます。しかし、このJVPを用いた目的関数は回転群上で数値的に不安定になりやすいという問題がありました。\n- **半群（Semigroup）損失によるJVPフリー学習**: そこで群の積の結合法則 $D(s, t) = D(m, t) D(s, m)$ に着目しました。中間時刻 $m$ を介した2ステップ合成と、$[s, t]$ の直接1ステップ予測が一致すべきという「半群一貫性損失」を導入することで、ヤコビアン $J$ もJVPも一切計算せずに安定して学習できるようになりました。\n- **$\\alpha$-Flowによるウォームアップ**: 初期学習の安定化のため、前半ステップはデータ側の真の速度を活用する $\\alpha$-Flow損失で事前学習し、徐々に半群損失へ移行する戦略を採用しています。\n- **SE(3)等変性の維持**: ネットワークに時刻ペア $(s, t)$ を与える際、既存のVector Neuronの等変ベクトル方向 $d$ に対して各時刻スカラーを乗算して結合することで、アーキテクチャの等変性を完全に保持しました。さらに、等変な平均速度場による輸送が分布の不変性を保つことをプッシュフォワード測度の言葉で厳密に証明しています。\n- **推論サンプラー**: 通常のEuler積分のほか、予測された区間平均速度から終点姿勢を推定して geodesic に沿って回転を更新する「exp-SO(3)サンプラー」を導入しました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "GraspMeanFlowのアーキテクチャとサンプリングの流れです。点群 $\\mathcal{P}$ と現在の姿勢 $T_t$、時間ペア $(s, t)$ から等変ネットワークが平均速度を予測し、少数ステップで目標姿勢へと更新します。",
+     "caption": "Figure 1: Overview of the proposed GraspMeanFlow framework. Given an object point cloud $\\mathcal{P}$ , a current grasp pose $T_{t}$ initialized from the object-centered prior at $t=1$ , and a time pair $(s,t)$ with $s<t$ , the SE(3)-equivariant average-velocity network predicts the interval-averaged angular and linear velocities $(\\omega_{\\theta}^{\\mathrm{avg}},\\,{v}_{\\theta}^{\\mathrm{avg}})$ . An Euler or exp- $SO(3)$ sampler then uses these predictions to transport $T_{t}$ to the earlier-time",
+     "image": "details/2608.03295/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "ACRONYMベンチマークでの性能検証：少数ステップで圧倒的な把持成功率",
+   "summary_ja": "ACRONYMデータセットの4カテゴリ（Bowl、Laptop、Mug、Pencil）で評価を行いました。1ステップ生成でベースラインの5ステップ相当の分布精度を達成し、5ステップ生成ではEquiGraspFlowを最大24.3ポイント上回る把持成功率を記録しました。",
+   "details_ja": "実験はACRONYMの4カテゴリを用いて、同一の点群エンコーダ（VN-DGCNN）と学習時間（約7時間）で比較を行いました。比較対象はEquiGraspFlow（等変CNF）、SE(3)-DiffusionFields（拡散モデル）、BRIDGER（確率的補間ブリッジ）です。提案手法としては、半群損失＋独立カップリングの「GMF-SG」と、微分恒等式＋物体ごとの最適輸送カップリングの「GMF-JVP」の2種類を評価しました。\n\n- **分布忠実度（EMD）**: 1ステップ評価（NFE 1）において、GMF-SGはEMD 0.418を達成しました。これはEquiGraspFlowが5ステップ近くかけて到達する精度（0.416）に匹敵し、NFE 1におけるEquiGraspFlow（0.734）の破綻と比べて圧倒的に優れています。\n- **シミュレーション把持成功率（Isaac Gym）**: 実用的な少数ステップ領域であるNFE 5において、GMF-JVPが極めて強力な結果を示しました。EquiGraspFlowに対してLaptopで+24.3ポイント、Bowlで+21.7ポイント、Pencilで+12.8ポイント、Mugで+3.0ポイントの大幅な向上を達成しました。NFE 10でも4カテゴリ平均で96.3%を記録し、ベースラインの91.2%を大きく上回っています。\n- **推論レイテンシ**: GMF-SGはNFE 1（EMD 0.418）をわずか31.5 msで達成しました。またGMF-JVPは56.3 ms（NFE 5）で成功率96.3%に達し、同等の成功率（96.1%）に1338.7 msを要するSE(3)-DiffusionFieldsと比べて桁違いに高速です。\n- **アブレーションと分析**: 微分恒等式を用いる際は空間固定座標系（spatial frame）で定式化しないと対称物体（Bowl）で学習が発散すること、自己一貫性損失だけでなく境界アンカー損失との組み合わせが必須であることが確認されました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "NFE 5（5ステップ評価）で生成された各カテゴリの把持姿勢のシミュレーション結果（緑：成功、赤：失敗）です。中央右の赤枠で囲まれた提案手法（GMF-SGおよびGMF-JVP）は、既存手法（左側3列）と比べて失敗（赤）が極めて少なく、安定した姿勢を生成できていることが分かります。",
+     "caption": "Figure 4: Grasps generated at NFE 5 for one test instance per category (rows), colored by simulated outcome (green: success, red: failure). Every column is generated from the same rotated object with the same protocol; the two GraspMeanFlow configurations (red box) use the exp- $\\mathrm{SO}(3)$ sampler and the baselines their own samplers.",
+     "image": "details/2608.03295/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Discussion and Limitations",
+   "heading_ja": "なぜ効いたのか、そして残された課題",
+   "summary_ja": "平均速度モデルの恩恵は少数ステップ領域に集中しており、区間平均化が数値積分の誤差を吸収したことが成功の要因です。一方で、長軸まわりの対称性を持つ物体（Pencil）での幾何学的ズレや、サンプラースケジュールの最適化が今後の課題として挙げられています。",
+   "details_ja": "結果が示す通り、平均速度モデルの強みはステップ数が少ない領域で最大限に発揮されます。NFE 20のようにステップ数が多い領域では、瞬間速度を積算する従来のフローモデルでも十分に収束するため差は小さくなりますが、NFE 5のような低計算コスト領域では、区間平均を直接予測することで積分誤差を劇的に抑えられます。\n\n一方で、主に2つの限界が議論されています。\n\n- **軸対称物体（Pencil）の扱い**: 鉛筆のように長軸まわりの回転対称性を持つ物体では、物理的に等価な把持姿勢であってもLie代数の対数写像（log）による変位ターゲットが「真の幾何学的距離」としてペナルティを課してしまいます。物体の対称群を考慮した最小代表値との距離を取るようなターゲット設計が必要です。\n- **サンプラースケジュールと負の結果**: 終点推定を利用するexp-SO(3)サンプラーはNFE 5以上で非常に有効ですが、NFE 1〜2では予測終点への過度な依存が失敗を招くことが分かりました。また、シミュレータで成功した自己生成サンプルでモデルを追加学習（ReFlow）させる試みは、Euler積分には効果があったものの、終点予測サンプラーの精度を逆に損なうという「負の結果」が得られました。",
+   "figures": []
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめ",
+   "summary_ja": "剛体変位を厳密に再現するSE(3)等変MeanFlowを提案し、少数ステップでの6自由度把持生成を確立しました。モデル容量を増やさずに推論速度と成功率を両立させ、実時間ロボットマニピュレーションへの大きな前進を示しました。",
+   "details_ja": "本論文では、SE(3)多様体上で有限時間区間の剛体変位を厳密に再現する平均速度を定式化し、点群条件付き等変生成モデル「GraspMeanFlow」を提案しました。数学的に等変性が保たれることを証明しつつ、JVPを回避する半群損失と、JVP・最適輸送を活用する微分損失の2つの相補的な学習手法を確立しました。ACRONYMデータセットでの包括的な検証により、わずか数ステップのネットワーク評価で極めて高い把持成功率と正確な姿勢分布が得られることが示されました。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：数学的導出、ネットワーク詳細、およびReFlowの負の結果",
+   "summary_ja": "SE(3)左ヤコビアンの導出や半群性質の証明、Vector Neuronバックボーンの等変性証明が詳述されています。また、成功サンプルによる自己生成再学習（ReFlow）が一部のサンプラーで精度悪化を招いた検証結果も報告されています。",
+   "details_ja": "付録では、本文の理解を深めるための重要な理論・実装詳細が提供されています。\n\n- **左ヤコビアンと半群の数学的詳細**: 時間順序行列指数のFréchet微分（Wilcox公式）から左ヤコビアン $J(\\phi)$ が現れる詳細な導出と、群の結合律による半群等式 $D(s, t) = D(m, t) D(s, m)$ の厳密な証明が与えられています。\n- **ネットワークと等変性証明**: 時間スカラー $t$ と区間幅 $h=t-s$ を、既存の等変ベクトル方向 $d$ に乗算して結合する手法により、追加パラメータわずか512個でネットワーク全体の等変性を保持できることが示されています。\n- **物体ごとの最適輸送（Per-Object OT）**: ミニバッチ全体で解く従来のOTではなく、物体ごとに独立して $J_i \\times J_i$ の線形割当問題を解くことで、条件付き事前分布の周辺分布を崩さず、計算量を $O(n^3 J^3)$ から $O(n J^3)$ へと大幅に削減しています。\n- **ReFlowによる追加学習の負の結果**: シミュレータの把持成功サンプルを用いて軌道を直線化するReFlowポストトレーニングを実施したところ、Eulerサンプラーでは精度向上が見られた一方、終点予測サンプラー（exp-SO(3)）では終点予測の解像度が落ちてしまい、成功率が逆に低下することが明らかになりました。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "非可換多様体（SO(3)やSE(3)）上のMeanFlowでは、速度の単純積分ではなく時間順序指数に基づく変位の一致として平均速度を定義する必要がある。",
+  "ヤコビアン・ベクトル積（JVP）を伴う微分恒等式は多様体上で不安定になりやすいが、群の積の結合律を利用した「半群一貫性損失」を使うことでJVPを完全に回避して安定学習できる。",
+  "等変Vector Neuronバックボーンにおいて、時間スカラーを共有の等変方向ベクトルに乗算して注入することで、容量を増やさず等変性を保ったまま2時刻入力を実現できる。",
+  "物体条件付きフローモデルで最適輸送カップリング（OT）を行う際は、バッチ全体ではなく「物体ごと（Per-Object）」に解くことで事前分布の歪みと計算量を同時に防げる。"
+ ],
+ "limitations_ja": [
+  "鉛筆のような回転軸対称性を持つ物体では、等価な把持姿勢間の幾何学的回転差が不当に損失として扱われ、性能が頭打ちになる。",
+  "NFE 1〜2の極小ステップではexp-SO(3)サンプラーが事前分布からの過度な終点ジャンプを起こし、把持成功率が著しく低下する。",
+  "自己生成サンプルの成功判定による追加学習（ReFlow）は、終点予測の精度を損ない、終点依存型サンプラーで性能低下を引き起こす。"
+ ],
+ "keywords": [
+  "6-DoF Grasp Generation",
+  "SE(3)-Equivariance",
+  "MeanFlow",
+  "Flow Matching",
+  "Few-Step Sampling",
+  "Robot Manipulation"
+ ],
+ "id": "2608.03295",
+ "title": "GraspMeanFlow: SE(3)-Equivariant MeanFlow for Few-Step 6-DoF Grasp Generation",
+ "title_ja": "GraspMeanFlow: 少数ステップでの6-DoF把握生成に向けたSE(3)等変MeanFlow",
+ "authors": [
+  "Jiyong Kwon",
+  "Yikun Bai",
+  "Amirhossein Mollaali",
+  "Guang Lin"
+ ],
+ "date": "2026-08-05",
+ "group": "general",
+ "tags": [
+  "grasping",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.03295",
+ "pdf_url": "https://arxiv.org/pdf/2608.03295",
+ "summary_ja": "ロボットの6自由度把握姿勢生成において、従来の生成モデルが抱える多数の評価ステップによる遅延を解決するSE(3)等変MeanFlowフレームワークを提案。有限時間区間における平均速度を学習することで、数ステップのサンプリング処理で幾何学的整合性と回転・平行移動の等価性を保った把握姿勢を高速生成する。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.03295"
+}
