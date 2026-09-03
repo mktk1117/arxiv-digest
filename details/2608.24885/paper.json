@@ -1,0 +1,136 @@
+{
+ "tldr_ja": "ロボット用世界モデルが指示通りの動作を忠実に再現できているかを評価するベンチマーク「WorldEcho」と、その追従性を劇的に改善する学習フレームワーク「WorldSync」を提案した論文です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "本研究の全体像である診断・改善・検証のワークフローです。WorldEchoで未知アクション時の破綻を可視化・診断し、WorldSyncで表現と介入効果を揃えてモデルを強化し、最終的な方策改善の成功率向上へと繋げています。",
+  "caption": "Figure 1: Overview of our diagnose–improve–validate pipeline. WorldEcho probes action-conditioned world models with demonstrated and diverse off-expert queries, jointly evaluating visual integrity and $\\mathrm{SE}(3)$ end-effector alignment to expose visual collapse and action mismatch. Guided by this diagnosis, WorldSync broadens the training distribution over action consequences, grounds intermediate video representations in action-induced robot dynamics through an Action-Forcing Expert, and a",
+  "image": "details/2608.24885/F1.jpg"
+ },
+ "overview_ja": "ロボットの自律学習において、実機を動かさずに試行錯誤できるシミュレータとして「行動条件付き世界モデル（AC-WM）」が注目されています。しかし、従来の世界モデルは「エキスパートの手本データ通りに動かす分には綺麗に見えるが、少しでも手本から外れた行動（オフエキスパート行動）を与えると指示を無視するか、腕が崩壊する」という深刻な問題を抱えていました。これでは強化学習やポリシー改善のシミュレータとして信頼できません。\n\nそこで著者らは、まず世界モデルがどれだけ忠実にアクションへ追従しているかを厳密に測る評価ベンチマーク「WorldEcho」を構築しました。WorldEchoでは、手本から徐々に離れる5種類の行動クエリを用意し、生成された映像の見た目の破綻（アームの消失や画像の劣化）と、手先先空間（$\\mathrm{SE}(3)$）における軌道誤差を二重でチェックします。診断の結果、既存モデルは手本から外れると手先の追従誤差が大幅に増大することが判明しました。\n\nこの診断結果に基づき、著者らは追従性を引き上げる学習手法「WorldSync」を提案しました。シミュレーションと実機データを統一した空間で扱い、内部表現を行動ダイナミクスに拘束する「Action-Forcing Expert（AFE）」と、行動を変えた差分を正しく予測させる「Intervention-Effect（IE）監督」を導入しました。実験の結果、RoboTwinや実機タスクにおいて追従精度と映像品質がともに向上し、世界モデルを用いたポリシーの反復改善でも大幅な成功率向上を達成しました。",
+ "contributions_ja": [
+  "手本以外の行動に対する世界モデルの追従性を、外観の健全性と$\\mathrm{SE}(3)$手先軌道の両面から厳密に評価するベンチマーク「WorldEcho」を構築した点。",
+  "エキスパートデータのみで学習した世界モデルが、オフエキスパート行動に対して「見た目優先で指示を無視する」か「映像が破綻する」の2大失敗モードに陥ることを突き止めた点。",
+  "分布の拡張、AFEによる特徴表現の力学グラウンディング、IE監督による介入効果アライメントを組み合わせた学習手法「WorldSync」を提案した点。",
+  "WorldSyncにより生成軌道の忠実性を高めることで、下流のポリシー改善におけるタスク成功率を実機・シミュレーションともに大きく向上できることを実証した点。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "世界モデルは本当に入力アクションに従っているのか？",
+   "summary_ja": "行動条件付き世界モデルは方策改善のシミュレータとして期待されていますが、手本から外れた行動に忠実に追従するかは未検証でした。本研究では、診断・改善・検証のサイクルを通じてこの課題に取り組みます。",
+   "details_ja": "近年、Vision-Language-Action（VLA）や世界モデルの発展により、ロボットの汎用的な動作獲得が現実味を帯びてきました。しかし、現場の個別タスクに適応させるためのポストトレーニングには大量の実機相互作用が必要で、コストが非常に高いという壁があります。そこで、実機の代わりに「行動を入力すると未来の観測を返す世界モデル（AC-WM）」をシミュレータとして使い、夢の中で方策を学習させようという研究が活発化しています。\n\nしかし、ここには大きな前提の穴がありました。「世界モデルは、任意に入力された妥当なアクションに対しても正確な結果を返すのか？」という点です。方策が試行錯誤する過程では、当然ながらエキスパートの手本から外れた行動（オフエキスパート行動）が多数生成されます。もし世界モデルが指示を無視して勝手に成功シーンを捏造したり、逆に映像が崩壊したりすれば、正しい方策評価や学習は不可能です。\n\n本論文はこの問題に対し、「WorldEcho」による診断、「WorldSync」による改善、そして下流タスクでの検証という一連のパイプラインを提案しています。評価と学習の両面からアプローチすることで、信頼できるロボット用シミュレータの実現を目指しています。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "これまでの世界モデル評価と何が違うのか？",
+   "summary_ja": "従来の世界モデル研究は見た目の綺麗さや大まかなタスク成否の評価が中心でした。本研究は、手先効果器の$\\mathrm{SE}(3)$連続軌道を用いて、数値アクションに対する厳密な追従性を直接評価する点で一線を画します。",
+   "details_ja": "関連研究は大きく3つの系統に分かれます。\n\n- 行動条件付きロボット世界モデルの発展:\n近年のモデルは拡散モデルやFlow Matchingを基盤に、長期予測やアーキテクチャの改良が進んでいます。しかし、評価の多くは手本行動の再生（リプレイ）や画像空間での動き確認にとどまり、入力値通りの手先動作が行われているかを実空間スケールで精密に検証した例は稀でした。\n\n- 方策評価・改善への応用:\n世界モデル上のロールアウトを用いてポリシーを反復改善する試みは増えていますが、改善が見られたとしても「モデルが忠実だったのか、単なるデータ拡張として効いたのか」が切り分けられていませんでした。ポリシーの探索行動を受け止めるには、手本外の行動への頑健性が不可欠です。\n\n- 世界モデルの評価ベンチマーク:\n近年のベンチマーク（WorldArenaやMiraBenchなど）も、映像品質や高レベルのタスク失敗検出に焦点を当てていました。本研究のWorldEchoは、シミュレータから直接得られる正解のロボット手先軌道（位置・姿勢の$\\mathrm{SE}(3)$）と、生成映像から逆推定した軌道を動的時間伸縮法（NDTW）で比較し、物理的な追従誤差を直接測る点が大きく異なります。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "追従性を診断する「WorldEcho」と改善する「WorldSync」",
+   "summary_ja": "手本から離れる5段階のクエリで外観と軌道を二重評価するWorldEchoを提案しました。さらに、データ拡張・AFEによる特徴拘束・介入効果（IE）アライメントで追従性を高めるWorldSyncを構築しました。",
+   "details_ja": "### 3.1 問題設定と動機（3.1 & 3.2）\n現在観測 $o_0$、指示文 $c$、行動列 $a_{1:H}$ から未来映像 $I_{1:H}$ を生成するタスクを考えます。既存のCosmosベースのモデルを手本データだけで学習させたところ、手本外の行動を与えると「アームが千切れるなどの視覚崩壊（モード1）」または「見た目は綺麗だが指示と違う手本風の動きをする行動不一致（モード2）」という2つの明確な失敗が発生することが分かりました。\n\n### 3.3 WorldEchoの仕組み\nこの失敗を定量化するため、WorldEchoでは以下の5種類の行動クエリを用意しました。\n- Demonstrated Action: 手本行動（ベースライン）\n- Cross-State Replay: 別の状態の手本行動を入力（状態依存性の検証）\n- Local Perturbation: 手本に微小ノイズを付加（局所感度の検証）\n- Policy Rollout: 学習中の方策が出力した行動（探索時の挙動検証）\n- Feasible-Space Sampling: 動作可能領域からランダムサンプリング（広域制御性の検証）\n\n評価プロトコルでは、まず映像品質（MUSIQ）、動きの滑らかさ、グリッパーの可視性、アームの整合性の4条件から成る「Visual Integrity Gate」を通します。合格したサンプルには正解軌道との手先6自由度（位置＋回転）のNDTW誤差を計算し、不合格のサンプルには固定ペナルティ $\\kappa$ を与える「Integrity-Gated Error」を算出します。\n\n### 3.4 WorldSyncによる改善アプローチ\nWorldSyncは3つの柱で構成されます。\n1. Action Coverage Expansion: シミュレータ上の多彩なオフエキスパート軌道と、目標ドメインの実機手本データを、共通の相対手先ポーズ変位空間で統合して学習させます。\n2. Action-Forcing Expert（AFE）: 動画生成バックボーンの中間特徴量から、将来の手先軌道 $\\hat{\\tau}_{1:H}$ を直接予測する補助ヘッドを導入します。これにより、中間表現がロボットの力学ダイナミクスを強制的にエンコードするよう促します（推論時は削除）。\n3. Intervention-Effect（IE）監督: 同じ初期状態・同じノイズ初期値から、異なる2つの行動 $A, B$ を与えたペアを用意します。行動介入による生成潜在変数の差分 $\\Delta_\\theta$ が、正解未来の差分 $\\Delta^*$ と一致するように損失 $\\mathcal{L}_{\\mathrm{IE}}$ で拘束します。\n\nこれらを標準のFlow Matching損失 $\\mathcal{L}_{\\mathrm{FM}}$ と統合してエンドツーエンドで学習します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "手本外のアクションを入力した際の2大失敗モードです。正解（GT）に対して、アームが消えてしまう「見た目の崩壊（Failure Mode 1）」と、映像は滑らかでも指示と全く違う動作をする「行動の不一致（Failure Mode 2）」が発生しています。",
+     "caption": "Figure 2: Action-following failures under off-expert actions. Compared with the ground truth, an expert-trained AC-WM either suffers visual collapse (Failure Mode 1) or generates plausible but action-inconsistent motion (Failure Mode 2).",
+     "image": "details/2608.24885/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "WorldEchoベンチマークの評価フローです。5つのカテゴリに分かれた行動クエリを実環境と世界モデルの双方に入力し、外観の健全性判定ゲートと手先軌道のNDTW誤差を組み合わせて総合スコアを算出します。",
+     "caption": "Figure 3: Overview of WorldEcho. Five action query categories span demonstrated and off-expert actions. Each action sequence produces matched simulator reference and world model rollouts. Visual integrity and $\\mathrm{SE}(3)$ end effector trajectory alignment are jointly evaluated. The gated error uses NDTW for valid rollouts and a fixed penalty $\\kappa$ otherwise.",
+     "image": "details/2608.24885/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "提案手法WorldSyncの全体構造です。共通アクション空間でのデータ網羅性拡張、中間特徴から軌道を解くAFE、そして同一ノイズ・同一初期状態での介入差分を揃えるIE監督の3要素で構成されています。",
+     "caption": "Figure 4: Overview of WorldSync. We expand action coverage by unifying diverse simulated expert and off-expert trajectories with target-domain real-robot demonstrations in a shared $\\mathrm{SE}(3)$ end-effector action space. The AC-WM generates future videos from visual, language, and action conditions. AFE grounds intermediate video representations in future robot trajectories, while IE supervision aligns predicted and ground-truth intervention effects under shared observations and noise. All o",
+     "image": "details/2608.24885/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "オフエキスパート時の破綻とWorldSyncの改善効果を実証",
+   "summary_ja": "既存の主要6モデルすべてで手本外行動に対する深刻な性能低下を確認しました。WorldSyncは追従誤差と映像品質のトレードオフを克服し、シミュレーションおよび実機ロボットでの方策改善において最も高い成功率を達成しました。",
+   "details_ja": "### 4.1 実験設定\n評価にはRoboTwinの50タスクを使用し、CtrlWorld、Cosmos-Predict2.5、Cosmos3、DreamDojo、Motus、LingBotVAの6つの代表的ベースラインと比較しました。\n\n### 4.2 診断結果（オフエキスパートのギャップ）\n手本行動からオフエキスパート行動に切り替えると、全モデルでIntegrity-Gated Errorが0.029〜0.099 m悪化しました。手先NDTW誤差は0.010〜0.043 m増加し、外観の失敗率は6.3〜28.1ポイントも上昇しました。モデルによって「見た目が崩れるタイプ」と「見た目は保つが手先が明後日の方向へ動くタイプ」に分かれ、両指標を同時に見ることの重要性が裏付けられました。\n\n### 4.3 WorldSyncの追従性能\n学習データを拡張するだけでも軌道追従性は改善しますが、見た目の劣化を防ぎきれない場合があります。WorldSyncは、Integrity-Gated Errorで全体トップ（0.066 m）を達成し、Visual Pass Rateでも84.5%と最高水準を記録しました。Cosmos-Predict2.5単体のように軌道誤差は小さくても見た目の失敗が多いモデルに対し、WorldSyncは極めて高いバランスを実現しています。\n\n### 4.4 方策改善（Policy Improvement）への効果\n世界モデルを用いた反復的ポリシー改善（VLAWベースの2ラウンド更新）を実施しました。\n- RoboTwin（ゴミ箱投入タスク）: 初期成功率約51%から、CtrlWorld（手本学習）は57%、CtrlWorld（拡張データ学習）は56%にとどまりましたが、WorldSyncは65%まで向上しました（+13ポイント）。\n- 実機双腕ロボット（カップ重ねタスク）: 初期成功率48%から、CtrlWorldは56%への向上にとどまったのに対し、WorldSyncは68%に到達しました（+20ポイント）。忠実な世界モデルが方策改善の質を直接押し上げることが実証されました。\n\n### 4.5 アブレーション研究\nデータ拡張は純粋な軌道追従に寄与し、IE監督はアクション差分の整合性（NDTW 0.0170 mを達成）に最も強く寄与しました。AFEは単体では追従誤差を劇的には減らしませんが、IEと組み合わせることで視覚ゲートの合格率を底上げし、最終スコアを最適化する役割を果たしていました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "既存世界モデルの診断結果です。(a) 手本外行動で全モデルの総合誤差が悪化。(b) 軌道誤差の増大と視覚破綻率の上昇という2方向の劣化。(c) PCAによる行動空間の可視化で、オフエキスパートクエリが手本外の広大な領域を捉えていることが分かります。",
+     "caption": "Figure 5: Diagnosing off-expert action following and evaluation coverage. (a) Integrity-gated error on expert and off-expert actions across six world models; error bars show task-bootstrap 95% confidence intervals. (b) Changes in raw NDTW and visual failure rate from expert to off-expert actions. (c) PCA visualization showing that off-expert queries cover a broader action distribution than expert actions.",
+     "image": "details/2608.24885/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実機カップ重ねタスク（上）とシミュレーションタスク（下）における方策改善の結果です。WorldSyncを用いたロールアウト学習を行うことで、既存モデルを大きく上回る成功率の向上を達成しています。",
+     "caption": "Figure 6: Policy improvement under matched budgets on a RoboTwin bin-dumping task and a real-robot stacking-cups task. Success rates are reported for the initial policies and after each of two refinement rounds.",
+     "image": "details/2608.24885/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion and Limitations",
+   "heading_ja": "まとめと今後の課題：長期間の全身制御に向けて",
+   "summary_ja": "世界モデルの行動追従性を測るWorldEchoとそれを高めるWorldSyncの有用性を示しました。一方で、長期インタラクションや多様なロボット形態への一般化には依然として課題が残されています。",
+   "details_ja": "本研究は、これまで見過ごされてきた「世界モデルの手本外アクションに対する追従不全」を白日の下に晒し、それを解消するための実践的な学習レシピを提示しました。世界モデルを単なる映像生成AIではなく、信頼に足るロボットシミュレータとして運用するための重要なマイルストーンといえます。\n\n著者らが認めている限界と課題は以下の通りです。\n- 長期ホライゾンにおける誤差蓄積: 現状の評価・検証は短中期の動作が中心であり、ステップ数が長くなった際のドリフト対策が今後の課題です。\n- 多様なロボット形態（Embodiment）への対応: 本実験では主にマニピュレータの手先制御を対象としており、多関節の全身協調制御や移動ロボットへの拡張が必要です。\n- オープンワールド環境の複雑性: 背景や干渉物が極度に複雑な環境下で、介入効果のアライメントがどこまでスケールするかは継続的な探求が求められます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "世界モデルの評価では、手本行動の再生だけでなく「手本から外れた妥当な行動」を入力して挙動を試すことが必須である。",
+  "動画の綺麗さ（FIDやMUSIQ）だけを指標にすると、モデルが勝手に成功を捏造する「楽観主義バイアス」を見落とす危険がある。",
+  "モデルの内部表現にロボット力学を強制する（AFE）ことと、アクション変化に伴う差分を教師ありで揃える（IE）ことの組み合わせが追従性向上に極めて有効である。",
+  "世界モデルを用いた強化学習やポリシー改善の成否は、世界モデルの「行動追従の忠実さ」に強く依存している。"
+ ],
+ "limitations_ja": [
+  "数十秒から数分に及ぶような長いタイムホライゾンのタスクにおける検証が不足している点。",
+  "手先効果器の$\\mathrm{SE}(3)$制御に特化しており、ロボットアーム各関節のトルク制御や移動ロボットの全身ダイナミクスまでは完全にカバーされていない点。",
+  "介入効果（IE）監督の学習には同一初期状態から異なるアクションを実行したペアデータが必要であり、実機のみでこのペアを大量収集するのは難しい点。"
+ ],
+ "keywords": [
+  "Robotic World Models",
+  "Action-Conditioned Generation",
+  "Policy Improvement",
+  "Visual Integrity",
+  "Trajectory Alignment"
+ ],
+ "id": "2608.24885",
+ "title": "Do Robotic World Models Really Follow Actions? Diagnosing and Aligning Action-Conditioned Generation for Policy Learning",
+ "title_ja": "WorldEcho: ロボット用ワールドモデルの行動追従性診断と整合",
+ "authors": [
+  "Sixiang Chen",
+  "Jiaming Liu",
+  "Jixian Wu",
+  "Yichen Guo",
+  "Tinghao Wang",
+  "Siyuan Qian",
+  "Hao Chen",
+  "Jiajun Cao",
+  "Jian Tang",
+  "Shanghang Zhang"
+ ],
+ "date": "2026-08-26",
+ "group": "general",
+ "tags": [
+  "world-model",
+  "benchmark",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.24885",
+ "pdf_url": "https://arxiv.org/pdf/2608.24885",
+ "summary_ja": "行動条件付きワールドモデルがエキスパート以外の行動にも正確に追従して未来予測を生成できるかを評価するベンチマークWorldEchoを提案。視覚的整合性とSE(3)軌道整合性を用いて検証した結果、既存モデルが分布外の行動指示を無視・歪曲する問題を特定し、方策学習用シミュレータとしての課題と改善指針を示した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.24885"
+}
