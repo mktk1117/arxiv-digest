@@ -1,0 +1,110 @@
+{
+ "tldr_ja": "視覚慣性トラッキング（Basalt）とRust製3DGS基盤（Brush）を巧みに組み合わせ、ステレオカメラとIMUの入力からリアルタイムかつ非CUDA環境でも動作する高品質な逐次3Dガウス再構成手法「Stipple」を実現しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "Stippleの全体システムフローです。VIOから得たキーフレームのうち、未探索領域を含むものだけを「アンカーフレーム」に指定して重いステレオ深度推定とガウス初期化を行い、残りは非同期で学習に回すことで高速性と高画質を両立しています。",
+  "caption": "Figure 2 : System overview. Keyframes and poses from the VI tracking system are submitted. Before committing a frame, the current map is rendered from that pose and scored for coverage and photometric error. If the view has unexplored or poorly reconstructed areas, it becomes an anchor frame, gets stereo depth, seeds new Gaussians, and corrects them on loop closure; otherwise it simply joins the ongoing optimization. All geometry is then refined by continuous optimization over every keyframe. Le",
+  "image": "details/2608.00931/F2.jpg"
+ },
+ "overview_ja": "ロボットやXRデバイスが未知の環境を探索する際、写実的で密な3D表現をその場で手に入れられる価値は絶大です。3D Gaussian Splatting（3DGS）は極めて高速なレンダリングが可能ですが、従来のパイプラインは重厚なSfM（COLMAPなど）による事前計算や長時間のバッチ最適化が前提となっており、ロボティクスの実時間処理には到底間に合いませんでした。\n\nそこで著者らは、ロボット分野ですでに実績のある高速な視覚慣性オドメトリ（VIO）システム「Basalt」と、特定のGPUベンダーに依存しないRust製3DGS実装「Brush」を統合することを思いつきました。最大の計算ボトルネックである「ステレオ深度推定」をすべてのキーフレームで行うのではなく、現在のマップを投影して未復元領域が多いフレーム（全体の約10%）だけを「アンカーフレーム」として厳選し、ガウスの初期配置を行います。それ以外のキーフレームは通常の最適化だけに回すことで、トラッキング処理を一切ブロックしない完全非同期な逐次学習パイプラインを構築しました。\n\n評価にはベンチマークデータセットのEuRoCおよびMonado SLAM Datasetを用い、ステレオ対応の代表的な実時間ベースラインであるPhotoSLAMやCaRtGSと比較しました。その結果、本手法はトラッキング速度で2〜3倍（200fps以上）を叩き出しつつ、画質面（PSNR・SSIM）でも多くのシーケンスで1〜3dB上回ることを実証しました。",
+ "contributions_ja": [
+  "ステレオカメラ画像とIMUデータから、カメラ軌跡の推定と3DGSによる環境マップ構築を完全実時間かつ並列に実行するGPU非依存のパイプラインを提案したこと。",
+  "重いステレオ深度推定を未復元領域の多い「アンカーフレーム」のみに限定し、占有グリッド間引きやSSIMに基づく高効率なガウス配置・最適化手法を確立したこと。",
+  "VIO由来のループクロープによるポーズ修正に連動して、各アンカーフレームに紐づくガウス群の幾何変換を高速・一括で行う同期機構を組み込んだこと。",
+  "EuRoCおよびMonado SLAMデータセットにおいて、実時間ステレオ対応の既存ベースライン（PhotoSLAM, CaRtGS）をフレームレートと復元品質の両面で大きく上回る性能を示したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "綺麗な3Dマップを今すぐ現場で使いたい！リアルタイム3DGSへの挑戦",
+   "summary_ja": "ロボットやXRでは即座に環境と相互作用できる密で写実的な3D再構成が不可欠ですが、従来の3DGSは前処理と学習が重すぎて実時間で動きません。本論文では、既に普及しているVIOのトラッキング情報と3DGSを組み合わせることで、GPUベンダーに縛られず実時間で動作する逐次再構成システム「Stipple」を提案します。",
+   "details_ja": "ロボット工学や拡張現実（XR）において、周囲環境をリアルタイムに3D復元することは、ナビゲーションやマニピュレーション、人が遠隔監視する災害救助ドローンなどの意思決定に直結します。従来の点群ベースの再構成は軽量ですがスパースであり、表面のフォトメトリック（画素単位）な詳細情報を得るには高価なメッシュ化処理が必要です。一方で3D Gaussian Splatting（3DGS）はフォトリアリスティックかつ高速な描画が可能ですが、事前処理としてCOLMAPのような重いSfMが必要であり、学習もバッチ最適化を繰り返すため、その場での実時間再構成には使えませんでした。\n\nロボットやXR機器の多くは、すでにステレオカメラやIMU（慣性計測装置）を備えており、VIO（Visual-Inertial Odometry）による高速な自己位置推定を行っています。著者らはここに着目し、VIOが生成するカメラ姿勢やキーフレームの情報を直接3DGSの学習パイプラインに流し込むことで、重い前処理をバイパスするアプローチを考案しました。\n\n本研究の主な貢献は、特定のハードウェア（CUDA）に縛られないRust/CubeCL実装をベースに、トラッキングとガウス再構成を完全に並行して実時間実行できる仕組みを作った点です。ステレオ深度推定やキーフレーム選別、ループ閉じ込み時のガウス同期など、VIOと協調した工夫を数多く組み込んでいます。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "同一の実行時間制限・同一ハードウェア上での定性評価結果です。既存手法（PhotoSLAM, CaRtGS）では細部の歪みや細長いニードル状ガウスのノイズが目立ちますが、提案手法（Ours）は正解画像（GT）に近い極めて鮮明で幾何学的に破綻のない復元を実現しています。",
+     "caption": "Figure 1 : Qualitative comparison against baselines. We show a qualitative comparison of our method against the two most relevant baselines that support stereo input, PhotoSLAM [ 12 ] and CaRtGS [ 7 ] , on multiple sequences. All were run for the same amount of time (sequence length) on the same hardware. The results of our method provide better reconstruction quality for the same amount of time than the baselines. Notice that these are VI-SLAM datasets with monochrome tracking cameras, so the r",
+     "image": "details/2608.00931/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "3DGSとSLAMの融合：先行研究の限界とStippleの立ち位置",
+   "summary_ja": "3DGSとSLAMを組み合わせる研究は盛んですが、その大半はRGB-Dカメラ前提で計算が重く、数fps程度にとどまっていました。実時間を謳う手法でもステレオカメラ対応はごく一部であり、多くが高価なCUDA環境に依存しているなか、本研究はステレオ慣性入力とクロスプラットフォーム対応を両立させています。",
+   "details_ja": "3DGSをSLAMに応用した初期の手法（SplaTAMやMonoGSなど）は、ガウスのみでマップとトラッキングを表現して高い描画品質を達成したものの、処理速度は数fps程度と実時間には程遠いものでした。RTG-SLAMのように不透明な面ガウスと透明な残差ガウスを分離して高速化を図る研究もありますが、それでも20fps未満にとどまります。また、多くの手法は深度センサ（RGB-D）を必要としており、ステレオカメラとIMUというロボティクスで最も実用的な構成に対応していませんでした。\n\n実時間を意識した研究としては、ORB-SLAM3とガウス表現を組み合わせたPhoto-SLAMや、そのガウス最適化側を改良したCaRtGS、Generalized-ICPを用いたRGBD GS-ICP SLAMなどがあります。しかし、ステレオカメラに対応しているのは実質的にPhoto-SLAMとCaRtGSのみであり、いずれもNVIDIA製GPU（CUDA）に強く依存していました。\n\n本研究は、高速かつリソース効率に優れたVIO実装「Basalt」と、CubeCLによりWebGPU/Vulkan等で動くGPU非依存の3DGS実装「Brush」を統合しています。ステレオ慣性（Stereo-Inertial）入力をネイティブに扱い、CUDA非依存でありながら、既存のステレオ対応実時間手法を凌駕する最高水準のトラッキングFPSと復元品質を達成しています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Methodology",
+   "heading_ja": "トラッキングを絶対に止めない！アンカーフレームと効率的な学習の仕組み",
+   "summary_ja": "トラッキングスレッドと学習スレッドを完全に分離し、GPUアクセスの排他制御のみで並行動作させます。マップ投影で未探索領域が多いキーフレームだけを「アンカーフレーム」とし、重い深度推定とガウス追加を集中的に行うことで実時間性を確保しています。",
+   "details_ja": "トラッキングにはBasaltを採用し、入力されたステレオ慣性フレームを処理します。画像はOpenCVで歪み補正とステレオ平行化が行われます。本手法の肝は、トラッキングスレッドがマッピング（学習）側の処理で絶対にブロックされない構造にあります。両スレッド間で共有されるのは、深度推定と最適化のためのGPUアクセスを調停するミューテックス（排他制御）のみです。\n\n全キーフレームに対して深度推定を行うと確実にフレーム落ちするため、現在のマップを描画した際のアルファ値（不透明度）が0.05未満のピクセル割合を計算します。この未復元領域の割合が5%を超えたキーフレームだけを「アンカーフレーム」に昇格させます。アンカーフレームは全キーフレームの約10%に過ぎないため、全体の計算負荷を劇的に抑えられます。\n\n### 3.1 Adding Gaussians\nアンカーフレームに対するガウス追加は次のステップで行われます。\n- 1. 深度ベースのシード生成: FoundationStereo（または軽量なBM/SGBM）でメトリック深度を求め、3D点群として逆投影します。\n- 2. 占有間引き: 既存のガウス中心をCPU側の均一グリッド（セル幅0.1m）でハッシュ管理し、すでにガウスが存在する空間の候補点を破棄します。\n- 3. バースト最適化: 高めの学習率で短い反復学習を行い、壁などの単純な平面領域がこの初期点群だけで表現できるか確認します。\n- 4. SSIMベースの高密度化: レンダリング画像と実画像の画素ごとのSSIMを計算し、不一致度（$1.0 - \\text{SSIM}$）に比例した確率で重点サンプリングを行い、構造が複雑で表現しきれていない部分にピンポイントで新規ガウスを追加します。\n- 5. 収束学習: 追加したガウスを局所的になじませるため、さらに学習を回します。\nアンカーフレームの処理待ちがないときは、過去の全キーフレームから一様ランダムに1枚を選んで最適化ステップを進めます。\n\n### 3.2 Loss Formulation\n全体の損失関数は、色の一致度を表す $\\mathcal{L}_{1}$ と $\\mathcal{L}_{\\text{SSIM}}$ に加え、3つの正則化項で構成されます。1つ目はアンカーフレームのみに適用される逆深度のL1損失 $\\mathcal{L}_{\\text{depth}}$ です。2つ目はガウスの分散の異方性を抑えて針状（needle-like）の形状への縮退を防ぐアンチニードル損失 $\\mathcal{L}_{\\text{needle}}$、3つ目はEuRoCなどでガウスが極端に巨大化して画面全体が霞んでしまうのを防ぐスケール正則化項 $\\mathcal{L}_{\\text{scale}}$ です。\n\n### 3.3 Loop Closure\nループ閉じ込み（自己位置の再同期）がVIO側で発生した場合、全キーフレームのカメラ姿勢が補正されます。ガウスは対応するアンカーフレームのメモリ領域に連続して格納されているため、アンカーフレームに適用された剛体変換（回転と並進）をそのままガウスの中心座標と共分散行列に適用するだけで、高速に幾何補正が完了します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "キーフレームのライフサイクルを示した図です。未復元領域が多いフレームのみがアンカーフレームとして深度推定・新規ガウス生成のパイプラインへ進み、それ以外のフレームは通常の逐次学習へと振り分けられます。",
+     "caption": "Figure 2 : System overview. Keyframes and poses from the VI tracking system are submitted. Before committing a frame, the current map is rendered from that pose and scored for coverage and photometric error. If the view has unexplored or poorly reconstructed areas, it becomes an anchor frame, gets stereo depth, seeds new Gaussians, and corrects them on loop closure; otherwise it simply joins the ongoing optimization. All geometry is then refined by continuous optimization over every keyframe. Le",
+     "image": "details/2608.00931/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "既存手法を圧倒する処理速度と画質：実機ベンチマークでの検証",
+   "summary_ja": "EuRoCとMonado SLAMデータセットで評価を行い、ベースライン（PhotoSLAM, CaRtGS）に対して2〜3倍となる200fps超のトラッキング速度と優れた画質を達成しました。一方で、環境によってはガウスが過剰生成される課題も見えてきました。",
+   "details_ja": "実験はRyzen 9 9950XとNVIDIA GeForce RTX 5060 Ti（16GB）のワークステーションで実施しました。入力シーケンスは動画本来のフレームレート（実時間）で再生し、各手法に不当な追加計算時間を与えない公平な条件で比較しています。\n\n### 4.2 & 4.3 定性と定量の評価結果\n- EuRoC Vicon Room（Table 1）: 提案手法はPSNR、SSIM、LPIPSの各指標でベースラインをリードし、PSNRで約1〜3dBの差をつけました。特筆すべきはトラッキング速度で、ベースラインの69〜72fpsに対し、提案手法は211fpsを記録しました。\n- Monado SLAM Dataset（MSD: Tables 3, 4, 5）: VRヘッドセットのデータセットにおいても、最大264fpsの超高速トラッキングを達成しました。ベースラインのPhotoSLAMやCaRtGSはトラッキングが破綻して再構成不能になるシーケンス（MOOの全シーケンスやMGOの大部分）が多発しましたが、提案手法は全シーケンスを完走し、比較可能なシーケンスではPSNRで4.3〜5.4dBもの大差をつけています。\n- EuRoC Machine Hall（Table 2）の例外: 一方で、Machine HallシーケンスではCaRtGS（平均21.80dB）に対し、提案手法は平均19.48dBと後れを取りました。原因はSSIMによる高密度化条件が過剰に反応し、ガウス数が平均39.4万個（CaRtGSは11.8万個）まで爆増して時間内に最適化が収束しきれなかったためです。\n\n### 4.4 Ablation Study\nEuRoC V1_01シーケンスを用いたアブレーション実験（Table 6）では、学習ステップ中のカメラ姿勢の局所最適化（ポーズ洗練）がPSNRを+0.84dB押し上げ、最も大きな寄与をしていることが確認されました。最大スケール損失もガウス肥大化を抑える効果を発揮しています。",
+   "figures": []
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめ：VIOと3DGSの相乗効果が切り拓くロボットビジョンの未来",
+   "summary_ja": "VIOの効率性とGPU非依存の3DGSを組み合わせることで、リアルタイムかつ高品質な逐次3D再構成が可能であることを証明しました。一部シーンでの過剰なガウス生成という課題はあるものの、ロボットやXRでの即時環境理解に向けた極めて実用的な一歩です。",
+   "details_ja": "本研究は、VIOが持つ高速なトラッキング能力とループ補正機構を活用し、ステレオ深度推定をアンカーフレームに絞ることで、トラッキングを一切止めることなく数秒で未知環境を復元するパイプラインを提案しました。\n\n既存のステレオ対応手法と比較して2〜3倍ものトラッキングフレームレートを誇り、かつ非CUDA環境でも動作する柔軟性を備えています。Machine Hallのような特定のテクスチャ環境で見られたガウス爆発への対策など今後の改良点は残るものの、SLAMと3DGSの相互補完関係が実時間ロボティクスやXRアプリケーションにもたらす大きな可能性を示しました。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "3DGSを実時間化する鍵は、重いステレオ深度推定やガウス生成を毎フレーム行わず、マップ投影で未復元領域が多い「アンカーフレーム」だけに絞る間引き設計にある。",
+  "VIOのトラッキングスレッドと3DGS学習スレッドを完全非同期に分離し、最小限のGPU排他制御で結ぶことで200fps超の超高速トラッキングが維持できる。",
+  "ループ閉じ込みが発生しても、ガウスをアンカーフレームごとにメモリ上で連続配置しておけば、剛体変換の一括適用で瞬時にマップ全体の幾何整合性を修正できる。",
+  "局所的なカメラ姿勢の洗練（Pose refinement）を3DGS側の最適化ループに組み込むことが、復元画質の向上に極めて大きく寄与する。"
+ ],
+ "limitations_ja": [
+  "EuRoC Machine Hallのような一部の環境では、SSIMベースの高密度化判定が過敏に作動してガウス数が爆発し、実時間バジェット内で最適化が収束せず画質が低下する。",
+  "評価が各手法自身のキーフレーム上で行われており、手法間で評価視点が異なるため、厳密に同一視点によるホールドアウト評価が今後の課題として挙げられている。",
+  "VRヘッドセットの4眼カメラのようなマルチカメラ環境において、側方カメラはVIOのトラッキングにのみ使われ、ガウスの再構成にはまだ活用されていない。"
+ ],
+ "keywords": [
+  "3D Gaussian Splatting",
+  "Visual-Inertial Odometry",
+  "Real-Time SLAM",
+  "Stereo Tracking",
+  "Incremental Reconstruction"
+ ],
+ "id": "2608.00931",
+ "title": "Stipple: Real-Time Incremental Gaussian Splatting with Visual-Inertial Tracking",
+ "title_ja": "Stipple：視覚慣性トラッキングを用いたリアルタイム漸進的3D Gaussian Splatting",
+ "authors": [
+  "Kilian Northoff",
+  "Mateo de Mayo",
+  "Daniel Cremers"
+ ],
+ "date": "2026-08-04",
+ "group": "general",
+ "tags": [
+  "perception",
+  "navigation"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.00931",
+ "pdf_url": "https://arxiv.org/pdf/2608.00931",
+ "summary_ja": "ロボットの即時環境把握に向けて、視覚慣性オドメトリ（VIO）と3D Gaussian Splatting（3DGS）を統合した「Stipple」を提案する。キーフレーム処理と幾何学的制約により、計算負荷の高い前処理なしでカメラ追従（トラッキング）と高品位な3D空間の逐次再構成をリアルタイムで同時実行する。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.00931"
+}
