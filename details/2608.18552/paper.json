@@ -1,0 +1,139 @@
+{
+ "tldr_ja": "摩擦錐や入力上下限などの制御制約をAPG法で高速に解き、多重射撃法（FDDP）と統合した新しいDDPフレームワーク「ABC-DDP」を提案しました。これにより、点接触の4脚ロボットが足を踏み替えずに2脚だけで静止バランスを取り続ける「2脚立ち」を、実時間有限ホライズンMPCとして初めて実現しています。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "単一剛体モデル（SRBD）として扱った4脚ロボットのダイナミクスと、独楽（コマ）の歳差・章動運動との類似性を示した図です。支持基底面が線分にしかならない2脚立ちでも、ロボットが独楽のように回転運動の非線形効果を活かすことで倒れずに立ち続けられる様子を表しています。",
+  "caption": "Fig. 1: SRBD representation of a quadruped robot ( $\\{S\\}$ : inertial frame, $\\{B\\}$ : body frame). The body motion induced by ground reaction forces is illustrated together with an analogy to a spinning top, highlighting precession and nutation effects.",
+  "image": "details/2608.18552/F1.jpg"
+ },
+ "overview_ja": "脚ロボットのモデル予測制御（MPC）において、差分動的計画法（DDP）は非線形ダイナミクスを扱いつつ高速に解ける強力なツールです。しかし、地面との摩擦錐やアクチュエータ限界といった「制御入力の制約」を厳密に扱うのが難しく、従来のConstrained DDPではKKT行列の逆行列計算が重すぎたり、Box-DDPでは単純な上下限しか扱えなかったりという課題がありました。さらに、強い劣駆動状態（アクチュエータ数より自由度が多い状態）では、物理的に成立する初期軌道を用意すること自体が極めて困難で、従来の単一射撃型DDPでは計算が破綻してしまいます。\n\nそこで著者らは、画像処理分野などで使われる「加速射影勾配法（APG法）」をDDPの後退計算（Backward pass）に導入しました。摩擦錐への射影は陽に計算できるため、高コストなKKT行列の逆行列計算を繰り返すことなく、厳密なアクティブセット（制約境界に乗っている変数の集合）を素早く特定できます。さらに、物理的に不成立な初期軌道からでも徐々に成立させる多重射撃手法（FDDP）と制御制約を矛盾なく両立させるため、「仮想制約（Virtual Constraint）」と制約境界の収縮パラメータを導入しました。\n\n検証として、対角の2脚のみを地面につけて足を踏み替えずにバランスをとる「静的2脚立ち」や、幅の狭い歩行（キャットウォーク）、直立2脚歩行、時速21.6 km（6.0 m/s）の高速走行などを単一のMPC枠組みでシミュレーションしました。その結果、外乱で大きく傾いても24 ms以内の実時間計算で姿勢を立て直せることを示し、短い予測ホライズンでも高難度な劣駆動バランシングが可能であることを実証しました。",
+ "contributions_ja": [
+  "加速射影勾配（APG）法をDDPに導入し、KKT逆行列の反復計算なしに摩擦錐などの線形制御制約とアクティブセットを高速・厳密に処理するABC-DDPを構築したこと",
+  "「仮想制約」の導入により、制御制約の厳密処理とダイナミクスを満たさない初期値から解ける多重射撃手法（FDDP）を初めて統一的に両立させたこと",
+  "点接触の4脚ロボットにおいて、足を踏み替えない「静的2脚立ち」を実時間有限ホライズンMPCとして世界で初めて実現したこと",
+  "2脚静止バランスから6.0 m/sの高速走行まで、極端な劣駆動タスクを含む多彩な運動をパラメータ変更のみの単一MPC枠組みで達成したこと"
+ ],
+ "sections": [
+  {
+   "heading": "II MPC Formulation",
+   "heading_ja": "問題設定：単一剛体モデルと摩擦錐の制約",
+   "summary_ja": "ロボットを単一剛体モデル（SRBD）としてモデル化し、地面反力を制御入力とした有限ホライズンMPCを定式化しています。各脚の地面反力には、足が滑らないための摩擦ピラミッド制約と押し力の上限・下限が課されます。",
+   "details_ja": "MPCの最適化問題は、離散化されたダイナミクス $\\bm{\\mathrm{x}}_{k+1} = \\bm{\\mathrm{f}}_k(\\bm{\\mathrm{x}}_k, \\bm{\\mathrm{u}}_k)$ のもとで、状態誤差に関する重み付き2次コストの総和を最小化する問題として定式化されています。\n\n実時間での計算効率を最大化するため、ロボットのダイナミクスには単一剛体モデル（SRBD: Single Rigid Body Dynamics）を採用しています。制御入力 $\\bm{\\mathrm{u}}_k$ は各脚が発生させる地面反力（GRF）です。状態の誤差表現やその微分の計算には、SO(3)などの回転多様体を直接扱う変分アプローチが用いられています。\n\n各脚の反力には、滑りを防ぐ摩擦ピラミッド制約（摩擦係数 $\\mu$）と、地面を引っ張れないという片側接触制約（$u_{z,\\min} \\ge 0$）および最大押し力制約が課されます。遊脚（空中に浮いている脚）については、鉛直反力の上下限をともに0とすることで反力をゼロに固定します。これらの制約を正確かつ実時間内に守りながら解くことが、本手法の狙いです。",
+   "figures": []
+  },
+  {
+   "heading": "III Accelerated Projected Gradient Method",
+   "heading_ja": "最適化のエンジン：加速射影勾配法（APG）",
+   "summary_ja": "制約付きDDPのサブ問題を高速に解くため、ヘッセ行列の逆行列計算が不要な加速射影勾配（APG）法を採用しています。Barzilai–Borwein法によるステップ幅決定と非単調ラインサーチ、Nesterov加速を組み合わせることで、$O(1/k^2)$の優れた収束性を発揮します。",
+   "details_ja": "制約付き最適化問題を解く際、2次計画法（QP）でアクティブセット法を使うと、制約境界が入れ替わるたびにKKT行列の逆行列を再計算する必要があり、計算時間が跳ね上がります。そこで本研究では、画像処理などで大規模問題を高速に解くために使われてきた非単調APG法に着目しました。\n\nAPG法は勾配方向に進んでから制約集合へ直交射影する第1次手法です。脚ロボットで使われる箱型制約や摩擦ピラミッド制約への射影は陽解法（閉形式）が存在するため、射影処理そのものを極めて高速に行えます。\n\nアルゴリズムの工夫として、以下の3点が組み込まれています：\n- **Barzilai–Borwein（BB）則によるステップ幅決定**: 直近2回の反復における変数と勾配の変化量から曲率の傾向を捉え、適切な初期ステップ幅を与えます。\n- **非単調ラインサーチ**: 目的関数値の厳密な単調減少を強制せず、過去の履歴重み $c_k$ より小さければ受容する緩和基準を採用しています。これにより悪条件の問題や局所的に非凸な領域でも保守的になりすぎず安定して収束します。\n- **Nesterovの加速モメンタム**: 局所的に凸な領域において、通常の勾配降下法よりも圧倒的に速い $O(1/k^2)$ の理論的収束率を達成します。",
+   "figures": []
+  },
+  {
+   "heading": "IV APG-Based Control-Constrained DDP",
+   "heading_ja": "提案手法：制約付きDDPと多重射撃の統合（ABC-DDP）",
+   "summary_ja": "APG法を用いて後退計算でアクティブセットを特定し、フィードバックゲインとフィードフォワード入力を計算します。さらに「仮想制約」を導入することで、物理的に不成立な初期軌道からでも解ける多重射撃法（FDDP）と制御制約の同時処理を初めて両立させました。",
+   "details_ja": "提案フレームワーク「ABC-DDP」の核となるアルゴリズムは、後退計算（Backward pass）と前進計算（Forward pass）から構成されます。\n\n**IV-A 制約付き後退計算**\n各ステップの後退計算では、アクション価値関数（Q関数）の2次近似を解きます。アクティブな制約に対してKKT方程式を立てると、最適制御入力はフィードフォワード項とフィードバック項の和として表現されます。ここで、フィードフォワード項の計算は状態偏差がゼロのときの制約付き最適化そのものです。これをAPG法で解くことで、副産物としてどのアクティブ制約が効いているかが厳密に特定されます。特定されたアクティブセットに基づいて1回だけKKT系を解けば、フィードバックゲインも同時に手に入ります。\n\n**IV-B・C 多重射撃法と仮想制約**\n従来の単一射撃型DDPでは、劣駆動の状態で前進積分すると初期軌道がすぐに発散してしまいます。そこで、状態遷移の不連続量（ギャップ $\\bar{\\bm{\\mathrm{f}}}$）を許容しながら徐々に物理的整合性を高めるFDDPの仕組みを取り入れます。しかし、制約境界上でラインサーチを行うとヘッセ行列の物理的意味が失われてしまいます。そこで著者らは、縮退したフィードフォワードステップを「勾配に直交する超平面」として解釈する**仮想制約**を導入しました。フィードバック入力はこの仮想超平面上を滑るように動き、さらに安全のために制約領域を係数 $\\beta$ で収縮させます。\n\n**IV-D・E 初期ロールアウトと改善判定**\n初期軌道は単純なPDコントローラで大まかに生成します。物理的には成り立っていなくても、ギャップを許容するFDDPのおかげで目標軌道の周囲に有界に留まります。ラインサーチでは、コスト削減だけでなくダイナミクスの整合性（ギャップの解消）を優先して進める2次近似の停止基準を採用しています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "制約境界上でのバックトラッキングと仮想制約の幾何学的イメージです。フィードフォワード探索で決まる青い超平面（仮想制約）の上をフィードバック入力が移動し、さらに境界収縮係数 $\\beta$ によって探索領域を安全に狭めています。",
+     "caption": "Fig. 2: Backtracking in the presence of active constraints. During backtracking, the feedforward step defines a virtual constraint (blue hyperplane), along which the feedback step evolves. The original constraint set is contracted by a factor $\\beta$ , limiting the admissible region for the feedback component.",
+     "image": "details/2608.18552/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "ダイナミクスを満たさない初期ロールアウトの様子です。赤点で示された状態の不連続（ギャップ）を許容することで、強い劣駆動状態でも初期軌道が発散せず、目標軌道（破線）の近傍に留まることができます。",
+     "caption": "Fig. 3: Illustration of a dynamically infeasible initial rollout. The nominal trajectory (red) is generated by propagating the system dynamics from the desired trajectory (dashed line), resulting in a trajectory that is not dynamically feasible. Nevertheless, the trajectory remains bounded around the desired trajectory without diverging, even under prolonged underactuation.",
+     "image": "details/2608.18552/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Results",
+   "heading_ja": "実験結果：実時間MPCによる2脚立ちと多彩な運動",
+   "summary_ja": "MATLABによるオフライン比較でAPG法がQP法より約2.5倍高速であることを確認し、シングルボードコンピュータを用いた実時間シミュレーションを実施しました。ロボット自重の25%に達する外乱衝撃を受けても転倒せずに2脚立ちを維持し、直立歩行や6.0 m/sの高速走行も実証しました。",
+   "details_ja": "提案手法の性能を、対角2脚立ち・キャットウォーク・直立2脚歩行・高速走行の4つのタスクで評価しました。\n\n**V-A オフライン計算での検証**\n- **FDDPの効果**: 完全なFDDPを導入することで、導入しない場合に比べて最適化の収束性が向上し、より低いコスト値へと安定して到達しました。\n- **APG vs QP**: 200ステップの問題を5回解いた平均計算時間は、QP（MATLABのquadprog）が14反復で26.10秒だったのに対し、APGは16反復で10.54秒と約2.5倍高速でした。QPはアクティブセットの誤特定を起こすことがありましたが、APGは安定した解軌道を得られました。\n- **ホライズン長の影響**: 予測ホライズンを数ステップから15ステップまで短縮しても、得られる姿勢軌道はほぼ同等でした。ホライズン15（$N=15$）の短い設定でも目的関数値は単調に減少し、短いホライズンでも実用的な制御が可能であることが示されました。\n\n**V-B 実時間シミュレーション**\n制御周期40 ms（25 Hz）に対し、搭載用SBC（Intel Core i7-6600U @2.60GHz）上でのABC-DDPの最大計算時間は24 ms（反復回数は上限50回に対して余裕で収束）に収まり、実時間性が確認されました。\n- **外乱応答**: 2脚立ち中にロボット自重の約25%に相当する衝撃（横方向 $-100$ N、鉛直方向 $-150$ N、0.2秒間）を肩口に加えても、独楽のような歳差・章動運動を使って重心を支持線（平均重心位置 $[0.53, 0.16]$ mm）の上に維持し、素早く元の姿勢へ復帰しました。\n- **摩擦係数の影響**: $\\mu=0.15$ や $0.35$ では摩擦限界に達してバランスを崩しましたが、$\\mu=0.5$ では摩擦錐の境界を破ることなく連続した外乱から復元できました。\n- **多彩なダイナミック運動**: 同じフレームワークのまま、左右の足幅を狭めたキャットウォーク、後脚2本だけで立つ直立歩行、さらに時速21.6 km（6.0 m/s）での高速トロット走行も成功しています。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "オフラインでの収束性と計算性能の比較です。(a),(b)はFDDPの有無による収束性の違いを示し、(c),(d)はAPGとQPの比較を示しています。APGはQPと同等の収束性を持ちつつ、計算速度で約2.5倍の高速化を達成しています。",
+     "caption": "Fig. 5: Comparison of convergence behavior and constraint handling performance. (a),(b) Effect of incorporating FDDP, showing improved convergence and stability. (c),(d) Comparison between APG and QP for solving the constrained subproblem, where APG achieves comparable convergence with improved robustness. Note that APG achieved approximately 2.5 $\\times$ faster computation than QP.",
+     "image": "details/2608.18552/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "予測ホライズン長の影響を示した図です。(a)ではホライズンを $N=15$ まで短くしても長いホライズンとほぼ同じ軌道が得られることが示され、(b)では $N=15$ でもMPCの目的関数値が安定して減少していく様子が確認できます。",
+     "caption": "Fig. 6: Effect of the prediction horizon. (a) Similar orientation trajectories are obtained for different horizon lengths, indicating robustness to horizon reduction. (b) Objective value for $N=15$ under a receding-horizon scheme shows consistent decrease over the prediction step, indicating stable MPC behavior even with a short horizon.",
+     "image": "details/2608.18552/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "外乱印加時における静的2脚立ちの応答データです。(a)重心は2脚を結ぶ支持線（破線）の周りに留まり、(b)〜(d)の通り強い外乱が加わっても高さ・姿勢を即座に回復しています。(e),(f)の計算時間ヒストグラムでは最大でも24 msと、制御周期40 msに対して十分な実時間マージンを示しています。",
+     "caption": "Fig. 7: Experimental results of two-leg standing under external disturbances. (a) Center of mass (CoM) trajectory in the $xy$ plane, with color indicating time and the red marker denoting the average CoM position. (b) Height, (c) orientation, and (d) MPC force responses (front-right leg). External impulses are applied at the indicated time instants (magenta: lateral, cyan: vertical). (e),(f) Histograms of solve time and iteration count, showing real-time performance within the sampling period ( ",
+     "image": "details/2608.18552/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "摩擦係数 $\\mu$ の違いによるMPCの反力応答の比較です。外乱（破線）が加わった際、$\\mu=0.15$ や $0.35$ では摩擦ピラミッド制約（黒破線）に張り付いて転倒しますが、$\\mu=0.50$ では制約を守りながらバランスを維持できています。",
+     "caption": "Fig. 8: Comparison of the front-right leg contact forces for different friction coefficients ( $\\mu=0.15,0.35,0.50$ ). The magenta dashed lines indicate the instants at which the lateral disturbances are applied, while the dashed black lines represent the friction-pyramid limits.",
+     "image": "details/2608.18552/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "APG法による高速な制約処理と仮想制約による多重射撃法の統合によって、高難度な劣駆動バランシングを実時間MPCで解くABC-DDPを確立しました。今後は非Gauss–Newton項の適切な取り込みやタスク間での重み自動調整が課題として挙げられています。",
+   "details_ja": "本論文では、強い劣駆動状態にある脚ロボットのための実時間制御制約付きDDPフレームワーク「ABC-DDP」を提案しました。APG法による射影勾配法、KKT定式化、そして多重射撃法を矛盾なく繋ぐ「仮想制約」の導入により、KKT逆行列の反復計算を排除しつつ、物理的に不成立な初期軌道からでも安定して最適解へ収束させることに成功しました。\n\n考察として、ダイナミクスの2次微分の扱いや非Gauss–Newton項について触れられています。これらを単純に含めると、テイラー展開の高次項の歪みによってステップ幅を広げた際に性能が劣化することが判明しました。そのため、有用な2次成分を選択的に取り込むことが今後の性能向上の鍵になります。また、今回実証した多種多様な運動タスクをさらに柔軟に切り替えるための適応的な重みスケジューリングも今後の重要な研究課題です。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "DDPの後退計算において、射影が閉形式で求まる線形制約や摩擦錐制約は、QPではなくAPG法で解くことで逆行列計算を省き約2.5倍高速化できる",
+  "「仮想制約」の考え方を用いることで、制約境界に張り付いた状態でもFDDPのダイナミクス不整合解消（多重射撃）を破綻なく組み込める",
+  "脚ロボットの2脚静止バランスのような強い劣駆動運動でも、独楽の歳差・章動に相当する回転ダイナミクスを活かせば、15ステップ程度の短いホライズンで実時間MPC制御が可能である"
+ ],
+ "limitations_ja": [
+  "シミュレーション環境での実証にとどまっており、実機ロボットにおける足先滑りや接触面の不確実性、トルク飽和への耐性は未検証である",
+  "ダイナミクスに単一剛体モデル（SRBD）を用いているため、脚の質量や慣性が無視できない高加速・高旋回動作ではモデル化誤差の影響を受ける可能性がある",
+  "2脚立ちや高速走行などタスクごとにコスト関数の重みパラメータを手動調整しており、タスク間の自動適応スケジュールは今後の課題とされている"
+ ],
+ "keywords": [
+  "Differential Dynamic Programming",
+  "Model Predictive Control",
+  "Accelerated Projected Gradient",
+  "Underactuated Robotics",
+  "Legged Locomotion"
+ ],
+ "id": "2608.18552",
+ "title": "Real-Time Control-Constrained DDP for Underactuated Balancing of Legged Robots",
+ "title_ja": "脚ロボットの劣駆動バランシングのためのリアルタイム制御制約付きDDP",
+ "authors": [
+  "SeongWon Nam",
+  "Hyunyong Lee",
+  "Hansol Kang",
+  "Jiman Park",
+  "Yeongwoo Son",
+  "Bumsu Yi",
+  "Jaeyoung Oh",
+  "Hyouk Ryeol Choi"
+ ],
+ "date": "2026-08-20",
+ "group": "focus",
+ "tags": [
+  "quadruped",
+  "control",
+  "locomotion"
+ ],
+ "categories": [
+  "cs.RO",
+  "math.OC"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.18552",
+ "pdf_url": "https://arxiv.org/pdf/2608.18552",
+ "summary_ja": "制御制約を伴う脚ロボットのバランシング制御において、KKT逆行列計算を反復せず能動制約を特定する加速射影勾配法ベースのDDP手法「ABC-DDP」を提案。仮想制約の導入により動的に実行不可能な初期化からでも安定して最適化でき、実時間MPCによるロバストなバランス制御を可能にした。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.18552"
+}
