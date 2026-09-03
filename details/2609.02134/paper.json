@@ -1,0 +1,139 @@
+{
+ "title_ja": "学習された点群対応付けによるヒューマノイド向け統合動作リターゲティング",
+ "tldr_ja": "人手による関節の対応付けを一切使わず、身体表面の点群マッチングを学習することで、多種多様な人間の動作データやロボットの体格差を吸収し、接触動作まで高精度に再現できる統一リターゲティング手法「UMR」を提案しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "UMRの全体パイプラインです。左側でTポーズの表面点群からロボットと人間の対応関係を一度だけ学習し、右側でその対応点群をアンカーとして接触や関節拘束を満たす二次計画法（QP）最適化を解くことで、多様なタスクの動作を生成します。",
+  "caption": "Fig. 2: UMR overview. UMR establishes a shared surface-based interface for heterogeneous motion sources and robot embodiments through two stages. Point Cloud Correspondence Learning (left) learns a reusable indexed correspondence between canonical source and robot point clouds and binds the paired points to their body meshes. Correspondence-Guided Retargeting (right) reuses the same point pairs to match surface positions, orientations, and contact maps in a constrained pose optimizer, producing robot motions for diverse tasks covering locomotion and interaction.",
+  "image": "details/2609.02134/F2.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットに歩行や物体操作、環境との接触といった複雑な全身行動を学習させるには、大量のお手本動作データが欠かせません。そこで重宝するのが人間のモーションキャプチャデータですが、人間とロボットでは骨格構造や自由度、関節可動域、手足の長さの比率がまったく異なります。従来のリターゲティング（動作変換）手法は、人間とロボットの「手首」「足首」「膝」などの関節を手作業で1対1に対応付けて最適化していました。しかし、この方法だと新しいロボットを導入するたびに手作業で関節ペアを定義し直し、パラメータを微調整しなければならず、拡張性に乏しいという大きな問題がありました。さらに、関節という離散的な情報だけでは、物体や床面との細かな接触状態をロボットへ綺麗に移植できません。\n\nそこで著者らは、「骨格ではなく、身体の表面（点群）を共通インターフェースにすればよいのでは？」というアイデアを形にしました。それが本論文で提案する「UMR（Unified Motion Retargeting）」です。UMRでは、基準となるTポーズにおいて、人間の表面点群からロボットの表面点群への対応関係をニューラルネットワークで学習します。一度この対応関係を作ってしまえば、動作中もその点群ペアが追従すべきアンカーとなり、位置だけでなく表面の向き（法線）や接触状態まで考慮した運動学的な最適化を行えます。\n\n検証実験では、Unitree G1をはじめとする身長0.75m〜1.83mの5種類のロボットと4種類の人体データ表現を用い、全身トラッキングから強化学習ポリシーの学習、さらには物体運搬や階段昇降といった接触を伴うインタラクションまで幅広くテストしました。その結果、既存の最先端手法（SOTA）を大きく上回る追従精度と成功率を記録し、実機のUnitree G1を用いた高難度な回し蹴りや階段昇降、ボール拾い動作も見事に成功させています。",
+ "contributions_ja": [
+  "骨格や関節の手動マッピングを完全に排除し、外表面の点群対応を学習することで多様なデータ形式やロボット形態に対応できる統一リターゲティング基盤を構築したこと",
+  "一度学習した表面点群のインデックスを流用し、姿勢追従だけでなく環境・物体との接触マップ（contact map）を直接転送できる効率的な最適化パイプラインを設計したこと",
+  "全身動作トラッキング、大規模強化学習ポリシー学習、接触リッチな相互作用タスクにわたる系統的評価を行い、実機ヒューマノイドでの高難度動作展開まで実証したこと"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "関節を合わせるのをやめて、身体の「表面」を合わせよう",
+   "summary_ja": "ヒューマノイドの行動学習には人間の動作データが不可欠ですが、従来の骨格ベースの手法はロボットごとに手作業の関節定義が必要で拡張性に限界がありました。UMRは身体表面のメッシュや点群を着目点とし、手動マッピングなしで密な対応付けと接触転送を実現します。",
+   "details_ja": "ヒューマノイドロボットに人間のような豊かな全身動作（歩行、姿勢変更、物体操作、環境との接触など）を獲得させるには、膨大なデモンストレーションデータが必要です。しかし、実機ロボットを動かして高品質なデータを集めるのはコストも時間もかかり、スケールしません。そこで自然で大規模な人間の動作データを参照軌道として使うことになりますが、人間とロボットでは身体のプロポーションや関節の自由度（DoF）、運動学的制約が大きく異なります。\n\n既存のリターゲティング手法は、そのほとんどが「骨格中心（skeleton-centric）」でした。手作業で選んだ人間の関節とロボットのリンクを1対1で紐づけるため、新しいロボットを試すたびに対応関係を再設計し、パラメータを調整し直す必要がありました。さらに、関節というスパース（まばら）な点しか見ていないため、身体全体の細かな姿勢アライメントや、環境・物体との確実な接触状態の再現には情報が足りませんでした。\n\nここが発想の転換です。近年の人体姿勢表現（SMPL-XやSOMAなど）は、関節だけでなく密な表面メッシュを持っています。メッシュであれば、個々の関節の意味に縛られず、3D空間上の広がりや局所的な幾何形状から対応関係を導き出せます。そこで本研究では、学習された密な点群対応と制約付き運動最適化を組み合わせた「UMR（Unified Motion Retargeting）」を提案します。基準姿勢で点群の対応関係を一度学習してメッシュに固定すれば、あとは骨格構造が違っても表面同士の一致と接触関係の転送を自動的かつ高精度に行うことができます。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "UMRによるモーションリターゲティングの例です。上が元の人間の動作と接触マップ、下がUnitree G1へリターゲティングされた動作です。手作業の関節マッピングなしに、表面点群の密な対応付けを通じて複雑な足技の動作と接触が高精度に転送されていることが分かります。",
+     "caption": "Fig. 1: Visualization of motion retargeting with UMR . Top: source human motion and its surface point clouds with contact maps. Bottom: the corresponding motion retargeted to the Unitree G1 humanoid and its surface point clouds with transferred contacts. By establishing dense surface correspondences, UMR transfers both motion and contact across substantially different embodiments without requiring manually specified joint correspondences.",
+     "image": "details/2609.02134/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "骨格追従の限界と、表面形状・接触を扱う技術の歩み",
+   "summary_ja": "モーションリターゲティングはCGアニメーションの骨格最適化から始まり、ロボティクスでは物理制約や接触考慮へと発展してきました。点群アライメントの研究も進んでいますが、骨格マッピングを使わずに異種ロボット間で全身の表面対応と接触転送を両立させた手法はこれまでありませんでした。",
+   "details_ja": "### II-A ヒューマノイドへのモーションリターゲティング\n動作のリターゲティングはもともとCGアニメーション分野で、体格の異なるキャラクタ間でモーションキャプチャデータを移行する時空間最適化として研究されてきました。ロボティクス分野では、これに運動学・動力学制約や全身のバランス保持、物理的実行可能性を組み込む形で発展してきました。近年では物体や環境との接触制約を考慮する手法や、強化学習を用いて潜在空間を共有する学習ベースの手法も提案されています。しかし、これらは依然として「特定の関節や剛体リンクをどう対応付けるか」という骨格中心の枠組みにとどまっており、ロボットが変わるたびに手動での再設計を余儀なくされていました。\n\n### II-B 点群に基づく身体の対応付け\n一方、3Dビジョン分野では、観察された点群データを canonical（標準）な人体モデルにフィッティングする点群対応付けが盛んに研究されています。ただし、従来手法は共通の解剖学的構造を持つ人体テンプレート間での変形を前提としており、形状も運動学構造も根本から異なる「人間とロボット」の対応付けにはそのまま使えません。部分的に表面の幾何情報をリターゲティングに取り入れた研究や、接触マップを点群で扱う研究は存在したものの、全身レベルで骨格マッピングなしに異種形態間の表面対応を結びつけ、動作最適化と接触転送を一気通貫で実現した研究は存在しませんでした。UMRはこの空白を埋める技術です。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "点群対応の学習から、接触を保つ二次計画法（QP）最適化まで",
+   "summary_ja": "UMRは2段階で構成されます。第1段階で基準Tポーズにおける人間とロボットの表面点群の対応関係をネットワークで学習し、メッシュにバインドします。第2段階では、その対応点をアンカーとして、位置・表面法線・接触マップを一致させる制約付きGauss-Newton二次計画法（QP）をフレームごとに解きます。",
+   "details_ja": "### III-A パイプラインの全体像\nUMRは骨格ではなく身体の外表面点群を共通インターフェースとします。SMPL-X、SOMA、スキニングされたキャラクタ、スキャンメッシュなど、基準となるTポーズメッシュと時系列の変形メッシュを出力できるデータ源であれば、すべて同一の枠組みで処理できます。処理は大きく「点群対応学習」と「対応誘導型リターゲティング」の2段階に分かれています。\n\n### III-B 点群対応付けの学習（Point Cloud Correspondence Learning）\nまず、スケールを正規化して位置を合わせたTポーズの人間点群 $\\mathbf{X}^h = \\{\\mathbf{x}^h_i\\}_{i=1}^N$ と、順序のないロボット点群 $\\mathbf{X}^r = \\{\\mathbf{x}^r_j\\}_{i=1}^N$ を用意します。PointNet風のエンコーダ $E_\\theta$ でロボット点群の特徴を抽出し、MLPデコーダ $D_\\theta$ が人間の各点 $i$ に対する変形ベクトル $\\mathbf{d}_i$ を予測して、対応するロボット上の位置 $\\hat{\\mathbf{x}}^r_i = \\mathbf{x}^h_i + \\mathbf{d}_i$ を出力します。これにより、ロボット側の点群も人間の点群と同じインデックス $i$ を継承します。\n\n学習には以下の3つの損失関数を組み合わせた $\\mathcal{L}_{\\mathrm{corr}}$ を用います：\n- 面形状を近づける Chamfer 損失 $\\mathcal{L}_c$\n- 点が局所に密集して潰れるのを防ぐ反発損失 $\\mathcal{L}_r$\n- 人体テンプレートの測地線グラフ（メッシュ表面上の近傍関係）に沿って滑らかな変形を促すエッジ平滑化損失 $\\mathcal{L}_e$\n\n学習完了後、これらの対応点はそれぞれのメッシュ表面に重心座標やリンクローカル座標系を介してバインドされ、動作中も身体と一緒に移動します。\n\n### III-C 対応誘導型リターゲティング（Correspondence-Guided Retargeting）\n動作中、人間の各点はメッシュ変形に従って動き、ロボットの各点は順運動学（FK）によって動きます。毎フレーム、ロボットの一般化座標 $\\mathbf{q}_t$ を求めるため、以下の2つの残差を最小化します：\n- 姿勢残差 $\\mathbf{r}_{p,i}$：対応点同士の3D位置の差だけでなく、Tポーズからの表面法線（向き）の変化量 $\\bar{\\mathbf{n}}$ の差も最小化します。\n- 接触残差 $\\mathbf{r}_{c,i}$：環境点群（操作対象物や床、家具など）との接触関係を保ちます。人間点から最近傍の環境点へのベクトルをロボット点にも一致させるよう拘束します。接触閾値 $\\tau_c$ 以内にあるアクティブな接触点集合 $\\mathcal{C}_t$ に対してこの拘束を適用します。\n\nこの非線形な最適化問題を、関節角度の可動域制限や足裏が床下に潜り込まない床面クリアランス制約（$\\mathbf{A}_t \\Delta \\mathbf{q} \\leq \\mathbf{b}_t$）を課した上で、制約付きGauss-Newton二次計画法（QP）として線形化し、凸2次部分問題をステップごとに解くことで高速かつ安定にロボットの関節角度を求めます。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "接触マップ（contact map）の転送メカニズムです。身体表面の各点から対象物（青い球）への最近傍方向ベクトルを定義し、学習した表面対応を通じてロボット側（右）へそのまま転送することで、手足と物体との接触関係を厳密に保ちます。",
+     "caption": "Fig. 4: Visualization of contact map. Contact maps are represented by directional vectors from each keypoint in the point cloud to its nearest point on the object surface. Surface correspondence enables direct transfer of these contact relationships from the source motion (left) to the target robot (right).",
+     "image": "details/2609.02134/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "多様な形態での検証、大規模学習、そして実機ヒューマノイドへの展開",
+   "summary_ja": "Unitree G1をはじめとする多様なヒューマノイドと動作データを用いて評価を行いました。UMRは単一動作トラッキングでGMRを凌駕し、BONES-SEEDを用いた大規模強化学習でも追従性能を向上させました。さらに接触を伴う物体操作や階段昇降においてOmniRetargetを大きく上回り、実機での成功も確認しました。",
+   "details_ja": "### IV-A 多様なデータ源とロボット形態での汎用性\n実験では、4つの異なる動作ソース（MimicKitの人型キャラクタ、BONES-SEEDのSOMA動作、LAFAN1のSMPL-X動作、独自スキャンした人体メッシュ）と、5種類のロボット（身長0.75mのHighTorque PiPlusから1.83mのUnitree H2まで）を組み合わせました。UMRは骨格マッピングを一切変更することなく、まったく同じ最適化パイプラインでこれらすべてに対して忠実度の高い動作変換を行えることを確認しました。\n\n### IV-B 全身トラッキングと大規模ポリシー学習の性能比較\n代表的なヒューマノイド「Unitree G1」を用い、最先端の運動学ベース手法「GMR」およびUnitree公式のリターゲティングデータと比較しました。\n- LAFAN1データセット（40シーケンス）：公称シミュレーション、ドメインランダマイゼーション（DR）環境、Sim2Sim環境でトラッキング成功率と誤差を評価しました。UMRは転倒・起き上がり（Fall and GetUp）や格闘（Fight）といった難関動作でGMRを大きく上回り、DR環境下でも最も低い関節角度誤差を達成しました。\n- 大規模ポリシー学習（BONES-SEEDデータセット）：数千の動作からなる大規模データを用いた強化学習フレームワーク「SONIC」での検証です。GMRでは下半身の歪みや足の接地アーティファクトが生じるのに対し、UMRは俳優ごとのプロポーションを維持した高品質なリファレンスを生成します。人間モーションのエンコーダを使わない「純粋なロボット参照動作の品質比較」において、UMRは約10%高い報酬と低い追従誤差を達成しました。\n\n### IV-C 接触リッチなインタラクション（HOI / HSI）\n物体操作（HOI: 運搬、キック、押し出し）および環境接触（HSI: 階段昇降、坂道歩行、椅子座り）において、接触考慮型SOTAである「OmniRetarget」と比較しました。\n- 物体操作では、OmniRetargetが手の接触位置をずらしてしまうのに対し、UMRはボールを両手で挟み込む幾何関係を正確に維持しました。その結果、関節追従誤差が約40%〜56%も大幅に削減されました。\n- 環境接触では、動画生成モデルから再構成されたノイズの多いGRAILデータセットにおいても、ヒューリスティックな接地判定に頼らないUMRが安定して高いタスク成功率を収めました。\n- 最後に実機展開として、高難度な回し蹴り（Spin kick）、ボール拾いと後退歩行、階段昇降と飛び降り動作をUnitree G1実機で成功させ、リターゲティング軌道の実現可能性を実証しました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "4つの動作表現（キャラクタアニメーション、SOMA、SMPL-X、スキャンメッシュ）から5種類のヒューマノイド（PiPlus、Booster K1、G1、T800、H2）へリターゲティングした様子です。体格や関節構成が劇的に異なっても破綻なく動作が転送されています。",
+     "caption": "Fig. 5: Unified retargeting across motion sources and robot embodiments. Qualitative results across four source representations and five humanoid embodiments demonstrate that UMR preserves high motion fidelity across heterogeneous source geometries and robot kinematic configurations.",
+     "image": "details/2609.02134/F5.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "物体操作（サッカーボールの保持）における接触精度の比較です。OmniRetarget（右）ではボールを持つ手袋の表面位置がずれてしまっていますが、UMR（中央）は元の人間動作（左）の接触幾何を正確に再現しています。",
+     "caption": "Fig. 8: Interaction retargeting comparison. For the same human reference (left), UMR preserves bimanual contact geometry (center), whereas OmniRetarget produces mismatched hand–object contacts (right).",
+     "image": "details/2609.02134/F8.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "Unitree G1実機での展開実験です。(a) 跳躍を伴う高難度な回し蹴り、(b) ボールを拾い上げて旋回・後退歩行する動作、(c) 階段を登って飛び降りる環境接触動作のすべてにおいて、実機での安定した制御に成功しています。",
+     "caption": "Fig. 3: Real world Deployment. High-quality references generated by UMR support successful policy training and real-world deployment across high-dynamic motions and diverse interaction scenarios, demonstrating reliable transfer from retargeted motion data to physical humanoid control. (a) Spin kick. (b) Ball pick-up followed by backward walking with turns, deployed with a motion capture system. (c) Stair traversal followed by jumping down.",
+     "image": "details/2609.02134/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "表面点群が拓く、次世代ヒューマノイドデータ基盤の可能性",
+   "summary_ja": "UMRは手動の骨格定義からロボティクス研究者を解放し、表面点群の密な対応付けを通じて高品質かつ接触を保持した動作変換を実現しました。現在はメッシュデータとTポーズを前提としている点が制約ですが、今後はデクスタラスハンドや非構造化データへの拡張が期待されます。",
+   "details_ja": "本論文では、手作業の骨格マッピングを必要とせず、表面点群の学習によって人間からヒューマノイドロボットへの動作変換を行う統合フレームワーク「UMR」を提案しました。基準姿勢で学習した密な点群対応をアンカーとして活用することで、異種形態間での高精度な姿勢アライメントと、物体や床面との直接的な接触マップ転送を両立させました。実験では、追従精度の向上、大規模強化学習でのデータ品質向上、接触タスクでの安定性、そして実機Unitree G1へのゼロショット展開が見事に示されました。\n\n一方で、現在のUMRにはいくつかの限界もあります。入力として標準Tポーズメッシュと表面メッシュ系列が得られていることを前提としているため、遮蔽の多い未加工の点群や単眼カメラ映像など、構造化されていない生データに直接適用することはまだできません。著者らは今後の展望として、五指を持つ精密なデクスタラスハンド（器用な義手・ロボット手）への適用、より荒い観測データからの直接変換、そして複数エージェント間のインタラクションへの拡張を挙げています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "ロボットの形態差を吸収するインターフェースとして「骨格関節」ではなく「表面点群」を採用することで、手作業のマッピング定義を完全に不要にできる",
+  "Tポーズ（基準姿勢）で点群対応を一度学習してメッシュにバインドすれば、動作最適化の幾何アンカーとして永続的に再利用できるため計算効率が高い",
+  "接触関係を「表面点から環境点への最近傍ベクトル」として表現することで、追加の接触判定ヒューリスティクスなしに接触リッチな動作を転送できる",
+  "リターゲティング軌道の幾何的妥当性が高まることで、強化学習ポリシーの学習効率が向上し、実機へのSim2Real転送も安定する"
+ ],
+ "limitations_ja": [
+  "入力としてソース側の人体メッシュと、明確に定義された標準Tポーズ姿勢があらかじめ利用可能である必要がある点",
+  "多指ハンドのような極めて自由度が高く自己接触が頻発するデクスタラスハンドへの適用は今後の課題とされている点",
+  "点群の変形学習が失敗した場合や、ロボットと人間の表面形状があまりに乖離している極端なプロポーション差での挙動については検証が限定的である点"
+ ],
+ "keywords": [
+  "Motion Retargeting",
+  "Humanoid Robots",
+  "Point Cloud Correspondence",
+  "Contact Transfer",
+  "Whole-Body Control"
+ ],
+ "id": "2609.02134",
+ "title": "Unified Motion Retargeting for Humanoids with Learned Point Cloud Correspondence",
+ "authors": [
+  "Hanyang Cao",
+  "Yuetong Fang",
+  "Taesoo Kwon",
+  "Runyi Yu",
+  "Ji Ma",
+  "Jing Tan",
+  "Yangchen Zhou",
+  "Baoze Du",
+  "Yi Gu",
+  "Yukang Gao",
+  "Ruoli Dai",
+  "Lei Han",
+  "Renjing Xu"
+ ],
+ "date": "2026-09-03",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "control",
+  "imitation-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.GR"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.02134",
+ "pdf_url": "https://arxiv.org/pdf/2609.02134",
+ "summary_ja": "人間とロボットの骨格や可動域の差異を埋めるため、点群の幾何学的対応付けを学習して参照動作を生成するリターゲティング手法を提案。従来の手作業によるスパースなキーポイント設定に依存せず、多様なモーションデータからヒューマノイドの全身運動制御に適した高品質な動作軌跡を生成可能にした。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.02134"
+}
