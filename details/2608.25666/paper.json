@@ -1,0 +1,145 @@
+{
+ "tldr_ja": "GPU物理シミュレータを世界モデルとして使い、関節の躍度（ジャーク）限界まで考慮した二次計画法（QP）射影をサンプリングループ内に組み込むことで、教示データなしに障害物の多い環境下での双腕接触マニピュレーションを実時間で実現した論文です。",
+ "hero_figure": {
+  "key": "F5",
+  "caption_ja": "実機とシミュレーションが密に連携するシステム構成です。OptiTrackによる動的物体の計測結果をROS 2経由でMuJoCoに即座に反映し、ノートPC上のGPUで並列ロールアウトとモデル予測制御（MPC）をリアルタイムに実行しています。",
+  "caption": "Fig. 5: Experimental Setup wherein real-world and simulation are tightly coupled with OptiTrack motion capture.",
+  "image": "details/2608.25666/F5.jpg"
+ },
+ "overview_ja": "両腕を使った協調作業（双腕マニピュレーション）は、大きな物体を支えたり挟み込んで運んだりできる強力なアプローチですが、接触を伴う動作計画は極めて困難です。近年は模倣学習などのEnd-to-End学習が主流ですが、大量の教示データが必要なうえ、障害物の配置が変わるような「分布シフト」が起きると途端に失敗しやすいという根本的な弱点があります。\n\nそこで著者らは、深層学習モデルを丸ごと学習させるのではなく、GPU並列物理シミュレータ（MuJoCo）をオンラインの「世界モデル」として直接活用するモデル予測制御（MPC）に着目しました。しかし、MPPIやCEMなどの従来のサンプリング型MPCには、「探索範囲を広げると指令値が激しく振動し、ロボットの制限を超えてしまう」「滑らかな指令に絞ると局所解にハマる」というトレードオフがありました。\n\nこの問題を解決するために提案されたのが「PRISM」です。サンプリングされた関節速度の軌道を、物理シミュレーションで評価する直前に、位置・速度・加速度・躍度（ジャーク）の上下限とMPC境界の連続性を満たすように二次計画法（QP）で最小修正（射影）します。これにより、極めて大胆な探索を行いながらも、常にロボットが追従可能な滑らかな動作だけを評価できるようになりました。さらに、タスクごとのコスト関数の重みをベイズ最適化で自動調整します。\n\n実験では、障害物が密集する環境でのトレイ運搬、ボール挟み込み運搬、キューブの受け渡し、直方体持ち上げの4タスクを検証しました。従来の手法と比べて大幅に高い成功率（最大95〜100%）を達成し、UR5e双腕ロボットによる実機転送にも成功しています。",
+ "contributions_ja": [
+  "関節の位置・速度・加速度・躍度（ジャーク）限界およびMPC境界連続性を同時に満たすGPU並列QP射影をサンプリング型MPCに統合し、探索の大胆さと動作の滑らかさを完全に両立させた点",
+  "分解可能（Separable）なQP構造と事前コレスキー分解を活用した独自のADMM/Bregman分割ソルバを設計し、射影処理の計算負荷をシミュレーション全体に対して無視できるレベルに抑えた点",
+  "接触を伴う複雑な双腕作業（挟み込み運搬や空中受け渡し）に向けたマルチフェーズ設計のコスト関数と、その重みを自動調整するオフライン・ベイズ最適化パイプラインを確立した点",
+  "シミュレータ（MuJoCo/MJX）とOptiTrackを連携させ、未学習の障害物レイアウトが存在する実環境においてノートPCのGPU単体で10〜16 Hzの双腕実機制御を実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "II Introduction",
+   "heading_ja": "大量データに頼る模倣学習から、物理シミュレータを直接使うオンライン計画へ",
+   "summary_ja": "双腕ロボットは人間の器用さを再現する鍵ですが、従来の模倣学習は障害物の配置変化などの未経験な状況に弱いという課題があります。本研究では、GPU加速物理シミュレータを世界モデルとして実時間で使い、QP射影によって滑らかさと探索性を両立した新しいMPCフレームワーク「PRISM」を提案しています。",
+   "details_ja": "双腕マニピュレーションは、単腕では不可能な大型物体の把持や対向力の印加ができるため、組み立てや物流の自動化で期待されています。しかし近年主流の模倣学習や強化学習は、接触力を直接モデル化しなくてよいメリットがある反面、訓練データのバリエーションに強く依存します。たとえば障害物の位置が少し変わるだけで動作が破綻し、追加データの収集やファインチューニングを余儀なくされます。\n\nそこで注目されているのが、GPU並列物理シミュレータを内部モデルとしてオンラインで走らせるモデル予測制御（MPC）です。現在起きているシーンの幾何・物理状態を直接評価できるため、見たことのない障害物配置にも即座に適応できます。\n\n本論文で提案する「PRISM」は、サンプリング型MPCの探索プロセスに二次計画法（QP）による射影を組み込んだフレームワークです。各制御周期において、適応型ガウス分布からサンプリングされた関節速度軌道を、位置・速度・加速度・躍度（ジャーク）のリミットを満たす実行可能集合へ即座にQP射影します。これにより、後処理の平滑化やソフトペナルティに頼ることなく、大胆な分散で探索しながらも、実機で安全に実行できる滑らかな軌道だけをMuJoCo上で並列評価することが可能になりました。",
+   "figures": []
+  },
+  {
+   "heading": "III RELATED WORK",
+   "heading_ja": "サンプリング型MPCの「振動問題」をどう克服してきたか",
+   "summary_ja": "サンプリング型MPCは不連続な接触を扱える強力な手法ですが、制御入力が非平滑になりやすいという弱点があります。後処理フィルタや低周波サンプリングなどの従来手法が抱える限界を整理し、QPによる事前射影の優位性を明確に位置づけています。",
+   "details_ja": "関連研究は大きく4つの軸に整理されています。\n\n- サンプリング型マニピュレーション計画: 勾配ベースの軌道最適化は接触の切り替えや障害物が多い環境でモデリングが困難ですが、MPPI（Model Predictive Path Integral）やCEM（Cross Entropy Method）などのサンプリング型手法は順方向のシミュレーションとコスト計算さえできれば最適化できます。しかし、双腕の幾何学的拘束（閉リンク系）を満たす軌道をランダムサンプリングで見つけるのは容易ではありません。\n\n- サンプリング型MPCにおける滑らかさの確保: MPPIやCEMで生成される指令値は時間的にギザギザになりやすく、実機のアクチュエータを痛める原因になります。これに対し、事後的なサビツキー・ゴーレイ・フィルタ（SGF）による平滑化は最適化中の軌道を変えないため物理限界を保証できません。また、低域通過フィルタ（LPF-MPPI）や有色ノイズによる周波数制限は、振幅が大きい場合に加速度やジャーク制限を依然として破ってしまいます。さらに、再計画周期の境界での速度連続性も担保できません。\n\n- 射影ベースの手法: サンプリングされた軌道をQPで最小修正し、許容集合に射影するアプローチ（$\\pi$-MPPIなど）は、探索の分散を大きく保ったままハードウェア制約を厳密に保証できる唯一の解法です。本研究はこの思想を双腕の関節空間における躍度（ジャーク）制約まで拡張しています。\n\n- コスト関数の自動チューニングとEnd-to-End学習: 多目的・多フェーズの双腕作業ではコストの重み調整が人間の勘に頼りがちでした。本研究ではベイズ最適化（BO）を導入してこの問題を自動化しています。",
+   "figures": []
+  },
+  {
+   "heading": "III METHODS",
+   "heading_ja": "PRISMの核：躍度まで抑え込む並列QP射影アルゴリズム",
+   "summary_ja": "関節速度の探索空間からサンプリングした候補軌道を、位置・速度・加速度・躍度の上下限および現在速度からの連続性を満たすようにQPで一括射影します。このQPは関節ごとに独立に解ける構造を持ち、GPU上で超高速に実行できるため、シミュレーション全体の計算時間を圧迫しません。",
+   "details_ja": "PRISMの全体構造と数理的な工夫は以下の通りです。\n\n- サンプリング型最適化ループ: 最適化器はMPPI型の重要度重み付け平均更新と、CEM型の対角共分散更新を組み合わせた適応ガウス分布を用います。ホライズン長 $H$ にわたる両腕の関節速度シーケンスをサンプリングします。\n\n- QP射影の定式化: 生のサンプル $\\tilde{\\dot{\\boldsymbol{\\Theta}}}$ に対し、2乗誤差を最小化する実行可能軌道 $\\dot{\\boldsymbol{\\Theta}}^*$ を求めます。位置はオイラー積分行列 $\\mathbf{L}$、加速度は1階後退差分行列 $\\mathbf{D}_1$、躍度（ジャーク）は2階後退差分行列 $\\mathbf{D}_2$ を介して線形不等式として表されます。さらに、第1ステップの速度を現在のロボットの実測値 $\\dot{\\boldsymbol{\\theta}}_{\\mathrm{init}}$ に一致させる等式制約を課すことで、MPCの再計画境界での不連続性を完全に排除します。\n\n- 探索と平滑性の完全な分離: 通常、サンプリング分散を大きくすると指令が激しく振動し、小さくすると局所解に捕まります。QP射影を挟むことで、極めて大きな分散で遠くまで探索しつつ、射影後の軌道は必ず物理限界の範囲内に収まり、限界付近まで大胆に使い切る軌道が得られます。単一関節を用いた比較検証では、 kinematic限界を守りながらサンプリングできる実効標準偏差 $\\sigma_{\\mathrm{eff}}$ が、ベースライン（0.0045）やLPF（0.0106）に対し、QP射影では 0.4716 と約45〜100倍に拡大することが確認されました。\n\n- GPU向け独自ADMMソルバ: QPの目的関数と制約は関節ごとに独立（Separable）であるため、2腕12自由度の場合、$12 \\times n$ 個の小さなQPとして並列処理できます。ADMM/Bregman分割法を採用し、KKT行列は定数となるため事前に一度だけコレスキー分解しておけば、オンラインでは簡単な行列ベクトル積とスラック変数のクリッピング（10〜20反復）だけで大域的最適解に収束します。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "単一関節におけるサンプリング軌道の比較です。制約を守るために分散を極端に小さくせざるを得ないベースライン（左）やLPF（中央）に対し、提案するQP射影（右）は初期速度を一致させつつ、速度・加速度・ジャークの限界エンベロープ全体を隅々まで満たす大胆な探索を実現しています。",
+     "caption": "Fig. 3: Comparison of sampling behaviors for a single joint. The QP-projected samples (right) share a common initial velocity $\\dot{\\theta}_{1}=\\dot{\\theta}_{\\mathrm{init}}$ and fan out to cover the full feasible envelope defined by velocity, acceleration, and jerk bounds. The baseline (left) and LPF (middle) are restricted to conservative covariances, yielding negligible coverage of the reachable set.",
+     "image": "details/2608.25666/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Cost Function Design",
+   "heading_ja": "接触と幾何学的拘束を両立するタスク別コスト関数の設計",
+   "summary_ja": "双腕協調に必要な衝突回避や相対速度制約といった共通コストに加え、トレイ運搬、ボール挟み込み、キューブ受け渡し、直方体運搬という4つの難関タスクに応じたマルチフェーズのコスト関数を設計しました。フェーズごとに不要な制約を切り離すことで、自然な接触動作を引き出します。",
+   "details_ja": "共通コンポーネントとタスク固有の設計は次のようになっています。\n\n- 共通コスト: 衝突回避コストにはバリア関数に着想を得た斥力項を組み込み、障害物境界へ近づくことを防ぎます。また、ホーム姿勢からの逸脱ペナルティや、両手で剛体を把持した際に引きちぎったり押し潰したりしないよう、エンドエフェクタ間の相対速度が相対位置ベクトルと直交することを促す拘束コストを導入しています。\n\n- トレイ運搬（Moving Tray）: pick（接近）と move（運搬）の2フェーズ構成です。両手のエンドエフェクタの高さ（$z$ 座標）を揃えるアライメントコスト、把持幅を一定に保つ距離コスト、トレイ自体の目標姿勢誤差コストを組み合わせて、水平を保ったまま障害物を迂回させます。\n\n- ボール挟み込み運搬（Lifting and Transporting Ball）: グリッパーで掴むのではなく、両手で挟み込む摩擦力だけで持ち上げて運びます。ポイントは、moveフェーズにおいて「ボールとエンドエフェクタ間の衝突コストを除外する」ことです。これにより、物理シミュレータ内でエンドエフェクタがボールを強く押し込む動作が許容されます。さらに $yz$ 平面上で対向するように位置を揃えるアライメントコストを課しています。\n\n- キューブ受け渡し（Hand-Over）: pick、pass、place、home の4フェーズ構成です。片腕が狭小な障害物群を縫ってキューブを取りに行き、空中で両腕のアライメントを同期させて手渡しし、もう片方の腕が目標位置に置いて初期姿勢に戻るという、極めて複雑なシーケンスを制御します。\n\n- 直方体運搬（Lifting and Transporting Box）: 対称なボールと異なり、平らな面を持つ箱は回転スリップを起こしやすいため、各エンドエフェクタを箱の対向面に個別に位置合わせし、箱自体の3軸姿勢を厳密に保つコストを追加しています。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "双腕ロボットのセットアップと共通の全体座標系です。ボールの挟み込み運搬やハンドオーバタスクでは、$yz$ 平面上でのエンドエフェクタの対向アライメント拘束などを明示的にコスト関数として組み込んでいます。",
+     "caption": "Fig. 4: The bimanual setup and global reference frame. The coordinate system ( $x,y,z$ ) is explicitly modeled in the task-specific cost functions to enforce constraints, such as planar alignment in the $yz$ -plane during the ball transport and handover tasks.",
+     "image": "details/2608.25666/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Validation and Benchmarking",
+   "heading_ja": "実機検証とベンチマーク：他手法を圧倒する成功率と適応力",
+   "summary_ja": "UR5e双腕実機およびシミュレータにおいて、提案法を既存の平滑化MPC（LPFやSGF、素のCEM）と比較しました。QP射影とベイズ最適化の組み合わせにより、90〜100%の極めて高いタスク成功率を達成し、未学習の障害物配置に対してもオンライン計画ならではの頑健性を示しました。",
+   "details_ja": "実験結果のポイントは以下の通りです。\n\n- 実装と計算速度: JAXとGPU物理エンジンMJXを用いて実装し、制御周期のステップ刻みは0.1秒です。バッチサイズ（サンプル数）を増やしても、ボール運搬・トレイ運搬・ハンドオーバでは1ステップあたり80 ms以下で動作し、実時間制御ループ（10〜16 Hz）が成立しています。\n\n- 既存MPC手法との比較: 素のCEM、LPF-MPPI、SGF-MPPIと比較しました。素のCEMは振動により温開始（ウォームスタート）が破綻してハンドオーバの成功率が15%に沈みました。一方、QP射影を用いるPRISMはトレイ運搬で95%（SGFは70%、LPFは50%）、ハンドオーバで90%（LPFは80%、SGFは75%）と最高性能を記録しました。また、LPFやSGFでは動作を成立させるために「衝突なし逆運動学（IK）による事前位置合わせ」や「加速度ペナルティの追加」という職人芸的な補正が必要でしたが、PRISMはQP制約だけで完結します。\n\n- ベイズ最適化（BO）の絶大な効果: 1タスクあたり1000エピソードのオフラインBO（RTX 4090で3〜9時間）によりコスト重みを自動調整した結果、手動チューニングに比べてトレイ運搬の成功率が45%から90%へ、ハンドオーバが60%から95%へ、ボール運搬が75%から100%へと大幅に向上しました。推論時の追加計算コストはゼロです。\n\n- 模倣学習との定性比較: Franka-Pandaを用いたボール持ち上げにおいて、訓練データにない障害物を置いたところ、模倣学習モデルは持ち上げ途中に障害物に引っかかって成功率20%に落ちたのに対し、PRISMはシミュレータ内で障害物を即座に考慮して60%の成功率を維持しました。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "ボール持ち上げ・運搬タスクのシミュレーション（上段）と実機実験（下段）の様子です。中央に配置された障害物壁を乗り越える間、両腕が $yz$ 平面上で対向力を維持しながらダイナミックに姿勢を変えていることが分かります。",
+     "caption": "Fig. 6: Execution of the ball lifting and transport task. The manipulators must apply continuous, opposing contact forces in the $yz$ -plane to maintain the unattached ball while dynamically adjusting their joint configurations to clear the central obstacle.",
+     "image": "details/2608.25666/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "球状の障害物が浮遊する過密環境下でのキューブ受け渡し（Hand-Over）タスクです。左腕が障害物を回避してキューブを拾い、空中で右腕へと正確に受け渡して目標位置へと配置しています。",
+     "caption": "Fig. 7: Execution of the handover task. The sequence demonstrates the transition from the pick phase to the pass phase, requiring precise mid-air synchronization and collision avoidance amidst a dense cluster of static spherical obstacles.",
+     "image": "details/2608.25666/F7.jpg"
+    },
+    {
+     "key": "F9",
+     "caption_ja": "バッチサイズ（サンプル数）を変化させた際の各タスクの性能統計です。成功率はおよそ1250サンプルでプラトーに達し、計算時間は複雑な直方体タスクを除いて80 ms以下の実時間性を維持しています。",
+     "caption": "Fig. 9: Statistics of all tasks. (a) Success rate, (b) computation time, and (c) task time with respect to different batch sizes used in Alg. 1 . Note that success rates generally plateau after a batch size of 1250, while the computation time for the asymmetric box lifting task scales significantly higher than other tasks.",
+     "image": "details/2608.25666/F9.jpg"
+    },
+    {
+     "key": "F10",
+     "caption_ja": "手動チューニングとベイズ最適化による重みを用いた場合の比較です。計算時間を一切増やすことなく、全タスクで成功率が劇的に改善（トレイ運搬では45%向上）していることが確認できます。",
+     "caption": "Fig. 10: Comparison across all tasks between manually tuned and Bayesian-optimized cost weights for (a) Success rate, (b) computation time, and (c) task completion time. Bayesian optimization systematically improves success rates across all tasks—most notably a $45\\%$ increase in the tray moving task—without introducing additional computational overhead during online execution.",
+     "image": "details/2608.25666/F10.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Conclusions and Future Work",
+   "heading_ja": "まとめと今後の展望：モデルベース計画と学習の融合へ",
+   "summary_ja": "PRISMは、QP射影によって大胆な探索と厳密な滑らかさを両立させ、難度の高い双腕接触マニピュレーションを実時間で可能にしました。今後は、計画された軌道を模倣学習で蒸留してMPCの温開始に利用したり、価値関数を組み込んで長期ホライズンに対応することが展望されています。",
+   "details_ja": "本論文のまとめと将来の発展性は次の通りです。\n\n- 総括: GPU並列物理シミュレータを世界モデルとし、サンプリングループ内にADMMベースの並列QP射影を組み込んだMPCフレームワーク「PRISM」を提案しました。関節の位置・速度・加速度・躍度制限を完全に満たすことで、探索空間を狭めることなく滑らかな軌道生成を実現し、ベイズ最適化によるパラメータ調整と合わせて双腕接触タスクを実機で実証しました。\n\n- 本手法の限界: コスト関数の重みはベイズ最適化で自動化できるものの、どの項を組み込むかやフェーズ分割の構造自体は人間の手設計に依存しています。また、MuJoCoの物理モデルの正確性に依存しているため、変形体や流体、極めてダイナミックな摩擦変化を伴う作業ではシム・ツー・リアルのギャップが生じる可能性があります。\n\n- 将来の方向性: PRISMで生成した軌道を教師データとしてリアクティブなポリシーネットワークを学習させ、それをMPCの初期解（温開始）として再利用することで、計算反復回数を大幅に削減する構想が挙げられています。また、TD-MPCのように学習された価値関数を終端コストに組み込むことで、より長期的なタスク計画への拡張が期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "サンプリング型MPCの「探索の広さ」と「制御の滑らかさ」のトレードオフは、ロールアウト前の最小二乗QP射影によって根本的に解消できる",
+  "関節ごとの独立性を利用したADMMソルバを組むことで、加速度・ジャーク限界を含むQP射影であってもGPU上で並列化し、計算ボトルネックにさせない設計が可能である",
+  "接触を伴うマニピュレーションでは、接触させたいフェーズでのみ対象物との衝突ペナルティを意図的に外すマルチフェーズ設計が効果的である",
+  "MPCのコスト関数の重みは、タスク条件をランダム化したオフラインのベイズ最適化にかけることで、実行時の計算時間を増やさずに劇的に成功率を引き上げられる"
+ ],
+ "limitations_ja": [
+  "タスクのフェーズ分割（接近、運搬など）や、各フェーズでどの幾何拘束・誤差関数をコストに含めるかという構造設計自体は依然として人間の職人芸に依存している点",
+  "高精度なMuJoCo物理モデルの存在を前提としているため、布やロープなどの柔軟物、あるいは摩擦特性が激しく変動する未知物体の操作にはそのまま適用できない点",
+  "非対称な直方体の挟み込み運搬のように、回転滑りが起きやすい繊細なタスクでは成功率が80%程度にとどまり、計算時間も他のタスクより長くなる点"
+ ],
+ "keywords": [
+  "Bimanual Manipulation",
+  "Model Predictive Control",
+  "Quadratic Programming",
+  "Physics-based Simulation",
+  "Bayesian Optimization",
+  "Sim-to-Real Transfer"
+ ],
+ "id": "2608.25666",
+ "title": "PRISM: Projection-Integrated Sampling-Based MPC with Bayesian Cost Tuning for Bimanual Manipulation",
+ "title_ja": "PRISM：双腕マニピュレーションのための射影統合型サンプリングベースMPCとベイズコスト調整",
+ "authors": [
+  "Alinjar Dan",
+  "Iryna Hurova",
+  "Karl Kruusam\\\"ae",
+  "Arun Kumar Singh"
+ ],
+ "date": "2026-08-27",
+ "group": "focus",
+ "tags": [
+  "control",
+  "simulation",
+  "manipulation",
+  "planning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.25666",
+ "pdf_url": "https://arxiv.org/pdf/2608.25666",
+ "summary_ja": "GPU並列物理シミュレータをオンライン世界モデルとして活用するサンプリングベースMPCフレームワークPRISMを提案。QPによる射影を用いて軌道探索と運動学的実行可能性を分離し、ベイズ最適化によるコスト関数の自動調整と組み合わせることで、接触を伴う双腕協調動作を実時間で生成する。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.25666"
+}
