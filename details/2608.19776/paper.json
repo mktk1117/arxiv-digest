@@ -1,0 +1,136 @@
+{
+ "tldr_ja": "物体の形に依存しないロボットハンド主体の「接触トポロジー」を導入し、学習時に物体メッシュを一切使わずに、意図した把持スタイル（精密把持や力強い包み込みなど）を高精度に生成できる多指ハンド向け把持プランナー「CoToGrasp」を提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "CoToGraspの全体コンセプトです。欲しい接触トポロジー（精密把持、道具使用向け、力強い把持など）と未知の物体形状を与えるだけで、物体のメッシュ学習なしにハンド固有の作業空間（Canonical Workspace）を介して、目的の機能を満たす安定した把持姿勢を生成できます。",
+  "caption": "Figure 1 : Contact-Topology-Conditioned Grasp Synthesis. Given a desired semantic contact-topology condition (top left) – categorized into Precision , Object-Specific (highly constrained topologies tailored for specific tool use) or Power functional groups – and a novel, unseen object (bottom left), our framework synthesizes functionally diverse and physically stable grasps (right). Rather than learning contact topologies directly on the object geometry, we project local object features into a f",
+  "image": "details/2608.19776/F1.jpg"
+ },
+ "overview_ja": "近年の多指ハンドを用いたロボット把持研究は、物体を落とさずに掴めるかという「物理的安定性」ばかりを最適化してきました。その結果、プランナーは最も簡単で安定しやすい「手のひら全体で包み込むパワー把持」ばかりを生成してしまい、指先でつまむ精密把持や、道具を使うための特殊な持ち方といった「機能的な把持」が極端に苦手というモード崩壊（多様性の消失）に直面しています。さらに、持ち方の分類（タクソノミ）を条件付けようとすると、膨大な物体ごとに人間がラベル付けした高コストなデータセットが必要でした。\n\nそこで著者らは、発想を根本から逆転させました。「物体上のどこを触るか」を探すのではなく、「ハンドのどの部位を物体に接触させるか」という手主体の接触トポロジーに着目したのです。ハンド座標系に固定された「特徴量ベースの正準作業空間（Canonical Workspace）」を定義し、学習時はハンド自身の幾何形状と接触マスクの関係だけを学習させます。つまり、物体データを一切使わずにモデルを訓練する「Object-Agnostic（物体非依存）」なアプローチをとりました。\n\n推論時には、未知の物体の点群をこの共通作業空間に投影するだけで、指定された接触トポロジーを満たす接触パッチをTransformerとCVAE（条件付き変分自己符号化器）が瞬時に予測します。さらに、幾何学的なラベル整合性チェックと力学的なフォースクロージャ判定を挟んでから関節角度の最適化を行うことで、破綻した姿勢を効率的に排除します。大規模データセットDexGraspNetや実機ロボットを用いた実験により、既存手法を上回る把持成功率と圧倒的なトポロジー再現性を実証しました。",
+ "contributions_ja": [
+  "学習時に物体モデルを一切必要とせず、ハンドの自己幾何形状のみから接触能力を学習する物体非依存（Object-Agnostic）な生成フレームワークを構築した点",
+  "手のひら基準の正準作業空間（Canonical Workspace）を介して局所幾何特徴を投影し、物体の任意形状と機能的把持意図を完全に切り離した点",
+  "トポロジー指示の希釈を防ぐTransformer自己注意機構とCVAEを組み合わせ、把持の確率的な接触分布を高精度に予測可能にした点",
+  "生成された把持が指示されたトポロジーにどれだけ忠実かを厳密に判定する非対称Tversky指数ベースの評価指標とエントロピー指標を策定した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ安定して掴めるだけではダメなのか？",
+   "summary_ja": "多指ハンドは本来、指先での繊細な操作や道具の保持など多様な接触パターンが可能なはずですが、従来のプランナーは物理的安定性のみを重視するため、手のひらで包み込む粗雑な把持ばかり生成してしまう深刻な偏りがあります。本論文は、人間の把持分類学に基づく「接触トポロジー」を条件として与え、物体データを使わずにハンド固有の能力として把持を生成する新手法CoToGraspを提案します。",
+   "details_ja": "人型ロボット（ヒューマノイド）が大規模言語モデル（LLM）などの高次推論と連携して複雑なタスクを行う時代において、把持は単に「幾何学的に落とさず持てるか」を解くだけでは不十分になってきました。物体の姿勢変更や工具の差し込み、指先による歩容（フィンガーガイティング）といった後続の作業には、多自由度ハンドによる制御可能な多点接触が不可欠だからです。\n\nしかし、現在のデータ駆動型把持プランナーには構造的な欠陥があります。力の釣り合い（フォースクロージャ）やエネルギー的な安定性ばかりを目的関数にして最適化するため、プランナーはもっとも安易で安定しやすい「包み込み把持（パワー把持）」ばかりを生成してしまいます。このため、下流タスクで特定の精密ピンチ把持が必要な場合、何百何千もの不適切な候補を生成しては捨てるという極めて非効率な探索を強いられていました。\n\nこの課題を解決するため、著者らはGonzalezらの把持分類学（タクソノミ）に着目しました。この分類は物体の形ではなく「ハンドのどの表面がアクティブに接触しているか」のみで持ち方を21種類に分類しています。さらに、学習データセット内で物体形状と把持姿勢を1対1で固定してしまうと未知物体への汎化が阻害されるため、物体を一切使わずにハンドの接触能力そのものを学習する「物体非依存（Object-Agnostic）」パラダイムを採用しました。\n\n提案手法の「CoToGrasp」は、ハンド座標系に固定した正準作業空間（Canonical Workspace）をブリッジとし、局所特徴量を集約してTransformerとCVAEで確率的な接触マスクを生成します。シミュレーションと実機実験の双方で、従来の偏りを劇的に改善できることを示しました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "既存手法の限界と、物体に依存しない新潮流",
+   "summary_ja": "従来の把持生成モデルは解析的な安定性データセットに依存してパワー把持へのモード崩壊を起こしやすく、分類学（タクソノミ）を導入した先行研究も物体メッシュと関節角度を強固に結びつけすぎているという欠点がありました。CoToGraspは、接触の双対性を活かした物体非依存学習により、膨大で高コストな物体アノテーションデータを完全に不要にします。",
+   "details_ja": "関連研究は大きく3つの系統に整理されます。\n\n- 学習ベースの把持プランナー: 関節角度を直接予測する手法や中間表現（接触マップ等）を学習する手法が盛んですが、力学的安定性のみを解く合成データセットに頼っているため、手のひら全体で包み込む把持ばかりが出現し、多指ハンドの器用さが十分に引き出せていませんでした。また、特定の物体に過学習して新規形状に汎化しにくい問題もありました。これに対し、ハンド側の空間で接触を学ぶ物体非依存アプローチ（GOAGなど）が優れた汎化性を示し始めています。\n\n- 人間の把持分類学とタスク指向把持: 古くはCutkoskyやFeixらの包括的なGRASPタクソノミがあり、Gonzalezらは接触面に着目した21種類の分類を提案しました。最近では視覚言語モデル（VLM）でこれらを把持選択に結びつける試みもありますが、人間の動きをそのままロボットハンドにリターゲティングする手法は、デモデータへの依存度が高いのがネックでした。\n\n- タクソノミ条件付き把持合成: 近年のDexonomyやOmniDexVLGなどは、タクソノミを指定して把持姿勢を生成しようとしています。しかしこれらは「特定の物体メッシュに対してあらかじめ計算された関節角度の組み合わせ」をデータセットとして学習するため、未知の物体形状がその関節テンプレートに少しでも合わないと、最適化が破綻するか間違った把持タイプへ崩壊してしまいます。\n\nCoToGraspの決定的な違いは、硬直した関節角度ではなく「意味的な接触マスク」としてタクソノミを定義し、物体を使わずに学習する点です。これにより、高価なアノテーション付きデータセットへの依存を完全に打破しました。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "正準作業空間とTransformerによる接触予測の仕組み",
+   "summary_ja": "本手法は、接触が手と物体の対称的な関係（双対性）であることに着目し、手のひら基準の正準作業空間に物体の局所幾何特徴を投影します。自己注意機構を持つTransformerとCVAEによって指定トポロジーを満たす接触領域を生成し、幾何チェックと力学判定を通過した候補のみをエネルギー最適化で最終的な関節角度へと変換します。",
+   "details_ja": "CoToGraspの処理パイプラインは、学習フェーズと推論・合成フェーズの2段階に明確に分かれています。\n\n3.1 グリッパー指向の接触トポロジー\nハンド表面の能動接触点（$N_H=2048$点）をハンドプリント${\\cal H}$と呼びます。Gonzalezの分類学を基に、ハンド表面を22個のゾーンに分割し、21種類の接触トポロジーテンプレート${\\cal A}_m$を定義しました。これは「どのゾーンが接触すべきか」を示す意味的マスクです。\n\n3.2 正準作業空間学習による幾何転移\n接触は手と物体の「双対」な関係です。無限の形状バリエーションを持つ物体表面（非有界）を探索するのではなく、自由度と形状が固定されたハンド表面（有界空間）に問題を反転させます。ハンド座標系の原点に手のひらを固定した「正準作業空間（Canonical Workspace: ${\\cal W}$）」を配置し、DGCNNで抽出した幾何特徴量を、法線ベクトルを考慮した距離尺度（${\\cal D}_{\\text{aligned}}$）に基づくk近傍法（kNN）で空間の代表点へと集約します。学習時はハンド自身の形状を、推論時は法線を反転させた対象物体の点群をこの空間に投影することで、ドメイン間の差を埋めます。\n\n3.3 自己注意機構による接触テンプレート学習\n投影された空間トークンに対し、指定されたトポロジーの埋め込み表現を各点に直接連結（持続的ハード条件付け）し、Transformerエンコーダで点同士の大域的な空間関係を捉えます。その後、Set Transformerを介して特徴を圧縮し、CVAE（条件付き変分自己符号化器）を用いて確率的な接触マスク$\\hat{\\Lambda}_m$を出力します。\n\n3.4 段階的バリデーションと把持合成\n推論時は、物体をハンド空間へ変換して接触マスクを予測した後、重い物理最適化を走らせる前に2段階の高速チェックを行います。\n- ラベル整合性チェック: 予測マスクと目標テンプレートの排他的論理和を計算し、許容誤差（1ゾーン欠損または過剰まで）を超えた破綻姿勢を即座に破棄します。\n- フォースクロージャ簡易判定: アクティブ領域の重心から接触レンチ空間（Grasp Wrench Space）を素早く求め、理論的に釣り合いが取れるか確認します。不可なら潜在変数$z$を再サンプリングします（最大20回）。\n最後に、目標接触点への引き寄せ、物体へのめり込み防止、自己衝突回避、関節制限、そして「不要な指や手のひらを物体から5mm以上離す反発項（$E_{\\text{rep}}$）」を組み合わせたエネルギー関数を最小化し、最適な関節角度$Q^*$を決定します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "CoToGraspの全体アーキテクチャです。上段の物体非依存学習では、ハンド点群とトポロジー番号から正準作業空間上の接触マスクを学習します。下段の推論フェーズでは、未知物体の点群を入力し、生成された接触予測を整合性チェック・力学判定にかけた上でエネルギー最適化を行い、最終的な関節角度を導出します。",
+     "caption": "Figure 2 : CoToGrasp Method Overview. The proposed framework operates in two distinct phases. Top (Object-Agnostic Training): The model learns an intrinsic, gripper-centric contact manifold within a canonical feature-based workspace, independent of object geometry. Bottom (Grasp Synthesis): At inference, a target object is transformed into the canonical frame. The network’s contact-topology-conditioned prediction is strictly filtered through a validation pipeline before energy-based optimization",
+     "image": "details/2608.19776/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "採用した把持分類学と接触マッピングです。Gonzalezの分類に基づく21種類の接触トポロジー（精密把持、力強い把持、道具特化把持）と、ハンド表面に定義された22箇所の接触ゾーンIDの対応関係を示しています。",
+     "caption": "Figure 3 : Semantic Grasp Taxonomy and Contact Mapping. (Left) Correspondences between the classical Feix [ 11 ] (F) taxonomy (top), the haptic Gonzalez [ 12 ] (M) taxonomy (middle row) and our derived point cloud contact templates ${\\cal A}_{m}$ (bottom row). We categorized the 21 templates into three distinct functional groups: Precision , Power and Object-Specific (highly constrained topologies tailored for specific tool use). (Right) The 22 anatomical contact zones defined by Gonzalez (top) ",
+     "image": "details/2608.19776/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "モード崩壊を打破！精密ピンチから実機把持まで徹底検証",
+   "summary_ja": "シミュレータ上でタクソノミ非考慮の既存手法や最新のDexonomyと比較し、CoToGraspがパワー把持への偏りを解消して高い意味的忠実度（TC）と高速な生成（1把持あたり0.11秒）を両立することを実証しました。さらに実機の4指ロボットハンド（Allegro Hand）に適用し、未知物体に対する安定した多様な把持を確認しました。",
+   "details_ja": "実験はShadow Hand（シミュレーション）および4指のAllegro Hand（実機）を用いて行われました。\n\n4.1 評価設定と新規指標\n把持の忠実度を測定するため、生成された把持の実際の接触部位を自動抽出し、不要な余計な接触（不器用な包み込み）を厳しく罰する非対称Tversky指数に基づく新指標「トポロジー適合率（Topology Compliance: TC）」を導入しました。また、生成分布の偏りを測る指標として「意味的エントロピー（$\\textbf{H}_{TC}$）」を定義しました（1に近いほど均等で多様、0に近いほど単一タイプへの偏り・崩壊を示す）。\n\n4.2 タクソノミ非考慮ベースラインとの比較\nMultiDexデータセットにおいてDFC、GenDexGrasp、DRO-Grasp、GOAGと比較しました。既存手法は包み込み把持（M21など）ばかりを生成するため成功率（SR）の見かけの数値は高いものの、意味的エントロピー$\\textbf{H}_{TC}$は低迷（0.60〜0.74）していました。一方CoToGraspは、指先ピンチ把持などの難しい条件でも逃げずに生成し、最も高い$\\textbf{H}_{TC}$（0.83）を達成しました。さらに生成速度は1把持あたり0.11秒と、ベースラインの中で圧倒的最速を記録しました。\n\n4.3 タクソノミ考慮手法（Dexonomy）との対決\nDexGraspNetの1,126個の未知物体によるテストでは、先行手法Dexonomyと比較して把持成功率・トポロジー適合率（TC: 17.18% vs 14.28%）の双方で上回りました。特に指先による高難度な精密把持（M2）では、Dexonomyの10.5%に対してCoToGraspは30.3%と大差をつけました。Dexonomyは難しい形状に直面すると条件を無視して包み込み把持へ退行（モード崩壊）して見かけの成功率を稼いでいましたが、CoToGraspは事前バリデーションにより不適切な候補を排除するため、真の機能的把持を実現しています。\n\n4.4 実機ロボット検証\nUR10アームとAllegro Handの実機を用い、YCBデータセットの多様な物体を対象に把持テストを実施しました。カメラやマーカーの配置された実環境において、マスタードボトル、ボール、ドリルなどに対し、指定されたトポロジー（M1〜M18）通りに指先や手のひらを使い分けて安定して持ち上げられることを実証しました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "分類学を考慮しない既存プランナーとの接触トポロジー生成分布の比較です。既存手法はいずれも赤枠で囲まれた包み込みパワー把持（M15やM21）へ極端に偏っていますが、CoToGrasp（赤棒）は精密把持を含めて極めて均一な分布を維持しています。",
+     "caption": "Figure 4 : Functional contact topology distribution across taxonomy-unaware planners. The histogram illustrates the distribution of grasps generated by unconditioned baselines compared to CoToGrasp on the Multidex objects set. The unknown category represents physically stable grasps with unnatural contact patterns that fail to match any contact topology. Notably, unconditioned baselines exhibit a severe generative bias (mode collapse) toward enveloping power grasps (red box).",
+     "image": "details/2608.19776/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "UR10ロボットアームとAllegro Handを用いた実機検証の様子です。YCBデータセットの様々な日用品に対し、指定された接触トポロジー（M1〜M18）に従った多様な把持姿勢を物理的に実行し、安定して把持・リフトできることが示されています。",
+     "caption": "Figure 5 : Real-World kinematic validation. CoToGrasp synthesizes diverse, topology-compliant grasps that are physically executable on a physical Allegro Hand using YCB [ 4 ] objects. The target contact topologies (indicated above each frame) demonstrate the physical viability of the generated grasps across both precision and power categories.",
+     "image": "details/2608.19776/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめ：器用なロボットハンドの真のポテンシャルを解放する",
+   "summary_ja": "CoToGraspは、把持機能の意図を物体形状から完全に切り離すことで、従来プランナーの宿命だったパワー把持への偏りを克服しました。物体データセットを一切使わずに学習しながら、未知の物体に対して指定された接触トポロジーを忠実に再現する多指把持を瞬時に生成できることを示しました。",
+   "details_ja": "本研究の最大のブレイクスルーは、「物体をどう掴むか」という機能的意味論を、ロボットハンド自身の幾何学的・運動学的能力として内包させ、物体形状から完全に分離した点にあります。これにより、膨大なアノテーション付き物体メッシュを用意することなく、ゼロショットで未知の物体形状へと適応できるようになりました。\n\nまた、推論パイプラインに組み込まれたラベル整合性判定とフォースクロージャチェックにより、幾何学的に無理のある把持候補を初期段階で弾き、最適化の収束性と信頼性を大幅に高めています。実機実験を通じても、シミュレーション上の接触トポロジーが現実のマルチフィンガーハンドで十分に機能することが確認されました。LLMなどの上位プランナーから「このツールを使うためにここをつまんで」と指示された際、即座に応答できる実用的な低レイヤー把持生成器としての活用が期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：ネットワーク設計のこだわりと実機制御の壁",
+   "summary_ja": "付録では、正準作業空間における局所特徴の集約手法、ドメインシフトを埋めるための特徴量アライメントの定量的根拠、凹凸の激しい複雑形状に対する頑健性、そして実機特有の位置制御による限界と今後の課題について詳細に述べています。",
+   "details_ja": "論文をさらに深く理解するための重要な技術的詳細がいくつか記載されています。\n\n- ハンドプリントの離散化とタクソノミ移植: ハンドの接近方向（手のひらの法線）との内積を計算して能動接触面をフィルタリングし、$N_H=2,048$点に離散化しています。指が1本少ないAllegro Handに対しては、5本指を前提とするテンプレート（${\\cal A}_6$）を除外することで、共通のフレームワークをスムーズに適用しています（図F7）。\n\n- 局所特徴抽出と正準空間投影の工夫: 大域的な形状記述子は微細な曲率や法線を潰してしまうため、静的グラフCNN（DGCNN）を採用して局所特徴を維持しています。また、作業空間へのkNN投影ではあえて正規化（重みの合計で割る処理）を行わず、距離に応じて自然にゼロへと減衰させることで、空間の「何もない場所」に物体特徴が誤って幻覚されるのを防いでいます。\n\n- ドメイン間特徴量アライメント: 学習時（ハンド点群）と推論時（物体点群）のドメインギャップを定量測定した結果、DGCNN直後のコサイン類似度は0.35と低いものの、正準空間へのkNN投影によって0.61へと急上昇し、さらにTransformerの自己注意を通すことで0.66まで向上することが確認されました。\n\n- 形状の複雑さ（非凸性）に対する強さ: 物体の凸性体積比率を用いた解析（表7）では、くぼみの多い極めて複雑な形状（非凸度が高い物体）において、Dexonomyが把持成功率を37.42%しか維持できなかったのに対し、CoToGraspは58.72%の性能を維持しました。さらにトポロジー適合率（TC）は逆に向上（19.17%）しており、局所特徴に接触を固定する手法の優位性が証明されています。\n\n- 実機制御における限界と課題: 実機で精密把持を実行する際、標準的な軌道補間による位置制御では、先行して衝突した指先が物体を弾いてしまい、目標の接触位置からズレる問題が観察されました。今後はハイブリッド位置/力制御や触覚フィードバックポリシーとの統合が必須であると結論づけています。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "5本指のShadow Hand（左）と4本指のAllegro Hand（右）における解剖学的接触ゾーンの分割マップです。指の数が異なるハンドであっても、共通のトポロジーテンプレート体系へと適応可能であることを示しています。",
+     "caption": "Figure 7 : Taxonomy transfer mapping for anthropomorphic grippers. The handprints of the Shadow Hand (left) and the Allegro Hand (right) are segmented into manually defined, corresponding anatomical zones ( $\\mathcal{A}_{1}$ – $\\mathcal{A}_{21}$ ).",
+     "image": "details/2608.19776/F7.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "「物体上の接触点」を探すのではなく「ハンドの接触領域」を固定空間で予測する逆転の発想により、物体メッシュなしの物体非依存（Object-Agnostic）学習が可能になる",
+  "Transformerによる大域的注意と、反発項を含むエネルギー最適化を組み合わせることで、不要な指の接触を抑えた厳密な精密把持が実現できる",
+  "単純な成功率（SR）だけでなく、意図しない余計な接触をペナルティとする非対称Tversky評価（TC）やエントロピーを測定しなければ、多指把持の真の器用さや多様性は測れない"
+ ],
+ "limitations_ja": [
+  "実機で純粋な位置制御（MoveIt等）を用いて実行した場合、指先が接触する微小な時間差で物体が押され、目標の接触トポロジーからズレが生じる（力制御や触覚フィードバックとの統合が未実装）",
+  "手先アプローチ姿勢（6自由度ポーズ）はヒューリスティックまたは外部プランナーに依存しており、全体のエンドツーエンドなアプローチ計画は含まれていない",
+  "トポロジー適合率（TC）の厳密な定義ゆえに、指の長さの物理的限界によって隣接する指骨が不可避的に物体へ軽く触れただけでも「失敗」と判定されてしまう厳格すぎる評価の側面がある"
+ ],
+ "keywords": [
+  "Dexterous Grasping",
+  "Contact Topology",
+  "Object-Agnostic Learning",
+  "Canonical Workspace",
+  "Multifingered Robot Hands"
+ ],
+ "id": "2608.19776",
+ "title": "CoToGrasp: Contact-Topology-Conditioned Dexterous Grasp Synthesis via Canonical Workspace Learning",
+ "title_ja": "CoToGrasp: 正準作業空間学習による接触トポロジー条件付き多指把持合成",
+ "authors": [
+  "Julien Merand",
+  "Boris Meden",
+  "Liming Chen",
+  "Mathieu Grossard"
+ ],
+ "date": "2026-08-22",
+ "group": "general",
+ "tags": [
+  "grasping",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.19776",
+ "pdf_url": "https://arxiv.org/pdf/2608.19776",
+ "summary_ja": "特定の接触トポロジー（指先の接触関係）を指定して安定した多指把持姿勢を生成する生成モデルCoToGraspを提案。物体に依存しない正準作業空間特徴を用いることで、物体アノテーション付きデータセットなしで学習可能とし、下流のタスクに応じた機能的な器用把持の生成を実現した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.19776"
+}
