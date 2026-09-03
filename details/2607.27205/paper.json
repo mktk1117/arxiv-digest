@@ -1,0 +1,139 @@
+{
+ "tldr_ja": "ロボット制御において巨大なLLMを中心に据える設計を見直し、軽量なBERTと言語・画像間の直接的な双方向アテンションで結ぶ「TurboVLA」を提案しました。わずか0.2Bパラメータ・0.9GBのVRAM消費で32Hzのリアルタイム動作を達成しつつ、LIBEROベンチマークで97.7%の高い成功率を実証しています。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "LLM中心の従来型VLAとTurboVLAの展開形態および推論速度の比較です。巨大な基底モデルをクラウドサーバー経由で動かしレイテンシが約93ms（約11Hz）かかる従来構成に対し、TurboVLAはRTX 4090などのエッジ単体でVRAM 1GB未満・31.2ms（32Hz）の高速制御を実現します。",
+  "caption": "Figure 1: TurboVLA enables compact local deployment and real-time language-conditioned manipulation with 0.2B parameters, 0.9 GB inference VRAM and 31.2 ms policy latency.",
+  "image": "details/2607.27205/F1.jpg"
+ },
+ "overview_ja": "視覚・言語・行動を統合するVLA（Vision-Language-Action）モデルは、自然言語指示に応じたロボット操作を実現する強力な枠組みとして注目を集めています。しかし、既存手法の多くは数十億パラメータ規模の大規模言語モデル（LLM）を中核に据え、視覚特徴量をLLMのトークン空間に射影してから行動を生成する「$V \\rightarrow L \\rightarrow A$」という間接的な経路を採っています。この構成は高い汎化性をもたらす反面、推論レイテンシが大きく膨らみ、膨大なGPUメモリを消費するため、ロボットのリアルタイム制御において深刻なボトルネックとなっていました。\n\nそこで著者らは、「低レベルの動作実行タスクにおいて、本当に数十億パラメータの生成型LLMが必要なのか？」という疑問に着目しました。タスク指示文が「赤いボウルを掴む」のように定まっている場合、ロボットに必要なのは自由記述の生成や複雑な長期的計画ではなく、「指示文に基づいて現在の画像内のどこに注目すべきか」を決定することです。この洞察に基づき、著者らはLLMを排して視覚と言語を直接結合する新しいパラダイム「TurboVLA（$V + L \\rightarrow A$）」を考案しました。軽量なテキストエンコーダ（BERT）とビジョンバックボーン（DINOv3）を用い、双方向クロスアテンションを介してコンパクトに行動特徴を直接生成します。\n\n検証実験では、標準ベンチマークLIBEROや双腕ベンチマークRoboTwin 2.0、さらに実機のアーム（AgileX Piper）を用いて評価を行いました。その結果、わずか0.2Bパラメータ・消費VRAM 0.9GBという軽量さでありながら、LIBEROで97.7%の成功率を記録し、3B超の巨大LLMをベースにした先行手法（$\\pi_{0.5}$など）と同等以上の性能を達成しました。推論速度も31.2ms（32Hz）と非常に高速であり、低消費リソースで実用的なリアルタイム制御が可能であることを鮮やかに示しています。",
+ "contributions_ja": [
+  "低レベル制御におけるLLM中心型（$V \\rightarrow L \\rightarrow A$）の必然性を再検討し、LLMを介さない直接的な $V + L \\rightarrow A$ パラダイム「TurboVLA」を提案したこと。",
+  "軽量なテキストエンコーダと視覚特徴を双方向クロスアテンションで直接相互作用させ、ACTスタイルの連続行動チャンクを出力する極めて簡潔で効率的なアーキテクチャを設計したこと。",
+  "市販のRTX 4090上で0.2Bパラメータ、VRAM消費0.9GB未満、推論レイテンシ31.2ms（32Hz制御）を達成しながら、LIBEROで97.7%の最高峰の成功率を記録したこと。",
+  "シミュレータだけでなく、双腕マニピュレーション（RoboTwin 2.0）や実機ロボットアーム環境においても、数倍巨大な先行モデルを凌駕する実用的な動作性能を実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜロボット制御の真ん中に巨大なLLMを置く必要があるのか？",
+   "summary_ja": "従来のVLAモデルはLLMを中心とした構成を採っており、これが高い推論遅延とメモリ消費の原因になっていました。本研究では低レベル制御には言語生成能力は不要である点に着目し、軽量なテキストエンコーダと視覚を直接結ぶ「TurboVLA」を提案しています。",
+   "details_ja": "近年、視覚と自然言語指示とロボット行動を単一モデルで結ぶVLAモデルが急速に発展しています。しかし、RT-2やOpenVLAなどの既存モデルは、いずれも数十億パラメータを持つ巨大なLLMを中核に据える「$V \\rightarrow L \\rightarrow A$」という経路を採用しています。こうした手法では、画像特徴をわざわざLLMのトークン空間に射影して処理するため、推論ステップごとにかかる計算量とメモリ負荷が非常に大きく、リアルタイム制御（高周波数制御）の大きな壁となっていました。\n\n近年の研究では、行動トークンを1つずつ自己回帰的に予測する代わりに、連続的な行動を出力するアクションエキスパートを接続するアプローチも登場しています。しかし、これらも依然としてLLMバックボーンの通過を前提としており、根本的な計算ボトルネックは解消されていませんでした。\n\nここで著者らは、本質的な問いを投げかけます。「指示通りの動作を実行するだけのフェーズにおいて、本当にLLMのような汎用生成モデルが必要なのだろうか？」ということです。具体的なタスク指示が与えられている場合、低レベルの制御方策に必要なのは、指示文に含まれる対象物や空間関係を手がかりに「画像中のどこをどう動かすか」を決めることであり、自由な文章生成や高度な推論ではありません。つまり、BERTのような軽量なテキストエンコーダと、視覚言語グラウンディング（画像と言語の位置合わせ技術）に着想を得た直接的な相互作用があれば十分なはずです。\n\nこの着想から生まれたのが「TurboVLA」です。視覚と言語を別々にエンコードし、軽量な双方向クロスアテンションを介して直接結合して行動チャンクを予測します。これにより、RTX 4090単体で31.2ms（32Hz）という高速動作、1GB未満のVRAM消費、そして97.7%という最高峰のタスク成功率を同時に達成しました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "従来のLLM中心型VLAとTurboVLAの構造比較（a）およびパラメータ数とレイテンシの比較（b）です。LLMを介さずに直接相互作用させることで、モデルサイズを最大41分の一に削減しつつ、優れた成功率と圧倒的な低遅延を達成しています。",
+     "caption": "Figure 2: From LLM-centric VLA to TurboVLA. (a) LLM-centric VLA predicts actions from large-language-model representations, whereas TurboVLA directly fuses visual and instruction features for continuous control. (b) TurboVLA achieves highly competitive LIBERO performance with substantially lower latency and model scale.",
+     "image": "details/2607.27205/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "先行研究の系譜：巨大基底モデルの活用と効率化の試み",
+   "summary_ja": "VLAモデルの発展と効率化に向けたこれまでのアプローチを整理しています。多くの先行研究が巨大なマルチモーダル基底モデルを前提とした枝葉の高速化に留まるなか、本研究はLLMそのものを実行経路から取り除くという抜本的なアプローチを採っています。",
+   "details_ja": "関連研究は大きく3つの系統に分かれます。\n\n- **Vision-Language-Action (VLA) モデルの進化**: RT-1やRT-2、OpenVLAなど、事前学習済みの大規模モデルを行動予測へと適応させる研究が主流です。$\\pi_0$ や $\\pi_{0.5}$ のように連続制御用のヘッドを導入する手法や、拡散モデルを用いる手法、世界モデルや潜在推論を組み込む手法など、表現力を高める方向で急速に進化してきました。しかし、これらはすべて巨大な生成型バックボーンに依存しています。\n\n- **VLAモデルの高速化アプローチ**: 行動トークンの直列生成を回避するアクションチャンキング、モデルの量子化、トークン削減・枝刈り、蒸留、あるいは非同期実行など、様々な高速化手法が提案されてきました。またTinyVLAやSmolVLAといった軽量VLAも現れています。しかし、これらも「事前学習済みマルチモーダルLLMをどう縮めるか」という枠組みにとどまっていました。\n\n- **ロボット制御における言語インターフェース**: CLIPortやBC-Z、CALVINなどの初期の研究では、言語はタスク条件づけのための特徴量として扱われており、必ずしもLLMを介していませんでした。TurboVLAはこの考え方を現代のVLAの枠組みで再評価し、コンパクトなテキストエンコーダと直接的な視覚言語相互作用によって、高精度かつリアルタイムな連続制御が実現できることを示しています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Preliminaries",
+   "heading_ja": "予備知識：LLM中心型経路と直接的な視覚言語相互作用",
+   "summary_ja": "既存のLLM中心型VLAモデルが抱える構造的な計算依存性を数式を交えて整理します。さらに、その代替案としてGrounding DINOなどで実績のあるクロスアテンションによる直接結合の仕組みを説明します。",
+   "details_ja": "既存のLLM中心型VLAは、視覚入力 $\\mathcal{O}_n$ を画像エンコーダ $E_v$ で抽出し、射影層 $P_v$ でLLMの埋め込み空間へ変換した上で、指示文トークン $\\operatorname{Tok}(x)$ と連結してLLM（$F_L$）に入力します。\n\nここで重要なのは、LLMのステージが単なるテキスト処理器ではなく、視覚と行動を結ぶ中心的なインターフェースとして機能している点です。自己回帰型モデルであれ、連続制御ヘッドを取り付けたモデルであれ、行動デコーダはLLMが出力した特徴量 $H_n^L$ に完全に依存しています。これが「$V \\rightarrow L \\rightarrow A$」という間接的な構造です。\n\nこれに対し、本研究が注目するのがクロスアテンションを用いた直接的な視覚と言語の双方向のやり取りです。視覚特徴 $Z^v$ とテキスト特徴 $Z^l$ があるとき、一方をクエリ、もう一方をキー・バリューとすることで、言語に応じた視覚特徴や、視覚情報を加味したテキスト特徴を直接計算できます。物体検出などの視覚言語グラウンディングで実績のあるこの仕組みを、ロボットの行動予測のための表現獲得へと応用するのが本手法の狙いです。",
+   "figures": []
+  },
+  {
+   "heading": "4 TurboVLA",
+   "heading_ja": "TurboVLAのアーキテクチャ：直接つないで並列に解く",
+   "summary_ja": "TurboVLAは、軽量なテキストエンコーダ、画像エンコーダ、双方向クロスアテンションによる相互作用モジュール、そしてACTスタイルの行動デコーダから構成されます。LLMを一切介さず、連続的な行動チャンクを一括で予測します。",
+   "details_ja": "TurboVLAの全体構造は、驚くほどシンプルで無駄がありません。\n\n### 4.1 マルチモーダル特徴量のエンコード\n指示文 $x$ は、BERTのような軽量テキストエンコーダで処理され、トークン列の特徴量 $Z^l \\in \\mathbb{R}^{N_l \\times d}$ として取得されます。プーリングして1つのベクトルにまとめずトークン列のまま残すことで、対象物や属性、空間的な関係性の情報をきめ細かく保持します。\nカメラ画像はビジョンエンコーダ（DINOv3）で空間特徴量へと変換され、位置埋め込みやカメラ視点埋め込みを加算した上で平坦化され、$Z^v \\in \\mathbb{R}^{N_v \\times d}$ となります。\nロボット自身の関節角度などの自己受容感覚（プロプリオセプション）は、視覚言語のグラウンディングには直接関係ないためここでは混ぜず、別系統の軽量な射影ネットワーク $f_{\\mathrm{state}}$ で処理します。\n\n### 4.2 視覚言語インタラクションモジュール\n独立にエンコードされた視覚特徴とテキスト特徴は、$N=6$ 層の双方向クロスアテンション層を通過します。まず画像特徴で指示文を更新し（視覚を考慮した言語特徴へ）、次にその言語特徴で画像特徴を更新します（指示文に応じた視覚特徴へ）。このやり取りによって、「どの物体をどう操作すべきか」というタスク特化型の表現がコンパクトに組み上がります。\n\n### 4.3 連続行動チャンクの予測\n得られたマルチモーダル表現と、先ほどのロボット状態特徴量を結合し、ACTスタイルのトランスフォーマーデコーダに入力します。学習可能な行動クエリ $Q_a = [q_1, \\dots, q_H]$ を用い、1回のフォワードパスで $H$ ステップ分の連続行動（行動チャンク）を並列に予測します。学習は模倣学習（行動チャンクに対する $\\ell_1$ 損失のみ）で行われ、言語モデリングなどの追加損失は一切必要ありません。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "TurboVLAの全体パイプライン（a）と視覚言語相互作用モジュールの詳細構造（b）です。各モダリティを軽量エンコーダで処理した後、双方向クロスアテンションをスタックしたモジュールで特徴量を練り上げ、ACTデコーダから並列に行動チャンクを出力します。",
+     "caption": "Figure 3: Overview of TurboVLA. (a) TurboVLA simply yet efficiently maps visual observations and language instructions to continuous action chunks through compact modality encoders, vision-language interaction, and an action chunk decoder. (b) The interaction module is designed as simple as possible. It uses stacked bidirectional cross-attention to produce vision-aware instruction features and instruction-conditioned visual features.",
+     "image": "details/2607.27205/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Experiments",
+   "heading_ja": "実験結果：圧倒的な速度・省メモリと高い成功率の両立",
+   "summary_ja": "単腕（LIBERO）、双腕（RoboTwin 2.0）、実機ロボット（AgileX Piper）の3環境で検証しました。TurboVLAは巨大なパラメータを持つ先行VLAモデルを凌駕または匹敵する成功率を叩き出し、リアルタイム性と省メモリ性を実証しました。",
+   "details_ja": "### 5.1 実装と評価設定\n視覚バックボーンにはDINOv3、言語にはBERTを用い、隠れ層次元 $d=256$、相互作用層 $N=6$ としました。4台のRTX 4090を用い、学習率 $5 \\times 10^{-5}$、バッチサイズ256の行動クローニング（$\\ell_1$ 損失）で学習させています。\n\n### 5.2 主な結果（シミュレーションと実機）\n- **LIBERO（単腕マニピュレーション）**: 4つのスイート（計40タスク）において、TurboVLAは平均成功率 **97.7%** を達成しました。これは、3.4Bパラメータの巨大モデル $\\pi_{0.5}$ の 96.9%（遅延93.6ms）を上回り、モデルサイズは約17分の1（0.2B）、遅延は3分の1以下の **31.2ms（32Hz）**、推論時VRAM消費はわずか **0.9GB** です。最新の軽量化VLA（Evo-1やVLA-Adapter）と比較しても、速度・成功率ともに圧倒しています。\n- **RoboTwin 2.0（50タスクの双腕協調）**: クリーン設定において平均成功率 **60.2%**、遅延43.4msを達成しました。$\\pi_{0.5}$（57.0%、95.6ms）やStarVLA-$\\alpha$（50.3%、74.9ms）に対して明確な優位性を示しました。\n- **実機検証（AgileX Piper）**: ローラー掴み、トランプ移動、ホッチキス押し、3つのボウル重ねの4タスクで検証した結果、すべてのタスクで $\\pi_{0.5}$ を上回る高い成功率（92.5%、80.0%、90.0%、87.5%）を記録しました。\n\n### 5.3 アブレーション研究で判明したこと\n- **言語の必要性**: 言語指示を完全に除去すると成功率は97.7%から70.8%へ激減し、特にゴール依存タスク（LIBERO-Goal）では11.6%まで崩壊しました。また単なるタスクID埋め込みよりも自然言語指示文の方が高い性能（+2.3%）を示しました。\n- **テキストエンコーダの依存性**: BERT以外にT5-small（97.1%）やSigLIPのテキストエンコーダ（95.5%）でも良好な性能を示し、特定の言語バックボーンに依存しないことが確認されました。\n- **相互作用の設計**: 単純な特徴連結（95.2%）や一方向のクロスアテンション（96.1% / 96.5%）よりも、双方向クロスアテンション（97.7%）が最も優れていました。\n- **ハイパーパラメータ**: 相互作用層の深さは $N=6$、行動予測ホライズンは $H=12$ が性能と計算効率の最良のバランスでした。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "実機ロボット（AgileX Piper）での実験環境と評価結果です。手先カメラと俯瞰カメラを備えた構成において、4つの実世界マニピュレーションタスクすべてで先行研究の $\\pi_{0.5}$ を上回る高い成功率を示しています。",
+     "caption": "Figure 4: Real-world evaluation on the AgileX Piper platform. Left: our single-arm setup with a wrist-view RGB-D camera and a third-view RGB-D camera, together with the objects used in the four tasks. Right top: success-rate comparison between TurboVLA and $\\pi_{0.5}$ on four real-world manipulation tasks. Right bottom: qualitative execution examples of TurboVLA.",
+     "image": "details/2607.27205/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "視覚と言語の相互作用モジュールに関するアブレーションの設計バリエーションです。（a）単純連結、（b）言語から視覚、（c）視覚から言語、（d）提案する双方向更新であり、双方向に情報をやり取りする（d）が最も高い制御性能を達成しました。",
+     "caption": "Figure 5: Vision-language interaction variants. (a) Directly concatenating visual and instruction features. (b) Updating only the instruction features using visual features. (c) Updating only the visual features using instruction features. (d) Bidirectional interaction jointly updates both feature streams.",
+     "image": "details/2607.27205/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "結論と展望：低レベル制御におけるLLMの役割を見直す",
+   "summary_ja": "TurboVLAは、低レベルの動作実行にはLLMが必須ではないことを明確に示しました。今後は、ハイレベルな推論・計画を担うLLMと、TurboVLAのような高速な低レベル実行器を組み合わせた階層型アーキテクチャの発展が期待されます。",
+   "details_ja": "本論文では、従来のLLM中心型アプローチから脱却し、直接的な $V + L \\rightarrow A$ マッピングを実現する「TurboVLA」を提案しました。軽量な言語エンコーダ、視覚特徴量、双方向クロスアテンション、そして連続行動デコーダを組み合わせることで、モデルサイズ、遅延、GPUメモリ消費を劇的に削減しながら、最高水準のタスク成功率を両立できることを実証しました。\n\n本成果は、ロボティクスコミュニティに対して「動作実行レベルの制御において、本当に汎用LLMを中心インターフェースにする必要があるのか？」という重要な再考を促すものです。\n\nもちろん、TurboVLAは具体的な低レベル動作指示の実行に特化して設計されているため、長期的で複雑な推論や、自律的なタスク分解といった高度なセマンティック処理を単体で行うことは想定されていません。したがって次のステップとしては、ハイレベルな計画や推論をLLMに任せ、ミリ秒単位の俊敏な動作制御をTurboVLAが担うという「階層型システム」の構築が極めて有望な研究方向となります。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「指示に応じた動作実行」のレベルであれば、数十億パラメータの生成型LLMを使わずとも、BERTなどの軽量エンコーダと双方向クロスアテンションだけで十分高い性能が得られる。",
+  "視覚と言語の結合には、単純なトークン連結ではなく、画像と言語が相互に文脈を補正し合う双方向クロスアテンションが極めて効果的である。",
+  "モデルサイズを0.2Bに抑え推論VRAMを0.9GBに削減したことで、一般的な民生用GPU（RTX 4090等）上で30Hz以上の閉ループ制御を余裕を持って回せる。",
+  "ハイレベルな言語計画・タスク推論（LLMが得意な領域）と、高速・高頻度な動作実行（TurboVLAのような専用モデルが得意な領域）を分離する階層型アーキテクチャの重要性が示唆される。"
+ ],
+ "limitations_ja": [
+  "抽象的なゴール指示から手順を自律的に分解するような、高度なセマンティック推論や長期的なタスク計画能力は単体では持たない点。",
+  "シミュレーションの双腕タスクにおいて、計算リソースの制約からクリーン環境（環境ランダム化なし）のデモデータのみで学習・評価されている点。",
+  "動作実行に特化しているため、対話を通じた曖昧性の解消や人間からのオープンエンドなフィードバックへの即応には、上位レイヤーの計画器が別途必要となる点。"
+ ],
+ "keywords": [
+  "Vision-Language-Action Models",
+  "Real-Time Robot Control",
+  "Cross-Modal Attention",
+  "Action Chunking",
+  "Imitation Learning"
+ ],
+ "id": "2607.27205",
+ "title": "TurboVLA: Real-Time Vision-Language-Action Model at 32 Hz on an RTX 4090 with <1 GB VRAM",
+ "title_ja": "TurboVLA: RTX 4090上で32HzかつVRAM 1GB未満で動作するリアルタイム視覚言語行動モデル",
+ "authors": [
+  "Hengyi Xie",
+  "Chenfei Yao",
+  "Xianjin Wu",
+  "Xuanyang Xi",
+  "Yiping Tang",
+  "Di Xu",
+  "Yingying Zhu",
+  "Dingkang Liang",
+  "Xiang Bai",
+  "Han Ding"
+ ],
+ "date": "2026-07-30",
+ "group": "general",
+ "tags": [
+  "vision-language-action",
+  "manipulation",
+  "perception",
+  "control"
+ ],
+ "categories": [
+  "cs.CV",
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2607.27205",
+ "pdf_url": "https://arxiv.org/pdf/2607.27205",
+ "summary_ja": "従来のLLMを媒介するVLA構造を刷新し、視覚と言語を独立符号化して直接統合するV+L->Aマッピング方式TurboVLAを提案。大幅な計算量削減を実現し、RTX 4090環境にて1GB未満のVRAM消費かつ32Hzの高速リアルタイム制御を達成した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2607.27205"
+}
