@@ -1,0 +1,136 @@
+{
+ "tldr_ja": "均一なRGB照明設計によりゴースト光やテカリを徹底排除したマーカーレス視覚触覚センサを開発し、TimeSformerを用いて未知物体でも91.5%の精度で8方向の微細な滑りを検出できることを示しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "提案された視覚触覚センサの構成と把持実験の様子です。(a) は着脱可能な接触部を含むセンサ構造、(b) はロボットハンドにセンサを搭載して滑りデータを収集する様子、(c) は日常の15種類の物体を押し当てた際に得られる鮮明な触覚画像を示しています。",
+  "caption": "Fig. 1: (a) Overall structural diagram of the proposed sensor.(b) Dataset collection using the visuotactile sensor for slip status detection.(c) Actual tactile images collected by pressing 15 common objects. These images constitute a slip detection dataset of 7,925 samples and a high-precision material classification dataset of approximately 19,336 images. (The figure shows some of the collected objects.)",
+  "image": "details/2608.24162/F1.jpg"
+ },
+ "overview_ja": "ロボットが人間のように器用に物体を扱うためには、接触面の微細な滑りを即座に検知し、適切な力で掴み直す触覚フィードバックが不可欠です。近年は柔軟なゴムの変形を小型カメラで捉える視覚触覚センサ（Visuo-Tactile Sensor: VTS）が主流ですが、多くの従来センサはゴム内部に埋め込んだ格子状マーカーの追跡に頼っていました。これでは表面の微細なテクスチャが隠れてしまい、物体の滑りも「滑ったか否か」の単純な2値判定にとどまることが大半でした。\n\nそこで著者らは、マーカーを使わずに接触面の微細なテクスチャ変化そのものを直接捉えるアプローチを提案しました。まずハードウェアとして、内部照明の配置と拡散板を最適化し、アクリル支持板からの反射ゴースト光を完全にカメラの視野・ピントから外す光学設計を採用しました。これにより、テカリのない極めて均一なRGB照明下で、サブミリ単位（誤差約72µm）の3Dデプス復元と鮮明なテクスチャ撮影を両立させています。\n\nさらに、15種類の物体を用いた大規模な触覚データセット（滑りシーケンス約8,000件、静止画像約1.9万枚）を構築し、時空間トランスフォーマー「TimeSformer」をベースにしたデュアルヘッドモデルを開発しました。このモデルは、接触状態（静止・押し込み・滑り）と、滑りが発生した際の8方向（45度刻み）のベクトルを同時に予測します。\n\n実験の結果、訓練時に一度も触れていない未知の物体に対しても、接触状態を95.5%、滑り方向を91.5%という極めて高い精度で識別できることが実証されました。さらに静止画像からの物体分類でも98.8%の精度を達成し、器用なマニピュレーションに直結する高性能な触覚基盤モデルの有効性を示しています。",
+ "contributions_ja": [
+  "アクリル板のゴースト反射を画角外へ逃がし、テカリのない均一なRGB照明によって微細テクスチャを抽出できるマーカーレス視覚触覚センサを設計したこと。",
+  "15種類の物体から得られた滑りシーケンス（6.3万枚）と静止画像（約1.9万枚）に対し、密な3Dデプス情報を同期生成した高品質なRGB-D触覚ベンチマークを構築したこと。",
+  "接触状態（3クラス）と滑り方向（8方向）を同時に予測するDual-Head TimeSformerを提案し、マスク付き同時損失関数によって未知物体に対しても高精度な滑り検出を達成したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "II INTRODUCTION",
+   "heading_ja": "なぜ今、マーカーを排した視覚触覚センサが必要なのか",
+   "summary_ja": "視覚触覚センサは高解像度な触覚情報を得られる一方で、従来のマーカー追跡方式は表面テクスチャを覆い隠し、滑り判定も2値分類に留まっていました。本研究では均一照明によるマーカーレス設計と時空間トランスフォーマーを組み合わせ、微細テクスチャの追跡による8方向の滑り推定と高精度な物体分類を実現しました。",
+   "details_ja": "ロボットが物体を把持・操作する際、視覚だけではオクルージョン（遮蔽）や接触力の推定が困難であり、指先の触覚情報が決定的な役割を果たします。その中でも、弾性体の変形を内部カメラで捉える視覚触覚センサは、従来の電子スキンに比べて桁違いに高い空間解像度を持つため、近年急速に研究が進んでいます。\n\nしかし、既存の視覚触覚センサには大きく2つの課題がありました。\n- 1つ目は「物理マーカーへの依存」です。多くのセンサはゴム表面や内部に黒いドットなどのマーカーを配置し、その移動量から接線力や滑りを計算しています。ですが、このマーカー自体の存在が接触面の微細な幾何形状やテクスチャを隠してしまい、繊細な凹凸情報が失われてしまいます。\n- 2つ目は「滑り検出の粗さ」です。既存のデータセットやアルゴリズムは「滑っているか／滑っていないか」の2値判定が主流であり、ロボットが把持姿勢をどう修正すべきかを判断するための「どの方向に滑ったか」という詳細な方向情報が欠落していました。\n\n本研究はこれらの課題を同時に解決するため、均一な内部RGB照明によるマーカーレス構造と、高精度な測光ステレオ法（Photometric Stereo: 照明方向の違いから物体の法線・形状を推定する手法）による3D形状復元を開発しました。さらに、動画認識で成功を収めているTimeSformerを導入することで、微細テクスチャの時空間的な移動パターンから、未知の物体に対してもロバストに8方向の滑りを推定できる枠組みを提示しています。",
+   "figures": []
+  },
+  {
+   "heading": "II RELATED WORK",
+   "heading_ja": "深層学習による滑り検出と材質分類の現在地",
+   "summary_ja": "滑り検出は初期のCNN-LSTMからアテンション機構を用いたViTへと進化していますが、多くは依然としてマーカー依存や単純な分類にとどまっています。本研究はTimeSformerを採用することで、オプティカルフローやマーカー追跡を介さず、テクスチャの時空間変化から直接8方向の滑りを捉えるアプローチを採っています。",
+   "details_ja": "ロボットの滑り検出は、かつてはオプティカルフローやCNN-LSTMを用いた時系列モデルで解かれていました。近年ではVision Transformer（ViT）や自己注意機構（Self-Attention）を導入し、接触領域に注目して動的な滑り現象を捉える試みが盛んに行われています。\n\nしかし、先行研究の多くは依然として物理マーカーの変位追跡に依存しているか、分類クラスが「静止」「滑り」「押し込み」程度の粗い粒度にとどまっていました。高度なマニピュレーションにおいては、物体が指先からどの方向へ逃げているのかを瞬時に把握できなければ、適切な押し戻しや持ち替えの制御が行えません。\n\n本研究は、動画分類モデルであるTimeSformerの「時間軸と空間軸を分離した自己注意機構（Divided Space-Time Attention）」を活用しています。これにより、明示的なマーカーを用いずとも、均一照明下で撮影された接触面の微細なテクスチャの時空間的な移動を高精度に追跡できるようになりました。\n\nまた、触覚を通じた材質・物体分類に関しても、従来の大規模データセット（Touch in the Wildなど）の多くはマーカー付きセンサで取得されていたり、デプス情報が揃っていなかったりしました。本研究では、15種類の多様な物体を対象に、全サンプルに対して高精度なデプス情報を同期付与したマルチタスクデータセットを構築することで、この分野のベンチマーク不足を解消しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Hardware Design and Sensing Principle",
+   "heading_ja": "テカリを消して微細形状を浮き彫りにする光学設計とデプス復元",
+   "summary_ja": "センサは外寸37×34×34mmと小型で、摩耗しやすいエラストマー部を独立交換できるモジュール構造を採用しています。PCB上のRGB光源配置とすりガラス拡散板により均一照明を実現し、アクリル板の反射ゴースト像をカメラ視野・焦点から外すことで、RMSE 0.072 mmの高精度なデプス復元を達成しました。",
+   "details_ja": "本センサは、標準的なロボットグリッパへ容易に組み込めるよう、外寸37 mm × 34 mm × 34 mmという極めてコンパクトな設計になっています。\n\n### III-A センサの全体設計と光学系の工夫\n構造は主に3つのモジュールから成り立っています。\n- 接触モジュール: 透明シリコン（Solaris）の上に白色顔料の反射層を塗布したエラストマー。\n- 照明モジュール: RGB 3色のLEDを配置した専用PCBとすりガラス状の光拡散板。\n- 信号取得モジュール: 底面に配置された超小型RGBカメラ。\n\nここで最大の工夫は「アクリル支持板によるゴースト像の排除」です。エラストマーを裏から支える透明アクリル板の表面反射により、通常はカメラ画像に光源のゴースト像が生じ、測光ステレオの精度を大きく損ないます。著者らはカメラとアクリル板の距離および視野角を綿密に計算し、ゴースト像がカメラの視野および焦点深度の完全に外側に結像するよう配置しました。これにより、接触面の全域にわたって均一でテカリのないRGB照射を実現しています。\nまた、エラストマー部分は摩耗時にベースユニットから簡単に取り外して交換できる設計となっており、長時間の把持実験でも照明条件を一定に保ったまま運用できます。\n\n### III-B センサの作製手順\n構造部品と注型用金型は3Dプリンタで製作されています。まず透明シリコンを真空脱泡して硬化させた後、シリコン塗料（Psycho Paint）、白色顔料、希釈剤を0.3:1:1:2の比率で調合したカスタムコーティング液をエアブラシで均一に吹き付け、薄くマットな拡散反射層を形成しています。\n\n### III-C 測光ステレオ法によるデプス復元\n直径6 mm（半径$R=3\\text{ mm}$）の高精度基準球を3軸ステージで押し込み、幾何学的に既知の球形状から接触領域内の理論的な表面勾配$[p_{ref}, q_{ref}]$を算出します。そして、各ピクセルのRGB強度値$I(x,y)$と画素座標$(x,y)$を入力として、表面勾配を出力するマッピング関数$f$を学習させます。\n未知の物体を押し当てた際は、得られたRGB画像をこの関数$f$に通して密な勾配場$[p(x,y), q(x,y)]$を求め、ポアソン方程式を解く（ポアソン積分）ことで、接触領域の物理的な3D深さマップ$z(x,y)$を高精度に復元します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "提案センサの分解図と光学設計です。(a) は各コンポーネントの積層構造、(b) は37×34×34mmの外観寸法、(c) はアクリル板による反射ゴースト像をカメラ画角外へ逃がす光路設計、(d) は各カラーチャンネルの均一な輝度分布を示しています。",
+     "caption": "Fig. 2: (a) Exploded view of the sensor components. ① Optically clear silicone coated with a white silicone pigment layer. ② Supports the elastomer. ③ Transparent acrylic plate. ④ Main housing. ⑤ Translucent frosted diffuser. ⑥ PCB for RGB illumination. ⑦ Miniature camera. ⑧ Base plate. (b) The overall dimensions of the sensor are 37 mm × 34 mm × 34 mm. (c) The internal optical path design, which effectively prevents specular highlights generated by the acrylic plate. (d) Actual image captured b",
+     "image": "details/2608.24162/F2.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "基準球を用いた経験的測光ステレオの校正手順です。(a) は球の押し込み深さと表面勾配の幾何関係、(b) は高精度3軸ステージによる校正の様子、(c) は実際にセンサで取得された基準球のRGB接触画像です。",
+     "caption": "Fig. 4: Empirical photometric stereo calibration using a reference sphere. (a) Geometric model of the spherical indentation. The side view illustrates the physical radius $R$ and the projected radial distance $r$ , while the top view demonstrates the mapping relationship from the contact center $(x_{c},y_{c})$ and RGB intensities to the surface gradients. (b) The physical calibration setup, where a standard reference sphere with a diameter of 6 mm is pressed into the sensor using a precision thr",
+     "image": "details/2608.24162/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV DATA COLLECTION AND DATASET",
+   "heading_ja": "大規模RGB-D触覚データセットとデュアルヘッドTimeSformer",
+   "summary_ja": "日用品や工具など15種類の物体を用いて、滑り動画7,925系列（6.3万枚）と静止画像約1.9万枚からなるマルチタスクRGB-Dデータセットを構築しました。滑り検出にはDivided Space-Time Attentionを持つDual-Head TimeSformerを採用し、滑り時のみ方向損失を逆伝播するマスク付き同時損失で学習しています。",
+   "details_ja": "均一照明によってテクスチャの明度変化が照明ムラに邪魔されないというハードウェアの利点を活かし、著者らは包括的なデータセット構築と統合知覚フレームワークの設計を行いました。\n\n### IV-A & IV-B 触覚データセットの構築\nドライバー、ハサミ、鍵、果物、USB端子など、硬質・軟質・平滑・微細凹凸を含む代表的な15種類の日常物体を選定しました。\n- 静止材質・物体分類サブセット: 多様な接触位置・姿勢・押し込み深さで取得された約19,336枚の高解像度画像。\n- 動的滑りサブセット: 8フレーム（$224\\times 224$にリサイズ）を1サンプルとする7,925本のシーケンス（計約63,400枚）。\n状態ラベルは「静止（Static）」「押し込み（Pressing）」「滑り（Slip）」の3値とし、さらに「滑り」に関しては、把持制御に直結するよう$45^{\\circ}$刻みの8方向（Direction）に細分化してアノテーションされています。また、すべてのRGBサンプルには前述の測光ステレオ法によって生成された密なデプスマップが同期して付与されています。\n\n### IV-C 統合知覚フレームワーク\n1) 滑り検出ネットワーク（Dual-Head TimeSformer）\n入力された8フレームのテンソルはパッチ埋め込みされた後、時間軸方向の自己注意（Temporal Attention）と空間軸方向の自己注意（Spatial Attention）を交互に計算するDivided Space-Time Attentionブロックを通過します。これにより、計算コストを抑えつつ長距離の時空間相関を捉えることができます。\n最終層のグローバルトークンからは2つの全結合ヘッドが分岐します。\n- State Head: 3つの接触状態（Static / Press / Slip）を分類。\n- Direction Head: 8つの滑り方向を予測。\n学習時は以下のマスク付き同時損失関数を使用します。\n$$\\mathcal{L}_{total} = \\mathcal{L}_{state} + \\lambda \\cdot \\mathbb{I}_{\\{state=Slip\\}} \\mathcal{L}_{dir}$$\nここで$\\mathbb{I}$は真の状態が「滑り」のときだけ1となる指示関数です。静止や押し込みのデータで無理に方向損失を計算しないため、方向ヘッドに不要な勾配ノイズが混入するのを防ぐことができます。\n\n2) 静止材質分類（ResNet-50）\n1フレームの静止触覚画像から15種類の物体カテゴリを判別するモデルとして、ImageNetで事前学習済みのResNet-50を採用しました。均一照明のおかげでテカリによる偽の特徴に惑わされず、純粋な表面微細構造（毛穴やエッジなど）に基づいて安定して分類できます。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "データセットに用いられた15種類の物体と、それぞれから取得された生のRGB触覚画像および復元デプスマップです。テカリのない均一照明により、果物の微小な気孔やネジの山が鮮明に記録されています。",
+     "caption": "Fig. 5: The 15 representative daily objects, along with their corresponding high-resolution tactile images and reconstructed depth maps. Benefiting from the uniform illumination, micro-textures and geometric contours are presented with exceptional clarity without specular highlight interference.",
+     "image": "details/2608.24162/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "提案されたDual-Head TimeSformerのアーキテクチャです。8フレームの入力を時空間分離アテンションで処理し、接触状態（3クラス）と滑り方向（8クラス）を予測します。方向損失は滑り発生時のみ逆伝播されるマスク付き構造となっています。",
+     "caption": "Fig. 7: The overall architecture of the proposed spatiotemporal slip detection network based on a dual-head TimeSformer. The input sequence is processed through patch embedding and divided space-time attention blocks to extract dynamic features. A global token is then utilized by dual FC heads to predict the contact state and slip direction, optimized by a masked joint loss.",
+     "image": "details/2608.24162/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V EXPERIMENTS AND RESULTS",
+   "heading_ja": "未知物体でも9割超の滑り方向特定と72µm精度のデプス復元",
+   "summary_ja": "デプス復元では平面アライメント後のRMSEで0.072 mmという高い精度を確認しました。動的滑り検出では、未知の5物体に対する汎化テストにおいて状態識別率95.5%、8方向の滑り分類率91.5%を達成し、静止物体の15クラス分類でも98.8%という優れた認識精度を示しました。",
+   "details_ja": "実験はRealMan RM75-6FマニピュレータとDH-Robotics AG-160-95グリッパに本センサを搭載して実施されました。学習および推論にはNVIDIA RTX 5090 GPUを1基使用しています。\n\n### V-B 3Dデプス復元の評価\n基準球を用いたデプス復元精度を検証したところ、平面アライメント後の二乗平均平方根誤差（Plane-aligned RMSE）はわずか0.072 mm（約72 µm）でした。機械的な取り付け傾きを取り除いた純粋な幾何復元性能としてサブミリ精度を達成しており、均一照明による反射抑制が有効に機能していることが裏付けられました。\n\n### V-C 動的滑り検出の評価\nRGBシーケンスを用いたテストセット全体の精度は、3状態分類で99.69%、8方向分類で98.86%に達しました。なお、復元したデプス動画を入力にした場合はそれぞれ94.51%、70.57%となり、微細な変位追跡にはデプス化で平滑化された幾何情報よりも、生のRGB画像に含まれる高周波テクスチャ情報の方が有利であることが分かりました。\n\nさらに重要な「未知物体への汎化性能」を確かめるため、学習に含まれていない5種類の物体を用いて1,200シーケンス（各状態400件）で評価を行いました。\n- 接触状態分類（Static / Press / Slip）: 95.5%の精度。\n- 滑り方向分類（8方向）: 滑りと判定されたサンプルに対し、91.5%の精度。\n混同行列を分析すると、方向の誤分類はほとんどが「隣り合う45度の角度」に集中しており、物理的に極めて妥当で破綻の少ない予測ができていることが示されました。\n\n### V-D 静止触覚による物体分類の評価\n約4,600枚のテスト画像を用いた15クラスの物体分類では、RGB画像を入力とした場合に98.8%、デプスマップを入力とした場合に96.06%という極めて高い精度を記録しました。Grad-CAMによる注視領域の可視化でも、モデルが照明のムラではなく物体のシャープな輪郭や特有の微細パターンに正しく着目していることが確認されています。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "3Dデプス復元のパイプラインです。取得したRGB画像から接触領域マスクを切り出し、学習済みモデルでX/Y方向の表面勾配を予測した後、マスク付きポアソン積分を行うことでRMSE 0.072 mmの深度マップが得られます。",
+     "caption": "Fig. 8: The visuo-tactile perception pipeline for 3D depth reconstruction. The sub-millimeter precision (RMSE = 0.072 mm) relies on the high-quality gradient decoupling and the masked Poisson integration.",
+     "image": "details/2608.24162/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI CONCLUSIONS",
+   "heading_ja": "まとめと多指ハンドへの統合に向けた展望",
+   "summary_ja": "テカリを抑えた均一RGB照明センサとDual-Head TimeSformerにより、高精度なデプス復元と未知物体に対する高精度な滑り方向検出を実現しました。今後は本センサを多指ハンドに統合し、視覚・触覚・固有受容感覚を統合したリアルタイムの適応把持制御を目指します。",
+   "details_ja": "本論文では、光学的工夫によって反射アーティファクトを徹底的に抑え込んだマーカーレス視覚触覚センサと、それを用いた時空間深層学習フレームワークを提案しました。\n- センサ単体として72 µmというサブミリ単位の3D形状復元を実現しました。\n- 15物体に及ぶマルチタスクRGB-Dデータセットを構築し、TimeSformerによる時空間処理で、未知物体に対しても接触状態95.5%、滑り方向91.5%の高精度推定を実証しました。\n- 静止時の物体認識においても98.8%の精度を達成し、形状とテクスチャの両面で高忠実度な触覚センシングが可能であることを示しました。\n\n著者らは今後の展望として、このセンサを多指の器用なロボットハンド（Dexterous Hand）の各指先に組み込む計画を挙げています。センサから得られる高周波な触覚フィードバックを外部カメラのグローバル視覚やアームの関節トルク（固有受容感覚）とリアルタイムに融合させることで、未知物体が手の中で滑り落ちそうになった瞬間に指先を協調させて握り直すような、動的で高度なクローズドループ把持操作の実現を目指すとしています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "マーカーレス視覚触覚センサでも、均一照明と拡散板を徹底してテカリを消せば、微細テクスチャの変位追跡だけで高精度な滑り方向（8方向）の検出が可能になる。",
+  "滑りの方向推定には、デプス情報に変換する前の生RGB画像が持つ高周波なテクスチャ変化を直接利用する方が精度面（91.5% vs 70.57%）で圧倒的に有利である。",
+  "動画認識モデル（TimeSformer）のDivided Space-Time Attentionは、触覚シーケンスの時空間的な微小変位を捉えるバックボーンとして非常に相性が良い。"
+ ],
+ "limitations_ja": [
+  "滑り方向の分類が45度刻みの8クラス離散表現にとどまっており、連続的なすべり速度や回転成分（ねじれ滑り）の直接回帰までは行われていない点。",
+  "実験がグリッパによる把持評価とオフライン推論にとどまっており、滑り検出結果をロボットアームの力制御ループにミリ秒オーダーでフィードバックする実機閉ループ制御の実装までは示されていない点。",
+  "シリコンゴムの表面に吹き付けた白色コーティングが、長期的な激しい摩擦接触によってどの程度剥離せず耐えられるかという耐久性の定量的検証が不足している点。"
+ ],
+ "keywords": [
+  "Visuo-Tactile Sensor",
+  "Slip Detection",
+  "TimeSformer",
+  "Photometric Stereo",
+  "Material Classification"
+ ],
+ "id": "2608.24162",
+ "title": "Robust Slip Detection and Material Classification via Spatiotemporal Transformers on a Uniformly-Illuminated Visuo-Tactile Sensor",
+ "title_ja": "均一照明視覚触覚センサと時空間Transformerによる高精度すべり検出および材料分類",
+ "authors": [
+  "Ziyang Ma",
+  "Yuhao Sun",
+  "Zichen Ai",
+  "Xiangyang Ji",
+  "Bin Fang"
+ ],
+ "date": "2026-08-26",
+ "group": "general",
+ "tags": [
+  "perception",
+  "grasping",
+  "hardware"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.24162",
+ "pdf_url": "https://arxiv.org/pdf/2608.24162",
+ "summary_ja": "サブミリ精度の深度再構成が可能な均一RGB照明を備えた視覚触覚センサと認識基盤を提案。15種類の物体からなる多視点触覚データセットを構築し、時空間Transformerを用いて従来の2値分類を超えた方向を含むすべり検出と材料分類を同時に高精度で達成した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.24162"
+}
