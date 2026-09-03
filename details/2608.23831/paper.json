@@ -1,0 +1,158 @@
+{
+ "tldr_ja": "巨大なロボット基盤モデル（VLA）で生じる推論遅延に対し、動作実行中に次の行動を計算する非同期推論と、中間行動・中間観測を取り込む強化学習を組み合わせたフレームワーク「Arli」を提案。遅延によるマルコフ性の破綻を解消し、実機マニピュレーション課題で初期成功率約40%からほぼ100%へのオンライン改善を達成しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "VLAの推論遅延が引き起こすジレンマとArliの全体像です。推論ごとに静止する同期推論では動きがカクつき、単純な非同期推論では古い観測に依存してしまいます。Arliは実行予定の中間行動と推論途中の最新観測を軽量な強化学習ポリシー（$\\pi_{\\mathrm{rl}}$）に入力することで、遅延を隠蔽しながら高精度なリアルタイム制御とオンライン改善を実現します。",
+  "caption": "Figure 1: Enabling RL improvement of generalist robot policies under inference latency: Generalist policies incur significant action inference latency delays, either forcing pauses during inference or relying on stale observations, making RL improvement brittle. Arli uses intermediate actions and updated asynchronous observations to steer the next action chunk, enabling effective real-world improvement under asynchronous inference, and real-world VLA improvement.",
+  "image": "details/2608.23831/F1.jpg"
+ },
+ "overview_ja": "大規模な視覚・言語・行動モデル（VLA）をはじめとする汎用ロボットポリシーは、多様なタスクをこなす高い汎化能力を持つ一方で、モデルサイズが数十億パラメータに及ぶため、1回の行動生成に数百ミリ秒単位の「推論遅延」が発生するという根本的な問題を抱えています。\n\nロボットが推論完了を待って静止する「同期推論」では動作がぎこちなくなり、リアルタイム性が失われます。一方で、前回の行動を実行している間にバックグラウンドで次の行動を計算する「非同期推論」を採用すると、行動決定時点の観測が古くなり、状態遷移のマルコフ性（現在の状態だけで未来が決まるという仮定）が破綻してしまいます。このため、強化学習（RL）を用いて事前学習済みモデルを実環境でオンライン改善しようとしても、従来のRLアルゴリズムは全く学習が進まないという壁に突き当たっていました。\n\nそこで著者らは、非同期推論環境下でも安定して強化学習を行えるフレームワーク「Arli（Asynchronous RL with Intermediate Information）」を開発しました。Arliの着眼点は2つあります。1つ目は、推論開始から実行開始までの間に実行されることが確定している「中間行動」を強化学習の状態に含めることで、未来の到達状態を予測しやすくすること。2つ目は、重たい基盤モデル（VLM）の推論が終わった直後、行動エキスパートが動く直前のギリギリのタイミングで「最新の中間観測」を取得し、軽量な強化学習ポリシーに入力することです。\n\nシミュレータ環境（KinetixやAloha）および双腕UR5eロボットを用いた実環境タスク（コネクタ挿入、靴の袋詰め、バッグ配置）で検証した結果、従来の同期推論やナイーブな非同期RLが軒並み失敗または低性能にとどまる中、Arliはいずれの実機タスクでも成功率を約40%からほぼ100%へと大幅に引き上げ、時間あたりのタスク完了数（スループット）でも圧倒的な優位性を示しました。",
+ "contributions_ja": [
+  "VLAなどの大規模汎用ポリシーにおける非同期推論と強化学習（RL）を両立させるフレームワーク「Arli」を提案した。",
+  "推論中に実行される「中間行動」とVLM推論直後の「中間観測」で状態を拡張し、推論遅延によるマルコフ性の破綻を解消した。",
+  "観測遅延が存在する行動チャンキング環境下でも、$Q$学習によって最適方策との誤差を高精度に抑えられることを理論的に証明した。",
+  "シミュレーションおよび双腕UR5e実機による3つの高難度タスクにおいて、推論遅延下で破綻していたRLファインチューニングを成功させ、約40%から100%近くまで成功率を向上させた。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "巨大モデルの推論待ちをどう解決するか：非同期推論と強化学習の衝突",
+   "summary_ja": "VLAなどの汎用ポリシーはオンライン強化学習によって劇的な性能向上が期待される一方、巨大なモデルサイズに起因する推論遅延が実環境への展開で致命的な障害となっています。遅延を隠す非同期推論はマルコフ性を破壊するため従来の強化学習が破綻しますが、本論文では中間情報を活用する新手法「Arli」によってこの課題を解決します。",
+   "details_ja": "ロボティクスにおいて、大規模データで事前学習された汎用ポリシー（VLAなど）を実機へ展開した後にオンライン強化学習（RL）で適応・改善させるアプローチは、極めて高い精度と信頼性を達成するために不可欠です。しかし、実環境への配備において最大の障壁となるのが「推論遅延（inference latency）」です。たとえばオープンソースの代表的モデルである$\\pi_0$でも1回の行動生成に約100ミリ秒、他のモデルでは300ミリ秒以上を要します。このような遅延はロボットの停止やカクつき動作を引き起こし、高い反応性が求められる環境ダイナミクスを大きく歪めてしまいます。\n\nこの遅延を隠蔽するため、先行研究では直前の行動を実行しながら裏で次の行動を計算する「非同期推論（asynchronous inference）」が提案されてきました。しかし、非同期推論を行うと、行動を計算し始めた時点の観測しか使えないため、実際に行動が出力されて実行される時点の状態と乖離が生じます。つまり、実効的な状態が「非マルコフ的」になり、標準的な強化学習アルゴリズムをナイーブに適用しても全く学習できなくなるという致命的なジレンマが生じていました。\n\n本研究はこの溝を埋めるため、非同期推論下での強化学習を可能にする「Arli（Asynchronous RL with Intermediate Information）」を提案します。Arliは、推論中に実行中である中間行動（intermediate actions）と、推論途中で取得可能な最新の中間状態（intermediate state）を強化学習ポリシーの状態表現に巧みに組み込みます。これにより、将来状態の予測性を回復させ、推論遅延が存在する現実的な条件下でも極めて効率的なオンライン改善を可能にしました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "遅延下のロボット制御と強化学習：先行研究との決定的な違い",
+   "summary_ja": "推論遅延の対策としてはアクションチャンキングや非同期実行、拡散インペインティングなどが研究されてきましたが、それらはすべて固定モデルの配備のみを対象としていました。一方、遅延を考慮した強化学習の先行研究も存在しますが、近年の拡散モデルやVLAのようなアクションチャンキングを前提とした非同期設定には踏み込めていませんでした。",
+   "details_ja": "関連研究は大きく3つの系統に分けられます。\n\n- 遅延制約下でのロボットポリシー配備: 制御周期に対してモデル推論が遅い問題に対し、複数ステップの行動を一括予測するアクションチャンキング（action chunking）が標準となっています。しかし同期実行ではチャンク間に一時停止が発生し、非同期実行ではチャンク境界で動作の不連続が生じます。これに対し、時間的アンサンブルやRTC（Real-Time Chunking）の拡散インペインティングによる連続性維持、シミュレータへの遅延注入による遅延耐性獲得などが提案されてきましたが、これらはすべて「事前学習済みモデルの固定実行」を対象としており、オンライン強化学習による改善は考慮されていませんでした。\n\n- 遅延を考慮した強化学習: 観測や行動、報酬が遅延するマルコフ決定プロセス（Delayed MDP）や並行制御（Concurrent Control）に関する理論・応用研究は古くから存在します。しかし、これらはスクラッチ学習や一般的なRL設定を前提としており、近年の巨大な拡散モデルやVLAが用いる「非同期かつアクションチャンキングを行う枠組み」には対応していませんでした。\n\n- ロボット向け強化学習と事前学習モデルの改善: 事前学習済みポリシーを実環境でファインチューニングする手法として、拡散モデルのノイズ入力を軽量なRLポリシーで誘導（ステアリング）するDSRL（Diffusion Steering via RL）などが登場しています。しかし、従来のファインチューニング手法はいずれも推論遅延のない理想的な設定を仮定しており、現実の計算遅延を前提とした学習手法は未開拓でした。Arliはこの未踏領域を切り拓くものです。",
+   "figures": []
+  },
+  {
+   "heading": "3 Preliminaries",
+   "heading_ja": "土台となる技術：アクションチャンキング、非同期推論、そしてDSRL",
+   "summary_ja": "本研究の前提となるマルコフ決定プロセス、拡散・フローマッチングに基づくアクションチャンキングポリシー、非同期推論の仕組みを整理します。また、ベースとなる連続的な行動誘導手法「RTC」と、拡散モデルの初期ノイズを制御して強化学習を行う「DSRL」の基本概念を解説します。",
+   "details_ja": "本研究では標準的なマルコフ決定プロセス（MDP）$\\mathcal{M}=(\\mathcal{S},\\mathcal{A},P,P_{\\mathrm{init}},r,\\gamma)$上で、期待累積報酬を最大化する強化学習を扱います。ベースとなる事前学習済みポリシー$\\pi_{\\mathrm{pt}}$には、現代のロボット学習で標準的な2つの仮定を置いています。\n\n- アクションチャンキング: 1ステップごとに行動を決めるのではなく、$k$ステップ分の行動系列 $A=(a_1,\\ldots,a_k)$ を一度に出力します。\n- 拡散またはフローモデル: 観測状態 $s$ だけでなく、標準正規分布からサンプリングされたノイズ $w \\sim \\mathcal{N}(0, I)$ を入力とし、ノイズ除去（デノイジング）プロセスを経て行動を生成します。\n\n推論遅延 $t_{\\mathrm{delay}}$ が存在する場合、非同期推論では現在実行中のチャンクが終わる $t_{\\mathrm{delay}}$ ステップ前の $t'$ で次の推論を開始します。しかし、このとき参照できる観測は過去の $s_{t'}$ のみです。先行研究のRTC（Real-Time Chunking）は、推論中に実行される行動を拡散インペインティングによって拘束し、チャンク間の接続を滑らかにしますが、推論開始後の環境変化には適応できず、強化学習の枠組みも持っていません。\n\n強化学習アルゴリズムのベースにはDSRL（Diffusion Steering via RL）を採用します。DSRLは巨大な事前学習済みモデル本体を固定したまま、軽量な強化学習ポリシー $\\pi_{\\mathrm{rl}}$ を学習させ、デノイジングの初期ノイズ $w \\sim \\pi_{\\mathrm{rl}}(s)$ を生成することで出力行動を行動空間の自然な分布内で誘導（ステアリング）します。残差強化学習（Residual RL）に比べて元の事前学習知識を壊しにくく、高速な学習が可能です。",
+   "figures": []
+  },
+  {
+   "heading": "4 Efficient RL Finetuning Under Inference Delays",
+   "heading_ja": "提案手法Arli：中間行動と推論途中の観測で「待ち時間」を味方につける",
+   "summary_ja": "Arliは、DSRLを非同期推論に適用する際の状態表現を2段階で拡張します。すでに実行が決定している「中間行動」の追加と、VLMバックボーン推論後に取得する「中間観測」の追加です。さらに、遅延観測に基づく行動決定であっても、$Q$学習によって最適方策との性能差を一定の限界内に抑えられることを理論的に裏付けています。",
+   "details_ja": "非同期推論下でDSRLをそのまま適用すると、推論開始時の古い状態 $s_{t-t_{\\mathrm{delay}}}$ に基づいて初期ノイズを決定するため、実際に行動が実行される時刻 $t$ には状況が変わってしまい学習が破綻します。Arliはこの問題を解決するために以下の設計を導入しました。\n\n4.1 DSRLの非同期遅延対応（Arliの構成要素）\n- 中間行動の条件付け（Arli actions）: 推論開始時点 $t-t_{\\mathrm{delay}}$ から実行開始時点 $t$ までの間にロボットが実行する行動系列 $a_{t-t_{\\mathrm{delay}}:t}$ は、前のチャンクですでに決定しています。これを強化学習ポリシーの状態に含めることで、$s^{\\mathrm{rl}}_t \\leftarrow (s_{t-t_{\\mathrm{delay}}}, a_{t-t_{\\mathrm{delay}}:t})$ とします。これにより、時刻 $t$ においてロボットがどこに到達しているかを高精度に予測できるようになります。\n- 中間観測の条件付け（Arli state）: 多くのVLAは、重たい視覚言語モデル（VLMバックボーン $\\pi_{\\mathrm{pt}}^{\\mathrm{vlm}}$）と、比較的軽量な行動生成部（アクションエキスパート $\\pi_{\\mathrm{pt}}^{\\mathrm{ae}}$）に分解できます（たとえば $\\pi_0$ では推論時間の約3分の2がVLM）。DSRLがノイズ $w$ を渡す必要があるのはアクションエキスパートが動き出す直前です。そこで、VLMの計算が終わるギリギリの時刻 $t - t_{\\mathrm{delay}}^{\\mathrm{rl}}$ でカメラ等のセンサから最新の「中間観測」 $s_{t-t_{\\mathrm{delay}}^{\\mathrm{rl}}}$ を取得し、$\\pi_{\\mathrm{rl}}$ の入力に追加します。最終的なRL状態は $s^{\\mathrm{rl}}_t \\leftarrow (s_{t-t_{\\mathrm{delay}}}, a_{t-t_{\\mathrm{delay}}:t}, s_{t-t_{\\mathrm{delay}}^{\\mathrm{rl}}})$ となり、突発的な外乱や動的物体の変化にも反応できるようになります。\n- RTCとの統合: チャンク間の滑らかな接続を保つため、RTCのインペインティング制約を維持したままDSRLによるノイズ選択を行います。\n\n4.2 理論的保証（遅延下での強化学習の成功）\n論文では、遅延ステップ $d$ による最適性の低下を表すギャップ $\\omega_d$ を定義し、遅延観測下で学習された方策 $\\widehat{\\pi}^{t_{\\mathrm{delay}}}$ と理想的な遅延なし最適方策 $V^{\\star}_{\\mathrm{ac}}$ の性能差が $\\frac{1}{1-\\gamma^{k-t_{\\mathrm{delay}}}} \\cdot \\omega_{t_{\\mathrm{delay}}}$ でバウンドされることを証明しました。Arliが中間観測によって実質的な遅延を縮小することは、この理論ギャップ $\\omega$ を直接低減させることに対応しています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "Arliの全体パイプラインです。推論開始時（$t-t_{\\mathrm{delay}}$）の初期観測と中間行動（緑色）に加え、VLM推論直後（$t-t_{\\mathrm{delay}}^{\\mathrm{rl}}$）の最新の中間観測（青色）を軽量な強化学習ポリシー $\\pi_{\\mathrm{rl}}$ に入力し、アクションエキスパート $\\pi_{\\mathrm{pt}}^{\\mathrm{ae}}$ に渡す初期ノイズ $w$ を決定します。",
+     "caption": "Figure 2: An overview of our approach, Arli . Inference begins $t_{\\mathrm{delay}}$ steps before the next action chunk is required, in which the VLM backbone $\\pi_{\\mathrm{pt}}^{\\mathrm{vlm}}$ takes state $s_{t-t_{\\mathrm{delay}}}$ as input. At step $t-t_{\\mathrm{delay}}^{\\mathrm{rl}}$ , RL policy $\\pi_{\\mathrm{rl}}$ must be run to ensure that the action expert $\\pi_{\\mathrm{pt}}^{\\mathrm{ae}}$ is provided a noise input $w$ once VLM inference finishes. $\\pi_{\\mathrm{rl}}$ is conditioned on (a) t",
+     "image": "details/2608.23831/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "中間観測を取り込むメリットを示した模式図です。推論開始後に動的な障害物が出現した場合、ナイーブな非同期推論では過去の観測しか見えていないため衝突してしまいますが、Arliは推論途中の観測を取り込むことで障害物を検知し、安全に回避する動作を生成できます。",
+     "caption": "Figure 3: The benefit of intermediate state conditioning: In naive asynchronous inference, the initial state does not capture stochastic events (e.g., moving obstacles). By having the ability to condition on an intermediate state, our policy is capable of reacting to disturbances.",
+     "image": "details/2608.23831/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Experimental Results",
+   "heading_ja": "実験結果：シミュレーションと双腕実機ロボットによる劇的な改善",
+   "summary_ja": "高い即応性が求められるシミュレーション環境（Kinetix、Aloha）と、双腕UR5eロボットを用いた3種類の実機組み立て・収納タスクでArliを評価しました。同期推論や従来の非同期強化学習が軒並み低迷する中、Arliはシミュレーションおよび実機の全タスクで100%近い成功率を達成し、圧倒的なタスクスループットを実証しました。",
+   "details_ja": "本章では、Arliの有効性をシミュレーションおよび実機実験を通して多角的に検証しています。\n\n5.1 シミュレーション実験\n高い反応性が求められる2D物理環境「Kinetix」（mjc_swimmer、mjc_walker、car_launch）および33億パラメータの $\\pi_0$ を用いた双腕マニピュレーション「AlohaTransferCube」で評価しました。比較対象として、DSRLのナイーブな非同期適用、RTC単体、残差強化学習（Residual RL）を用いました。\n結果として、ナイーブな非同期DSRLは学習がほとんど進まず、RTCを併用しても一部のタスクで不十分な改善にとどまりました。残差RLは軽量ゆえに最新観測を使えますが、行動を直接歪めるため性能の限界が早く訪れました。対してArliは、中間行動と中間状態の双方を活用することで最速の学習速度と最も高い最終成功率（多くの環境で100%近く）を達成しました。\n\n5.2 実機ロボット実験\n双腕UR5eロボットセル（ベースカメラ1台＋各腕手先カメラ2台）を用い、NVIDIA GeForce RTX 5090上で $\\pi_{0.5}$（60Hz制御、チャンク長50、$t_{\\mathrm{delay}}=10$、$t_{\\mathrm{delay}}^{\\mathrm{rl}}=7$、実行ホライズン $n=20$）を事前学習させた以下の3タスクを実施しました。\n- Assembly（コネクタ挿入）: 2本のピンにコネクタを精密に位置合わせして挿入する。\n- Shoe-in-Bag（靴の袋詰め）: 狭いバッグの開口部に靴を把持して挿入する。\n- Bag-Placement（バッグ配置）: 倒れているバッグを両腕で掴み、正面と平行に立てて配置する。\n\nベースポリシーの初期成功率は約40%でしたが、Arliはわずか100〜125エピソードの訓練で全タスクにおいてほぼ100%の成功率を達成しました。同期DSRLやRTC併用DSRLが80%未満で停滞したり2倍以上の時間を要したのに対し、Arliは学習が極めて安定しており、1時間あたりの成功完了数（スループット）でも他手法を圧倒しました。\n\n5.3 アブレーション研究\n- 中間情報の影響: 中間行動のみ、あるいは中間観測のみを除外すると成功率が明確に低下し、両方を組み合わせることが最良の結果をもたらすことが確認されました。\n- 遅延時間 $t_{\\mathrm{delay}}$ への頑健性: 遅延ステップを増大させても、Arliはベースラインに比べて成功率の低下が非常に緩やかでした。\n- RL呼び出しタイミング $t_{\\mathrm{delay}}^{\\mathrm{rl}}$ の感度: 観測がより新しいほど（$t_{\\mathrm{delay}}^{\\mathrm{rl}}$ が小さいほど）性能が向上し、特に遅延全体の半分以降で観測を取得できる場合に飛躍的な性能向上が見られました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "実機ロボット実験（Assembly、Shoe-in-Bag、Bag-Placement）の結果です。左は各タスクの外観、中央は学習曲線（過去10エピソードの移動平均）、右は時間あたりのタスク成功数（スループット）を示しています。Arli（青線）は全タスクで早期に成功率100%近くへ到達し、同期推論やベースラインを大きく引き離しています。",
+     "caption": "Figure 5: Comparison of Arli against other RL finetuning methods on real-world tasks. Left : task images. Middle : training success curves corresponding to average success rate in the last 10 episodes. Right : estimated throughput in successes/hour computed based on the duration of each success in the last 20 episodes and assuming failure is declared after 2x average success duration.",
+     "image": "details/2608.23831/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion and Limitations",
+   "heading_ja": "結論と限界：今後の展望と注意すべき前提条件",
+   "summary_ja": "Arliは、実環境でのVLA展開における推論遅延の壁を克服し、非同期推論下での効果的なオンライン強化学習を実現しました。一方で、VLMバックボーンとアクションエキスパートの分離可能性への依存や、RTCによる表現力の制約、ベースアルゴリズムであるDSRL自体の限界といった課題も残されています。",
+   "details_ja": "本論文は、推論遅延が存在する現実的な条件下で汎用ロボットポリシーを強化学習ファインチューニングする新手法Arliを提案し、その理論的妥当性と実機における卓越した有効性を実証しました。\n\n一方で、著者らは以下の限界と今後の課題を挙げています。\n- モデル構造への依存: 事前学習モデルが「重たいVLMバックボーン」と「ノイズ入力を受け取るアクションエキスパート」に分離できる構造を仮定しています。現在の多くの主要VLA（$\\pi_0$やOctoなど）はこの設計に合致していますが、エンドツーエンドでノイズを必要とするような別構造のモデルでは中間観測の恩恵（Arli state）を直接享受できません（ただし中間行動の活用は可能です）。\n- RTCによる表現力の制約: 動作の滑らかさを保つためにRTCを併用していますが、RTCは過去の行動を一部強制するため、急激な反動動作などロボットの即応性・表現力を一部犠牲にしている可能性があります。\n- ベースアルゴリズムへの依存: Arliはノイズステアリングを行うDSRLに依存しているため、そもそもDSRL自体が探索や学習を苦手とするタスクにおいては、同様に学習が停滞するリスクがあります。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：実装の詳細、理論証明、およびノイズステアリングの学習ダイナミクス",
+   "summary_ja": "付録では、ネットワーク構造や観測空間の処理方法、提案手法の理論的証明の詳細、およびShoe-in-Bagタスクにおける未見軌道を用いたノイズ分布の学習ダイナミクス解析が示されています。",
+   "details_ja": "付録では、論文の主張を支える実装・理論・挙動解析の重要情報が網羅されています。\n\n- 実装と観測空間の処理: シミュレーション（Kinetix）では状態ベクトルを直接連結し、実機タスクおよびAlohaでは3系統のカメラ画像をチャンネル方向に結合して4層のCNNエンコーダで特徴抽出を行った後、関節角度と中間行動をフラット化してMLPに入力しています。強化学習アルゴリズムにはDSRL-SACを採用し、潜在行動空間でのステップを行動チャンク単位として扱っています。\n\n- 理論証明（Appendix D）: 先行研究（Li et al., 2024）のフレームワークを拡張し、非同期遅延ポリシーによって収集されたデータ分布であっても強オープンループ一貫性（strongly open-loop consistent）を満たすことを証明しました。これにより、遅延があっても最適方策の行動空間をカバーしていれば、$Q$学習によって遅延ペナルティ $\\omega_d$ の範囲内で最適値に収束することが保証されます。\n\n- ノイズステアリングの学習ダイナミクス（Appendix C）: Shoe-in-Bagタスクの未見テスト軌道を用いて学習済みモデルのノイズ分布を解析したところ、失敗しやすい「靴とバッグ開口部のアライメント・挿入フェーズ」においてのみ、学習が進むにつれて予測ノイズの平均値がゼロから大きく離れ、分散が狭まる（強い確信を持って特定のステアリングをかける）現象が確認されました。これは、Arliが単に全体へ一様にバイアスをかけるのではなく、タスクの急所となるフェーズと軌道に応じて局所的・適応的に補正を学習していることを明確に示しています。",
+   "figures": [
+    {
+     "key": "F12",
+     "caption_ja": "未見のShoe-in-Bag軌道を用いた学習ダイナミクスの解析です。中央のプロットはチェックポイントごとの予測ノイズ平均（上）と分散（下）の推移を示しています。失敗エピソード（下段）では、靴の挿入フェーズ（推論ステップ中盤）においてノイズ平均が強くシフトし分散が低下しており、Arliが失敗を回避するための強い補正を集中的に学習していることが分かります。",
+     "caption": "Figure 12: Checkpoint-wise evolution of the Arli (actions only) noise distribution on four held-out Shoe-in-Bag episodes. Left : a representative frame from the middle of each trajectory. Middle : predicted noise mean (upper plot) and variance (lower plot) by inference step and checkpoint, averaged over latent noise dimensions. Right : across-checkpoint standard deviation of the predicted noise mean (upper plot) and variance (lower plot) by inference step and latent noise dimension.",
+     "image": "details/2608.23831/F12.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "巨大VLAの実機運用では推論遅延による「非同期推論」が不可避であり、強化学習を行うには状態拡張によるマルコフ性の回復が必須である。",
+  "推論中に実行が確定している「中間行動」と、VLM推論直後に得られる「中間観測」を取り込むことで、推論遅延を抱えたままでも高精度な即応制御が可能になる。",
+  "モデル全体をファインチューニングするのではなく、軽量なRLポリシーでデノイジングの初期ノイズを誘導する（DSRL）アプローチは、計算コストと学習安定性の両面で実機遅延と極めて相性が良い。",
+  "VLAの計算パイプライン（重いVLMと軽い行動ヘッド）の非対称性に着目し、観測取得タイミングを後ろ倒しにするアーキテクチャ設計は、今後の実時間基盤モデル制御の標準パターンになり得る。"
+ ],
+ "limitations_ja": [
+  "モデル構造がVLMバックボーンとアクションエキスパート（デノイジング層）に分離されていることを前提としており、他の形式のエンドツーエンドモデルへの直接適用は制限される。",
+  "チャンク間の連続性を担保するRTCのインペインティング制約が、極めて迅速な回避動作などのポリシー表現力を阻害する可能性がある。",
+  "ノイズ空間の誘導（DSRL）に依存しているため、元の事前学習モデルの行動サポートから大きく外れるような探索が必要なタスクでは改善が困難である。"
+ ],
+ "keywords": [
+  "Vision-Language-Action Models (VLA)",
+  "Inference Latency",
+  "Asynchronous Inference",
+  "Reinforcement Learning Finetuning",
+  "Diffusion Policy",
+  "Bimanual Manipulation"
+ ],
+ "id": "2608.23831",
+ "title": "Learning to Act While Waiting: RL Finetuning of Generalist Robot Policies Under Inference Latency",
+ "title_ja": "推論遅延下での汎用ロボット方策の強化学習ファインチューニング基盤ARLI",
+ "authors": [
+  "Brian Zhu (Siemens)",
+  "Momen Khalil (Siemens)",
+  "E Harrison (UC Berkeley)",
+  "Emanuele Poggi (Siemens)",
+  "Philipp Schmitt (Siemens)",
+  "Bernd Kast (Siemens)",
+  "Philine Meister (Siemens)",
+  "Pranav Atreya (UC Berkeley)",
+  "Qiyang Li (UC Berkeley)",
+  "Finn Ferchau (Siemens)",
+  "Cesar Colmenero (Siemens)",
+  "Yash Shahapurkar (Siemens)",
+  "Gokul Narayanan (Siemens)",
+  "Melih Erdogan (Siemens)",
+  "Kai Wurm (Siemens)",
+  "Georg von Wichert (Siemens)",
+  "Oier Mees (Microsoft",
+  "ETH Zurich",
+  "UC Berkeley)",
+  "Eugen Solowjow (Siemens)",
+  "Andrew Wagenmaker (UC Berkeley)",
+  "Sergey Levine (UC Berkeley)"
+ ],
+ "date": "2026-08-26",
+ "group": "focus",
+ "tags": [
+  "reinforcement-learning",
+  "vision-language-action",
+  "control"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.23831",
+ "pdf_url": "https://arxiv.org/pdf/2608.23831",
+ "summary_ja": "VLAなどの大規模方策における推論遅延がマルコフ性を損ないRLの継続学習を破綻させる問題に対し、遅延を考慮した非同期強化学習フレームワークARLIを提案。中間情報を活用して遅延中の行動決定と状態遷移を整合させる。実機マニピュレーションやシミュレーションにおいて、推論遅延が存在する状況下でも方策の安定したオンラインRL改善を達成した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.23831"
+}
