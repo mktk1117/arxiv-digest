@@ -1,0 +1,126 @@
+{
+ "tldr_ja": "ロボットが失敗したときに自律復帰できるよう、軽微なズレへの「Retry（やり直し）」と破滅的エラーへの「Reset（環境復旧）」を組み合わせたVLAフレームワーク「FLARE」を提案した論文です。摂動・ブリッジデータ拡張とMLLMを活用した失敗分析・復旧スキル学習により、複雑な接触マニピュレーション課題で従来手法を大きく上回る84.0%の成功率を達成しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "FLAREの全体コンセプトです。従来のVLAは完璧な教示軌道に依存しているため失敗から復帰できません。FLAREではエラーをID/OODに分類し、腕のズレには内包された「Retry」、コップの転倒など環境自体の破滅的変化にはMLLM主導の「Reset」スキルを発動して復旧させます。",
+  "caption": "Figure 1 : FLARE: Failure-Aware Resilience in VLA. Previous methods are brittle, failing from minor perturbations (ID errors) or catastrophic states (OOD errors), and do not leverage the VLA’s inherent generative capability for continuous self-correction. Our FLARE framework introduces an ID/OOD error taxonomy to guide a dual Retry/Reset paradigm. We tackle ID errors via built-in Retry robustness and resolve OOD errors with MLLM-bootstrapped Reset skills, achieving robust, resilient autonomy.",
+  "image": "details/2608.26645/F1.jpg"
+ },
+ "overview_ja": "近年、視覚・言語・行動を統合したVLA（Vision-Language-Action）モデルが注目を集めていますが、実際のロボットに動かすと驚くほど脆い（brittle）という問題があります。少し手が滑ったり外乱が入ったりしただけで、タスクを最初からやり直すこともできずに完全に停止してしまうのです。この原因を突き詰めると、モデル構造ではなく学習データにあります。人間が集めたデモデータは「成功軌道のみ」かつ「一本道（trajectory-monotonic）」であり、ロボットの関節姿勢と環境の状態が強く結びつきすぎているため、少しでも姿勢が外れると次の行動が分からなくなるのです。\n\nそこで著者らは、失敗を「環境は正常だがロボットの姿勢が想定外なIDエラー」と「コップが倒れるなど環境自体が壊れたOODエラー」に分類し、それぞれに対処するフレームワーク「FLARE」を考案しました。IDエラーに対しては、軌道の途中にランダムな外乱姿勢を挟んでから復帰させる「摂動・ブリッジ拡張」を行い、どんな姿勢からでも自律的にやり直せる頑健性（Retry）を持たせます。一方、OODエラーに対しては、実行失敗の動画をマルチモーダルLLM（MLLM）に解析させ、環境を整え直す「Reset」スキルを収集・学習させます。\n\n検証として、シミュレータ上の接触を伴う9つの難関タスク（RoboMimic）および実機アーム実験で評価を行いました。その結果、FLAREは平均成功率84.0%を記録し、先行の自己内省型手法（57.8%）はもちろん、ベースラインのVLAモデル（72.2%）や人間の指示付き上限手法をも上回る圧倒的な回復性能を示しました。",
+ "contributions_ja": [
+  "ロボットの失敗を「姿勢ズレによるIDエラー」と「環境破滅によるOODエラー」に体系化し、それぞれRetryとResetで解決する新しい自律回復パラダイムを提案したこと。",
+  "軌道間にランダムな摂動とブリッジ軌道を挿入することで、ロボット姿勢と環境状態の過剰な相関を断ち切り、自律的なやり直し（Retry）を可能にするデータ拡張手法を導入したこと。",
+  "オフラインの失敗動画解析によるResetスキルの効率的な収集と、オンラインの状況監視・スキル切り替えを担うMLLMデュアルループシステムを構築したこと。",
+  "接触リッチな9種類のシミュレーション課題および実機ロボット環境において、従来の自己内省手法やベースラインVLAを凌駕する高いタスク成功率を実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜVLAは小さなミスで止まってしまうのか？",
+   "summary_ja": "VLAモデルの脆さの根本原因は、成功のみを記録した一本道のデモデータによるロボット姿勢と環境状態の過剰な相関にあります。本論文はこの課題に対し、失敗をID/OODに分類してRetryとResetで回復するFLAREを提案します。",
+   "details_ja": "OpenVLAや$\\pi_{0}$といったVLAモデルは素晴らしい成果を上げていますが、実運用では非常に脆弱です。人間のように「失敗したらやり直す」という能力が元々備わっていないため、少し接触がズレたり外乱が入ったりしただけで作業が破綻してしまいます。\n\n従来の多くの研究はこの脆さをモデル構造や制御ポリシーの限界だと考えていましたが、著者らは「データの質」に真の原因があると指摘します。人間のデモ収集はコストが高いため、データセットは成功バイアスに満ちており、一本道（trajectory-monotonic）です。ロボットは常に決まった狭い姿勢の軌跡を通るため、「この環境状態（コップが机にある）のときは、必ずこのロボット関節姿勢になる」という見せかけの相関（spurious correlation）を学習してしまいます。\n\nその結果、次の2つの失敗が生じます。\n- In-Distribution (ID) エラー: 環境状態自体はタスク進行上正常なのに、外乱等でロボットの姿勢だけがデモと異なる状態。モデルはタスク進行を誤認して回復できなくなります。\n- Out-of-Distribution (OOD) エラー: コップが倒れるなど、環境そのものが致命的な失敗状態に陥るケース。成功デモしか見ていないモデルには復旧の手立てがありません。\n\nFLAREはこれらを解決するため、姿勢の相関を断ち切る摂動・ブリッジ拡張による「Retry」と、MLLMで失敗を分析して専用の復旧行動を学習・起動する「Reset」の2段構えのアプローチを提案します。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Works",
+   "heading_ja": "自己修正システムとVLAモデルの現在地",
+   "summary_ja": "ロボットの自己修正研究（MLLM利用、強化学習、データ拡張）と最新のVLAモデルの動向を整理し、低レベルの適応性と高レベルな状況復元を両立する統一的データ駆動アプローチの不足を位置づけています。",
+   "details_ja": "ロボットの自己修正に関する先行研究は、大きく3つのグループに分かれます。\n\n- MLLMベースの手法: 大型モデルを高レベルな失敗診断に使う手法（REFLECTなど）です。失敗理由の推論や再計画は得意ですが、あらかじめ決められた固定スキルライブラリに頼るため、低レベルな制御の柔軟性に欠けます。\n- 強化学習（RL）ベースの手法: 回復行動を直接学習させようとするアプローチ（SeROなど）です。OOD状態に対処できる可能性を持ちますが、実世界でのサンプル効率が極めて悪く、実用が困難です。\n- データ駆動型の手法: 大規模なデータ拡張で頑健化を図る手法（Phoenixなど）です。しかし、テンプレートに頼った予測・修正パイプラインでは、多様なタスクや環境への汎化に限界がありました。\n\n一方でVLAモデルは、RT-1/RT-2から始まり、OpenVLAや$\\pi_{0}$へと急速に進化しています。オープンワールドでの汎化性能は高いものの、トレーニングデータの分布内での成功軌道に最適化されているため、小さな実行のズレや接触による予期せぬ変化に依然として極めて弱いという課題が残されていました。",
+   "figures": []
+  },
+  {
+   "heading": "3 Methodology",
+   "heading_ja": "FLAREの仕組み：Retryで姿勢を解き放ち、Resetで破滅から救う",
+   "summary_ja": "ロボット姿勢と環境状態を数式化してID/OODエラーを定義し、IDには摂動・ブリッジ拡張、OODにはMLLM主導のResetスキル収集を適用します。これらをLoRAエキスパートとして統合し、オンラインMLLMで動的に切り替えます。",
+   "details_ja": "### 3.1 問題の定式化とエラーの分類\n世界の状態 $s_t$ を、環境状態 $s_t^e$（物体の位置や姿勢）とロボット状態 $s_t^r$（手先位置やグリッパ開閉）に分解します。デモデータ $\\mathcal{D}_{\\text{demo}}$ が一本道であるせいで、モデルは条件付き分布 $P(s_t^r|s_t^e, \\mathcal{D}_{\\text{demo}})$ の強い相関を過学習してしまいます。ここから失敗を2つに定義します。\n- IDエラー: 環境 $s_t^e$ は有効なタスク軌道上にあるが、ロボット姿勢 $s_t^r$ がデモの分布から外れている状態。必要なのは「Retry」です。\n- OODエラー: 環境 $s_t^e$ そのものが通常のタスクポリシーでは復旧不可能な状態（コップが転倒など）。必要なのは環境を正常な状態に戻す専用の「Reset」スキルです。\n\n### 3.2 摂動＆ブリッジによる「Retry」の実現\n人間デモの部分軌道（サブタスク）を繋ぎ合わせる際、その間に「摂動・ブリッジ区間」 $d_i$ を挿入します。$d_i$ は2段階で構成されます。\n1. 摂動（$d_i^A$）: ロボットアームをランダムな方向へ動かし、意図的に姿勢の相関を破壊します。\n2. ブリッジ（$d_i^B$）: 線形補間や球面線形補間（SLERP）を用いて、摂動後のランダムな姿勢から次のサブタスクの開始姿勢へとロボットを戻します。\n学習時には、意味のない摂動動作 $d_i^A$ は捨て、ブリッジ動作から続くタスク動作 $(d_i^B, a_{i+1}, \\dots)$ を教師データにします。これにより、ポリシーは「どんな初期姿勢からでも次の作業を正しく再開する」という本質的なやり直し能力を獲得します。\n\n### 3.3 MLLMを活用した「Reset」スキルの学習\nOODエラーは環境自体が壊れているため、Retryでは直せません。そこで以下の手順で復旧スキルを学習します。\n1. 失敗収集: Retry学習済みモデルを動かし、失敗動画を大量に集めます。\n2. オフラインMLLM解析: Geminiが動画を分析し、「エラー種別」「リセット対象物体」「エラーグループ（挟まったポッドとホルダーなど相互作用する物体群）」「失敗タイムスタンプ」をJSON形式で抽出します。\n3. リセットデータ収集・拡張: 抽出された失敗状態（シミュレータの内部状態）から開始し、人間が10〜20本の復旧デモを教示します。これに対しても同じく摂動・ブリッジ拡張を適用し、500本規模に増やします。\n\n### 3.4 統合学習とクローズドループ推論\n単一モデルですべてを学習させると勾配の競合が起きるため、LoRA（パラメータ効率の良いファインチューニング手法）を用いて、共通のVLAバックボーン（$\\pi_{0.5}$）上に「メインタスク用」と「物体ごとのResetスキル用」の個別アダプタを学習させます。推論時はオンラインのMLLMが監視役となり、IDエラーならそのまま自動Retryに任せ、OODエラーを検知したときだけResetアダプタへ動的に切り替えて環境を直させます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "FLAREの全体アーキテクチャです。失敗動画をGeminiで解析してID/OODを分類し、IDには摂動・ブリッジ拡張を、OODにはResetデモ収集と拡張を実施。LoRAスキルバンクとして保持し、オンラインMLLM監視下で適応的にポリシーを切り替えます。",
+     "caption": "Figure 2 : The overall framework of our method. We first collect the failure data with the VLA model trained with regular demonstrations. Then we perform the failure analysis with MLLM and formulate the failures with ID/OOD taxonomy. For ID errors, we perform the perturbation & bridging augmentation to enhance the robustness and “retry” ability of VLA models. For OOD errors, we collect the object-centric reset skill data. All these data are utilized to obtained a skill bank for further close-loo",
+     "image": "details/2608.26645/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiment",
+   "heading_ja": "シミュレーション9タスクと実機で実証された圧倒的な回復力",
+   "summary_ja": "RoboMimicの接触リッチな9タスクにおいて、平均成功率84.0%を達成しベースラインや人間指示付き手法を凌駕しました。実機アーム実験でも視覚のみを用いた設定で優れた復旧性能を示しました。",
+   "details_ja": "### 実験設定とベースライン\nRoboMimicベンチマークから、接触が多く難易度の高い9つのマニピュレーション課題（Coffee、ThreePieceAssemblyなど）を採用しました。シーン初期化時の物体ランダム化の幅が狭いものをD0、広いものをD1としています。各タスク10本の人間デモをMimicGenで500本に拡張し、摂動パラメータは最大回転45°、最大並進0.5mとしました。バックボーンには$\\pi_{0.5}$を使用しています。比較対象はOpenVLA、拡散ポリシー系、自己内省手法Phoenix、人間が正しい修正指示を与えるPhoenix-Human、そして$\\pi_{0.5}$単体などです。\n\n### シミュレーション結果\nFLAREは全9タスク中8タスクでSOTA（最高性能）を達成し、平均成功率は84.0%に達しました。前世代の回復手法Phoenix（57.8%）を大差で引き離したのはもちろん、バックボーンである$\\pi_{0.5}$単体（72.2%）からも11.8%の向上を果たしています。驚くべきことに、人間が正しい修正プロンプトを逐次与える理想的な上限モデル「Phoenix-Human」（78.1%）すら上回りました。\n\n特に、初期配置のランダム性が高い難関設定（D1）での伸び幅が顕著でした。これは摂動・ブリッジ拡張によって姿勢と状態の過剰な結びつきが解かれたため、環境のばらつきに対する耐性が飛躍的に高まったことを裏付けています。\n\n### 実機ロボットでの検証\nPiperアームとRealSense D435iカメラ（俯瞰および手先カメラ）を用い、「3つのブロック積み（Stack Three Blocks）」と「U字ブロック挿入（Insert U-shaped Block）」の2タスクで検証しました。特権的なシミュレータ座標に依存しないことを証明するため、物体姿勢推定にはAny6Dを用い、大まかな失敗状態からの人間デモ（わずか10本）を50本に拡張して学習させました。実機でもFLAREはベースラインを明確に上回り、視覚フィードバックのみで多様な失敗姿勢から自律復旧できることが確認されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "実機ロボット（Piperアーム）による実験風景と実行軌道です。上段は長期タスクであるブロック3段積み、下段は接触がシビアなU字ブロック挿入タスクを示しており、視覚情報のみで正確な自己回復が行えることを証明しています。",
+     "caption": "Figure 3 : Real-world experimental setup and execution trajectories. Top: The “Stack Three Blocks” task. Bottom: The “Insert U-shaped Block” task.",
+     "image": "details/2608.26645/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Ablation and Analysis",
+   "heading_ja": "アブレーション分析：摂動のさじ加減とMLLMの解析精度",
+   "summary_ja": "摂動の強さ（回転・並進）には最適なバランスがあり、大きすぎると逆効果になることが分かりました。また、Gemini-2.5-Proによる失敗識別精度は非常に高く、Resetスキルの有無が成功率を大きく左右します。",
+   "details_ja": "### 摂動パラメータの感度分析\n摂動時の回転角 $r$ と並進距離 $t$ の影響をCoffee_D1で調べました。結果、$r=30^{\\circ}$、$t=0.7$m で最高性能を記録しました。摂動を大きくするとデモの分散が増えて頑健性が高まる一方、補間によるデモ生成の成功効率（有効な軌道ができる確率）が低下します。また、摂動が極端に大きすぎるとモデルの汎化が困難になり、かえってタスク成功率が低下することも分かりました。\n\n### ResetスキルとMLLM判定のアブレーション\nResetスキルの効果を検証するため、「Resetなし（Ours w/o Reset）」「人間が完璧に指示を出すオラクル（Ours-Oracle）」と比較しました。\n- Resetスキルを完全に排除すると、平均成功率は3.5%低下しました。\n- 人間指示のオラクルではさらに7%成功率が向上したため、監視役となるMLLMの認識能力が上がれば、システム全体の性能がさらに伸びる余地があります。\n\n各物体のReset難易度も分析しました。Coffeeタスクの蓋戻し（成功率84%）やT字ブロックの戻しは容易でしたが、コーヒーポッド（転倒した小さなポッドを起こして向きを揃える操作）やU字ブロックのリセットは成功率が低く、現在の単純なグリッパでは姿勢変更操作（in-hand manipulation）に限界があることが浮き彫りになりました。\n\n### MLLM（Gemini-2.5-Pro）の失敗診断能力\n人手でラベル付けした50本の失敗動画を用いてGeminiの診断性能を測定したところ、ID/Reset判定の正解率は88〜96%、リセット対象物体の特定率は78〜88%という極めて高い精度を示しました。MLLMが動画から正確に失敗のタイムスタンプと原因物体を特定できることが、高品質なResetデータセット自動生成の鍵となっています。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "CoffeeタスクとThreePieceAssemblyタスクにおける代表的な失敗（OODエラー）の様子です。(a) 倒れたコーヒーポッド、(b) 開いたままの蓋、(c) 倒れたT字ブロック、(d) ズレたU字ブロックなど、それぞれ専用のReset動作が必要となります。",
+     "caption": "Figure 5 : The failure case for Coffee and ThreePieceAssembly respectively. (a) Reset coffee pod; (b) Reset coffee machine lid; (c) Reset the T-shaped block; (d) Reset the U-shaped block.",
+     "image": "details/2608.26645/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "完璧な軌道を目指すのではなく「失敗からの回復力」を重視するFLAREの有効性が示されました。今後はアドホックな復旧行動の生成や生涯学習への発展が期待されます。",
+   "details_ja": "本論文では、VLAモデルに自律的な回復能力を付与するフレームワーク「FLARE」を提案しました。VLAの脆さが「一本道のデモデータ」と「成功バイアス」にあることを突き止め、摂動・ブリッジ拡張による内在的Retry能力と、MLLM主導のResetスキルライブラリを組み合わせることで、平均84.0%という極めて高い成功率を実証しました。\n\n現在の制約として、複雑な物体の向き直しなど高度な器用さを要する操作はハードウェア性能に制約されます。著者らは今後の方向性として、固定ライブラリに頼らずVLMがその場で復旧手順を生成する「生成的復旧ポリシー」、未知の失敗に直面した際に自律的にデータを集めて再学習する「能動的・生涯学習ループ」、そして変形体などを扱うより複雑な実環境への展開を挙げています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "VLAが失敗に弱い本質的な理由はモデルではなくデータにあり、「ロボット姿勢と環境状態の過剰な相関」を崩すデータ拡張が驚くほど効く。",
+  "失敗を「姿勢のズレ（ID）」と「環境の崩壊（OOD）」に明確に二分し、前者はポリシー自身のやり直し（Retry）、後者は専用復旧スキル（Reset）で解く設計が極めて合理的。",
+  "オフラインの失敗動画解析に商用MLLM（Geminiなど）を活用することで、手動のアノテーションなしに高品質な復旧用データセットを半自動で構築できる。"
+ ],
+ "limitations_ja": [
+  "Resetスキルが事前に定義・収集された物体中心ライブラリに依存しているため、想定外の複数物体が絡む複雑な破滅状態には対応できない。",
+  "転倒した小さなポッドをつまんで正しい向きに立て直すような、手先での器用な持ち替え（in-hand manipulation）が必要な操作は現在のグリッパやポリシーでは成功率が低い。",
+  "オンライン監視を行うMLLMの推論遅延や認識エラーが、そのままシステム全体の復旧失敗やボトルネックにつながる可能性がある。"
+ ],
+ "keywords": [
+  "Vision-Language-Action Models",
+  "Robotic Manipulation",
+  "Failure Recovery",
+  "Multimodal LLMs",
+  "Data Augmentation"
+ ],
+ "id": "2608.26645",
+ "title": "FLARE: A Failure-Aware Framework for Autonomous Correction and Recovery in Visual-Language Robotic Manipulation",
+ "title_ja": "FLARE: 視覚言語ロボット操作における自律的修正と復帰のための失敗考慮フレームワーク",
+ "authors": [
+  "Ganlong Zhao",
+  "Zijia Tang",
+  "Xingping Chen",
+  "Zhanghui Kuang",
+  "Ye Tian",
+  "Guanbin Li"
+ ],
+ "date": "2026-08-28",
+ "group": "general",
+ "tags": [
+  "vision-language-action",
+  "manipulation",
+  "safety"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.26645",
+ "pdf_url": "https://arxiv.org/pdf/2608.26645",
+ "summary_ja": "把持失敗や落下などの実行エラーから自律復帰する能力をVLAモデルに付与するFLAREを提案。摂動注入によるリトライ機構と、グリッパー状態に基づき初期復帰を判断するリセット機構により、長工程操作タスクの成功率を大幅に向上させた。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.26645"
+}
