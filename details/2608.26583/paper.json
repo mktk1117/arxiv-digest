@@ -1,0 +1,162 @@
+{
+ "tldr_ja": "ヒューマノイドの長距離視覚歩行において、セル単位のクエリによる地形復元「QR」と、未来の乖離をペナルティ化する方策蒸留「TA-MSE」を組み合わせることで、エラーの蓄積を防ぎ実機での1.5 km連続屋外踏破をゼロショットで達成した研究です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "実機Omniヒューマノイドによる1.5 kmの連続屋外歩行テストの様子です。階段、スロープ、芝生への遷移、不整地などが連続する過酷なルートを、リセットや人の介助なしで完全に歩き切っています。",
+  "caption": "Figure 1: Stable long-horizon perceptive locomotion in the wild. SOLO completes a continuous 1.5-km outdoor route over natural stairs, slopes, grass transitions, and uneven ground in one run.",
+  "image": "details/2608.26583/F1.jpg"
+ },
+ "overview_ja": "人間は険しい山道や不揃いな階段でも、何キロメートルもバランスを崩さずに歩き続けることができます。一方で、深度カメラと強化学習（RL）を組み合わせた近年のヒューマノイドは、単発の障害物なら華麗にクリアできても、途切れのない長距離の移動になると急激に転倒しやすくなるという大きな弱点を抱えていました。\n\n著者らはこの「長距離での脆さ」の根本原因が2つの誤差の蓄積にあると見抜きました。1つ目は、従来の地形復元モデルがCNNやRNNのボトルネックで特徴を圧縮するため、飛び石の境界や階段のヘリといった「踏み外すと即転倒につながる高周波情報」をぼかしてしまう点です。2つ目は、特権教師から生徒へ蒸留する際に現時刻の行動誤差（MSE）だけを最小化しているため、その場では正解に見えても数歩先で破綻を招くような行動をペナルティ化できない点です。\n\nそこで提案されたのが統合フレームワーク「SOLO」です。地形復元には、マップの各セルにフーリエ空間クエリを割り当ててセンサ履歴からピンポイントに証拠を引く「Query Reconstructor（QR）」を導入し、境界のエッジを鮮明に保ちます。さらに方策蒸留には、生徒が遷移した次状態における教師との乖離をPPOの報酬に組み込み、GAEを通じて過去の行動に未来の責任を分配する「TA-MSE」を提案しました。\n\nシミュレータ内の過酷なストレステストにおいて、SOLOは平均踏破成功率97.5%（従来型復元では約75%）、特にシビアな飛び石では96%（従来は0〜3%）という圧倒的な耐障害性を示しました。さらに実機のOmniヒューマノイドへそのままゼロショット転送し、胸部RealSense D455の深度と自己受容感覚のみで、屋内の複合障害物コース走破および1.5 kmに及ぶ屋外連続踏破をノーストップ・ノーアシストで成功させています。",
+ "contributions_ja": [
+  "セルごとの空間クエリを用いて部分的な深度履歴から鮮鋭な地形境界を復元する「Query Reconstructor (QR)」の提案",
+  "次状態での教師・生徒間乖離を強化学習の報酬に組み込み、追加のモデルやcriticなしで時間的責任分配を可能にする「TA-MSE Distillation」の導入",
+  "最高難易度の飛び石タスクで走破成功率を従来型の0〜3%から96%へと劇的に向上させたシミュレーション検証",
+  "単一の胸部深度カメラと自己受容感覚のみを用い、実機ヒューマノイドで途切れのない1.5 kmの屋外長距離歩行をゼロショットで実証"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜヒューマノイドは「長い距離」を歩けないのか？",
+   "summary_ja": "特権教師・生徒蒸留によるヒューマノイド歩行は進歩していますが、長距離の連続運用では小さな誤差が連鎖して破綻します。その主因は「密な地形復元によるエッジの平滑化」と「1歩先しか見ない近視眼的な行動模倣」の2点にあります。",
+   "details_ja": "ヒューマノイドが視覚を使って歩行するとき、足の着地点が次の状態を決定し、その状態での修正行動が転倒を防ぐという緊密なフィードバックループが回っています。短時間の評価なら局所的なエラーがリセットされますが、連続した長距離歩行では、地形の切り替わりやカメラ視角の激しい変化によって生じたわずかなズレが蓄積し、やがて致命的な踏み外しにつながってしまいます。\n\n著者らはこの問題の根本に、実機適用で広く使われているパイプライン特有の2つの欠陥を指摘します。\n\n- 地形復元の情報劣化: 標準的なCNN-RNN型エンコーダは、深度履歴を共有の潜在ベクトルに圧縮してからローカルな標高マップ（ハイトマップ）をデコードします。この共有ボトルネックがローパスフィルタのように働き、階段の角や飛び石の輪郭といった、足場選択にクリティカルな高周波の幾何情報を平滑化してしまいます。\n- 近視眼的な行動模倣: 教師から生徒への蒸留で一般的な行動MSE損失は、「現在訪れた状態」における教師と生徒のズレしか見ていません。今この瞬間は教師と似ていても、数歩先に教師すらリカバーできない危険な状態へ陥るような行動を見分けることができません。\n\nSOLOはこの2つの課題を、知覚層のQuery Reconstructor（QR）と方策学習層のTrajectory-Aware MSE（TA-MSE）によって同時に解決します。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "特権学習と地形復元の潮流、そしてSOLOの立ち位置",
+   "summary_ja": "特権情報の蒸留や明示的な地形復元は標準的な手法となっていますが、長距離運用の堅牢性には踏み込めていませんでした。SOLOは復元アーキテクチャのパラメータ化と、実用的な軌道レベルの責任分配という2つの切り口で先行研究と一線を画します。",
+   "details_ja": "近年、脚ロボットの移動制御では、シミュレータの完全な状態（ノイズのない標高やベース速度）で特権教師を訓練し、車載センサのみを入力とする生徒モデルへ蒸留するアプローチが確立されてきました。STARTやDPLなどは明示的なハイトマップを復元することで教師とのセンシングギャップを埋めようと試みています。\n\nしかし、STARTのようなリカレント密デコーダやDPLの交差アテンション機構は、マップ全体を単一または粗い特徴表現から復元するため、踏み外しの許されない狭い足場（飛び石など）で境界を溶かしてしまう問題がありました。QRは、出力マップの各セル自身に座標由来のクエリを持たせることで、セルの独立性と急峻な幾何エッジを保持します。\n\nまた模倣学習の観点では、PPOに行動MSE補助損失を加える手法（MSE+PPO）が標準的ですが、生徒自身の行動が引き起こす未来の状態変化を考慮していません。TA-MSEは模倣理論の教訓を取り入れつつ、実用的な枠組み（追加のCriticや追加の教師ロールアウトを一切必要としない形）で軌道レベルのペナルティ伝播を実現しています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "急峻なエッジを捉える「QR」と、未来の破綻を罰する「TA-MSE」",
+   "summary_ja": "SOLOは3段階のカリキュラムで学習されます。知覚側のQRは各セルのフーリエクエリで深度・自己受容トークンから局所情報を直接引き出し、方策側のTA-MSEは次状態で生じる教師との不一致をPPO報酬へ組み込んで長期的な安定性を獲得します。",
+   "details_ja": "### 3.1 全体構成と教師・生徒設定\nシミュレータの特権教師 $\\pi_T$ は、クリーンな局所ハイトマップ $m_t$、ベース速度 $v_t$、および自己受容感覚・速度指令などの履歴 $p_t$ を受け取ります。一方、実機に載る生徒 $\\pi_S$ は、車載の深度画像履歴 $D$ と自己受容感覚履歴 $p$ のみを入力とします。生徒側ではまずQRがこれらから標高マップ推定値 $\\hat{m}_t$ とベース速度推定値 $\\hat{v}_t$ を復元し、LSTMバイパスを持つAME方策ネットワークが25自由度の関節目標変位を出力します（制御周波数は50 Hz）。\n\n### 3.2 Query Reconstructor (QR)\nここが知覚面の大きな工夫です。従来の密なデコーダと異なり、QRは以下のように動作します。\n- センサトークンメモリ: 軽量ResNetで深度フレームを画像トークン化し、MLPで自己受容履歴をトークン化。両者を結合してTransformer Encoderに通すことで、ロボットの運動位相や接触状態のコンテキストが組み合わさったメモリ $M_t$ を作ります。\n- セルクエリによるデコード: ハイトマップの各セル $(x, y)$ の座標をフーリエ特徴エンコーディングしてクエリ $q_i$ を生成します。各クエリがマルチヘッド交差アテンションを通じてメモリ $M_t$ を直接参照するため、情報が単一の潜在ベクトルでボトルネック化されず、階段や飛び石のヘリのような急峻な高さをセルごとに鮮明に復元できます。同時に独立した速度クエリから3次元ベース速度 $\\hat{v}_t$ も推定します。\n\n### 3.3 Trajectory-Aware MSE (TA-MSE) Distillation\n方策学習側の工夫がTA-MSEです。従来のMSE+PPOは現時刻 $s_t$ での行動差分 $\\mathcal{L}_{\\mathrm{aux}} = \\|a_t^S - a_t^T\\|^2$ を最小化するだけでした。これに対しTA-MSEは、生徒が行動 $a_t^S$ を取って実際に遷移した「次の状態 $s_{t+1}$」において教師と生徒の行動を再評価し、その不一致度 $\\bar{l}_{t+1} = \\|\\pi_S(s_{t+1}) - \\pi_T(s_{t+1})\\|^2$ をPPOの報酬から差し引きます（$r_t^{\\mathrm{TA}} = r_t^{\\mathrm{task}} - \\beta \\bar{l}_{t+1}$）。\nなぜこれが効くかというと、Generalized Advantage Estimation (GAE) を通じて、未来の不一致ペナルティが過去の行動 $a_t^S$ のアドバンテージへ逆伝播するからです。「今は教師と似ているが、次のステップで生徒が教師を真似できなくなるような危険な状態に追い込む行動」を自然に学習から排除できます。\n\n### 3.4 3段階のトレーニング手順\n学習は3ステージで進行します。Stage 1で特権教師をAMP（Adversarial Motion Prior）正則化付きPPOで学習。Stage 2では生徒に特権地形入力を与えたままTA-MSEで蒸留。Stage 3で特権入力をQRの復元値に置き換え、生徒のオンポリシーバッファを用いてQRと方策を結合ファインチューニングします。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "SOLOのシステム全体図です。(a) 特権教師から生徒方策への蒸留の流れ。(b) QRの構造。各セルのフーリエ座標クエリが交差アテンションを介してセンサメモリを参照します。(c) TA-MSEの仕組み。行動後の次状態 $s_{t+1}$ での乖離をペナルティ報酬としてGAEへ流し込みます。",
+     "caption": "Figure 2: SOLO overview. During training, the privileged teacher provides action targets on student-visited states. QR recovers the local terrain map and base velocity from depth and proprioceptive histories, and TA-MSE distills the teacher into the student. Deployment retains only QR and the student policy for zero-shot deployment from onboard sensing during all trials.",
+     "image": "details/2608.26583/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "飛び石の成功率が0%から96%へ！圧倒的な検証結果",
+   "summary_ja": "シミュレーションの最高難易度テストにおいて、QRは復元誤差を3.3〜4.0倍削減し、飛び石の踏破成功率を従来の0〜3%から96%へと跳ね上げました。実機Omniでも1.5 kmの屋外連続歩行と屋内の複合障害物走破をリセットなしで達成しています。",
+   "details_ja": "### 4.1 実機ロボットでの検証\nOmniヒューマノイドを用い、操縦者はジョイスティックで平面速度指令を与えるのみで自律歩行させました。\n- 屋外1.5 km連続歩行: 階段、傾斜、芝生、凹凸路面が混在する自然なルートにおいて、方策のリセットや人間の物理的アシストを一度も挟むことなく、1回のランで1.5 kmを踏破しました。\n- 屋内複合コース: 上り階段、20 cm / 30 cmの飛び石、45 cmの隙間（ギャップ）、下り階段、可動障害物を連続して配置したコースを、同一方策で完全走破しました。\n- 単独地形信頼性: 7種類の地形を各10回試行したところ、飛び石で1回失敗したのみで、合計69/70の成功を収めました。\n\n### 4.2 地形復元精度の比較\n最高難易度（難易度0.99）のシミュレーション環境において、START型（リカレント密デコーダ）およびDPL型（交差アテンション型）と比較しました。QRは平均ハイトマップL1誤差を7.59 cm（START）および9.26 cm（DPL）から2.29 cmへと、実に3.3〜4.0倍も削減しました。特に踏み外しが致命的となる飛び石で最大の改善が見られました。また、学習時（8 m幅）と異なる未知のシーン幅（10 m）へ展開した際、従来法は過学習により誤差が0.26〜0.27 mへ急増したのに対し、QRは0.043 mに抑えられ、高い汎化性を示しました。\n\n### 4.3 カリキュラム進行とTA-MSEの効果\nStage 2において、特権マップ入力のもとで蒸留手法を比較しました。通常のPPOや単発のMSE+PPOが地形難易度レベル5.0〜5.1付近で頭打ちになったのに対し、TA-MSEは難易度上限の約5.5まで到達しました。高難度な地形ほど、「未来のズレ」を考慮したクレジット割り当てが効いてくることが分かります。\n\n### 4.4 最高難易度地形での走破性能\n方策をTA-MSEで固定し、復元器を差し替えて過酷なストレステストを実施しました。全体の平均成功率は従来型の75.0〜75.6%から97.5%へと向上。特筆すべきは飛び石（Step Stones）で、STARTが3%、DPLが0%と全滅状態だったのに対し、QRは96%という極めて高い成功率を叩き出しました。また、足の引っかかりを表すFoot Stumbleペナルティや段差跨ぎを評価するFoothold-Gradペナルティも、従来法に比べ数分の一から十分の一に抑えられています。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "特権ハイトマップを用いたStage 2カリキュラムの進捗比較です。PPO単体やMSE+PPO（D-PPO）がレベル5前後でプラトーに達する中、TA-MSEは上限付近（約5.5）まで一貫して学習を進められています。",
+     "caption": "Figure 5: Curriculum progress with a matched teacher and privileged map input.",
+     "image": "details/2608.26583/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "難易度0.99の過酷環境における走破成功率です。隙間（Gap）や階段上り（Stairs Up 25cm）、そして特に飛び石（Step Stones）において、QRが従来型復元器（START, DPL）を圧倒していることが分かります。",
+     "caption": "Figure 6: Highest-difficulty success rate for $100$ rollouts per terrain at curriculum difficulty $0.99$ . Stair labels denote tread width; Up-35 is the ascending-stair configuration with $0.35$ m tread width, and High Plane contains two $0.35$ m-high platforms in this evaluation for every method shown.",
+     "image": "details/2608.26583/F6.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "(A) 階段下降時のハイトマップL1誤差。シーン幅が8 mから未知の10 mへ広がっても、QRは誤差の増大が極めて小さく抑えられています。(B) 階段歩行時の足のつまずき（Foot stumble）と段差またぎ（Foothold grad.）のペナルティ比較。QRを基準（1.0）とした対数スケールで示されており、従来法より大幅に足場品質が高いことを示しています。",
+     "caption": "Figure 4: Reconstruction fidelity and downstream foothold quality. All reconstructors use the same teacher, task, curriculum, training budget and TA-MSE objective and are trained on $8$ m scenes. (A) Descending-stair height-map L1 error across curriculum difficulty, testing robustness to a change in terrain extent; solid circles and dashed squares denote evaluation on $8$ m and unseen $10$ m scenes. (B) Foot Stumble and Foothold-Grad penalty magnitudes on highest-difficulty simulated stairs, nor",
+     "image": "details/2608.26583/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "長距離知覚歩行の新たなスタンダードへ",
+   "summary_ja": "セルクエリ復元「QR」と未来意識型蒸留「TA-MSE」の統合により、長距離歩行における知覚と制御のエラー連鎖を断ち切ることに成功しました。実機での1.5 km屋外走破など、長距離ヒューマノイド移動の実用化に向けた決定的な一歩を示しています。",
+   "details_ja": "本論文は、ヒューマノイドが複雑な地形を長時間・長距離にわたって歩き続けられないという根本問題に対し、知覚と方策の両輪からアプローチした包括的なフレームワーク「SOLO」を提示しました。\n\n知覚側では、単一ボトルネックを排したQRによって飛び石や階段エッジの幾何学的解像度を保持。方策側では、次状態での教師・生徒乖離を報酬に組み込むTA-MSEによって、長期的破綻を招くアクションを排除しました。これらの相乗効果によって、シミュレーションでの驚異的な走破率向上だけでなく、実機Omniによる1.5 kmの屋外連続歩行という、従来研究にない規模のハードウェア実証を成し遂げました。",
+   "figures": []
+  },
+  {
+   "heading": "6 Limitations",
+   "heading_ja": "残された課題と今後の展望",
+   "summary_ja": "前方向の単一深度カメラに依存しているため後退時に死角が生じる点や、2.5Dハイトマップ表現によるオーバーハング・透明物への対応限界が挙げられています。",
+   "details_ja": "SOLOにはいくつかの明確な制限事項があります。\n\n- カメラの死角: 胸部に前向きに取り付けられた単一のRealSense D455に依存しているため、後退歩行時には足元の地形が死角になります。これには、より長期のメモリ（LF2WBのような手法）を取り入れて視野外の足場を記憶し続ける仕組みが必要です。\n- 2.5D表現の限界: ハイトマップは各グリッドセルに対して単一の高さしか表現できないため、机の下をくぐるような立体的な地形や、透明・鏡面反射する床面では深度が崩壊するリスクがあります。\n- 指令依存性: 現在のシステムは人間のオペレータがジョイスティックで速度指令を与える前提となっており、自律的なナビゲーションや大域的な経路計画との統合は今後の課題です。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：ネットワーク設計、推論速度、および定性評価の詳細",
+   "summary_ja": "Jetson AGX Thor上での推論時間はわずか1.15 msであり、50 Hz制御の要求を余裕でクリアしています。オフラインでのアブレーション実験でも、QRが飛び石のエッジをシャープに保っている様子が定性的に確認できます。",
+   "details_ja": "付録では、システムの再現と実機実装に関わる重要な詳細が報告されています。\n\n- 実機エッジ推論性能: Jetson AGX Thor（MAXNモード）上でTensorRTを用いて計測したところ、60 Hzの深度入力に対する全パイプライン（観測作成・推論・後処理）の平均レイテンシは $1.15 \\pm 0.23$ ms（95パーセンタイルでも1.59 ms）でした。50 Hz制御に許される20 msの周期に対して極めて軽量であり、エンジンサイズもわずか7.56 MBです。\n- オフラインでの復元器アブレーション: 方策のサンプリングによる影響を排除するため、固定の教師ロールアウトから収集した約24.9万フレームのデータセットで復元器単体を比較しました。QRはSTARTやDPLと比較して全体のL1誤差を約31%削減し、境界の再現度を示すEdge F1@1スコアを59〜80%向上させました。\n- 定性的ビジュアライゼーション: 復元されたハイトマップを可視化すると、DPLやSTARTが飛び石の隙間を埋めてしまったり階段の角を丸めてしまっているのに対し、QRは独立したブロック形状や明確な段差を極めてシャープに復元できていることが一目で分かります。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "難易度0.99における各手法のハイトマップ復元結果です。一番上の段（Step Stones）を見ると、DPLやSTARTは足場同士が連結して溶けてしまっているのに対し、QRは教師真値（GT）通りに孤立した足場の境界を鮮明に分離して復元できています。",
+     "caption": "Figure A2: Qualitative height-map reconstruction at difficulty $0.99$ . Rows show Step Stones, High Plane, Random Grid and Stairs Up/Down; columns show the latest depth, privileged ground truth, QR, DPL and START. Each row uses its own color scale. QR preserves sharper discontinuities, especially on Step Stones, where footholds remain separated and aligned with ground truth.",
+     "image": "details/2608.26583/F7.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "長距離歩行の破綻は「知覚のぼやけ（高周波の消失）」と「方策の近視眼性（未来の不一致）」の複合要因であり、両方を同時に塞ぐ必要がある",
+  "局所マップを復元する際は、全体を1つの潜在変数に押し込めるのではなく、セルごとの空間クエリでアテンションをかける設計（QR）がエッジ保持に極めて有効",
+  "蒸留時、生徒が遷移した「次状態」での教師との乖離をPPOの報酬ペナルティとしてGAEに流し込む（TA-MSE）だけで、追加モデルなしに軌道レベルの責任分配が実現できる",
+  "単一のRGB-Dカメラと自己受容感覚だけでも、適切なアーキテクチャと蒸留を行えば、実機ヒューマノイドで1 km以上の不整地連続歩行が可能になる"
+ ],
+ "limitations_ja": [
+  "前向き単一カメラ構成のため、後退時や視界外の足場を追従する際に死角が生まれやすい",
+  "2.5Dハイトマップを中間表現としているため、オーバーハング形状や立体的な障害物を表現できない",
+  "反射面や透明な床など、RealSenseの深度取得が破綻する環境下でのロバスト性は未解決である"
+ ],
+ "keywords": [
+  "Humanoid Locomotion",
+  "Perceptive Locomotion",
+  "Teacher-Student Distillation",
+  "Terrain Reconstruction",
+  "Sim-to-Real Transfer",
+  "Reinforcement Learning"
+ ],
+ "id": "2608.26583",
+ "title": "SOLO: Stable Omni-terrain Long-Horizon Perceptive Humanoid Locomotion",
+ "title_ja": "SOLO: 視覚知覚に基づくヒューマノイドの安定した全地形長距離歩行制御",
+ "authors": [
+  "Pihai Sun",
+  "Gang Han",
+  "Jingkai Sun",
+  "Jiahao Ma",
+  "Zeran Su",
+  "Zelin Tao",
+  "Peiran Liu",
+  "Shuai Shi",
+  "Wei Cui",
+  "Zifan Wang",
+  "Jialin Yu",
+  "Wen Zhao",
+  "Kangning Yin",
+  "Jiaxu Wang",
+  "Jiahang Cao",
+  "Lingfeng Zhang",
+  "Hao Cheng",
+  "Jian Tang",
+  "Yijie Guo",
+  "Qiang Zhang"
+ ],
+ "date": "2026-08-28",
+ "group": "focus",
+ "tags": [
+  "locomotion",
+  "humanoid",
+  "reinforcement-learning",
+  "perception"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.26583",
+ "pdf_url": "https://arxiv.org/pdf/2608.26583",
+ "summary_ja": "視覚に基づくヒューマノイド歩行における誤差蓄積を解決するフレームワークSOLOを提案。フーリエ符号化クエリにより鋭い地形境界を復元するQuery Reconstructorと、教師生徒間の状態不一致を報酬に組み込むTA-MSE蒸留を導入し、複雑地形の長距離歩行を安定化させた。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.26583"
+}
