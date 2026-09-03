@@ -1,0 +1,153 @@
+{
+ "tldr_ja": "既存の汎用VLAモデルをゼロから再学習することなく、キネマティクスに沿った段階的アクション生成（HAF-VLA）と周波数圧縮した潜在ノイズ強化学習（HAF-Steer）を組み合わせることで、ヒューマノイドの全身移動マニピュレーションを安定かつ高精度に実現した研究です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "提案手法HAF（Humanoid Adaptation Framework）の全体構成です。上段は7種類の実機タスク、中段左は移動から腕へと順に生成するHAF-VLA、下段左はDCTで圧縮した潜在空間でポリシーを微調整するHAF-Steerを示しており、右側のグラフの通りベースラインを大きく上回る性能を達成しています。",
+  "caption": "Figure 1: Overview of HAF. We demonstrate seven humanoid loco-manipulation tasks in real-world settings. HAF consists of two complementary components: HAF-VLA is a hierarchical action-flow vision-language-action model that generates whole-body motions stage by stage according to the kinematic dependencies among locomotion, torso adjustment, and dual-arm manipulation; HAF-Steer performs latent-space reinforcement learning on discrete cosine transform compressed temporal noise from frozen flow-bas",
+  "image": "details/2608.16837/F1.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットに家事などの複雑な仕事を任せるには、足元の移動、腰の姿勢調整、そして両腕による細かな作業をぴったり連動させる「全身移動マニピュレーション（whole-body loco-manipulation）」が欠かせません。最近はカメラ画像と指示文から動作を直接出力する視覚・言語・行動（VLA）モデルが注目されていますが、既存モデルの多くは卓上アーム向けに作られており、全身の自由度を一度にまとめて予測してしまいます。その結果、足元のふらつきが上半身のブレを引き起こし、手先作業が破綻するという大きな課題がありました。また、集めた教示データだけで学習したポリシーは現場の環境変化に弱く、かといって巨大なVLAモデルを実機の強化学習（RL）でまるごとチューニングするのは計算コスト的にも安全面でも困難でした。\n\nそこで著者らは、事前学習済みのフロー整合型VLAをヒューマノイド向けに適応させる枠組み「HAF」を開発しました。アプローチは2段構えです。1つ目の「HAF-VLA」では、人間の運動学的依存関係に注目し、まず足元と視線、次に腰姿勢、最後に両腕の動作という順序で段階的にアクションを生成します。前段階で生成した行動特徴をキャッシュとして引き渡すことで、土台が安定した状態で手先を動かせるようにしました。2つ目の「HAF-Steer」では、VLA本体を完全に凍結したまま、生成の起点となる初期ノイズ空間で強化学習を行います。その際、離散コサイン変換（DCT）を用いて時間方向のノイズを低周波の8成分にギュッと圧縮することで、実機がガタガタ暴れるのを防ぎながら安全かつ効率的なオンライン適応を可能にしました。\n\n実機のヒューマノイドロボット（TienKung 2.0および3.0）を使った7つの家庭内タスクで検証したところ、従来の単一ステージ生成を行う最先端VLAモデルと比較して平均スコアが53.3%から70.5%へと大幅に向上しました。さらにHAF-Steerによる追加適応により、目標位置がずれた未知の状況でも高い成功率を維持できることが実証されました。",
+ "contributions_ja": [
+  "事前学習済み汎用VLAをゼロから作り直すことなく、ヒューマノイドの全身移動マニピュレーションへ効率的に移植する統合フレームワーク「HAF」を提案した点",
+  "移動・視線、腰姿勢、両腕作業という身体構造の依存関係に沿って段階的に行動を生成し、上位・下位の協調性を高める「HAF-VLA」を設計した点",
+  "フロー整合の可逆性と離散コサイン変換（DCT）を利用して探索空間を低周波ノイズに圧縮し、VLA本体を凍結したまま実機で安全に適応できる潜在RL「HAF-Steer」を開発した点",
+  "2種類の等身大人型実機ロボットを用い、歩行・屈伸・投擲・運搬などを伴う7つの長手数タスクにおいて最先端ベースラインを凌駕する性能と頑健性を示した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜヒューマノイドの全身協調は汎用VLAにとって難しいのか？",
+   "summary_ja": "ヒューマノイドは移動と姿勢、両腕作業が複雑に絡み合うため、土台のブレが手先を乱すという固有の難しさがあります。既存のVLAのように全関節を一度に一発生成するアプローチでは協調が崩れやすく、また実機での強化学習も計算量と安全性の観点から困難でした。",
+   "details_ja": "車輪型や固定台座のロボットアームと違い、二足歩行ヒューマノイドは足元の移動（ロコモーション）、体幹・腰の姿勢、そして両腕によるマニピュレーションをミリ秒単位で協調させなければなりません。もし足元の踏み出しが少しでも狂うと、上半身がバランスを取ろうと不規則に代償動作を起こし、手先の作業精度が劇的に悪化してしまいます。\n\n近年、大規模なデータで事前学習された汎用VLAモデル（$\\\\pi_{0}$ など）が高い汎化性能を見せていますが、これらは基本的にすべての行動次元を1回のステップで同時に生成（ワンショット生成）する構造になっています。移動と手先の依存関係を考慮しないまま生成すると、手足がチグハグな危険な動作になりがちです。これを解決するためにヒューマノイド専用の巨大モデルをゼロから事前学習しようとすると、莫大なデータと計算機リソースが必要になってしまいます。\n\nさらに、実機への配備時には「教示データと現場環境のズレ」が必ず生じます。これを行動クローニング（模倣学習）だけで乗り切るのは難しく、実機での強化学習（RL）による微調整が欲しくなります。しかし、何十億パラメータもある巨大なVLAバックボーンを直接オンラインRLで更新するのは計算が重すぎますし、実機が激しく暴れて壊れるリスクもあります。\n\nこうした背景から本研究では、事前学習済みのフロー整合型VLAを活かしつつ、身体構造に合わせた段階的生成を行う「HAF-VLA」と、コンパクトな潜在ノイズ空間で安全にRLを回す「HAF-Steer」という2つの補完的な技術からなるHAFフレームワークを提案しています。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "ヒューマノイドVLAと潜在強化学習の現在地",
+   "summary_ja": "先行研究ではヒューマノイド専用の事前学習や全パラメータの直接RLが行われてきましたが、データ収集や安全面でのハードルがありました。また潜在ノイズRLの既存手法も時間的な表現力不足や探索空間の広さに課題を抱えており、本手法はこれらを解決する位置づけにあります。",
+   "details_ja": "本章では関連研究を3つの系統に分けて整理し、提案手法との立ち位置の違いを明確にしています。\n\n- ヒューマノイド向けVLA: ロボット基盤モデルは卓上マニピュレーションから発展してきましたが、最近ではGR00T N1.7やWholeBodyVLAのようにヒューマノイドへ拡張する試みが始まっています。しかしこれらは、人間動画からの大規模学習やヒューマノイド専用の大規模事前学習に依存しています。対して本研究は、すでにある汎用VLAの順運動学的な依存関係をモデル構造に組み込むことで、追加の莫大な事前学習なしにヒューマノイドへ適用するアプローチをとっています。\n\n- VLAの強化学習による事後学習（Post-training）: 模倣学習済みポリシーの改善手法には、PPOなどでモデル全体をファインチューニングする手法や、軽量な残差ネットワーク（Residual RL）を付加する手法があります。しかし前者は計算量が膨大で安全性を損ないやすく、後者は長期タスクで時間的な誤差が蓄積しやすい問題があります。そこで注目されているのが、拡散モデルやフロー整合モデルの初期潜在ノイズをRLで最適化する手法です。ただし先行のDSRLなどは行動チャンク全体で単一のノイズを使い回すため時間的な表現力が犠牲になり、逆にUniSteerのように全時間ステップのノイズをそのまま最適化しようとすると探索空間が広がりすぎてしまいます。本手法のHAF-Steerは、このトレードオフを周波数解析によって解決します。\n\n- 全身マニピュレーション制御: 強化学習を用いた低レベルの二足歩行コントローラやVRテレオペレーション技術は急速に進化していますが、これらは主に動作の追従やデータ収集ツールとして使われており、高次の言語・視覚理解と統合された階層的生成モデルには至っていませんでした。",
+   "figures": []
+  },
+  {
+   "heading": "3 HAF-VLA: Hierarchical Action Flow for Humanoid Whole-Body Loco-Manipulation",
+   "heading_ja": "身体のつながりに合わせて段階的に動かす「HAF-VLA」",
+   "summary_ja": "HAF-VLAは、全身の動作空間を「移動・頭部」「腰」「両腕」の3段階に分割し、累積的に行動を予測するモジュールです。前段階の行動をKVキャッシュとして後続段階に渡すことで、足元の安定を優先しながら手先の正確な協調動作を生み出します。",
+   "details_ja": "3.1 階層的な全身行動生成の仕組み\nヒューマノイドの行動チャンク（予測ホライゾン $H=100$ ステップ、各ステップの次元数 $D$）を、運動学的に直交する4つの要素（移動およびスキルモード $a_t^{\\\\mathrm{move}}$、頭部姿勢 $a_t^{\\\\mathrm{head}}$、腰姿勢 $a_t^{\\\\mathrm{waist}}$、両腕操作 $a_t^{\\\\mathrm{manip}}$）に分解します。そして、これらを一気に生成するのではなく、以下のように徐々に探索範囲を広げる3つの入れ子集合（Nested Sets）として段階的に予測します。\n\n- Stage 1: 最低限の土台となる移動・スキルモードと頭部（視線）方向を決定します（$\\\\mathcal{A}_t^1$）。\n- Stage 2: 腰の関節指令を加え、体幹姿勢を整えて上半身の作業空間を確保します（$\\\\mathcal{A}_t^2$）。\n- Stage 3: 両腕のマニピュレーションを含む全身の全次元を完全にアクティブ化します（$\\\\mathcal{A}_t^3$）。\n\nここでの賢いポイントは、一度決めた前ステージの値を固定（Freeze）してしまうのではなく、後続のステージでも修正できる「累積的な包含関係（$\\\\mathcal{A}_t^1 \\\\subset \\\\mathcal{A}_t^2 \\\\subset \\\\mathcal{A}_t^3$）」にしている点です。これにより、腕の動きに合わせて足元を微修正するような柔軟性が保たれます。また、計算量を抑えるため視覚・言語の入力特徴（Prefix KV cache $P_t$）は全ステージで1度だけ計算して共有し、ネットワークの重み自体も3つのステージで共通のものを用います。ステージごとの役割の切り替えは、学習可能なステージ埋め込みベクトル $e_s$ と、前ステージの出力行動をエンコードした「行動KVキャッシュ（$C_t^1, C_t^2$）」をアテンションの文脈として渡すことで実現しています。最終的に実機へ送られるのは、Stage 3で完成した全身アクションチャンクのみです。\n\n3.2 学習戦略と実機への配備\n学習時には、各ステージに対して独立したガウスノイズとフロー時刻をサンプリングし、アクティブな次元以外にゼロ速度ターゲットを割り当てるマスク付きフロー整合損失（Flow-Matching Loss）を計算します。誤差の蓄積を防ぐため、学習中は前ステージの予測値ではなく正解データをエンコードして行動キャッシュを作る「Teacher Forcing」を採用しています。推論時は1ステージあたり10ステップのデノイズを行い、3ステージ合計で30ステップとなりますが、RTX 5090 GPU1枚で約0.12秒で推論が完了し、十分実時間で閉ループ制御（後退ホライゾン制御: 100ステップ中最初の40ステップを実行）が可能です。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "HAF-VLAのモデルアーキテクチャです。共有のアクションエキスパートが、Stage 1（移動・頭部）からStage 2（腰）、Stage 3（両腕）へと徐々に生成対象を広げていきます。前のステージで生成された行動はクリーンなKVキャッシュとして次のステージに渡され、最終的なStage 3の出力のみが実機コントローラへ送られます。",
+     "caption": "Figure 2: Overview of HAF-VLA. A shared action expert progressively expands the active action space from locomotion and head control to waist posture and bimanual manipulation. Clean action caches from earlier stages condition subsequent generation, and only the final full-body action chunk is executed.",
+     "image": "details/2608.16837/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 HAF-Steer: Spectral Latent RL for Flow-Matching VLAs",
+   "heading_ja": "周波数圧縮で安全かつ軽快にオンライン強化学習する「HAF-Steer」",
+   "summary_ja": "HAF-Steerは、凍結したVLAの初期ノイズ空間をDCT（離散コサイン変換）により低周波の8成分に圧縮し、そのコンパクトな空間でSAC（Soft Actor-Critic）を回す強化学習手法です。VLA本体を更新しないため壊れにくく、実機上で滑らかな適応動作を獲得できます。",
+   "details_ja": "4.1 フロー反転によるスペクトル潜在空間の構築\nVLAの行動生成は、初期ノイズ $\\\\epsilon_t \\\\sim \\\\mathcal{N}(\\\\mathbf{0}, \\\\mathbf{I})$ を入力としてフロー場を解く決定論的な写像とみなせます。つまり、初期ノイズ $\\\\epsilon_t$ さえうまく誘導できれば、VLA本体の重み $\\\\theta$ を一切いじることなく出力アクションを自在に補正できるわけです。しかし、行動チャンク長 $H=100$、行動次元 $D$ の生ノイズ空間（$H \\\\times D$ 次元）をそのまま強化学習で探索するのは次元が高すぎます。\n\nそこで著者らは、時間軸方向に離散コサイン変換（DCT）を適用し、最初の $K=8$ 個の低周波係数だけを残すという鮮やかな圧縮を行いました。高周波のノイズ成分をカットすることで、ヒューマノイドが実機探索中にガクガクと小刻みに震える危険な挙動を物理的に防ぐことができます。また、専門家の教示軌道 $A_i^*$ を固定VLAのフロー場に沿って数値的に逆積分（Flow Reversal）することで、対応する初期ノイズ $\\\\epsilon_i^*$ を復元し、それをDCT変換・正規化してオフラインの「専門家スペクトル行動 $z_i^*$」をあらかじめ作っておきます。\n\n4.2 オフラインからオンラインへのスペクトル方策学習\n学習は2段階で進みます。\n- 行動クローニング（BC）による初期化: まず、オフライン再生バッファに保存された専門家スペクトル行動 $z_i^*$ を模倣するように、軽量なアクターネットワーク $\\\\pi_\\\\psi(z \\\\mid x)$ を回帰学習させます。\n- 混合オフライン-オンライン強化学習: 初期化後、実機を動かしてオンラインバッファにデータを集めながら、SAC（Soft Actor-Critic）アルゴリズムでアクターと批評家（Critic）を更新します。成功時にのみ $r=1$ を与えるスパース報酬設計ですが、オフラインの専門家データに対してBC正則化項を残しておくことで、学習初期の性能崩壊（ポリシーの破綻）をがっちり防ぎます。学習が進むにつれてオフラインデータのサンプリング比率を減らし、徐々に現場の環境に馴染ませていきます。\n\n4.3 フロー整合VLAへの組み込み\nHAF-VLAに適用する場合、Stage 1とStage 2は通常通り実行して行動キャッシュを作り、最後のStage 3の初期ノイズだけをこのHAF-Steerで操作します。バックボーンは完全に凍結されているため、計算負荷が極めて低く抑えられます。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "HAF-Steerの概要図です。(a) 通常のVLAはランダムなガウスノイズから行動をデノイズします。(b) HAF-Steerでは教示軌道を逆積分して初期ノイズを復元し、DCTで上位8係数のスペクトル行動に圧縮します。この低次元空間でRLアクターを学習し、IDCT（逆DCT）で滑らかなノイズに戻して凍結VLAに入力します。",
+     "caption": "Figure 3: Overview of HAF-Steer. (a) A conventional flow-matching VLA samples full-dimensional Gaussian noise and decodes it into an action trajectory through a frozen flow generator. (b) HAF-Steer instead constructs a low-dimensional spectral action space from expert demonstrations: demonstrated trajectories are mapped back to their initial flow noise through numerical reverse integration, compressed by retaining the first 8 temporal DCT coefficients, and normalized to form expert spectral acti",
+     "image": "details/2608.16837/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Experiments",
+   "heading_ja": "実機ヒューマノイドによる7つの家事タスク検証とアブレーション",
+   "summary_ja": "TienKung 2.0/3.0実機を用い、洗濯物投入やカゴ運びなど7つの長手数タスクで検証しました。HAF-VLAは最先端ベースラインを大幅に上回り、さらにHAF-Steerによる追加適応で、机の位置がずれた未知の環境でも高い成功率を達成しました。",
+   "details_ja": "5.1 実験セットアップ\n検証には等身大ヒューマノイド「TienKung 2.0」および「TienKung 3.0」を使用しました。頭部のRGBカメラ1台の映像と関節プロプリオセプションを入力とし、データ収集は頭部IMU、両腕のマスタースレーブアーム、足元と腰を操作するジョイスティックからなる同形テレオペレーションシステムで行いました（タスクあたり120軌道）。\n評価タスクは、洗濯物の投入（Laundry Loading）、服の回収（Clothes Retrieval）、机の片付け（Table Tidy）、カゴの運搬（Basket Transfer）、おもちゃの収納（Toy Storage）、ボール投げ（Ball Tossing）、箱の運搬（Box Transfer）の計7種類です。単純な成功・失敗だけでなく、途中のマイルストーン達成度を反映した「正規化タスクスコア（%）」を10回の試行平均で評価しました。\n\n5.2 Q1: 長手数タスクの性能（Table 1）\n比較対象として、ACT、$\\\\pi_{0.5}$、GR00T N1.7、Cosmos Policyを用意しました。結果、HAF-VLAは全7タスクで最高または同率最高のスコアを叩き出し、最強のベースラインである $\\\\pi_{0.5}$ の平均53.3%を大きく引き離して70.5%を達成しました。特に歩行移動した後に精密な手先作業が続く「箱の運搬」や「洗濯物の投入」で圧倒的な差がつきました。ベースラインでは移動中に手先がふらついてドリフトしてしまい、その後の把持に失敗するケースが多発していました。\n\n5.3 Q2: アブレーション研究（Table 2）\n洗濯物投入タスクを用いて構造の妥当性を検証しました。すべての関節を同時にデノイズする「All-Joint Denoising」や、腕を先に決めてから移動を決める「Arm-First Hierarchy」と比較したところ、提案通りの「移動→腰→腕」の順序が最も高いスコアを記録しました。手先を先に決めようとすると土台の移動とうまく噛み合わないことが数字で証明されています。また、単に計算量を合わせただけの「$\\\\pi_{0.5}$（30ステップ）」は推論遅延が増えたことで逆にスコアを落としており、階層構造そのものが遅延への頑健性をもたらしていることが分かります。\n\n5.4 Q3: 未知の外乱に対する汎化性（Table 3, Figure 6）\n経路途中に見慣れない黒いオフィスチェアを置く「視覚的妨害」や、初期位置を20cm後ろに下げる「位置撹乱」を与えた実験でも、HAF-VLAは $\\\\pi_{0.5}$ に比べて高いスコアを維持し、ロバストな適応力を示しました。\n\n5.5 Q4: HAF-Steerによる実機オンライン適応の効果（Figure 7, Figure 8）\n机の位置を教示データより30cm遠くにずらした分布外（OOD）環境などでHAF-Steerを評価しました。ノイズを全時間で単一ベクトルとして使い回す先行手法DSRLは、実機が激しくガタついて危険なため学習の中断を余儀なくされました。一方、DCTで8成分に絞ったHAF-Steerは非常に安定して実機RLを完遂でき、事前学習のみ（Base Model）や模倣のみ（Noise BC）と比べても明らかに高い成功率を記録しました。HAF-VLAの構造化生成とHAF-Steerの潜在適応が、互いに補完し合って最高の性能を出すことが実証されました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "実機で実施された7つの家庭内全身移動マニピュレーションタスクです。移動、腰の屈伸、しゃがみ込み、両腕での物体運搬や投擲など、全身のシームレスな連動が要求される難関タスク群で構成されています。",
+     "caption": "Figure 5: Seven real-world humanoid loco-manipulation tasks. Each row depicts a representative execution sequence requiring navigation, whole-body posture adjustment, and physical object interaction.",
+     "image": "details/2608.16837/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "未知の撹乱に対する汎化性テストの様子です。左は歩行経路上に無関係な椅子を置いた視覚的妨害テスト（洗濯物投入）、右はロボットの初期位置を20cm後退させた位置撹乱テスト（服の回収）を示しています。",
+     "caption": "Figure 6: Generalization experiments. Left: object-distraction test during Laundry Loading . Right: position-disturbance test during Clothes Retrieval .",
+     "image": "details/2608.16837/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "HAF-Steerの評価環境です。青い点が教示データでカバーされている分布内（ID）の机の位置、赤い点が30cm離れた未知の分布外（OOD）の位置を示しており、現場でのオンライン適応能力が試されます。",
+     "caption": "Figure 7: In-distribution and out-of-distribution evaluation setups for HAF-Steer. Blue markers indicate destination-table locations covered during demonstration collection, while red markers indicate the OOD evaluation locations. For Toy Storage , the destination table is placed 30 cm beyond the demonstrated spatial range. For Basket Transfer , the destination table is shifted by 30 cm from its demonstrated position.",
+     "image": "details/2608.16837/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion and Limitations",
+   "heading_ja": "まとめと今後の展望：全身協調VLAの新たな標準へ",
+   "summary_ja": "HAFは階層的アクションフロー生成と潜在スペクトル強化学習を統合し、汎用VLAをヒューマノイド全身タスクへ適応させる実用的な道筋を示しました。一方で計算遅延や元のVLAの表現力限界といった課題も残されています。",
+   "details_ja": "本論文では、事前学習済みの汎用VLAモデルをヒューマノイドの全身移動マニピュレーションへと適応させるフレームワーク「HAF」を提案しました。運動学的な依存関係を反映した3段階の行動生成（HAF-VLA）によって手足の不整合を防ぎ、DCT圧縮を用いた潜在ノイズ強化学習（HAF-Steer）によって本体モデルを凍結したまま安全・軽快な実機適応を実現しています。\n\n一方で、論文内ではいくつかの限界（Limitations）も正直に述べられています。\n- 推論レイテンシの増加: 3つのステージを順に実行するため、どうしてもデノイズの計算ステップ数が増加し、制御の遅延につながる懸念があります（現状はRTX 5090で約0.12秒で動作）。\n- ベースモデルの事前知識への依存: 潜在ノイズの誘導によって適応する仕組みであるため、バックボーンとなるVLA自体が全く持っていない未知の動作や極端な状況に対しては、ノイズをどういじっても適切な行動を生成できない可能性があります。\n\n今後は、よりステップ数を削減できる効率的なデノイズ手法の導入や、さらに軽量なRL実装によるリアルタイム性と頑健性の向上が期待されています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "ヒューマノイドの全身制御では「足元・頭部 → 腰 → 腕」という運動学的依存関係に沿って段階的にアクションを生成することで、手先のブレやドリフトを劇的に抑えられる。",
+  "前ステージの出力を固定せず、累積的な包含関係（Nested Action Sets）にして後続ステージでも微修正できるようにした設計が、全身のしなやかな協調に極めて効果的である。",
+  "巨大VLAの実機RL適応において、初期ノイズをDCT（離散コサイン変換）で低周波成分に圧縮して探索するアプローチは、ロボットの激しい振動を防ぎつつ探索空間を絞る極めて実用的な解法である。",
+  "巨大基盤モデルをゼロからヒューマノイド用に再学習しなくても、入出力の構造化と潜在空間での軽量RLという「外側の工夫」だけで実機性能を大幅に引き上げられる。"
+ ],
+ "limitations_ja": [
+  "階層的にデノイズを繰り返すため、単一ステージの生成手法と比較して計算量と推論レイテンシが増加してしまう点。",
+  "VLAバックボーンを完全に凍結してノイズ空間のみを最適化するため、ベースモデルが全く学習していない未知の動作パターンをゼロから獲得することは難しい点。",
+  "実機での評価タスクが家庭内環境を中心とした7種類に限られており、屋外の不整地歩行やよりダイナミックな全身運動への適用性はまだ未検証である点。"
+ ],
+ "keywords": [
+  "Humanoid Whole-Body Control",
+  "Vision-Language-Action (VLA)",
+  "Flow Matching",
+  "Hierarchical Action Flow",
+  "Spectral Latent RL",
+  "Loco-manipulation"
+ ],
+ "id": "2608.16837",
+ "title": "HAF: Adapting Generalist VLAs to Humanoid Whole-Body Loco-manipulation via Hierarchical Action Flow and Spectral Latent RL",
+ "title_ja": "HAF: 階層的アクションフローとスペクトル潜在強化学習によるヒューマノイド全身移動操作",
+ "authors": [
+  "Langzhe Gu",
+  "Chengkai Hou",
+  "Meng Li",
+  "Xinhua Wang",
+  "Jiaming Liu",
+  "Xinyuan Lv",
+  "Bowei Zhang",
+  "Shuanghao Bai",
+  "Guangrun Li",
+  "Jingyang He",
+  "Gaole Dai",
+  "Ziluo Ding",
+  "Zhiyuan Xu",
+  "Kuan Cheng",
+  "Jian Tang",
+  "Zhengping Che",
+  "Shanghang Zhang"
+ ],
+ "date": "2026-08-18",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "locomotion",
+  "manipulation",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.16837",
+ "pdf_url": "https://arxiv.org/pdf/2608.16837",
+ "summary_ja": "汎用VLAモデルをヒューマノイドの全身移動操作に適応させるHAFを提案。歩行・腰姿勢・双腕操作を分離して協調させる階層的アクションフローと、計算負荷を抑えて実機展開時の最適化を可能にするスペクトル潜在空間での強化学習を導入し、効率的な全身協調制御を実現した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.16837"
+}
