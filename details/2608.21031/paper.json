@@ -1,0 +1,129 @@
+{
+ "tldr_ja": "見た目だけでは分からない物体の重さや硬さを、追加センサなしでロボット自身の関節情報から計測しつつ、2つのエージェントの連携によって「無駄な探索を省いて必要なときだけ賢く触る」Code-as-PolicyフレームワークPhysCaPを提案した論文です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "PhysCaPのコンセプトを示した図です。見た目だけで決め打ちして失敗する「探索不足（Under-Exploration）」や、手当たり次第に全部測って時間がかかる「過剰探索（Over-Exploration）」に対し、PhysCaPはストローの有無などの視覚的な事前知識を使って怪しいものから優先的に触ることで、最小限の接触回数で目的を達成します。",
+  "caption": "Figure 1: PhysCaP augments Code-as-Policy (CaP) agents with physics-informed exploration, enabling inference of latent object properties ( e . g ., mass) via physical property extraction modules to solve manipulation tasks requiring hidden-state estimation, e . g ., identifying and removing an empty can.",
+  "image": "details/2608.21031/F1.jpg"
+ },
+ "overview_ja": "最近のロボティクスでは、大規模な模倣学習を用いたVLA（Vision-Language-Action）モデルや、LLMがロボット制御コードを生成するCode-as-Policy（CaP）が注目を集めています。しかし、これらは基本的に「受動的な画像観察」に頼り切っています。人間の日常行動を思い出してみてください。テーブルの上にある缶が空かどうか確かめるとき、私たちは缶を持ち上げて重さを確かめますよね。見た目だけでは分からない「重さ」や「硬さ」といった潜在的な物理特性は、環境に能動的に働きかけなければ手に入りません。\n\nそこで著者らは、CaPに「物理に基づいた能動的な探索レイヤー」を統合した新フレームワーク「PhysCaP」を開発しました。ポイントは大きく2つあります。1つ目は、触覚センサなどの特別なセンサを追加せず、アームの関節トルクやグリッパの変位・モータ負荷といったロボット自身の情報（自己受容感覚：プロプリオセプション）だけで質量や硬さを測る「PhysXモジュール」を作ったこと。2つ目は、「いつ探索を始めていつ終えるか」を決めるPlannerと、「どの物体から優先して調べるか」を視覚ヒューリスティクスで絞り込むPrioritizerという2つのエージェントを組み合わせたことです。\n\n実機の7自由度アームを用いた3つの卓上タスク（隠されたキューブ探し、空き缶の識別、熟したアボカド選び）とシミュレータ環境LIBEROで実験を行った結果、既存の受動的な手法や手当たり次第に触る手法に比べ、PhysCaPは大幅に少ない接触回数と短い実行時間で高い成功率を達成できることを実証しました。",
+ "contributions_ja": [
+  "外付けセンサ不要で、関節トルクとグリッパ変位・モータ負荷のみから物体の質量と硬度を推定する学習不要（training-free）の物理特性抽出モジュール（PhysX）を開発した点",
+  "探索の要否・終了条件を判断するPlannerと、視覚ヒューリスティクスに基づき探索順序を最適化するPrioritizerからなるデュアルエージェント構成で、過剰な探索コストを削減した点",
+  "実機ロボット（PiPER）とシミュレーション（LIBERO）の両方で、潜在的な物理特性の推定が必要なタスクにおいて、VLAや従来のCode-as-Policyを上回る効率と成功率を実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "見た目だけじゃ分からない！触って確かめる能動的ロボットへ",
+   "summary_ja": "人間は環境と能動的に相互作用することで物理的な不確実性を減らしますが、近年のVLAやCode-as-Policyは受動的な観察に依存しており、隠れた物理特性を推定できません。本論文では、能動的な情報収集を行う物理情報組み込み型エージェント「PhysCaP」を提案します。",
+   "details_ja": "人間がテーブルを片付けるとき、缶が空かどうかを確かめるために持ち上げたり振ったりしますよね。このように、物理的な接触を通じて能動的に情報を集めることは知能の根幹です。\n\nしかし、近年のVLAモデルは模倣学習でタスク完了の動作を再現することは得意なものの、「情報を得るための探索的な動作」を自発的に行うことは苦手です。強化学習を使えば原理的には探索動作を獲得できますが、探索への報酬はスパース（疎）で遅延するためサンプル効率が非常に悪く、挙動の解釈や修正も困難です。\n\n一方、プログラムコードを生成してロボットを動かすCode-as-Policy（CaP）は、認識・推論・制御をモジュール化して扱えるため解釈性や汎用性に優れています。ところが、既存のCaPもカメラからの受動的な視覚入力に頼っており、「情報が足りないから触って確かめる」という仕組みを持っていませんでした。\n\nそこで著者らは、CaPに物理探索レイヤーを導入した「PhysCaP」を提案しました。ここでの核心的な課題は、「情報不足のまま勘で動くこと」と「手当たり次第に触りまくる過剰探索（Over-Exploration）」のトレードオフをどう解消するかです。PhysCaPは、追加センサなしで質量や硬さを測るモジュールを備え、PlannerとPrioritizerという2つのエージェントが連携することで、賢く最小限の接触でタスクを解くことを目指します。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "VLAとCode-as-Policy、そして能動知覚の歩み",
+   "summary_ja": "画像から直接行動を出力するVLAは長期推論や明示的な状態追跡が苦手であり、CaPは推論力に優れるものの意味的・手続き的処理に偏っていました。能動知覚の先行研究も計測とタスク計画が分断されていたため、本研究はこれらを統合した新しいアプローチをとっています。",
+   "details_ja": "本研究の関連分野は大きく3つに分けられます。\n\n- **VLA（Vision-Language-Action）モデル**:\n  画像と言語を入力して低レベルなロボットアクションを直接出力する手法です。高い表現力を持つ反面、リアクティブ（反射的）な順方向モデルであるため、長期的なタスクの分解や、途中の状態を明示的に保持・追跡することが構造的に苦手です。\n\n- **エージェント型ロボット学習フレームワーク（Code-as-Policy）**:\n  基盤モデルをモジュールとして呼び出し、実行可能なコードを生成するCaPなどのアプローチです。推論の透明性や柔軟性に優れますが、これまでの研究は「どの手順で何を掴むか」といった意味的・手続き的な推論に集中しており、物体の物理的特性を推定する能力はほとんど考慮されていませんでした。\n\n- **能動知覚（Active Perception）と物理計測**:\n  不確実性を減らすためにロボットが能動的に環境へ働きかける研究は、強化学習からVLM/LLMを用いた計画まで幅広く行われてきました。また、触覚センサやプロプリオセプションを用いて硬さや重さを測る手法も存在します。しかし従来手法は「物理量を測るモジュール」と「タスクレベルの意思決定」が切り離されており、「何を計測すべきで、いつ探索を終えて本番の動作に移るか」を統合的に推論する枠組みが欠けていました。\n\nPhysCaPは、追加ハードウェアを必要としないプロプリオセプティブ計測と、LLMによる探索計画・優先度付けを初めてシームレスに統合した点に新規性があります。",
+   "figures": []
+  },
+  {
+   "heading": "3 PhysCaP: Physics-Informed Code-as-Policy Agent",
+   "heading_ja": "物理特性を測るモジュールと、2段構えの探索エージェント",
+   "summary_ja": "PhysCaPは、アーム情報だけで質量と硬さを測る2つのPhysXモジュールと、低レベル制御API、そして探索の要否を判断するPlannerと探索順序を決定するPrioritizerから構成されます。これにより、必要な情報を最小の接触コストで獲得します。",
+   "details_ja": "PhysCaPの全体アーキテクチャは、物理特性を計測する「PhysXモジュール」、低レベル制御API、そして頭脳となる「Planner」と「Prioritizer」で成り立っています。\n\n### 3.1 物理特性抽出モジュール（PhysX）と制御\n外部センサを追加することなく、ロボット自身のモータ情報だけで潜在的な物理量を推定します。\n\n- **質量計測（get_mass）**: アームの関節トルクから物体の重さを測ります。物体を把持して把持点から垂直に15 cm持ち上げる軌道を設計し、何も持たずに同じ動作をしたときのトルクとの差分 $\\Delta\\tau = \\tau_{\\text{loaded}} - \\tau_{\\text{empty}}$ を計算します。これによりアーム自体の重力・ダイナミクスを相殺し、物体による重力の影響だけを抽出します。推定質量 $\\hat{m}$ は、鉛直方向のエンドエフェクタヤコビアン行列 $\\mathrm{J}_z$ と重力加速度 $g = 9.8\\,\\mathrm{m/s^2}$ を用いて $\\hat{m} = (\\mathrm{J}_z \\cdot \\Delta\\tau) / (g |\\mathrm{J}_z|^2)$ で求めます。ヤコビアンを考慮することで、アームの姿勢変化に左右されない安定した推定が可能です。\n\n- **硬さ計測（get_stiffness）**: グリッパの開閉変位 $d$ と正規化されたモータ負荷 $\\hat{f} \\in [0, 1]$ を使って剛性を評価します。まずグリッパを少しずつ閉じ、接触を検知した後にわずかに指を開く「バックオフテスト」を行い、負荷が下がることを確認して機械的な内部摩擦と真の接触を区別します。この接触位置を $d_0$ とします。その後、目標負荷 $f^* = 0.50$ に達するまで挟み込み、そのときの変位 $d(f^*)$ との差 $\\Delta d = |d_0 - d(f^*)|$ から変形量を算出します。これをキャリブレーション済みの閾値で1（極めて柔らかい）から5（高剛性）の5段階に離散化し、5回の測定の多数決で決定します。\n\n- **低レベル制御API**: Molmoによる物体検出とZED 2iステレオカメラの深度情報を用い、`get_object_pose` や `goto_pose` などのモジュール化されたAPIを提供します。\n\n### 3.2 Plannerエージェント\nタスク指示と画像から「現在の視覚情報だけでタスクを完了できるか」を判断します。物理情報が不足していると判断した場合、探索対象の候補リスト（物体名、説明、期待される情報）をJSON形式で出力します。また、探索の終了条件（十分な情報が集まったか）を動的に判断し、後段のコード生成エージェントを呼び出します。\n\n### 3.3 Prioritizerエージェント\nPlannerが出した候補に対し、視覚的なヒューリスティクスを用いて優先度スコアを付け、リストを並び替えます。例えば「開いてストローが刺さっている缶は空の可能性が高い」「黒く変色したアボカドは熟している可能性が高い」といった常識的な推論を行い、怪しい物体から順に測定させることで、無駄な接触を極限まで減らします。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "PhysCaPのシステム構成図です。Plannerが視覚的な不確実性を評価して初期の探索候補を挙げ、Prioritizerが視覚ヒューリスティクス（ストローがあるか、未開封かなど）をもとに優先度スコアをつけて並び替えます。その順序に従ってCoding Agentがコードを生成・実行し、PhysXモジュールで重さや硬さを測定しながらタスクを進めます。",
+     "caption": "Figure 2: Overview of PhysCaP, a Physics-Informed Code-as-Policy agent. Given a task requiring latent physical information, the Planner estimates visual uncertainty and proposes an initial exploration plan. The Prioritizer then refines this plan to improve interaction efficiency by filtering implausible actions and reducing redundant exploration. Finally, a code-generation agent produces executable programs that invoke Physical Property Extraction (PhysX) modules ( get_mass , get_stiffness ) to ",
+     "image": "details/2608.21031/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "実機とシミュレーションで検証：賢く探索して最短で解く",
+   "summary_ja": "実機ロボットによる3つのタスクとシミュレータ環境LIBEROで評価を行いました。PhysCaPは手当たり次第に触る手法と同等以上の高い成功率を維持しながら、接触回数と実行時間を大幅に削減し、VLAが解けない部分観測設定でも圧倒的な強さを示しました。",
+   "details_ja": "### 4.1 実験設定\n実機環境には7自由度のAgileX PiPERアームとZED 2i深度カメラを使用しました。バックボーンのVLMにはGemini 3.1 Pro、物体グラウンディングにはMolmo2を採用しています。評価指標は、タスク成功率（SR $\\uparrow$）、完了までに物体と接触した回数（OI $\\downarrow$）、総実行時間（Time $\\downarrow$）の3つです（OIとTimeは成功試行のみで集計）。各タスク10試行で評価しました。\n\n### 4.2 実機タスク\n1. **青いキューブ探し（Find Blue Cube）**: 3つの伏せられた紙コップのうち1つの下に隠された青いキューブを見つけるタスク。コップのサイズが異なるため、「小さすぎてキューブが入らないコップ」を視覚的に除外できるかが試されます。\n2. **空き缶の識別（Identify Empty Can）**: 4本の缶（未開封2本、ストローが刺さった開封済み2本）の中から、中身が空の1本を見つけてトレイに置くタスク。`get_mass` を使います。\n3. **熟したアボカド選び（Pick Ripe Avocado）**: 4個のアボカド（緑色2個、黒っぽい2個）から、ちょうどよく熟した1個を選んでトレイに置くタスク。色だけでは分からないため、`get_stiffness` で硬さを測る必要があります。\n\n### 4.3 比較手法と結果\n- **CaP（視覚のみ）**: 物理特性が分からないため勘で選び、成功率は極めて低くなります。\n- **CaP+PhysX**: 物理計測モジュールを持ちますが、探索推論がないため左から順に手当たり次第すべての物体を計測し、時間がかかります。\n- **CaP+PhysX+Planner**: 目的の物体が見つかった時点で探索を打ち切る終了条件が機能しますが、触る順番はランダムです。\n- **PhysCaP（提案手法）**: Prioritizerが「ストロー付きの缶」や「黒いアボカド」から優先して測るため、無駄な接触が最小化されます。結果として、最も高い成功率を達成しつつ、接触回数（OI）と実行時間（Time）の両方で最も優れた数値を記録しました。\n\n### 4.4 PhysXモジュールの単体検証\n13 gから963 gまでの5種類の標準重量物を用いた検証（各20回）では、関節トルクから真の質量を非常に高い相関と精度で推定できることが確認されました。また、3Dプリントした特製ボタン機構（輪ゴムの本数で弾性を調整可能）と実際のアボカドを比較した剛性試験でも、未熟・完熟・過熟の硬さの違いをモータ負荷と変位の曲線から綺麗に識別できることが示されました。\n\n### 4.5 シミュレーション（LIBERO）でのVLAとの比較\n空き缶タスクをLIBERO上で再現し、OpenVLA、$\\pi_{0.5}$、MolmoAct2といった最新VLAと比較しました。シミュレーション内では「コップを持ち上げて3 cm浮かせると質量が判明する」という能動探索のAPIを用意しました。結果、VLA群は受動的な画像入力から直接行動を出力する設計であるため、持ち上げて確かめるという仮説検証ループを実行できず、成功率はほぼ0%に沈みました。一方、PhysCaPはシミュレーションでも見事に機能し、高い成功率を記録しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "実機における空き缶識別（上段）と熟したアボカド選び（下段）の実行プロセスの様子です。Prioritizerの指示通り、ロボットは怪しい物体（ストロー付き缶や黒いアボカド）を優先して持ち上げたり挟んだりし、PhysXモジュールで物理量を測って目的の物体を特定しています。",
+     "caption": "Figure 3: PhysCaP measures task-relevant latent physical properties beyond passive visual perception and completes tasks . PhysCaP leverages the physical property extraction modules ( get_mass and get_stiffness ) to infer objects’ hidden attributes. Grounded by these physical measurements, the agent then synthesizes an informed code policy to successfully complete the objective, demonstrated here by the physical robot identifying an empty can (top: Identify Empty Can) and selecting a ripe avocad",
+     "image": "details/2608.21031/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "PhysXモジュールの精度検証結果です。左側のグラフは関節トルクから推定した質量がグラウンドトゥルース（赤点）とよく一致していることを示し、右側のグラフはグリッパの挟み込み量と負荷の関係からアボカドの熟度（未熟・完熟・過熟）を明確に分離できていることを示しています。",
+     "caption": "Figure 4: Quantitative analysis shows the accuracy of the PhysX module. The mass estimation plot (left) shows strong alignment with ground truth and high relative accuracy. Furthermore, stiffness evaluations (right) verify that the system can reliably distinguish varying levels of object rigidity to inform downstream manipulation policies.",
+     "image": "details/2608.21031/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "シミュレータ環境LIBEROにおける空き缶タスクの再現実験です。外見からは判別できない4つのカップに対し、ロボットが能動的にカップを3 cm持ち上げて重さを取得し、見事に空のカップを特定してバスケットへ運ぶ様子が確認できます。",
+     "caption": "Figure 5: We replicate the Identify Empty Can task in the LIBERO environment. The workspace contains four colored cups and a target basket. Because visual observation alone cannot determine which container is empty, the robot physically interacts with the scene by actively lifting each candidate 3 cm to reveal its mass before placing the correct target into the basket.",
+     "image": "details/2608.21031/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Discussion",
+   "heading_ja": "PhysCaPの現在地と、これから乗り越えるべき課題",
+   "summary_ja": "PhysCaPは追加センサなしで能動的な物理探索を実現しましたが、商用VLM API依存による遅延や推論のばらつき、単眼深度カメラによる3D位置推定の誤差、アームとの通信遅延といった実用上の制約も残されています。",
+   "details_ja": "PhysCaPは、追加のハードウェアを一切買わずに、既存のロボットアーム自身の力で「触って確かめる」能力を引き出した点で非常に実用的かつ画期的なアプローチです。しかし、著者らは実用化に向けて以下の3つの限界を率直に認めています。\n\n1. **商用VLM APIへの依存**:\n   Geminiなどの商用クラウドAPIを利用しているため、ネットワーク通信による遅延や、日による推論結果のばらつきが発生します。今後はローカルで動作するオープンソースのVLMに置き換えることで、応答の一貫性とリアルタイム性を高める必要があります。\n\n2. **2D検出と単眼深度推定の限界**:\n   物体の3次元位置特定を「2D検出モデル（Molmo）＋単眼ステレオカメラ（ZED 2i）の深度マップ」に依存しているため、2Dのバウンディングボックスのわずかなズレが3D空間でのエンドエフェクタの位置決め誤差に直結します。将来のバージョンでは、マルチビューカメラや3Dネイティブな表現モデルの導入が求められます。\n\n3. **低レベル制御の通信レイテンシ**:\n   PiPERアームとのハードウェア通信の遅れにより、生成されたコードの指令軌道と物理的なロボットの動きにわずかな乖離が生じることがありました。高精度な物理探索をよりスムーズに行うためには、リアルタイム制御信号のより厳密な管理が必要です。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「見た目で分からないなら触る」という能動知覚を、既存のVLAに任せるのはまだ難しく、モジュール化されたCode-as-Policy設計が現状極めて有効である",
+  "高価な触覚センサがなくても、アームの重力補償ヤコビアンを用いた関節トルク差分や、グリッパのバックオフテスト＋負荷測定で十分実用的な質量・硬度測定ができる",
+  "探索をただ行うだけでなく、Planner（終了条件）とPrioritizer（視覚ヒューリスティクスによる優先順位付け）を分離することで、探索コスト（接触回数・時間）を劇的に減らせる",
+  "プロンプトを1つにまとめた単一エージェント（PhysCaP-joint）よりも、役割を分けたデュアルエージェント構成の方が過剰探索を防ぐ上で構造的に有利である"
+ ],
+ "limitations_ja": [
+  "商用VLM APIの推論速度や出力のばらつきに依存しており、リアルタイム性や決定論的な再現性に課題がある",
+  "物体の3次元位置特定を2D検出と単一視点の深度情報に頼っているため、視覚的なオクルージョンや検出誤差に弱い",
+  "ロボットアームとの通信レイテンシによって、生成されたコードの軌道と実機の追従動作の間にズレが生じる場合がある"
+ ],
+ "keywords": [
+  "Active Perception",
+  "Code-as-Policy",
+  "Vision-Language-Action (VLA)",
+  "Proprioceptive Sensing",
+  "Physics-Informed Exploration"
+ ],
+ "id": "2608.21031",
+ "title": "PhysCaP: Grounding Code-as-Policy Agent with Physics-Informed Exploration",
+ "title_ja": "PhysCaP: 物理情報に基づく能動的探索を備えたCode-as-Policyエージェント",
+ "authors": [
+  "Chen-Yu Lin",
+  "Jing-Wen Chen",
+  "Hsueh-En Chang",
+  "Hung-An Chen",
+  "Sheng-Hsun Chang",
+  "Chi-Pin Huang",
+  "Fu-En Yang",
+  "Min-Hung Chen",
+  "Yi-Ting Chen",
+  "Yu-Chiang Frank Wang",
+  "Shao-Hua Sun"
+ ],
+ "date": "2026-08-24",
+ "group": "general",
+ "tags": [
+  "llm-agent",
+  "perception",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.21031",
+ "pdf_url": "https://arxiv.org/pdf/2608.21031",
+ "summary_ja": "受動的な視覚観察だけでは推定が困難な物体の質量や剛性などの潜在的物理特性を、ロボットの固有感覚を介した能動的接触探索によって推定するCode-as-Policy手法を提案。追加センサ不要の物理特性抽出モジュールと探索効率を最適化するデュアルエージェント構成により、正確な物理パラメータに基づくマニピュレーションコード生成を実現した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.21031"
+}
