@@ -1,0 +1,123 @@
+{
+ "tldr_ja": "VLAポリシーの内部にわずか20個のトークンを埋め込み、学習時だけ3Dガウス再構成・未来予測を行うことで、推論速度を落とさずに高精度かつ頑健なロボット操作を実現しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "ロボット制御ポリシーの分類です。2D画像に頼る従来手法や、推論時にも重い3Dモデルや生成モデルを動かす手法に対し、提案手法（右端）はわずか20個のWorld TokenをVLAに埋め込み、学習時のみガウシアン表現で3D構造と未来変化を指導するアシンメトリックな設計を採っています。",
+  "caption": "Figure 1: Comparison of robotic policy paradigms. Reactive VLAs map observations and language instructions directly to actions but rely mainly on implicit visual representations. Geometry-enhanced policies improve current-scene spatial grounding, whereas predictive and world-model policies introduce temporal supervision through future modeling. GaussianDream++ combines current-world reconstruction and future prediction within a compact, policy-native Gaussian representation, providing structured",
+  "image": "details/2608.25659/F1.jpg"
+ },
+ "overview_ja": "大規模な視覚言語事前学習を活用するVision-Language-Action（VLA）ポリシーは、指示遂行能力に優れる一方で、行動の模倣学習だけでは正確な3次元構造や短時間の物理変化を捉えにくいという課題を抱えています。これに対し、3次元の深さ情報を取り込む手法や、将来の動画や潜在ダイナミクスを予測する世界モデル（World Model）が提案されてきましたが、推論時に重いモデルを動かす必要があったり、予測される画像が物理的に正しい3D幾何と一致しなかったりという難点がありました。\n\n先行研究のGaussianDreamは、3D Gaussian Splatting（3DGS：微小なガウス楕円体で3D空間を表現する技術）を学習時の補助的な教師信号として使い、推論時にはデコーダを切り捨てる非対称な構成を提案しました。しかし、1024個もの密な幾何プレフィックスを専用モジュールで抽出して推論時にも保持していたため、計算コストや役割の混在が課題でした。そこで本論文のGaussianDream++は、VLAのバックボーン（PaliGemma）に直接わずか20個のトークン（状態用16個、予測用4個）を埋め込む構成へと刷新しました。学習時には共有ガウシアン上で現在世界の再構成と未来予測を同時に行い、静止領域と動的領域を分離して学習させます。推論時には3DGSデコーダやレンダラを完全に撤去し、残った20トークンがAction Expertに直接3D幾何の文脈を伝えます。\n\n実験では、シミュレーションベンチマークLIBEROで98.6%、LIBERO-Plusで87.8%の成功率を達成し、特にカメラ位置や配置の変化に対して高い頑健性を示しました。さらに実機ロボット実験でも、ベースラインの$\\pi_{0.5}$（成功率29.2%）に対して52.5%へと大幅な向上を確認し、追加レイテンシをわずか44msに抑えつつ高精度な制御ができることを実証しました。",
+ "contributions_ja": [
+  "VLAバックボーン（PaliGemma）に直接埋め込まれるわずか20個のWorld Token（状態用16個、予測用4個）による超軽量な3D世界表現を設計したこと。",
+  "共通のガウシアン基本要素上で現在世界の再構成と未来変化の予測を結びつけ、静止領域と動的領域を分離することで物理的に妥当な変化に学習を集中させたこと。",
+  "3DGSのデコードやレンダリング、専用の幾何抽出器を学習時のみに限定し、推論時は軽量なトークン処理だけで動く高効率な非対称アーキテクチャを実現したこと。",
+  "LIBERO-Plusでのカメラ・配置変化に対する優れたゼロショット頑健性と、実機双腕ロボットにおける成功率の大幅な向上（29.2%から52.5%）を実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "VLAに3次元の物理世界をどう教え、どう身軽に動かすか",
+   "summary_ja": "現在のVLAは2D画像特徴量と行動模倣に頼っており、接触を伴う正確な3D操作や短時間の物理変化の予測が苦手です。先行研究GaussianDreamは学習時のガウシアン予測でこれを解決しましたが、推論時にも1024個の密な外部幾何トークンを必要としていました。GaussianDream++はわずか20個のトークンをモデル内部に統合し、完全な身軽さと高い幾何理解を両立させました。",
+   "details_ja": "言語指示に従ってロボットが物体を操作するVLA（Vision-Language-Action）ポリシーは急速に発展していますが、行動の模倣学習（Behavior Cloning）だけでは、接触や把持に必要なメトリックな3次元構造や、操作による直近の物理変化を捉えきれないという根本的な問題があります。既存研究では、デプスや点群などの幾何入力を加えるアプローチや、未来のRGB画像・潜在表現を予測する世界モデルのアプローチが試みられてきました。しかし、幾何を追加する手法は現在の静的なシーン理解にとどまりがちで、世界モデルは推論時の計算負荷が大きく、予測された画像が物理的に正確な幾何変化と一致しないケースがあります。\n\nこれに対し、先行研究のGaussianDreamは、3D Gaussian Splattingを用いて学習時のみ現在と未来の3D状態を再構成・予測させ、推論時にはデコーダを捨てるというスマートな非対称設計を打ち出しました。しかし、GaussianDreamでは1024個もの密なクエリをVGGTやTGEといった専用モジュールで外部から生成して推論時にも入力していたため、依然として専用の幾何処理パイプラインが残り、トークン数も膨大でした。\n\n本論文のGaussianDream++は、この世界表現をVLAの言語・視覚バックボーン内部に完全にネイティブな形で統合します。具体的には、現在のシーンを表す「World State Tokens」と直近の変化を表す「World Prediction Tokens」の計20個のトークンを挿入し、学習時のみ軽量なヘッドで3Dガウスをデコードして指導します。推論時には余分な外部モジュールを一切動かすことなく、バックボーン内部の20トークンが直接Action Expert（行動生成器）に効くため、圧倒的な推論効率と頑健性を両立できます。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "幾何拡張VLAと世界モデルの進化、そして3DGSの活用",
+   "summary_ja": "VLAの幾何理解を高める研究は静的な現フレームの補強が中心であり、未来を予測する世界モデルは計算コストや物理的整合性に難がありました。これらを繋ぐアプローチとして3DGSを用いた学習時監視が注目されています。本研究は先行するGaussianDreamの強みを活かしつつ、トークンのコンパクト化とアーキテクチャの内部統合を推し進めた位置づけになります。",
+   "details_ja": "- **VLAポリシーと幾何的グラウンディング**: RT-2やOpenVLA、$\\pi_{0.5}$などの代表的なVLAは、言語と画像の強力な意味的特徴を持ちますが、メトリックな3D幾何は間接的にしか学習されません。点群やデプス、4D特徴量を取り込む手法（G3VLAやVGAなど）が提案されていますが、これらは主に現在の観測フレームを幾何学的に固定することに主眼があり、接触後に環境がどう変化するかという短時間の時間発展までは十分に監督できません。\n\n- **予測型ポリシーと世界モデル**: 行動の模倣だけでなく、未来の観測や軌道、動画潜在変数を予測する試み（Fast-WAMやCosmos Policyなど）は、行動学習に時間的な事前知識を与えます。しかし、RGB画像や潜在空間での予測は、見た目がそれらしくてもミリ単位の接触や把持で物理的に破綻しがちです。また、推論時にも生成モデルをロールアウトすると制御ループが重くなってしまいます。\n\n- **ロボット学習におけるガウシアン世界モデリング**: 明示的な位置・回転・スケール・不透明度・色を持つ3DGSは、微分可能レンダリングが可能で幾何と外観を結びつけやすい特長を持ちます。先行研究GaussianDreamはこれを学習時の補助タスクに用い、RGB・デプス・3Dシーンフローによる高密度な自己教師あり学習を導入しました。GaussianDream++は、この学習時監視という優れた原則を継承しつつ、外部の密なPrefix生成を廃し、VLAの内部トークンとしてコンパクトに再構築した点が決定的に異なります。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "わずか20個のトークンに3次元の現在と未来を教え込む仕組み",
+   "summary_ja": "PaliGemmaの入力に16個の状態トークンと4個の予測トークンを追加し、学習時のみ軽量ヘッドで共通の3Dガウシアンから現在世界の再構成と未来変化の予測を行います。静的・動的の分離により背景のブレを防ぎ、物理変化だけを効率的に捉えます。推論時にはデコーダやレンダラをすべて撤去し、20個のトークンだけを残して高速に行動を生成します。",
+   "details_ja": "### 3.1 & 3.2 ポリシーネイティブな世界表現とトークン構成\nGaussianDream++では、マルチビュー観測画像 $o_t$ と言語指示 $\\ell$ に加えて、2つの学習可能トークン群をPaliGemmaバックボーンに直接挿入します。現在のシーン形状を表す16個の「World State Tokens（$Z^S$）」と、短時間の将来予測を担う4個の「World Prediction Tokens（$Z^P$）」です。これらは合計でわずか20個であり、バックボーン内部で画像・言語トークンと一緒に自己注意機構で文脈化されます。得られた特徴量はそのままFlow-matchingベースのAction Expertに入力され、余計な射影層を介さずに行動生成を直接条件づけます。\n\n### 3.3 現在世界の再構成（Current World Reconstruction）\n学習時のみ、軽量なWorld Representation Headが状態トークンの特徴量から高密度なガウシアン特徴マップを展開します。幾何と外観の予測枝を分離しており、幾何枝が予測したデプスをカメラの内部・外部パラメータで逆投影して3Dガウスの中心座標を定めます。外観枝には幾何特徴の勾配を伝播させない（Stop-gradient）設計にしており、見た目のテクスチャ合わせによる幾何構造の歪みを防いでいます。レンダリングされたRGB、デプス、不透明度と正解データとの間で誤差を計算し、状態トークンに正確なメトリック幾何を叩き込みます。\n\n### 3.4 結合された未来予測（Coupled Future Prediction）\n将来予測では、現在世界で構築したガウシアンの基本要素（スケールや外観など）をそのまま共有テンプレートとして引き継ぎ、予測トークンと時間埋め込みを用いて「各ガウス中心の変位（$\\Delta \\mu$）」だけを予測します。さらに、静止領域と動的領域を分けるゲーティング機構を導入し、正解データで静止している背景や固定物体にはペナルティを課して無駄な動きを抑制します。これにより、予測モデルはロボットアームや動かされる物体など、相互作用が起きる領域の変化だけに学習リソースを集中させることができます。\n\n### 3.5 学習と推論の非対称な切り分け\n学習時の全体損失関数は、行動生成のフロー整合損失 $\\mathcal{L}_{\\mathrm{act}}$ に、現在世界の再構成損失 $\\mathcal{L}_{\\mathrm{curr}}$ と未来予測損失 $\\mathcal{L}_{\\mathrm{pred}}$ を重み付けして足し合わせたものです。推論時には、3DGSをデコードするヘッドや微分可能レンダラ、補助損失の計算パイプラインを完全に切り捨てます。ロボットを動かす際には、PaliGemma内で20個のトークンが処理されるだけなので、3Dのロールアウト計算を一切行わずに、3D幾何と動的変化が染み込んだ表現を行動生成に活かすことができます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "GaussianDream++の全体フレームワークです。左側のPaliGemmaバックボーンにWorld State TokensとPrediction Tokensを直接埋め込んでAction Expertに繋ぎ、右側の軽量ヘッドによるガウシアンの現在再構成と未来予測は学習時のみに限定（Training Only）して行われます。",
+     "caption": "Figure 2: Overview of GaussianDream++. World State Tokens and World Prediction Tokens are inserted directly into the PaliGemma prefix and contextualized with visual and language tokens. The resulting representation directly conditions the Action Expert. During training, a lightweight World Representation Head decodes the same token representations into the Current World and coupled Future Prediction for dense Gaussian supervision. Future observations are used only to construct supervision target",
+     "image": "details/2608.25659/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "シミュレーションと実機で実証された高い頑健性と推論効率",
+   "summary_ja": "LIBEROベンチマークで98.6%、未知の外乱をテストするLIBERO-Plusで87.8%を達成し、特にカメラ位置や物体配置のずれに対して大きな強みを見せました。実機双腕ロボットでも成功率を29.2%から52.5%へと倍増させ、推論時の追加レイテンシはわずか44msに抑えられています。",
+   "details_ja": "### 4.1 & 4.2 シミュレーション評価（LIBERO & LIBERO-Plus）\n標準ベンチマークLIBEROの4つのタスクスイート（Spatial, Object, Goal, Long）において、GaussianDream++は平均成功率98.6%を達成しました。さらに、環境外乱に対するゼロショット頑健性を評価するLIBERO-Plusでは全体スコア87.8%を記録し、先行研究GaussianDream（87.0%）やベースラインの再現版$\\pi_{0.5}$（85.5%）を一貫して上回りました。特に効果が顕著だったのが幾何変化を伴う外乱で、カメラ視点変更（Camera shift）では$\\pi_{0.5}$比で+6.9ポイント（73.2%→80.1%）、物体配置変更（Layout shift）では+2.3ポイント（87.7%→90.0%）の向上を示しました。視点やレイアウトが変わっても、トークン内部に正確な3D構造が保持されている証拠といえます。\n\n### 4.3 実機ロボット実験\n実機の双腕ロボットを用い、ミリ単位の配置精度が問われる「Bowl-Proximity（ボウルを倒さずに隣へ寄せる）」と、不要な物体が混ざる長手順の「Eggplant-to-Pink-Plate（ナスを選んでピンクの皿に置く）」の2タスクで評価しました。それぞれ通常配置、配置変更（Layout）、カメラ位置変更（Camera）の3条件（各20試行）を実施したところ、全体の平均成功率は再現版$\\pi_{0.5}$の29.2%から52.5%へと劇的に向上（+23.3ポイント）しました。実環境でも視点や配置の変動に対して高い粘り強さを発揮しています。\n\n### 4.4 & 4.5 定性分析と推論効率\n学習時のヘッドから出力されたRGBとデプスを可視化すると、粗いトークン表現でありながらアームの姿勢やテーブル上の物体の位置関係を正確に3D復元できており、未来予測でも主要な物理変化を的確に捉えていることが確認できました。推論速度の測定では、アクションチャンクあたりの計算時間は$\\pi_{0.5}$の286msに対してGaussianDream++は330msであり、追加時間はわずか44ms（約1.15倍）に留まっています。推論時に1024個のPrefixと幾何抽出器を動かしていたGaussianDreamと比較して、はるかに身軽に現場展開できます。\n\n### 4.6 アブレーション研究\nトークンを追加しただけでガウシアン学習を行わない場合、LIBERO-Plusの成功率は86.3%にとどまり、性能向上には3DGSによる学習時監督が不可欠であることが分かりました。また、損失関数からメトリックデプス損失を抜くと成功率が87.8%から86.9%（Camera耐性は80.1%から76.5%）へと大きく低下し、3Dシーンフロー損失の除外もノイズや配置耐性を悪化させました。現在世界の幾何拘束と未来の運動拘束の両方がバランス良く効いていることが裏付けられています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "実機ロボット評価の実験セットアップです。精密な位置決めが求められるボウルの近接配置タスクと、妨害物体が存在する長手順のナス配置タスクに対し、通常環境、配置変更（Layout）、カメラ位置変更（Camera）の3条件でテストしています。",
+     "caption": "Figure 3: Real-world tasks and distribution shifts. Bowl-Proximity evaluates fine-grained object-relative placement, whereas Eggplant-to-Pink-Plate evaluates long-horizon manipulation with semantic distractors. Each task is tested under the nominal Standard setting, a Layout shift that changes object-relative configurations, and a Camera shift that relocates the global camera while retaining the same task goal.",
+     "image": "details/2608.25659/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "学習時ヘッドからデコードされた現在世界（Current Recon）と未来予測（Future Pred）の定性結果です。粗いトークンでありながらアームの姿勢や机上の3次元デプス構造がしっかりと復元されており、未来予測でもシーンの整合性が保たれていることが分かります。",
+     "caption": "Figure 4: Qualitative analysis of GaussianDream++. We show Ground Truth, Current Reconstruction decoded from World State Tokens, and Future Prediction decoded jointly from World State Tokens and World Prediction Tokens. Current Reconstruction recovers the dominant robot configuration, workspace geometry, and object layout, whereas Future Prediction preserves the same coarse scene structure while representing short-horizon changes. The objective is not photorealistic future generation, but an act",
+     "image": "details/2608.25659/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "重い世界モデルを配備せず、3D物理の直感をポリシーに宿す",
+   "summary_ja": "GaussianDream++は、VLAバックボーン内部のわずか20個のトークンと学習時ガウシアン監視を組み合わせることで、高精度かつ外乱に強いロボット操作を実現しました。推論時に余分な世界モデルやレンダラを動かすことなく3D認識能力を高められるため、今後のロボット基底モデルの標準的な学習指針として極めて実用的です。",
+   "details_ja": "GaussianDream++は、物理的な接触や空間配置を伴うVLA制御において、明示的な3D世界モデリングの恩恵を最も効率的な形でポリシーに内部化できることを示しました。従来のように巨大な3Dモデルや動画生成モデルを推論時に動かすのではなく、学習時に3DGSを通じて密な幾何・運動の教師信号を与え、推論時にはわずか20個の内部トークンだけを保持するというアシンメトリックな設計思想は、計算リソースがシビアなロボット実機において非常に強力です。\n\nシミュレーションでの高い外乱耐性と、実機双腕ロボットにおける成功率の倍増（29.2%→52.5%）は、この軽量アプローチの有効性を明確に証明しています。高価なオンラインシミュレータを抱えることなく、3次元の空間感覚と直近の物理変化への適応力をロボットに備えさせる実用的な道筋を切り開いたといえます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「学習時は重厚な3D世界モデルで監督し、推論時は軽量トークンのみ残して捨てる」非対称アーキテクチャの有効性が改めて実証されたこと。",
+  "現在世界のテンプレートを共有し、未来予測は変位（残差）のみに限定して静止領域をゲーティングする手法は、無駄な計算とノイズを抑える上で非常に合理的であること。",
+  "視点変更や物体の初期配置ずれといった現場で頻発する外乱に対し、メトリックなデプスと3Dシーンフローによる事前監督が強力な耐性をもたらすこと。"
+ ],
+ "limitations_ja": [
+  "LIBERO-Plusの「Robot shift（異なるロボットアームへの適応）」スコアはベースラインの$\\pi_{0.5}$を下回っており、エンボディメント（身体性）自体の大きな違いに対する汎化は依然として課題である点。",
+  "学習時には3Dガウスのデコードと微分可能レンダリングを行うため、ポリシー単体の模倣学習と比べて学習時間やGPUメモリの消費が増加する点。",
+  "World Tokensから得られる現在・未来の3D再構成は粗い幾何構造にとどまり、微小な物体の境界や複雑なテクスチャの忠実な再現まではカバーしていない点。"
+ ],
+ "keywords": [
+  "Vision-Language-Action (VLA)",
+  "3D Gaussian Splatting (3DGS)",
+  "World Model",
+  "Robotic Manipulation",
+  "Flow Matching"
+ ],
+ "id": "2608.25659",
+ "title": "GaussianDream++: Efficient 3D Gaussian World Modeling for Robotic Manipulation",
+ "title_ja": "GaussianDream++：ロボット操作のための効率的な3Dガウス世界モデリング",
+ "authors": [
+  "Yuqing Jiang",
+  "Zijian Zhang",
+  "Weitao Zhou",
+  "Jiawei Wang",
+  "Junjie He",
+  "Lei Yang",
+  "Haifang Qing",
+  "Si Liu",
+  "Ding Zhao",
+  "Ping Luo",
+  "Haibao Yu"
+ ],
+ "date": "2026-08-27",
+ "group": "general",
+ "tags": [
+  "world-model",
+  "manipulation",
+  "perception"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.25659",
+ "pdf_url": "https://arxiv.org/pdf/2608.25659",
+ "summary_ja": "ロボット操作において3D幾何構造と短時間の物理変化を予測する世界モデルGaussianDream++を提案。現在の3Dガウス再構成と未来の予測を分離してコンパクトな表現に落とし込み、低計算コストかつ高精度に未来の観測変化と動作を予測して言語指示タスクの成功率を高めた。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.25659"
+}
