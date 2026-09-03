@@ -1,0 +1,156 @@
+{
+ "tldr_ja": "言語学理論「FrameNet」を手がかりに人間の動作空間を体系的に網羅し、617.5時間ものミリ単位精度の光学式モーションキャプチャと同期物体メッシュを収録した、ヒューマノイド強化学習のための超大規模データセット「HiPHI」の提案です。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "言語学フレームワークFrameNetからHiPHIの動作空間を構築する全体パイプラインです。ロボットに必要な事象（Frame）と動詞等の語彙単位（LU）を動作シードとして選び、速度や方向、接触条件などを体系的に変化させることで、広大かつ偏りのない動作空間を構築しています。",
+  "caption": "Figure 2: From FrameNet to HiPHI data construction. Motion-relevant frames and lexical units define motion seeds, which are expanded through controlled factors such as speed, direction, amplitude, body-part involvement, and object/contact conditions.",
+  "image": "details/2608.16222/F2.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットに汎用的な全身運動や物体操作を学ばせるには、参照となる大量の動作データが欠かせません。しかし、これまでのデータ収集には大きなジレンマがありました。実ロボットの遠隔操作はコストが高く集まりにくい一方、Web上の動画データは視覚情報のみで正確な物理接触や関節状態が分かりません。さらに従来のモーションキャプチャ（MoCap）はアニメーション向けに手作業で作ったシナリオが多く、動作の網羅性や「物体との正確な物理相互作用」が不足していました。例えば、椅子がないのに空気椅子をするようなデータでは、ロボットが物理的に安定した制御を学べません。\n\nそこで著者らは、画像認識におけるWordNetとImageNetの関係に着目しました。言語学の概念体系である「FrameNet（意味フレーム理論）」を足場に使い、動作空間を体系的に設計する手法を考案したのです。ロボットの行動に関係する事象フレームと語彙単位（LU）を種（シード）として抽出し、速度・方向・振幅・負荷・接触条件といった物理パラメータを組織的に掛け合わせて動作シナリオを生成しました。\n\nこの設計に基づき、132名の演者から高精度な光学式MoCapを用いて617.5時間（うち物体操作が245.7時間）に及ぶデータセット「HiPHI」を収録しました。物体の3Dメッシュと6自由度軌道もミリ未満の精度で完全同期しています。\n\n実験では、教師なしキネマティクス埋め込みによる動作空間の広さ、関節加加速度（ジャーク）や床面接地・物体干渉などの物理的品質、そしてUnitree G1ロボットによる全身追従強化学習および実機展開を評価しました。その結果、HiPHIは既存のあらゆるデータセットを有意に上回る多様性と物理的一貫性を示し、学習したポリシーは実機でも走る・座る・箱を運ぶ・スーツケースを引くといった多様な動作を安定して実現できることが確かめられました。",
+ "contributions_ja": [
+  "言語学理論FrameNetを足場にして、ヒューマノイドに必要な動作空間を理論的かつ体系的に網羅・拡張する動作収集パイプラインを確立したこと",
+  "合計617.5時間（左右反転含む）に及ぶミリ未満精度の光学式MoCapデータと、同期された物体軌道・メッシュを含む245.7時間の物体接触データを構築したこと",
+  "運動空間の被覆率、床面や物体との幾何学的物理一貫性、物理シミュレーションおよび実機ヒューマノイドでの動作追従性能を多面的に評価するベンチマーク環境を提供したこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "ヒューマノイド学習に足りなかった「広さ」と「物理的正確さ」",
+   "summary_ja": "ヒューマノイドのポリシー学習には、多様な全身運動と物体との物理的相互作用が正確に記録されたデータが必要です。本研究では言語資源FrameNetを足場として動作空間を体系化し、高精度光学式MoCapによる超大規模データセット「HiPHI」を構築しました。",
+   "details_ja": "ヒューマノイドロボットが実世界で動くためには、動的バランス、姿勢遷移、四肢協調、そして接触や負荷に応じた制御方策を学ぶ必要があります。\n\nしかし、既存のデータソースには決定的なトレードオフが存在していました。ロボット実機の遠隔操作データは収集コストが極めて高く、特定の機体に依存します。インターネット上の動画や一人称視点映像は多様性に富むものの、物理的な関節角度や接触状態が直接得られず、推定ノイズが残ります。一方、CGアニメーションや人物理解向けに作られた従来のMoCapデータは、動作のバリエーションが狭く、物体との接触状態が正しく同期されていないという弱点がありました。\n\n本研究では、この問題を「運動空間（モーションスペース）の設計問題」として捉え直しました。あらかじめ言語的に定義された意味構造であるFrameNetを活用して動作の種（シード）を決め、方向や速度、負荷などの変調要素を掛けて組織的にシナリオを生成します。\n\nこうして132名の演者から収集されたHiPHIは、合計617.5時間（左右反転後）の規模を誇り、物体操作だけでも245.7時間を含んでいます。物体の3Dメッシュと位置姿勢も同時に記録されているため、ロボットが物理的に実行可能な参照データとして活用できます。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "既存のロボット遠隔操作・動画・MoCapデータとの違い",
+   "summary_ja": "遠隔操作データや動画ベースのデータセット、従来の人物MoCapやHOI（人物・物体相互作用）データセットの限界を整理し、本研究が「大規模・高精度・体系的網羅・物体同期」を兼ね備えた初の大規模基盤であることを位置づけています。",
+   "details_ja": "本章では、ロボティクスおよび身体知能（Embodied AI）で用いられるデータソースを3つの系統に分けて整理しています。\n\n- ロボット遠隔操作と一人称視点データ: UMIや遠隔操作によるデータは機体差（Embodiment Gap）がない反面、収集コストが高く特定のロボットハードウェアに強く縛られます。一方、一人称視点動画は多様な日常行動を含みますが、力や接触はおろか精密な3D身体姿勢すら直接計測できません。\n- 人物モーションキャプチャ（MoCap）データ: AMASSやLAFAN1、HumanML3D、BONES-SEEDなどはCG合成やアニメーション用途で広く使われてきましたが、動作空間の網羅性が場当たり的で、ロボット学習を目的として体系的に集められたものではありませんでした。\n- 人物・物体相互作用（HOI）データ: OMOMOやHIMOなどの物体操作MoCapも登場していますが、データ規模が数時間から十数時間程度と小さく、物理的な接触精度やバリエーションが不十分でした。\n\nHiPHIは、これらの課題を一挙に解決し、大規模かつミリ未満精度の光学MoCap、FrameNetによる網羅的設計、そして同期された物体情報を併せ持っている点が際立っています。",
+   "figures": []
+  },
+  {
+   "heading": "3 FrameNet-Guided Motion-Space Construction",
+   "heading_ja": "思いつきの脚本作りを脱却！FrameNetによる動作空間の体系化",
+   "summary_ja": "日常の全動作を漫然と集めるのではなく、制御に重要な動作を網羅するためにFrameNetの意味フレームと語彙単位（LU）を導入しました。各LUを動作シードとして物理的・幾何学的な変調を施すことで、体系的で拡張性のある動作空間構築を実現しています。",
+   "details_ja": "ヒューマノイドに必要な動作は、人間の一日をそのまま再現することではありません。ロボットが「テレビを見る」動作を過剰に学んでも意味はなく、ロコモーションや姿勢遷移、動的バランス、外力拘束への応答といった制御中心のパターンが不可欠です。\n\n従来のデータ収集では、設計者が思いつきで日常行動の脚本（スクリプト）を書いていました。しかしこれだと、「汗をぬぐう」と「日差しを遮る」のように、文脈は違っても運動としては全く同じになってしまう重複が発生します。逆に「歩く」という単純な動作でも、速度や旋回方向、歩幅が変われば全く異なる運動になります。手書きスクリプトの蓄積では、運動空間のどこが埋まっていてどこが欠如しているのか客観的に把握できません。\n\nそこでHiPHIが採用したのが、ImageNetがWordNetを用いたのと同様のアプローチです。言語資源FrameNetを用い、事象を表す「フレーム」と、その文脈での語義を表す「語彙単位（LU: Lexical Unit）」を定義します。例えばSelf_motionフレーム下のwalk（歩く）やrun（走る）などを種（シード）として抽出します。\n\nこのシードに対して、次のような共通の変調要素（Augment Factors）を掛け合わせて演者用の指示を作成します:\n- 経路・方向（直線、周回、シャトル往復など）\n- 速度・リズム（低速、高速、急停止など）\n- 振幅・姿勢（大股、中腰、上半身・下半身の関与度など）\n- 物体・接触条件（物体の種類、重量、押し引き、運搬など）\n\nさらに、椅子に座る動作で椅子が記録されていない「空気椅子」のような破綻を防ぐため、接触対象の物体も同時にトラッキングします。これにより、力学的に接地した完全な相互作用データを記録できます。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "従来の手作業によるスクリプト作成と、HiPHIが採用したFrameNet誘導型の比較です。左の従来法は思いつきでタスクを追加するため空間のカバレッジが不明瞭ですが、右のHiPHIは共通の因子でシードを拡張するため、体系的かつスケーラブルに動作空間を広げられます。",
+     "caption": "Figure 3: Manual scripting versus FrameNet-guided construction. Manual collection grows by adding scripts one by one, whereas HiPHI organizes collection around Frame-LU motion seeds and expands them through shared factors. This turns dataset growth into a structured and scalable expansion of the motion space.",
+     "image": "details/2608.16222/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Dataset Composition and Statistics",
+   "heading_ja": "600時間超の圧倒的スケールとリッチなメタデータ",
+   "summary_ja": "HiPHIは132名の演者から90Hzで収録され、左右反転を含めて617.5時間（約2億フレーム）に達します。高頻度な基本動作だけでなくロングテールの珍しい動作も豊富に含み、40種類のリアルな物体との接触データも完備しています。",
+   "details_ja": "HiPHIの具体的な構成と統計情報は以下の通りです。\n\n- 規模と収録精度: 132名の演者（男性76名、女性56名、身長155〜185cm、体重40〜82kg）から、光学式MoCapシステムを用いて90Hzでキャプチャされました。BONES-SEED等の慣例に従い左右反転データを加えた総収録時間は617.5時間（元データ308.7時間）、フレーム総数は約2億フレームに達します。\n- 動作の分類構成: 人体のみの動作が371.8時間、物体相互作用（HOI）が245.7時間です。FrameNetの22フレーム、214種類のFrame-LUに分類され、各クリップにはFrame-LUラベルと自然言語のテキスト説明が紐づけられています。\n- ロングテールの網羅性: 上位50個のFrame-LUが全体の53.7%を占める一方、残りの46.3%はより動的で変則的なロングテール動作に分散しています。各LUあたり平均24人の異なる演者が演技しており、動作内の個体差も豊富です。\n- 物体操作セット: 家具、コンテナ、清掃用具、スポーツ用品など12カテゴリ・40種類の現実の物体（質量0.45〜6.25kg）を使用し、90種類のFrame-LUにわたる接触動作（押す、引く、運ぶ、座る、もたれる等）が記録されています。物体の3Dメッシュと同期トラジェクトリが完全同期して提供されます。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "HiPHIにおけるFrame-LUの構成比率とロングテール構造です。(a)フレームごとの時間割合、(b)LUごとの分布、(c)累積カバー率を示しており、主要な基本動作を抑えつつ、珍しい動作パターンもしっかりと長い裾野（約46%）として収録されていることが分かります。",
+     "caption": "Figure 4: Frame-LU composition and long-tail structure. The figure shows duration by FrameNet frame, the Frame-LU duration distribution, and cumulative duration share, illustrating that HiPHI combines common motion units with a broad long tail of whole-body patterns.",
+     "image": "details/2608.16222/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Experiments",
+   "heading_ja": "動作空間の広さ、物理的精度、実機ヒューマノイドへの転移を実証",
+   "summary_ja": "運動空間の被覆率評価、関節ジャークや床面・物体接触などのデータ品質評価、そしてUnitree G1を用いた物理シミュレーションおよび実機での強化学習トラッキング評価を実施し、既存データセットに対する圧倒的な優位性を示しました。",
+   "details_ja": "評価は大きく分けて「データセット自体の特性」と「ヒューマノイド学習での下流タスク性能」の2つの軸で行われました。\n\n5.1 運動空間の多様性（Motion-Space Diversity）\n各データセットから均等にサンプリングした動作ウィンドウに対し、教師なし時間畳み込みオートエンコーダを共通学習させ、16次元潜在空間をt-SNEで2次元可視化しました。$55\\times 55$のグリッド分割による占有セル数（網羅度）の比較では、HiPHIは1620セルを占有し、最も近しい強豪ベースラインであるBONES-SEEDの1438セルを大きく上回りました。エントロピーに基づく有効占有セル数（1443 vs 1114）やロングテール割合（14.1% vs 10.7%）でも勝っており、一般的な動作を密に集めただけでなく、未踏の運動空間に均一に広がっていることが証明されました。\n\n5.2 データ品質（Data Quality）\n- 身体運動の滑らかさと接地性: ヒューマノイドの模倣失敗の主因となる加加速度 $\\mathcal{J}_{\\tau}$（ジャーク）、加速度 $\\mathcal{A}$、床面貫通深さ $\\delta_{\\text{ground}}$、浮遊率 $\\phi_{\\text{float}}$、足スライド速度 $\\nu_{\\text{foot}}$ を計測。HiPHIは床面基準が共通する比較対象の中で、すべての指標において最も優れた数値を達成しました。\n- 物体接触の一貫性: 物体内部への人体侵入を防ぐ非衝突率 $\\eta_{\\text{nc}}$ は98.1%、物体表面近傍での接触率 $\\rho_{\\text{near}}$ は95.7%を記録。既存のHOIデータセットであるOMOMO（50.4%）やHIMO（79.0%）と比べて極めて精度の高い物理的接地性を誇ります。\n\n5.3 ヒューマノイド学習（Humanoid Learning）\nUnitree G1ロボットを対象に、DeepMimic系の強化学習パイプラインを用いて動作追従ポリシを訓練しました。LAFAN1、AMASS、BONES-SEED、Motion-X++との同一時間予算（3時間および20時間）比較において、HiPHIは最も高い追従成功率と最も速い収束を示しました。また、HiPHIの訓練データを3時間から300時間まで増やしていくと、他データセットへの汎化追従誤差（MPJPE）が一貫して低下するスケーリング則も確認されました。物体操作（蹴る・運ぶ・押す・もたれる）の追従でも、身体姿勢と物体の双方で最小の誤差を記録しました。\n\n5.4 実機展開（Real-World Evaluation）\n学習したポリシーをUnitree G1の実機にそのままゼロショット展開（Sim-to-Real）しました。走行、椅子への着席、四つん這いハイハイ、箱の運搬、床での寝返り、スーツケース引きなど、動的かつ接触の多い難易度の高い全身運動が、実機上で破綻なく安定して実行できることが確認されました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "共通オートエンコーダによる運動空間の可視化結果です。(a)全体投影、(b)最有力ベースラインBONES-SEEDとのサポート領域比較、(c)占有グリッド統計です。HiPHIの外延がBONES-SEEDをほぼ内包し、より広範かつ均一に空間を覆っていることが示されています。",
+     "caption": "Figure 5: Full kinematic motion-space visualization. All datasets are encoded by the same unsupervised body-motion encoder and projected into one shared t-SNE space. (a) Global projection with balanced sampled points per dataset. (b) Support-envelope comparison between HiPHI and BONES-SEED, the closest large-scale baseline; HiPHI’s support nearly encloses BONES-SEED. (c) Grid-based local-coverage statistics on the same embedding using a $55{\\times}55$ grid.",
+     "image": "details/2608.16222/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "Unitree G1を用いた全身模倣トラッキング性能です。(a)データ時間を3時間および20時間に揃えた条件での追従成功率、(b)学習中の失敗率の推移です。HiPHIは最も急速に学習が進み、最終的な失敗率も他データセットより明確に低くなっています。",
+     "caption": "Figure 6: Whole-body humanoid tracking performance across different motion data sources. (a) Success rates under matched 3-hour and 20-hour data budgets. (b) Training failure-rate curves averaged over five independent runs, with shaded regions indicating variance. HiPHI achieves faster convergence and lower final failure rates across different data scales.",
+     "image": "details/2608.16222/F6.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "HiPHIで学習したポリシーを実機ヒューマノイド（Unitree G1）に配備した様子です。(a)走行、(b)着席、(c)ハイハイ、(d)箱の運搬、(e)寝返り、(f)スーツケースの牽引など、接触を伴う高難度な動作が現実世界で見事に再現されています。",
+     "caption": "Figure 8: Real-world deployment of policies trained with HiPHI. The humanoid successfully performs diverse whole-body and object-interaction behaviors, including (a) running, (b) sitting, (c) crawling, (d) carrying a box, (e) flipping, and (f) pulling a suitcase, showing the physical executability of our motion data.",
+     "image": "details/2608.16222/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめ：身体知能の基盤を築く次世代動作ベンチマーク",
+   "summary_ja": "FrameNetに導かれた動作空間設計により、超大規模・高精度・物体同期を実現したHiPHIデータセットとベンチマークを提案しました。広範な実験を通じて、実世界で動くヒューマノイドの全身制御や物体操作をスケールさせる強固なデータ基盤が確立されました。",
+   "details_ja": "本論文では、ヒューマノイドロボットの知能化に向けた617.5時間規模の高精度光学MoCapデータセット「HiPHI」を発表しました。\n\nFrameNetの言語構造を活用したシード拡張パイプラインにより、運動空間の網羅性を理論的かつシステマティックに最大化することに成功しました。また、245.7時間におよぶ同期物体メッシュ・軌道付きデータは、接触を伴う相互作用の物理的忠実度を大幅に引き上げました。\n\n網羅性、物理品質、シミュレーション追従、実機展開の全方位にわたる検証により、HiPHIが従来のデータセットの限界を打ち破り、ヒューマノイド制御方策のスケーラブルな学習基盤となることが示されました。",
+   "figures": []
+  },
+  {
+   "heading": "7 Limitations",
+   "heading_ja": "今後の課題と残された限界",
+   "summary_ja": "単身動作に限定されている点、接触力や触覚情報を直接計測していない点、スタジオ収録に限られており実環境の野外データが含まれていない点が制約として挙げられています。",
+   "details_ja": "著者らはHiPHIの限界として以下の3点を挙げています。\n\n- 単身動作への限定: 現状のHiPHIは1人の演者による動作のみを収録しており、複数人の協調や人間同士の身体接触インタラクションは対象外となっています。\n- キネマティクス中心の記録: 高精度な関節位置や物体の6自由度軌道は記録されていますが、接触力（反力）や足裏・手先の触覚信号などのフォースデータは直接計測されていません。\n- スタジオ環境での収録: 光学式MoCapスタジオという統制環境で撮影されているため、日常の雑多な環境（In-the-wild）において一人称カメラ等で直接得られるような環境バリエーションの獲得は今後の発展課題です。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "動作データの収集を「シナリオの当て推量」から「FrameNetによる言語的シード＋物理変調」という体系的な空間設計へと転換した点が極めて合理的です。",
+  "ヒューマノイド学習においては、動作時間（データ規模）の拡大だけでなく、足裏のスライドや床面・物体との干渉がない「物理的一貫性」の高さがそのまま学習効率と実機転移性に直結します。",
+  "椅子や箱などの物体メッシュと6自由度軌道がミリ精度で同期されているため、リーチングや運搬などの全身物体マニピュレーション学習にそのまま利用可能です。"
+ ],
+ "limitations_ja": [
+  "力覚センサや触覚センサによる接触力ベクトルは直接測定されておらず、動力学パラメータは推定やシミュレーションに頼る必要があります。",
+  "光学式スタジオ収録のため、実世界の複雑な障害物や屋外環境での一人称視点行動データとは性質が異なります。",
+  "多人数インタラクション（介助、協調運搬、対人格闘など）は含まれていません。"
+ ],
+ "keywords": [
+  "Humanoid Robot Learning",
+  "Motion Capture Dataset",
+  "Human-Object Interaction",
+  "FrameNet",
+  "Sim-to-Real Transfer",
+  "Whole-Body Control"
+ ],
+ "id": "2608.16222",
+ "title": "HiPHI: A Large-Scale Benchmark for High-Precision Human Motion and Object-Interaction",
+ "title_ja": "HiPHI: 高精度な人間動作と物体相互作用の大規模ベンチマーク",
+ "authors": [
+  "Jiahao Ji",
+  "Ji Ma",
+  "Runhan Zhang",
+  "Runyi Yu",
+  "Wenjia Wang",
+  "Weiheng Chi",
+  "Qianqian Peng",
+  "Weichao Yan",
+  "Yongfei Gu",
+  "Ye Tian",
+  "Ting Wu",
+  "Longwei Li",
+  "Chun Yuan",
+  "Ruoli Dai",
+  "Lei Han"
+ ],
+ "date": "2026-08-18",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "dataset",
+  "benchmark",
+  "imitation-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.16222",
+ "pdf_url": "https://arxiv.org/pdf/2608.16222",
+ "summary_ja": "ヒューマノイドの全身動作および物理的相互作用の学習のため、600時間以上に及ぶ高精度な全身モーションキャプチャデータセットHiPHIを構築。言語フレームワークFrameNetに基づき多様な動作と相互作用マニホールドを体系的に網羅し、模倣学習や全身方策の基盤を提供する。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.16222"
+}
