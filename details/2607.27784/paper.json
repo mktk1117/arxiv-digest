@@ -1,0 +1,142 @@
+{
+ "tldr_ja": "ロボットアームを手動で直接動かすダイレクト教示と、Webカメラによる指先のリターゲティングを組み合わせることで、低コストかつ直感的に多指ハンドのデモデータを高速収集できるシステム「DexDirect」を提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "DexDirectの全体的な操作形態です。オペレーターは片手でロボット手首のハンドルを持ってアームを直接物理的に誘導し、もう片方の手はWebカメラの上で動かして多指ハンドの関節を遠隔操作します。",
+  "caption": "Fig. 1 : DexDirect combines direct kinesthetic guidance of the robot arm with vision-based retargeting of the operator’s free hand. One hand guides the robot through a wrist-mounted handle, while the other commands the dexterous hand.",
+  "image": "details/2607.27784/F1.jpg"
+ },
+ "overview_ja": "多指ハンドを用いた器用なマニピュレーション（Dexterous Manipulation）の模倣学習では、高品質な実機デモデータをいかに大量かつ効率的に集めるかが最大のボトルネックでした。外骨格などの専用ハードウェアは高価で装着や調整が面倒な一方、Webカメラやスマートフォンを使った低コストな遠隔操作は、遅延や姿勢推定誤差、触覚フィードバックの欠如によって操作者の認知負荷が跳ね上がり、成功率が低迷するという課題がありました。\n\nそこで著者らは、アームの大域的な6自由度移動と指先の高次元な関節運動を分離するハイブリッド設計「DexDirect」を着想しました。アーム側は重力補償をかけた実機を手首のハンドルで直接掴んで動かすダイレクト教示（直接運動感覚誘導）を採用し、追従遅延や推定誤差、座標変換の手間をゼロにしています。同時に、指先側は下向きWebカメラで撮影したもう片方の手の形状から、手首ローカルの指関節角へとリターゲティング（人手からロボット手への姿勢マッピング）を行います。\n\n10名の被験者による5種類の接触タスクでの比較実験の結果、DexDirectは従来の純粋な視覚ベース（AnyTeleop）と比べて17.2倍、姿勢追跡ベース（TeleDex）と比べて3.2倍の成功デモ収集スループットを達成しました。さらに、収集したデータで拡散ポリシーを学習させ、立方体のピック＆プレースタスクで90%の成功率を実証しています。",
+ "contributions_ja": [
+  "アームの直接運動感覚誘導とWebカメラによる指先リターゲティングを組み合わせた、追加のリーダーロボットや外骨格が不要な低コストデモ収集インターフェースの提案",
+  "アーム側の姿勢推定・逆運動学計算・追従遅延を排除し、実機のエンコーダから直接かつ受動触覚を感じながら軌道を記録できる機構の実現",
+  "10名のユーザー実験において、既存の低セットアップ遠隔操作ベースラインと比較して大幅なデモ収集スループット向上とタスク実行時間の短縮を実証",
+  "NASA-TLX評価により、肉体的負荷と引き換えに精神的負荷・フラストレーション・総作業負荷を大幅に削減できることを確認"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "多指ハンドのデータ収集：なぜ「片手でアーム、片手で指」なのか？",
+   "summary_ja": "多指ロボットの模倣学習において、低コストかつ高精度にデモを集めることは困難でした。そこでアームは大域的な直接教示、指先はローカルな画像認識という役割分担を行うDexDirectを提案しています。",
+   "details_ja": "ロボットが接触を伴う複雑なタスクを学習する上で、実機デモの規模と質は極めて重要です。平行グリッパーであれば、同型のリーダーアームや軽量な把持デバイスが普及していますが、多指ハンドへの拡張は簡単ではありません。人間の手とロボットハンドではリンク構造や可動域が異なり、操作者はアームの6自由度運動と指先の多自由度運動を同時に制御しなければならないからです。\n\n既存手法には主に2つのアプローチがありました。1つは外骨格などの専用ハードウェアを用いる方法ですが、高額な上に操作者ごとのフィッティングやキャリブレーションが必要です。もう1つはWebカメラやスマホの姿勢トラッキングを用いた低コストな遠隔操作ですが、トラッキング遅延やオクルージョン（遮蔽）、操作空間の不一致により、操作者の頭の中での座標変換コスト（認知的負荷）が非常に高くなってしまいます。\n\nここで著者らは、アームの運動と指先の屈伸運動の性質の違いに着目しました。アームは広い作業空間を動き、環境と物理的に干渉するため、直接ロボットを掴んで動かすダイレクト教示（Kinesthetic teaching）が最も直感的です。一方、指先は小さな関節を1つずつ手で動かすのが難しいため、手首ローカルの相対的な形状変化だけをWebカメラで読み取る方が合理的です。この非対称性を活かしたハイブリッド設計がDexDirectの核心です。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "直接教示と遠隔操作のトレードオフをどう乗り越えるか",
+   "summary_ja": "リーダーアーム、外骨格、単眼カメラ、ポーズトラッカなどの先行研究を整理し、それぞれのセットアップコストや操作性の課題を比較しています。",
+   "details_ja": "デモ収集インターフェースは、大きく4つの系統に分かれます。\n\n- 直接物理教示（Direct Physical Demonstration）：ロボットと同型のリーダーアームを用いる手法は直感的ですが、ハードウェアが2倍必要になりコストが嵩みます。実機を直接動かす手法もありますが、操作者の手がカメラ視野を遮ってしまうため、後から動画をインペインティング（塗りつぶし補正）するなどの後処理が必要でした。\n- 外骨格インターフェース（Exoskeleton Interfaces）：操作者の指や腕に装着して関節角を測るため精度は高いものの、リンク機構が重く、操作者ごとの調整やロボット変更時の再設計が必要になります。\n- 視覚およびポーズ追跡による遠隔操作（Vision and Pose-Based Teleoperation）：AnyTeleopのような単眼Webカメラ方式や、TeleDexのようなスマートフォンを用いた方式は安価でセットアップが容易です。しかし、視覚追跡の遅延やジッター、そして環境からの反力（力覚フィードバック）が全くない空中操作になるため、接触リッチな作業での失敗率が高くなります。\n- ハンドヘルド型キャプチャ（Handheld Capture）：ロボットを介さず直接センサ付きデバイスを動かす手法ですが、仮想的な力覚提示には帯域制限があり、実際のロボットの関節慣性やモータのコンプライアンスを完全には反映できません。\n\nDexDirectは、実機を掴むことで「追加ハードなし」「受動的な接触力覚の獲得」「視覚遅延のない直接制御」を同時に実現し、既存の課題を巧みに回避しています。",
+   "figures": []
+  },
+  {
+   "heading": "III System Design",
+   "heading_ja": "システムの仕組み：重力補償アームと手首ローカルの視覚リターゲティング",
+   "summary_ja": "重力補償された6自由度アームを手首ハンドルで直接動かしつつ、もう片方の手をWebカメラで撮影して13自由度の多指ハンドへマッピングする構成とデータ処理パイプラインを詳述しています。",
+   "details_ja": "III-A システム全体像と設計思想\nシステムはAgilex PIPER（6自由度アーム）とMIDASハンド（16関節・13アクチュエータ、283点の触覚センサ内蔵）で構成されます。操作者は左手で手首の3Dプリント製ハンドルを握ってアームを動かし、右手は固定されたアームレストに置いてWebカメラ上で指先を動かします。手首には方眼カメラ（Luxonis OAK-1）が取り付けられ、方眼カメラの映像は目の前のモニタに表示されます。\n\nIII-B アームの直接運動感覚誘導\nアームは位置剛性ゼロ、低ダンピングの重力補償ドラグモード（200Hz）で動作します。事前に重力方向、エンドエフェクタの質量・重心、トルク変換係数、クーロン摩擦を同定したMuJoCoモデルを用いてフィードフォワード補償を行います。作業者はハンドルを介して環境との接触抵抗を受動的に感じ取ることができ、アームの軌道はエンコーダから直接記録されるため、逆運動学や軌道生成に伴う遅延やエラーは一切発生しません。\n\nIII-C 視覚ベースの指先リターゲティング\n操作者の右手は、手のひらに向けられたWebカメラ（30Hz）とMediaPipe Handsで21個の3次元ランドマークを検出します。この手首相対のキーポイントを最適化ベースのdex-retargetingによりMIDASハンドの関節指令へ変換します。ここで重要なのは、Webカメラ側からグローバルな手首位置姿勢は一切取得しない点です。手首の大域的な位置姿勢はアーム側が完全に決定するため、単眼カメラの奥行き推定誤差に悩まされることがありません。\n\nIII-D マルチモーダル記録とポリシー構造\nアーム・ハンドの状態（200Hz）、触覚（60Hz）、手首カメラ画像（30Hz）を単調クロックでタイムスタンプ同期し、30Hzのエピソードデータを作成します。ポリシーはDINOv2 ViT-S/14で抽出した画像特徴量、13次元のハンド関節位置、触覚センサの代表値（親指・人差し指の平均値と最大値の計4次元）を入力とし、エンドエフェクタの相対6自由度目標と指先13自由度目標からなる19次元のアクションを出力する拡散モデル（Diffusion Policy）を採用しています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "DexDirectのデータ収集からポリシー学習、推論までの全体パイプラインです。左手でアームを直接操作し、右手で指を遠隔操作して得られたマルチモーダル情報（関節角、触覚、手首カメラ映像）を同期して拡散ポリシーを学習させます。",
+     "caption": "Fig. 2 : System overview of DexDirect The operator directly guides the gravity-compensated robot arm while controlling the dexterous hand through vision-based hand-pose retargeting. The collected joint, visual, and tactile observations are synchronized and used to train a multimodal diffusion policy. At inference, the policy predicts robot action chunks conditioned on the current camera and tactile observations.",
+     "image": "details/2607.27784/F2.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "比較対象となった3つのインターフェースの操作形態です。左のDexDirectは物理的にアームを誘導し、中央のTeleDexはスマホベースの追跡、右のAnyTeleopは全身をRGB-Dカメラで追跡します。",
+     "caption": "Fig. 4 : Comparison of operator interfaces for dexterous teleoperation. DexDirect combines direct physical guidance of the robot arm with vision-based hand retargeting, whereas TeleDex relies on a handheld control interface and AnyTeleop tracks the operator’s arm and hand motion entirely through vision.",
+     "image": "details/2607.27784/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments and Results",
+   "heading_ja": "実験結果：圧倒的な収集効率と認知負荷の大幅な低減",
+   "summary_ja": "10名の被験者による5種類の接触タスクで評価し、DexDirectはベースラインに対して3.2〜17.2倍の成功デモ数を記録しました。またNASA-TLXにおいて精神的負荷の大幅な低下が確認されました。",
+   "details_ja": "IV-A & IV-B 実験設定とタスク設計\n未経験者10名を対象に、AnyTeleop（RGB-Dカメラ追跡＋CuRoboによるMPC軌道生成）およびTeleDex（スマートフォン追跡）との比較を行いました。タスクは接触力制御や高精度な位置決めが求められる5種類です：ジェンガの引き抜き、USBケーブルの引き抜き、回転テーブル（Lazy Susan）の回転とピック＆プレース、ホワイトボードの文字消し、キーボードタイピング。各タスクの制限時間は120秒（ジェンガのみ180秒）です。\n\nIV-C デモ収集スループットとタスク性能\n同じ制限時間内で集まった累積の成功デモ数は、AnyTeleopが28件、TeleDexが151件だったのに対し、DexDirectは481件に達しました。これはTeleDexの3.2倍、AnyTeleopの17.2倍という驚異的なスループットです。成功率においても、DexDirectは全タスクで最高値（0.71〜0.96）を記録しました。特にホワイトボード消しやタイピングでは、AnyTeleopの成功数は0件でした。画面越しの視覚追跡では垂直方向の押し付け力調整が極めて難しく、遅延によってキーの多重入力が発生したためです。DexDirectは完了時間も大幅に短縮（TeleDex比で1.8〜4.8倍高速化）しました。\n\nIV-D 操作者の作業負荷（NASA-TLX）\nNASA-TLXによる主観評価では、総合スコア（Raw TLX）でDexDirectが2.01となり、TeleDex（3.08）やAnyTeleop（3.81）より統計的に有意に低い負荷を示しました。特に精神的要求（Mental Demand）、フラストレーション（Frustration）、努力（Effort）が劇的に改善しています。唯一、物理的要求（Physical Demand）だけは実機アームを直接動かすため若干増加しましたが、操作者の総合的な負担感は大きく軽減されていることが分かります。\n\nIV-E ポリシー学習の検証\nDexDirectで収集した200エピソードのデモを用いて立方体のピック＆プレースタスクを学習させたところ、自律実行時の成功率は90%（18/20回）に達し、収集データが実用的な模倣学習に十分適用可能であることが証明されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "実験で用いた5つの接触リッチなタスクです。左からジェンガ引き抜き、USB引き抜き、回転台ピック＆プレース、ホワイトボード消し、キーボードタイピングと、多様な力加減と精度が求められます。",
+     "caption": "Fig. 3 : Evaluation tasks. DexDirect is evaluated on five contact-rich dexterous manipulation tasks: Jenga manipulation, USB unplugging, Lazy Susan pick-and-place, whiteboard erasing, and keyboard typing.",
+     "image": "details/2607.27784/F3.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "NASA-TLXによる作業負荷の比較結果です。DexDirectは実機を動かすためPhysical（身体的要求）はわずかに高いものの、Mental（精神的要求）やFrustration（フラストレーション）が劇的に抑えられています。",
+     "caption": "Fig. 5 : Mean adapted NASA–TLX scores for AnyTeleop, TeleDex, and DexDirect, averaged across ten participants and five tasks. Error bars indicate 95% confidence intervals computed from participant-level scores. Lower scores indicate lower perceived workload. The performance item is reverse-coded so that higher values consistently indicate poorer perceived performance.",
+     "image": "details/2607.27784/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "学習された拡散ポリシーによる立方体ピック＆プレースの自律動作の様子です。ランダムな初期位置からキューブを正確に掴み上げ、指定の箱へと運ぶことに成功しています。",
+     "caption": "Fig. 6 : Representative policy rollouts. The learned policy grasps a cube from a randomized initial pose, lifts it, and places it onto the target box. Each sequence shows the rollout at $t=\\{0,5,10,15\\}$ s.",
+     "image": "details/2607.27784/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Limitations",
+   "heading_ja": "今後の課題とトレードオフ",
+   "summary_ja": "同空間での作業が必須である点や、両手を使って1本のアーム・ハンドを操作する点、指先トラッキングの限界など、本手法の制約について考察しています。",
+   "details_ja": "DexDirectは極めて実用的な手法ですが、いくつかの明確なトレードオフと制限事項が存在します。\n\n- コロケーションと身体的負荷：操作者がロボットのすぐ隣に立つ必要があり、完全な遠隔地からの操作はできません。また、ロボットアームに安全かつ高精度な重力補償機能が備わっている必要があり、大型で慣性の大きな産業用アームでは操作者の身体的疲労が課題になります。\n- 両手で1本の腕を操作する制約：操作者の両手を使ってロボット1台（アーム＋ハンド）を動かしているため、そのままでは1人の操作者による双腕ロボットの制御ができません。アームを動かす手と同じ手で指先の認識も行うような拡張が考えられますが、視野角や安全性の検証が必要です。\n- 指先側の限界：指先の制御は依然として単眼カメラによるランドマーク検出とリターゲティングに依存しているため、指同士の遮蔽に弱く、指先への分布触覚フィードバックも操作者には返っていません。\n- 検証の範囲：被験者実験は10名、短時間のタスク、単一のロボットプラットフォームに限られており、座標変換の排除や遅延低減がそれぞれどの程度寄与したかの個別要因分解（Ablation）は今後の課題とされています。",
+   "figures": []
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "まとめ：多指ハンド学習をスケールさせる現実解",
+   "summary_ja": "DexDirectは低コストかつ導入が容易でありながら、デモ収集効率を劇的に向上させました。アームの追跡ループを物理誘導で代替する設計思想は、多指ロボットの模倣学習を普及させる強力な選択肢となります。",
+   "details_ja": "多指ハンドのデモ収集において、「すべてをカメラで遠隔操作する」という流行のアプローチから一歩引き、アームの大域的な運動を物理的なダイレクト教示に戻したことが本研究の最大の勝因です。これにより、トラッキング遅延や座標の不一致といった操作者のストレス要因を根本から排除し、デモ収集のスループットを数倍から十数倍へと引き上げることに成功しました。\n\n高価な外骨格や追加のリーダーアームを用意することなく、市販の協働アームとWebカメラだけで直感的なデータ収集環境を構築できるDexDirectは、接触を伴う器用なマニピュレーション技術を実用化・スケールさせる上で非常に実践的で意義深いアプローチと言えます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「アームは大域的な直接教示」「指先は手首ローカルの視覚追跡」と分担させることで、低コストかつ直感的な多指操作環境が作れる",
+  "単眼カメラ遠隔操作の最大のボトルネックは「遅延」と「奥行き・反力の不確実性による操作者の認知負荷」であり、物理教示による受動反力と即応性がこれを劇的に解消する",
+  "身体的負荷が多少増えたとしても、精神的負荷や試行錯誤のフラストレーションが減ることで、トータルのデモ収集スループットは何倍にも向上する",
+  "大掛かりな外骨格がなくても、適切な重力補償と3Dプリント製ハンドルだけで高品質な模倣学習データセットを高速に構築可能である"
+ ],
+ "limitations_ja": [
+  "操作者が実機のすぐ隣で物理的に動かす必要があるため、遠隔地からのテレオペレーションには適用できない",
+  "人間が両手を使ってロボット1本（アーム＋多指ハンド）を操作する構造のため、1人での双腕システムへの拡張が難しい",
+  "指先の制御は単眼Webカメラに依存しているため、指の自己遮蔽によるトラッキング外れや指先への力覚フィードバックの欠如は残る"
+ ],
+ "keywords": [
+  "Dexterous Manipulation",
+  "Kinesthetic Teaching",
+  "Teleoperation",
+  "Imitation Learning",
+  "Diffusion Policy"
+ ],
+ "id": "2607.27784",
+ "title": "DexDirect: Direct Kinesthetic Arm Guidance for Efficient Dexterous Demonstration Collection",
+ "title_ja": "DexDirect：効率的な多指操作デモ収集のための直接的なダイレクトアーム教示",
+ "authors": [
+  "Beom Jun Kim",
+  "Shiu-Jen Wang",
+  "Jonathan Liu",
+  "Alvin Zhu",
+  "Quanyou Wang",
+  "Hanzhang Fang",
+  "Feng Xu",
+  "Mingzhang Zhu",
+  "Yuchen Cui",
+  "Dennis W. Hong"
+ ],
+ "date": "2026-07-31",
+ "group": "general",
+ "tags": [
+  "teleoperation",
+  "manipulation",
+  "hardware"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2607.27784",
+ "pdf_url": "https://arxiv.org/pdf/2607.27784",
+ "summary_ja": "多指ハンド操作デモを効率収集するシステムDexDirectを提案。操作者が重力補償された6自由度アームを直接操作しつつ、単一Webカメラで他方の手を追従して13自由度ハンドへマッピングする。従来手法と比較して17.2倍および3.2倍多くの成功デモを収集可能であることを実証した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2607.27784"
+}
