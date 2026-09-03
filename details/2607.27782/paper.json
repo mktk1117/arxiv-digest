@@ -1,0 +1,144 @@
+{
+ "tldr_ja": "ロボットの失敗軌跡から「どの行動がまずかったか」を特定し、似た状況での成功行動へと修正ベクトルを向けることで、追加の実機試行なしに復旧動作を自律学習できるオフライン強化学習フレームワークです。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "従来の手法とRedFlowの比較です。(a)の選好に基づく手法（DPOなど）は軌跡全体で「どちらが良いか」しか見ないため具体的な修正先が分かりませんが、(b)のRedFlowは失敗の原因となった行動を特定し、成功行動をターゲットとして直接リダイレクト（軌道修正）します。",
+  "caption": "Figure 1 : RedFlow combines two properties that prior methods lack: learning from failures and action-level guidance. (a) Preference methods learn from failures but only at the trajectory level, signaling what to avoid without action-level corrections. (b) RedFlow identifies failure-inducing actions within failed rollouts and redirects them toward corrective targets derived from successful experiences, providing dense action-level supervision.",
+  "image": "details/2607.27782/F1.jpg"
+ },
+ "overview_ja": "Flow Matchingを用いたVLA（Vision-Language-Action：視覚・言語・行動）モデルは、ロボットの器用な操作をマルチモーダルに表現できるため大きな注目を集めています。しかし、模倣学習で訓練されたポリシーは、実環境で少しでも訓練データから外れると誤差が雪だるま式に蓄積し、取り返しのつかない失敗に陥るという根本的な弱点を抱えていました。\n\nオンライン強化学習を行えば修正動作を獲得できますが、実機で何千回も試行錯誤させるのはコストや安全面から現実的ではありません。一方で、蓄積済みのデータから学ぶオフライン強化学習では、成功データだけを真似するか、DPOのように「軌跡全体で失敗を避ける」大雑把な信号しか与えられず、具体的に「どう直せばリカバリーできるか」を行動レベルで教えることができませんでした。\n\nそこで著者らは、収集済みの失敗データを行動レベルの修正信号へ変換するフレームワーク「RedFlow」を開発しました。事前学習済み報酬モデルの進捗スコアとロボット自身の関節情報（固有受容感覚）を組み合わせてクラスタリングし、失敗した行動を「似た状況で成功した行動」へと再方向付け（Redirect）します。\n\nシミュレーションベンチマークLIBEROの全4スイートと、双腕ロボットによる3種類の実機タスクで検証したところ、RedFlowは既存のオフラインRLベースラインを大幅に上回り、実機成功率を56.7%から74.7%へと押し上げました。さらに、PPOなどの強力なオンラインRLと同等の性能を、約1桁少ないデータ量で達成できることを明らかにしました。",
+ "contributions_ja": [
+  "ロボットの失敗軌跡から局所的な失敗原因アクションを特定し、人間の介入なしに成功代替行動を割り当てる「文脈認識型の修正マッチング（Context-Aware Corrective Matching）」を提案しました。",
+  "成功行動の強化、失敗行動の抑制、修正可能行動のリダイレクトという3つの役割を1つに統合した「適応型リダイレクション損失（Adaptive Redirection Objective）」を設計しました。",
+  "シミュレーション（LIBERO）および3種類の実機双腕マニピュレーション課題において、AWRやDPOなどの既存オフラインRL手法を有意に凌駕することを示しました。",
+  "オンライン強化学習（PPO、GRPO、DDPO）と同等のタスク成功率を、およそ1桁少ないサンプル効率で達成できることを実証しました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "失敗を捨てるな！軌道修正の教師データに変える新発想",
+   "summary_ja": "模倣学習ベースのVLAモデルは誤差の蓄積に弱く、実環境での失敗が避けられません。既存のオフライン強化学習は失敗データを無視するか粗い軌跡単位でしか扱えないため、本研究では失敗を行動レベルの修正信号に変換する「RedFlow」を提案します。",
+   "details_ja": "Flow Matchingに基づくVLAモデルは、ノイズから行動への速度場を学習することで複雑な連続動作をモデル化できる強力な手法です。しかし、人間のデモを模倣学習するだけでは、実機配備時の「分布シフト（訓練時と状況がズレること）」によって生じるわずかな予測誤差が蓄積し、最終的に致命的な失敗へ至ってしまいます。\n\nこの課題を解決するため強化学習（RL）が使われますが、実機でオンライン試行を繰り返すアプローチはハードウェアの損耗や人的監視コストの面でスケールしません。一方、過去のログから学ぶオフライン強化学習は安全ですが、既存手法には決定的なトレードオフがありました。従来手法（AWRなど）は成功データばかりを重み付けして失敗ログを捨ててしまい、選好学習（DPOなど）は失敗データを使うものの「軌跡全体がダメだった」と評価するだけで、具体的にどの行動をどう直すべきかという指針を欠いていたのです。\n\nここで立ちはだかるのが2つの壁です。\n- 粒度のミスマッチ：失敗した軌跡の中にも、途中までは完璧だった行動がたくさん含まれています。どのステップが悪化を招いたかを特定するのは容易ではありません。\n- 修正信号の厳密な統合：Flow Matchingは与えられたデータを均一に真似ようとするため、質の混ざったデータを不用意に学習させるとかえって性能が崩壊します。\n\nRedFlowはこの2点に対し、状況が近い成功行動を検索して修正ターゲットとする「文脈認識マッチング」と、速度場の中で失敗を目標方向へ押し出す「適応型リダイレクション目的関数」で挑みます。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "ロボット学習の潮流：大雑把な評価からきめ細かな行動修正へ",
+   "summary_ja": "VLAのオフライン事後学習と、過程フィードバックを活用した学習という2つの文脈を整理しています。従来の評価型報酬や選好学習とは異なり、RedFlowは完全オフラインで連続行動レベルの直接的な修正ターゲットを導出する点に独自性があります。",
+   "details_ja": "関連研究は大きく2つの系統に分かれます。\n\n1つ目は「Flow Matching VLAポリシーの改善」です。近年、拡散モデルやFlow Matchingを行動ヘッドに載せたVLAモデルが一般化マニピュレーションを牽引していますが、大半は模倣学習にとどまります。強化学習による改善も試みられていますが、オンラインRLは対話コストが高く、標準的なオフラインRLは成功行動の強調や望ましくない行動の単純な抑制に偏りがちで、「何をすべきか」を明示できていませんでした。\n\n2つ目は「プロセスフィードバックを活かした失敗からの学習」です。これまでにも報酬モデルを用いて軌跡の進捗を評価する研究や、人間の介入手動修正（Human-in-the-loop）を取り入れる研究がありました。しかし、報酬モデル単体は「良いか悪いか」を評価するだけで具体的な修正ベクトルは出力できません。人間の介入は行動レベルの指導ができますが、専門家が張り付く必要がありスケーラビリティに欠けます。\n\nRedFlowは、ロボットの関節情報と進捗スコアを巧みに組み合わせることで、人間の追加介入なしに、保存されたオフラインログのみから行動レベルの建設的な修正信号を抽出する点に新規性があります。",
+   "figures": []
+  },
+  {
+   "heading": "3 Methodology",
+   "heading_ja": "RedFlowの仕組み：似た文脈から成功を探し、速度場をリダイレクトする",
+   "summary_ja": "事前学習済み報酬モデルで推定した進捗とロボットの関節状態から「実行コンテキスト」を定義し、HDBSCANでクラスタリングして修正目標を決定します。学習時には、成功の引き込み・失敗の反発・修正目標への方向転換という3つの損失を組み合わせてFlow Matchingを更新します。",
+   "details_ja": "RedFlowの学習パイプラインは、大きく「行動レベルのアドバンテージ推定」「文脈クラスタリングによる修正ターゲット生成」「適応型リダイレクション目的関数」の3段階で構成されています。\n\n### 3.1 準備と問題設定\nロボットは視覚 $I_t$ と固有受容感覚 $q_t$ を観測 $o_t$ として受け取り、指示文 $l$ に基づいて長さ $K$ の連続行動チャンク $a_t$ を出力します。Flow Matchingポリシー $\\pi_\\theta$ は、ノイズ $x_1$ から速度場 $v_\\theta$ を解くことで行動 $a_t = x_0$ を生成します。\n\n### 3.2 文脈認識型の修正マッチング（Context-Aware Corrective Matching）\nオフラインバッファ内の各行動チャンクに対し、真のアドバンテージ（その行動の良さ）の代理指標 $\\hat{A}_t$ を計算します。事前学習済みの汎用報酬モデル（GRM）から得られる進捗度 $R(o_t, l)$ を時間窓 $W$ で平滑化し、局所的な進捗変化量とエピソード全体の成否バイアス $b \\cdot (2y_\\tau - 1)$ を足し合わせます。$\\hat{A}_t > 0$ なら成功寄り（ポジティブ）、$\\hat{A}_t < 0$ なら失敗寄り（ネガティブ）と判定します。\n\n次に、高次元な画像空間を直接クラスタリングするのを避け、正規化された関節状態 $\\tilde{q}_t$ と進捗度 $\\bar{p}_t$ を並べた特徴量空間 $f_t = [\\tilde{q}_t, \\beta \\bar{p}_t]$ を定義します。ここに密度ベースのクラスタリング手法であるHDBSCANを適用します。同じクラスタに属するチャンクは「同じ部分タスクを実行中」とみなせます。失敗チャンク $a_t$ に対しては、同一クラスタ内の成功チャンクの加重平均重心を中心 $a_t^*$ として求め、これを局所的な修正ターゲットとします。同一クラスタ内に成功データが存在しない、あるいは外れ値となった失敗は「修正不能」として後述の抑制のみを適用します。\n\n### 3.3 適応型リダイレクション目的関数（Adaptive Redirection Objective）\nモデルの更新には3つの損失項を組み合わせた総合損失 $\\mathcal{L}_{\\mathrm{total}}$ を用います。\n- 品質加重アトラクション（$\\mathcal{L}_{\\mathrm{att}}$）：推定スコアから求めたソフト重み $w_t$ を乗じ、質の高い行動を強く引き寄せます。\n- 失敗抑制（$\\mathcal{L}_{\\mathrm{sup}}$）：ネガティブな行動チャンクに対し、予測行動との距離がマージン $m$ より近いときだけペナルティを課すヒンジ損失で、失敗行動から遠ざけます。\n- ターゲット誘導コレクション（$\\mathcal{L}_{\\mathrm{cor}}$）：修正ターゲット $a_t^*$ が存在する失敗チャンクに対し、予測行動をその重心方向へと引き寄せます。\n\nこれにより、失敗領域を有限マージンで避けつつ、近くにある確かな成功パターンへと確率質量を押し戻す幾何学的な輸送が実現されます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "RedFlowの全体パイプラインです。オフラインバッファ（I）からGRM進捗推定と関節状態を用いて実行コンテキストをクラスタリングし修正ターゲットを割り当て（II）、3つの損失を組み合わせた適応型目的関数でポリシーを最適化します（III）。",
+     "caption": "Figure 2 : RedFlow pipeline. RedFlow consists of three stages: (I) Data Collection , where successful and failed rollouts are stored in an offline buffer; (II) Context-Aware Corrective Matching , which leverages a pre-trained GRM to estimate task progress, combines progress estimates with proprioceptive states to define execution contexts, clusters similar contexts with HDBSCAN, and derives corrective targets from positive actions observed in matched contexts; and (III) Adaptive Redirection Obje",
+     "image": "details/2607.27782/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "実行コンテキスト空間における修正マッチングの様子です。横軸が進捗 $\\bar{p}_t$、縦軸がロボットの関節状態 $\\tilde{q}_t$ を表しており、失敗チャンク（赤×）が同じ文脈クラスタ内の成功重心（緑の星）へと結びつけられていることが分かります。",
+     "caption": "Figure 3 : Context-aware corrective matching in execution-context space. RedFlow represents each action chunk by its execution context $(\\tilde{q}_{t},\\;\\bar{p}_{t})$ , combining the robot’s proprioceptive state and task progress. Action chunks with similar contexts are grouped into execution-context clusters. Given a candidate failure chunk (red cross), RedFlow retrieves matched successful chunks from the corresponding cluster and uses them as corrective targets. The real-robot example illustra",
+     "image": "details/2607.27782/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiment",
+   "heading_ja": "実験結果：実機成功率74.7%へ急上昇＆自発的なリカバリー行動の発現",
+   "summary_ja": "LIBEROシミュレーションと3種の実機双腕タスクで評価を実施しました。RedFlowはベースラインを大幅に上回り、オンラインRL（PPOなど）と同等の性能を10分の1のデータ量で達成したほか、服の端を反対の腕で手繰り寄せるような高度な復旧動作を獲得しました。",
+   "details_ja": "### 4.1 実験設定\nシミュレーションにはLIBEROベンチマーク（Spatial, Object, Goal, Longの計40タスク）を用い、基本ポリシーには $\\pi_0$ を採用しました。実機実験には双腕ロボット「Agilex Cobot Magic」を使用し、(a)服たたみ（両手協調）、(b)チリトリでのゴミ掃き（道具操作）、(c)テーブル掃除（ピック＆プレース＋拭き掃除）の3タスクで検証しました。\n\n### 4.2 主要結果（シミュレーション）\nオフラインRLベースラインであるAWRおよびDPOと比較した結果、LIBEROの4スイート平均成功率において、ベースポリシーの56.2%からRedFlowは68.2%（+12.0ポイント）へと大幅に向上しました。AWR（62.3%）やDPO（59.7%）を大きく引き離しており、特にサブゴールが明確なLIBERO-Goalでは71.2%を記録し、DPO（51.8%）に対して20ポイント近い大差をつけました。\n\n### 4.3 アブレーション研究\nコンポーネントを1つずつ外す実験から以下の事実が判明しました。\n- データの組み合わせ：失敗データを除くと68.0%、成功データを除くと62.4%に低下し、両者が揃って初めて72.5%に達します。\n- 修正不能な失敗の分離：文脈クラスタ内に成功データがない失敗に対しても無差別にターゲットを割り当てると、61.0%まで激減しました（無理な修正先の指定が害になることを証明）。\n- 損失関数：抑制項 $\\mathcal{L}_{\\mathrm{sup}}$ を外すと68.8%、修正項 $\\mathcal{L}_{\\mathrm{cor}}$ を外すと69.1%、両方外すと65.7%に落ち、抑制と修正の相乗効果が確認されました。\n\n### 4.4 サンプル効率の比較\nオンライン強化学習（PPO, GRPO, DDPO）との比較では、PPOやGRPOが目標成功率（75.8%）に達するまでに約13,000〜16,000本の新規ロールアウトを必要としたのに対し、RedFlowはわずか1,536本の固定オフラインデータのみで同等の性能に到達しました。およそ1桁少ないデータ効率です。\n\n### 4.5 実機ロボット実験と復旧動作の発現\n実機3タスクにおいて、RedFlowは平均成功率74.7%を達成しました（ベースポリシーは56.7%）。特に難度の高い服たたみタスクでは、成功率が36.0%から67.0%へとほぼ倍増（+31.0ポイント）しました。\n\n特筆すべきは、訓練データに明示的に与えていなかった「自発的な復旧動作（Recovery Behavior）」の発現です。服たたみ中にTシャツが右腕の届かない位置へ滑り落ちた際、ベースポリシーは虚空を掴み続けて失敗しますが、RedFlowで学習したポリシーは「左腕を使ってTシャツを手元に引き戻し、再び両手でたたみ直す」という賢いリカバリー行動を見せました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "実機実験のセットアップです。双腕ロボットAgilex Cobot Magicを用い、(a)服たたみ、(b)ゴミ掃き、(c)テーブル掃除という、異なる手先の器用さが求められる3つのタスクで評価しました。",
+     "caption": "Figure 4 : Real-robot experiment setups. We evaluate RedFlow on a dual-arm Agilex Cobot Magic robot across three tasks requiring different manipulation skills: (a) clothes folding for dexterous bi-manual manipulation, (b) object sweeping for tool-mediated interaction, and (c) table cleaning for pick-and-place manipulation.",
+     "image": "details/2607.27782/F4.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "服たたみタスクにおけるリカバリー動作の比較です。ベースポリシー（上段）は服が右腕の届かない位置にズレると掴み損ねて失敗しますが、RedFlow（下段）は左腕で服を手前に引き戻してからたたみ直す動作を自律的に実行しています。",
+     "caption": "Figure 7 : Qualitative correction behavior on clothes folding. The base policy fails when the T-shirt falls out of the right arm’s reach, while RedFlow recovers by using the left arm to pull the cloth back and continue folding.",
+     "image": "details/2607.27782/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "RedFlowは、Flow Matching VLAモデルの失敗経験を行動レベルの修正信号へと昇華させる実用的なオフライン強化学習手法です。実機・シミュレーション双方で高い改善効果と驚くべきサンプル効率を示しました。",
+   "details_ja": "本論文では、展開時の失敗軌跡を破棄したり大雑把に遠ざけたりするのではなく、似た文脈の成功例を探索して局所的な修正ターゲットを与える新手法「RedFlow」を提示しました。\n\n実験では、強固なオフラインRLベースラインを退けただけでなく、実機での成功率を飛躍的に向上させ、さらにオンラインRLに匹敵する性能を1桁少ないサンプル数で実現できることを証明しました。\n\n今後の課題としては、完全に未経験の分布外（OOD）状態に対する不確実性を考慮したターゲット割り当て、より長時間の長期ホライズンタスクへの適用、そして今回のオフライン手法を反復的なオンライン改善ループへと拡張していく構想が挙げられています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：理論的裏付けと実装・実験の詳細",
+   "summary_ja": "RedFlowの目的関数が局所的な最適輸送（Wasserstein勾配流）として解釈できる理論的証明と、シミュレーションおよび実機タスクの厳密なハイパーパラメータやタスク設定をまとめています。",
+   "details_ja": "付録では、手法の理論的解釈と実験再現のための詳細情報が記載されています。\n\n### 理論的解釈（Appendix A）\n適応型リダイレクション目的関数は、単なるヒューリスティックな損失の足し合わせではなく、行動分布に対する「局所的な制約付き最適輸送（Constrained Wasserstein Policy Transport）」の1ステップとして定式化できることが示されています。成功データへの引き寄せ（アトラクション）、失敗データの有限領域からの排除（サプレッション）、修正先への方向転換（コレクション）が、ポリシー分布を障害物領域から安全かつ高報酬な領域へ輸送するベクトル場を形成しています。\n\n### 実機実験の詳細設定（Appendix D）\nAgilex Cobot Magicを用いた実機検証では、手先カメラ2台と正面固定カメラ1台の計3視点を入力としています。成功判定は各タスク厳密に定義されており、例えば「ゴミ掃き」では5個のブロックをすべてチリトリに入れ、ゴミ箱へ移してブラシをテーブルに置くこと、「テーブル掃除」では3個のブロックを箱に片付けた上でミルクの汚れを雑巾で拭き取ること、と規定されています。各条件100回のロールアウトという、実機実験としては極めて信頼性の高い大規模な試行回数で評価が行われました。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "実機における「服たたみ」タスクの成功シークエンスです。左右の腕が滑らかに連動して衣服を折りたたんでいく一連の流れが記録されています。",
+     "caption": "Figure 8 : Successful trajectory of cloth folding.",
+     "image": "details/2607.27782/F8.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "失敗ログを「避けるべき悪い例」として扱うだけでなく、「似た文脈の成功行動」を結びつけることで、行動レベルの直接的な修正教師信号に変えられる。",
+  "高次元な画像特徴で直接クラスタリングするのではなく、「ロボットの固有受容感覚＋報酬モデルによる進捗スコア」という低次元かつ意味のある文脈空間を使うことが実用上の鍵となる。",
+  "修正先の見つからない孤立した失敗を無理にリダイレクトせず、「抑制のみ」に留める峻別メカニズムが学習の安定性に不可欠である。",
+  "良質なオフラインの失敗再利用パイプラインを組むことで、実機への負荷が大きいオンライン強化学習のサンプル数を1桁削減できる可能性がある。"
+ ],
+ "limitations_ja": [
+  "修正ターゲットの割り当てがGRMの進捗推定精度とクラスタリングの質に強く依存しており、進捗スコアが乱れると誤った修正ターゲットを結びつける危険がある。",
+  "バッファ内に「似た状況の成功データ」が全く存在しない新規な失敗や、極端な分布外（OOD）状態に対しては、修正先を与えられず単なる抑制しか機能しない。",
+  "検証が特定の双腕ロボットと決まったタスク環境に限られており、照明変動などの過酷な視覚ノイズや、さらにステップ数の長い超長期タスクでの汎化性は未検証である。"
+ ],
+ "keywords": [
+  "Vision-Language-Action (VLA)",
+  "Flow Matching",
+  "Offline Reinforcement Learning",
+  "Error Compounding",
+  "Robotic Manipulation"
+ ],
+ "id": "2607.27782",
+ "title": "RedFlow: Redirect Failure into Action-Level Corrections for Flow-matching VLA Policy",
+ "title_ja": "RedFlow: フローマッチングVLA方策のための失敗動作レベル補正リダイレクション",
+ "authors": [
+  "Zhengyang Yan",
+  "Junhao Li",
+  "Fangqi Zhu",
+  "Zijun Wang",
+  "Quanxin Shou",
+  "Yikun Miao",
+  "Xiaoyi Pang",
+  "Zicong Hong",
+  "Song Guo"
+ ],
+ "date": "2026-08-02",
+ "group": "focus",
+ "tags": [
+  "reinforcement-learning",
+  "vision-language-action",
+  "control",
+  "imitation-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI"
+ ],
+ "abs_url": "https://arxiv.org/abs/2607.27782",
+ "pdf_url": "https://arxiv.org/pdf/2607.27782",
+ "summary_ja": "フローマッチング型VLA方策において、展開時の分布シフトによる失敗軌跡をアクションレベルの補正指導へ変換するオフライン強化学習手法RedFlowを提案。文脈認識補正アライメントとフロー評価価値重み付けから構成され、軌跡全体を廃棄せず局所的な失敗から効果的に学習する。実験において従来のオフラインRLを上回る学習効率と成功率向上を達成した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2607.27782"
+}
