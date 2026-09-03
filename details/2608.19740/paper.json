@@ -1,0 +1,144 @@
+{
+ "tldr_ja": "公式サポートが終了し、外部位置制御の激しい振動や停止に悩まされていたFranka Emika Pandaロボットに対し、通信ジッターと制御ループの競合を解消する非同期ROS 2スタックを開発して、滑らかで安定した位置制御と最新ROS 2環境を復活させました。",
+ "hero_figure": {
+  "key": "F4",
+  "caption_ja": "提案されたアーキテクチャの全体像です。ワークステーション側でロボットとのリアルタイム通信スレッドとROS 2制御ループをバッファを介して完全に分離し、低速な指令源にも対応するレートマッチング機構を備えています。",
+  "caption": "Figure 4: Proposed architecture. The ros2_control thread and the real-time thread run on the workstation (EXT); they exchange state and command through mutex-protected buffers, so ROS-side jitter never reaches the robot. The real-time thread talks to the onboard controller (INT) over the UDP link, and matches a slower command stream to $1\\text{\\,}\\mathrm{kHz}$ through the rate-matching stage on the write path.",
+  "image": "details/2608.19740/F4.jpg"
+ },
+ "overview_ja": "研究現場で広く愛用されているFranka Emika Pandaですが、メーカーの公式ROS 2サポートが新型のFR3アームへ移行したことで打ち切られ、古い環境に取り残される問題が発生していました。さらに長年、外部から位置や姿勢を指令するとアームが激しく振動したり、保護停止（非常停止）がかかったりして位置制御インターフェースが実質的に使えないという厄介な持病を抱えていました。\n\n著者らはこの原因を徹底調査し、ロボットハードウェアの限界ではなく、公式実装における通信ループの同期構造とサンプリングジッター（指令タイミングのわずかな揺らぎ）にあることを突き止めました。Pandaの内蔵制御器は1ミリ秒周期で送られてくる位置から差分をとって加速度や躍度（加加速度）を逆算するため、わずか数マイクロ秒の通信のズレでも許容躍度リミットを超えて停止してしまうのです。\n\nそこで著者らは、ロボットとの1kHz通信を担う軽量な専用リアルタイムスレッドと、ROS 2側の制御ループを二重バッファで完全に切り離す非同期アーキテクチャを提案しました。さらに、外部マシンの時計に依存せず前回の指令値から速度フィードフォワードを加える位置生成法と、遅い制御ループを平滑化するレートマッチングを開発しました。\n\n実機実験の結果、余計な高周波ノイズを劇的に抑えつつ正確な軌道追従を達成しました。さらにMoveItを用いた軌道計画、力制御（コンプライアンス制御）、位置制御による把持、モバイルベースと組み合わせた触覚テレオペレーションという4つの実証実験を通じて、標準的なPC環境でも極めて安定して動作することを示しました。",
+ "contributions_ja": [
+  "Pandaの外部位置制御が不安定になる根本原因が、内部コントローラと外部制御ループの時計の位相ズレおよびサンプリングジッターによる躍度リミット超過であることを数式と計測で解明しました。",
+  "ros2_controlとロボットのリアルタイム通信を分離する非同期ハードウェアインターフェースと、時間微分に依存しない位置領域の指令値生成法を設計しました。",
+  "プランナなどの低速な指令（100Hzなど）をロボットの1kHz制御に滑らかに橋渡しするレートマッチング機構を導入しました。",
+  "PREEMPT_RTパッチの当たっていない標準Linuxカーネルでも動作可能なFranka Panda向けROS 2 Jazzyスタックをオープンソースとして公開しました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 INTRODUCTION",
+   "heading_ja": "研究室の相棒「Panda」を最新のROS 2で蘇らせる",
+   "summary_ja": "研究用ロボットアームとして世界中で普及しているFranka Emika Pandaですが、公式サポート終了と外部位置制御の不安定さという2つの壁に直面しています。本研究は、この課題を根本から解決して最新のROS 2 Jazzy環境を届けることを目指しています。",
+   "details_ja": "トルク制御や高い力感度を備えたFranka Emika Panda（通称Panda）は、ロボット研究室のデファクトスタンダードとして世界中で日々稼働しています。ところがメーカーの公式ソフトウェア（libfrankaやfranka_ros2）は、後継機であるFranka Research 3（FR3）専用となり、Pandaのサポートは打ち切られてしまいました。その結果、多くの研究室が古いROS環境のまま取り残されています。\n\nさらに大きな問題が、Pandaの外部位置制御インターフェースの信頼性の低さです。外部PCから関節位置や手先姿勢を直接指令すると、激しい振動が起きたり、保護停止（エラーによる緊急停止）が頻発したりします。そのため既存のフレームワークでも「位置制御インターフェースは使うな」と警告されるほどでした。しかし、動作計画や画像認識モジュールが出力するのは基本的に位置や姿勢の目標値であるため、位置制御が使えないことは研究者にとって大きな足かせとなっていました。\n\n本研究では、この問題がロボットの機械的な限界ではなく、外部制御ループの実装方法に起因することを証明します。そして、長期サポート版であるROS 2 Jazzyに対応したオープンソーススタックを構築し、位置制御を真に実用的なものへと引き上げました。\n\n先行研究であるmultipanda_ros2なども存在しますが、トルク制御モードに特化しており、位置インターフェースの不安定性には切り込んでいません。本研究はシングルアームの完全なROS 2環境の復権と、位置インターフェースの安定化という相補的な目標に焦点を当てています。",
+   "figures": []
+  },
+  {
+   "heading": "2 THE FCI AND ITS ROS 2 IMPLEMENTATION",
+   "heading_ja": "なぜPandaの位置制御はガタつき、止まってしまうのか？",
+   "summary_ja": "内蔵制御器（INT）と外部PC（EXT）の通信仕様を数式で解析し、位置制御が破綻する2大要因を突き止めました。独立したクロック同士の周期ズレによる処理落ちと、わずか数マイクロ秒のサンプリングジッターが引き起こす躍度リミット超過が原因です。",
+   "details_ja": "Pandaの外部制御インターフェース（FCI）は、ロボット内蔵コントローラ（INT）と外部PC（EXT）の間で1ミリ秒（$T_{\\delta} = 1\\,\\mathrm{ms}$）ごとにUDPパケットをやり取りします。一般的な産業用ロボットと違って、内蔵側で目標値の補間を行わないため、EXTは毎ミリ秒正確に1サンプルを返送しなければなりません。往復通信時間（RTT）とEXT側の計算時間を合わせた合計が1msを超えると、その周期の指令は破棄され、内蔵側は前回の加速度を維持して耐えますが、20回連続で破棄されると通信エラーで完全停止します。\n\n公式のfranka_ros2実装では、ros2_controlのメインループ内でブロッキング読み込み（パケットが来るまで待機する処理）を行っていました。ここが落とし穴です。ループの開始は外部PCのタイマーで決まるのに、ループの途中にある読み込みの完了はロボット側のタイマーで決まります。クロックが完全に独立しているため、2つの時計の位相が徐々にズレていきます。タイマーがパケット到着直後に目覚めると次のパケットまで丸々1ms待たされて処理時間がオーバーし、周期落ち（未処理サイクル）が定期的に発生してしまうのです。実測したところ、公式実装では実に5.91%もの周期落ちが発生していました。\n\nさらに致命的なのが「サンプリングジッター」です。INTは受信した関節位置 $\\mathbf{q}_s(k)$ の差分をとって速度、加速度、躍度（ジャーク）を逆算し、制限値内に収まっているかを厳格に監視します。後退差分を計算する際、微小時間 $T_{\\delta}$ の3乗で割るため、位置のわずかなブレが躍度では膨大な値に跳ね上がります。例えば関節速度が $1\\,\\mathrm{rad/s}$ のとき、外部PC側のジッターでサンプリングがたった $4\\,\\mu\\mathrm{s}$（マイクロ秒）ずれるだけで、指令位置に $4\\,\\mu\\mathrm{rad}$ のズレが生じ、逆算される躍度誤差は $1.2 \\times 10^4\\,\\mathrm{rad/s^3}$ に達します。これはPandaの各関節の許容限界をあっさり超えてしまい、即座にモーション中断を引き起こします。\n\n一方で速度やトルクのインターフェースが安定していた理由は、差分の回数が少なくジッターに対する感度が低いためです。位置制御だけが、この通信タイミングの罠に極めて敏感だったのです。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "読み込み間隔（read-to-read interval）の分布です。公式の同期実装（synchronous）では独立した時計の位相ズレにより、$T_{\\delta}$ の整数倍（A, B, C）にピークが分散して周期落ちが発生していますが、提案の非同期実装は素のlibfrankaと同等に1ms周辺へ集中しています。",
+     "caption": "Figure 2: Distribution of the read-to-read interval, normalized by the number of measurements of each capture. For the synchronous implementation, the distribution peaks at multiples of $T_{\\delta}$ (labeled as A, B and C). Measurements are obtained with the LTTng tracer.",
+     "image": "details/2608.19740/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "サンプリングジッターによる指令値の歪みを示した概念図です。外部PCの時計の揺らぎによってずれた時刻でサンプルを取得しても、ロボット内蔵側は均一な1ms間隔として差分をとるため、計算される速度や躍度が許容範囲（緑のコーン）をはみ出して停止してしまいます。",
+     "caption": "Figure 3: Reference distortion under sampling jitter. EXT samples the trajectory after each INT tick, at instants whose jitter displaces the samples (dotted lines); INT files them on its uniform grid and differences them, so the reconstructed reference (red) departs from the desired one (dashed). On a steep segment (inset) the resulting increment leaves the admissible cone and aborts the motion. Jitter amplitude exaggerated for legibility.",
+     "image": "details/2608.19740/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "3 PROPOSED ARCHITECTURE",
+   "heading_ja": "非同期スレッドと位置領域の生成法でジッターを封じ込める",
+   "summary_ja": "ロボットとの1kHz通信を担う軽量なリアルタイムスレッドを独立させ、ROS 2ループと二重バッファで分離しました。さらに外部マシンの時計に依存せず速度フィードフォワードを利用する位置生成法と、低速な指令源に対応する平滑化フィルタを導入しました。",
+   "details_ja": "- 3.1 非同期通信スレッド\n通信の破綻を防ぐため、FCI通信専用のリアルタイムスレッドを新設しました。最高優先度（SCHED_FIFO, 優先度99）で動作し、処理はパケット送受信とバッファ更新だけに絞り込んでいます。ros2_control側とはミューテックス（排他制御）で保護された二重バッファ経由でデータをやり取りします。これにより、コントローラの重い計算やROS内部の通信ジッターがロボットとのUDP通信に一切波及しなくなりました。結果として、外部ループの処理遅延は公式実装の約 $0.065\\,\\mathrm{ms}$ から、素のlibfrankaプログラム並みである $0.013\\,\\mathrm{ms}$ にまで短縮され、周期落ち率も5.91%から0.41%へと激減しました。処理が極めて軽いため、リアルタイムカーネル（PREEMPT_RT）を当てていない通常のLinuxカーネルでも安定動作します。\n\n- 3.2 低速制御ループのためのレートマッチング\n動作計画器や上位コントローラは、ロボットの1kHzより遅い周期（例えば100Hzや125Hzなど）で動くのが一般的です。通常これをそのまま送るとゼロ次ホールド（階段状の信号）になり、差分をとるロボット側で衝撃的なトルクが発生します。そこで通信スレッド内に移動平均フィルタによるレートマッチング機構を実装しました。更新間隔 $N$ サイクルにわたって指令値を均等に分配し、階段状のステップを滑らかなランプ状に変換します。わずか数ミリ秒の群遅延と引き換えに、あらゆるインターフェースで低速指令を安全に実行できます。\n\n- 3.3 位置領域での指令値生成法\n外部マシンの時計を使ったサンプリングを完全に廃止しました。ロボットから返ってきた前回の指令位置 $\\mathbf{q}_d(k)$ を基準にし、最新の外部指令位置 $\\mathbf{q}_{\\mathrm{ext}}(k)$ とその差分から求めたフィードフォワード速度 $\\dot{\\mathbf{q}}_{\\mathrm{ext}}(k)$ を使って、次のように次の目標位置を生成します：\n$$\\mathbf{q}_s(k+1) = \\mathbf{q}_d(k) + T_{\\delta}\\dot{\\mathbf{q}}_{\\mathrm{ext}}(k) + \\lambda (\\mathbf{q}_{\\mathrm{ext}}(k) - \\mathbf{q}_d(k))$$\nここで $\\lambda$ は調整パラメータです。主たる動作を速度項が牽引し、位置指令は比例フィードバックとしてのみ作用するため、ジッターに強い速度インターフェースの性質をそのまま受け継ぐことができます。また外部マシンのタイムスタンプを一切含まないため、時計のドリフトからも完全に解放されます。",
+   "figures": []
+  },
+  {
+   "heading": "4 EXPERIMENTAL VALIDATION",
+   "heading_ja": "実機検証：振動を抑えつつ正確に追従できるか？",
+   "summary_ja": "約18.3秒の多関節軌道をPanda実機で再生し、従来の同期実装と提案手法を比較しました。提案手法は公式のローパスフィルタで問題となっていた追従遅れを起こさず、同期実装特有の激しいモータノイズと高周波振動を見事に解消しました。",
+   "details_ja": "Ubuntu 24.04とROS 2 Jazzyを搭載したPCをPandaに直接接続し、性能評価を行いました。約18.32秒の複雑な多関節軌道を与え、関節速度のトラッキング精度と周波数スペクトル（パワースペクトル密度: PSD）を詳細に解析しています。\n\n公式の同期実装では、安全に動かすためにレートリミッタとローパスフィルタの併用が必須ですが、これらを有効にしても20〜150Hzの周波数帯に大きなノイズ成分が残り、ガタガタという耳障りなモータ異音が発生していました。一方、公式のローパスフィルタをそのまま強くかけると、増分指令値そのものが縮小されてしまい、指令値に対して実際の動作が大幅に縮んで追従できなくなってしまいます。\n\nこれに対し、提案する非同期アーキテクチャ（$\\lambda = 1 \\times 10^{-3}$ に設定、余計なローパスフィルタは無効化）では、指令された速度軌道にピタリと追従しながら、高周波領域のノイズを低周波フィルタ適用時と同等レベルまで綺麗に抑え込むことができました。\n\nまた、125Hz（$N=8$ サイクル相当）の上位指令を入力したレートマッチングのテストでは、フィルタなしだと1ステップごとに大きな段差が生じていたのに対し、提案手法を有効にすることで綺麗な直線補間（ランプ状）に整形され、わずか $3.5\\,\\mathrm{ms}$ の遅延だけで1kHzの滑らかな指令としてロボットに送り届けられることが確認されました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "関節1の計測速度（上）とそのパワースペクトル密度（下）の比較です。公式の同期実装（青）は追従しているものの20〜150Hz帯に強い振動ノイズがあります。ローパス併用（緑）は滑らかですが振幅が縮んで追従失敗しています。提案手法（赤）は滑らかさと正確な追従を両立しています。",
+     "caption": "Figure 5: Measured joint velocity (top) and its power spectral density (bottom) on joint 1, for the synchronous configuration, the proposed asynchronous one, and the proposed one with the low-pass filter enabled. The synchronous velocity tracks the reference, but is visibly rough; the filtered one is smooth, but follows a fraction of the commanded motion; the proposed one tracks and stays smooth.",
+     "image": "details/2608.19740/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "125Hzの指令源から送られた速度指令の波形です。拡大図を見ると、ゼロ次ホールド（青点線）では8サイクルごとの階段状ステップになっていますが、レートマッチング（赤実線）により滑らかなランプ状に変換されていることが分かります。",
+     "caption": "Figure 6: Commanded joint velocity reaching the robot from a $125\\text{\\,}\\mathrm{Hz}$ source, with rate matching disabled and enabled. The two commands, from separate runs, are aligned to the reference. The envelopes coincide over the trajectory (main), while the detail shows the zero-order-held staircase, whose single riser spans the $N=8$ cycles that the rate-matched command crosses as a ramp.",
+     "image": "details/2608.19740/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 APPLICATIONS",
+   "heading_ja": "現場で使える！4つの協働ロボティクス応用シナリオ",
+   "summary_ja": "MoveItによる動作計画、手先力制御、位置制御によるピック＆プレース、触覚デバイスを用いた遠隔操作という4つの実証実験を行いました。異なる2箇所の研究室の実機で、通常の非RTカーネルでも変更なしに動作することを実証しています。",
+   "details_ja": "提案スタックの実用性を証明するため、人間とロボットの協働で重要となる4つの異なるアプリケーションを実装しました。さらに再現性を確認するため、Lab AとLab Bという異なる研究機関にある2台の独立したPandaでテストを行いました。\n\n- 5.1 MoveIt! による計画と実行\nMoveIt! を用いてランダムな目標姿勢への衝突回避経路を計画し、トルクベースの軌道追従コントローラで実行しました。両研究室で全く同じようにスムーズに動作し、ROS 2標準ツールとの親和性が確認されました。\n\n- 5.2 コンプライアンス制御（力への追従性制御）\n手先のデカルト空間PD制御則をトルク指令で行うカスタムコントローラを実装しました。剛性を高く設定すると外乱に強く軌道を維持し、柔らかく設定すると人間が手でアームを押した際にフワリと柔軟にいなす挙動を実現しました。停止時と動作中の両方で、人間との安全な接触が可能であることを示しました。\n\n- 5.3 位置制御によるピック＆プレース\nこれまでPandaで使うなと言われてきた「位置指令インターフェース」を直接使って、別ハイトの台への物体把持・移載タスクを行いました。途中で止まることも振動することもなく、極めて滑らかに把持と移動を完遂しました。\n\n- 5.4 モバイルマニピュレータの触覚遠隔操作\nHusky A200台車の上にPandaを載せ、触覚デバイス（ハプティックデバイス）を通じて台車移動とアームのコンプライアンス制御をシームレスに切り替える遠隔操作タスクを行いました。作業空間外にある物体に近づいて把持・運搬する複雑なタスクも問題なく実行できています。\n\n特筆すべきは、Lab AではPREEMPT_RTを当てていない通常のUbuntuカーネルでこれらを完動させている点です。導入のハードルが劇的に下がったことが証明されました。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "MoveIt! を使った軌道計画と実行の様子です。Lab A（上段）とLab B（下段）の2つの異なる拠点のPanda実機で、全く同じソフトウェアスタックがそのまま動作することを示しています。",
+     "caption": "Figure 7: MoveIt! planning and execution, reproduced on both Panda setups: (top) Lab A; (bottom) Lab B. Full videos at https://sites.google.com/view/fer-ros2/applications/moveit",
+     "image": "details/2608.19740/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "コンプライアンス制御の実験の様子です。高剛性設定では人間の力に抗して姿勢を保ち、柔軟設定（compliant）では人間が手で押すと柔らかくアームが退いて外力に追従します。",
+     "caption": "Figure 8: Compliance control, reproduced on both Panda setups. Within each block: (top) standstill, (bottom) trajectory tracking, (left) stiff, (right) compliant. Full videos at https://sites.google.com/view/fer-ros2/applications/compliance-control .",
+     "image": "details/2608.19740/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 CONCLUSIONS",
+   "heading_ja": "まとめと今後の展望：Pandaの延命にとどまらない成果",
+   "summary_ja": "本研究はPandaの位置制御の持病を通信構造の改革によって治療し、ROS 2 Jazzyでの再活性化に成功しました。今後は固定ゲインの自動飽和調整や他機種アームへの本アルゴリズムの展開が期待されます。",
+   "details_ja": "本研究は、サポート切れで置き去りにされかけていたFranka Emika Pandaを最新のROS 2エコシステムへと呼び戻し、長年の課題だった外部位置制御の脆弱性を解決しました。原因はアームのハードウェアではなく、二重の時計による同期破綻とサンプリングジッターによる躍度リミット超過でした。これを非同期スレッドと位置領域指令生成というクリーンなソフトウェア設計で克服した点は、工学的に非常に洗練されています。\n\nもちろん、著者ら自身も認める限界があります。位置領域生成のゲイン $\\lambda$ は現在固定値であり、目標への追従速度と1周期あたりの補正量のトレードオフを手動で調整する必要があります。またレートマッチングによる遅延は、上位ループが遅くなるほど増大します。\n\n今後の展望として、許容される1周期あたりの増分リミットで補正量を自動飽和させる機構の導入や、パケットロスが長く続いた場合の制約考慮型リファレンス生成が挙げられています。また、本手法で開発された位置領域の指令値生成アプローチはPanda固有の前提をほとんど置いていないため、外部指令を受け付ける他のロボットマニピュレータ全般のジッター対策としても広く応用できる可能性を秘めています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "ロボットの急停止や振動が起きたとき、機械やサーボの限界を疑う前に、通信ループの同期構造やサンプリングジッターによる高階微分の爆発を疑うべきである。",
+  "高周波（1kHz）のロボット通信と、ROS 2などのミドルウェアの制御ループは、無理に単一ループで同期させず、専用リアルタイムスレッドと二重バッファで非同期化するのが極めて有効である。",
+  "外部マシンの時計に依存して軌道をサンプリングするのをやめ、ロボットが返してきた現在状態と速度フィードフォワードをもとに位置指令を生成することで、ジッターと時計ドリフトを原理的に無効化できる。",
+  "リアルタイム通信スレッドの負荷を最小化すれば、必ずしもPREEMPT_RTパッチを当てた専用カーネルを用意しなくても、通常のLinuxカーネル上で実用的なミリ秒制御が可能になる。"
+ ],
+ "limitations_ja": [
+  "位置生成式の収束ゲイン $\\lambda$ は経験的に調整された固定値であり、軌道の滑らかさや安定性に関する理論的・形式的な保証までは与えられていない。",
+  "低速な上位指令を平滑化するレートマッチング機構は、周期比 $N$ に比例したミリ秒単位の群遅延（遅れ）を必然的に発生させる。",
+  "非同期化によって通信ミスは激減したものの、汎用OSであるワークステーション側のスケジューリング遅延に起因する未処理サイクルを完全にゼロにできたわけではない。"
+ ],
+ "keywords": [
+  "Franka Emika Panda",
+  "ROS 2 Jazzy",
+  "ros2_control",
+  "Sampling Jitter",
+  "Asynchronous Interface",
+  "Human-Robot Collaboration"
+ ],
+ "id": "2608.19740",
+ "title": "Keeping the Franka Emika Panda alive: a ROS 2 stack with a reliable position interface",
+ "title_ja": "Franka Emika Pandaの信頼性の高い位置インターフェースを備えたROS 2スタック",
+ "authors": [
+  "Antonio Langella",
+  "Davide Risi",
+  "Vincenzo Petrone",
+  "Enrico Ferrentino",
+  "Pasquale Chiacchio"
+ ],
+ "date": "2026-08-22",
+ "group": "general",
+ "tags": [
+  "control",
+  "hardware"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.19740",
+ "pdf_url": "https://arxiv.org/pdf/2608.19740",
+ "summary_ja": "Franka Emika Pandaの外部位置制御における振動や保護停止の原因がサンプリングジッターや通信タイミングにあることを解明し、安定した制御を実現するオープンソースROS 2スタックを開発。リアルタイム通信を分離した非同期ハードウェアIFと参照軌道生成により、安全で高精度な位置制御を復元した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.19740"
+}
