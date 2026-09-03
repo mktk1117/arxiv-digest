@@ -1,0 +1,132 @@
+{
+ "tldr_ja": "ブラックボックス最適化である進化戦略（ES）を連続制御タスクの継続学習に初適用し、過去タスクの評価を混ぜるシンプルな「リプレイ」によって破滅的忘却を大幅に防げることを実証した論文です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "パラメータ空間における継続進化戦略（Continual ES）の概念図です。単一タスクの最適解（×印）を愚直に追いかけると過去の知識を忘れてしまいますが、リプレイを制約として加えることで、複数タスクの性能を両立できる妥協領域（白丸）へと最適化の軌跡が誘導されます。",
+  "caption": "Figure 1 . Conceptual illustration of continual learning with Evolution Strategies in parameter space $(w_{1},w_{2})$ . Crosses denote single-task optima $\\theta_{i}$ , hollow circles replay-constrained solutions $\\theta_{i}^{\\mathrm{replay}}$ , and the solid path the optimization trajectory under replay. Replay steers the search toward compromise regions that reduce forgetting. Conceptual illustration of continual learning with Evolution Strategies in parameter space $(w_1,w_2)$. Crosses denote",
+  "image": "details/2608.13600/F1.jpg"
+ },
+ "overview_ja": "強化学習やロボット制御の現場では、タスクや環境が時間とともに変化することが日常茶飯事です。しかし、一般的なニューラルネットワークを新しいタスクで順次学習させると、以前覚えた動作を完全に忘れてしまう「破滅的忘却（Catastrophic Forgetting）」が発生します。これまでの継続学習（Continual Learning）の研究は勾配降下法をベースにしたものがほとんどで、個体群を使ってブラックボックスに探索する進化戦略（Evolution Strategies: ES）がタスクの逐次変化にどう振る舞うのかは、実はほとんど分かっていませんでした。\n\nそこで著者らは、MuJoCoの歩行タスク（Hopper、Swimmer、Walker2d）を順番に解かせる実験を通して、進化戦略における継続学習の挙動を体系的に調査しました。その結果、通常のESは何の対策もしないと新しいタスクに過度に適応して過去のタスクを激しく忘れてしまうことが判明しました。\n\nこの問題を打破するために著者らが導入したのが「リプレイ（Replay）」です。ESの個体群評価の際、現在学習中のタスクだけでなく、過去に経験したタスクの試行（ロールアウト）も追加して同時に順位付けします。すると、勾配計算やネットワーク構造の大幅な変更を一切行わずに、過去の運動能力を維持したまま新しい動作を習得できるようになりました。さらに、リプレイ量を増やしすぎると新しいタスクへの適応力（可塑性）が落ちる「安定性と可塑性のトレードオフ」が存在することや、脚ロボットから水泳ロボットへの知識の順転移が起きることも実験で突き止めました。",
+ "contributions_ja": [
+  "ブラックボックス最適化手法である進化戦略（ES）を連続制御の継続学習（Continual Control）に適用した初の包括的な実験評価を行った点",
+  "過去タスクの評価サンプルを混ぜて同時に順位正規化するだけのシンプルなリプレイ機構が、ESにおける破滅的忘却を劇的に抑制することを示した点",
+  "リプレイの計算予算と「過去の維持（安定性）」対「新規適応（可塑性）」の間に生じるトレードオフを干渉度指標によって定量化した点",
+  "ロボットの形態差による知識転移の非対称性を明らかにし、脚ロボットの学習が遊泳ロボットの適応を助ける順転移を実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "1. Introduction",
+   "heading_ja": "環境が変わっても動きを忘れないロボットを目指して",
+   "summary_ja": "ロボット制御において環境や形態の変化へ継続的に適応する能力は不可欠ですが、従来の継続学習研究は勾配ベースの手法に偏っていました。本研究では、強化学習の有力な代替である進化戦略（ES）が、連続するタスク遷移下でどのような適応・忘却挙動を示すのかを初めて明らかにします。",
+   "details_ja": "現在の深層学習ベースのコントローラは、環境の動力学やロボット自身の形態が一定であることを前提に最適化されるのが一般的です。しかし現実の運用では、ロボットが未知の路面に遭遇したり、運ぶ荷物やアクチュエータの状態が変化したりと、動作環境は常に変動します。従来の単一タスク最適化モデルに新しいタスクを順次学習させると、以前獲得した方策が上書きされて使い物にならなくなる「破滅的忘却」が起きてしまいます。\n\nこれまで継続学習の研究は、教師あり学習や方策勾配法などの「勾配ベース手法」を中心に進められてきました。一方で、方策パラメータに摂動（ノイズ）を加えて集団で探索する進化戦略（Evolution Strategies: ES）は、報酬が疎な環境や微分不可能な制御問題に強いことが知られているにもかかわらず、タスクが順次現れるストリーム環境での振る舞いは未解明でした。\n\nここがポイントなのですが、ESは勾配を使わないブラックボックス最適化であるため、既存の勾配制約アプローチをそのまま適用できません。本研究は、MuJoCoの移動タスク列を用いてESの継続制御性能をベンチマークし、ESでも深刻な忘却が生じること、そして適切な過去の再評価（リプレイ）を組み込むことで過去の動作を保ちながら新規適応が可能になることを実証します。",
+   "figures": []
+  },
+  {
+   "heading": "2. Related Work",
+   "heading_ja": "勾配法が主流の継続学習界隈に、進化計算で切り込む",
+   "summary_ja": "継続学習では過去の記憶を保持するリプレイ法が代表的ですが、進化的アプローチとの統合は一部のハイブリッド手法に限られていました。本論文は、純粋なESによる連続制御タスクでの「忘却」「転移」「適応」の3要素を真正面から定量評価した点で独自性を持っています。",
+   "details_ja": "継続学習の目的は、過去に獲得した知識を破壊することなく、新しいタスクのストリームに適応し続けることです。その対策として最も広く使われているのが、過去のデータや経験を現在の学習に織り交ぜる「リプレイ（Replay）」です。特に、ロボット自身が現在どのタスクを実行しているのかというID（ラベル）を与えられない「タスク非依存（Task-Agnostic）」設定は、単一の方策ネットワークですべてのタスクをこなす必要があり、極めて難易度の高い課題とされています。\n\n進化計算を継続適応に用いる先行研究としては、進化探索とActor-Criticのアクター更新を組み合わせたCEM-ACERやES-TD3、画像分類などの教師あり学習を対象にした進化的継続学習がわずかに存在する程度でした。ロボティクスの連続制御において、純粋なES単体で忘却・知識転移・適応干渉のダイナミクスを詳細に測定・分析した研究はこれまで存在せず、本研究がその先陣を切る形となっています。",
+   "figures": []
+  },
+  {
+   "heading": "3. Continual Evolution Strategies",
+   "heading_ja": "進化戦略にリプレイを自然に溶け込ませる仕組み",
+   "summary_ja": "タスクごとにパラメータをリセットせず順次学習するプロトコルを構築し、過去タスクの評価を現在の探索集団に混ぜる「ES向けリプレイ」を導入しました。評価指標として後方転移（BWT）、前方転移（FWT）、獲得時干渉度（Int）を定義し、継続学習の成否を多角的に測ります。",
+   "details_ja": "本研究の枠組みでは、順序付けられたタスク列 $\\mathcal{T}=(T_1, \\dots, T_n)$ に対し、単一の方策パラメータ $\\theta \\in \\mathbb{R}^d$ をリセットせずに順次最適化していきます。対象タスクには、MuJoCoの「Hopper-v5（1本足ホッピング）」「Walker2d-v5（2脚歩行）」「Swimmer-v5（水中遊泳）」の3つを採用しました。これらは骨格構造も制御特性も大きく異なるため、順次学習させた際に顕著な競合が発生します。\n\n方策ネットワークには、タスクごとに異なる観測次元を受け止めるための入力射影層（Task-specific input projection）を設け、その後に共有の隠れ層（64ユニットのReLU）と共有の出力層（行動決定ヘッド）を配置しました。タスクIDが明示されないタスク非依存設定では、まったく同じ出力ヘッドがすべてのロボットの関節トルクを出力する必要があります。\n\n最適化アルゴリズムには標準的な並列ESを用います。各世代 $t$ において、正規乱数摂動 $\\varepsilon_i \\sim \\mathcal{N}(0, I)$ を加えた $\\lambda$ 個の候補解 $\\theta_t + \\sigma \\varepsilon_i$ を環境で走らせて報酬（リターン） $F_i$ を取得します。そして報酬を順位正規化（Rank-normalization）した重みを用いてパラメータを更新します。\n\nここで最大の工夫がリプレイの組み込み方です。なぜESとリプレイの相性が良いかというと、追加の勾配計算やバッファからの複雑なサンプリングが不要だからです。現在のタスクの候補解を評価する際、過去に通過したタスクの環境でも同じ摂動パラメータを評価させ、その報酬を現在タスクの報酬とまとめて一緒に順位正規化し、同じ重みでパラメータ更新に反映させます。これにより、探索の中心が「過去タスクでも高評価を維持できるパラメータ領域」へと自然に引き寄せられます。\n\n学習の評価には、各タスク単体で最初から学習したベースラインの最大報酬 $R^*_{\\mathrm{base}_i}$ で正規化した報酬値 $\\hat{R}$ を用います。さらに、過去タスクの保持力を示す後方転移（BWT: 負なら忘却、正なら性能向上）、未学習タスクの習得を過去の経験が助けたかを示す前方転移（FWT: 正なら学習加速）、そして新タスク獲得時に過去の記憶がどれだけ邪魔をしたかを示す獲得時干渉度（Interference at acquisition: $\\mathrm{Int}$）を数式化して評価に用いています。",
+   "figures": []
+  },
+  {
+   "heading": "4. Experiments",
+   "heading_ja": "忘却との戦い：リプレイの絶大な効果とトレードオフ",
+   "summary_ja": "素のESではタスク切り替え直後に過去の性能がほぼゼロまで崩壊する破滅的忘却が確認されましたが、中程度のリプレイによって過去の性能が高水準で維持されました。また、リプレイを増やしすぎると新タスクの学習が阻害されるトレードオフや、脚歩行から遊泳への非対称な順転移も明らかになりました。",
+   "details_ja": "実験のハイパーパラメータとして、個体群サイズ $\\lambda = 768 \\pm 384$、摂動ノイズの標準偏差 $\\sigma = 0.1$、学習率 $\\eta = 0.05$、各タスクの学習世代数は1000世代に設定されています。評価は摂動のない決定論的方策を用いて10世代ごとに行い、10回のロールアウト平均を記録しています。\n\n- 4.1 タスク非依存の継続学習（素のESの限界）：\nリプレイなしでHopper $\\to$ Swimmer $\\to$ Walker2dの順に学習させると、驚くほど急激な破滅的忘却が発生しました（図F2）。Hopperの学習完了後、Swimmerの学習が始まった瞬間にHopperの正規化報酬はほぼゼロ近くまで急落します。さらにWalker2dへ移行するとSwimmerも性能を落とします。つまり、素のESは何の工夫もしなければ過去の制御スキルを完全に捨て去ってしまうことが分かります。\n\n- 4.2 リプレイによる忘却の抑制とトレードオフ：\nそこでリプレイ摂動ステップ数を12（約1.5%）、192（約25%）、288（約37.5%）と変化させて効果を検証しました。図F3（192ステップ追加）を見ると明らかなように、タスクが切り替わってもHopperとSwimmerの報酬は高いレベルに踏みとどまり、Walker2dもしっかり学習できています。リプレイが探索空間において複数タスクを両立する領域を見事に捉えた結果です。\nしかし、リプレイを増やせば増やすほど良いわけではありません。図F4に示す新タスク獲得時の干渉度（$\\mathrm{Int}$）を分析すると、リプレイなし（0ステップ）では過去のバイアスによってWalker2dの獲得干渉度が0.7を超えて高くなります。192ステップのリプレイを入れると干渉度は劇的に下がりますが、288ステップまで増やしすぎると逆に干渉度が再び上昇してしまいます。これは「安定性・可塑性ジレンマ（Stability-Plasticity Trade-off）」そのものであり、過剰な過去タスクへの配慮が新しい動作の獲得を縛ってしまうことを意味しています。\n\n- 4.3 タスク間の知識転移：\n全6通りのタスク順列を走らせて転移性能を網羅的に検証したところ（図F5）、後方転移（BWT）はリプレイのおかげで多くの順列でほぼ0近傍（忘却が防止された状態）に収まりました。興味深いのは前方転移（FWT）の非対称性です。Hopper $\\to$ SwimmerやWalker2d $\\to$ Swimmerのように「脚ロボット $\\to$ 水泳ロボット」の順では有意な正の前方転移（FWT > 0）が見られました。脚を交互に動かす運動パターンが、身体をくねらせる推進動作の獲得を助けたと考えられます。しかし逆のSwimmer $\\to$ Hopperでは転移がマイナスになっており、形態間の互換性に強い方向性があることが浮き彫りになりました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "リプレイを用いないタスク非依存設定での学習曲線です。タスク境界（縦の点線）を越えた途端、それまで完璧に歩けていたHopper（青線）の報酬が垂直落下しており、ESにおいても破滅的忘却が極めて深刻に生じることが分かります。",
+     "caption": "Figure 2 . Normalized reward curves for the task-agnostic CL setting. Normalization is computed with respect to the maximum reward achieved in the corresponding single-task runs. The vertical dashed lines mark task transitions. Normalized reward curves for the task-agnostic CL setting. Normalization is computed with respect to the maximum reward achieved in the corresponding single-task runs. The vertical dashed lines mark task transitions.",
+     "image": "details/2608.13600/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "約25%（+192ステップ）のリプレイを導入した学習曲線です。タスクがSwimmer（オレンジ線）、Walker2d（緑線）へと移り変わっても、過去に学んだHopperの性能が安定して維持されており、忘却が大幅に抑えられています。",
+     "caption": "Figure 3 . Normalized reward curves for the task-agnostic CL setting with replay (+192 steps, $\\sim$ 25%). Normalization is computed with respect to the maximum reward achieved in the corresponding single-task runs. The vertical dashed lines mark task transitions. Normalized reward curves for the task-agnostic CL setting with replay (+192 steps, about 25 percent). Normalization is computed with respect to the maximum reward achieved in the corresponding single-task runs. The vertical dashed line",
+     "image": "details/2608.13600/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "異なるリプレイ予算における新タスク獲得時の干渉度です。リプレイなし（0）や微量（12）ではWalker2d学習時の干渉が大きいですが、192ステップで最小化されます。一方、288ステップまで増やすと過度な制約により干渉が再び悪化するトレードオフが示されています。",
+     "caption": "Figure 4 . Interference at acquisition for the task sequence $\\mathcal{T}=(\\textit{Hopper},\\,\\textit{Swimmer},\\,\\textit{Walker2d})$ under different replay budgets. Bars report $\\mathrm{Int}(\\mathcal{T},\\rho)$ at the acquisition step of each task. Lower values indicate reduced interference. Interference at acquisition for the task sequence Hopper, Swimmer, Walker2d under different replay budgets. Bars report interference values at the acquisition step of each task. Lower values indicate reduced i",
+     "image": "details/2608.13600/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "タスクペアごとの平均後方転移（BWT、左）と平均前方転移（FWT、右）です。BWTは概ねゼロ付近で忘却が防がれています。右のFWTでは、脚ロボットからSwimmerへの転移（H→S、W→S）のみが明確にプラスを示しており、転移の強い非対称性が観察されます。",
+     "caption": "Figure 5 . Pairwise transfer averaged over sequence contexts. Top: backward transfer (BWT), where $A\\leftarrow B$ measures the effect on task $A$ after learning task $B$ . Bottom: forward transfer (FWT), where $A\\rightarrow B$ measures the effect of learning task $A$ before task $B$ . Positive values indicate beneficial transfer; negative values indicate forgetting for BWT and harmful transfer for FWT. Error bars denote variability across contexts. Pairwise transfer averaged over sequence contex",
+     "image": "details/2608.13600/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5. Discussion and Future Work",
+   "heading_ja": "進化戦略は継続制御の有力な選択肢になり得るか？",
+   "summary_ja": "ESでも勾配法と同じ干渉問題が生じるものの、リプレイが極めて自然に統合できることが示されました。今後はモデル蒸留やパラメータ重要度に応じた正則化など、勾配法由来の他の継続学習アプローチをブラックボックス進化計算へ拡張することが期待されます。",
+   "details_ja": "実験結果から明らかなように、進化戦略は勾配ベースの手法と同様に壊滅的な干渉を起こしますが、リプレイ機構を導入することで継続的なロボット制御フレームワークとして十分機能することが証明されました。ESにおけるリプレイの最大の強みは、損失関数の再設計や逆伝播の計算グラフ構築が不要で、「評価環境のループに過去タスクの試行を数本足すだけ」で実現できる実装のシンプルさにあります。\n\n一方で、タスク間の知識転移が無条件に起きるわけではなく、形態の相性やタスク順序に大きく左右される点も浮き彫りになりました。著者らは今後の展望として、勾配法で成功している知識蒸留（Distillation）やシナプス可塑性に基づく重要度重み付け正則化（EWCなど）の考え方を、ブラックボックスな進化最適化へと輸入・翻案していく方向性を挙げています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：出力層を分ける「タスク認識型」で見えた干渉の正体",
+   "summary_ja": "ロボット自身がタスクIDを把握できる「タスク認識型（出力層をタスクごとに分離）」を検証したところ、忘却が劇的に減少しました。これにより、継続制御における干渉の主原因が「共有出力層でのアクション意味論の衝突」にあることが裏付けられました。",
+   "details_ja": "論文の付録（Appendix B〜D）では、メイン設定である「タスク非依存（単一出力ヘッド）」に対する比較として、「タスク認識型（Task-Aware：マルチヘッド）」の詳細な実験が行われています。タスク認識型では、入力射影層だけでなく出力ヘッドもタスクごとに独立させ、中間層（64ユニットの隠れ層）のみを全タスクで共有します。\n\n図F8を見ると、出力ヘッドを分離しただけで、リプレイを入れずともタスク遷移後のHopperの性能低下が劇的に抑えられています。さらに図F9において、獲得時の干渉度を「リプレイ付き共有ヘッド」と「タスク個別ヘッド」で比較したところ、ほぼすべてのタスク順列において個別ヘッドの方が干渉度が低減していました。\n\nこの結果が意味するのは、形態が異なるロボット同士を継続学習させる際、最大のボトルネックは特徴抽出（隠れ層の表現）ではなく、「同じ出力ユニットに異なる関節のトルク制御を無理やり割り当ててしまうこと（出力層の競合）」にあったという洞察です。実ロボットの継続学習システムを設計する上でも、極めて示唆に富む知見と言えます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "進化戦略（ES）をそのまま継続制御に使うと壊滅的な忘却が起きるが、過去タスクの評価を混ぜるリプレイだけで劇的に改善できる",
+  "リプレイの追加量は多ければ良いわけではなく、多すぎると新規適応力（可塑性）を損なうため、約25%前後の適切な配分が重要である",
+  "異なるロボット形態間での知識転移には強い非対称性があり、脚歩行（Hopper/Walker2d）から遊泳（Swimmer）への順転移が生じやすい",
+  "干渉の主因は共有出力層にあり、タスクごとに出力ヘッドを分ける（タスク認識型にする）だけで忘却の大半を回避できる"
+ ],
+ "limitations_ja": [
+  "検証された環境がMuJoCoの比較的シンプルな2次元移動タスク（Hopper、Walker2d、Swimmer）の3種類に限定されている",
+  "リプレイを行うためには過去のシミュレータ環境を保持して追加ロールアウトを実行する必要があり、実機ロボットへの直接適用にはサンプリングコストの課題が残る",
+  "前方転移（正の転移）が観測されたペアが極めて限定的であり、一般的な事前学習効果として活用するにはさらなるアーキテクチャの工夫が必要である"
+ ],
+ "keywords": [
+  "Evolution Strategies",
+  "Continual Learning",
+  "Continuous Control",
+  "Catastrophic Forgetting",
+  "Experience Replay",
+  "MuJoCo"
+ ],
+ "id": "2608.13600",
+ "title": "Continual Evolution Strategies in Control Tasks",
+ "title_ja": "制御タスクにおける継続的進化戦略の有効性検証",
+ "authors": [
+  "Nicola Pitzalis",
+  "Eleni Nisioti",
+  "Antonio Carta",
+  "Davide Bacciu",
+  "Andrea Cossu"
+ ],
+ "date": "2026-08-17",
+ "group": "focus",
+ "tags": [
+  "locomotion",
+  "reinforcement-learning",
+  "control"
+ ],
+ "categories": [
+  "cs.NE",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.13600",
+ "pdf_url": "https://arxiv.org/pdf/2608.13600",
+ "summary_ja": "タスク変化に適応しつつ過去のスキルを忘却しない継続的制御タスクにおいて進化戦略（ES）を検証した研究。MuJoCoの移動（locomotion）タスクを用いた実験により、単純なESで生じる破滅的忘却に対し、経験再生機構（Replay）を導入することで過去タスクの保持と正の転移が大幅に改善されることを示した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.13600"
+}
