@@ -30,6 +30,29 @@
   },
   {
    "date": "2026-09-03",
+   "rank": 0,
+   "id": "2609.02237",
+   "group": "focus",
+   "title": "Recursive Value Learning for Long-Horizon Offline Goal-Conditioned RL",
+   "title_ja": "長ホライズン・オフラインゴール条件付き強化学習のための再帰的価値学習",
+   "summary_ja": "オフラインゴール条件付き強化学習（GCRL）において、推定誤差の伝播や過大評価の増幅を抑える新手法DCRLを提案。軌道セグメントを平衡二分木へと再帰的に分解し、葉から根へ向けて価値関数を順次更新することで、不正確な方策評価を回避しながら長ホライズンの価値学習を安定化させた。",
+   "authors": [
+    "Hyeonseong Jeon",
+    "Youngwoon Lee"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.02237",
+   "image": "figures/2026-09-03/2609.02237.jpg"
+  },
+  {
+   "date": "2026-09-03",
    "rank": 1,
    "id": "2609.02358",
    "group": "focus",
@@ -58,6 +81,31 @@
    ],
    "abs_url": "https://arxiv.org/abs/2609.02358",
    "image": "figures/2026-09-03/2609.02358.jpg"
+  },
+  {
+   "date": "2026-09-03",
+   "rank": 1,
+   "id": "2609.02003",
+   "group": "focus",
+   "title": "Design and Validation of a Lightweight, Low-Profile Powered Knee Prosthesis with Quasi-Direct Drive Actuation",
+   "title_ja": "準ダイレクトドライブ駆動による軽量・薄型電動義足膝関節の設計と検証",
+   "summary_ja": "高トルク密度と逆駆動性を両立する準ダイレクトドライブ（QDD）を採用した電動義足膝関節の設計。18:1の2段減速機と熱・構造FEA最適化により、重量2.6kg・ビルド高さ24.5cmという商用化を見据えた薄型・軽量設計を実現し、能動的なアシスト運動制御の有用性を実証した。",
+   "authors": [
+    "Ross J. Cortino",
+    "Ryan Posh",
+    "Emily G. Keller",
+    "Robert D. Gregg"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "control",
+    "locomotion"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.02003",
+   "image": "figures/2026-09-03/2609.02003.jpg"
   },
   {
    "date": "2026-09-03",
@@ -96,6 +144,33 @@
   },
   {
    "date": "2026-09-03",
+   "rank": 2,
+   "id": "2609.02079",
+   "group": "focus",
+   "title": "Koopman-Based Robust Model Predictive Control for Nonlinear Systems with Stochastic Intermittent Measurements",
+   "title_ja": "確率的間欠計測下における非線形システムのためのクープマン作用素に基づくロバストMPC",
+   "summary_ja": "センサー計測が確率的に途切れる非線形システムに対し、クープマン作用素に基づく確率的モデル予測制御（MPC）を提案。リプシッツ制約付きディープKoopmanモデルで線形潜在空間予測器を構成し、状態遷移をマルコフ連鎖としてモデル化することで閉ループ安定性を担保しながら高速なオンライン最適化を実現した。",
+   "authors": [
+    "Guanhua Liu",
+    "Tong Wu",
+    "Lixian Zhang",
+    "Weifeng Du",
+    "Minghao Han"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "control",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.02079",
+   "image": "figures/2026-09-03/2609.02079.jpg"
+  },
+  {
+   "date": "2026-09-03",
    "rank": 3,
    "id": "2609.02222",
    "group": "focus",
@@ -122,6 +197,32 @@
    ],
    "abs_url": "https://arxiv.org/abs/2609.02222",
    "image": "figures/2026-09-03/2609.02222.jpg"
+  },
+  {
+   "date": "2026-09-03",
+   "rank": 3,
+   "id": "2609.01823",
+   "group": "focus",
+   "title": "Kirin: Animal Motion Generation from In-the-Wild Video",
+   "title_ja": "Kirin: 野生動画からの動物モーション生成フレームワーク",
+   "summary_ja": "モーションキャプチャが困難な動物の動作データを自然環境の動画から大規模に再構成し、動作事前分布を学習するフレームワークを提案。動画からの高精度な3Dモーション復元と拡散モデルによる自然な動作生成を実現し、四足ロボット等の模倣学習や運動制御アセットへの応用を可能にした。",
+   "authors": [
+    "Brian Nlong Zhao",
+    "Zhuoyang Pan",
+    "James M. Rehg",
+    "Jiajun Wu",
+    "Shangzhe Wu"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "locomotion",
+    "quadruped",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.01823",
+   "image": "figures/2026-09-03/2609.01823.jpg"
   },
   {
    "date": "2026-09-03",
@@ -154,6 +255,73 @@
   },
   {
    "date": "2026-09-03",
+   "rank": 4,
+   "id": "2609.01609",
+   "group": "focus",
+   "title": "DiDrive: A Risk-Aware Hierarchical Diffusion Framework for Safe Offline Reinforcement Learning in Autonomous Driving",
+   "title_ja": "DiDrive: 自動運転における安全なオフライン強化学習のためのリスク考慮型階層的拡散フレームワーク",
+   "summary_ja": "オフライン強化学習での分布シフトや安全限界の逸脱を防ぐため、階層的拡散モデルと3DICE方策最適化を統合した手法を提案。低レベルのリスクゲート付きエンコーダと高レベル文脈モジュールにより環境冗長性を排除し、安全臨界状況下でも安全制約を満たす行動生成を実現した。",
+   "authors": [
+    "Qisong Guo",
+    "Jingtang Chen",
+    "Zhilin Chen",
+    "Pei Xu",
+    "Mingjian Fu",
+    "Wenxi Liu",
+    "Yuanlong Yu"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "safety",
+    "autonomous-driving"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.01609",
+   "image": "figures/2026-09-03/2609.01609.jpg"
+  },
+  {
+   "date": "2026-09-03",
+   "rank": 5,
+   "id": "2609.02546",
+   "group": "general",
+   "title": "ZETA: A Controlled Study of Zero-Shot Cross-Embodiment VLA Transfer for Tabletop Manipulation",
+   "title_ja": "ZETA: 卓上マニピュレーションにおけるVLAモデルのゼロショット異形態転移に関する比較実験",
+   "summary_ja": "Vision-Language-Action（VLA）モデルにおける未学習ロボット形態（エンボディメント）へのゼロショット転移を体系的に評価する制御ベンチマークを提案。完全未見と事前学習時のみ露出の条件を切り分け、ハードウェア差異がモデルの汎化性能に与える影響を明らかにした。",
+   "authors": [
+    "Mi Yan",
+    "Wenhao Zhang",
+    "Zhiqi Zhang",
+    "Yu Peng",
+    "Tangxinyu Wang",
+    "Lingfei Zhai",
+    "Jiayi Su",
+    "Shengliang Deng",
+    "Lin Peng",
+    "Yaowei Liu",
+    "Yuxing Chen",
+    "Zhiyuan Wei",
+    "Jilong Wang",
+    "Jiayi Chen",
+    "Jiangran Lyu",
+    "Zhizheng Zhang",
+    "He Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.02546",
+   "image": "figures/2026-09-03/2609.02546.jpg"
+  },
+  {
+   "date": "2026-09-03",
    "rank": 5,
    "id": "2609.02531",
    "group": "general",
@@ -176,6 +344,32 @@
    ],
    "abs_url": "https://arxiv.org/abs/2609.02531",
    "image": "figures/2026-09-03/2609.02531.jpg"
+  },
+  {
+   "date": "2026-09-03",
+   "rank": 6,
+   "id": "2609.02159",
+   "group": "general",
+   "title": "World-Coherent Decoding: Self-Verifying Test-Time Planning for World Action Models",
+   "title_ja": "World-Coherent Decoding: 世界動作モデルのための自己検証型テスト時プランニング",
+   "summary_ja": "画像による未来予測と行動デコードを行うWorld Action Model（WAM）において、テスト時に生成候補を自己検証するフレームワークを提案。オプティカルフローに基づく驚きの度合いや行動経路の安定性で候補軌道を評価し、実行後の実観測で予測を監査して計画精度を改善した。",
+   "authors": [
+    "Chuhan Zhang",
+    "Seiji Ito",
+    "Kenta Hoshino",
+    "Satoshi Ikehata",
+    "Ikuro Sato"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "world-model",
+    "planning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.02159",
+   "image": "figures/2026-09-03/2609.02159.jpg"
   },
   {
    "date": "2026-09-03",
@@ -233,6 +427,39 @@
   },
   {
    "date": "2026-09-03",
+   "rank": 7,
+   "id": "2609.01899",
+   "group": "general",
+   "title": "TAPVid-MV: A Benchmark for Tracking Any Point in 3D Across Multiple Views",
+   "title_ja": "TAPVid-MV: 複数視点にわたる動的3D任意点追跡ベンチマーク",
+   "summary_ja": "カメラが移動する環境下で、同期された複数視点映像から3D空間の任意点を長期追跡する性能を評価する初のベンチマークを構築。屋内外やロボティクスを含む284シーケンス、1142本のカメラストリーム、約11万本の点軌道データを収録し、視覚追跡の頑健性を評価可能にした。",
+   "authors": [
+    "Skanda Koppula",
+    "Frano Rajic",
+    "Abdullah Faiz Ur Rahman",
+    "Yi Yang",
+    "Ignacio Rocco",
+    "Jeet Thakwani",
+    "Rishabh Kabra",
+    "Andrew Zisserman",
+    "Joao Carreira",
+    "Siyu Tang",
+    "Carl Doersch",
+    "Gabriel Brostow"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "perception",
+    "benchmark",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.01899",
+   "image": "figures/2026-09-03/2609.01899.jpg"
+  },
+  {
+   "date": "2026-09-03",
    "rank": 8,
    "id": "2609.02811",
    "group": "general",
@@ -253,6 +480,36 @@
    ],
    "abs_url": "https://arxiv.org/abs/2609.02811",
    "image": "figures/2026-09-03/2609.02811.jpg"
+  },
+  {
+   "date": "2026-09-03",
+   "rank": 8,
+   "id": "2609.02413",
+   "group": "general",
+   "title": "WildFab: Multi-Axis 3D Printing from Models in the Wild",
+   "title_ja": "WildFab: 実世界3Dモデルからの直接多軸3Dプリント生成フレームワーク",
+   "summary_ja": "非多様体や中空構造など欠陥を含む実世界メッシュから、事前修復なしで空間ツールパスと大域的衝突回避軌道を直接算出する計算フレームワークを提案。ニューラル非符号付き距離関数（UDF）を組み合わせたハイブリッド表現により、ロボットアームを用いた多軸プリントを自動化した。",
+   "authors": [
+    "Jiasheng Qu",
+    "Zhikai Shen",
+    "Chenyu Xu",
+    "Hailin Sun",
+    "Chengkai Dai",
+    "Yuhu Guo",
+    "Junpeng Wang",
+    "Yeung Yam",
+    "Guoxin Fang"
+   ],
+   "categories": [
+    "cs.GR",
+    "cs.RO"
+   ],
+   "tags": [
+    "planning",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.02413",
+   "image": "figures/2026-09-03/2609.02413.jpg"
   },
   {
    "date": "2026-09-03",
@@ -278,6 +535,31 @@
    ],
    "abs_url": "https://arxiv.org/abs/2609.02046",
    "image": "figures/2026-09-03/2609.02046.jpg"
+  },
+  {
+   "date": "2026-09-03",
+   "rank": 9,
+   "id": "2609.01731",
+   "group": "general",
+   "title": "TriSAR: Task Coordination and Collision Avoidance for Aerial Robot Teams in Disaster Response",
+   "title_ja": "TriSAR: 災害対応における空中ロボットチームのタスク調整と衝突回避",
+   "summary_ja": "地震被害を受けた都市環境のGazeboシミュレータ上で、5機のUAVからなるチームのタスク割り当てと反応型衝突回避を系統的に検証。遺伝的アルゴリズムと貪欲法によるタスク配分および局所軌道制御の組み合わせが、ミッション効率と安全性に及ぼす影響を定量的に解明した。",
+   "authors": [
+    "Aditya Anil Kapile",
+    "Pedro Machado",
+    "Isibor Kennedy Ihianle"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "drone",
+    "multi-robot",
+    "planning",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.01731",
+   "image": "figures/2026-09-03/2609.01731.jpg"
   },
   {
    "date": "2026-09-02",
