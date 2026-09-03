@@ -1,0 +1,160 @@
+{
+ "tldr_ja": "VLMを単なる特徴抽出器として別個のアクション生成ヘッドに繋ぐ流行の構成をやめ、思考（CoT）から行動トークンまでを単一の自己回帰トランスフォーマーで直接生成するVLAモデル「G0.5」を提案。実機やシミュレータなど7つの独立したベンチマークでSOTAを達成しました。",
+ "hero_figure": {
+  "key": "F3",
+  "caption_ja": "G0.5の中核をなす構造化アクション・トークン化（Structured Action Tokenization）の仕組みです。ロボットの関節を運動部位ごとにグループ化し、動いていない部位のトークン生成をスキップすることで、異なる身体構造を持つロボット間でも統一された語彙で高効率な自己回帰制御を実現しています。",
+  "caption": "Figure 3: Structured action tokenization. Heterogeneous robot actions are decomposed into semantically aligned motion parts, encoded with a residual vector quantizer, and serialized as part-specific action tokens. This representation shares one action vocabulary across embodiments while allowing sparse prediction over only the activated parts.",
+  "image": "details/2608.11739/F3.jpg"
+ },
+ "overview_ja": "最近のロボット向け視覚・言語・行動（VLA: Vision-Language-Action）モデルでは、学習済みVLM（視覚言語モデル）を「状況を読み取るエンコーダ」として使い、行動の出力自体はフロー・マッチングなどの別モジュールに任せる構成が主流になっています。しかしこの分離型アプローチでは、VLMが本来持っている「思考の連鎖（CoT）」や「プロンプトによる柔軟な行動誘導」といった強力な生成能力が、行動出力へと直接伝わらないという根本的な問題がありました。\n\nそこで著者らは、原点に立ち返って「VLM単体ですべてを自己回帰的に生成する」モデルの復権を目指しました。初期の自己回帰型VLAが抱えていた制御周波数やトークン数の爆発という課題を、身体部位ごとに分解して必要な部位だけを予測する学習型アクション・トークナイザ（ActionCodec）によって解決。さらに、思考プロセス（サブタスクや物体位置など）と行動トークンを同じ語彙・同じデコーダで一貫して生成するネイティブCoT、そして数秒間の文脈を捉える軽量な視覚メモリを組み込みました。\n\n評価では、実機バイマニュアル（双腕）ロボットR1-Lite / R1-Proでのファインチューニング、実環境ゼロショット転移（DROID）、家庭内長作業ベンチマーク（BEHAVIOR-1K）、LIBEROなどのシミュレーションを含む7つの評価設定で検証を実施。実機成功率76.7%（対する$\\pi_{0.5}$は53.3%）を叩き出し、BEHAVIOR Challengeでも1エポックの学習で既存の優勝解を上回るなど、VLM自身を行動主体（Actor）として扱う設計の圧倒的な強さを示しました。",
+ "contributions_ja": [
+  "学習型クロスエンボディメントActionCodecを導入し、関節自由度や制御周期が異なるロボット群の連続行動を単一の離散トークン空間へ効率的に統合した点。",
+  "思考（CoT）と行動を分離せず、サブタスク分解・物体バウンディングボックス・軌道予測などを同一の自己回帰ストリーム上で一体生成させた点。",
+  "VLMのバックボーンに時空間アテンションに基づく軽量な視覚メモリを組み込み、高頻度制御の遅延を抑えつつ長時間の時間的文脈を扱えるようにした点。",
+  "実機2台、大規模家庭内タスク、シミュレータなど7つの広範な実験系で$\\pi_{0.5}$やGR00Tなどの最新強力ベースラインを大幅に上回る性能を示した点。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "VLMを行動の「観測係」から「意思決定の主体」へ戻す",
+   "summary_ja": "近年のVLAは計算効率のためにVLMを行動予測器（エキスパート）への入力エンコーダとして扱いがちですが、これでは言語モデル本来の推論能力が活かせません。本論文は、効率的なトークン化によって単一の自己回帰ストリームで推論と思考、行動を一体生成するVLA「G0.5」を提案します。",
+   "details_ja": "近年のVLAモデルは、連続的な行動を高精度に出力するために、事前学習済みVLMの隠れ層をフロー・マッチングや拡散モデル（Diffusion）のエキスパートヘッドに渡す「VLM-as-encoder」構成が標準となっていました。しかし、この設計ではVLM自身は直接行動を生成しておらず、圧縮された特徴量ボトルネックを介して外部モジュールに条件付けしているに過ぎません。その結果、Chain-of-Thought（CoT: 思考の連鎖）推論や文脈内学習（In-context learning）といったLLM/VLM最大の強みが、行動の生成プロセスそのものにネイティブに作用しにくくなっていました。\n\nかつての自己回帰型VLA（RT-2など）が敬遠された原因は、行動のビン分割（binning）によるトークン数の急増と、それに伴う推論遅延にありました。本研究はここを根本から改善します。連続行動チャンクをコンパクトに圧縮する学習型VQ（ベクトル量子化）トークナイザを開発し、さらに「いま動いている関節グループだけ」を動的にトークン化することで、自己回帰デコードの計算負荷を劇的に削減しました。\n\nこうして思考と行動が単一のトランスフォーマー上で同じ語彙列として並ぶことで、モデルはタスクの分解、注目すべき対象物のバウンディングボックス検出、中間行動のヒントを生成しながら、流れるように物理行動を出力できるようになります。実機バイマニュアルロボットでの実験では76.7%の成功率を記録し、$\\pi_{0.5}$の53.3%やGR00T-N1.7の24.4%を大きく引き離す性能を実証しました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "VLAの潮流：分離型アーキテクチャの限界と自己回帰の再評価",
+   "summary_ja": "VLAモデルは「VLMを行動生成器とする自己回帰型」と「外部の拡散・フロー型エキスパートに繋ぐ分離型」に二分されます。先行研究が抱えていた破滅的忘却やトークン化の課題を整理し、本研究がどのようにマルチロボット対応の単一自己回帰モデルを実現したかを位置づけます。",
+   "details_ja": "2.1 VLAアーキテクチャの系譜\n$\\pi_0$や$\\pi_{0.5}$、GR00Tシリーズなどの主流モデルは、連続値を滑らかに扱えるフロー・マッチング等を外付けする構成を採っています。しかしこの構成では、行動エキスパートの勾配が逆伝播する際にVLM本来の言語・知覚能力が破壊される「忘却問題」が生じます。これを防ぐために勾配を遮断するKnowledge Insulationなどの対症療法が提案されてきましたが、本質的には自己回帰で行動を予測させることこそがVLMの能力保持に寄与することが近年の研究（VLA-0など）で示唆されていました。G0.5はこの知見を真正面から受け止め、自己回帰エンドツーエンドの構成を徹底しています。\n\n2.2 行動のトークン化と身体構造（エンボディメント）の差異\n初期の均等ビン分割は隣接ステップ間の高い相関を無視するため非効率でした。FASTのようにDCT（離散コサイン変換）とBPEを組み合わせる手法も登場しましたが、ロボットごとに別々の処理パイプラインが必要でした。また異種ロボットの統合では、ダミーの次元を埋めて全関節を1本の固定長ベクトルにする力技が一般的でした。これに対しG0.5は、身体部位ごとの意味的アライメントをトークナイザ内部に組み込み、左腕・右腕・下半身などを統一的に扱える構造化アクションコーデックを構築しています。\n\n2.3 VLAにおける推論とChain-of-Thought\n高位のVLMが生成したサブゴール画像を低位コントローラに渡すような「外付け型CoT」に対し、本研究はECoTと同様にデコーダ内で推論と言語・行動を混ぜて生成する「イン・ストリーム型CoT」を採用しています。さらにバウンディングボックス、テキスト、2Dエンドエフェクタ軌道、アクションヒントの4つの推論要素をプロンプトに応じて動的に切り替えられるテンプレート形式へと発展させました。",
+   "figures": []
+  },
+  {
+   "heading": "3 G0.5 Model Design",
+   "heading_ja": "思考・記憶・行動を単一トークン列に編み込むモデル構造",
+   "summary_ja": "Qwen3.5 2Bをベースに、入力観測から思考、行動コードまでを単一のデコーダで自己回帰的に生成します。部位ごとに無駄なく予測するActionCodec、多角的な中間推論を挟むネイティブCoT、そして計算量を抑えた視覚メモリの3要素で構成されています。",
+   "details_ja": "G0.5のベースモデルにはQwen3.5 2Bを採用しています。推論時には、マルチビューRGB画像、ロボットの種別ID、言語指示、自己受容感覚（関節角度など）が単一のプロンプト形式にシリアライズされて入力されます。生成シーケンスは思考フェーズ（CoT）と行動フェーズに分かれており、どちらも共通の語彙空間から同じクロスエントロピー損失でエンドツーエンドに学習されます。\n\n3.1 異種ロボット行動の構造化トークン化（ActionCodec）\nロボットの全身自由度をフラットな1本のベクトルとして量子化すると、動いていない関節の分まで無駄なトークンを消費してしまいます。そこでロボットの自由度を「左腕」「右腕」「下半身」などの運動部位ごとにグループ化し、共通の最大次元数へパディングした上で残差ベクトル量子化（RVQ: 複数段階で量子化誤差を段階的に詰めていく手法）を適用しました。さらに前後の動きの意味的連続性を保つ時間対照損失（Temporal contrastive loss）を導入しています。出力シーケンス中にはアクティブな部位を示す特殊トークン（例: `<left_control_r>`）のみが出現し、停止している部位はトークン列から完全に省かれるため、推論効率が大幅に向上します。\n\n3.2 ネイティブChain-of-Thought（CoT）\n従来の補助タスク学習と異なり、思考プロセスを行動生成の直前に直接出力させます。思考要素は「サブタスク分解（Subtask:）」「注目物体位置（BBox:）」「手先移動軌道（Trace:）」「動作のコツ（ActionHint:）」の4種類があり、学習時にはこれらから8通りの組み合わせをランダムに選んで学習させます。これにより、未知の環境でも「まず何を見て、どう動かすか」を自己回帰的に考えてから制御トークンを吐き出す挙動が自然に創発します。\n\n3.3 視覚メモリ（Visual Memory）\n家庭内の長時間の作業では、障害物による一時的な遮蔽や過去の失敗の検知が不可欠です。過去の画像トークンを単純に並べるとアテンションの計算量が二乗で爆発するため、ViT（Vision Transformer）内部の4層ごとに時間方向と空間方向を分離した因子化アテンション層を挿入しました。最終層では過去フレームのトークンを破棄することで高頻度制御のレイテンシを厳格に抑えています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "構造化アクション・トークン化の詳細パイプライン。各ロボットの行動チャンクを部位単位でエンコードし、時間対照損失と残差ベクトル量子化器（RVQ）を経て、アクティブな制御部位のトークンのみを生成ストリームに並べます。",
+     "caption": "Figure 3: Structured action tokenization. Heterogeneous robot actions are decomposed into semantically aligned motion parts, encoded with a residual vector quantizer, and serialized as part-specific action tokens. This representation shares one action vocabulary across embodiments while allowing sparse prediction over only the activated parts.",
+     "image": "details/2608.11739/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 G0.5 Pre-training",
+   "heading_ja": "実機デモとWebデータの統合事前学習",
+   "summary_ja": "14種類の異なるロボット形態からなる大規模動作データとWeb規模のVQAデータをブレンドし、単一ステージで事前学習を行いました。自動アノテーションパイプラインによってCoT用の高品質なラベルを大量生成しています。",
+   "details_ja": "事前学習は、多様なロボットONTOLOGY（実機・シミュレーションを含む14種類のエンボディメント）の大規模軌道データと、Web規模のマルチモーダル知覚データを混合して1ステージで実施されました。\n\n- ロボットデータと統一行動空間：\nすべてのロボットの行動は、左右のアーム（各7自由度）、左右のグリッパ（各1自由度）、胴体（4自由度）、台車ベース（7自由度）からなる合計27次元の統一行動空間へとマッピングされます。対象ロボットが持っていない自由度スロットには何もしないことを表すnoopトークンが割り当てられるため、ロボットごとの追加アダプタなしに単一の出力ヘッドを共有できます。\n\n- 自動アノテーションパイプライン：\nCoT学習に必要な大量の高品質推論データを揃えるため、自動ラベリング基盤を構築しました。軌道データをルールベースで時間分割してキーフレームを抽出し、Gemini 3やDoubao Seed 2.0 Proなどの商用VLM APIを叩いてサブタスク記述やアクションヒントを付与。さらにSAM3トラッキングを用いて操作対象のバウンディングボックスを抽出、順運動学（FK）から手先位置を逆算してカメラ画像上に2D軌跡を描画しました。\n\n- VQAとの共学習と最適化設定：\n一般的な言語能力や空間認識の低下を防ぐため、一般的なWeb VQAおよびロボット特化のEmbodied VQAデータをアクションデータと同時に学習させました。全パラメータを固定せず（ビジョンタワーも解凍したまま）、AdamWオプティマイザを用いて学習を実施。視覚メモリの過学習を防ぐため、学習時は30%の確率で過去フレームをドロップアウトさせています。",
+   "figures": []
+  },
+  {
+   "heading": "5 Experiments",
+   "heading_ja": "実機から長大タスクまで、7つの独立ベンチマークで圧倒",
+   "summary_ja": "実機Franka（DROID環境ゼロショット）、双腕モバイル実機R1-Lite / R1-Pro、50種類の長大家庭作業（BEHAVIOR Challenge）、シミュレータ3種で検証。あらゆる環境で分離型VLAベースラインを凌駕し、特に指示追従と多段階タスクで圧倒的な強さを示しました。",
+   "details_ja": "5.1 DROID環境・物体ゼロショット評価\nDROIDデータセットで事後学習した後、学習データに一切含まれていない未知の部屋・未知の物体セットを持つFrankaアーム実機で評価しました（図 F5）。10種類のタスクにおいて、G0.5は平均成功率82.5%を達成。$\\pi_{0.5}$（全タスクでG0.5が上回る）やMolmoAct2を大きく突き放しました。特に2段階の連続作業「ブロックを引出しに入れて引出しを閉める」では、MolmoAct2が完全失敗（0%）する中でG0.5は半数以上で成功しました。\n\n5.2 シミュレーションベンチマーク\n- Bridge-SimplerEnv: 自己受容感覚なしの厳しい条件下で成功率87.3%を記録しSOTAを達成。\n- RoboTwin 2.0: 双腕協調が求められる50種以上のタスクで、クリーン環境・ランダム化環境の平均で93.3%をマーク。\n- LIBERO: Frankaアームの4つのタスク群全体で平均98.9%を達成し、最難関のLongスイートでも首位となりました。\n\n5.3 2025 BEHAVIOR Challenge（長大モバイルマニピュレーション）\n1エピソード平均6.6分にも及ぶ過酷な50種類の家庭内タスク群において、G0.5は単一のチェックポイントだけで挑みました。なんと1エポック学習しただけのG0.5が、4エポック学習した$\\pi_{0.5}$をタスク成功スコアで+10.6%上回り、最終的に4エポック版では大会優勝チーム（4つのモデルを使い分けるアンサンブル）を+20.4%も上回る31.4%を記録しました。部位ごとの行動分解が移動と操作の協調に直結したこと、視覚メモリによる時間文脈の保持が効いたことが勝因です。\n\n5.4 実機ファインチューニング評価（R1-Lite & R1-Pro）\n双腕移動ロボット2機種を用い、タオル折り、段ボール組み立て、筆箱への文具収納、箱の段ボール移載積み上げの計6設定を検証（図 F7）。同一のGPU計算時間（16台のH20で4〜10時間）で比較したところ、G0.5は平均成功率76.7%を達成し、$\\pi_{0.5}$の53.3%、GR00T-N1.7の24.4%に大差をつけました（図 F8）。\n\n5.5〜5.6 言語追従とプロンプトによる挙動制御\n16個の雑多な物体から指示されたものを分別するPick-and-Placeベンチマーク（図 F9）では、CoTを有効にすることで言語追従率が明確に向上しました。さらにゼロショットの家庭作業において、プロンプト内の副詞や空間指示語、動詞の言い換えを変えるだけで、追加学習なしにロボットの動作速度やアプローチ軌道が柔軟に変化する創発的挙動も確認されました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "DROID環境におけるゼロショット評価タスクの様子。配置、色指定の選択、狭小開口部への挿入、柔軟物の操作、多段階の連続実行など、未学習の部屋と物理物体を用いた10種類の課題で検証しています。",
+     "caption": "Figure 5: DROID environment- and object-level zero-shot evaluation tasks. After DROID post-training, we evaluate G0.5 on 10 manipulation tasks across 8 held-out scene setups and previously unseen physical object instances on a Franka Research 3 robot arm. Tasks cover object placement, color-conditioned target selection, small-aperture insertion, deformable object manipulation, spatial displacement, and multi-step sequential execution.",
+     "image": "details/2608.11739/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "実機ファインチューニングで用いたR1-ProおよびR1-Liteの実験風景。タオル折りや段ボールの組み立てなど、双腕の精密な協調と接触を伴う高難度作業が設定されています。",
+     "caption": "Figure 7: Overview of real-world fine-tuning evaluation settings. We evaluate four manipulation tasks instantiated as six task-embodiment settings across R1-Pro and R1-Lite. The R1-Pro settings include towel folding, carton folding, and box transfer and stacking, while the R1-Lite settings include towel folding, carton folding, and pencil-case packing. Towel folding and carton folding are shared across both embodiments, enabling cross-embodiment comparison under the same task objectives.",
+     "image": "details/2608.11739/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "実機ファインチューニングにおける成功率とプロセスコアの比較グラフ。G0.5（濃いオレンジ）が6設定中5設定でトップとなり、平均成功率76.7%と既存モデル（53.3%、24.4%）を圧倒しています。",
+     "caption": "Figure 8: Performance on real-world fine-tuning evaluation. We evaluate G0.5 against $\\pi_{0.5}$ and GR00T-N1.7 on four manipulation tasks instantiated as six task-embodiment settings across R1-Pro and R1-Lite. G0.5 achieves strong overall performance in both task success rate and process score, demonstrating robust long-horizon manipulation capability across different embodiments.",
+     "image": "details/2608.11739/F8.jpg"
+    },
+    {
+     "key": "F9",
+     "caption_ja": "Pick-and-Place Benchmarkの clutter（散乱）環境。多数の無関係な物体の中から言語指示されたターゲットを正確に見つけ出し、指定のコンテナへ運ぶ言語追従能力をテストします。",
+     "caption": "Figure 9: Pick-and-Place Benchmark setting. The evaluation set contains 64 object categories and 3 container categories. Each trial presents 16 randomly arranged objects and containers, requiring the robot to identify the instructed target among distractors and place it into the specified container. Each policy is evaluated across all object categories in real-world trials to reduce variance.",
+     "image": "details/2608.11739/F9.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "VLAの未来は「VLM自身を行動主体に据え続けること」にある",
+   "summary_ja": "思考・記憶・行動を単一の自己回帰ストリームで統合したG0.5の有効性が実証されました。外部エキスパートに頼らず、VLM本来の推論・適応能力をそのまま物理行動へと直結させる設計思想が、次世代ロボット制御の基盤となることを示しています。",
+   "details_ja": "本論文の結論は極めて明確です。VLAモデルの進化の道筋は、遊休状態のVLMの上に小細工のような外部アクションエキスパートを付け足すことではなく、事前学習によって培われたVLMの自己回帰推論能力をそのまま行動生成器として解き放つことにあります。\n\nG0.5はその設計思想を体現し、単一の交差エントロピー損失による自己回帰モデリングが、言語追従性の保護、全身協調制御の汎化、そしてプロンプトによる柔軟な行動誘導をもたらすことを実験的に証明しました。一方で、半透明な家具の開口部検知といった極端な視覚的曖昧さへの対処や、現状数秒にとどまっている視覚メモリのさらなる長期化、プロンプトによる動作制御の体系的な解析など、今後の発展に向けた課題も明確に提示されています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「VLM-as-encoder」構成は思考と行動を分断してしまうため、真に賢い指示追従や長大作業を目指すなら、単一デコーダで思考と行動を自己回帰生成する「VLM-as-actor」構成に回帰すべきである。",
+  "自己回帰制御の最大の弱点だった計算コストは、ロボットの運動部位（腕・脚など）に応じた構造化トークン化と、動いていない部位のトークン省略（疎な予測）によって実用レベルまで抑え込める。",
+  "サブタスク分解やバウンディングボックス予測などの推論（CoT）を行動直前にネイティブ出力させることで、追加モジュールなしに未知環境での適応力と指示追従性が劇的に底上げされる。"
+ ],
+ "limitations_ja": [
+  "半透明の引き出しや白い筐体など、視覚的コントラストが極端に低い状況における開口部やターゲットのローカライズ精度には依然として課題がある。",
+  "視覚メモリが保持できる履歴が現状「数秒間」に限定されており、数十分単位の真に超長期的な文脈記憶は扱いきれていない。",
+  "統一行動空間に下半身（ベース移動）の自由度が含まれてはいるものの、本論文内では下半身単体の独立した動作アブレーションが十分に行われていない。"
+ ],
+ "keywords": [
+  "Vision-Language-Action (VLA)",
+  "Autoregressive Modeling",
+  "Chain-of-Thought (CoT)",
+  "Action Tokenization",
+  "Cross-Embodiment",
+  "Mobile Manipulation"
+ ],
+ "id": "2608.11739",
+ "title": "G0.5: One Autoregressive Stream for Robot Reasoning and Action",
+ "title_ja": "G0.5: ロボットの推論と行動のための単一自己回帰ストリーム",
+ "authors": [
+  "Yicheng Liu",
+  "Zibin Dong",
+  "Baijun Ye",
+  "Tianyuan Yuan",
+  "Tao Jiang",
+  "Anqi Yang",
+  "Shicheng Cao",
+  "Haonan Liu",
+  "Yue Sun",
+  "Zihan Guo",
+  "Xiao Liu",
+  "Dong Ke",
+  "Changxun Pan",
+  "Chenru Wu",
+  "Tailai Cheng",
+  "Xiaoshu Ren",
+  "Xinlei Zhang",
+  "Jianning Cui",
+  "Zijie Zhao",
+  "Haoyu Zhang",
+  "Kaiming Xu",
+  "Haodong Yang",
+  "Bowen Zhang",
+  "Jiahui Niu",
+  "Shaoting Zhu",
+  "Shiduo Zhang",
+  "Hang Zhao"
+ ],
+ "date": "2026-08-13",
+ "group": "general",
+ "tags": [
+  "vision-language-action",
+  "manipulation",
+  "planning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.11739",
+ "pdf_url": "https://arxiv.org/pdf/2608.11739",
+ "summary_ja": "従来のVLAモデルがVLMと独立した行動抽出モジュールを結合していたのに対し、単一のTransformerデコーダで推論と行動トークンを統一的に自己回帰出力するG0.5を提案。異種ロボット行動を共有語彙にマッピングするトークナイザやChain-of-Thought系列を導入。基礎モデル規模での統一的学習を実現し、多様なタスクで高い操作性能を実証した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.11739"
+}
