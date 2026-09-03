@@ -1,0 +1,135 @@
+{
+ "title_ja": "FOCUS: 頑健なヒューマノイド固有受容オドメトリのための足部観測信頼度推定",
+ "tldr_ja": "「足が地面に着いているか」という二値判定をやめ、足先運動学の観測信頼度を連続値で推定してカルマンフィルタに滑らかに融合することで、足の滑りやつま先立ちが起きてもドリフトしないヒューマノイドオドメトリを実現しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "FOCUSの基本的な着眼点を示す図です。激しい動作では足先が滑ったりつま先だけで擦れたりするため、「接触している＝足先が止まっている」という前提が崩れます。FOCUSは接触の0/1判定ではなく、左右それぞれの足先順運動学（FK）がどれくらい信用できるかを0〜1の連続的な信頼度重みとして推定します。",
+  "caption": "Fig. 1: Motivation of FOCUS. Dynamic humanoid motion breaks binary contact gating: high torque or apparent contact does not necessarily imply reliable FK. FOCUS instead estimates continuous per-foot FK reliability weights for the left and right feet.",
+  "image": "details/2609.02222/F1.jpg"
+ },
+ "overview_ja": "外部カメラやLiDARに頼らず、ロボット自身のセンサー情報（自己受容感覚）だけで位置や速度を推定する技術は、脚式ロボットにとって命綱です。従来は「足が地面に着いて静止している」という前提のもと、足先順運動学（FK）から胴体速度を計算して拡張カルマンフィルタ（EKF）に流し込む手法が主流でした。しかし、このアプローチには大きな落とし穴があります。それが「接触判定の二値切り替え（0か1か）」です。\n\n現実のヒューマノイドがダイナミックに動くとき、つま先だけを擦って歩いたり、接地したまま足先がスリップしたり、体重が半分しか乗っていない状態が頻発します。このとき足先は静止していないため、接触スイッチを「ON」にしてFKを信じ切ってしまうと、あっという間に推定位置がずれて（ドリフトして）しまいます。\n\nそこで著者らは、接触を0/1で判定するのをやめ、足先FKの観測がどれだけ信用できるかを0から1の連続値として推定する「FOCUS」を提案しました。軽量な因果的Transformerが直近1秒間のIMUと関節運動から左右の足の「信頼度」を予測し、信頼度に応じてFK速度とIMU予測速度を滑らかにブレンドしながら、EKFの観測ノイズ共分散を動的に調整します。人手による正解ラベル付けは一切行わず、シミュレータ上で「実際の胴体速度とFK速度が一致しているか」を測る損失関数を用いて自己完結的に学習させています。\n\n実機の等身大ヒューマノイド（A3 Ultra）を用いた実験では、19パターンの歩行シーケンスにおいて軌道誤差（ATE）を従来比で70.8%も削減し、ダンスなどの激しい動作ルーチンでも42.7%の誤差削減を達成しました。足先が滑りやすい環境でも破綻しない、極めて実用的なオドメトリ手法です。",
+ "contributions_ja": [
+  "接触判定の0/1スイッチを廃止し、足先順運動学（FK）観測の「信頼度」を連続値として推定してEKFの観測ブレンドと共分散調整に直接組み込む枠組みを確立したこと。",
+  "手動のアノテーションを一切使わず、シミュレーション内の「実際の胴体速度とFK速度の整合性」を直接測る損失関数によって信頼度推定モデルを自己教師あり的に学習可能にしたこと。",
+  "アクチュエータ電流由来の不正確なトルク推定値に頼らず、IMUと関節の幾何情報（位置・速度）のみを入力とすることで、実機ごとの個体差やキャリブレーション誤差に頑健な構成を実現したこと。",
+  "5台の実機ヒューマノイドによる長距離歩行（計1.51 km）や激しいダンス動作において、既存の閾値ベースおよび学習ベースのオドメトリを大幅に上回る推定精度を実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "II Introduction",
+   "heading_ja": "なぜ「接地判定」を信じるとオドメトリが狂うのか？",
+   "summary_ja": "従来の脚式オドメトリは足先が地面に固定されている前提でFKを利用してきましたが、動的な動作では足の滑りやつま先立ちが起き、この前提が破綻します。FOCUSは接触の有無ではなく「その足先のFK観測がどれだけ信頼できるか」を連続値で推定し、EKFに滑らかに統合します。",
+   "details_ja": "外部のGNSSやモーションキャプチャに頼れない環境下で、脚式ロボットが自身のIMU（慣性計測装置）と関節エンコーダだけで移動量を推定する「自己受容オドメトリ」は非常に重要です。古典的かつ強力なアプローチは、足が接地しているときに「足先が地面に対して静止している」と仮定し、足先順運動学（FK: Forward Kinematics）から求まる胴体速度を拡張カルマンフィルタ（EKF）に観測値として入力する手法です。\n\nしかし、この枠組みの最大のボトルネックは「いつFKを信じるべきか」の判定にあります。従来システムは力センサーや関節トルク推定値、あるいは機械学習による分類器を使って「接地している（1）か浮いている（0）か」を判定し、足先FKの観測を丸ごとオン・オフしていました。ところが、ヒューマノイドが速く歩いたり複雑に動いたりすると、つま先を擦るような接地（toe scraping）や、接地しながらの足滑り（slip）、荷重が不十分な過渡状態が日常的に発生します。つまり、「足が触れている＝足先が静止している」ではないのです。ここでバイナリ判定が「接地」と判断してしまうと、誤った拘束条件をEKFに強く焼き込んでしまい、長距離を歩くうちに致命的な位置ドリフトを引き起こします。\n\nFOCUS（Foot Observation Confidence from Unannotated Simulation）はこの課題を根本から解決します。接触判定を解くのではなく、「左右それぞれの足先FKが今どれくらい信用できるか」を$[0, 1]$の連続的な重みとして推定するのです。この重みを用いて、EKFの中でIMU由来の速度とFK由来の速度を滑らかに混ぜ合わせ、さらに観測共分散を適切に膨らませます。モデル構造は人間が数式で理解できるEKFをそのまま土台にしており、ブラックボックスな end-to-end 学習にありがちな不安定さを回避しています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "接触の二値判定（Binary gating）がつま先引きずりや滑りによって破綻する様子と、FOCUSが左右の足に対して連続値の信頼度重み $w_L, w_R$ を割り当てるコンセプトの対比です。",
+     "caption": "Fig. 1: Motivation of FOCUS. Dynamic humanoid motion breaks binary contact gating: high torque or apparent contact does not necessarily imply reliable FK. FOCUS instead estimates continuous per-foot FK reliability weights for the left and right feet.",
+     "image": "details/2609.02222/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "既存のオドメトリ研究と何が違うのか？",
+   "summary_ja": "従来の閾値ベース手法、機械学習による接触推定手法、そして深層学習による end-to-end 手法の3系統と比較し、FOCUSの位置づけを明確にしています。FOCUSはモデルベースの解釈性を保ちつつ、FK速度の信頼性評価に特化している点がユニークです。",
+   "details_ja": "本章では先行研究を3つのカテゴリに整理し、FOCUSとの違いを浮き彫りにしています。\n\n### II-A 閾値ベースの接触補助オドメトリ\n力センサーやモーター電流から推定したトルクに手動で閾値を設け、接地判定を行う古典的な手法です。解釈性が高くリアルタイムで動作しますが、閾値の調整が極めてシビアで、つま先接地やスリップなどのあいまいな接触に対応できません。\n\n### II-B 学習ベースの接触推定\n手動閾値の脆さを克服するため、ニューラルネットで接触確率を予測したり（Linら）、接触の共分散行列を予測して不変拡張カルマンフィルタ（InEKF）に渡す手法（CoCo-InEKFなど）が提案されてきました。しかし、これらは「接触確率」や「共分散」を学習するにとどまり、FKから得られる胴体速度そのものが正解速度とどれだけ一致しているかを直接評価する重み付けは行っていません。また、接触していても滑っていれば速度拘束としては無効であるという本質的なギャップが残っていました。\n\n### II-C End-to-End の自己受容オドメトリ\n接触モデルや幾何計算をすべてスキップし、IMUや関節データから直接ロボットの移動変位を深層学習で推定する手法（Legolasなど）です。複雑な接触ダイナミクスをまるごとモデル化できる強みがある一方、ブラックボックスなニューラルネットがメトリックな移動量推定の全責任を負うため、学習データにない動作での予測外れや解釈性の低さが課題でした。\n\nFOCUSはこの中間に位置します。厳密な幾何モデル（FK）とEKFという古典的で信頼できる枠組みを維持したまま、ニューラルネットには「各足のFK観測を何パーセント信じるべきか」という有界なスカラー値の推定だけを担当させています。",
+   "figures": []
+  },
+  {
+   "heading": "III Methodology",
+   "heading_ja": "FOCUSのアーキテクチャと学習の仕組み",
+   "summary_ja": "30次元の自己受容センサー履歴から因果的Transformerで左右足の信頼度重みを推定します。この重みでFK速度とIMU速度をブレンドし、EKFの観測ノイズを調整します。人手ラベルなしでシミュレーションから自動生成したデータを用いて学習を行います。",
+   "details_ja": "FOCUSの全体アーキテクチャと学習パイプラインは、以下の要素で構成されています。\n\n### III-A & III-B システム概要とEKFの状態観測モデル\nシステム全体は、軽量な因果的Transformerと12次元の状態を持つEKFから成ります（図 F2）。状態ベクトルは胴体位置、胴体速度、左右の足先位置（すべてグローバル座標系）です。姿勢は骨盤IMUのクォータニオンから直接取得し、IMUの重力補正加速度で状態を伝播させます。\n観測モデルは14次元で、左右の足先相対位置、足先FKから逆算した胴体速度、そして足の高さ拘束です。足先が地面に固定されていると仮定すると、FKから胴体速度 $\\mathbf{v}_{B,i}^{G,\\mathrm{FK}}$ が一意に計算できますが、この拘束が成り立つかどうかをFOCUSの信頼度で評価します。\n\n### III-C 足先FK信頼度によるEKFの動的変調\nネットワークが予測した左右の信頼度重み $w_i \\in [0, 1]$（$i \\in \\{L, R\\}$）を用いて、FK速度の観測共分散 $R_{\\mathrm{vel}, i}$ を以下のように動的にスケーリングします：\n$$R_{\\mathrm{vel}, i} = R_{\\mathrm{vel}, 0} \\cdot \\left(1 + S_{\\mathrm{vel}} (1 - w_i)^2\\right)$$\n信頼度 $w_i$ が1に近いときは通常のノイズ共分散 $R_{\\mathrm{vel}, 0}$ ですが、信頼度が下がるにつれて最大拡大率 $S_{\\mathrm{vel}} = 100$ 倍までノイズが膨らみ、フィルタがその観測を自動的に無視するようになります。同様の共分散スケーリングを足先位置や高さ拘束にも適用します。\nさらに、EKFに入力する速度観測そのものも、飽和ランプ関数 $\\tau_i = \\min(1, 2.5 w_i)$ を通じて、IMUによる事前予測速度 $\\hat{\\mathbf{v}}_{B}$ とFK速度の間で線形補間（ブレンド）します：\n$$\\mathbf{z}_{v, i} = \\tau_i \\mathbf{v}_{B,i}^{G,\\mathrm{FK}} + (1 - \\tau_i) \\hat{\\mathbf{v}}_{B, k|k-1}^G$$\nこれにより、ハードな切り替えによるフィルタの急激な状態跳びを防ぎます。\n\n### III-D 因果的Transformerモデル\n入力は過去50フレーム（50 Hzで1秒間分）の30次元センサーデータです。内訳はIMUの並進加速度（3次元）、角速度（3次元）、下肢関節位置（12次元）、関節速度（12次元）です。ここに関節トルクを含めていないのが重要なポイントです。電流から換算するトルク推定値はキャリブレーション誤差やバイアスに弱いため、あえて幾何・慣性情報だけに絞っています。モデルは4層のCausal Transformerエンコーダ（隠れ次元128、4ヘッド）とMLPヘッドで構成され、最終的に左右の信頼度 $[w_L, w_R]$ を出力します。\n\n### III-E 教師なしシミュレーション学習損失\n「連続的なFK信頼度」の正解値を人間がアノテーションするのは不可能です。そこで著者らは、「信頼できるFK速度なら、シミュレータ内の真の胴体速度と一致するはずだ」という直観に基づき、左右のFK速度をネットワークの重みで合成した速度と真値速度との一致度を測る損失関数を設計しました：\n$$L_{\\mathrm{vel}} = (1 + \\|\\mathbf{v}^{\\mathrm{GT}}\\|) \\|\\hat{\\mathbf{v}}^{\\mathrm{fused}}(w_L, w_R) - \\mathbf{v}^{\\mathrm{GT}}\\|^2$$\n高速移動時ほどFKのミスが大きな位置ドリフトにつながるため、速度ノルムに比例した重み付けを施しています。これに加えて、重みがゼロに潰れるのを防ぐための極めて軽量なシミュレータ接触バイナリ交差エントロピー（BCE）損失を補助正則化として加えています。\n\n### III-F シミュレーションデータ生成パイプライン\n強化学習（PPO）で学習させたモーション追従ポリシーを Isaac Lab 上で動かし、多様なモーションデータを再生して実行データを収集しました（図 F3）。ランダムな速度指令ではなく、歩行、跳躍、走行、武術などの多様な動作を行わせ、追従エラーや足の滑りが自然に含まれた5420エピソード（約51.65時間分）のデータセットを構築しました。摩擦係数、ロボット質量、重心位置、センサーノイズなどを徹底的にドメインランダマイゼーションしています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "FOCUSの全体パイプラインです。シミュレーションで自己教師あり学習された因果的Transformerが、過去50フレームの自己受容感覚から左右の信頼度を予測し、EKFの速度ブレンドと共分散行列を動的に更新します。",
+     "caption": "Fig. 2: Per-foot FK Reliability Weighting. A causal Transformer predicts left/right FK reliability weights from a 50-frame proprioceptive history. The weights blend FK and IMU-propagated velocity observations and modulate EKF noise; training uses FK-weighted velocity consistency with lightweight contact regularization.",
+     "image": "details/2609.02222/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "Isaac Labを用いたシミュレーションデータ収集フローです。PPOで訓練したポリシーを固定してモーションライブラリを再生し、ドメインランダマイゼーション下でのリアルな追従誤差や接触データを記録します。",
+     "caption": "Fig. 3: Isaac Lab simulation data collection pipeline. A reinforcement-learning (RL) policy trained with proximal policy optimization (PPO) tracks retargeted motions, is frozen for replay-based recording, and is post-processed with a Unified Robot Description Format (URDF) model to produce per-foot FK velocity supervision before motion-wise dataset splitting.",
+     "image": "details/2609.02222/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "実機ヒューマノイドでの徹底検証と性能評価",
+   "summary_ja": "等身大ヒューマノイド「A3 Ultra」を用い、19本の長距離歩行と4種類の激しいダンスルーチンで検証しました。FOCUSは従来のトルク閾値法に比べて歩行ATEを70.8%、ダンスATEを42.7%削減し、最高水準の推定精度を達成しました。",
+   "details_ja": "### IV-A 実験セットアップ\n検証には身長174 cm、体重60 kgの等身大ヒューマノイド「A3 Ultra」を使用しました（図 F4）。下肢エンコーダと骨盤IMUの自己受容データのみを使用し、LiDARやカメラのデータは真値軌道の取得（評価用）にのみ用いています。比較対象には、従来のトルク閾値法（Threshold）、四足や二足で実績のある Pronto、接触共分散を学習する CoCo-InEKF、エンドツーエンド手法の Legolas を用意しました。\n\n### IV-B シミュレーション評価\nシミュレータ内の歩行20エピソードにおいて、トルク閾値法が平均ATE 1.016 mだったのに対し、FOCUSは0.166 mへと83.7%もの誤差削減を達成しました。また、ネットの移動量が小さく軌道形状の再現性が問われる動的動作20エピソードにおいても、運動の振幅比率や周波数スペクトルの忠実度で最良のスコアを記録しました。\n\n### IV-C 実機歩行評価（19シーケンス、計1.51 km）\n5台の異なるA3 Ultra実機から収集した計19本（総距離1.51 km、総時間54.1分）の歩行データで評価しました。結果は表IIIおよび図F5に示す通り、トルク閾値法の平均ATE 2.634 mに対し、FOCUSは0.768 m（70.8%削減）を叩き出し、19本すべてのシーケンスでベースラインを上回りました。ウィルコクソンの符号順位検定でも $p < 10^{-5}$ と極めて有意な差が確認されています。シミュレーションのドメインランダマイゼーションと連続値出力設計により、実機の減速機バックラッシュやエンコーダノイズに対する見事なSim-to-Real転移が実現できています。\n\n### IV-D 実機動的動作・ダンス評価\nCharleston、Chaosha dance、Zero-Frame Start、Cyberwalk という4種類の複雑なダンスルーチン（キック、素早い脚の振り、つま先立ちを含む）で検証しました。これらの動作は移動距離自体は短いものの足先の激しい滑りが発生します。FOCUSは平均ATEを0.947 mから0.542 mへと42.7%削減し、次点のPronto（0.605 m）を抑えてトップの性能を示しました。\n\n### IV-E 接触判定とFK信頼度の乖離分析\n図F6は、Charlestonダンス中の4秒間の挙動を可視化したものです。トルクベースの接触判定（灰色の網掛け）が「接地している」と判断している区間でも、FOCUSの信頼度重み（青・赤の線）は急激に落ち込んでいる場面が見られます。これは足先が持ち上がり始めたり、足先速度が速い（スリップしている）瞬間と強く相関しており（相関係数はそれぞれ $-0.608$ と $-0.663$）、FOCUSが「接触の有無」ではなく「静止拘束としての信頼性」を的確に見抜いている決定的な証拠です。\n\n### IV-F アブレーション研究と計算速度\n信頼度重みを0.5で二値化した「Hard FOCUS」や、ニューラルネットでバイナリ接触を直接学習した「NN-binary」では、手動閾値法よりも性能が悪化しました。また、観測共分散だけを変えて速度ブレンドを行わない設定（CoCo-InEKFに近い構成）でも誤差が増加し、「連続的な信頼度推定」と「速度観測のソフトブレンド」の双方が不可欠であることが証明されました。\nなお、展開されたONNXモデル（約69万パラメータ）のCPU推論時間は Intel i7-13700K の1スレッドでわずか1.62 msであり、50 Hzの制御周期においてCPU使用率8.1%で余裕をもってリアルタイム動作します。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "実機における推定軌道の比較です。上段2行が歩行シーケンス、下段2行が激しいダンス動作を示しています。黒の実線（真値）に対し、FOCUS（青線）が最もズレなく追従していることが分かります。",
+     "caption": "Fig. 5: Real-robot trajectory comparisons across representative walking and dynamic-motion sequences. The first two rows show walking examples selected from the 19-segment set. The last two rows show dynamic motions spanning Charleston, Chaosha dance, Zero-Frame Start, and Cyberwalk. The plot compares ground truth, Threshold, Pronto, CoCo-InEKF, Legolas, and FOCUS.",
+     "image": "details/2609.02222/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "Charlestonダンス中の4秒間の詳細解析です。灰色領域（トルク閾値による接触判定）がONのままでも、足先が動いてFKが破綻している局面ではFOCUSの信頼度（a, bの実線）が急低下しており、接触判定との本質的な違いが分かります。",
+     "caption": "Fig. 6: Qualitative evidence that continuous FK reliability differs from binary contact in a representative 4-s Charleston window. Blue and red identify the left and right feet, respectively. Solid curves in (a) and (b) are the corresponding FOCUS reliability weights; gray shading denotes torque-based contact. Solid curves in (c) are relative FK foot heights $\\Delta z$ , while solid curves in (d) are leg-joint speeds.",
+     "image": "details/2609.02222/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "FOCUSは接触の0/1判定を排し、連続的なFK信頼度重みを導入することでヒューマノイドオドメトリのドリフトを劇的に減らしました。今後は未知の路面環境へのオンライン適応などが期待されます。",
+   "details_ja": "FOCUSは、従来の接触補助オドメトリが抱えていた「接触判定の二値性による破綻」という根本的課題を、連続的な信頼度重み付けというアプローチで見事に解決しました。トルクセンサーに依存せず、軽量な因果的Transformerと数理的に解釈可能なEKFを巧みに組み合わせたことで、実機ヒューマノイドの歩行で70.8%、動的ダンスで42.7%という圧倒的な誤差削減を達成しています。\n\n著者らは今後の展望として、砂地や濡れた床など、事前学習シミュレーションに含まれていない未知の摩擦係数や地形に対するオンライン適応を挙げています。EKFのイノベーション（観測残差）やIMUとFKの短時間の整合性を自己教師あり信号として利用することで、モデルを崩壊させずに実環境へ適応し続けるオドメトリシステムの実現を目指すとしています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「接地しているか」と「運動学拘束が静止基準として有効か」は別問題。滑りやつま先立ちを伴うロボットでは、接触の二値判定ではなく連続的な信頼度評価が必要である。",
+  "ブラックボックスなEnd-to-Endモデルに全てを任せるのではなく、FKやEKFといった確立されたモデルベース構造を残し、その「信じ度合い」だけを学習させるハイブリッド設計が極めて堅牢に機能する。",
+  "アクチュエータの電流推定トルクはキャリブレーションや温度変化によるバイアスを受けやすいため、幾何学的な運動情報（位置・速度）とIMUのみを入力に絞ることで、個体差をまたいだSim-to-Real転移が容易になる。",
+  "ラベル付けが難しい連続値の重みでも、「重み付けした観測値がシミュレータの真値と一致するか」というタスク整合損失を組むことで、アノテーションなしで高品質に自己教師あり学習できる。"
+ ],
+ "limitations_ja": [
+  "学習データがIsaac Labのシミュレーション環境に依存しているため、シミュレータの接触モデルから大きく外れるような特殊な地面（泥、深い砂、極端に柔らかいスポンジ状の床面など）では信頼度推定が狂う可能性がある。",
+  "現在はモデルの重みが固定されており、未知の環境や摩耗によるロボットの経年変化に対してオンラインで自己適応する機能は備わっていない。",
+  "姿勢（ヨー角やロール・ピッチ）の推定自体は骨盤IMUのクォータニオンに依存しており、ジャイロの長期的なドリフトや磁気異常に対する抜本的な補正機構はEKF内に含まれていない。"
+ ],
+ "keywords": [
+  "Proprioceptive Odometry",
+  "Humanoid Robots",
+  "Extended Kalman Filter",
+  "Forward Kinematics",
+  "Continuous Contact Reliability",
+  "Sim-to-Real Transfer"
+ ],
+ "id": "2609.02222",
+ "title": "FOCUS: Foot Observation Confidence for Robust Humanoid Proprioceptive Odometry",
+ "authors": [
+  "Kaixin Feng",
+  "Angsong Li",
+  "Shaopeng Zhang",
+  "Enyu Li",
+  "Peiwen Lin",
+  "Chuang Wang",
+  "You Li",
+  "Haiyu Lan"
+ ],
+ "date": "2026-09-03",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "locomotion",
+  "simulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.02222",
+ "pdf_url": "https://arxiv.org/pdf/2609.02222",
+ "summary_ja": "足部順運動学（FK）に基づく脚オドメトリにおいて、二値の接地判定に代わり連続的な信頼度重みを予測するFOCUSを提案。シミュレーションデータから学習し、部分支持や足の滑り・引きずりが発生する動的歩行下でも過度のドリフトを抑え、長距離軌跡で高精度な状態推定を達成した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.02222"
+}
