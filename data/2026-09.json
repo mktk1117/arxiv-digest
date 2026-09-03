@@ -1,6 +1,285 @@
 {
  "entries": [
   {
+   "date": "2026-09-03",
+   "rank": 0,
+   "id": "2609.02542",
+   "group": "focus",
+   "title": "World-Model-Augmented Visual Locomotion for Humanoids on Foothold-Constrained Terrain",
+   "title_ja": "踏み場制約地形におけるヒューマノイドのためのワールドモデル拡張型視覚歩行制御",
+   "summary_ja": "飛び石や狭い階段など足場が制限された地形向けに、リカレントワールドモデルとPPOを統合したWM-LOCOを提案。自己受容感覚と深度情報から近未来の観測や報酬を予測し、将来を見越した足配置を実現することで、踏み外しが許されない過酷な地形での安定した動的歩行を可能にした。",
+   "authors": [
+    "Yuxi Liu",
+    "Lijun Han",
+    "Ziming Wang",
+    "Ao Zhang",
+    "Cong Yang",
+    "Wei Sui"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "world-model",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.02542",
+   "image": "figures/2026-09-03/2609.02542.jpg"
+  },
+  {
+   "date": "2026-09-03",
+   "rank": 1,
+   "id": "2609.02358",
+   "group": "focus",
+   "title": "Humanoid Safe Stop via Learned Stoppability Value",
+   "title_ja": "学習された停止可能性価値に基づくヒューマノイドの安全停止制御",
+   "summary_ja": "緊急停止時に固定動作を行うのではなく、現在状態から安全に停止可能かを推論するSafe-Stopを提案。停止方策の実行結果から学習する停止確率推定量と、ハミルトン・ヤコビ解析に基づく回復可能性推定量を組み合わせることで、動的なヒューマノイド歩行における安全で状況適応的な停止を実現した。",
+   "authors": [
+    "Junfeng Long",
+    "Pieter Abbeel",
+    "Koushil Sreenath",
+    "Roberto Horowitz",
+    "Guanya Shi",
+    "C. Karen Liu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.02358",
+   "image": "figures/2026-09-03/2609.02358.jpg"
+  },
+  {
+   "date": "2026-09-03",
+   "rank": 2,
+   "id": "2609.02134",
+   "group": "focus",
+   "title": "Unified Motion Retargeting for Humanoids with Learned Point Cloud Correspondence",
+   "title_ja": "学習された点群対応付けによるヒューマノイド向け統合動作リターゲティング",
+   "summary_ja": "人間とロボットの骨格や可動域の差異を埋めるため、点群の幾何学的対応付けを学習して参照動作を生成するリターゲティング手法を提案。従来の手作業によるスパースなキーポイント設定に依存せず、多様なモーションデータからヒューマノイドの全身運動制御に適した高品質な動作軌跡を生成可能にした。",
+   "authors": [
+    "Hanyang Cao",
+    "Yuetong Fang",
+    "Taesoo Kwon",
+    "Runyi Yu",
+    "Ji Ma",
+    "Jing Tan",
+    "Yangchen Zhou",
+    "Baoze Du",
+    "Yi Gu",
+    "Yukang Gao",
+    "Ruoli Dai",
+    "Lei Han",
+    "Renjing Xu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.GR"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.02134",
+   "image": "figures/2026-09-03/2609.02134.jpg"
+  },
+  {
+   "date": "2026-09-03",
+   "rank": 3,
+   "id": "2609.02222",
+   "group": "focus",
+   "title": "FOCUS: Foot Observation Confidence for Robust Humanoid Proprioceptive Odometry",
+   "title_ja": "FOCUS: 頑健なヒューマノイド固有受容オドメトリのための足部観測信頼度推定",
+   "summary_ja": "足部順運動学（FK）に基づく脚オドメトリにおいて、二値の接地判定に代わり連続的な信頼度重みを予測するFOCUSを提案。シミュレーションデータから学習し、部分支持や足の滑り・引きずりが発生する動的歩行下でも過度のドリフトを抑え、長距離軌跡で高精度な状態推定を達成した。",
+   "authors": [
+    "Kaixin Feng",
+    "Angsong Li",
+    "Shaopeng Zhang",
+    "Enyu Li",
+    "Peiwen Lin",
+    "Chuang Wang",
+    "You Li",
+    "Haiyu Lan"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.02222",
+   "image": "figures/2026-09-03/2609.02222.jpg"
+  },
+  {
+   "date": "2026-09-03",
+   "rank": 4,
+   "id": "2609.02306",
+   "group": "focus",
+   "title": "Contact-Constrained Lower-Limb Joint-Offset Calibration for Humanoid Robots",
+   "title_ja": "ヒューマノイドロボットのための接触制約に基づく下肢関節オフセット自己校正",
+   "summary_ja": "外部モーションキャプチャを使わず、機体の関節エンコーダと骨盤IMUのみで完結する下肢関節オフセット校正手法を提案。静的な両足支持時の幾何拘束を利用し、ヘッセ行列の固有構造解析に基づき12次元オフセットの非線形最小二乗問題を定式化して、実機で高精度な運動学的整合性を達成した。",
+   "authors": [
+    "Kaixiang Lu",
+    "Haiyu Lan",
+    "Chunxiao Qiao",
+    "You Li",
+    "Chengyuan Luo",
+    "Enyu Li",
+    "Peiwen Lin",
+    "Chuang Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.02306",
+   "image": "figures/2026-09-03/2609.02306.jpg"
+  },
+  {
+   "date": "2026-09-03",
+   "rank": 5,
+   "id": "2609.02531",
+   "group": "general",
+   "title": "Spatially Aware World Action Model via Geometric Latent Diffusion",
+   "title_ja": "幾何学的潜在拡散を用いた空間認識ワールドアクションモデル",
+   "summary_ja": "事前学習済み動画拡散モデルを拡張し、ロボットの行動・RGB画像・深度を単一の拡散バックボーンで同時予測するSA-WAMを提案。3次元幾何情報を組み込んだ潜在拡散により、動画モデル由来の強力な物理事前知識を保ちながら高精度な空間認識と閉ループ方策学習を実現した。",
+   "authors": [
+    "Javier Alejandro Lopetegui Gonzalez",
+    "Paul Pacaud",
+    "Cordelia Schmid"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.02531",
+   "image": "figures/2026-09-03/2609.02531.jpg"
+  },
+  {
+   "date": "2026-09-03",
+   "rank": 6,
+   "id": "2609.01938",
+   "group": "general",
+   "title": "One Demonstration, Many Objects: Generalizing Manipulation via Local Contact Geometry",
+   "title_ja": "単一のデモから多様な物体へ：局所接触幾何を用いた多指マニピュレーションの汎化",
+   "summary_ja": "人間の単一デモから未知の物体群へ汎化可能な多指ハンド操作方策DemoMimicを提案。接触点周辺の局所幾何構造に着目した報酬設計を行うことで、シミュレーション強化学習から実機へのsim-to-real転送において、未知の形状や配置を持つ物体に対しても精密で頑健な操作を達成した。",
+   "authors": [
+    "Satvik Sharma",
+    "Samrat Sahoo",
+    "Huang Huang",
+    "Fei-Fei Li Jiajun Wu",
+    "Dorsa Sadigh",
+    "Jeannette Bohg"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "reinforcement-learning",
+    "sim-to-real",
+    "grasping"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.01938",
+   "image": "figures/2026-09-03/2609.01938.jpg"
+  },
+  {
+   "date": "2026-09-03",
+   "rank": 7,
+   "id": "2609.02020",
+   "group": "general",
+   "title": "Real-Time Dynamics-Based Torque-Sampling MPPI for Compliant and Force Aware Manipulation",
+   "title_ja": "柔軟かつ力覚を考慮したマニピュレーションのための実時間動力学ベーストルクサンプリングMPPI",
+   "summary_ja": "剛体動力学と安全制約をリアルタイムMPC内で明示的に扱うMPPIベースの作業空間制御フレームワークを提案。GPU並列化を活用したトルクサンプリング制御系を構築することで非線形ダイナミクスを高速に解き、未知環境下で柔軟かつ精密な接触・力制御挙動を実機で実証した。",
+   "authors": [
+    "Euncheol Im",
+    "Taehyun Kim",
+    "Yonghwan Oh",
+    "Myotaeg Lim",
+    "Yisoo Lee"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "planning",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.02020",
+   "image": "figures/2026-09-03/2609.02020.jpg"
+  },
+  {
+   "date": "2026-09-03",
+   "rank": 8,
+   "id": "2609.02811",
+   "group": "general",
+   "title": "Do Better Imagined Rollouts Mean Better Robot Control? A Controlled Study of World-Model Evaluation Under Feedback",
+   "title_ja": "優れた想像ロールアウトは優れた制御を意味するか？フィードバック下におけるワールドモデル評価の対照研究",
+   "summary_ja": "ロボティクスにおけるワールドモデルの開ループ予測誤差と閉ループ制御性能の乖離を実験的に検証。センサ欠損等の条件下での軌道追従を通じ、長期ロールアウト誤差よりも軌道再生時のRMSEの方が閉ループ追従誤差と強く相関することを示し、モデル評価指標の再考を促した。",
+   "authors": [
+    "Dharini Raghavan",
+    "Amritpal Singh"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "control",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.02811",
+   "image": "figures/2026-09-03/2609.02811.jpg"
+  },
+  {
+   "date": "2026-09-03",
+   "rank": 9,
+   "id": "2609.02046",
+   "group": "general",
+   "title": "Modeling What Changes: Sparse, Residual World Models for Object-Centric Manipulation",
+   "title_ja": "変化する要素のモデル化：物体中心マニピュレーション向けスパース残差ワールドモデル",
+   "summary_ja": "シーン全体を一括予測する従来のワールドモデルに対し、変化検知ゲートと残差ヘッドにより変化する物体のみを更新するモデルを提案。MuJoCoの卓上押し操作において、高密度MLPに比べパラメータ数を約1/10に削減しつつ、次状態の姿勢予測精度を2.5〜4.6倍向上させた。",
+   "authors": [
+    "Param Thakkar",
+    "Parsika Paresh Shah",
+    "Manisha Sushant Gote"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "world-model",
+    "manipulation",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.02046",
+   "image": "figures/2026-09-03/2609.02046.jpg"
+  },
+  {
    "date": "2026-09-02",
    "rank": 0,
    "id": "2609.01418",
