@@ -1,0 +1,130 @@
+{
+ "tldr_ja": "視覚やLiDARが同時に破綻する極限環境に対し、特徴選別から学習型IMUオドメトリへの切り替えまでを4段階で適応させる「Super Odometry 2.0」を提案。200km超・800時間の実機検証により、濃煙やセンサ脱落でも破綻しない驚異的な耐障害性を実証しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "本手法の核となる階層的適応（Hierarchical Adaptation）の全体像です。環境の縮退レベルに応じて、軽微な視覚ノイズへの「適応的特徴選別」、幾何構造欠如への「適応的状態方向選別」、センサ遮蔽への「適応的エンジン選別」、そして全外乱センサ喪失時の「学習ベースIMUオドメトリ」へと、軽負荷から高介入へと段階的に対処方針をエスカレーションさせます。",
+  "caption": "Figure 1: Hierarchical Adaptation on Sensor Fusion in Robots. We propose a hierarchical adaptation strategy that initiates with adaptive feature selection for visual degradation, moves to adaptive state direction for LiDAR degradation, applies adaptive factor (engine) selection for mixed degradation, and employs learning-based IMU odometry during complete degradation.",
+  "image": "details/2608.25427/F1.jpg"
+ },
+ "overview_ja": "ロボットが未知の実世界を自律移動する際、最大の壁となるのがセンサの縮退（Degradation）です。暗闇や濃霧、激しい揺れによるモーションブラー、幾何特徴のない長い廊下、さらには山火事のような濃煙に直面すると、カメラやLiDARの観測は破綻し、従来のオドメトリ（自己位置推定）はたちまちドリフトや発散を起こしてしまいます。冗長なセンサを愚直に同時統合する手法もありますが、計算負荷が跳ね上がる割に、全センサが同時に狂うような極限状況には太刀打ちできませんでした。\n\nそこで著者らは、ヒトが視界を遮られたときに前庭感覚（平衡感覚）や深部感覚を頼りに運動を推測する「経路統合（Path Integration）」の仕組みに着想を得ました。外乱に晒されないIMU（慣性計測装置）をカメラやLiDARと同等以上の主役へ引き上げるため、多様なロボットで事前学習した学習型IMUオドメトリを構築。さらに、環境の悪化度合いに応じて「特徴量選別」「状態方向の重み付け」「センサエンジンの切り替え」「IMU主導へのフォールバック」へと対処を段階的に繰り出す「階層的適応フレームワーク」を着想しました。\n\n検証は驚くほど徹底しています。4脚ロボット、車輪型UGV、ドローン、手持ちデバイスなど多様なプラットフォームを用い、6年間で総走行距離200km以上、運用800時間におよぶ実証を実施。濃煙や長廊下、積雪、さらには飛行中のプロペラ破損・激突スピンといった過酷極まるシナリオでも、一度も発散せず極低ドリフトで自己位置を追従し切る驚くべき堅牢性を示しました。",
+ "contributions_ja": [
+  "軽微な乱れから全センサ喪失までを4段階（特徴選別・状態方向選別・エンジン選別・学習IMU）で柔軟に切り替える階層的適応フレームワークを構築した点",
+  "100時間以上の異種ロボットデータで事前学習し、未知プラットフォームにもLoRAで即座に適応できる学習ベースIMUオドメトリを実現した点",
+  "最適化ベースの因子グラフと学習ベースIMUが互いを監視・教師信号として補正し合う、双方向（Bi-level）の適応学習ループを確立した点",
+  "実機フリートを用いて200km・800時間以上にわたり、濃煙・暗闇・長廊下・衝突など多様な極限環境での実証を完遂した点"
+ ],
+ "sections": [
+  {
+   "heading": "Introduction",
+   "heading_ja": "視覚も幾何構造も消える過酷環境に、オドメトリはどう立ち向かうべきか？",
+   "summary_ja": "従来のマルチモーダルセンサフュージョンは、視覚と幾何情報が同時に破綻する極限環境においてドリフトや最適化の破綻を起こしがちでした。本研究ではヒトの経路統合に着想を得て、学習型IMUを本格導入するとともに、状況の厳しさに応じて介入度合いを変える階層的適応システム「Super Odometry 2.0」を提案しています。",
+   "details_ja": "オドメトリはロボットが自身の3次元的な位置と姿勢を逐次推定する基盤技術であり、ナビゲーションやマッピングの成否を握っています。しかし現実のフィールド（山火事現場、地下鉱山、悪天候など）では、暗闇による視覚情報の喪失、特徴のない長廊下によるLiDAR点群マッチングの不整合（縮退）、さらには濃煙や砂嵐による全方位の視覚・幾何情報の完全消失といった問題が頻発します。\n\n既存のセンサフュージョン手法には大きく分けて疎結合（Loosely-coupled）と密結合（Tightly-coupled）が存在しますが、どちらも「全センサからの観測誤差がガウス分布に従う」という前提に依存しがちです。そのため、煙などでセンサ値が異常値（アウトライア）に支配されると、因子グラフ最適化が異常な方向に引きずられてしまいます。また、あらゆる状況で全センサを重厚に解こうとすると計算コストが高騰し、オンボード計算資源が限られる小型ロボットやドローンでは運用が難しくなります。\n\nこの課題に対し、著者らは次の2つの柱でブレイクスルーを図りました。\n\n- **内部感覚（IMU）の復権と双方向学習**: ヒトが暗闇で平衡感覚を頼りに歩くように、外界の影響を受けないIMUデータを深層学習で処理し、独立した3次元運動オドメトリを生成します。平時は幾何・視覚フュージョン結果を教師にしてIMUネットワークをオンライン更新し、外界センサが死んだ瞬間にIMU側が主導権を握って推定を支えます。\n- **階層的適応（Hierarchical Adaptation）**: 軽微な乱れには軽量な処理（特徴の共分散選別）で対処し、幾何縮退には方向別の重み付け、長時間のセンサ喪失にはエンジンの除外、完全遮蔽には学習型IMUへと、状態悪化に応じて計算負荷と介入レベルを引き上げます。",
+   "figures": []
+  },
+  {
+   "heading": "Results",
+   "heading_ja": "軽微なノイズから完全なセンサ喪失まで：4段階の適応が示す圧倒的ロバスト性",
+   "summary_ja": "1ランで13種類もの過酷環境を連続走破するキャンパステストをはじめ、段ボールによるセンサ完全遮蔽実験や濃煙環境での周回走行を実施しました。あらゆる縮退状況下で既存の最先端手法を大幅に上回る精度と耐障害性を確認しています。",
+   "details_ja": "本章では、縮退を「視覚縮退」「幾何縮退」「混合縮退」「完全縮退」の4種に分類し、各モジュールの挙動と統合性能を検証しています。\n\n- **1ランで13種類の縮退を網羅した連続走行**: CMUキャンパス内の全長2,966mにおよぶルートを4脚ロボットで46分間走破しました。無特徴の白壁、暗闇の階段、濃煙、ガラス張りの通路、多層階移動など13種類以上の困難な状況が連続しますが、ループクローザなどのバックエンド大域最適化を一切使わずに完走。終端ドリフトはわずか0.2m（ドリフト率0.006%）という驚異的な数値を記録しました（図F2）。\n\n- **幾何縮退と適応的状態方向選別**: 特徴のない廃病院の長廊下（668m、最大速度5m/s）では、進行方向（X軸）のLiDAR拘束が抜けてスリップする現象が起きます。本手法はフロントエンドで可観測性（Observability）を事前解析し、X軸方向のみLiDARの重みを落とし、視覚オドメトリの拘束を注入（ソフトフュージョン）することで、FAST-LIO等の競合手法が破綻する中でも安定した推定を維持しました（図F4）。\n\n- **センサ脱落実験（混合縮退）**: ロボット稼働中に段ボールでLiDARの側面、前後、全方位、さらにはカメラを順次遮蔽する耐久テスト（600秒間）を実施しました。特定軸の可観測性が落ちると即座に他センサへ重みが再配分され、完全に信号が途絶したセンサ因子はグラフから自動除外されます。この脱落試験全体での最大絶対軌道誤差（ATE）はわずか0.184mでした（図F5）。\n\n- **濃煙下での完全縮退と学習型IMUの活躍**: 車両が濃煙に包まれると、LiDARもカメラも反射光や視界不良で完全に使い物にならなくなります。ここでは事前に通常走行データでオンライン適応（LoRA）を済ませた学習型IMUオドメトリが自動的に推定の主役へ昇格。煙の有無が切り替わる8の字コースでもシームレスに推論を繋ぎ止め、破綻なく追従しました（図F7）。\n\n- **SOTA手法とのベンチマーク比較**: 過酷環境データセットSubT-MRSにおける評価では、オフライン処理やループクローザを許可された競合チームがいる中で、本手法はリアルタイム動作のみで平均ATE 0.271mを達成。次点手法に比べて誤差を54%削減し、推定の完遂度を測るロバスト性指標（AUC）でも最高値を記録しました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "キャンパス内を2,966mにわたって連続走破した総合評価結果です。濃煙（A）、暗い階段（B）、暗黒の広場（C）、無特徴の長廊下（D）、立体的な多層階（E, F）など13種類もの縮退を連続して経験しながら、ループクローザなしで最終ドリフトわずか20cmを達成しています。",
+     "caption": "Figure 2: Evaluation of 13 types of degradation in a single run. The color-coded trajectory depicts our estimated odometry of a legged robot navigating through over 13 complex degradation scenarios. Despite these difficulties, the final endpoint drift was only 20 cm over a total distance of 2,966 meters.",
+     "image": "details/2608.25427/F2.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "幾何特徴が欠落した長廊下での状態方向適応の様子です。（C）ではロボット前進方向（X軸）のLiDAR信頼度が著しく低下していることが検知され、（D）のようにX軸方向のみ視覚オドメトリの寄与率を90%へ引き上げて幾何スリップを防止しています。",
+     "caption": "Figure 4: Illustration of adaptive state direction selection in a long corridor from the abandoned Pittsburgh hospital. (A) Relative weights of visual and LiDAR odometry across different sections of long corridor environments. (B) Map of the long corridor, color-coded by the contributing modality; the purple circle indicates areas where visual odometry is actively integrated into sensor fusion, while the green circle denotes areas dominated by LiDAR odometry. Note: A modality is considered “domi",
+     "image": "details/2608.25427/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "段ボールを用いて物理的にセンサ視野を順次塞いだセンサ脱落実験です。（A, B）遮蔽された方向やセンサの信頼度が即座に低下し、稼働可能なセンサ側へ寄与率が滑らかに移行。（C）センサが次々と奪われる過酷な条件下でも軌道誤差は極めて低く抑えられています。",
+     "caption": "Figure 5: Adaptive engine selection for mixed degradation in sensor-drop scenarios. (A) We used cardboard to sequentially block the LiDAR’s side, front, and back views, and eventually completely obstructed both the LiDAR and visual sensor to evaluate the dropout tolerance for 600 seconds. (B) The corresponding confidence metric of LiDAR Odometry System. (C) Odometry accuracy evaluation: the trajectory color encodes APE error (top), and the bottom shows mapping results with yellow indicating the ",
+     "image": "details/2608.25427/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "視覚とLiDARが同時に死に至る濃煙環境での検証です。（A, B）煙に入ると即座に学習型IMUオドメトリ主導（紫色の軌跡）へ切り替わり、煙を抜けるとLiDAR主導（青色）へとソフトに復帰。煙の乱反射で地図が乱れても、自己位置推定自体は破綻しません。",
+     "caption": "Figure 7: Robust Performance in a Smoke Scenario. (A) Adaptive engine selection between learning-based IMU and LiDAR odometry in challenging environments, with purple and blue trajectories indicating their respective use. (B) Trajectory and map generated using learning-based IMU odometry in heavy smoke. (C) Self-supervised adaptation fine-tunes the IMU model from “SubT car” to “Tartan Drive.” (D) Confidence-driven adaptive fusion combines IMU and LiDAR odometry outputs using soft fusion, avoidin",
+     "image": "details/2608.25427/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Discussion",
+   "heading_ja": "真に粘り強いシステムを作るための知見と、IMUの復権",
+   "summary_ja": "過酷環境で自律性を保つには、単にセンサ数を増やすのではなく「縮退度合いに応じた動的再構成」が不可欠であると論じています。また、これまで補助役に甘んじていた低コストIMUが、学習手法と融合することでLiDAR並みの主力センサになり得ることを示唆しています。",
+   "details_ja": "実験結果を踏まえ、著者らはロバストな自己位置推定システムの設計思想について重要な考察を述べています。\n\n- **静的フュージョンから階層的適応へ**: 従来の枠組みは「測定ノイズはガウス分布」「複数センサを平均化すれば真値に近づく」という前提に立ちがちでした。しかし、濃煙や暗闇ではノイズが非ガウス化し、破綻したセンサ値が特定の自由度を支配します。最初から重厚な最適化を回すのではなく、軽微な異常はフロントエンド（特徴量選別や方向別共分散）で素早くさばき、本当に危険な時だけ重い切り替え処理へ移行する「階層的アプローチ」こそが、効率と耐障害性を両立する鍵です。\n\n- **IMUの価値再定義**: これまでのSLAM/オドメトリにおいて、IMUはオプティマイザの初期値予測や短時間の事前積分（Pre-integration）に用いられる「脇役」に過ぎませんでした。しかし、100時間超のデータで事前学習された深層運動モデルと組み合わせることで、IMUは「外乱に一切動じない独立したオドメトリ源」へと進化します。\n\n- **今後の課題と拡張性**: 現在の枠組みは正確な外部キャリブレーションとミリ秒単位の時刻同期を前提としています。今後はこれらをオンラインで同時同定する連続時間バッチ最適化の統合が望まれます。また、学習型IMUモデルの未知環境へのさらなる適応力向上に向けて、シミュレータ生成データの活用も有望な道筋として挙げられています。",
+   "figures": []
+  },
+  {
+   "heading": "Materials and Methods",
+   "heading_ja": "数理最適化とディープラーニングが手を取り合う：二層適応アーキテクチャの全貌",
+   "summary_ja": "因子グラフに基づく適応的センサフュージョンを「教師」、学習ベースIMUオドメトリを「生徒」とする二層最適化（Bi-level Optimization）を定式化。方向別の可観測性解析から、LoRAを用いたオンライン微細チューニングまで、堅牢性を支える数理とネットワーク構造を詳解しています。",
+   "details_ja": "本システムの土台は、下位レベルの数理最適化（因子グラフ）と上位レベルの深層学習モデルが双方向に支え合う「二層適応（Bilevel Adaptation）」にあります（図F8）。\n\n### 1. 適応的センサフュージョン（因子グラフ側）\n- **適応的特徴選別**: 視覚ではKLTトラッキングのヘッセ行列からパッチ共分散 $\\bm{\\Sigma}_{\\mathrm{SE(2)}}$ を算出し、不確実性の高い特徴や異方性の強い特徴を棄却。LiDARでは近傍点群の主成分分析（PCA）から線状度・平面度・散乱度を算出し、構造的に有益な点だけを残します。\n- **適応的状態方向選別**: LiDARの点対平面制約に基づくICPのアライメントリスクをフロントエンドで事前解析します。状態空間の6自由度 $\\mathcal{O}=\\{x, y, z, \\text{roll}, \\text{pitch}, \\text{yaw}\\}$ に対し、各軸の可観測性ラベル数 $N_i$ と全体数 $N_{\\text{total}}$ の比率から正規化信頼度指標 $c_i = 6 \\cdot (N_i / N_{\\text{total}})$ を計算。これを対角成分に持つ共分散行列を構成し、制約が不足している軸（幾何縮退方向）を特定して視覚側の重みを動的に高めます。\n- **適応的エンジン選別**: あるセンサの寄与率が10%未満に落ち込み、それが2〜4秒以上継続した場合、そのセンサの因子をグラフから切り離します。全外乱センサが落ちた場合はIMU主導へ切り替えます。\n\n### 2. 学習ベースIMUオドメトリ\n- **データ前処理と拡張**: 車輪型、4脚、ドローン、手持ちなど8種類のロボットから得た100時間超のデータを収集。座標系を共通化し200Hzに補間した上で、3軸周りのランダム回転によるデータ拡張を施しました。\n- **異種共有バックボーンとマルチヘッド**: 1D-ResNetでIMU特徴を抽出し、LSTMで時間依存性をモデリング。出力層はロボットの運動様式ごとに分かれたマルチヘッド構造を採用し、ボディ座標系（ここが重要で、世界座標系ではなくロボット基準で直接解くため過学習しにくい）での相対並進速度 $\\hat{v}$ と対数分散 $\\hat{u}$ を推定します。\n- **LoRA（Low-Rank Adaptation）による破滅的忘却の防止**: 未知のロボットや新環境への適応には、事前学習済みの重み $W_0$ を完全に固定し、低ランク行列の積 $\\Delta W = BA$ のみを追加学習させます。これにより、わずか数十秒の通常走行データから高速に適応でき、以前学習した運動特性を破壊する「破滅的忘却（Catastrophic Forgetting）」を完璧に防いでいます。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "システムの全体構成図です。（A）因子グラフが生成する高品質なポーズを教師信号として学習型IMUがオンライン成長し、非常時にはIMUが因子グラフを牽引する双方向ループを形成。（B）特徴選別、方向別可観測性統計、センサ因子の動的枝刈りという階層的適応ステップの内部詳細が示されています。",
+     "caption": "Figure 8: System Overview. (A) A hierarchical adaptation framework that integrates adaptive sensor fusion with a learning-based IMU odometry. The sensor fusion module provides free pose supervision to guide the learning process of the IMU odometry, helping to reduce drift and capture motion patterns. In turn, the IMU odometry offers motion priors and serves as a fail-safe solution. (B) Illustration of adaptive feature selection, adaptive state direction estimation, and adaptive engine selection.",
+     "image": "details/2608.25427/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Experiments",
+   "heading_ja": "地下鉱山、階段昇降、悪路高速走行、プロペラ脱落：限界を超えた実機検証",
+   "summary_ja": "DARPA SubTチャレンジでの実戦投入をはじめ、激しい上下動を伴う階段やオフロード悪路、さらにはドローンの空中プロペラ破損・激突スピンという絶望的な異常事態まで、システムの極限耐性を実証した追加実験群をまとめています。",
+   "details_ja": "論文の終盤および補足資料では、研究室の実験室レベルを遥かに超えた、極限的な実世界フィールドでの検証結果が報告されています。\n\n- **DARPA Subterranean Challenge（地下洞窟・鉱山）**: 総面積990,000 $m^2$ におよぶ巨大鉱山や迷路のような地下トンネルにて、ドローンと地上ロボットの協調マッピングを実施。暗闇、粉塵、無特徴空間が重なる中、本システムを搭載したチームはUrban部門2位、Tunnel部門1位、Final部門4位という輝かしい戦績を収めました。\n\n- **多層階・階段環境での垂直軸適応**: 4脚ロボットが薄暗い階段を昇降する際、2D走査主体のLiDARは上下（Z軸）方向の拘束が激減します。本手法はZ軸の信頼度低下（LiDAR信頼度25〜30%）を即座に検知し、視覚オドメトリ側の寄与度を70〜75%へ自律的に引き上げることで、階層間のつなぎ目で発生しやすい段差ズレを完全に克服しました。\n\n- **オフロード環境でのアグレッシブ走行**: 岩場、泥濘、急斜面が広がる不整地をUGVで最高速度13m/s（時速約47km）、ピーク加速度 $5\\,\\mathrm{m/s^2}$ で1.38時間激しく走破。激しい振動によるLiDARの運動歪みやカメラのブレが連続する中でも、109,200 $m^2$ の高精度な地図を歪みなく再構成しました。\n\n- **ドローンの空中プロペラ破損と激突スピン**: 最も衝撃的な実験が、飛行中のクアッドローターのプロペラ破損トラブルです。空中バランスを失ったドローンは壁に激突しながら「3秒間で1,800度（5回転）」という猛烈な速度で制御不能のスピンに陥り、衝突プロセスは106秒間も続きました。通常のオドメトリであれば一瞬で発散し即座に墜落大破するところ、本システムは破綻せず自己位置を出力し続け、フライトコントローラを保護して最終的に安全着陸へ導きました。\n\n- **LoRAのドメイン適応と破滅的忘却の検証**: 小型UGV（SubT）で学習したモデルを、最高速度15m/sの大型全地形対応車（TartanDrive）へ適応させるテストを実施。全結合層を丸ごとファインチューニングした従来モデルは元環境の性能を忘却（Catastrophic Forgetting）してしまったのに対し、LoRAを組み込んだ本手法は、新環境へわずか数十秒で適応しつつ、元の環境に戻しても高精度を維持できることが確認されました。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「全センサを常に均等に解く」のではなく、不確実性や縮退のレベルに応じて軽量処理からエンジン切り替えまでエスカレーションさせる階層的適応が、計算効率と耐障害性を両立する鍵である点",
+  "IMUを単なる事前積分ではなく、大量の異種ロボット走行データで鍛えた学習型オドメトリとして独立運用することで、全光学センサが全滅する極限環境のフェイルセーフになり得る点",
+  "伝統的な因子グラフ最適化（教師）と深層学習モデル（生徒）を双方向に結びつけ、LoRAを介してオンライン適応させることで、未知ロボットへの即応と破滅的忘却の防止が両立できる点"
+ ],
+ "limitations_ja": [
+  "システム全体の極めて高い推定精度が、センサ間のミリ秒単位の正確な時刻同期と高精度な幾何キャリブレーションに強く依存している点",
+  "学習ベースIMUオドメトリは事前学習データとテスト環境の運動分布の乖離が大きい場合、適応に数十秒のクリーンな走行を必要とし、突発的な初見挙動には依然として弱さがある点",
+  "センサを動的に切り離す際の判定閾値（寄与率10%未満が2〜4秒継続など）が一部ヒューリスティックに設定されており、環境に応じた自動最適化の余地が残されている点"
+ ],
+ "keywords": [
+  "Resilient Odometry",
+  "Sensor Fusion",
+  "Hierarchical Adaptation",
+  "Learning-based Inertial Odometry",
+  "Degraded Environments"
+ ],
+ "id": "2608.25427",
+ "title": "SUPER ODOMETRY 2.0: Resilient Odometry via Hierarchical Adaptation",
+ "title_ja": "SUPER ODOMETRY 2.0：階層的適応による耐障害性オドメトリ",
+ "authors": [
+  "Shibo Zhao",
+  "Sifan Zhou",
+  "Yuchen Zhang",
+  "Ji Zhang",
+  "Chen Wang",
+  "Wenshan Wang",
+  "Sebastian Scherer"
+ ],
+ "date": "2026-08-27",
+ "group": "general",
+ "tags": [
+  "perception",
+  "navigation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.25427",
+ "pdf_url": "https://arxiv.org/pdf/2608.25427",
+ "summary_ja": "煙、砂嵐、雪、暗所などの極限環境下でのセンサ縮退に対応するセンサフュージョンオドメトリフレームワークを提案。低次から高次への4段階の適応モジュールからなる階層構造により、動的に特徴選択や状態方向、推定エンジンを切り替えて高精度かつロバストな自己位置推定を実現する。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.25427"
+}
