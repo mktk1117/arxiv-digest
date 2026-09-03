@@ -1,0 +1,160 @@
+{
+ "tldr_ja": "変形する物体を扱う作業では「タスク完了」だけでなく「潰さず適切に触れたか」が重要ですが、従来のベンチマークは見落としていました。本研究は、視覚・触覚データとFEMによる物理変形グラウンドトゥルースを完全同期した「SoftVTBench」を構築し、タスク成功と変形許容度を両立させる新指標DSRでポリシーを精密に評価できるようにしました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "SoftVTBenchの全体像です。4つの評価スイートにまたがる4,000エピソードと50種類以上の資産（体積を持つ変形体と剛体の双子モデル）を含み、視覚・触覚・言語・行動、そして評価者だけが見られるFEM変形量を同期記録しています。下部中央に示す通り、滑り落ちるほど緩い把持から過度な圧縮まで、接触の質を定量的に評価できます。",
+  "caption": "Figure 1: Overview of SoftVTBench. Top: $4{,}000$ demonstrations over four diagnostic suites and more than $50$ assets, including volumetric deformable objects and visually matched rigid twins. Bottom left: controlled visual and physical shifts for closed-loop generalization evaluation. Bottom center: the physical-interaction regimes captured by touch and evaluated from object deformation, from slip-prone loose grasps to excessive compression. Bottom right: synchronized visual, tactile, proprioc",
+  "image": "details/2608.18701/F1.jpg"
+ },
+ "overview_ja": "パンや生鮮食品、医療資材のような柔軟物をロボットで扱うとき、指定の場所に運べたとしても、途中でギューッと押し潰してしまっては失敗ですよね。しかし、これまでのロボット操作ベンチマークの多くは「物体が目標位置に届いたか（タスク成功率）」だけでモデルを評価していました。なぜそうなっていたかというと、ポリシーが見る触覚データと、物体が実際にどれだけ変形したかという物理的な真値を、一連のタスク全体で揃えて記録したデータセットが存在しなかったからです。\n\nそこで著者らは、変形を考慮した視覚・触覚データセット兼ベンチマーク「SoftVTBench」を構築しました。Isaac Sim上で有限要素法（FEM）によるシミュレーションを行い、物体ごとに「これ以上潰してはいけない変形許容値」を事前にキャリブレーションしておきます。そして、ロボットには複数台のカメラ画像と両指のGelSight風触覚センサ情報（RGB画像とマーカー変位）を与えつつ、裏側ではFEMの全節点変形量を完全同期して記録しました。これにより、タスクを完了した上で変形限界を守れたかを測る新指標「DSR（Deformation-aware Success Rate）」を定義しています。\n\n代表的な3つのポリシー（Diffusion Policy、VLAモデルの$\\pi_{0.5}$、世界モデルFastWAM）を評価したところ、従来のタスク成功基準では成功と判定されていたエピソードの最大24%が、実は物体を過剰に潰していたことが判明しました。さらに、触覚情報の導入は分布内（ID）では一貫した改善を見せない一方、未知の照明や物性変化といった分布シフト下（OOD）では確実な堅牢性をもたらすなど、触覚の本当の価値やマルチモーダル統合の課題が浮き彫りになりました。",
+ "contributions_ja": [
+  "変形体40タスクにわたる4,000本のエキスパート実演を収録し、マルチビュー視覚・両指触覚（RGB＋マーカー流れ）・ロボット状態・言語・動作と、評価者専用のFEM物理変形真値を20Hzで完全同期したデータセットを公開した点",
+  "事前キャリブレーションした物体固有の許容値に基づき、タスク達成と過変形抑制を同時に評価する指標「DSR（Deformation-aware Success Rate）」を提案した点",
+  "外見・質量を揃えた「剛体の双子」モデルや、離散・連続の両グリッパ動作記録を備え、柔軟性の影響や制御粒度の交絡を切り分けられる実験プロトコルを確立した点",
+  "最新の3系統のポリシーを評価し、タスク成功のみの評価が過度な変形を見落とす実態や、分布外（OOD）環境における触覚センシングの有効性と課題を実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "運べたからOK、で本当にいいの？ 柔軟物操作に欠けていた「物理的な記録」",
+   "summary_ja": "従来のベンチマークはタスクの完了可否ばかりを評価しており、物体を潰しすぎたり滑らせたりする接触の質の悪さを見逃していました。本研究は、ポリシーに触覚情報を与えつつ、裏側で物体のFEM物理変形量を独立記録する「SoftVTBench」を構築し、タスク成功と変形抑制を両立する指標DSRを導入しました。",
+   "details_ja": "ロボットが柔らかいパンや果物を掴んでカゴに入れるタスクを考えてみてください。途中で指から滑り落ちてしまえば失敗なのは明白ですが、逆に強く握り潰して目的の場所に置いた場合、従来の「目標領域に対象物が収まったか」という評価基準では「成功」と判定されてしまいます。これでは食品や医療現場などのデリケートな作業には到底使えません。\n\n視覚は物体への接近やゴール確認には優れていますが、把持の瞬間に接触面が隠れてしまいます。そこで接触形状や局所的な滑り・せん断を直接捉えられる「触覚」が決定的に重要になります。しかし、これを検証するには特殊なデータ設計が必要です。すなわち、ポリシーに見せるストリーム（視覚・触覚・言語・動作）と、評価者だけが見るストリーム（物体の真の変形状態）を、作業全体を通して完全に同期した状態で分断して保持しなければなりません。触覚センサの出力そのものは、物体の変形を公平に測る正解ラベルには使えないからです。\n\n本論文はこの溝を埋めるため、40種類のピック＆プレースタスク、50種類以上の資産からなる4,000本のエキスパート軌跡を含む「SoftVTBench」を提案しました。物体の三次元FEMメッシュから剛体運動を除去した実質的な変形量を計算し、事前に決めた許容値を超えずに作業できたかを測る「DSR（Deformation-aware Success Rate）」を定義しています。代表的なポリシーで実験した結果、従来のタスク成功率では見過ごされていた深刻な過変形が露わになりました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "SoftVTBenchの概要図です。多様な柔軟物とその剛体ツイン、照明や質量などの制御された環境変化、そして安全な把持幅から過度な変形に至る把持レジームが体系化されています。",
+     "caption": "Figure 1: Overview of SoftVTBench. Top: $4{,}000$ demonstrations over four diagnostic suites and more than $50$ assets, including volumetric deformable objects and visually matched rigid twins. Bottom left: controlled visual and physical shifts for closed-loop generalization evaluation. Bottom center: the physical-interaction regimes captured by touch and evaluated from object deformation, from slip-prone loose grasps to excessive compression. Bottom right: synchronized visual, tactile, proprioc",
+     "image": "details/2608.18701/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "一般的な操作、柔軟物、触覚学習——既存のベンチマークに何が足りなかったのか",
+   "summary_ja": "ロボット操作、柔軟物シミュレーション、視覚触覚学習のそれぞれで研究が進んできましたが、3つを統合したベンチマークはありませんでした。SoftVTBenchは、一連のマルチステージタスク、体積を持つ3D柔軟物、触覚入力、そして評価者専用の変形真値をすべて兼ね備えた初のベンチマークです。",
+   "details_ja": "本章では先行研究を大きく3つの系統に分けて整理しています。\n\n- **ロボット操作ベンチマーク**: LIBEROやRoboCasa、SIMPLERなどは、長手順の言語指示タスクや汎化性の評価を標準化してきました。安全性を考慮したベンチマークも登場していますが、これらはほぼ剛体を前提としており、柔軟物がどれだけ変形したかを直接評価することはできません。\n- **柔軟物操作ベンチマーク**: SoftGymやPlasticineLabなどは布やロープ、粘土などの変形シミュレーションを提供していますが、多くは「形を変えること自体」が目的です。本研究が対象とするのは、物体を壊さずそっと運ぶ「丁寧なハンドリング（gentle-handling）」です。近い研究として把持時の変形を測る研究もありますが、単発の静的な把持のみの評価にとどまり、一連のタスク全体で閉ループに触覚を使う評価には至っていませんでした。\n- **視覚触覚センシングとポリシー学習**: TaximやTacExなどのシミュレータの発展により、GelSight等の光学式触覚を取り入れた学習（VLAモデル含む）が盛んになっています。しかし、それらの評価指標は剛体のタスク成功率であることが多く、接触力を測る研究でも剛体表面の力を対象にしていました。\n\nつまり、論文内の比較表（Table 1）が示す通り、「完全なタスク」「3D体積柔軟物」「ポリシー入力としての触覚」「評価専用の変形グラウンドトゥルース」の4拍子が揃ったベンチマークはこれまで存在せず、SoftVTBenchが初めてその統合を実現しました。",
+   "figures": []
+  },
+  {
+   "heading": "3 The SoftVTBench Dataset",
+   "heading_ja": "データセットの作り込み：触覚レンダリングとFEM変形真値の2系統ストリーム",
+   "summary_ja": "Isaac Sim上で構築された本データセットは、4,000本のエキスパート軌跡を収録しています。第三者視点・手先カメラ画像や両指GelSight触覚データ、制御指令と並行して、裏側でFEM節点座標を20Hzで完全同期記録し、物体ごとの安全把持ゾーンも事前に規定しています。",
+   "details_ja": "データセットの構造と収集手順は非常に徹底されています。\n\n### 3.1 データセットの構成\nデータは「Object-Soft」「Spatial-Soft」「Object-Rigid」「Spatial-Rigid」の4スイートに均等（各10タスク・1,000デモ）に分かれています。物体はパンなどのリアルな食品メッシュ6種と幾何形状4種の計10種の体積柔軟物を含みます。さらに、形状・テクスチャ・質量が完全に同一で変形だけしない「剛体の双子（rigid twin）」を用意することで、難しさの要因が柔軟性によるものかを厳密に比較できるようにしました。\n\n### 3.2 記録ストリームの分離\nすべてのアクションと観測は20Hzで同期記録されます。ポリシーに見せるストリームには、三人称・手先RGB、両指のGelSight Mini（TacExにより光学画像とマーカー変位を再現）、自己受容感覚（手先ポーズや関節角）、自然言語指示、そして開閉指示（離散バイナリと連続値の両方）が含まれます。一方、評価者専用ストリームにはFEMの節点位置、物体ポーズ、接触イベントが保存され、学習や推論時には一切アクセスできません。\n\n### 3.3〜3.5 シーン生成・品質管理・物体キャリブレーション\nエキスパート軌跡はスクリプトにより生成され、すべて物理検証と人手チェックを通過しています。変形量の計測には、FEMメッシュの全節点から剛体移動・回転成分を除去した二乗平均平方根（RMS）変位を初期対角線長で正規化した値を使います。さらに、ポリシー学習前に把持幅を徐々に狭める物理テストを行い、「滑らずに持ち上げられる最小把持」から「過変形しない限界把持」までの安全把持幅$\\mathcal{G}_o=[g^{\\min}_o, g^{\\max}_o]$と変形許容閾値$\\tau_o$（安定把持時の最大変形の90パーセンタイル）を物体ごとに固定しました。これにより、後からポリシーの都合で評価基準が動かない公平性を担保しています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "SoftVTBenchの構築および評価パイプラインです。ステージ1で剛体ツインの構築と物体ごとの把持許容値キャリブレーションを行い、ステージ2でポリシー可視データと評価者専用FEM状態を分離記録、ステージ3で品質検査とTSR/DSR評価を行います。",
+     "caption": "Figure 2: SoftVTBench construction and evaluation pipeline. Stage 1 constructs matched rigid–deformable objects and calibrates object-specific interaction constraints. Stage 2 generates controlled tasks and records policy-visible observations separately from evaluator-only physical states. Stage 3 applies automatic quality control and human verification, producing the released training, ID, and OOD splits. Task success and deformation compliance are labeled separately; DSR combines them during b",
+     "image": "details/2608.18701/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "Object-Softスイートの10種類の柔軟物における把持瞬間の触覚観測例です。形状、柔軟性、接触面積の違いに応じて、外部カメラからは見えない接触パッチやマーカーのせん断パターンが鮮明に現れています。",
+     "caption": "Figure 3: Tactile observations across deformable assets. Each panel shows a tactile RGB image with its marker-motion overlay at the moment of grasping, for the ten Object-Soft tasks. Objects that differ in geometry, compliance, and contact area produce distinct contact patches and shear fields under the same pick-and-place instruction. These are the cues available to a visuo-tactile policy and absent from external RGB views.",
+     "image": "details/2608.18701/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 The SoftVTBench Benchmark",
+   "heading_ja": "タスク成功と変形安全性を切り分ける新指標「DSR」の仕組み",
+   "summary_ja": "ポリシーは20Hzの閉ループで動作し、マルチビュー視覚や触覚から行動を予測します。評価指標として、従来の目標到達のみを見るタスク成功率（TSR）に加え、作業中の最大正規化変形が許容値$\\tau_o$以下にとどまったエピソードのみを成功とする変形考慮成功率（DSR）を定義しました。",
+   "details_ja": "ベンチマークの実行環境と評価ロジックは次のように設計されています。\n\n### 4.1 閉ループ評価インタフェース\n評価時、シミュレータはポリシーに対して観測ストリーム（視覚、固有受容感覚、言語、触覚）のみを渡します。ポリシーは絶対手先ポーズとグリッパ指令からなるアクションチャンクを出力し、閉ループ物理シミュレーション下で実行されます。最大ステップ数は300で、成功または物体の落下で早期終了します。裏でシミュレータはFEM節点位置を読み出し続けます。\n\n### 4.2 DSR（Deformation-aware Success Rate）の定義\nエピソード $i$ における純粋なタスク成功（指示された物体が目標領域に静止したか）を $T_i \\in \\{0, 1\\}$ とします。また、時刻 $t$ における剛体運動除去済みRMS変形量を $D_{i,t}$ とし、物体固有の許容値 $\\tau_{o_i}$ で割った正規化変形量を $R_t^{(i)} = D_{i,t} / \\tau_{o_i}$、そのエピソード中の最大値を $R_{\\max}^{(i)} = \\max_t R_t^{(i)}$ とします。\n\nここで、タスク成功率（TSR）と、本研究が提案する変形考慮成功率（DSR）は次のように計算されます。\n\n$$\\mathrm{TSR} = \\frac{1}{N} \\sum_{i=1}^N T_i$$\n$$\\mathrm{DSR} = \\frac{1}{N} \\sum_{i=1}^N T_i \\cdot \\mathbb{I}\\left(R_{\\max}^{(i)} \\leq 1\\right)$$\n\n$\\mathrm{DSR}$ はタスクを成功させた上で、作業中のピーク変形が一度も許容値を超えなかった（$R_{\\max} \\leq 1$）場合のみカウントされます。したがって、差分である $\\mathrm{TSR} - \\mathrm{DSR}$ は「成功したものの、物体を危険なレベルで潰してしまったエピソードの割合」をそのまま表します。\n\n### 4.3 評価プロトコル（IDとOOD）\n評価は、学習データのパラメータ範囲内で行う分布内（ID: 500エピソード/スイート）と、照明（3段階）、質量（1.25〜2.5倍）、ヤング率（0.5〜2.0倍）を単一要素ずつ学習範囲外に振った9条件の分布外（OOD: 計900エピソード/スイート）で実施されます。",
+   "figures": []
+  },
+  {
+   "heading": "5 Experiments",
+   "heading_ja": "実験結果：成功したはずの把持の24%が過変形！ 触覚が本当に効く場面とは？",
+   "summary_ja": "Diffusion Policy、$\\pi_{0.5}$、FastWAMの3モデルを評価しました。すべての条件でTSRとDSRに乖離が見られ、最大24%の成功例が物体を過度に変形させていました。また、触覚の有無による性能差は分布内ではまちまちですが、未知の環境変化（OOD）下では触覚が有意に堅牢性を高めることが示されました。",
+   "details_ja": "本章では、ベンチマークが投げかける5つの問いに対して具体的なデータで答えています。\n\n- **見落とされていた過変形（5.1節）**: 柔軟物を扱う全12通りのID実験設定において、例外なく DSR は TSR を下回りました。特に Diffusion Policy（視覚触覚＋連続制御）では、Object-Soft で TSR 40.0% に対して DSR 30.4%（差9.6ポイント）、Spatial-Soft で TSR 33.2% に対して DSR 25.2%（差8.0ポイント）となり、成功したと見なされたロールアウトの実に24%が許容変形を超えて潰されていました。\n- **ポリシーごとの接触調節能力（5.2節）**: 過変形による失敗の割合はモデルによって大きく異なります。Diffusion Policy が10〜24%、$\\pi_{0.5}$ が8〜20%の成功を潰していたのに対し、世界モデルベースの FastWAM は過変形率がわずか0.7〜6.5%に抑えられていました。FastWAM は空間タスクにおいて両者の乖離をわずか0.4ポイント（500回中2回）に留めており、接触を適切に制御しながら高いタスク成功率を達成できることを示しています。\n- **剛体ツインとの比較による柔軟性のコスト（5.3節）**: 剛体ツインと比較すると、$\\pi_{0.5}$ は柔軟物になることでTSRが18.4ポイントも低下した一方、Diffusion Policy や FastWAM では数ポイントの差しかありませんでした。タスク構造やモデルの空間認識能力がボトルネックになっている場合もあり、剛体ツインの存在が交絡要因の排除に役立ちます。\n- **触覚センシング vs 制御の細かさ（5.4節）**: $\\pi_{0.5}$ において、離散開閉（B）と連続開閉（C）を比較したところ、視覚のみ（VO-B）から連続制御（VO-C）にするだけでTSRが11.4ポイント向上し、触覚を追加しただけのVT-B（+10.8ポイント）と同等の効果が出ました。つまり、制御粒度を揃えずに触覚の有無だけを比べると、アクチュエーションの細かさによる改善を触覚のおかげだと誤認してしまう危険性があります。\n- **触覚が真価を発揮する条件（5.5節）**: 分布内（ID）では触覚を追加してもスコアの上下はまちまちでしたが、分布シフト（OOD）下では一転します。9つのシフト条件をプールした結果、全6通りの比較すべてで視覚触覚版（VT-C）が視覚のみ（VO-C）より高いOOD TSRを記録し（符号検定 $p=0.016$）、DSRでも6中5条件で上回りました。触覚は単に最高スコアを伸ばすというより、物性や照明が変わった際の「粘り強さ（堅牢性）」を担保するのに大きく貢献することが分かりました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "分布外（OOD）シフト下でのタスク成功率（TSR）の推移です。照明、質量、ヤング率を変化させた際、特にSpatial-Softスイート（下段）において、視覚触覚版（赤実線）が視覚のみ版（青破線）を一貫して上回り、堅牢性を発揮している様子が分かります。",
+     "caption": "Figure 4: Task Success Rate under out-of-distribution shifts, resolved by factor. Rows correspond to the Object-Soft and Spatial-Soft suites; column groups correspond to Diffusion Policy, $\\pi_{0.5}$ , and FastWAM, each resolved into illumination, object-mass, and Young’s-modulus shifts.",
+     "image": "details/2608.18701/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめ：接触の「質」を評価する新たなスタンダードに向けて",
+   "summary_ja": "SoftVTBenchは、視覚触覚学習と物理インタラクション評価を統合したデータセット兼ベンチマークです。タスク完了だけでなく変形許容度を課すことで、既存の成功指標に隠れていた物理的破壊を浮き彫りにし、触覚を真に活かすマルチモーダル統合という開かれた課題を提示しました。",
+   "details_ja": "本論文のまとめです。著者らは、4,000本のエキスパート軌跡、50以上の資産、剛体ツイン、完全同期されたマルチモーダル観測とFEM変形真値からなる SoftVTBench を提供しました。そして新指標 DSR を通じて、従来の研究が見落としていた「過変形によるタスク成功」を暴き出しました。\n\n本研究から得られた重要な教訓は、単に「触覚センサのデータをモデルに入力したからといって、自動的に接触を優しく制御できるようになるわけではない」ということです。分布内での触覚の恩恵が限定的であったことは、触覚情報の効果的な融合が依然として開かれたモデリング上の課題であることを物語っています。一方で、FastWAM のように高い成功率と極めて低い過変形率を両立できた例は、モデルと制御の工夫次第でこのトレードオフを克服できる希望を示しています。SoftVTBench は、ロボットが「成功したか」だけでなく「対象物とどう相互作用したか」を研究するための共通基盤となります。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：シミュレーション設定、定性的ロールアウト比較、および実機への射程",
+   "summary_ja": "付録では、Isaac SimとPhysX 5によるFEM実装、物体ごとの安全領域パラメータ、ベースラインの学習詳細を解説しています。また、ロールアウト中の変形トレース可視化や、シミュレーション触覚のスコープと実機適応への課題についても補足されています。",
+   "details_ja": "付録には実装と実験の深い理解を助ける情報がまとめられています。\n\n### シミュレーションとキャリブレーション詳細\nシミュレーションは Isaac Sim 4.5.0 / Isaac Lab 0.41.3 上の PhysX 5 GPU FEM パイプライン（60Hz動作、制御間引き3で20Hz実行）で実装されています。変形体は共回転線形弾性（corotational linear elasticity）ソフトボディとしてモデル化されています。物体ごとの安全把持幅 $\\mathcal{G}_o$ と正規化変形許容値 $\\tau_o$ は、初期の把持スイープ実験によって厳密に数値化されており、データセットとともに公開されています。\n\n### 定性的なロールアウト比較（Figure 5）\n実際のロールアウトにおける三人称視点、手先視点、触覚画像、マーカー流れ、および変形トレース $R_t$ の時間変化を追跡しています。外見上のカメラ画像からは差がほとんど分からないにもかかわらず、あるポリシーは $R_{\\max} \\leq 1$ に抑えて安全に運んでいるのに対し、別のポリシーは把持直後に $R_t$ が跳ね上がり、物体を強く潰したまま運搬・配置している様子がはっきりと可視化されています。\n\n### 触覚シミュレーションのスコープと限界\n触覚画像は Taxim、マーカー変位は FOTS をベースにした TacEx プラグインによって Isaac Sim 内で生成されています。これらは元論文で実機GelSightとの類似性やSim-to-Real転移性が検証された手法ですが、著者らは「SoftVTBench固有のメッシュや接触条件について実センサとの厳密なSim-to-Real同定を行ったわけではない」と明記しています。本ベンチマークはシミュレーション環境における視覚触覚ポリシー学習を対象としており、実機へのギャップ検証は今後の課題と位置づけられています。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "3種類の柔軟物におけるロールアウトの可視化例です。上4段（青）は許容変形内に収まった安全な成功例（DSR=1）ですが、下2段（橙）はタスクを完了（TSR=1）しつつも把持の瞬間に変形限界$R_t=1$を大きく突破して物体を潰してしまった失敗例（DSR=0）です。",
+     "caption": "Figure 5: Illustrative rollouts on three deformable objects across Object-Soft and Spatial-Soft . Each row shows synchronized third-person, wrist, and tactile observations at approach, peak interaction, and placement, followed by the normalized deformation trace $R_{t}$ . Circle, diamond, and square indicate the displayed steps. All rollouts achieve task success (TSR $=1$ ). Blue trajectories satisfy the calibrated deformation tolerance (DSR $=1$ ), while orange trajectories exceed $R_{t}=1$ des",
+     "image": "details/2608.18701/F5.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "「タスク成功」だけを見ていてはダメ：柔軟物操作では、運搬に成功したロールアウトの最大24%が許容限界を超えて物体を押し潰していました。物理的な接触の質を評価する指標（DSRなど）が不可欠です。",
+  "触覚の真価は「分布シフト（OOD）への堅牢性」：学習環境内（ID）では触覚追加のメリットが見えにくい場合でも、照明や物性が変化した未知環境では、触覚が統計的に有意な耐性をもたらします。",
+  "触覚センシングと制御粒度の交絡に注意：離散把持から連続把持への変更だけでも触覚追加と同等の改善が起きることがあるため、触覚の効果を主張する際はアクチュエーション形式を揃える必要があります。",
+  "接触を壊さないポリシー設計は可能：世界モデルベースのFastWAMのように、高いタスク成功率を保ちながら過変形を1%未満に抑えられるモデルが存在し、成功と安全性の両立が現実的であることが示されました。"
+ ],
+ "limitations_ja": [
+  "シミュレータと実機の触覚ギャップ（Sim-to-Real）：GelSightの触覚画像やマーカー変位は定評ある手法でレンダリングされていますが、本ベンチマークの柔軟物資産に対する実機センサでの精密な校正・転移検証は未実施です。",
+  "変形評価基準（DSR）の絶対性：設定された変形許容閾値 $\\tau_o$ はシミュレーション上で安定把持スイープから定めた運用上の基準であり、食品の実際の破断や素材の物理的損傷限界そのものを表しているわけではありません。",
+  "モデルごとのバッチサイズ・学習設定の差異：触覚ストリーム追加に伴うGPUメモリ増大のため、一部のモデルで視覚のみ版と視覚触覚版の間で実効バッチサイズが異なっており、純粋な入力モダリティ以外の最適化要因が混ざっている可能性があります。"
+ ],
+ "keywords": [
+  "Deformable-Object Manipulation",
+  "Visuo-Tactile Sensing",
+  "Finite Element Method (FEM)",
+  "Robot Learning Benchmark",
+  "Deformation-aware Success Rate (DSR)"
+ ],
+ "id": "2608.18701",
+ "title": "SoftVTBench: A Deformation-Aware Visuo-Tactile Dataset and Benchmark for Deformable-Object Manipulation",
+ "title_ja": "SoftVTBench: 変形を考慮した柔軟物操作のための視覚・触覚データセットとベンチマーク",
+ "authors": [
+  "Bowen Jing",
+  "Mingxin Wang",
+  "Ruiyang Hao",
+  "Chenchen Ge",
+  "Hanwen Shen",
+  "Junjie He",
+  "Yang Cui",
+  "Yiming Hou",
+  "Weitao Zhou",
+  "Jiawei Wang",
+  "Minglei Li",
+  "Dandan Zhang",
+  "Ding Zhao",
+  "Houde Liu",
+  "Xiaofan Li",
+  "Si Liu",
+  "Ping Luo",
+  "Haibao Yu"
+ ],
+ "date": "2026-08-20",
+ "group": "general",
+ "tags": [
+  "dataset",
+  "benchmark",
+  "manipulation",
+  "perception"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.18701",
+ "pdf_url": "https://arxiv.org/pdf/2608.18701",
+ "summary_ja": "滑りや過剰な圧縮を防ぐ物理的インタラクション品質を評価するため、多視点RGBと2指触覚センサ情報を同期させた4,000件のエキスパートデモを含む柔軟物操作ベンチマークSoftVTBenchを構築。物理的整合性を伴う操作方策の評価基盤を提供する。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.18701"
+}
