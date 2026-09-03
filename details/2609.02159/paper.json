@@ -1,0 +1,136 @@
+{
+ "title_ja": "World-Coherent Decoding: 世界動作モデルのための自己検証型テスト時プランニング",
+ "tldr_ja": "世界行動モデル（WAM）が生成する未来予測の「アタリ・ハズレ」を実行前の生成内部シグナルで見極め、実行後に現実の観測と突き合わせて自己検証することで、モデル本体を再学習させずにロボットの操作成功率を大きく向上させるテスト時デコーディング手法です。",
+ "hero_figure": {
+  "key": "F3",
+  "caption_ja": "提案手法 WCD の全体パイプラインです。実行前（Phase 1）に内部シグナルで最良の候補を選び、実行後（Phase 2）に現実の観測と比較して自己検証誤差を計算し、その蓄積データで軽量な予測器をオンライン学習して次回以降の選択（Phase 3）に役立てます。",
+  "caption": "Figure 3 : Method overview of WCD. At each decision step $m$ , the frozen WAM samples $N$ future–action candidates and selects one via pre-execution internal signals ( Phase 1 ). After execution, the realized observation $z^{\\mathrm{real}}_{m,1:K}$ audits the selected imagination, yielding a self-supervised backward error $b_{m}$ that is reliable but causally delayed ( Phase 2 ). WCD accumulates these mismatch labels in a replay buffer to train an online predictor $f_{\\psi}$ , amortizing the delayed signal into a planning-time video score $s^{v,\\mathrm{pred}}_{m+1,n}$ for future candidate ranking ( Phase 3 ).",
+  "image": "details/2609.02159/F3.jpg"
+ },
+ "overview_ja": "ロボット制御の世界では、観測から直接行動を出力する方策（VLA）に代わり、未来の視覚変化を動画として想像してから行動を決める「世界行動モデル（World Action Model: WAM）」が注目を集めています。物理的な直感を動画予測という形で内包できる魅力的なアプローチですが、大きな落とし穴がありました。それは「動画生成の確率性」です。同じ状況からスタートしても、モデルは時に存在しない物体をでっち上げたり、物理的にあり得ない動きを想像したりしてしまい、それが原因で行動デコードに失敗してしまうのです。\n\nそこで著者らは、WAM の構造的な強みである「未来予測の反証可能性（falsifiability）」に着目しました。ロボットが実際に行動を起こせば、現実の世界が「その想像が正しかったかどうか」を答え合わせしてくれます。問題は、行動を決める瞬間にはまだ未来の現実が見えていないという時間的なズレです。このズレを埋めるため、実行前にはモデル内部の生成トレース（動画生成フローの驚異度とアクション生成の滑らかさ）から尤もらしさを推定し、実行後は現実とのズレを使って軽量な予測器をオンラインで鍛え上げる枠組み「World-Coherent Decoding（WCD）」を提案しました。\n\n双腕ロボットのベンチマークである RoboTwin 2.0 や実機 Franka を用いた実験により、実行初期の「想像と現実のズレ」がタスク失敗率と直結していることを実証しました。特に未知の環境変化が含まれる難しい条件下において、モデル本体を一切ファインチューニングすることなく、高難度タスクの平均成功率を $55.80\\%$ から $60.90\\%$ へと改善し、長期タスクでは $+16.43$ ポイントもの大幅な性能向上を達成しました。単に生成数を増やすだけでなく「筋の良い想像を選別すること」の重要性を鮮明に示した研究です。",
+ "contributions_ja": [
+  "世界行動モデル（WAM）の制御を「信頼性に基づく候補選別問題」として定式化し、実行前の想像が実行後の現実によって反証可能であるという構造的特性を明らかにしました。",
+  "モデル外部の検証器やタスク報酬を一切使わず、動画フローの surprisal（驚異度）とアクション生成の path effort（軌道の安定性）という内部シグナルのみで候補を順位付けする WCD を提案しました。",
+  "実行後に得られる現実観測とのズレ（遅延自己検証シグナル）を用いて軽量な予測器をオンライン学習し、高コストな内部シグナル計算を事前予測へと肩代わり（アモータイズ）する仕組みを構築しました。",
+  "RoboTwin 2.0 ベンチマークおよび実機 Franka の外乱環境において、バックボーンを固定したまま成功率を大幅に向上させ、テスト時スケーリングの有効性を実証しました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "ロボットの「妄想」をどう見分けるか？：想像の反証可能性に着目する",
+   "summary_ja": "WAM は未来の映像を予測してから行動を導く強力な枠組みですが、生成のばらつきによって失敗するリスクを抱えています。著者らは同じ状況からサンプリングされた予測の中に大きな信頼性の差があることを突き止め、実行後に得られる現実の観測で自己検証する新しいテスト時計画法を着想しました。",
+   "details_ja": "近年、画像とテキストから直接関節指令を出力する VLA（Vision-Language-Action）に代わり、物理的なダイナミクスを動画として予測する世界行動モデル（WAM）が台頭しています。動画を予測してから行動を解くアプローチは、いわば暗黙的なゴールを自分で作ってから逆動力学を解くようなもので、環境の変化に強いという大きな利点があります。\n\nしかし、動画生成は本質的に確率的です。同じ画像履歴と同じ指示を与えても、時にはもっともらしい未来を生成し、時には存在しない障害物を生み出したりグリッパーの位置がワープしたりしてしまいます。\n\n### パイロット実験：想像の信頼性には選別可能な「ムラ」がある\n著者らはまず、固定された観測履歴から複数の未来予測候補を生成し、後から得られた現実の動画と比較するパイロット実験を行いました。すると、同じプロンプトから出た予測であっても、現実との誤差（潜在空間でのズレ）には大きな開きがあることが判明しました。さらに、初期ステップでのズレが大きいロールアウトほど、最終的なタスク失敗率が跳ね上がることも分かりました。\n\nここから生まれたのが「WAM の想像は反証可能である」という洞察です。行動を実行すれば、現実世界がその予測を自動的に採点してくれます。外部の報酬関数や成功判定器は不要です。ただし、行動を選ぶのは「実行前」でなければなりません。この時間的ギャップを解くため、実行前の内部シグナルと実行後のフィードバックを組み合わせた WCD（World-Coherent Decoding）を提案しています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "パイロット実験の結果です。(a) 同じ観測履歴からサンプリングしても、後から評価した誤差（緑が最良、茶が最悪）には大きな開きがあります。(b) このばらつきは多様なタスクで普遍的に見られます。(c) 実行前の内部スコアと実行後の自己検証フィードバックを組み合わせる WCD の基本思想を示しています。",
+     "caption": "Figure 1 : Pilot motivation: WAM imagination contains selectable reliability variation. A frozen WAM samples multiple future–action candidates from the same causal history, and each imagined visual future is scored in hindsight by its latent-space imagination–reality error after the real future becomes available. (a) Under the same observation prefix, candidates can differ sharply in hindsight error; green marks the lowest-error candidate, brown the highest, and gray the remainder. (b) The within-prefix spread appears across tasks, measured by the median and 90th-percentile oracle error spread over prefixes. …",
+     "image": "details/2609.02159/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "生成モデルの選別技術とロボットのテスト時計画",
+   "summary_ja": "テキスト画像生成でのベストオブNサンプリングや、ロボット制御における価値関数ガイダンスなど、推論時計算を活用する先行研究を整理しています。本研究は、追加の学習済み評価器や報酬ラベルを一切使わずに世界モデル自身の内部情報で自己完結させる点で一線を画します。",
+   "details_ja": "本研究の立ち位置は、大きく分けて二つの研究潮流の交差点にあります。\n\n### 確率的生成モデルにおけるサンプリングと選択\n画像生成の世界では、何枚か生成した中から報酬モデルや人間の好みに基づいて最良の1枚を選ぶ手法（Best-of-$N$）や、推論時のノイズ最適化が広く使われています。本論文はこの「選別」の考え方をロボット制御へと拡張しています。ただしロボットの場合、選ぶ対象は単なる画像ではなく「未来の動画＋行動チャンク」のペアであり、物理的なフィードバックが届く前に判断しなければならないという難しさがあります。\n\n### ロボット方策のためのテスト時ガイダンス\n近年のロボット基盤モデル研究でも、価値関数（Value function）による誘導や外部検証器を用いたアクションフィルタリングなど、テスト時の計算量を増やして性能を上げる試みが盛んに行われています。しかし、これらは追加の報酬アノテーションやあらかじめ学習させた評価ネットワークに依存していました。本手法は、世界モデル自身が持つ生成シグナルと、行動後に勝手に得られる物理世界の観測だけを利用するため、余分な教師データを全く必要としないのが大きな強みです。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "WCDの仕組み：内部シグナルによる選別と遅延自己検証",
+   "summary_ja": "WCD は凍結された WAM から $N$ 個の未来・行動候補をサンプリングし、動画側の「驚異度」と行動側の「滑らかさ」でランク付けします。実行後は現実とのズレを教師信号にして軽量な予測器をオンライン学習し、より高速かつ正確な候補選別を実現します。",
+   "details_ja": "### 3.1 予備知識：チャンク化された世界モデルと反証可能性\nベースとなる WAM は、過去の観測と行動のキャッシュ $C_m$ をもとに、Flow Matching によって未来の潜在動画 $\\hat{z}$ を生成し、続いて低レベルのアクションチャンク $a$ をデコードします。行動を実行すると現実の潜在観測 $z^{\\mathrm{real}}$ が手に入るため、ここで事後的な答え合わせが可能になります。\n\n### 3.2 内部生成シグナルによる実行前候補選択\n決定ステップ $m$ において、モデルを固定したまま $N$ 個の候補をサンプリングします。これらを次の2つの内部シグナルで評価します。\n- **動画側のフロー驚異度（Flow Surprisal）**: 動画生成中のベロシティ場のダイバージェンス（発散）を Hutchinson トレース推定量で計算します。ダイバージェンスが正の領域を通過するほど確率密度が低下し、モデルにとって「突飛な（surprisal が高い）」未来を想像していることになります。驚異度が低いほど、モデルの学習分布に沿った確からしい視覚変化です。\n- **行動側のパスエフォート（Action Path Effort）**: アクションのデノイジング過程において、ステップごとの修正移動量 $\\Delta a$ を積算します。この値が小さいほど、迷いがなく滑らかで安定した行動生成が行われたことを意味します。\n\nこれら2つのスコアを min-max 正規化して統合し、最もスコアの良かった候補を実行します。\n\n### 3.3 遅延自己検証（Backward Error）\n実行後、想像していた潜在変数 $\\hat{z}$ と現実の潜在変数 $z^{\\mathrm{real}}$ の二乗誤差（バックワードエラー $b_m$）を計算します。もし過去の平均よりも誤差が大きければ「モデルの視覚予測があまり当てにならない状況だ」と判断し、動画スコアの重み $\\lambda_m$ を自動的に引き下げます。\n\n### 3.4 オンライン較正：遅延エラーを予測器に肩代わりさせる\nフロー驚異度の計算は厳密ですが、勾配計算を伴うため計算負荷が高いのが難点です。そこで、サンプリング時に得られる軽量な特徴量（デノイジングの速度ノルムや潜在空間のフレーム間差分など）から、実行後のバックワードエラーを直接予測する小さな回帰モデル $f_\\psi$ を用意します。\n最初はフロー驚異度で手堅く選び（Pre-warm）、リプレイバッファに実行データが溜まったら学習済み予測器による高速なスコアリング（Post-warm）へと自動で切り替えます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "候補選別に用いる2つの内部シグナルです。(a)〜(c) 動画側では、フローのダイバージェンスを積分して確率密度の低下（surprisal）を測り、尤もらしい動画を特定します。(d) 行動側では、デノイジング軌道の移動量（path effort）を計算し、迷いの少ない安定した行動を評価します。",
+     "caption": "Figure 2 : Internal generative signals for test-time candidate selection. (a) From the same cache state $C_{m}$ , the frozen WAM samples multiple video–action candidates through stochastic conditional flows. (b) Positive divergence in the oriented source-to-data coordinate $\\tau=1-\\sigma$ corresponds to outward probability flux and local density decrease. (c) Accumulating divergence along the saved video solver trajectory yields the video-side surprisal score $s^{v,\\mathrm{surp}}_{m,n}$ . (d) Given an imagined future, the action branch decodes the corresponding action chunk; path effort $s^{a}_{m,n}$ measures normalized denoising motion in action space.",
+     "image": "details/2609.02159/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "提案手法 WCD の全体アーキテクチャです。Phase 1 で内部シグナルをもとに候補を選別して実行し、Phase 2 で生じた現実との誤差をバッファに保存、Phase 3 で軽量予測器をオンライン学習して次ステップの選別に活用します。",
+     "caption": "Figure 3 : Method overview of WCD. At each decision step $m$ , the frozen WAM samples $N$ future–action candidates and selects one via pre-execution internal signals ( Phase 1 ). After execution, the realized observation $z^{\\mathrm{real}}_{m,1:K}$ audits the selected imagination, yielding a self-supervised backward error $b_{m}$ that is reliable but causally delayed ( Phase 2 ). WCD accumulates these mismatch labels in a replay buffer to train an online predictor $f_{\\psi}$ , amortizing the delayed signal into a planning-time video score $s^{v,\\mathrm{pred}}_{m+1,n}$ for future candidate ranking ( Phase 3 ).",
+     "image": "details/2609.02159/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "実験結果：選別がもたらす頑健性とテスト時スケーリングの真価",
+   "summary_ja": "双腕ロボットシミュレータ RoboTwin 2.0 と実機 Franka で検証を行いました。初期の想像誤差がタスク失敗と強く相関することを確認し、ランダム化が不十分な環境において WCD が成功率を大幅に引き上げること、そして候補数を増やすスケーリングは適切な選別シグナルがあって初めて機能することを示しました。",
+   "details_ja": "### 4.1 実験設定\n評価には多様な双腕操作を網羅するベンチマーク「RoboTwin 2.0」（全50タスク）を採用しました。モデルの性能が飽和した標準プロトコルに加え、実用上極めて重要な「限定ランダム化プロトコル（Limited-randomization）」を用意しました。これはクリーンな環境で事前学習した後に少しだけランダム化環境を混ぜて学習したモデルで、物理構造は理解しているものの、テスト時の外乱に対して予測の質がバラつきやすい状態を模した実践的な設定です。さらに実機 Franka によるハンマリングタスクでも、色付き照明やカメラのボケといった未知の視覚変化を与えてテストしました。\n\n### 4.2 主要結果\n- **初期誤差とタスク失敗の相関**: 最初の3チャンクにおける想像と現実のズレ（バックワードエラー）を集計したところ、誤差が最も小さいグループの失敗率が $4.9\\%$ だったのに対し、最も大きいグループでは $21.2\\%$ にまで悪化しました。自己検証シグナルがタスク成否と密接に結びついている証拠です。\n- **限定ランダム化環境での飛躍**: 性能の伸び代が大きい Limited-randomization Hard 設定において、ベースモデルの成功率 $55.80\\%$ に対し、WCD はバックボーンを固定したまま $60.90\\%$（$+5.10$ ポイント）へと改善しました。特に長期的な推論が必要な Horizon-3 タスクでは $+16.43$ ポイントという劇的な伸びを記録しました。\n- **実機ストレス環境での頑健性**: 実機の有色照明テストにおいて、ベースラインの WAM や $\\pi 0.5$ が失敗する中、WCD は正しく目標物を叩く軌道を選び出し、タスクを完遂しました。\n\n### 4.3 アブレーション研究\n- **コンポーネントの寄与**: 候補からランダムに選ぶ「Random-$N$」の Hard 成功率は $53.5\\%$ に留まりました。驚異度、パスエフォート、オンライン予測器はそれぞれ単体でも機能しますが、すべて組み合わせることで最高の $60.90\\%$ に到達しました。\n- **候補数 $N$ のスケーリング**: 単純なサンプリング（Random-$N$）では候補数を増やしても性能が頭打ちになりますが、WCD の選別シグナルを用いると $N$ を増やすほど成功率が着実に向上することが確認できました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "ロールアウト初期（最初の3チャンク）における想像と現実のズレと、タスク失敗率の関係です。初期誤差の四分位数が上がるにつれて失敗率が $4.9\\%$ から $21.2\\%$ へと単調増加しており、自己検証誤差が方策の成否を如実に反映していることが分かります。",
+     "caption": "Figure 5 : Early imagination–reality mismatch is associated with rollout failure. We aggregate task- and depth-normalized visual-back error over the first three executed chunks. Failure rate increases from $4.9\\%$ in the lowest early-error quartile to $21.2\\%$ in the highest.",
+     "image": "details/2609.02159/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "テスト時スケーリングの解析です。(a) 単に候補数 $N$ を増やすだけ（Random-N）では性能は伸びませんが、選別シグナルを伴うことで成功率が向上します。(b) 改善効果は、性能にまだ伸び代が残されている難しいタスクほど顕著に現れます。",
+     "caption": "Figure 6 : Test-time scaling requires structured selection. (a) More candidates improve success only when paired with reliable selection. (b) Scaling gains concentrate on tasks with remaining headroom.",
+     "image": "details/2609.02159/F6.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "実機 Franka によるハンマリングタスクの評価環境です。(a) 通常環境で学習し、(b) カラー照明、(c) レンズのボケ、(d) 障害物が散らかった配置という、訓練時には見ていない過酷な視覚的変化を与えてテストを行いました。",
+     "caption": "Figure 4 : Real-robot Franka evaluation. We train on the clean hammering setup and test on unseen colored-light, camera-blur, and cluttered-layout variants.",
+     "image": "details/2609.02159/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめと今後の展望：より賢く選ぶテスト時計算へ",
+   "summary_ja": "WCD は世界行動モデルの予測を「反証可能な仮説」と捉え直し、報酬や追加アノテーションなしで信頼性の高い行動を選び出す新しいテスト時計画法を提示しました。今後の課題は、候補生成に伴う計算コストの削減と高周波制御への最適化です。",
+   "details_ja": "本研究では、世界行動モデル（WAM）が抱える生成のばらつきという根本課題に対し、モデル内部のシグナルと遅延自己検証を組み合わせたフレームワーク「WCD」を提案しました。モデル本体の重みを一切更新することなく、信頼性の高い未来と行動のペアを推論時に選び出すことで、シミュレーションおよび実機の両方で顕著なロバスト性の向上を実証しました。\n\n得られた知見は明快です。世界行動モデルにおけるテスト時スケーリングの本質は、「やみくもに大量の未来を想像すること」ではなく「その中から信頼できる未来をいかに見抜くか」にあります。\n\n一方で、候補を $N$ 個サンプリングするための推論計算コストはトレードオフとして残ります。オンライン予測器の導入によってスコアリング自体のオーバーヘッドは大幅に削られたものの、ベースとなる WAM の生成速度向上や、高周波なリアルタイム制御に向けたパイプラインの最適化が今後の重要な研究課題となります。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "世界行動モデルの未来予測は「反証可能な仮説」であり、実行後の現実観測とのズレを自己教師あり信号としてそのまま活用できる。",
+  "推論時のベストオブNサンプリングは、単に数を撃つだけでは機能せず、フローの驚異度やアクションの平滑さといった「生成の質を測るシグナル」による選別と組み合わせて初めてスケールする。",
+  "計算負荷の高い詳細シグナル（Flow Surprisal）をコールドスタートに使い、得られたデータで軽量予測器をオンライン学習してアモータイズする設計が非常に実用的である。"
+ ],
+ "limitations_ja": [
+  "複数の未来候補を同時に生成して評価するため、並列計算リソースの消費や推論レイテンシが増加し、ミリ秒単位の高周波制御への適用には最適化が必要である。",
+  "すでにベースモデルの成功率が飽和している（完璧に解ける）クリーンな環境では、候補選別の余地が少なく性能向上の恩恵が限定的である。",
+  "オンライン予測器の学習はエピソード間で共有されるが、タスクドメインが根本から激変した場合の適応速度や破滅的忘却への耐性については追加の検証が必要である。"
+ ],
+ "keywords": [
+  "World Action Models",
+  "Test-Time Planning",
+  "Flow Matching",
+  "Self-Verification",
+  "Robot Manipulation"
+ ],
+ "id": "2609.02159",
+ "title": "World-Coherent Decoding: Self-Verifying Test-Time Planning for World Action Models",
+ "authors": [
+  "Chuhan Zhang",
+  "Seiji Ito",
+  "Kenta Hoshino",
+  "Satoshi Ikehata",
+  "Ikuro Sato"
+ ],
+ "date": "2026-09-03",
+ "group": "general",
+ "tags": [
+  "world-model",
+  "planning",
+  "control"
+ ],
+ "categories": [
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.02159",
+ "pdf_url": "https://arxiv.org/pdf/2609.02159",
+ "summary_ja": "画像による未来予測と行動デコードを行うWorld Action Model（WAM）において、テスト時に生成候補を自己検証するフレームワークを提案。オプティカルフローに基づく驚きの度合いや行動経路の安定性で候補軌道を評価し、実行後の実観測で予測を監査して計画精度を改善した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.02159"
+}
