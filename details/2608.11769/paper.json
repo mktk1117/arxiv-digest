@@ -1,0 +1,136 @@
+{
+ "tldr_ja": "ヒューマノイドの双腕操作向けVLAポリシーにおいて、ロボットの初期姿勢が「どちらの手を使うか」の強いバイアス（手先事前分布）を生み出す現象を解明し、データ収集時の姿勢多様化と特定の腕関節への介入によってこの依存性を解消できることを示しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "学習データにおける初期姿勢の設計比較です。左側の従来設定では物体の位置と初期姿勢が連動（カップリング）してしまっていましたが、右側のように腕の高さや手首の向きを多様化し、どの姿勢からも左右両方の物体を扱うよう収集することで、姿勢への過度な依存を劇的に緩和できます。",
+  "caption": "Fig. 1: Simulation initial-pose sets used before and after pose diversification. Left: two target-conditioned initial poses used in the limited-pose setting. Right: eight diversified initial poses varying arm height, wrist orientation, and bilateral arm symmetry.",
+  "image": "details/2608.11769/F1.jpg"
+ },
+ "overview_ja": "近年、画像・言語・行動をエンドツーエンドで結ぶVLA（Vision-Language-Action）モデルが脚光を浴びています。しかし、ベンチマークで高い成功率を誇るモデルでも、ロボットの腕の「初期姿勢」を少し変えるだけで急激に失敗することがあります。特にヒューマノイドのような双腕ロボットでは、物体の位置に合わせて右手か左手かを適切に選ぶ必要がありますが、特定の初期姿勢をとった瞬間に、物体が左にあるのに右手を伸ばしてしまうような奇妙なショートカット行動が発生します。\n\n本研究では、この初期姿勢に引きずられる手先選択の偏りを「ポリシー誘発性手先事前分布（policy-induced hand prior）」と名付け、そのメカニズムを徹底的に解明しました。まず、動作初期の手の左右運動量を比較する評価指標「HandPriorScore」を提案し、手先バイアスとターゲット追従性を定量化しました。さらに、特定の初期姿勢における関節角度を直接入れ替える介入実験や手首カメラ画像のマスキングを行い、失敗の原因が腕のどの関節に起因しているかを突き止めました。\n\n実験の結果、特定の初期姿勢で生じる不適切な手先選択は、右腕の特定の2つの関節角度（$R_{\\mathrm{arm},3}$ と $R_{\\mathrm{arm},5}$）に強く支配されていることが判明しました。また、訓練データの初期姿勢を2種類から8種類へ多様化し、弱点となる姿勢の周辺データを追加するだけで、成功率を大幅に引き上げられることを実証しました。ベンチマークの平均成功率の裏に隠れがちな初期姿勢依存性を診断し、解決するための実践的な知見を提供しています。",
+ "contributions_ja": [
+  "双腕ヒューマノイドのVLA操作において、初期姿勢が不適切な手先選択を引き起こす「手先事前分布」現象を定義し、相対関節変位に基づく評価指標「HandPriorScore」を提案した。",
+  "関節レベルの反実仮想的な介入実験により、特定の腕関節（$R_{\\mathrm{arm},3}$、$R_{\\mathrm{arm},5}$）の初期角度が手先選択の切り替えを直接引き起こす因果関係を特定した。",
+  "手首カメラの有無やマスキング解析を通じて、手首画像が微細な動作調整を支えつつも、間違った手先選択の根本原因ではないことを明らかにした。",
+  "初期姿勢の多様化と失敗しやすい姿勢周辺のピンポイントなデータ拡張により、初期姿勢に対する頑健性を大幅に向上（特定姿勢で30%から75%へ改善）させた。"
+ ],
+ "sections": [
+  {
+   "heading": "I INTRODUCTION",
+   "heading_ja": "なぜロボットは「初期姿勢」に引きずられて失敗するのか",
+   "summary_ja": "VLAポリシーは平均的なタスク成功率が高くても、初期姿勢の違いによって特定の姿勢で壊滅的な失敗を起こすことがあります。双腕ヒューマノイドでは、物体が左側にあるのに初期姿勢のせいで右手を伸ばしてしまうような手先選択の偏りが発生します。本研究ではこの問題を「ポリシー誘発性手先事前分布」と定義し、その発生要因と対策を明らかにします。",
+   "details_ja": "近年の基盤モデルやVLAモデルは大規模データから汎用的なロボット動作を学習することを目指しています。しかし、既存の評価プロトコルの多くは、あらかじめ揃えられた基準姿勢や固定された初期位置からロールアウトを開始するものがほとんどです。これでは、モデルが特定の初期姿勢に過剰適合していることを見落としてしまいます。\n\n実際、初期姿勢の変化はロボット自身の自己受容感覚（プロプリオセプション）だけでなく、頭部カメラに映る自己の腕の見え方や、手首カメラと物体の幾何学的な位置関係を同時に変えてしまいます。先行研究でも、ロボットが学習時に扱いやすい自己受容感覚信号に頼りすぎて視覚情報の利用を軽視してしまう「ショートカット学習」が指摘されていました。\n\nUnitree G1ヒューマノイドにGR00Tを適用した予備実験でも、同じ物体位置であるにもかかわらず、ある特定の初期姿勢からは左側のリンゴに対して不自然に右手を伸ばし続ける現象（間違った手の選択）が確認されました。そこで本論文では、以下の3つの問いに答えるべく研究を進めました。\n\n- 腕の特定の関節角度を変えるだけで、この手先バイアスを反転・解消できるのか？\n- 手首カメラの視覚情報は手先の選択とタスク成功率にどう影響しているのか？\n- 訓練データの姿勢カバレッジやデータ構成をどう変えれば、初期姿勢に対する頑健性を獲得できるのか？",
+   "figures": []
+  },
+  {
+   "heading": "II RELATED WORK",
+   "heading_ja": "VLAモデルの頑健性と「状態への過剰適合」という落とし穴",
+   "summary_ja": "VLAのロバスト性評価では視点や初期位置の乱れによる性能低下が報告されていますが、それが双腕の手先選択のような行動モードの破綻にどうつながるかは不明でした。また、ポリシーが視覚情報よりも内部の自己受容感覚に過度に依存してしまうモダリティ間の不均衡も指摘されています。本研究は、初期姿勢が単なる制御入力にとどまらず、誤った行動選択のショートカットとして機能する実態を掘り下げます。",
+   "details_ja": "本研究に関連する先行研究は、大きく2つの系統に分かれます。\n\n- **VLAポリシーと摂動下での頑健性**\nLIBEROなどのベンチマークにより汎用的な操作能力が測られていますが、固定された初期設定が多いのが現状です。摂動への頑健性を検証するLIBERO-Plusなどでも、カメラ視点や初期状態のズレによる成功率の低下は報告されているものの、「なぜその初期状態がショートカット行動や誤った手先選択につながるのか」という行動メカニズムまでは踏み込んでいませんでした。\n\n- **視覚と自己受容感覚のバイアス・状態ショートカット**\nマルチモーダルなポリシー学習では、自己受容感覚信号がコンパクトで予測しやすい手がかりとなるため、視覚的な手がかりの学習が抑制される現象（GAPやReViPで指摘）が知られています。また、絶対座標系の状態表現に過剰適合することで空間汎化が損なわれる問題（State-free Policyなど）も報告されています。\n\n本研究はこれらの知見を踏まえ、双腕ヒューマノイドという自由度が高く左右の役割分担が問われるタスクにおいて、初期姿勢がどのように手先選択のショートカットとして学習されてしまうのかを診断・改善する新しい試みです。",
+   "figures": []
+  },
+  {
+   "heading": "III Policy-induced hand prior",
+   "heading_ja": "手先の偏りを暴く新指標：HandPriorScoreの仕組み",
+   "summary_ja": "ロボットが動作開始直後にどちらの手を優先して動かそうとしているかを定量化するため、相対関節変位に基づく「HandPriorScore」を導入しました。これにより、タスク自体の左右要因から独立した「初期姿勢そのものが持つ手先バイアス」と「ターゲット位置への反応性」を分離して測定できます。",
+   "details_ja": "ロボットが物体をつかむ前の最初の意思決定ウィンドウ（初期の$T$ステップ）において、左右どちらの腕を積極的に使おうとしているかを数値化する定式化を行いました。\n\n### 相対アクションの正規化と活動量の算出\nポリシーが出力する絶対目標関節位置 $a_{S,t,j}^{G}$ と現在の関節位置 $q_{S,t,j}^{G}$ の差分である相対アクション $\\Delta a_{S,t,j}^{G} = a_{S,t,j}^{G} - q_{S,t,j}^{G}$ を計算します（$S \\in \\{L, R\\}$ は左右の腕・手、$G \\in \\{\\mathrm{arm}, \\mathrm{hand}\\}$ は部位、$j$ は関節番号）。関節ごとに可動域や分散が異なるため、全ポリシーの評価データから求めた標準偏差 $\\sigma_{S,j}^{G}$ で正規化し、RMS（二乗平均平方根）をとることで各部位の運動量 $M_{S,t}^{G}$ を求めます。\n\n腕と手の運動量を重み $\\lambda$ で統合して片側の総合活動量 $A_{S}^{(T)}$ を算出し、左右の活動量の差を全体の合計で割ることで、正規化された HandPriorScore $H^{(T)}$ を定義します。正の値なら右手優先、負の値なら左手優先を意味します。\n\n### 手先バイアスとターゲット反応性の分離\n物体の位置（左 $\\ell$、中央 $c$、右 $r$）ごとに平均スコア $\\mu_{x}^{(T)}$ を求め、次の2つの指標に分解します。\n\n- **残差手先バイアス ($H_{\\mathrm{prior}}^{(T)}$)**: $\\frac{1}{2}(\\mu_{\\ell}^{(T)} + \\mu_{r}^{(T)})$ で計算され、ターゲットが左右どちらにあっても残ってしまう初期姿勢固有の左右の偏りを示します。\n- **ターゲット反応性 ($H_{\\mathrm{target}}^{(T)}$)**: $\\frac{1}{2}(\\mu_{r}^{(T)} - \\mu_{\\ell}^{(T)})$ で定義され、物体の位置が左から右へ移ったときに、ロボットが手先の動きをどれだけ適切に右側へシフトできているかを示します。",
+   "figures": []
+  },
+  {
+   "heading": "IV Experiment",
+   "heading_ja": "実験設計：Unitree G1でのリンゴピックタスクと17の初期姿勢",
+   "summary_ja": "双腕ヒューマノイドUnitree G1を使い、テーブル上のリンゴをつかんでトレイに運ぶPickAppleタスクで検証しました。初期姿勢を2種類から8種類へ広げたシミュレーションデータや実機データを含む複数の学習設定を用意し、全17種類の初期姿勢から閉ループ評価を行いました。",
+   "details_ja": "### データセットと学習設定\n対象タスクには、物体の位置に応じて左右の手を賢く選び分ける必要がある「PickApple」を採用しました。ベースモデルにはGR00T-N1.5-3Bを用い、ファインチューニングを行っています。\n\n- **$P_{\\mathrm{sim}}$（シミュレーションデータ）**: 腕の高さや手首の角度を変えた8種類の初期姿勢（pose01〜08）から、左右それぞれに置かれたリンゴを把持・運搬する304エピソードを収集。\n- **実機データ群**: Unitree G1の実機遠隔操作データ（単一のPickApple実機データ $P_{\\mathrm{real}}$、7種類のピック系タスク群、手首カメラを含む13タスク群など）を組み合わせ。\n- **学習設定（Table II）**: シミュレーション単独（A群）、実機データを追加したもの（B群）、手首カメラを有効化したもの（C群）、シミュレーションのサンプリング比率を約45.5%に再重み付けしたもの（D・E群）など、モダリティとデータ比率の影響を比較できるようにしました。\n\n### 評価プロトコルと17種類の初期姿勢\n訓練で使った8姿勢に加え、学習姿勢の平均（pose_mean）、全関節ゼロ（zero）、多様化前の遠隔操作デフォルト姿勢（teleop_default）、実機データの開始姿勢（left_real, right_real）、PCA空間で外挿した未知姿勢（synthetic_unseen）など、合計17種類の初期姿勢を準備しました（Fig. 3）。各条件につき20エピソードのロールアウトを行い、リンゴをつかんでピンクのプレートに置き、腕を持ち上げるまでを一連の成功基準として厳格に判定しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "評価に用いた全17種類の初期姿勢と各タスクの初期状態分布をPCA空間にプロットした図です。青いひし形が多様化された訓練姿勢（pose01〜08）、青い丸が追加の評価姿勢を表しており、広範な姿勢空間をカバーして頑健性を検証していることが分かります。",
+     "caption": "Fig. 3: PCA projection of evaluation initial poses and task-level distributions. Blue diamonds denote 8 diversified PickApple training poses, while blue circles denote the remaining evaluation initial configurations. Yellow and gray circles respectively represent the task-level initial-state means of the pick-type and non-pick real-robot datasets.",
+     "image": "details/2608.11769/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Results",
+   "heading_ja": "実験結果：姿勢とポリシーの強い相互作用と、驚くべき関節介入の効果",
+   "summary_ja": "同じ初期姿勢でもポリシーによって成功率が15%から95%まで激変し、逆に単一のポリシーでも姿勢によって大きく性能が乱れることが分かりました。特にteleop_default姿勢では強い右手バイアスが発生していましたが、右腕のわずか2つの関節角度を別の姿勢のものと入れ替えるだけで、誤った手先選択を完全に抑え込めました。",
+   "details_ja": "### 初期姿勢とポリシーの相互作用・手先バイアス\n実験結果（Fig. 2）から、平均成功率では見えない初期姿勢特有の失敗が浮き彫りになりました。例えばポリシーA1は全体平均61.5%と良好ですが、right_real姿勢では30%まで落ち込みます。また、teleop_default姿勢では、左側にリンゴがあるにもかかわらず右手を無理に伸ばす行動が多発し、残差手先バイアス $H_{\\mathrm{prior}}^{(T)}$ が大きな正の値を示しました。\n\n### 姿勢多様化とピンポイント追加の効果\n訓練時の初期姿勢を2姿勢から8姿勢に多様化したところ、平均成功率はA1で5.8%から63.3%へ、A2で14.2%から72.5%へと飛躍的に向上しました（Fig. 4）。さらに、A1が苦手としていたright_real姿勢の周辺に2つの収集姿勢を追加（10姿勢に拡張）したところ、right_realでの成功率が30%から75%へと倍増しました（Fig. 5）。局所的なデータカバレッジの不足が失敗の主因だったことが裏付けられます。\n\n### 手首カメラと補助データの影響\n手首カメラを追加すると全体成功率は61.5%（A1）から76.8%（A2）へと向上しました。しかし、teleop_default姿勢では手首カメラがあることでかえって右手の過信が強まり、左ターゲット時の誤手試行が6%から33%に増えるという皮肉な結果も出ました。また、異種の実機タスクデータを無計画に混ぜると、目的タスクのデータ比率が薄まり、かえって初期姿勢への過敏性が悪化することも判明しました。\n\n### 関節レベル介入実験（Table III, Fig. 7）\nteleop_defaultでなぜ右手を過剰に使ってしまうのかを探るため、似た姿勢でありながら右手バイアスが出ないright_simとの間で右腕関節の値を入れ替える反実仮想実験を行いました。差異の大きかった第3関節（$R_{\\mathrm{arm},3}$）と第5関節（$R_{\\mathrm{arm},5}$）をteleop_defaultからright_simの値へと差し替えただけで、左ターゲット時の右手試行率が7/8から0/4へと完全に消失しました。逆に、あまり差のない関節（$R_{\\mathrm{arm},0}$, $R_{\\mathrm{arm},6}$）を入れ替えても変化はありませんでした。つまり、ポリシーは腕の特定の関節角度を「右手を使うべきトリガー」としてショートカット利用していたのです。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "全17種類の初期姿勢と各ポリシーにおけるタスク成功率（a）、残差手先バイアス（b）、ターゲット反応性（c）のヒートマップです。teleop_defaultなどの特定の初期姿勢において、残差バイアスが赤く濃くなり、手先選択が初期姿勢に強く支配されている様子が一目で分かります。",
+     "caption": "Fig. 2: Task success of initial-pose and policy dependence (left) and early hand preference during the initial decision window (right). (a) PickApple success rate for each initial-pose–-policy pair. (b) Residual directional bias $H_{\\mathrm{prior}}^{(T)}$ after averaging across the left and right target conditions. (c) Target-location responsiveness $H_{\\mathrm{target}}^{(T)}$ . The hand-prior metrics are computed using an initial decision window of T=120. Rows denote initial robot pose and colu",
+     "image": "details/2608.11769/F2.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "弱点となっていたright_real姿勢周辺に対する局所的なデータ拡張（a, b）と、その効果（c）です。PC1軸に沿って左右に2つの初期姿勢データを追加しただけで、該当姿勢での成功率が30%から75%へと劇的に改善しました。",
+     "caption": "Fig. 5: Targeted pose augmentation around the right_real configuration. (a) Enlarged PCA projection of the local initial-state region. The two red diamonds denote additional collection poses placed on either side of right_real along PC1. (b) Robot configurations images corresponding to right_real_pc1_minus and right_real_pc1_plus. (c) Success rate at right_real for A1 trained with the original eight-pose dataset and the augmented ten-pose dataset.",
+     "image": "details/2608.11769/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "PCA空間上での関節介入実験の概念図です。teleop_defaultとright_simの間で最も差異の大きかった右腕関節（$R_{\\mathrm{arm},3}$、$R_{\\mathrm{arm},5}$）を入れ替えることで、手先バイアスが劇的に抑制または誘発される因果関係が証明されました。",
+     "caption": "Fig. 7: Joint-level counterfactual interventions. The A2 intervention between teleop_default and right_sim swaps $R_{\\mathrm{arm},3}$ and $R_{\\mathrm{arm},5}$ , while the control swaps $R_{\\mathrm{arm},0}$ and $R_{\\mathrm{arm},6}$ . The broader pose08–teleop_default intervention swaps the four arm joints with the largest absolute position differences. Arrow labels indicate the swapped arm and joint indices using zero-based indexing.",
+     "image": "details/2608.11769/F7.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "teleop_defaultにおける手首カメラのマスキング解析です。手首画像を隠しても絶対的な関節出力トークンには大きなズレは生じませんが、状態相対的な微細アクション（action_delta_chunk）に明確な変化が現れ、手首カメラがアプローチ微調整を担っていることが示されています。",
+     "caption": "Fig. 6: Wrist-mask perturbation for A2 at teleop_default. (a) Both-wrist camera masking, (b) left-wrist camera masking, and (c) right-wrist camera masking. Columns correspond to left- and right-side apple placements. Each curve reports the cosine distance from the paired full-observation baseline for the visual, intermediate-token, and predicted-action representations over 0–20 s.",
+     "image": "details/2608.11769/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI CONCLUSIONS",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "本研究は双腕ヒューマノイドVLAにおける初期姿勢依存性を「手先事前分布」として定式化し、局所的な腕関節角度が手先選択の因果的な引き金になっていることを解明しました。初期姿勢の多様化や弱点領域のデータ補強が有効であることを示し、マルチタスク学習時のデータ比率維持の重要性を提言しています。",
+   "details_ja": "本論文では、ヒューマノイドの双腕マニピュレーションにおいて、初期姿勢がポリシーの意思決定を歪めるメカニズムを解明しました。提案したHandPriorScoreにより、タスクの平均成功率の陰に隠れていた非対称な手先バイアスを検出することに成功しました。\n\n介入実験を通じて、手首カメラの視覚情報は微調整に寄与するものの、間違った手先選択の根本原因は右腕の特定の関節角度（$R_{\\mathrm{arm},3}$ と $R_{\\mathrm{arm},5}$）にあることを突き止めました。さらに、データ収集時に「初期姿勢と目的物体の位置を固定的に連動させないこと」「失敗しやすい初期状態空間の近傍を重点的にカバーすること」「外部データを混ぜる際も対象タスクの十分な露出割合を保つこと」が、初期姿勢に対する頑健性を高める鍵であることを示しました。\n\n本研究の知見は、双腕ロボットにVLAを適用する際、データセット収集と評価の両面で初期姿勢のバリエーションを明示的に設計することの不可欠さを強く訴えかけています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "ベンチマークの平均成功率が高くても安心せず、初期姿勢ごとの性能バラつきや手先選択の偏り（HandPriorScore）をチェックすることが重要です。",
+  "データ収集中に「ロボットが左寄りの姿勢のときは左の物体を操作する」といった暗黙の連動（カップリング）を作ってしまうと、ポリシーが視覚ではなく初期姿勢をショートカットとして学習してしまいます。",
+  "苦手な初期姿勢がある場合、その姿勢の近傍（PCA空間などで特定可能）に少量のデモデータをピンポイントで追加する局所拡張が非常に効果的です。",
+  "異種ロボットや外部タスクのデータを混ぜる際は、目的タスクのサンプリング比率が下がりすぎないようリサンプリング重みを適切に調整する必要があります。"
+ ],
+ "limitations_ja": [
+  "検証対象が単一のタスク（PickApple）、単一のロボット機体（Unitree G1）、単一のポリシー基盤（GR00T）に限定されています。",
+  "関節レベルの介入実験において、一部の条件で物理的に不可能な姿勢が生じたため、サンプル数が少なく不均一な箇所があります。",
+  "手首カメラ画像をマスキングする解析手法は、分布外（OOD）入力を生成してしまうため、完全な因果寄与率の定量化までは踏み込めていません。"
+ ],
+ "keywords": [
+  "Vision-Language-Action (VLA)",
+  "Humanoid Robot",
+  "Dual-Arm Manipulation",
+  "Shortcut Learning",
+  "Hand Prior",
+  "Closed-Loop Robustness"
+ ],
+ "id": "2608.11769",
+ "title": "Policy-Induced Hand Priors in Humanoid Dual-Arm Manipulation: Diagnosing and Mitigating Initial-Pose Dependence",
+ "title_ja": "ヒューマノイド双腕操作における方策誘導型ハンド事前分布：初期姿勢依存性の診断と緩和",
+ "authors": [
+  "Chaeyeon Jung",
+  "Juyoun Park"
+ ],
+ "date": "2026-08-13",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "manipulation",
+  "vision-language-action",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.11769",
+ "pdf_url": "https://arxiv.org/pdf/2608.11769",
+ "summary_ja": "VLA方策に基づくヒューマノイド双腕操作において、ロボットの初期姿勢によって不適切なハンド選択や失敗が生じる問題（Hand Prior）を評価・診断。新指標HandPriorScore等を導入し、17種類の初期姿勢と複数のVLA方策を用いて相互作用を解析した。初期姿勢によるタスク成功率の大幅な変動を明らかにするとともに、その緩和に向けた知見を提示している。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.11769"
+}
