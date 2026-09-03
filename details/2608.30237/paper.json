@@ -1,0 +1,176 @@
+{
+ "tldr_ja": "行動生成・将来予測・価値評価の3役を単一の重みで兼ね備えた世界モデル「Motus2」を提案し、大規模な一人称視点データと強化学習ループによって多指ハンドの器用な操作を自己改善できることを示しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "Motus2の全体アーキテクチャと学習・推論ループです。単一の共有バックボーンが方策（WAM）、シミュレータ（AC-WM）、評価器（VM）の3役を担い、生成した行動候補の予測結果を評価して自己改善する閉ループを実現しています。",
+  "caption": "Figure 1 : Motus2 overview. A single general world model with one shared parameter set exposes three control interfaces. The policy generates action chunks from language, current robot observations, and the selected visual working-memory context; the simulator predicts future visual states under candidate actions; and the evaluator assesses the resulting branches for planning and policy optimization.",
+  "image": "details/2608.30237/F1.jpg"
+ },
+ "overview_ja": "ロボットによる器用な手先操作（Dexterous Manipulation）は、長らく模倣学習が主流でした。しかし、実機での成功デモ収集はコストが非常に高く、模倣学習だけでは失敗や次善の動作から「何が良くて何が悪かったのか」を学んで方策を自律的に向上させることができません。さらに、手先による遮蔽や接触状態の曖昧さといった難題も立ちはだかります。\n\nそこで著者らは、単一の共有パラメータを持つ拡散トランスフォーマー（DiT）ベースの世界モデル「Motus2」を開発しました。ポイントは、1つのモデルが「行動提案（方策）」「結果の映像予測（シミュレータ）」「進捗評価（評価器）」という3つの役割を兼ね備えている点です。推論時には最良の行動を選ぶBest-of-$N$プランニングに使い、学習時にはDiffusionNFTに基づくモデルベース強化学習（MBRL）によって方策を継続的にアップデートします。さらに、成功データを行動模倣に使いつつ、失敗や非効率なデータも物理ダイナミクスと価値評価の学習に余さず活用する仕組みを作りました。\n\n大規模な単眼・ステレオの一人称（エゴセントリック）視点データによる事前学習から、実機データへの適応、触覚フィードバックの統合までを体系的に検証しました。その結果、実機評価において事前学習と中間学習により成功率が大幅に向上（WANベースラインの0%からMotus2で84%へ）し、MBRLとテスト時プランニングの組み合わせでさらなる性能向上が確認されました。",
+ "contributions_ja": [
+  "方策・シミュレータ・価値評価器の3つの制御インターフェースを単一の重み共有モデルで統合し、自律的な方策改善ループ（自己進化）を確立したこと。",
+  "大規模な単眼・ステレオ一人称視点データから実機データへと段階的に適応させるデータスケーリング手順を構築し、ステレオデータにおけるスケーリング則を示したこと。",
+  "成功デモだけでなく失敗や次善のインタラクションデータもダイナミクス予測や価値学習の教師信号として有効活用する枠組みを実現したこと。",
+  "触覚エキスパートによる高頻度な手先行動の補正・予測と、長期依存性を捉えるワーキングメモリ機構を実機システム上で実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "模倣学習の限界を超えて：自己進化する世界モデルへの道",
+   "summary_ja": "器用な手先操作には、単なる最新観測からの行動マッピングを超え、過去の履歴保持や接触推論、そして自律的な改善能力が不可欠です。本論文では、単一モデルで行動提案・将来予測・価値評価を統合した世界モデル「Motus2」を提案します。",
+   "details_ja": "ロボットの基盤モデルはこれまで、人手でキュレーションされた行動ラベル付きデータセットへの模倣学習に大きく依存してきました。しかし、ロボット実機でのデモ収集は極めて高コストであり、模倣学習だけでは行動の良し悪しを判断したり、自身の行動結果から方策を改善したりするメカニズムがありません。\n\nそこで注目されるのが人間の一人称視点（エゴセントリック）データです。単眼データは多様なタスクや手と物体の相互作用を広くカバーし、同期されたステレオ（両眼）データは奥行き情報や正確な3D手先姿勢を提供します。ただし、これらをロボットの器用な操作へ転移するには、手先による遮蔽（部分観測性）や、指先の滑り・把持形成といった視覚だけでは捉えにくい接触現象への対処が必要です。\n\n本研究が提案する「Motus2」は、データスケーリングとモデルスケーリングの2軸でこの課題を解決します。モデル面では、単一の共有モデルが「方策（World–Action Model）」「シミュレータ（Action-Conditioned World Model）」「評価器（Value Model）」の3役を担います。方策が行動候補を出し、シミュレータがその視覚的結果を予測し、評価器がタスク進捗を判定することで、自己進化のための閉ループを形成します。失敗データも無駄にせず、ダイナミクスや価値の学習にフル活用する点が大きな強みです。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "世界モデル・一人称視点プライア・MBRLの合流地点",
+   "summary_ja": "汎用世界モデル（GWM）、一人称視点プライアを活用した器用操作、世界モデルに基づく強化学習（MBRL）という3つの系統を整理し、本研究がこれらをどう統合しているかを明確にします。",
+   "details_ja": "ロボット制御における世界モデルは、行動生成を担う方策、行動条件付きで未来の観測を予測するシミュレータ、そして結果を採点する評価器の3つに大別されます。先行研究のMotusはUniDiffuserスタイルの動画・行動統合モデルを提案しましたが、そこに自律的な改善ループまでは含まれていませんでした。Motus2はこれを発展させ、価値評価器とMBRLを同一モデル内で統合しています。\n\n多指ハンドによる器用な操作では、不連続な接触ダイナミクスを協調させる必要があります。H-RDTやEgoVLAなどに代表される一人称視点の人間データは強力な事前知識になりますが、視覚情報だけでは接触リッチな操作のあいまいさを解消しきれません。そのため、触覚反応制御や身体構造のアライメントが不可欠になります。\n\n近年のVision-Language-Action（VLA）モデルのポストトレーニングでは、世界モデルの予測を活用した方策改善手法が模索されています。しかし、単一モデルの中で行動決定、世界シミュレーション、価値推定をどのように結びつけ、成功デモだけでなく失敗や次善のデータまで相互補完的に活用するかという問いが未解決でした。Motus2はこの問いに対する直接の解答となっています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "単一の重みで3役をこなす：Motus2のアーキテクチャと学習メカニズム",
+   "summary_ja": "言語指示付きPOMDPとして定式化し、因果マスキングと損失ゲーティングにより1つのモデルから方策・シミュレータ・評価器を取り出します。さらにDiffusionNFTによるMBRL、ワーキングメモリ、軽量な触覚エキスパートを結合しています。",
+   "details_ja": "3.1 概要\nタスクを部分観測マルコフ決定過程（POMDP）として扱います。観測コンテキスト $c_t$ のもとで、実行可能な行動チャンク $A_t$、将来の潜在視覚観測 $Z_t$、離散化されたタスク進捗値 $Y_t$ の同時分布を、$p(A_t, Z_t, Y_t \\mid c_t) = \\pi_\\theta(A_t \\mid c_t) \\cdot p_\\theta(Z_t \\mid c_t, A_t) \\cdot p_\\theta(Y_t \\mid c_t, A_t, Z_t)$ と因果的な順序（Action-first）で分解します。\n\n3.2 汎用世界モデリング\n事前学習段階では動画と行動の双方向アテンションを用いますが、ロボット適応段階からは「Action-firstマスク」を導入します。行動トークンは自身のチャンク内の未来動画や価値を見られず、未来動画トークンは行動を参照でき、読み取り専用の価値クエリトークンはその両方を参照できる設計です。また、データの質に応じた「教師信号のルーティング」を行います。高品質な成功デモのみが行動生成の教師となり、失敗や次善の動作軌道はシミュレータ（未来予測）や評価器（価値予測）の学習モードにのみ流されます。これにより、望ましくない行動を模倣することなく、物理法則と評価基準を効率よく学習できます。\n\n3.3 価値誘導型閉ループ自己進化\n評価器はタスクの相対進捗（0〜1の正の進捗と、失敗・無関係な動作に対する負の進捗-1）を学習します。推論時には $N$ 個の行動候補から最も価値の高いものを実行するBest-of-$N$プランニングを行います。学習時には、DiffusionNFTを用いて評価器のスコアを行動方策のFlow Matching更新勾配へと変換します。生成候補の平均値より高評価な行動は正の暗黙的速度場へ、低評価な行動は負の方向へ押し出されます。この処理をRayを用いた非同期パイプラインで高速に回します。\n\n3.4 ワーキングメモリ\n手先遮蔽などの部分観測に対処するため、履歴の保持方法として3種類を比較検討しています。デフォルトの「スライディングウィンドウ」、全履歴のKVキャッシュを保持する「大域自己回帰（Global Autoregression）」、そして初期フレームと直近フレームを高解像度で保持し中間フレームを圧縮トークン化する「ハイブリッドメモリ（MemoryWAM方式）」です。\n\n3.5 触覚エキスパート\n高頻度な接触フィードバックに対応するため、重いバックボーンを毎回再実行するのではなく、軽量な触覚エキスパートを導入しました。バックボーンが一度だけ途中ノイズレベルまでデノイズした中間行動チャンクとKVキャッシュを使い、直前の触覚信号をもとに最終的な行動微調整を行います。同時に、行動後の接触力を予測する自己教師あり学習も導入し、接触に対する感度を高めています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "事前学習時（Joint）とロボット適応時（Action-first）の情報流マスクの比較です。Action-firstマスクでは行動が未来動画を参照できないようにしつつ、未来動画は行動を、価値クエリは両方を参照できるように因果性を制御しています。",
+     "caption": "Figure 2 : Stage-specific chunk masks. Context ( $C$ ), video ( $Z$ ), and action ( $A$ ) tokens share one backbone; a read-only value query ( $U$ ) is introduced from mid-training onward and is inactive during joint pre-training. Joint pre-training permits bidirectional video–action interaction within a chunk. The action-first mask blocks current future-video information from action prediction, while future-video tokens may read the action and the value query may read both. Both masks remain ca",
+     "image": "details/2608.30237/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "自己進化とプランニングのワークフローです。方策が行動候補をサンプリングし、シミュレータが未来映像を予測し、評価器が進捗を採点します。得られた価値はMBRLによる方策の重み更新と、推論時のBest-of-$N$選択の両方に使われます。",
+     "caption": "Figure 3 : Self-evolution and planning modules. The Motus2 MBRL path samples action candidates with the world–action model (policy), predicts their future visual consequences with the action-conditioned world model (simulator), and evaluates the resulting branches with the value model (evaluator). The resulting values guide DiffusionNFT-style policy updates, while the same three interfaces support test-time planning by selecting the highest-value branch.",
+     "image": "details/2608.30237/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Large-Scale Egocentric Dataset",
+   "heading_ja": "13万時間の一人称データピラミッド：単眼からステレオ、実機へ",
+   "summary_ja": "約13万時間に及ぶ大規模な一人称視点データセットを構築しました。手先キーポイントの標準化や急激な頭部運動を除去する自動処理パイプライン「BoxTrim」を適用し、高品質なマルチモーダルデータへと精緻化しています。",
+   "details_ja": "学習用データセットは、ウェブ動画から単眼・ステレオの一人称視点データ、人間とロボットの身体アライメントデータ、そして触覚付きの実機データへと積み上がるピラミッド構造をとっています。\n\n単眼データは多様な環境とセマンティクスを網羅し、ステレオデータは奥行きと正確な3D手先姿勢を提供します。これらを活用するために、左右の手の並進・回転・20箇所の指先関節位置をまとめた134次元の統一手先表現を導入しました。\n\n長時間の一人称動画からノイズを除去するため、「BoxTrim」と呼ばれる品質認識型の時系列処理パイプラインを開発しました。手首の瞬間的な移動量から適応的に閾値を計算して急激な頭部の振り向きフレームを除去し、両手の追跡が途切れた区間を自動的にカットします。さらに、視覚言語モデルを用いて環境、全体動作、左右の手の動作を詳細にアノテーションしました。事前学習では、単眼データによる映像表現の学習（ステージ1：計84万ステップ）から、ステレオ映像と手先動作の共同学習（ステージ2：45万ステップ）へと段階的にスケールアップさせています。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "一人称視点データピラミッドとコーパスのセマンティクス多様性です。Web動画からステレオ一人称データ、実機データへと至る階層（左）と、アノテーションされた動作動詞・物体・タスク・シーンの豊富な分布（右）を示しています。",
+     "caption": "Figure 4 : Egocentric data pyramid and corpus semantics. Left: the data hierarchy from web and monocular egocentric video to stereo egocentric data, human–robot alignment data, and robot interaction data. Right: semantic diversity of the annotated subset, excluding Egocentric-100K: (a) 99 fine-grained action verbs, (b) object-related terms, (c) 12 mutually exclusive high-level task categories, and (d) the top 20 non-exclusive scene-context keywords.",
+     "image": "details/2608.30237/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Experiments",
+   "heading_ja": "実機で検証する世界モデルの実力：スケーリング則・MBRL・触覚の効果",
+   "summary_ja": "5つの実機操作タスクを中心に、一人称視点事前学習の寄与、ステレオデータにおけるスケーリング則、MBRLとプランニングによる改善、メモリ機構の比較、触覚フィードバックの効果を多角的に検証しました。",
+   "details_ja": "5.1 実験設定\n評価には20自由度を持つ双腕多指ハンドシステムを用い、「ボール入れ」「スマホ置き」「消しゴム取り付け」「電球ねじ込み」「多指協調把持」など、正確な位置合わせや接触維持が求められる5つのタスクを設定しました。各設定で20〜25通りの初期配置を用意し、完全成功のみをカウントする厳格な基準で成功率（SR）を測定しています。\n\n5.2 主結果\n事前学習なし（WANベースライン）では成功率0%だったのに対し、一人称事前学習（Pretrain-SFT）によりマクロ平均成功率は51%まで跳ね上がりました。さらにロボットドメインの中間学習を経たMotus2（Midtrain-SFT）は84%に達し、ボール入れや消しゴム取り付けで100%、電球ねじ込みで90%を記録しました。比較対象の $\\pi_{0.5}$ と比べても高い性能を示しています。\n\n5.3 ステレオ一人称データのスケーリング則\n2k、4k、10k、20k時間のサブセットを用いて検証したところ、ステレオデータにおいても未知の人間動作予測誤差がデータ量の対数に対して線形に減少する明瞭なスケーリング則（$\\mathcal{L} = 0.101 - 0.005 \\cdot \\ln(D)$）が確認されました。\n\n5.4 モデルベース方策改善とプランニング\nMotus2単体（65.0%）に対し、推論時プランニングを追加すると67.5%、DiffusionNFTによるMBRLを適用すると72.5%、両方を組み合わせると75.0%へと単調に向上しました。評価器が失敗軌道を正しくマイナス進捗として検知できるため、良好な行動選択と方策更新が連動しています。\n\n5.5 長期履歴コンテキスト機構\n遮蔽が発生する探索型タスクにおいて、全履歴を保持する「大域自己回帰」と圧縮を用いる「ハイブリッドメモリ」を比較しました。シミュレーション平均で78% vs 52%、実機平均で57.5% vs 25%と、大域自己回帰が大幅に優れていました。現状の圧縮トークン方式では繊細な視覚特徴が失われやすいことが示唆されます。\n\n5.6 触覚フィードバックの効果\n「紙コップ引き抜き」や「紙引き裂き」といった繊細な力加減が必要なタスクで検証した結果、触覚エキスパートの導入により成功率が60.0%から72.5%へと12.5ポイント向上し、接触を伴う微細操作における有効性が裏付けられました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "ステレオ一人称データにおけるスケーリング則の検証結果です。学習エポックに伴う未知データでの手先動作予測誤差の推移（左）と、データ量（対数スケール）に対する最適誤差のプロット（右）を示しており、明確な対数線形関係が成立しています。",
+     "caption": "Figure 5 : Scaling laws of stereo egocentric human data. Left: held-out human-action prediction error across training epochs for models trained on subsets constructed from 2k, 4k, 10k, and 20k raw recording hours of stereo data. Right: optimal validation error versus raw stereo human-data hours on a logarithmic scale, together with the fitted log-linear scaling law. The reported hours are measured before quality filtering and temporal segmentation; the effective amount of processed training data",
+     "image": "details/2608.30237/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "「葦の切断（Cut Reeds）」と「お茶淹れ（Make Tea）」における予測タスク進捗値の時系列変化です。成功軌道ではタスク完了に向けて値が単調増加する一方、失敗軌道ではミスが発生した瞬間に値が急落している様子が捉えられています。",
+     "caption": "Figure 7a : Predicted task progress: Cut Reeds and Make Tea.",
+     "image": "details/2608.30237/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめ：器用な操作を自己進化させる汎用世界モデルの基盤",
+   "summary_ja": "Motus2は、行動生成・世界シミュレーション・結果評価を単一モデルに統合し、閉ループ強化学習による自己進化を実現しました。大規模な一人称データと実機適応の組み合わせが、器用な手先操作の汎用基盤への道筋を示しています。",
+   "details_ja": "本論文では、多指ハンドによる器用な操作に向けた自己進化型の汎用世界モデル「Motus2」を確立しました。従来のシステムのように別個のモジュールを組み合わせるのではなく、1つの共有重みを持つモデルが方策・シミュレータ・評価器の3つの顔を持つ点が本質的なブレークスルーです。これにより、候補生成、結果予測、価値判定、そして方策更新という一連の意思決定と学習の閉ループが単一の枠組み内で完結します。\n\nデータ面では、人間の一人称視点データを物理的相互作用の膨大な事前知識源として捉え、単眼からステレオ、そして実機へと段階的に適応させるアプローチを実証しました。特に、成功データだけでなく失敗データからも価値やダイナミクスを学べる構造にしたことが、高コストなロボットデータ環境において極めて実用的です。触覚センシングの統合も含め、自己進化するロボット基盤モデルの明確な青写真を示しました。",
+   "figures": []
+  },
+  {
+   "heading": "7 Limitations and Future Work",
+   "heading_ja": "残された課題：触覚ハードウェアのギャップとさらなる拡張",
+   "summary_ja": "最大の限界は、人間とロボットのハンド形状の違いに起因する触覚データの転移性です。今後はハードウェアの幾何学的統一や、より長時間の推論が可能なマルチモーダル基盤モデルとの統合が展望されます。",
+   "details_ja": "本手法の最大の限界点として、ウェアラブル触覚センサのクロスエンボディメント（身体横断）学習におけるスケーラビリティが挙げられています。手袋型の触覚センサは、指を動かすだけでも内部の歪みや生地同士の接触によってノイズが発生し、外部との真の接触と区別するのが困難です。さらに根本的な問題として、現在の多指ロボットハンドは小指が長かったり指全体が太かったりと、人間の手の幾何学形状と完全には一致（同型）していません。そのため、人間用の触覚手袋で集めたデータをそのままロボットハンドへ転移させることができず、形態差が大きな壁となっています。\n\n今後の展望として、人間とロボットの手の幾何学的ギャップを埋める擬人化ハンドの開発や、全手対応の新しい触覚材料の進化が期待されます。モデル面では、より強力な動画生成基盤モデルや統合型マルチモーダルモデルを取り入れ、視覚・言語・行動・触覚・価値を完全に融合して、より長期間の予測と自律改善を可能にしていく方向性が示されています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：ロボットシステム構成・データ収集・リターゲティングの詳細",
+   "summary_ja": "実験に使用した3種類の双腕多指ロボットプラットフォーム、作業空間基準枠による人間・ロボットアライメント収集、MediaPipeから多指ハンド関節角へのリターゲティング最適化アルゴリズムを解説しています。",
+   "details_ja": "付録では実験システムのハードウェアとアルゴリズムの詳細が述べられています。\n\n実機システム構成（Appendix A）\n検証には3種類の双腕システムが用いられました。Tianji Marvin双腕と20自由度Wujiハンドを組み合わせた構成（ZEDカメラ、触覚グローブ搭載）に加え、Tianji Gento Luna双腕にWuji Hand 2、あるいは22自由度のSharpa Waveハンドを搭載した構成です。\n\n人間・ロボットアライメント収集（Appendix B）\n操作者が触覚グローブとHTC VIVE Trackerを手首に装着し、さらに作業台に3つ目のTrackerを固定して作業空間の基準座標系としました。これにより、ベース座標系に依存しない安定した手首軌道と両眼視覚データを収集しています。\n\nハンドリターゲティング（Appendix D）\n人間の一人称データに含まれるMediaPipe形式の21個の3D手先キーポイントを、Wujiハンドの20自由度関節空間へ逆運動学（IK）で変換するアルゴリズムを設計しました。指全体の形状を保つ損失（$\\mathcal{L}_{\\mathrm{full}}$）と、把持に重要な指先の位置・向きを保つ損失（$\\mathcal{L}_{\\mathrm{tip}}$）を組み合わせ、親指と他の指先との距離に応じて重みを適応的に切り替える工夫が施されています。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "本研究で使用されたロボットプラットフォームと人間・ロボットアライメントデータ収集の様子です。(a) Marvin双腕＋Wujiハンド、(b) Gento Luna双腕＋Wuji Hand 2、(c) Gento Luna双腕＋Sharpa Waveハンド、(d) 人間作業者の収集セットアップを示しています。",
+     "caption": "Figure 6 : Robot platforms and human–robot alignment collection. (a) Wuji hands with Tianji Marvin dual arms. (b) Wuji Hand 2 with Tianji Gento Luna. (c) Sharpa Wave hands with Tianji Gento Luna. (d) Human–robot alignment collection setup.",
+     "image": "details/2608.30237/F6.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "世界モデルの「方策」「シミュレータ」「評価器」をバラバラに作らず、単一の重み共有モデルの入出力マスク切り替えとして統合する設計が非常にエレガントで機能的。",
+  "失敗軌道や次善の動作データを捨てずに、シミュレータの遷移学習や評価器の負例として活用するルーティング戦略は、データ効率を劇的に高める実践的な知見。",
+  "ステレオの一人称視点データでもデータ量に対する対数線形のスケーリング則が確認され、大規模人間ビデオの事前学習が器用な手先操作の獲得に直結することが示された。",
+  "長期コンテキストを扱う際、現行のトークン圧縮型ハイブリッドメモリは繊細な操作特徴を失いやすく、計算コストを払ってでも全履歴を保持する大域自己回帰の方が実機性能で圧倒的に有利。"
+ ],
+ "limitations_ja": [
+  "人間とロボットハンドの指の太さや長さといった幾何学的・形態的な不一致（モーフォロジーギャップ）により、ウェアラブル触覚データの直接的なドメイン間転移が依然として難しい。",
+  "長期コンテキストで優れた性能を示した大域自己回帰は、エピソードが長くなるにつれてKVキャッシュとアテンション計算量が線形に増大するため、リアルタイム制御の計算資源に負荷がかかる。",
+  "シミュレータによる未来映像予測と評価を伴うプランニングやMBRLは計算が重く、非同期パイプラインを組んでいるものの実機展開時のレイテンシ管理には高度な最適化が求められる。"
+ ],
+ "keywords": [
+  "General World Model",
+  "Dexterous Manipulation",
+  "Model-Based Reinforcement Learning",
+  "Egocentric Vision",
+  "Tactile Sensing"
+ ],
+ "id": "2608.30237",
+ "title": "Motus2: A Self-Evolving General World Model for Dexterous Manipulation",
+ "title_ja": "Motus2：巧緻マニピュレーションのための自己進化型汎用世界モデル",
+ "authors": [
+  "Hongzhe Bi",
+  "Zihao Zhou",
+  "Yihang Tang",
+  "Jingrui Pang",
+  "Shuhe Huang",
+  "Haitian Liu",
+  "Runqing Wang",
+  "Shuai Huang",
+  "Yichen Wang",
+  "Yiming Cheng",
+  "Ruowen Zhao",
+  "Zhenghua Li",
+  "Hengkai Tan",
+  "Xiaolong Liu",
+  "Jinhui Wan",
+  "Jiabao Liu",
+  "Min Zhao",
+  "Fan Bao",
+  "Jun Zhu"
+ ],
+ "date": "2026-09-01",
+ "group": "general",
+ "tags": [
+  "world-model",
+  "manipulation",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.CV",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.30237",
+ "pdf_url": "https://arxiv.org/pdf/2608.30237",
+ "summary_ja": "巧緻マニピュレーションにおいて知覚、予測、行動、評価を単一の共有重みモデル内で統合する自己進化型世界モデルMotus2を提案。方策（行動生成）、シミュレータ（状態遷移予測）、評価器（価値推定）の3つのインターフェースを結合し、自己改善ループを閉じることで未知の接触リッチな操作タスクへの適応力を向上させた。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.30237"
+}
