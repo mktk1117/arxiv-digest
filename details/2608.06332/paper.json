@@ -1,0 +1,141 @@
+{
+ "tldr_ja": "ロボットの制御数値をURDFによる「視覚的なロボット動作画像」にレンダリングして動画拡散モデルに入力することで、未知の環境や物体に対しても高精度に物理インタラクションを予測・シミュレーションできる対話型ワールドモデル「GeniWorld」を提案しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "GeniWorldの全体フレームワークです。ロボットの制御数値をURDFレンダリングによってカメラ視点の視覚的動作に変換し、動画潜在変数と結合して因果的DiT（Diffusion Transformer）に入力します。推論時はKVキャッシュを活用し、人間や方策との高頻度な対話的ループ予測を実現しています。",
+  "caption": "Fig. 2: Overview of the GeniWorld method. We convert robot actions into visual motions via URDF rendering. These motions are subsequently encoded into latent representations and concatenated with noisy video latents. The combined representation serves as input to a causal DiT that predicts future videos via flow matching. During inference, the initial scene image is provided as the first frame. Actions are passed through the URDF-based renderer to produce motion conditions, and the model predict",
+  "image": "details/2608.06332/F2.jpg"
+ },
+ "overview_ja": "汎用ロボット方策（VLAモデルなど）は目覚ましい進歩を遂げていますが、背景や照明、未知の物体が混ざる環境では依然として脆く、性能が著しく低下します。この課題を実環境の実験だけで解決しようとすると、多様な環境のセットアップやデータ収集に膨大なコストがかかります。\n\nそこで注目されているのが、ロボットの行動に応じて未来の観測を予測する「対話型ワールドモデル（シミュレータ）」です。しかし、既存手法のようにロボットのアクションを単なる低次元の数値ベクトルとして動画生成モデルに渡すと、ロボット自体の動きと環境変化が混ざり合ってしまい、学習環境への過適合や、未知環境（OOD）での深刻な破綻が起きていました。\n\n著者らはこの問題に対し、「物理インタラクションはロボットの幾何学的な身体運動によって引き起こされる」という直感に基づき、数値アクションをURDF（ロボットの設計データ）を用いて視覚的な動作画像へと変換して動画モデルに注入する「GeniWorld」を考案しました。これによりロボットの機構運動と環境ダイナミクスをきれいに分離し、動画事前学習モデルが持つ強力な視覚的物理事前知識を最大限に活かすことができます。\n\n実験では、単一のシンプルな卓上環境のデータだけで学習したにもかかわらず、全く異なる乱雑な未知環境の未来予測を高精度に行えることを実証しました。さらに、実ロボットの評価器としての信頼性を示したほか、ワールドモデル内で多様な操作軌道を合成して実機方策の学習に加えることで、未知環境下でのタスク成功率を大幅に向上させることに成功しました。",
+ "contributions_ja": [
+  "ロボットの制御アクションをURDFレンダリング経由で視覚的動作表現へと変換し、ロボットの運動と環境変化を分離して空間的に整合した条件付けを行う手法を提案したこと",
+  "因果的アテンションとフロー・マッチングを組み合わせた自己回帰型動画生成により、方策や人間の遠隔操作とリアルタイムに対話（約8Hz）できる閉ループワールドモデルを構築したこと",
+  "固定された単一シーンのデータのみで学習しながら、未知の背景・物体・レイアウトに対して優れたゼロショット汎化性能を持つことをベンチマーク上で示したこと",
+  "実機評価においてワールドモデル上の成功率が実環境と強く相関することを示し、さらにモデル内で合成した多様なデータを用いて下流方策のOOD汎化性能を大幅に向上させたこと"
+ ],
+ "sections": [
+  {
+   "heading": "II Related Work",
+   "heading_ja": "ワールドモデル・行動表現・データ合成の潮流と立ち位置",
+   "summary_ja": "動画生成バックボーンを用いたロボット向けワールドモデルやピクセル接地型のアクション表現、そして方策強化のためのデータ合成技術について先行研究を整理し、本研究が解決する課題を明確にしています。",
+   "details_ja": "本章では関連研究を3つの系統に分けて整理しています。\n\n1つ目は「ロボット操作のためのアクション条件付きワールドモデル」です。高精度な動画生成モデルを活用して環境変化をシミュレートする試みが盛んですが、従来法はアクションを低次元の数値ベクトルとしてAdaLNやクロスアテンションで注入する構成が一般的でした。しかし、これではロボット自体の運動学と環境ダイナミクスが絡み合ってしまい、未知のシーンに汎化しにくいという根本的な弱点がありました。\n\n2つ目は「ピクセルに接地した視覚的アクション表現」です。数値の代わりにエンドエフェクタの投影位置や骨格軌跡、あるいはURDFによるセグメンテーションマスクを与える試みも登場していますが、細かい幾何学的接触や構造的な相互作用を捉えきれない限界がありました。GeniWorldは、URDFから生成されるカメラ視点の密なロボット外観画像そのものを条件として与えることで、動画モデル本来の時空間ダイナミクスと完全に整合させます。\n\n3つ目は「方策強化のためのデータ合成」です。Real-to-Sim技術はシミュレータ構築の手間やSim-to-Realギャップが課題であり、動画生成による視覚的データ拡張は新しい行動の獲得が困難でした。GeniWorldは、大規模なロボットデータセットへの事前学習に依存せず、研究室規模の限られたデモからでも、未知の物体やレイアウトを含むインタラクティブな新軌道を合成できる点が際立っています。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "URDFレンダリングによる視覚的アクションと閉ループ予測の仕組み",
+   "summary_ja": "数値アクションをURDFを用いて視覚的な動作画像へと変換し、動画生成バックボーン（Wan2.2）の潜在空間で空間的に結合してフロー・マッチングで自己回帰予測を行う手法の全容を解説しています。",
+   "details_ja": "GeniWorldのコアとなる設計思想は、「ロボットの身体運動」と「環境のダイナミクス変化」を明確に切り離すことにあります。\n\n### III-A & III-B: 視覚的アクションによるワールドモデリング\nまず、ロボットのアクションシーケンス $a_{t+1:t+H}$ をURDFモデルと順運動学に通し、ターゲットカメラ視点からロボットの外観だけをレンダリングした密な視覚的動作画像列 $m_{t+1:t+H}$ を作成します。この画像には背景や対象物は一切含めません。\n\n動画生成のバックボーンにはFlow Matchingに基づく動画拡散モデル（Wan2.2-TI2V-5B）を採用しています。視覚的アクションは因果的3D VAEエンコーダによって潜在表現 $z_a$ に変換され、ノイズが付加された動画潜在変数 $z_v$ とチャンネル方向に結合されます（$z = [z_v; z_a]$）。これにより、アクションと画像の特徴がピクセル単位で空間的に厳密に整列します。\n\n学習時には、生成された次フレームの潜在変数 $z_{t+1}$ に対する速度場をFlow Matchingの損失関数によって学習します。このときノイズが加えられ予測対象となるのは観測フレームのみであり、視覚的アクション側は常にクリーンな条件信号として扱われます。また、自己回帰時の露出バイアス（予測誤差の蓄積）を抑えるため、生成された予測フレームをコンテキストにフィードバックしながら因果的アテンションマスク下で学習を進めます。\n\n### III-C: 効率的な閉ループインタラクション\n方策や人間のオペレータとリアルタイムにやり取りするため、過去のトークンのKey-Valueをキャッシュ（KV-Cache）して再計算を防ぐ仕組みを導入しています。入力されたアクションから即座に動作画像がレンダリングされ、それに応じた未来の観測が自己回帰的に生成されてエージェントへと返されます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "GeniWorldの学習と推論の流れです。左側では視覚的アクショントークンと動画ノイズを結合し、因果的ワールドモデルでFlow Matching学習を行います。右側の推論時では、URDFレンダリングで作成した動作条件とKVキャッシュを用い、閉ループで逐次的に未来フレームを生成します。",
+     "caption": "Fig. 2: Overview of the GeniWorld method. We convert robot actions into visual motions via URDF rendering. These motions are subsequently encoded into latent representations and concatenated with noisy video latents. The combined representation serves as input to a causal DiT that predicts future videos via flow matching. During inference, the initial scene image is provided as the first frame. Actions are passed through the URDF-based renderer to produce motion conditions, and the model predict",
+     "image": "details/2608.06332/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "未知環境へのゼロショット汎化、評価器としての信頼性、そしてデータ合成能力の検証",
+   "summary_ja": "RoboTwinベンチマークおよび実双腕ロボットを用い、動画生成品質の汎化性、オフライン方策評価器としての有効性、限られたデモからのデータ合成による方策性能向上の3つの観点で徹底的に評価しました。",
+   "details_ja": "実験は3つの大きな検証項目で構成されています。\n\n### IV-A: 生成クオリティとOOD汎化\nシミュレーションベンチマーク「RoboTwin2.0」の50タスクを用いて、クリーンな卓上で学習したモデルを、見た目や物体配置が激変したランダム環境で評価する「Clean-to-Random」設定を実施しました。比較対象のIRASimやCtrl-WorldはドメインシフトによってFVDが190以上に悪化しましたが、GeniWorldはFVD 20.15、FID 13.08と圧倒的な画質と一貫性を維持しました。アブレーションにより、数値ベクトルや骨格表現よりも本手法の視覚的アクションが優れていることが確認されています。また、Flow Matchingのサンプリングステップを50から5ステップまで減らしてもFVDの低下はわずか約2%にとどまり、約10倍の推論高速化（約8Hz）が可能であることが分かりました。\n\n### IV-B & IV-C: 実機セットアップと方策評価器としての信頼性\n双腕ロボット「Xtrainer」を用い、4つの実機マニピュレーションタスク（ボウル移動、タオル畳み、マグ配置、引き出し開け）を設定しました。実環境とGeniWorld内で全く同じVLA方策（$\\pi_0$ベース）を実行したところ、成功率のピアソン相関係数は $r = 0.8755$（Ctrl-Worldは0.5805）と極めて高い正の相関を示しました。視覚的ノイズや散らかりがある環境でも、破綻することなく物理インタラクションを再現できるため、実機を使わないスケーラブルな評価器として機能します。\n\n### IV-D: 方策強化のためのデータ合成\nタスクあたりわずか25本のデモデータから、画像編集モデルで初期フレームの物体や背景、照明を改変し、GeniWorld内でアクションリプレイや人間の遠隔操作を行って新奇な軌道を合成しました。実デモのみ（Real-Only）で学習した方策はOOD環境での成功率が40.8%でしたが、空間配置を多様化した合成データ（+Spatial-Gen）と環境外観を多様化したデータ（+Diverse-Gen）を追加して学習した結果、全体成功率は69.0%まで跳ね上がりました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "クリーンなデータで学習し、未知の乱雑なシーンで評価した定性比較です。GeniWorld（Ours）は指示された動作を正確に維持して自然な接触インタラクションを生成できていますが、既存手法や骨格表現ベースの手法は物体の消失や誤った動作、激しいアーティファクトが発生しています。",
+     "caption": "Fig. 3: Qualitative Clean-to-Random world-modeling results. All models are trained on clean tabletop data and evaluated in unseen scenes. GeniWorld preserves the commanded robot motion and produces interaction outcomes that closely match the ground truth, whereas competing methods fail to generate the expected results in out-of-distribution (OOD) scenarios. Furthermore, the ablation results show that our dense visual actions enable more accurate interaction modeling.",
+     "image": "details/2608.06332/F3.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "Flow Matchingのサンプリングステップ数による性能変化です。(a)ではステップ数を50から5に減らしても本手法（黄・茶）はFVDの悪化が極めて小さく、(b)の画像でも5ステップでロボットや物体の輪郭が崩れないことが分かります。",
+     "caption": "Fig. 5: Performance with different numbers of flow-matching sampling steps. We evaluate world-modeling quality using 50, 10, and 5 inference steps, where fewer steps correspond to faster inference. Visual action conditioning consistently maintains superior generation quality with fewer denoising steps than the other action representations.",
+     "image": "details/2608.06332/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "ワールドモデルと実世界における方策成功率の相関です。(a)においてGeniWorldは相関係数r=0.8755と実世界性能を正確に反映しています。(b)の通り、視覚的妨害物があるタスクでもCtrl-Worldのように物体が消えたりせず、堅牢にシミュレーションできています。",
+     "caption": "Fig. 7: Correlation between policy performance in GeniWorld and the real world. (a) Joint evaluation of policy performance in in-domain scenarios and OOD scenes with visual distractions. Here, * denotes tasks with environmental distractions. (b) Comparison showing that our world simulator is more robust in OOD scenarios.",
+     "image": "details/2608.06332/F7.jpg"
+    },
+    {
+     "key": "F10",
+     "caption_ja": "ワールドモデルを用いたデータ生成の流れです。画像編集モデルを使って初期フレームにテーブルクロスや別物体、散らかりなどの多様な変化を与え、それらを初期状態として新奇な操作軌道を合成します。",
+     "caption": "Fig. 10: Data generation for real-world robot manipulation. We use image-editing models to modify the original scene images and create diverse, complex conditions. New manipulation trajectories are synthesized through action replay or teleoperation.",
+     "image": "details/2608.06332/F10.jpg"
+    },
+    {
+     "key": "F11",
+     "caption_ja": "GeniWorldの合成データで強化された方策の実機実行例です。空間配置の変更、未知の物体インスタンス、机上の乱雑な障害物、極端な照明変化といった厳しいOOD環境下でも、ロボットが安定して把持や操作を完了できています。",
+     "caption": "Fig. 11: Performance of policies augmented with GeniWorld-synthesized data. Even with minimal collected real-world data, policies augmented with GeniWorld-synthesized data demonstrate superior performance across diverse OOD conditions.",
+     "image": "details/2608.06332/F11.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめ：視覚的アクションが開くスケーラブルなロボット学習の未来",
+   "summary_ja": "視覚的アクションを用いた対話型ワールドモデルGeniWorldの成果を総括し、限られた実機データからでも汎化性の高いシミュレーション空間と方策学習データを提供できる可能性を結論づけています。",
+   "details_ja": "GeniWorldは、アクションをロボットの運動学に基づく「視覚的動作」として明示的にモデルへ与えることで、従来の数値アクション条件付けが抱えていた過適合と空間的接地性の欠如という二大課題を打破しました。\n\n固定されたシンプルなシーンのデータのみで学習しても、高度にランダム化された未知環境へゼロショットで適応できる能力は、ワールドモデルを真に実用的な「想像空間」へと押し上げる重要な一歩です。さらに、実機評価の肩代わりや、極小のデモデータから多様な学習データを自己増殖させるパイプラインとしての実用性も十分に実証されました。\n\n動画生成モデルの強力な視覚事前学習をロボティクス特有の運動学と結びつけるこのアプローチは、今後の汎用ロボット学習におけるデータスケーリングの新たな指針となるはずです。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：実装の詳細と方策の学習プロトコル",
+   "summary_ja": "モデル構造のハイパーパラメータ、推論時のチャンク生成設定、および下流のVLAモデル（π0）のファインチューニングやタスク成功判定の詳細基準についてまとめています。",
+   "details_ja": "付録では、再現に必要なアーキテクチャや実験設定の細部が明かされています。\n\n- **モデル構造と学習設定**: バックボーンであるWan2.2-TI2V-5Bモデルに対し、視覚アクション用に追加された48チャンネルのパッチ埋め込み層はKaiming初期化を施した上で重みを0.1倍にスケーリングし、初期の勾配流を安定化させています。学習率は $1 \\times 10^{-5}$、大域バッチサイズ4で、NVIDIA H20 GPU 4基を用いて学習されています。\n- **推論設定**: 画像解像度は $480 \\times 640$ ピクセルで処理され、121フレームの動画はVAEによって31フレームの潜在変数に圧縮されます。推論時は1ステップあたり3潜在フレーム（約12生フレーム分）のチャンク単位で自己回帰生成を行い、CFG（Classifier-Free Guidance）スケールは3.0を採用しています。\n- **下流方策のファインチューニング**: $\\pi_0$ モデルの公式実装（OpenPI）を用い、予測ホライズン $H=16$ のアクションチャンクに対してConditional Flow Matchingで学習を行いました。実機評価では各タスク・設定ごとに20試行、合計400試行の厳密な物理評価を行っており、段階ごとの進捗判定基準に従って最終的な成功・失敗が判定されています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "動画拡散モデルにロボットアクションを入力する際は、数値ベクトルを直接入れるよりもURDF等でレンダリングした「視覚的動作」として画像空間で結合する方が、空間的接地と未知環境への汎化において圧倒的に有利である",
+  "視覚的アクションの誘導が強いため、Flow Matchingのサンプリングステップ数を5ステップ程度まで大幅に削減しても破綻せず、約8Hzのリアルタイム対話速度が達成できる",
+  "高品質な対話型ワールドモデルがあれば、画像編集ツールと組み合わせて初期状態を改変するだけで、実機を動かさずに多様なOOD学習データを安全かつ大量に合成できる"
+ ],
+ "limitations_ja": [
+  "ロボットのURDFデータおよびカメラの外部パラメータ（キャリブレーション）が正確に既知である必要があり、キャリブレーション誤差が大きい環境でのロバスト性は未知数である",
+  "高速化されたとはいえ約8Hzの生成速度であり、ミリ秒単位の高周波フィードバックが求められる動的な接触タスク（高速なキャッチングなど）へのリアルタイム追従にはまだ限界がある",
+  "画像編集モデルを用いた初期フレーム改変に頼っている部分があり、編集モデルが不自然な物理配置やアーティファクトを生成した場合の悪影響が懸念される"
+ ],
+ "keywords": [
+  "World Models",
+  "Robotic Manipulation",
+  "Video Diffusion Models",
+  "Flow Matching",
+  "Visual Action Conditioning",
+  "Out-of-Distribution Generalization"
+ ],
+ "id": "2608.06332",
+ "title": "GeniWorld: A Generalizable Interactive World Model for Robotic Manipulation via Visual Actions",
+ "title_ja": "GeniWorld: 視覚的アクションを用いたロボット操作向け汎化型インタラクティブ・ワールドモデル",
+ "authors": [
+  "Chenghao Gu",
+  "Hanyang Yu",
+  "Jingbo Zhang",
+  "Haitao Lin",
+  "Wenyao Zhang",
+  "Jinghe Wang",
+  "Hanglei Jin",
+  "Shuzhao Xie",
+  "Jingyan Jiang",
+  "Zhi Wang"
+ ],
+ "date": "2026-08-08",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "world-model",
+  "simulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.06332",
+ "pdf_url": "https://arxiv.org/pdf/2608.06332",
+ "summary_ja": "未知環境に対するロボット方策の堅牢性を高めるため、視覚的アクション表現を利用したインタラクティブな世界モデルGeniWorldを提案。URDFに基づく描画処理で数値アクションを視覚表現へ変換し、事前学習済み動画生成モデルを活用することで、分布外の未知シナリオに対しても高い動作制御性と汎化性能を達成した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.06332"
+}
