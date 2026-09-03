@@ -1,0 +1,130 @@
+{
+ "tldr_ja": "非同期なVLA（視覚・言語・行動）制御で問題となるアクション切り替え時のガタつきに対し、「意図した振る舞いの同定」「Haar変換による軌道の階層化」「同一振る舞い内でのDPOによる滑らかな接続学習」を分離することで、タスク成功率を落とさずに境界の不連続性を大幅に削減した論文です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "従来のVLA手法と提案手法BICPO-VLAの違いを示した図です。単一の軌道を生成して無理に平滑化するのではなく、「振る舞い（挙動の意図）」を固定した上で、Haar基底で表現された複数の実現候補から、バトンタッチ状態に最も滑らかにつながる候補をDPOで選択する枠組みをとっています。",
+  "caption": "Figure 1: Motivation and fibered view of asynchronous behavior-to-action realization. Left: representative VLA paradigms improve memory, reduce generative inference steps, or regularize generic smoothness, while retaining a largely direct mapping from multimodal context to an action chunk. Center: BICPO-VLA makes behavior identity explicit through instruction-aware task-progress reasoning and behavior memory. Right: the instruction identifies a behavior-conditioned action fiber; Haar coordinates",
+  "image": "details/2608.13924/F1.jpg"
+ },
+ "overview_ja": "近年のVLAモデルでは、ロボットを止めずに動かし続けるために「現在の動作を実行しながら次のアクションチャンク（一連の制御コマンド列）を並行して推論する」という非同期実行が標準的になりつつあります。しかし、推論を要求した時点と、推論が完了して新しいチャンクへ制御をバトンタッチ（ハンドオフ）する時点とでは、ロボットの物理状態がズレてしまいます。この遅延ギャップにより、意味的には正しい動作であっても、実行境界でカクつきや急激な速度変化（モーション・トレンドの不一致）が起きてしまいます。\n\n既存手法では、単純に滑らかさのペナルティをかけたり、遅延を埋める追加の補間を行ったりしてきました。しかし、全体の滑らかさ損失を安易にかけるとロボットが動かなくなってタスク進行を阻害したり、推論遅延の変動にうまく適応できなかったりします。そこで本研究は、「タスクの振る舞い（Behavior）は1つの決まった軌道ではなく、同じ意味を持つ無数の軌道群（ファイバー）を定義している」という点に着目しました。つまり、指示に合った振る舞いを固定したまま、制御が切り替わる瞬間の状態に最も滑らかに繋がる軌道をそのファイバーの中から選べばよい、という発想です。\n\nこれを実現するために、(1) 指示に基づき視覚特徴を絞り込んで振る舞いを同定するエンコーダ、(2) アクションチャンクを低周波の骨格と高周波の残差に直交分解し完全再構成できる「Haar部分空間生成」、(3) 既知の動作からロールアウトした受け渡し状態に基づき、振る舞いを変えずに境界の連続性を競わせる「Flow-DPO」の3段階を提案しました。CALVINやRoboTwin、実機実験で検証した結果、CALVINの平均完了長が4.52に向上したほか、既存のFlow Matchingモデル（π0.5など）にDPOのみを移植した場合でも、タスク成功率を損なわずに切り替え境界のジャンプを20%以上削減できることを実証しました。",
+ "contributions_ja": [
+  "非同期制御における遅延問題を「意図した振る舞いの同定」と「ハンドオフ状態に応じた軌道選択」に明確に分離するファイバー（軌道群）の定式化を提案した点。",
+  "アクションチャンクを完全可逆な直交Haar変換で骨格（低周波）と局所残差（高周波）に分解し、再構成誤差なしに段階的に生成する構造を導入した点。",
+  "意図する振る舞いを固定したまま、境界のズレと速度不一致を抑制する参照モデル相対の選好最適化（BICPO）を構築し、オンライン探索なしで滑らかな接続を実現した点。",
+  "提案する継続DPOの目的関数が独立したプラグインとして機能し、π0.5、Legato、RTCといった他のポリシーにそのまま適用しても性能低下なく接続を滑らかにできることを示した点。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ次の動作を予測するだけでは、ロボットが滑らかに動かないのか？",
+   "summary_ja": "非同期制御では推論中もロボットが動き続けるため、要求時と制御受け渡し時の物理状態にギャップが生じ、動作の継ぎ目でガタつきが発生します。本章では、単一軌道を無理に平滑化するのではなく、「振る舞いの同定」「軌道構造の分解」「受け渡し状態への適応」を段階的に切り分ける必要性を主張しています。",
+   "details_ja": "大規模な視覚言語モデルを行動生成に接続したVLAモデルは目覚ましい成果を上げていますが、実ロボットの非同期制御（推論中も前のコマンドを実行し続ける仕組み）においては深刻な壁に直面しています。次のアクションチャンクを要求した瞬間と、推論が終わって実際にロボットへ制御が移る瞬間（ハンドオフ時点）とでは、ロボットの位置や姿勢が刻一刻と変化しているからです。その結果、モデルがどれだけ指示通りで正しいアクションを予測していても、動作の切り替わりで不連続なジャンプや速度の破綻が起きてしまいます。\n\n著者の重要な洞察は、「ある振る舞い（Behavior）は単一の軌道ではなく、同じタスク意図を持つ軌道群（アクションファイバー）を形成している」という点です。例えば「コップを掴む」という振る舞いには、目的を達成できる無数のアプローチ軌道が含まれています。既存研究のように、この軌道全体に対して一律の滑らかさ損失（スムーズネス正則化）をかけてしまうと、モデルは「動かないこと」を最善と学習してしまい、タスクの進捗と直接衝突してしまいます。\n\nそこでBICPO-VLAでは、この問題を3つの独立した段階に分解（ファクタライズ）しました。第1に、指示と進捗から正しい振る舞いを同定すること。第2に、直交Haar変換を用いて、情報欠落のない低周波の骨格と高周波の残差として軌道を生成すること。第3に、推論中に実行された確定済みコマンドから受け渡し時点の状態を計算し、同一の振る舞いファイバーの中から境界の接続が最も綺麗な候補を選好最適化（DPO: Direct Preference Optimization）することです。意味理解と接続のスムーズ化を切り分けることで、タスク進行を一切邪魔せずに動作の連続性を保てるようになります。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "従来のVLAパラダイム（メモリ拡張、ステップ削減、平滑化正則化）とBICPO-VLAの設計思想の対比です。右上の概念図のように、指示から振る舞いファイバーを定め、その中の候補からハンドオフ状態に適合するものをDPOで選ぶアプローチを採っています。",
+     "caption": "Figure 1: Motivation and fibered view of asynchronous behavior-to-action realization. Left: representative VLA paradigms improve memory, reduce generative inference steps, or regularize generic smoothness, while retaining a largely direct mapping from multimodal context to an action chunk. Center: BICPO-VLA makes behavior identity explicit through instruction-aware task-progress reasoning and behavior memory. Right: the instruction identifies a behavior-conditioned action fiber; Haar coordinates",
+     "image": "details/2608.13924/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "先行研究との違い：軌道の粗密分解と選好最適化の新しい組み合わせ",
+   "summary_ja": "長文脈VLA、効率的な生成モデル、非同期実行という3つの文脈から先行研究を整理しています。本研究は、完全可逆な直交Haar変換による構造化と、振る舞いを固定した上でのFlow-DPOという独自の立ち位置を持ちます。",
+   "details_ja": "本研究の関連領域は大きく3つに分けられます。\n\n- **長文脈・指示グラウンディング型VLA**: 近年の一般的なVLAは、事前学習済み表現を自己回帰や拡散モデル、Flow Matchingアクションヘッドに結合しています。しかし、言語指示を全体に漠然と条件付ける従来法とは異なり、本手法は視覚トークンが履歴と融合する前にまず言語指示をクエリする設計を採っています。これにより、タスクに関係のない視覚ノイズを初期段階で遮断します。\n\n- **効率的で構造化されたアクション生成**: Diffusion Policyやπ0などは反復的なデノイジングやFlow Matchingを用いますが、高速化の多くは蒸留や粗密な近似に基づいています。本手法が採用した直交Haar変換（ウェーブレット変換の一種）は、隣接するステップの平均（骨格）と差分（局所残差）へ完全に可逆な変換を行うため、情報のボトルネックが生じない点が決定的に異なります。\n\n- **非同期実行と選好学習**: 推論遅延対策としてプレフィックス条件付け（RTCなど）や境界正則化が提案されてきましたが、本手法は実行確定済みのコマンドを前進ロールアウトして受け渡し状態を求め、意味的に合致した候補同士で接続の滑らかさをDPOで競わせる点に新規性があります。この選好最適化は、既存ポリシーの構造を変えずにそのまま適用できる汎用性も備えています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "BICPO-VLAの仕組み：3段階で解き明かす滑らかなアクション生成",
+   "summary_ja": "手法全体は「指示に根ざした振る舞いの同定」「Haar基底による2段階の軌道生成」「受け渡し状態を考慮した選好最適化（BICPO）」で構成されます。意味の同定系を凍結したまま接続の最適化を行うため、タスク遂行能力を落とさずに動作の連続性だけを引き上げられます。",
+   "details_ja": "BICPO-VLAの推論および学習フローは、役割ごとにきれいに分離されています。\n\n- **3.1 & 3.2 指示に基づく振る舞いの同定**: 推論要求時刻 $r$ において、モデルは画像特徴量と指示テキストを受け取ります。ここで視覚トークンは、履歴と混ざる前に言語特徴量を通じて注意機構（Cross-Attention）を通されます。これにより、指示に関係のない物体などのノイズが除去されます。その後、因果Mambaブロックを用いた履歴エンコーダと長期メモリ検索を経て、現在の振る舞い状態 $z_r$ と事前分布 $\\mu_r$ を決定し、意味的な振る舞い条件 $b_r$ を完全に固定（凍結）します。\n\n- **3.3 ハンドオフ状態のロールアウトとHaar表現**: モデルが推論を行っている $k$ ステップの間、ロボットはすでにキューに入っているコマンド $u_{r}, \\dots, u_{r+k-1}$ を実行し続けます。これらは既知であるため、決定論的に前進させて「実際にバトンタッチされる瞬間の状態」 $g_k = (\\bar{h}_{r,k}, \\Delta h_{r,k})$ を計算します。一方、生成するアクションチャンク $A$ には1レベルの直交Haar変換を適用し、隣接ステップの平均成分である骨格 $C$ と、差分成分である局所残差 $D$ に分解します。完全可逆なので再構成誤差はゼロです。生成はこの骨格 $C$ をまず予測し、その骨格を条件として残差 $D$ を予測する2段階のFlow Matchingで行われます。\n\n- **3.4 & 3.5 継続選好最適化（BICPO）と展開**: 意味条件 $b_r$ とハンドオフ状態 $g_k$ を固定した状態で、異なるノイズからサンプリングした候補ペアを比較します。評価指標は、境界での位置ジャンプ $\\Delta_{\\mathrm{boundary}}$ と、速度トレンドの不一致 $\\Delta_{\\mathrm{trend}}$ です。接続コストが低い方を好ましい軌道（Winner）とし、参照モデルとの相対エネルギー差を最小化するFlow-DPOでファインチューニングします。このとき意味理解経路は凍結されているため、モデルが「動かない」という安易な平滑化に逃げるのを防ぐことができます。実機展開時は追加の候補探索を行うことなく、学習済みネットワークから1発で滑らかな軌道が出力されます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "BICPO-VLAの全体アーキテクチャです。左側で言語指示により視覚特徴を絞り込んで振る舞いを固定し、中央でHaar変換を用いた2段階生成（骨格→残差）を行い、右側で受け渡し境界のジャンプとトレンド不一致を減らすFlow-DPOを適用しています。",
+     "caption": "Figure 2: BICPO-VLA as handoff-conditioned action realization. Left: instruction-aware visual–action encoding and behavior memory identify the behavior condition supported by the command and execution history. Center: a fixed Haar transform organizes realizations of that behavior into a pairwise motion scaffold and a complementary local residual, which are generated sequentially and reconstructed exactly. Right: the rolled handoff state specifies the execution context, and BICPO compares same-fi",
+     "image": "details/2608.13924/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "シミュレーションと実機で検証：滑らかさとタスク成功率は両立できるか？",
+   "summary_ja": "CALVIN、RoboTwin 2.0、LIBERO、および実機マニピュレーション課題で評価を実施しました。BICPO-VLAは複数の長文脈タスクや双腕操作で既存の最高水準を上回り、DPO目的関数単体でも他モデル（π0.5等）の境界ジャンプを約20%以上抑制できることが確認されました。",
+   "details_ja": "実験は多面的な観点から徹底的に行われています。\n\n- **4.1 & 4.2 シミュレーションでの総合性能**: 長期タスクベンチマークであるCALVIN（ABC $\\rightarrow$ D）では、11種類もの強力なVLAベースラインと比較されました。BICPO-VLAは平均完了サブタスク長で4.52（従来最良は4.36）、5連続サブタスク完了率で80.7%（従来最良は77.3%）を達成しました。双腕マニピュレーションの難関タスク群「RoboTwin 2.0 Hard（10課題）」でも、全体成功率が60.4%から65.8%へと大幅に向上しています。\n\n- **境界品質と目的関数のポータビリティ（LIBERO）**: すでに成功率が飽和に近いLIBERO環境では、動作の接続品質を評価しました。BICPO-VLAのDPOにより、位置ジャンプが21.3%、トレンド不一致が20.7%低減しました。さらに、このDPO目的関数を既存の $\\pi_{0.5}$、Legato、RTCにそのまま適用したところ、成功率を維持したまま各ホストモデルのジャンプが15.8〜40.3%、トレンド不一致が11.5〜21.2%減少しました。対照的に、滑らかさを直接模倣させる通常の教師あり学習（SFT）を行うと、$\\pi_{0.5}$ の成功率が96.9%から49.1%へと激減してしまいました。これは、単純な回帰が動作の停滞を引き起こすのに対し、相対的な選好学習が不可欠であることを示しています。\n\n- **4.3 実機検証**: 実世界の6つの課題（ミルクの配置や紙くずのゴミ箱入れなど）において、平均成功率69.3%を記録しました。これはB-VLAの60.2%、$\\pi_{0.5}$ の47.3%を大きく引き離す結果です。図F4のように、把持や配置の最終段階という接続誤差が致命傷になりやすい局面でも、意図した動作を破綻なく継続できています。\n\n- **4.5 & 4.6 遅延耐性とアブレーション**: 推論遅延ステップ $k$ を3〜5の間で固定、あるいはランダムに変化させても、成功率の変動はわずか0.3ポイント以内に収まりました。また、言語指示を初期の視覚特徴に適用する設計（Table 6）や、Haar分解・BICPOの各モジュール（Table 5）の有効性もアブレーション実験によって裏付けられています。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "実機ロボットによる評価結果です。上段・中段の連続写真では、π0.5が途中で動作トレンドを乱して失敗するのに対し、BICPO-VLAが正確にタスクを継続している様子が分かります。下段のグラフでは、評価した6タスクすべてにおいてベースラインを7〜11ポイント上回っていることが示されています。",
+     "caption": "Figure 4: Real-world evaluation. Top: BICPO-VLA and $\\pi_{0.5}$ rollouts on milk placement and paper-ball disposal. Bottom: success rates on six tasks; BICPO-VLA performs best throughout.",
+     "image": "details/2608.13924/F4.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "シミュレーション環境における定性比較です。BICPO-VLA（上段）は把持、配置、ボタン押しなどのフェーズ移行時にも狙った動作を崩さずに成功させていますが、π0.5（下段）は境界でのドリフトによりタスクを失敗（黄色の丸）しています。",
+     "caption": "Figure 3: Qualitative simulation comparison. BICPO-VLA (top) and $\\pi_{0.5}$ (bottom) on two multi-stage tasks. BICPO-VLA preserves the intended phase through decisive grasp, placement, and button-activation transitions; circles mark terminal outcomes.",
+     "image": "details/2608.13924/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめ：非同期制御は「正しい振る舞い」と「正しい接続」の2重奏へ",
+   "summary_ja": "BICPO-VLAは、振る舞いの同定・Haarによる軌道構造化・受け渡し選好学習を分離することで、非同期制御に伴うギャップを解消しました。提案されたDPO手法は単独の目的関数としても極めてポータブルであり、今後のロボット基底モデルにおける標準的な滑らかさ最適化ツールとなる可能性を秘めています。",
+   "details_ja": "本論文のまとめとして、非同期ロボット制御においては「何をすべきか（正しい振る舞いの選択）」だけでなく、「それがどのように制御を引き継ぐか（滑らかな接続）」を明示的に最適化することが極めて重要であることが示されました。\n\n提案されたBICPO-VLAは、意味的な同定を固定しつつ、直交Haar変換で構造化したアクション候補の中から、受け渡し状態に最も適合するものをDPOで学習するアプローチを確立しました。このアプローチの最大の強みは、タスク遂行能力（成功率）と動作の滑らかさ（境界ジャンプ・トレンド不一致の抑制）をトレードオフにせず、両立させられる点にあります。また、DPO目的関数そのものが他のVLAポリシーにもポン付けできる高い汎用性を持つことも実証されました。\n\n今後の展望として、本研究は「推論遅延がチャンク長よりも短く、既知の制御コマンド列が正確に実行されること」を前提としているため、想定を超える長時間の遅延や、外部からの外乱によって受け渡し状態が狂ってしまう状況への適応が課題として挙げられています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "非同期VLA制御で発生するカクつきは、タスク意図（振る舞い）と受け渡し適応（局所軌道）を分離して解くべきである。",
+  "単純な平滑化損失（SFT）はロボットを「動かさない」方向に学習させ成功率を激減させるが、同一振る舞い内のDPOであれば成功率を維持したまま滑らかさを改善できる。",
+  "アクションチャンクを直交Haar変換で「骨格」と「残差」に分解するアプローチは、情報の損失を出さずに段階的な生成と接続適応を行う上で非常に相性が良い。",
+  "BICPOで提案されたFlow-DPOの接続損失は、π0.5やRTCなど既存のVLAモデルにもそのままプラグインとして転用可能である。"
+ ],
+ "limitations_ja": [
+  "推論遅延がアクションチャンクの残りの長さを超えないこと（既知のコマンド列でロールアウトできる範囲内であること）を前提としている点。",
+  "推論中に外力やスリップなどの外部擾乱が発生した場合、決定論的なロールアウトによる受け渡し状態の予測が実際とズレる可能性がある点。"
+ ],
+ "keywords": [
+  "Vision-Language-Action (VLA)",
+  "Asynchronous Control",
+  "Direct Preference Optimization (DPO)",
+  "Haar Transform",
+  "Action Chunking"
+ ],
+ "id": "2608.13924",
+ "title": "BICPO-VLA: Behavior-Identified Continuation Preference Optimization for Smooth Asynchronous Vision-Language-Action Control",
+ "title_ja": "BICPO-VLA: 滑らかな非同期VLA制御のための行動同定継続選好最適化",
+ "authors": [
+  "Ming Shang",
+  "Yuchen Huang",
+  "Jiaoyang Chen",
+  "Haoyuan Hu",
+  "Han Yu",
+  "Liping Song",
+  "Luyun Feng",
+  "Shuo Bao",
+  "Wei Dong",
+  "Xinzhou Wang",
+  "Fuchun Sun"
+ ],
+ "date": "2026-08-17",
+ "group": "focus",
+ "tags": [
+  "vision-language-action",
+  "control",
+  "imitation-learning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.13924",
+ "pdf_url": "https://arxiv.org/pdf/2608.13924",
+ "summary_ja": "ロボットの非同期制御における推論遅延中の状態ドリフトと制御引き継ぎ時の非互換性を解決する手法を提案。指示認識型因果履歴エンコーダとHaar部分空間分解により、アクションチャンクを基盤係数と残差に分解して高速・滑らかな動作生成を実現した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.13924"
+}
