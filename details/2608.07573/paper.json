@@ -1,0 +1,116 @@
+{
+ "tldr_ja": "MPPI制御のロールアウト内で速度を「等式の接空間」と「不等式の半空間」へ二重に射影し、さらに有限ステップのズレを多様体上へ引き戻す（レトラクション）ことで、強いタスク要求下でも幾何学的な等式・不等式拘束を数値計算精度の限界まで厳密に満たすサンプリング型MPC手法です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "PR-MPPIの全体像と能動拘束射影（Active Constraint Projector）の流れです。ロールアウト内および実行指令値において、まず等式拘束の接空間へ速度を射影し、その部分空間を壊さないようにアクティブなCBF不等式半空間へと補正した上で、最後に数値誤差レベルまで多様体上へ引き戻す（レトラクション）構造になっています。",
+  "caption": "Fig. 1: Overview of PR-MPPI. Sampled control sequences are rolled out through the constraint-aware dynamics, where the active constraint projector $\\Pi_{\\mathrm{act}}$ is applied at every step of every rollout. The filtered inputs are averaged by the exponential-weighted update, the averaged sequence is filtered once more along its own predicted states, and the first step is retracted onto $\\mathcal{M}$ . The lower panels illustrate $\\Pi_{\\mathrm{act}}$ on two rollout samples in three steps: (1)",
+  "image": "details/2608.07573/F1.jpg"
+ },
+ "overview_ja": "双腕ロボットによる物体運搬のように、両手先の相対姿勢を厳密に保つ「閉リンク等の等式拘束」と、関節リミットや衝突回避といった「不等式拘束」を同時に満たす制御は、ロボティクスの最重要課題の一つです。サンプリング型モデル予測制御（MPPI）はGPU並列化と非凸コストへの強さから広く使われていますが、従来の枠組みでは拘束をコスト関数のソフトペナルティとして扱うため、目標追従コストが大きくなると拘束が簡単に破られてしまうという根本的な欠点がありました。\n\nそこで本研究が提案するのが「Projection-Retraction MPPI（PR-MPPI）」です。発想の核は、拘束処理をコスト関数に任せるのではなく、ロールアウト（シミュレーション展開）のダイナミクス内部に直接組み込む点にあります。具体的には、サンプリングされた関節速度をまず等式拘束の接空間に射影し、さらにその部分空間の中でアクティブな不等式半空間へと射影します。これにより、関節リミットを避ける補正が閉リンク拘束を壊す事態を構造的に防ぎます。さらに、1次の速度射影だけでは有限時間ステップ積分で等式から微小なドリフトが生じるため、実行直前の指令値に対してGauss–Newton法による引き戻し（レトラクション）を適用し、計算機精度のトレランス（許容誤差）まで等式拘束を厳密に回復させます。\n\nシミュレーション上の14自由度双腕Frankaロボットを用いた過酷な関節リミット追従実験や30パターンのランダム障害物回避実験により、強い追従目標下でも不等式境界を決して跨がず、等式拘束の指令値残差を $10^{-11}$ レベルに抑えられることを確認しました。さらにUnitree H1-2ヒューマノイド実機において、双腕でトレイを把持したまま接近する障害物を30 Hzでリアクティブに回避する動作を実証しています。",
+ "contributions_ja": [
+  "サンプリングされた速度を等式の接空間とその内部の能動的CBF半空間へ入れ子で射影し、不等式処理が等式を壊さない拘束考慮型ロールアウト機構を構築した点",
+  "有限ステップ積分による等式多様体からのドリフトをGauss–Newton引き戻し（レトラクション）で除去し、MPPIの重み付けに依存せず指令値レベルで等式を数値許容誤差まで厳密に満たした点",
+  "有限ステップ積分とレトラクションに伴う不等式拘束の誤差が $O(\\Delta t^2)$ に収まることを理論的に示し、小さな安全バッファで完全に吸収できることを明らかにした点",
+  "14自由度双腕シミュレーションおよびUnitree H1-2ヒューマノイド実機を用いて、等式保持・関節リミット保護・動的障害物回避が実時間（30 Hz）で安定動作することを実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "ソフトペナルティの限界を超えて：なぜMPPIに厳密な多様体制御が必要なのか",
+   "summary_ja": "MPPIは複雑な接触や非凸コストに強い反面、等式拘束や不等式拘束をコストのペナルティとしてしか扱えず、強いタスク要求下で破綻します。既存のバリア関数や射影ベースの手法も不等式のみ、あるいは等式のドリフト放置に留まっていました。本論文はロールアウト内部での二重射影と実行時の引き戻しを組み合わせることで、この課題を解決します。",
+   "details_ja": "マニピュレーション作業では、動作全体にわたって厳密に守るべき拘束が数多く存在します。たとえば、2本の腕で剛体を挟み込んで運ぶ作業では、両手先の相対姿勢を保つ閉リンク機構（Closed Kinematic Chain）が完全に成立していなければ内力が発生して把持が破綻します。同時に、関節リミットや障害物との干渉クリアランスといった不等式拘束も絶対に超えてはなりません。\n\nモデル予測経路積分（MPPI）制御は、制御入力を多数サンプリングしてコストで重み付き平均する手法であり、微分を必要とせずGPU並列化で高速に解けるため近年のロボティクスで大人気です。しかし、標準的なMPPIは拘束をコスト関数のソフトな罰則（ペナルティ）として評価するため、ゴールへ急いで向かおうとする強いタスクコストがかかると、拘束違反のペナルティが負けて簡単に壁を突き破ってしまいます。\n\nこれに対し、不等式拘束を厳格化するためにCBF（制御バリア関数）フィルタを挟む手法や、サンプル自体を安全集合へ押し戻す手法が提案されてきました。しかし、これらは一方向の「不等式マージン」しか扱えず、幾何学的な「等式拘束」を保持する手段がありませんでした。\n\n一方、冗長自由度ロボットの古典的制御ではヤコビアンの零空間射影が使われ、幾何学的モーションプランニングでは多様体への射影や引き戻し（レトラクション）が使われてきましたが、これらをサンプリング型MPCに組み込んだ研究は極めて限られています。先行研究であるDQ-MPPIやMC-MPPIも、不等式処理が不完全だったり、等式の有限ステップドリフトを完全に解消できなかったりしていました。\n\nそこで本論文は、ロールアウトのダイナミクス内部で等式接空間と不等式半空間への二重射影を行い、最後にGauss–Newton法で多様体上へと引き戻す「PR-MPPI」を提案します。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "PR-MPPIの制御ループ概要です。入力された関節速度サンプルはロールアウト毎ステップで能動拘束射影 $\\Pi_{\\mathrm{act}}$ を通り、平均化された後にもう一度実状態に沿って射影され、最終指令値が多様体上へレトラクションされます。",
+     "caption": "Fig. 1: Overview of PR-MPPI. Sampled control sequences are rolled out through the constraint-aware dynamics, where the active constraint projector $\\Pi_{\\mathrm{act}}$ is applied at every step of every rollout. The filtered inputs are averaged by the exponential-weighted update, the averaged sequence is filtered once more along its own predicted states, and the first step is retracted onto $\\mathcal{M}$ . The lower panels illustrate $\\Pi_{\\mathrm{act}}$ on two rollout samples in three steps: (1)",
+     "image": "details/2608.07573/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Methodology",
+   "heading_ja": "射影とレトラクションの融合：等式を壊さず不等式を守り抜くアルゴリズム",
+   "summary_ja": "離散時間ダイナミクスの内部で、サンプル速度を等式の零空間とアクティブなCBF不等式半空間の交線へ射影します。MPPIで重み付き平均された指令値は実行層で再度射影され、最後にGauss–Newton反復によって多様体上へと引き戻されます。有限ステップ誤差が $O(\\Delta t^2)$ に収まることも理論的に保証されています。",
+   "details_ja": "PR-MPPIの具体的な枠組みは、大きく「ロールアウト内の拘束考慮型ダイナミクス」と「実行層における射影・レトラクション」の2段階から構成されています。\n\n### II-A 問題設定\n状態量を関節角度 $\\bm{q}_t \\in \\mathbb{R}^n$、制御入力を関節速度 $\\bm{u}_t = \\dot{\\bm{q}}_t \\in \\mathbb{R}^n$ とし、予測ホライズン $T$ において、等式拘束 $\\bm{c}(\\bm{q}_t) = \\bm{0}$ と不等式拘束 $\\bm{h}(\\bm{q}_t) \\geq \\bm{0}$ を厳密に満たしながら期待軌道コストを最小化する問題を考えます。\n\n### II-B 拘束考慮型のサンプル展開（Rollout Projection）\n拘束違反のサンプルをコストで弾くのではなく、サンプル自体を最初から実行可能領域に落とし込みます。\n- **第1段階（等式接空間射影）**: 等式拘束ヤコビアン $\\bm{J}_c$ に対する零空間射影行列 $\\bm{N} = \\bm{I} - \\bm{J}_c^\\dagger \\bm{J}_c$ を使い、サンプル速度 $\\tilde{\\bm{u}}_t$ をまず接空間ベクトル $\\tilde{\\bm{u}}_{p,t} = \\bm{N}\\tilde{\\bm{u}}_t$ へ射影します。これにより $\\bm{J}_c \\tilde{\\bm{u}}_{p,t} = \\bm{0}$ となり、1次近似として等式が維持されます。\n- **第2段階（能動的不等式補正）**: 不等式は離散時間CBF条件 $\\nabla \\bar{h}_i^T \\bm{u} \\geq -\\gamma_i \\bar{h}_i$（半空間）として定式化されます。全不等式を毎度解くと重いため、残差の大きな拘束だけを抽出したアクティブセット $\\mathcal{A}$ を構築し、KKT条件を満たす補正量を接空間内で計算します。すべての補正項は左から $\\bm{N}$ が掛かっているため、不等式をいくら補正しても等式接空間 $\\bm{J}_c \\tilde{\\bm{u}}^+_t = \\bm{0}$ が絶対に崩れません。\n\nこのように補正されたロールアウト群にMPPIの指数重み平均を適用し、名目入力列 $\\bm{U}^*$ を得ます。\n\n### II-C 実行層の射影とレトラクション（Execution & Retraction）\nMPPIで平均化された入力は、個々のサンプルが通った状態の平均に過ぎず、そのままでは拘束を満たしません。そこで、実際の現在状態 $\\bm{q}_0$ から予測軌道に沿って実行層射影を再度適用します。\n\nしかし、速度レベルの射影 $\\bm{J}_c \\bm{u}^*_0 = \\bm{0}$ を満たしていても、有限時間ステップ $\\Delta t$ で積分すると等式多様体から $O(\\Delta t^2)$ のドリフトが発生してしまいます。そこでPR-MPPIでは、次ステップの目標位置に対してGauss–Newton反復（式 15）によるレトラクション $\\mathcal{R}_{\\mathcal{M}}$ を行い、等式拘束の残差が指定した数値許容誤差 $\\varepsilon_{\\mathrm{tol}}$（機械精度レベル）を下回るまで引き戻します。\n\n**補題1（不等式誤差の有界性）**: レトラクションによって関節位置が動いても、その変位量は $O(\\Delta t^2)$ です。したがって次ステップの不等式違反量も $-\\kappa_i \\Delta t^2$ で抑えられ、あらかじめ設定した安全マージン $h_{\\mathrm{safe}}$ のなかに完全に吸収されることが証明されています。",
+   "figures": []
+  },
+  {
+   "heading": "III Experiments",
+   "heading_ja": "限界ストレステストから実機ヒューマノイドまで：拘束充足と実時間性の検証",
+   "summary_ja": "14自由度双腕FrankaのシミュレーションとUnitree H1-2実機で3つの実験を実施しました。関節リミットのストレステストでは機械精度（$10^{-11}$ オーダー）での等式保持を確認し、30回のランダム障害物回避では100%の成功率を達成しました。実機ヒューマノイドでも30 Hzで動的障害物を回避できることを示しています。",
+   "details_ja": "実験はすべて双腕でトレイを水平に剛体把持するタスク（式 17の閉リンク等式拘束）を対象としています。制御周期は 30 Hz（$\\Delta t = 1/30$ s）、ロールアウト数 $K = 1000$、ホライズン $T = 30$ で実行されています。\n\n### III-B 実験1：関節リミットのストレステスト\n両腕の第4関節リミット（下限 $-2.35$ rad、CBF安全境界 $-2.30$ rad）を超える目標値（$-2.41$ rad）へ向かってトレイを激しく下降させるタスクです。\n- **結果**: コストのソフトペナルティに依存するDQ-MPPIや不等式射影なしアブレーションは、追従欲に負けてリミットをそれぞれ $0.082$ rad、$0.022$ rad も突破してしまいました。対してFull PR-MPPIは安全境界 $-2.30$ rad でピタリと滑るように止まり、境界違反はわずか $0.003$ rad（安全マージン $0.05$ rad 内）に収まりました。\n- **指令値の等式残差**: レトラクションを備えたFull PR-MPPIの指令値残差は、並進 $(0.170 \\pm 0.070) \\times 10^{-10}$ m、回転 $(0.280 \\pm 0.020) \\times 10^{-10}$ rad と、まさに計算機の数値下限（ゼロ）を達成しました。一方、レトラクションなし手法やDQ-MPPIは $10^{-3}$ オーダーの残差が残りました。\n- **計算速度**: 計画更新時間はDQ-MPPIが 238.9 ms（約4.2 Hz）かかったのに対し、PR-MPPIは 19.35 ms で完了し、余裕で 30 Hz 周期を維持しました。\n\n### III-C 実験2：ランダム障害物回避（30試行）\nトレイの直線経路を塞ぐように配置された球状障害物を回避するタスクです。MC-MPPIは中央配置時にサンプルが障害物に塞がれてスタックし、成功率は13/30試行に留まりました。DQ-MPPIは激しい動作により等式拘束が崩れてトレイを落とす失敗が多発し、18/30試行の成功でした。一方、ロールアウト内で不等式射影を行うFull PR-MPPIは、最初から回避可能なサンプルのみを重み付けするため、30試行すべて（100%）でスムーズに迂回してタスクを完遂しました。\n\n### III-D 実験3：ヒューマノイド実機（Unitree H1-2）による動的回避\n人間が手に持った障害物をトレイに近づけた際、PR-MPPIは閉リンク拘束とトレイの水平姿勢を完璧に保ちながら、双腕の姿勢を器用に再構成して実時間（30 Hz）で障害物を回避しました。\nただし、把持等式が幾何学的に後退方向の運動を禁止しているような角度から障害物が迫った場合、接空間内の勾配 $\\bm{N}\\nabla \\bar{h}$ が消失して回避不能になるという構造的な限界も観察されました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "実験1の関節リミットストレステストの結果です。(a)トレイ下降タスクの外観。(b)第4関節の軌跡比較。他手法が破線で示されたリミット（$-2.35$ rad）を突き破っているのに対し、Full PR-MPPI（青線）はシェーディングされた安全マージン境界（$-2.30$ rad）で正確に留まり、リミットを死守していることが分かります。",
+     "caption": "Fig. 2: Joint-limit stress test. (a) Dual-arm tray-lowering motion: the goal joint configuration in green and the trajectory executed by Full PR-MPPI in blue. (b) Measured fourth-joint trajectories of both arms for the four controllers. The dashed line is the artificial lower bound $q_{4,\\min}=-2.35$ $rad$ and the dotted line the shifted guard boundary at $-2.30$ $rad$ ; the shaded band between them is the $0.05$ $rad$ CBF margin.",
+     "image": "details/2608.07573/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "実験2のランダム障害物回避タスクの様子です。赤い球体障害物が直進経路を遮る中、Full PR-MPPIは閉リンク拘束を完全に満たしたまま、滑らかな側方迂回軌道（青線）を生成してトレイを目標位置（緑）まで運びます。",
+     "caption": "Fig. 3: Randomized obstacle-avoidance task at the central lateral offset. The tray is transported past the spherical obstacle (red) under the closed-chain grasp; green marks the goal tray pose and blue a representative collision-free detour by Full PR-MPPI, with its dashed tray-center path.",
+     "image": "details/2608.07573/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "実験3におけるUnitree H1-2ヒューマノイドの実機デモです。両腕でトレイを把持して水平を保ったまま、人が差し出す障害物マーカーに対して実時間で干渉を回避するように腕の関節配置を適応させています。",
+     "caption": "Fig. 4: Hardware demonstration on the Unitree H1-2. The two arms hold a tray carrying a payload under the closed-chain grasp while a hand-held obstacle is moved toward it; each frame is labelled with the elapsed time.",
+     "image": "details/2608.07573/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Conclusion",
+   "heading_ja": "まとめと今後の展望：キネマティクスからトルク制御層への拡張",
+   "summary_ja": "PR-MPPIは、二重の速度射影とレトラクションを統合することで、サンプリング型MPCにおいて等式拘束を数値トレランスまで満たし、不等式マージンを死守できることを示しました。今後はキネマティクスレベルからトルク・接触力レベルへの拡張や、回避不能時に等式を柔軟に緩和する機構が期待されます。",
+   "details_ja": "本論文では、ロールアウトダイナミクス内での入れ子型速度空間射影と、最終指令値に対するGauss–Newton引き戻しを組み合わせた新しいサンプリング型MPC「PR-MPPI」を提案しました。14自由度双腕ロボットを用いた実験により、強い追従タスクコストが働いていても、閉リンク等の等式拘束を数値計算精度の限界まで維持しつつ、関節リミットや衝突回避といった不等式拘束を確実に守れることが示されました。\n\nまた、Unitree H1-2の実機実験では、等式拘束を厳格に課すことの代償として、幾何学的に逃げ場が存在しない方向に障害物が接近すると回避運動が取れなくなるという構造的なトレードオフも明らかになりました。\n\n現在の実装は速度指令に基づくキネマティクスレベルのものですが、この射影・レトラクションの枠組み自体は動力学整合な接空間を用いることでトルクレベルにも自然に拡張可能です。トルクリミットや接触力境界を不等式として扱い、トルク入力層で直接厳密性を保証することや、退避運動が不可能な状況で把持拘束を選択的に緩和する仕組みの導入が今後の課題として挙げられています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「拘束をコストで罰する」サンプリング型MPCの限界を痛感したときは、ダイナミクス展開の内部に拘束射影を埋め込むアプローチが極めて有効である点",
+  "等式と不等式が混在する場合、等式の零空間行列を不等式補正項に掛け合わせる「入れ子構造」にすることで、不等式処理による等式の破壊を完全に防止できる点",
+  "速度レベルの1次射影で満足せず、Gauss–Newton等のレトラクションを1ステップ加えるだけで、有限積分ドリフトを消し去り計算機精度の等式保証が得られる点",
+  "ロールアウト内で不等式を満たしたサンプルのみを生成しておくと、探索空間が実行可能領域に絞られるため、狭小空間や障害物周りでのスタック現象を劇的に抑制できる点"
+ ],
+ "limitations_ja": [
+  "等式拘束を厳密に満たすことを最優先するため、等式が許容する接空間の自由度内に回避方向が存在しない場合、障害物を避ける運動が構造的に不可能になる点",
+  "本論文の実装は速度制御（キネマティクス）レベルに留まっており、低レベルのトルクトラッキング誤差が外乱として入ると実機状態での拘束残差は完全なゼロにはならない点",
+  "ロールアウトの全ステップで不等式のアクティブセット射影を解くため、不等式拘束の数が膨大になるとGPU並列化を行っても計算負荷が増加する点"
+ ],
+ "keywords": [
+  "Model Predictive Path Integral (MPPI)",
+  "Constraint Manifold",
+  "Control Barrier Functions (CBF)",
+  "Projection and Retraction",
+  "Dual-Arm Manipulation"
+ ],
+ "id": "2608.07573",
+ "title": "Projection-Retraction MPPI: Exact Constraint-Manifold Control for Manipulators",
+ "title_ja": "Projection-Retraction MPPI: マニピュレータの厳密な制約多様体制御",
+ "authors": [
+  "Seulchan Lee",
+  "Leesai Park",
+  "Minhyeong Kang",
+  "Sanghyun Kim"
+ ],
+ "date": "2026-08-11",
+ "group": "general",
+ "tags": [
+  "control",
+  "planning",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.07573",
+ "pdf_url": "https://arxiv.org/pdf/2608.07573",
+ "summary_ja": "閉運動鎖や関節制限、障害物回避などの厳密な等式・不等式制約を MPPI 制御内で保証する Projection-Retraction MPPI (PR-MPPI) を提案。サンプリングの各ステップで速度を拘束多様体へ射影および引き戻すことで、ペナルティ関数に頼らず制約を厳密に満たした最適な軌道生成をリアルタイムで実現する。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.07573"
+}
