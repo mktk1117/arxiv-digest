@@ -1,0 +1,132 @@
+{
+ "tldr_ja": "大規模再構成モデル（LRM）が生成する人物と物体の結合メッシュを足場（足がかり）として解釈することで、接触アノテーションや事前定義されたCADテンプレートに依存せずに高精度な単眼3Dインタラクション復元を実現しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "MILOの全体パイプラインです。単眼RGB画像からLRM（Hunyuan3D-2.0）を用いて人と物体の結合メッシュを生成し、マルチビューレンダリングを介して3Dキーポイント推定・人体モデルフィッティングと点群セグメンテーション（および任意のテンプレート位置合わせ）を並行して行います。",
+  "caption": "Figure 2 : Overview of MILO , our method for reconstructing 3D human-object interactions from a single image. Given an input RGB image, we first use Hunyuan3D-2.0 [ 59 ] to predict a combined human-object mesh ( Sec. 3.2 ). We then render the mesh from multiple virtual views and estimate 2D body and hand keypoints in each view ( Sec. 3.3 ), which are robustly triangulated to obtain 3D keypoints on the LRM reconstruction. Starting from an initial SMPL-H estimate from HMR2.0 [ 15 ] and HaMeR [ 46 ",
+  "image": "details/2608.27407/F2.jpg"
+ },
+ "overview_ja": "日常の人間行動を理解する上で、人と物体がどのように相互作用（HOI）しているかを単眼画像から3D復元する技術は、ロボットの模倣学習やAR/VRにおいて非常に重要です。しかし、単眼カメラからの3D復元は奥行きの曖昧さや遮蔽が激しく、物体形状の多様性も高いため、極めて困難な課題でした。従来の多くの手法は、画像への再投影誤差や人手で付与された接触アノテーション、あるいは既知のCAD形状ライブラリからのテンプレート検索に頼っており、実世界への汎化性能に大きな制約がありました。\n\nそこで著者らは、「大規模再構成モデル（LRM）を使えば、人と物体の相対的な位置関係や近接情報を保った3Dメッシュが一発で得られるのではないか」という点に着目しました。LRMが生成する結合メッシュを一種の「幾何学的足場（スキャフォールド）」とみなし、問題を『2D画像への当てはめ』から『LRMメッシュを人と物体に分解して解釈するタスク』へと再定義したのです。提案手法MILOでは、LRMメッシュから人体パラメータモデル（SMPL-H）をフィッティングし、物体点群をセグメンテーションによって抽出します（CADモデルがあれば位置合わせも可能）。\n\n複数のベンチマーク（InterCap、HODome、IMHD）や野生環境画像（PICO-db）で実験を行った結果、接触ラベルや事前テンプレートを使わない設定であっても、従来手法を大きく上回る幾何学的整合性と物理的妥当性を達成できることが実証されました。",
+ "contributions_ja": [
+  "大規模再構成モデル（LRM）が生成する結合メッシュを幾何学的足場として捉え、単眼3Dインタラクション復元の問題をLRMメッシュの解釈タスクへと再構築した点",
+  "マルチビューレンダリングからの3Dキーポイント三角測量と、遮蔽に頑健な2段階最適化により、SMPL-H人体モデルをLRMメッシュへ安定してフィッティングさせる枠組みを確立した点",
+  "真値の接触情報やCADテンプレートへの依存を排しながら、既存の最適化型・回帰型ベースラインを大幅に上回る最先端の復元精度を達成した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "2Dへの逆投影をやめ、LRMの3Dメッシュを「解釈」する新発想",
+   "summary_ja": "単眼画像からの3D人-物体インタラクション復元は、オクルージョンや物体形状の多様性のために非常に難しい課題です。本論文は、LRMが生成する人と物体の結合メッシュを幾何学的な足場として活用し、接触ラベルに頼らず高精度に復元する枠組み「MILO」を提案します。",
+   "details_ja": "日常の動作では、道具や家具など多様な物体との接触・操作が絶えず行われています。ロボットの遠隔操作や身体性AI（Embodied AI）にとって3D HOIの理解は不可欠ですが、単眼画像からの推定には常に奥行きの不定性と遮蔽が付きまといます。\n\n人体にはSMPLのような強力なパラメトリックモデルが存在しますが、一般的な物体には統一された表現がありません。そのため、既存手法は大規模なCADデータベースから似た形状を検索して配置するか、正解の接触情報（contact）や深度値といった特権的な入力に頼らざるを得ませんでした。\n\n本研究の核心は、「大規模データで事前学習されたLRMは、人と物体の相対的な位置関係や近接性の手がかりをすでに3Dメッシュとして豊かに内包している」という洞察です。従来の再投影誤差による最適化の泥沼から脱却し、LRMが出力した単一の結合メッシュを解釈するというアプローチを採ることで、問題の不確実性を劇的に低減させました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "MILOのコンセプト例です。入力写真からLRMを用いて人物と物体が一体となったメッシュを予測し、それを人と物体に分解・解釈することで、一貫性のある3Dインタラクション形状を復元します。",
+     "caption": "Figure 1 : We present MILO , an approach for reconstructing 3D human-object interactions from a single image. Given an input photo (left), MILO uses a Large Reconstruction Model to predict a combined human-object mesh (center). This mesh is interpreted (right) by identifying human and object parts, fitting a SMPL-H body to the human part, and optionally an object template to the object part. The examples illustrate accurate 3D human mesh together with consistent object pose and shape. Human mesh",
+     "image": "details/2608.27407/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Works",
+   "heading_ja": "人体復元・物体復元・接触推定の文脈とMILOの立ち位置",
+   "summary_ja": "単眼人体復元、3D物体復元、接触推定などの従来アプローチを整理しています。MILOは、物体のみにLRMを適用していた先行研究とは異なり、人と物体が共存する結合シーン全体にLRMを適用して相対関係を捉える点が決定的に異なります。",
+   "details_ja": "単眼からの3D復元研究は、大きく3つの文脈に分かれます。\n\n- 単眼3D人体復元: SMPLやSMPL-Xなどのパラメトリックモデルにフィッティングする最適化手法や、HMR2.0のような深層回帰モデルが発展してきました。しかし、これらは孤立した人間のみを対象とし、周囲の物体との接触を考慮していません。\n\n- 単眼3D物体復元とLRM: NeRFや3Dガウススプラッティングを経て、大規模データで学習されたLRM（Hunyuan3D-2.0など）が登場し、多様な物体の形状を高精度かつ短時間で復元できるようになりました。\n\n- 3D HOI復元と接触推定: 従来研究（CONTHO、CHORE、PICOなど）は、接触マップの予測や密な対応関係の学習に依存していました。またEasyHOIのように物体復元にLRMを使う試みもありましたが、物体単体を別々に復元してから画像にフィッティングする方式をとっていたため、相対配置の決定に接触ラベルが必須でした。\n\nこれに対しMILOは、人と物体を同時に1つのメッシュとしてLRMに生成させます。これにより、明示的な接触アノテーションやCADテンプレートがなくても、両者の幾何学的関係性を自然に担保できる強みを持っています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Technical Approach",
+   "heading_ja": "足場メッシュから人体と物体を解きほぐすアルゴリズム",
+   "summary_ja": "LRMで生成した結合メッシュに対し、仮想視点からのレンダリングを行って3Dキーポイント推定とセグメンテーションを実行します。得られた手がかりをもとに、人体の2段階最適化（ルート・姿勢）と物体の分離（および任意のテンプレート位置合わせ）を行います。",
+   "details_ja": "MILOの処理フローは以下の各ステップから構成されています。\n\n3.1 人体モデルの定義\n手を含む人体モデルSMPL-Hを採用し、大域姿勢 $\\Phi$、体幹姿勢 $\\Theta$、手姿勢 $\\Theta_h$、体型 $\\beta$、並進 $\\Gamma$ から6890頂点のメッシュと52関節の位置を計算します。\n\n3.2 LRMによる結合メッシュ生成\n入力画像から背景を除去したRGBA画像をHunyuan3D-2.0に入力し、人物と物体が一体となったメッシュを生成します。これを相互作用の「幾何学的足場」とみなします。\n\n3.3 3Dキーポイント推定\n結合メッシュの周囲に60個の仮想視点を配置してレンダリング画像を作成します。各画像に対してViTPose（全身25点）とHaMeR（両手各21点）を適用し、複数視点間でロバストな三角測量と非線形最適化を行うことで、信頼度重み付きの3Dキーポイント集合 $X \\in \\mathbb{R}^{67 \\times 3}$ を取得します。\n\n3.4 人体最適化（2段階フィッティング）\nHMR2.0とHaMeRで初期化したSMPL-Hを、LRMメッシュに整合させます。\n- ルートフィッティング: 体幹・手姿勢・体型を固定し、大域回転 $\\Phi$ と並進 $\\Gamma$、および未知のスケール係数のみをロバスト誤差関数（Geman-McClure）を用いて30反復最適化します。\n- ポーズフィッティング: 全パラメータを解放し、姿勢・体型事前分布正則化（VPoser、MANO、L2）に加えて、遮蔽時の幻覚に対処する「HMR初期値へのソフトアンカー損失」と「可視頂点に対する片方向Chamfer損失」を導入して60反復最適化します。\n\n3.5 点群セグメンテーション\nレンダリング画像にプロンプト「person.<obj_name>」を与えてセグメンテーションマスクを取得し、視点品質スコアと境界距離の重み付けを用いてメッシュ頂点へ多視点逆投影・統合します。非人間クラスタを抽出し、幾何フィルタリングでノイズを除去して物体点群を得ます。\n\n3.6 テンプレートアライメント（任意）\nCADモデルが存在する場合は、幾何対応モデル（Zhangら）を用いてLRMレンダリング画像とテンプレート画像間でセマンティック対応点を取得します。双方向サイクル整合性でフィルタリングした疎な3D対応点から相似変換（Sim(3)）を計算し、ICPを併用して正確に位置合わせします。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "テンプレート位置合わせの流れです。上段では幾何対応モデルによりテンプレートレンダリングとLRMレンダリング間のセマンティック対応点を検出し、下段で反復的なSim(3)フィッティングによりテンプレートをLRM物体点群へ正確に整列させています。",
+     "caption": "Figure 3 : Template Alignment. Top row: Visualization of semantic correspondences between a render of the template mesh and the LRM mesh. Bottom row: Alignment of the template mesh with the LRM mesh.",
+     "image": "details/2608.27407/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "真値接触なしでSOTAを達成、幾何学的足場の有効性を実証",
+   "summary_ja": "InterCap、HODome、IMHDの各データセットで定量的・定性的な比較を実施しました。MILOは接触情報を使用しないにもかかわらず、既存手法を凌駕する幾何精度を記録し、アブレーションにより結合メッシュ利用の必然性が裏付けられました。",
+   "details_ja": "実験は厳密なプロトコルに従って評価されました。\n\n4.1 最先端手法との比較\nInterCapベンチマークにおいて、Procrustesアライメント後のChamfer距離（PA-CD）を人体、物体、結合ペア（h+o）それぞれで評価しました。MILOは、テンプレートを使用しない設定（PA-CD h+o: 6.90 cm）でも、物体テンプレートや真値接触情報を利用するCONTHO（11.51 cm）やPICO（7.61 cm）などの既存手法を凌駕しました。テンプレートを利用した場合は6.53 cmまで向上します。また、HODomeやIMHDデータセットでも同様にPICOを上回る精度を示しました。\n\n4.2 接触推定への波及効果\n明示的な接触ラベルを学習していないMILOですが、復元された人体と物体表面の距離（5 mm未満）から接触を判定したところ、接触予測専用モデルであるDECO（RICH学習版）よりも高いF1スコア（0.687 vs 0.654）と低い幾何誤差（1.06 cm vs 1.25 cm）を記録しました。\n\n4.3 メッシュ幾何とLRM選択の影響\nLRMバックボーンをSAM3Dに変更しても同等の高精度が得られ、特定モデルに依存しないことが確認されました。また、真値メッシュを入力とするオラクル実験では誤差がさらに半減し、LRMの進化がそのままMILOの精度向上につながることが示されました。\n\n4.4 結合復元 vs 個別復元（重要アブレーション）\n「人物と物体を別々に復元して深度マップ等で後から合わせるベースライン（SAM3D independent）」と比較した結果、結合メッシュを用いたMILOが圧倒的に優れていました（PA-CD h+o: 6.90 cm vs 13.91 cm）。相対配置やスケールの決定において、LRMが同時に復元する「足場」が本質的に重要であることが証明されました。\n\n4.5 定性評価と実環境画像\n野生環境のPICO-db画像に対しても、MILOは極端な人体と物体のめり込みや浮遊を起こさず、物理的に妥当なインタラクション形状を復元できています。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "InterCapデータセットでの定性比較です。左から入力画像、CONTHO、HOI-TG、PICO、MILO（テンプレートあり/なし）、正解メッシュです。MILOは他手法で見られるような物体の不自然な傾きや貫通を抑え、正解に最も近い3D配置を復元できています。",
+     "caption": "Figure 4 : Qualitative comparison on the InterCap dataset [ 20 ] . From left to right: input RGB image, CONTHO [ 43 ] , HOI-TG [ 66 ] , PICO-fit [ 6 ] , MILO reconstructions (with and without template meshes, respectively), and ground-truth human-object meshes. Our method achieves better human-object alignment in 3D. Humans are rendered in blue , template objects in red , and segmented object meshes in orange .",
+     "image": "details/2608.27407/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "HODomeおよびIMHDデータセットでのPICOとの比較結果です。椅子やスーツケース、フライパンなどの把持・着座シーンにおいて、MILOはテンプレートなし（オレンジメッシュ）でも高い物理的妥当性を示しています。",
+     "caption": "Figure 5 : Qualitative evaluation of PICO-fit [ 6 ] and MILO on images from the HODome [ 78 ] and IMHD [ 80 ] datasets. Our outputs, with or without templates, are more physically plausible and closer to the GT than PICO. Humans are rendered in blue , template objects in red , and segmented object meshes in orange .",
+     "image": "details/2608.27407/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "野生環境画像（PICO-db）における定性結果です。自転車、バックパック、野球のグラブなど、多様なカテゴリと複雑な姿勢の組み合わせに対しても破綻のない3Dインタラクションを再構成できています。",
+     "caption": "Figure 6 : Qualitative reconstructions on in-the-wild images from PICO-db [ 6 ] . MILO recovers 3D human-object geometry from a single image, with coherent arrangement and fewer interpenetrations than the PICO-fit [ 6 ] baseline. Humans are rendered in blue , template objects in red , and the segmented object mesh in orange .",
+     "image": "details/2608.27407/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめと今後の展望：LRMが切り拓くラベルフリーなHOI理解",
+   "summary_ja": "MILOはLRMを幾何学的足場として捉えることで、接触ラベル不要で汎化性の高い3D人-物体インタラクション復元を実現しました。今後の課題はLRM自体の幾何品質依存の解消や、動画・複数人インタラクションへの拡張です。",
+   "details_ja": "本研究は、単眼画像からの人-物体相互作用復元において、LRMが生成する大域的な3D形状を事前情報として活用するパラダイムを提案しました。従来の「2D画像への逆投影フィッティング」という不良設定問題を、「大域メッシュの解釈」へと転換した点がブレークスルーです。\n\n限界と将来の課題として、以下の点が挙げられています。\n- LRMの品質依存: 小さな物体や激しいオクルージョン下ではLRMが細部を復元できず、セグメンテーションに失敗することがあります。\n- 対称性物体の曖昧さ: テンプレート位置合わせ時に、対称性の高い物体（箱やボトルなど）で向きが180度反転してしまう現象が確認されています。\n- 時系列や複数人への展開: 現状は単一画像・単一ペアに特化しているため、動画入力への拡張や複数人物・複数物体の同時追跡が次のステップとなります。",
+   "figures": []
+  },
+  {
+   "heading": "付録（Appendix）",
+   "heading_ja": "実装の詳細・ランタイム分析・失敗事例の分析",
+   "summary_ja": "仮想視点生成やロバスト三角測量のハイパーパラメータ、各処理段階の計算時間、および点群セグメンテーションのアブレーション実験詳細を報告しています。",
+   "details_ja": "論文付録には実用的な実装の詳細と追加解析が記載されています。\n\n- 実装ハイパーパラメータ: 仮想視点レンダリングは方位角30度刻み、仰角（0, ±30, ±60度）の計60視点で行われます。キーポイント三角測量では信頼度閾値0.6以上、再投影誤差閾値5.0ピクセルを採用しています。また、セグメンテーションでは接触境界付近の頂点に対してモルフォロジー膨張を用いたペナルティ重み付けを行っています。\n\n- 計算時間（ランタイム）: NVIDIA RTX 6000 Ada GPU環境において、コアパイプライン（テンプレートなし）の処理時間は1画像あたり344.40秒でした。内訳としてLRMメッシュ生成（130.40秒）と多視点レンダリング（148秒）が大部分を占めており、キーポイント推定・フィッティング・セグメンテーション自体は合計66秒、特に人体フィッティング最適化は32.3秒と、PICOの最適化時間（475.84秒）に比べて大幅に高速です。なお、任意のテンプレート位置合わせを行う場合は対応点探索に別途375.75秒を要します。\n\n- 失敗事例の分析: LRMが背景と物体の境界を誤認して背景の一部を巻き込むケースや、細長い物体（バットや傘など）でのスケール誤差、対称形状での回転反転が主なエラー要因として挙げられています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "単眼からの複数物体・人物配置において、LRMを「大域的な相対位置とスケールを担保する幾何学的足場」として利用する発想が極めて強力である",
+  "人物と物体を独立に復元して深度で合成するよりも、LRMに同時生成させた結合メッシュを分解する方が、接触の破綻やスケール狂いを劇的に抑えられる",
+  "3Dメッシュを仮想的にマルチビューレンダリングして2D基盤モデルを適用・三角測量するパイプラインは、不完全な生成メッシュから正確なパラメータモデルを抽出する上で汎用的な武器になる"
+ ],
+ "limitations_ja": [
+  "LRMの生成精度に依存するため、著しく小さい物体や強い遮蔽がある物体では形状の欠落や幻覚が生じやすい",
+  "完全対称・回転対称に近い物体に対してテンプレートを位置合わせする際、180度反転した姿勢に収束する失敗モードが存在する",
+  "多視点レンダリングやセマンティック対応探索を行うため、現時点では1フレームあたり数分の処理時間を要し、リアルタイムロボット制御には即座に適用できない"
+ ],
+ "keywords": [
+  "Human-Object Interaction",
+  "Large Reconstruction Models",
+  "Monocular 3D Reconstruction",
+  "SMPL-H",
+  "3D Computer Vision"
+ ],
+ "id": "2608.27407",
+ "title": "Reconstructing Humans and Objects in Interaction using Large Reconstruction Models",
+ "title_ja": "大規模再構成モデルを用いた人間と物体のインタラクションの3D復元",
+ "authors": [
+  "Agniv Chatterjee",
+  "Georgios Pavlakos"
+ ],
+ "date": "2026-08-29",
+ "group": "general",
+ "tags": [
+  "perception",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.27407",
+ "pdf_url": "https://arxiv.org/pdf/2608.27407",
+ "summary_ja": "単一画像から詳細な3次元の人間と物体のインタラクション（3D HOI）を復元するフレームワークMILOを提案。大規模再構成モデル（LRM）の視覚能力を活用することで、従来のパラメトリックモデルや2D接触拘束のフィッティングに頼らず、オクルージョンや物体形状の多様性に頑健な復元を達成した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.27407"
+}
