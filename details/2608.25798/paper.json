@@ -1,0 +1,158 @@
+{
+ "tldr_ja": "動作チャンクの生成をブロック単位で進める「ストリーミング生成」と直近の触覚情報のみを参照させるアテンション設計により、独立した高周波コントローラを使わずに実行中の触覚フィードバックを反映できるロボット操作フレームワークを提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "TacForcingの全体フレームワーク。視覚と指示文のタスク文脈は最初に1回だけエンコードして再利用しつつ、動作ブロックを順番に生成・実行します。実行直後に得られた新しい触覚フィードバックが、次に実行される未完了ブロックの生成へと順次反映されます。",
+  "caption": "Figure 1 : Overview of TacForcing . The VLM encodes the visual observation and language instruction once, and the resulting task context is reused throughout streaming generation. The Streaming Action Expert progressively refines action blocks according to block-specific flow times, allowing successive blocks to become ready for sequential execution. After each ready block is executed, the resulting tactile feedback is encoded before generation resumes from the retained intermediate states of un",
+  "image": "details/2608.25798/F1.jpg"
+ },
+ "overview_ja": "ロボットが物体と接触しながら作業を行うコンタクトリッチな操作では、力のかかり具合やすべりといった接触状態の変化へ即座に適応することが欠かせません。最近のVLA（Vision-Language-Action）モデルは、動作をまとまり（チャンク）として一度に予測する方式が主流ですが、ここには大きな落とし穴があります。チャンクの生成前に取得した触覚情報だけに頼ると、実行中に接触状態が急激に変化しても追従できず、触覚情報が「時代遅れ」になってしまうのです。かといって、触覚反応専用の高速な低レイヤコントローラを別建てで用意すると、モデル構造も学習パイプラインも複雑化してしまいます。\n\nそこで著者らは、単一のアクション生成モデル内で動作の逐次実行と触覚情報の更新を両立させる「TacForcing」を提案しました。アクションチャンクをいくつかのブロックに分割し、直近で動かすブロックから優先的に生成を完了させて実行に移します。残りのブロックは中間状態を保持しておき、ブロック実行直後に届いた最新の触覚フィードバックを取り込んで生成を再開します。さらに、最新の触覚情報をまだ実行しない遠い未来のアクションにまで見せてしまうと時間的なミスマッチが起きるため、「次に実行するブロックだけ」に触覚を参照させるExecution-Aware Tactile Attention（EATA）を導入しました。\n\nシミュレーションの6タスクおよび多指ハンドを用いた実機3タスクで検証したところ、TacForcingはシミュレーションで平均65%、実機で平均69%の成功率を達成しました。触覚を使わないモデルや固定触覚モデルはもちろん、階層型の触覚リアクティブ手法をも上回る高い接触適応性能を示しています。",
+ "contributions_ja": [
+  "別建てのリアクティブコントローラを必要とせず、単一モデル内で実行時の触覚フィードバックを取り込めるストリーミング動作生成フレームワーク「TacForcing」を提案した点",
+  "動作チャンクをブロック単位で段階的に生成・実行し、中間状態を維持しながら最新の触覚で後続動作をリファインするFlow Scheduling手法を構築した点",
+  "最新の触覚情報を直近で実行するアクションブロックのみに限定して参照させる注意機構「Execution-Aware Tactile Attention（EATA）」を提案し、触覚取得と実行の時間的ズレを抑えた点",
+  "シミュレーション6タスクおよび実機3タスクにおいて、視覚のみ・固定触覚・別系統リアクティブコントローラといった強力なベースラインを有意に上回る成功率を示した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜVLAで触覚を活かすのが難しいのか",
+   "summary_ja": "動作チャンク予測を行う既存のVLAモデルでは、実行中に接触状態が激変しても追従できず、別建ての高速コントローラを用意すると設計が煩雑になる課題がありました。本論文では、生成途中の状態を保持しながら実行時触覚を取り込むストリーミング動作生成「TacForcing」を提案します。",
+   "details_ja": "精密組み立てや部品の挿入などの接触を伴うタスクでは、セマンティクスの理解だけでなく刻々と変わる接触状態への適応が不可欠です。画像と言語からロボットの動作を生成するVLAモデルは高い汎化性を示していますが、視覚情報だけでは力のかかり具合やすべり、オクルージョン（遮蔽）下での接触状態を正確に捉えられません。\n\nそこで触覚を取り込む試みが進められていますが、ここには時間的なズレという大きな課題が存在します。視覚情報が1秒程度の間でほとんど変化しないのに対し、触覚情報は1つの動作チャンク（まとまり）を実行している最中に激しく変化します。チャンク全体をはじめの触覚情報だけで生成してしまうと、実行後半の動作と実際の接触状態との乖離が急速に拡大してしまいます。従来のリアクティブ手法は、低頻度の視覚方針と高頻度の触覚コントローラを組み合わせるアプローチを採ってきましたが、構造も学習も極めて複雑になるという難点がありました。\n\nこの課題に対し本論文が提案するのが「TacForcing」です。動作チャンクをブロックに細分化し、直近のブロックから順に生成・実行しつつ、後続ブロックは中間生成状態を保持したまま最新の触覚で順次リファイン（再調整）していきます。さらに、得られた触覚を次に実行する直近ブロックのみに届けるExecution-Aware Tactile Attention（EATA）を組み合わせることで、余計なコントローラを追加することなく、高い触覚適応性を実現しています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "TacForcingの処理フロー。VLMが視覚と言語から大域的なタスク文脈を生成し、Streaming Action Expertが動作ブロックを時間差をつけて生成します。ブロックが実行されるたびに指先センサの触覚フィードバックが更新され、次のブロックへと反映されます。",
+     "caption": "Figure 1 : Overview of TacForcing . The VLM encodes the visual observation and language instruction once, and the resulting task context is reused throughout streaming generation. The Streaming Action Expert progressively refines action blocks according to block-specific flow times, allowing successive blocks to become ready for sequential execution. After each ready block is executed, the resulting tactile feedback is encoded before generation resumes from the retained intermediate states of un",
+     "image": "details/2608.25798/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Preliminaries and Motivation",
+   "heading_ja": "触覚の激しい変化と「固定触覚」の限界",
+   "summary_ja": "Flow Matchingによる動作生成の定式化を整理した上で、スポイト操作時の観察データから視覚と触覚のダイナミクスの違いを実証しました。動作チャンクの実行中に視覚特徴はほぼ変わりませんが、触覚特徴は大きくドリフトし、初期触覚への固定が破綻の原因になることを示しています。",
+   "details_ja": "### 2.1 Flow Matchingの基本\n生成モデルとして、ノイズ分布からデータ分布への連続的な変換場を学習するFlow Matching（FM）を採用しています。条件 $y$ のもとで、ノイズ $x_0 \\sim \\mathcal{N}(0, I)$ とデータ $x_1 \\sim p_{\\mathrm{data}}(\\cdot \\mid y)$ を線形補間し、その速度場 $v_\\theta$ を二乗誤差最小化によって学習します。推論時は時刻 $\\tau=0$ から $\\tau=1$ まで速度場を積分することで動作をサンプリングします。\n\n### 2.2 問題設定と標準的な動作生成の制約\nロボットは視覚 $V_t$、自己受容感覚 $s_t$、言語指示 $\\ell$ からなるタスク文脈 $c_t$ と、触覚観測 $T_t$ を受け取り、ホライズン $H$ の動作チャンク $A_t = [a_t, \\ldots, a_{t+H-1}]$ を生成します。しかし従来のFlow型Action Expertでは、全ステップが共通の生成時刻（フロー時間）を共有するため、チャンク全体を実行開始前の固定された観測 $(c_t, T_t)$ だけで一括生成してしまいます。そのため、実行途中で得られた触覚を同じチャンク内の後続動作に反映できません。\n\n### 2.3 固定触覚による時間的ミスマッチの実証\n著者らはスポイトをつまんで液体を吸い上げる動作（40ステップ、約1.17秒）において、視覚と触覚の表現が時間経過とともにどう変化するかをコサイン距離で定量化しました。その結果、開始時点の表現と比較したとき、視覚特徴の変化量はわずか0.005にとどまったのに対し、親指と人差し指の触覚特徴の変化量は0.55に達しました。つまり、「目はほとんど同じシーンを見ているのに、指先の感触は激変している」ということです。この事実こそが、チャンク先頭の触覚に頼り切るアプローチが接触作業で失敗する根本原因です。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "スポイト押し潰し時の視覚と触覚の変動の比較。(a)実行開始と終了時の手元カメラ画像。(b)親指と人差し指の指先変形マップの推移。(c)初期特徴からのコサイン距離。視覚の変動（約0.005）に対して触覚の変動（約0.55）が極めて大きいことが分かります。",
+     "caption": "Figure 2 : Visual and tactile dynamics during dropper squeezing. (a) Visual observations at the beginning and end of the action horizon. (b) Deformation maps from the thumb and index finger, sampled every five actions. (c) Cosine distances from the initial visual and tactile representations; the inset enlarges the visual scale.",
+     "image": "details/2608.25798/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "ブロック単位の生成スケジュールとEATA",
+   "summary_ja": "動作チャンクをブロックに分け、生成時刻（フロー時間）をずらすことで実行と生成をインターリーブさせる機構を導入しました。さらに、新しく得た触覚情報を「次に実行する直近ブロック」にのみ接続するアテンションマスク（EATA）により、将来動作への不適切な触覚リークを防いでいます。",
+   "details_ja": "### 3.1 ブロック単位のFlow Schedulingによるストリーミング生成\n毎ステップごとに推論を回すと計算コストが膨大になるため、TacForcingでは動作ホライズン $H$ をサイズ $B$ の連続する $K$ 個のブロックに分割します（$H=KB$）。全体のサンプリングステップ数 $N=KS$ において、各ブロック $k$ の生成完了時刻を $n_k = kS$ とずらして設定します。直近のブロック $A_t^{(1)}$ が真っ先に生成を完了してロボットに送られ、その間に後続ブロックは中間生成状態のまま保持されます。ブロックが完了するたびに順次実行へ回すことで、推論遅延を抑えつつ実行時フィードバックを取り込む隙間を作ります。\n\n### 3.2 実行時触覚フィードバックとExecution-Aware Tactile Attention（EATA）\n大域的な視覚・言語文脈 $C_t$ はチャンクの最初に1回だけエンコードして使い回します。一方で触覚情報 $T_t^{(k)}$ は、ブロック $k$ が実行されるたびに指先の変形マップをエンコーダに通してトークン列 $Z_t^{(k)}$ として更新します。\nここで重要なのがEATAの設計です。実行直後に得られた最新触覚 $Z_t^{(k-1)}$ は、次に実行される直近ブロック $A_t^{(k)}$ にとってはまさにタイムリーな情報ですが、さらに先の未完了ブロックにとっては「まだ早すぎる情報」です。制約なく全ブロックがこの触覚を参照してしまうと、将来の動作が古い触覚に引きずられてしまいます。そこでアテンションマスク $\\mathcal{M}^{(k)}$ を導入し、直近ブロック $A_t^{(k)}$ のクエリのみが最新触覚トークンにアクセスできるように制限し、それ以降のブロックは自身の実行番が回ってくるまで触覚を参照させないようにしました。\n\n### 3.3 学習手順\nストリーミング推論時と条件を一致させるため、学習時にも生成の進捗度合い $p \\sim \\mathcal{U}([0, 1))$ をランダムサンプリングします。進捗 $p$ に応じて各ブロックの中間状態とフロー時間を計算し、その時点で「未完了」となっているブロックの動作トークンに対してのみ、該当する実行ステージの触覚トークンとEATAマスクを適用して速度場の予測損失を計算します。",
+   "figures": []
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "実機とシミュレータによる接触作業ベンチマーク",
+   "summary_ja": "シミュレーション6タスクと実機3タスクにおいて、視覚のみ・固定触覚・別系統コントローラなどのベースラインと比較しました。TacForcingはシミュレーションで平均65%、実機で平均69%の最高成功率を記録し、アブレーションにより実行時更新とEATAの双方が不可欠であることを実証しました。",
+   "details_ja": "### 4.1 実験設定\n- ベンチマーク: シミュレータUniVTACの6タスク（ボトル持ち上げ、鍵引き抜き、缶持ち上げ、棚へのボトル収納、細穴挿入、チューブ挿入）および実機3タスク（ボトル立て直し、液体移し替え、ホワイトボード拭き）。\n- 比較対象: 触覚なしの$\\pi_{0.5}$およびGR00T N1.7、事前学習触覚付きのUniVTAC-ACTおよびFTP-1、高周波リアクティブコントローラを併用するRDP。\n- 実装詳細: ブロックサイズ $B=5$。シミュレーションは $H=50$（$K=10$ブロック）、実機は $H=40$（$K=8$ブロック）。評価はシミュレーションで各100試行、実機で各16試行。\n\n### 4.2 主要な実験結果\n- シミュレーション結果: TacForcingは平均成功率65%を達成し、視覚のみの$\\pi_{0.5}$（51%）を14ポイント、階層リアクティブ型のRDP（42%）を23ポイント上回りました。全6タスク中5タスクで単独トップまたはタイを記録しています。\n- 実機結果: 平均成功率69%を達成し、強力なベースラインであるFTP-1（52%）、GR00T N1.7（42%）、$\\pi_{0.5}$（27%）を大きく引き離しました。特に繊細な接触調整が求められる「液体移し替え（Transfer Liquid）」では、他手法が最大でも19%しか成功しなかったのに対し、TacForcingは50%と圧倒的な差をつけました。\n\n### 4.3 アブレーション研究\n提案要素の寄与を検証するため4つの構成を比較しました。\n1. Base（触覚なし）: シミュレーション平均43%、実機平均42%\n2. Fixed Tactile（開始時の触覚に固定）: シミュレーション42%、実機31%（固定触覚はむしろ性能を下げるケースすらある）\n3. TacForcing without EATA（実行時更新あり、EATAなし）: シミュレーション51%、実機48%\n4. TacForcing（提案手法完全版）: シミュレーション60%、実機69%\n実行時に触覚を更新するだけでも大幅に改善しますが、EATAによって直近ブロックのみに触覚を絞ることで、実機成功率が48%から69%へとさらに21ポイント跳ね上がりました。触覚を適切なタイミングのアクションにだけ届ける重要性が明確に示されています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "実機3タスクの様子と評価結果。(a)「ボトル立て直し」「液体移し替え」「ホワイトボード拭き」の様子。(b)ベースラインとの成功率比較。TacForcingは特に繊細な力加減が要求される液体移し替えで他手法（最高19%）を大きく凌ぐ50%を達成しています。",
+     "caption": "Figure 3 : Real-world tasks and evaluation results. (a) Representative snapshots of the Stand Bottle , Transfer Liquid , and Wipe Board tasks. (b) Success rates (%) of TacForcing and the baselines on the three tasks and their average.",
+     "image": "details/2608.25798/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Related Work",
+   "heading_ja": "拡散・Flowモデルの逐次生成と触覚ロボティクスの系譜",
+   "summary_ja": "動作生成におけるDiffusion Forcingなどのストリーミング手法と、接触リッチな操作に向けた触覚ポリシーの先行研究を整理しました。TacForcingはこれらを融合し、別系統の低レイヤ制御器や未来予測に頼らず、単一の生成器で接触フィードバックを取り込む新しい位置づけにあります。",
+   "details_ja": "### 5.1 系列生成のための拡散・Flowモデル\nFlow Matchingや拡散モデルは軌道全体の生成で広く使われていますが、通常はホライズン全体で同一の生成ステップを共有し、生成が終わってから実行を開始します。これに対し、トークンごとに異なるノイズレベルを割り当てるDiffusion Forcingなどの手法や、ロボティクスにおけるローリングバッファ更新手法が提案されてきました。しかし、これらは主に推論遅延の短縮を目的としており、「アクションホライズン内で急変する接触フィードバックのタイミング整合」に着目したものではありませんでした。TacForcingはこのストリーミングの枠組みを触覚フィードバックの統合へと応用しています。\n\n### 5.2 接触作業のための触覚ポリシー\nロボットにおける触覚利用には、視覚と触覚の特徴表現学習や、マルチモーダル事前学習によるVLAの拡張などがあります。しかし、これらは「生成途中の動作ホライズンに対して、次々と届く触覚をいかに条件付けるか」という時間軸の制御には踏み込んでいませんでした。実行時適応を行う既存手法の多くは、低速な視覚モデルと高速な触覚リアクティブ制御器を分けるか、あるいは未来の接触状態を明示的に予測する手法でした。TacForcingは独立した制御器や接触予測モデルを作ることなく、単一のストリーミング生成モデル内で完結させている点が際立った違いです。",
+   "figures": []
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "TacForcingは、ストリーミング動作生成とEATAの組み合わせにより、追加のコントローラなしで実行時の触覚適応を可能にしました。シミュレーションと実機の双方で大幅な性能向上を達成し、動作実行と触覚フィードバックの時間的同期の重要性を証明しました。",
+   "details_ja": "本研究では、動作チャンク実行中の接触状態の急激な変化に対応するための新しいストリーミング動作生成フレームワーク「TacForcing」を提案しました。\n\nStreaming Action Expertによって動作ブロックを順次生成・実行し、未完了ブロックの中間状態を保持して実行時触覚でリファインする仕組みを確立しました。さらにExecution-Aware Tactile Attention（EATA）によって最新触覚の適用範囲を直近ブロックに限定し、時間的ミスマッチを解消しました。シミュレーション6タスクで平均65%、実機3タスクで平均69%という高い成功率を記録し、アブレーション実験でも各コンポーネントの有効性が強く支持されています。コンタクトリッチなロボット操作において、触覚情報を単に入力するだけでなく「実行タイミングに合わせて適切に同期させる」ことの決定的な重要性を示した一歩と言えます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix A Additional Implementation Details / Appendix B Real-World Platform and Task Settings / Appendix C Simulation Task Details",
+   "heading_ja": "付録：双腕多指ハンドの実機セットアップとタスク詳細",
+   "summary_ja": "実機には7自由度アーム2台と指先触覚センサ付き22自由度多指ハンドを用い、データグローブで教示を収集しました。シミュレーションおよび実機の各タスクの詳細な動作要件と学習ハイパーパラメータが記載されています。",
+   "details_ja": "### 実機プラットフォーム構成\n実機システムは、2台の7自由度ロボットアーム（RealMan RM75）と、各指先に接触変形マップを取得できる触覚センサを埋め込んだ22自由度の多指ハンド（Sharpa Wave）で構成されています。カメラは作業空間全体を捉えるトップカメラ（RealSense）1台と、両手首に搭載されたリストカメラ2台を使用しています。教示データの収集にはManus Proデータグローブが使われました。\n\n### タスク設定と学習パラメータ\n- 実機タスク:\n  - Stand Bottle: 横倒しのボトルを把持し、空中で持ち替えて倒さずに直立させる。\n  - Transfer Liquid: 遮蔽がある中でスポイトを精密に把持・操作し、フラスコから液体を吸い上げてビーカーに移す。\n  - Wipe Board: イレーザーを適切な押し付け力でホワイトボードに密着させながら移動させ、マーカー跡を消す。\n- 学習条件:\n  - 実機は1タスクあたり100本の教示軌跡を用い、バッチサイズ256、AdamW（ピーク学習率 $6 \\times 10^{-5}$）で30,000ステップ学習。\n  - シミュレーションはUniVTACの50軌跡を用い、15,000ステップ学習。\n  - ブロックサイズは一貫して $B=5$ アクションとしています。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "実機ロボットシステムの構成。(a)指先に触覚センサを持つSharpa Wave多指ハンド、(b)教示用のManus Proデータグローブ、(c)RealMan RM75双腕アーム、(d)トップおよび手首カメラの配置。",
+     "caption": "Figure 4 : Real-world platform. The setup comprises (a) Sharpa Wave dexterous hands, (b) Manus Pro data gloves, (c) two RealMan RM75 robot arms, and (d) top- and wrist-mounted RealSense cameras.",
+     "image": "details/2608.25798/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "実機3タスクの実行シークエンス。「ボトル立て直し（Stand Bottle）」「液体移し替え（Transfer Liquid）」「ホワイトボード拭き（Wipe Board）」の各フェーズの様子。",
+     "caption": "Figure 5 : Real-world task settings. Representative execution sequences for Stand Bottle , Transfer Liquid , and Wipe Board .",
+     "image": "details/2608.25798/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "シミュレーション評価で用いたUniVTACの6タスク（ボトル持ち上げ、鍵引き抜き、缶持ち上げ、棚入れ、穴挿入、チューブ挿入）の実行スナップショット。",
+     "caption": "Figure 6 : UniVTAC simulation tasks. Representative execution sequences for the six tasks used in our simulation experiments, reproduced from UniVTAC [ 4 ] .",
+     "image": "details/2608.25798/F6.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "動作チャンク予測において「最初に得た触覚を全ステップで使い回す」アプローチは、接触変化に追従できず逆効果にすらなり得る",
+  "独立した高周波コントローラを外付けしなくても、単一のFlow生成モデルの生成時刻（フロー時間）をブロックごとにずらすことで、実行時フィードバックの逐次反映が可能になる",
+  "最新のセンサ情報をただ全体にブロードキャストするのではなく、「次に実行する直近のアクション」にのみ絞って参照させる注意機構（EATA）が、時間的ミスマッチを防ぐ上で極めて効果的である"
+ ],
+ "limitations_ja": [
+  "ブロックサイズ（$B=5$）やサンプリングステップ数の配分が固定されており、タスクのダイナミクスの速さに応じて動的に更新頻度を変える仕組みにはなっていない",
+  "大域的な視覚・言語文脈（VLM側）はチャンク先頭で1回エンコードしたきり固定しているため、動作実行中に急激な視覚的変化やオクルージョンの解消が起きた場合の適応は考慮されていない",
+  "実機評価における教示データ収集に高価な多指ハンド対応グローブシステムを必要とし、一般的なグリッパーに比べて導入のハードルが高い"
+ ],
+ "keywords": [
+  "Vision-Language-Action Models",
+  "Tactile Feedback",
+  "Contact-Rich Manipulation",
+  "Flow Matching",
+  "Streaming Generation"
+ ],
+ "id": "2608.25798",
+ "title": "TacForcing: Streaming Action Generation with Execution-Time Tactile Feedback",
+ "title_ja": "TacForcing：実行時触覚フィードバックを伴うストリーミング行動生成",
+ "authors": [
+  "Jianbo Zhou",
+  "Boyuan Zhao",
+  "Yuzheng Zhang",
+  "Yiyang Chen",
+  "Wenxin Chen",
+  "Qiuyue Li",
+  "Xiangyang Gu",
+  "Yuhan Cao",
+  "Xiao Xia",
+  "Yanzhe Hu",
+  "Zhijie Deng"
+ ],
+ "date": "2026-08-27",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "vision-language-action",
+  "control"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.25798",
+ "pdf_url": "https://arxiv.org/pdf/2608.25798",
+ "summary_ja": "接触を伴うマニピュレーションにおいて、動作チャンク実行中の遅延した触覚情報をリアルタイムに反映するTacForcingを提案。別個の高周波制御器を用意する代わりに、直近の触覚系列を入力とする自己回帰的トランスフォーマーを採用し、接触状態の変化に即応するストリーミング動作生成を実現した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.25798"
+}
