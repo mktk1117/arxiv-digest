@@ -1,0 +1,162 @@
+{
+ "tldr_ja": "行動予測の教師信号のみを用いて、制御に必要な注視領域（ROI）を自己組織化的に学習するモジュール「Seeker」を提案しました。空間アノテーションや手動設計ヒューリスティクスなしで、タスク進行に応じた動的クロップや頑健な背景拡張、点群フィルタリングを実現し、実機マニピュレーションの成功率を大幅に向上させました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "提案手法Seekerの全体像です。(a) ロボット状態とタスク条件で生成したクエリが、固定DINOv3特徴量を反復的に検索・更新し、(b) アテンションマップから関心領域（ROI）のマスクとバウンディングボックスを抽出します。(c) この読み出し機構は拡散モデルによる行動予測損失のみでエンドツーエンドに学習されます。",
+  "caption": "Figure 1: Seeker Overview. (a) A state-conditioned query is iteratively refined over frozen DINOv3 patch tokens, producing a compact visual context together with attention maps and head scores. (b) Head-score-weighted attention is converted into a mask and bounding box using a top_p mass criterion. (c) The visual context is trained through a diffusion action-prediction loss, allowing the ROI to emerge without spatial supervision.",
+  "image": "details/2608.13422/F1.jpg"
+ },
+ "overview_ja": "ロボットの視覚模倣学習では、画像のどこを見てどう動くかを分離し、制御に必要な領域（ROI: Region of Interest）を切り出してポリシーに入力することでデータ効率を高めるアプローチが有効です。しかし、どこを見るべきかは単純な物体の位置だけでなく、接触点や目標領域、空間関係などタスクの進行度やロボットの状態に応じて刻々と変化します。従来の空間ボトルネック手法は、人の視線や物体検出バウンディングボックス、あるいは手先速度の低下やグリッパーの開閉タイミングで切り出すヒューリスティクスに頼っており、連続動作の途中で注目すべき手掛かりを見逃したり、ツール接触点と手先位置のズレに対応できない問題がありました。\n\nそこで著者らは、行動そのものが「どこを見るべきか」の最良の教師である点に着目し、外部アノテーション不要で行動予測誤差のみから動的なROIを発見する「Seeker」を提案しました。Seekerは、凍結されたDINOv3パッチ特徴量に対し、ロボットの内部状態とタスク埋め込みで初期化したクエリを用いて反復的に注意を向け、視覚証拠を集めながらクエリを洗練していきます。学習されたROIは、単なる画像クロップにとどまらず、不要領域を乱すマスク誘導型データ拡張や、3次元点群のフィルタリングにもそのまま転用可能です。\n\nシミュレーション（MimicGen 6タスク）および実機（xArm7による3タスク）で評価した結果、Seekerは特権的なオラクル領域に迫るデータ効率を達成しました。実機実験では、最良のベースラインの成功率48.3%を76.7%まで引き上げ、照明や背景が変化したドメイン外環境でも20.0%から60.0%へと高い頑健性を示しました。",
+ "contributions_ja": [
+  "視線や物体クラスなどの空間ラベルを一切使わず、行動予測（模倣学習）の損失のみから動的な関心領域（ROI）を発見するアテンション読み出し機構「Seeker」を提案したこと。",
+  "抽出したROIをRGB画像の動的クロップ、背景摂動用のマスク誘導型データ拡張、3D点群の空間フィルタリングの3通りに再利用できる共通インターフェースとして確立したこと。",
+  "シミュレーションと実機マニピュレーションにおいて、キーフレームや手先位置に基づく従来ヒューリスティクスを大幅に凌駕し、環境変化に対する高いロバスト性を示したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "「どこを見るか」を行動から直接学ぶアプローチ",
+   "summary_ja": "視覚模倣学習のデータ効率を高めるには注視領域の特定が有効ですが、制御に必要な手掛かりは接触面や相対位置など多岐にわたり、既存のヒューリスティクスでは捉えきれません。本論文では、行動予測の教師信号のみからタスク進行に応じた動的なROIを獲得するモジュール「Seeker」を提案します。",
+   "details_ja": "複雑な環境での長工程マニピュレーションでは、判断に直結する視覚的な手掛かりは画像全体のごく一部に集中しています。そのため、「どこを見るか（Where to look）」と「どう動くか（How to act）」を分離し、関心領域（ROI）に絞った入力をポリシーに与えるアプローチが有効です。しかし、制御に必要なROIは固定的な意味カテゴリではなく、ロボットの状態や作業フェーズ、接触の有無に応じて変化します。\n\n既存の多くの手法は、人間の視線データやVLM（Vision-Language Model）によるグラウンディング、あるいは手先速度がゼロになった瞬間やグリッパー開閉イベントで画像を切り出すヒューリスティクスを採用してきました。ですが、こうした手法はイベント閾値や切り出しスケールが手動で固定されており、連続的な注ぎ動作のように明確なキーフレームがない場合や、手先から離れたツール先端が重要な場合に追従できません。\n\n本研究が提案するSeekerは、模倣学習のデモンストレーションに含まれる観測と行動の系列から、行動予測を通じて制御に必要な視覚的ボトルネックを直接学習します。自己教師あり学習済みモデル（DINOv3）の特徴量に対して反復的なクエリ探索を行うことで、空間ラベルを一切使わずに、タスクの進行度や接触状態に適応したROIを自己組織化させます。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "事前分布・ヒューリスティクスに基づく手法との違い",
+   "summary_ja": "先行研究は外部の視覚事前分布や行動から導出されたキーフレームヒューリスティクスを用いて注視領域を定めていましたが、制御に必要な動的要件と乖離しやすい課題がありました。Seekerはこれらを手動設計せず、行動データから明示的かつ汎用的なROIを直接獲得する点で異なります。",
+   "details_ja": "視覚的ボトルネックに関する従来研究は、大きく2つの系統に分かれます。\n\n- 外部事前分布や補助信号を利用するアプローチ: 人間の視線予測、物体中心の切り出し、VLMによる言語グラウンディング、あるいは学習されたキーポイントなどを用いて入力を制限します。これらは意味的に妥当な領域を捉えられますが、次の瞬間の制御判断に必要な微小な接触面や空間関係を捉えきれないことがあります。\n- 行動から導出される空間ボトルネック: Q-attentionやRVT、RVT-2などは、手先軌道の停止やグリッパー開閉をトリガーとして注目領域やボクセルをズームします。しかし、どのタイミングでどのプロキシ点（手先など）を基準にするか、どのスケールでクロップするかを手動設計しているため、軌道のばらつきに脆弱です。\n\nSeekerはこれらと異なり、設計者のヒューリスティクスを排し、観測と行動の流れから直接ROIの読み出し機構を学習します。さらに、得られたROIをRGBクロップだけでなく、データ拡張や点群処理にも転用できる点が進歩性です。",
+   "figures": []
+  },
+  {
+   "heading": "3 Methodology",
+   "heading_ja": "Seekerの仕組み：反復クエリと行動教師によるROI創発",
+   "summary_ja": "固定されたDINOv3特徴量に対し、ロボット状態とタスク埋め込みで条件付けられたクエリが注意を向けて自己更新を繰り返します。この読み出し機構を行動予測（拡散モデル）で学習することで、アテンションマップから制御に必要な領域のマスクやバウンディングボックスを取り出します。",
+   "details_ja": "Seekerのコア構造は、凍結されたDINOv3パッチトークンに対する反復的でゲート付きのクロスアテンション読み出し機構です。\n\n### 3.1 Seeker Architecture\n- ロボット状態で条件付けられたクエリ: タスク埋め込みベクトル $Z$ と、手先位置・グリッパー状態などの自己受容感覚（プロプリオセプション） $s$ をMLPに入力し、スケール・シフト変換（FiLM）によって初期クエリ $Q^{(0)}$ を生成します。「今、何を探すべきか」をロボットの状態から設定するわけです。\n- 反復的なゲート付き読み出し: 読み出しを $T$ ステップ（本研究では $T=2$ ）行います。各ステップでクエリが視覚特徴のキー・値にアテンションを払い、複数のヘッドから文脈を取り出します。各ヘッドの重要度はクエリに応じてゲート予測され、重み付け合算されてクエリ自身を更新します。これにより、大まかな領域探索から精緻な手掛かりへの絞り込みが可能になります。\n\n### 行動教師によるROIインターフェース\n最終的に得られたコンパクトな視覚文脈 $\\widetilde{C}$ は、プロプリオセプションやタスク埋め込みと結合され、拡散モデル（Diffusion Head）による行動予測損失 $\\mathcal{L}_{\\mathrm{MSE}}$ で訓練されます。つまり、ROI専用のアノテーションは不要で、行動が正しく予測できるようにアテンションが自己組織化されます。\n\n学習完了後、拡散ヘッドは破棄し、Seekerの重みを固定します。アテンションマップ $\\widetilde{A}$ に対し、累積確率が $\\texttt{top\\_p}=0.8$ を超える最小のパッチ集合を選択することで、バウンディングボックスとパッチマスクを抽出します。このROIは次の3通りの下流用途に再利用されます:\n- RGBクロップ: 三者視点カメラの関心領域を切り出してポリシーに入力（位置・スケール情報はFiLMで条件付け）。\n- マスク誘導型データ拡張: 背景ノイズを合成する際、マスク領域（タスク関連部）を保護し、無関係な背景だけを強く変形。\n- 点群フィルタリング: 予測した画像矩形内に再投影される3D点群のみを残してダウンサンプリング。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "Seekerのアーキテクチャ詳細です。ロボット状態とタスクから作られたクエリが反復更新され、得られたアテンションマップからtop-p基準でROIを抽出します。行動予測の拡散損失によって学習されます。",
+     "caption": "Figure 1: Seeker Overview. (a) A state-conditioned query is iteratively refined over frozen DINOv3 patch tokens, producing a compact visual context together with attention maps and head scores. (b) Head-score-weighted attention is converted into a mask and bounding box using a top_p mass criterion. (c) The visual context is trained through a diffusion action-prediction loss, allowing the ROI to emerge without spatial supervision.",
+     "image": "details/2608.13422/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Simulation Evaluations",
+   "heading_ja": "シミュレーション評価：データ効率、背景頑健性、点群への適用",
+   "summary_ja": "MimicGenの6つの難関タスクで評価し、RGBポリシーの平均成功率をベースラインの42.6%から62.6%へと大きく向上させました。また、マスクを用いた背景拡張や、再学習なしでの点群ポリシーへの転用でも明確な改善が確認されました。",
+   "details_ja": "シミュレーション環境にはMimicGenの6タスク（Stack Three、Square、Three-Piece Assembly、Coffee Preparation、Pick & Place、Threading）を用いました。各タスク100デモで学習させた単一のマルチタスクSeekerを固定し、下流の評価を行いました。\n\n### RGBデータ効率\nResNet-18バックボーンのDiffusion Policyを用いた比較において、Seekerは平均成功率62.6%を達成しました。クロップなしのMirrorAug（34.8%）や、RVT-2風の手先キーフレームベースライン（42.6%）を約20ポイント引き離し、特権的な目標領域ピクセルを与えるオラクル手法（64.2%）に迫る性能を示しました。特に、細かな接触や位置合わせが連続するThree-Piece AssemblyやThreadingで大きな伸びを見せています。\n\n### マスク誘導型データ拡張による背景般化\nテーブルのテクスチャをシャッフルした頑健性テストでは、Seekerのマスクを用いて背景のみにランダムテクスチャを重畳する拡張（Seeker-Guided）を行いました。画像全体を一律に変形するベースラインに比べ、操作対象の微細な手掛かりを潰さずに背景変化へ適応でき、最も高い成功率を維持しました。\n\n### 点群ポリシーへの転用\nRGB行動から学習したSeekerを再学習することなく、3次元点群（DP3）のフィルタリングに適用しました。手動で設定したワークスペース切り出しに対し、Seekerの画像バウンディングボックスに投影される点群のみを残す処理を加えたところ、平均成功率が絶対値で30.3ポイント向上しました。これは、SeekerがRGB固有の特徴だけでなく、汎用的な幾何空間インターフェースとして機能していることを示しています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "シミュレーションのセットアップとROIの推移です。(b) コーヒー準備タスクにおいて、工程が進むにつれてSeekerのROIがマグカップからカプセル、投入口へと動的に遷移している様子が分かります。(c) 従来ヒューリスティクスが失敗するケース（連続運動の見逃しや手先オフセット）も示されています。",
+     "caption": "Figure 2: Simulation setup and Seeker visualization. (a) MimicGen [ 15 ] task overview. (b) In Coffee Preparation, Seeker ROIs shift with task progress; selected frames correspond to peaks in pairwise context-feature distance. (c) RVT2-style heuristic ROI stress cases: missed continuous-motion cues, noisy gripper-triggered keyframes, and tool-contact regions offset from the TCP proxy. (d) Seeker crops and masks across tasks.",
+     "image": "details/2608.13422/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "テーブル背景を乱した環境での頑健性評価です。(a) 通常背景で学習したモデル（薄色）と背景ランダム化で学習したモデル（濃色）の両方で、Seeker誘導型のデータ拡張が最も高い性能を示しています。(b) にはその合成例が示されています。",
+     "caption": "Figure 3: Background Robustness and Guided Augmentation. (a) Light bars use original-background training, solid bars use 25 randomized-background training, and diamonds show in-domain mean success from the main benchmark. We compare MirrorAug, RAVEN+Overlay, RVT2-Crop, and Seeker-Guided augmentation. (b) Seeker-guided augmentation examples and evaluation environments.",
+     "image": "details/2608.13422/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "点群ポリシー（DP3）への転用結果です。左図のように、手動のワークスペース切り出し（上段）にSeekerによるフィルタリング（下段）を組み合わせることで、タスクに直結する物体やグリッパー周辺の点群密度が劇的に高まります。",
+     "caption": "Figure 4: Point-cloud transfer with DP3 [ 29 ] . Left: manual workspace cropping vs. manual+Seeker ROI filtering, with point clouds independently scaled for visualization. Right: success rates with 200 demonstrations for no crop, manual crop, and manual+Seeker filtering; absolute gains are computed over the manual cropping.",
+     "image": "details/2608.13422/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Real-world Evaluations",
+   "heading_ja": "実機ロボット実験：実環境のノイズと外乱に対する強さ",
+   "summary_ja": "xArm7を用いた実機3タスク（Coffee Transport、Table Cleanup、Board Assembly）で検証しました。Seekerは同一ドメインでの成功率を48.3%から76.7%へ、照明や背景が変化したドメイン外（OOD）環境でも20.0%から60.0%へと大幅に向上させました。",
+   "details_ja": "実機環境では、UFactory xArm7と2台のカメラ（固定三人称視点＋手先カメラ）を使用し、視覚的に紛らわしいテクスチャのテーブル上で3つの高難度タスクを実施しました。\n\n- 評価タスク:\n  - Coffee Transport: スプーンでコーヒー豆をすくい、白いデミタスカップに注ぐ作業。連続運動であり、背景とカップのコントラストが極めて低い設定です。\n  - Table Cleanup: ニンジンとトマトを細長いゴミ箱へ順次投入し、フタを閉める長工程作業。ゴミ箱の口に合わせるための3次元的な傾け動作が必要です。\n  - Board Assembly: 丸・四角・六角形のパーツを対応する穴にはめ込む作業。穴の色とパーツの色があえて不一致にしてあり、純粋な形状認識が求められます。\n\n### 結果とエラー分析\n実機評価において、Seekerはドメイン内（ID）の成功率で76.7%を記録し、最良ベースライン（48.3%）を大きく上回りました。さらに、室内照明を暗くしたり色付きライトを当てた照明変化、およびテーブルクロスを変更した背景変化（OOD環境）において、ベースラインが20.0%まで崩壊したのに対し、Seekerは60.0%の成功率を維持しました。\n\nヒューリスティクスに基づくRVT2-Cropが失敗した主な要因は、人間による教示軌道の速度ムラによって無関係な場所で停止キーフレームを誤検出したことや、コーヒー豆を運ぶような連続移動中にグリッパー開閉イベントが存在せず、注視領域が置き去りにされた点にありました。対してSeekerは、スプーン先端とカップの相対関係に滑らかに焦点を合わせ続けました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "実機実験のセットアップと評価条件です。(a) 3つのタスクの初期・終了状態、(b) 背景や照明を変化させたOOD環境、(c) 外乱下でもターゲットを捉え続けるSeekerのROI、(d) 従来手法が起こす誤検出（無関係な空中でクロップしてしまう現象）が示されています。",
+     "caption": "Figure 5: Real-world Setup and Visual Diagnostics. (a) Start and goal configurations for the three real-world tasks. (b) OOD evaluation conditions with background and lighting shifts. (c) Seeker ROIs remain focused on predicted control-relevant regions under appearance changes. (d) Heuristic crops can produce ghost keyframes or miss interaction-relevant continuous-motion cues without reliable gripper-state anchors.",
+     "image": "details/2608.13422/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Ablations",
+   "heading_ja": "アブレーション研究：なぜSeekerはうまく機能するのか",
+   "summary_ja": "学習目的関数の比較では拡散やフローマッチングなどの生成モデル系目的が安定したROIを生み出すことが判明しました。また、性能向上の要因は単なる位置情報の付与ではなく、画像を明示的にクロップして視覚探索空間を減らすことにあると実証されました。",
+   "details_ja": "Seekerの設計要素を分解して検証を行いました。\n\n### 学習目的関数の影響\n行動予測ヘッドの学習に、直接回帰（行動クローニング: BC）、フローマッチング、IMLE、拡散モデルを比較しました。BCのような直接回帰は、マルチモーダルな動作分布に対して平均的な予測をしてしまうため、アテンションマップがノイズだらけで重い裾野を持つ結果となりました。一方、フローマッチングや拡散モデルといった生成モデルベースの目的関数を用いると、シャープで引き締まったROIが得られ、拡散SeekerとのバウンディングボックスIoUはフローマッチングで0.67、IMLEで0.50となりました。\n\n### クロップ vs 位置条件付け\nSeekerの優位性が「切り出した画像そのもの」にあるのか、「ボックスの位置情報」にあるのかを検証しました。画像全体を入力としつつボックスの位置・スケールをFiLMで条件付けた場合（FiLM-only）は成功率が大きく低下しました。一方、解像度を落とした画像から同じボックスで切り出した場合（low-res crop）は通常のSeekerとほぼ同等の性能を維持しました。この結果から、本質的な利点は「制御に不要な背景やノイズを視覚入力から物理的に排除し、下流ポリシーの探索空間を狭めること」にあると結論づけられます。",
+   "figures": []
+  },
+  {
+   "heading": "7 Limitations",
+   "heading_ja": "本手法の限界と今後の課題",
+   "summary_ja": "SeekerのROI獲得にはデモデータ内の空間的な多様性が必要であり、静的なタスクではアテンションが局所化しにくい点があります。また、下流ポリシー学習の前に事前の学習フェーズが加わるため、学習計算コストが増加する点が制約です。",
+   "details_ja": "論文内で著者が言及している主な限界は以下の通りです。\n\n- デモンストレーションの空間カバレッジへの依存: 目標物の配置が完全に固定されているなど、視覚情報を見なくてもプロプリオセプションだけで行動が予測できてしまうタスク区間では、視覚的注意を局所化するインセンティブが働きません。配置のバリエーションが乏しいデータセットでは適切なROIが創発しないリスクがあります。\n- 学習オーバーヘッド: 下流ポリシーの学習前にSeekerを別個に事前学習する必要があり、ポリシー単体学習に比べてトータルの学習時間が約1.5〜1.8倍になります（ただし、一度学習すれば固定でき、推論時のROI抽出オーバーヘッドは約12msと軽量です）。\n- 視点統合のトレードオフ: マルチビューで同時に学習すると、手先カメラが支配的になった際に三人称視点が次の工程を先回りして見てしまうような視点間依存が生じることがあり、単独の三人称視点ROIを得るには段階的な学習手順が必要でした。",
+   "figures": []
+  },
+  {
+   "heading": "8 Conclusion & Appendix",
+   "heading_ja": "まとめと実装のポイント",
+   "summary_ja": "Seekerは行動監督から動的ROIを創発させる強力なインターフェースです。付録では、アテンションをコンパクトに引き締める「粗密トリミング」や、背景ノイズを防ぐためのピクセル摂動の重要性が詳しく解説されています。",
+   "details_ja": "Seekerの安定した学習には、付録に記載されたいくつかの工夫が大きく貢献しています。\n\n- 粗密アテンショントリミング（Coarse-to-Fine Trimming）: 行動教師だけではアテンションの裾野が広がりがちです。そこで、初期エポックは広域を探す粗いSeekerを学習し、一定エポック後にその切り出し領域内だけを見る細かいSeekerを導入。最終的に細かい側の領域外にあるアテンション質量を抑制するKLダイバージェンス損失を加えることで、引き締まった境界ボックスを生成しています（図 F7）。\n- 学習初期からのRandom Overlay: 学習の最初期（10kステップ等）において、画像に背景テクスチャを重畳する摂動を与えておかないと、無関係な背景アーティファクトにアテンションが吸着して崩壊することが確認されています（図 F8）。\n- クエリの反復更新: 1回の検索だけではロボットの手先状態が同じでも物体の初期配置が違う場合に対応しきれませんが、2回の更新を行うことで、視覚的文脈を取り込んでから最適な注視点へ収束させることができます。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "付録で解説されている「粗密アテンショントリミング」のプロセスです。全体から大まかな領域を切り出し、その内部で細かい領域を予測させてから外側の重みを抑え込むことで、無駄のないコンパクトなROIを獲得します。",
+     "caption": "Figure A.2: Coarse-to-fine Attention Trimming. From epoch 0, Seeker produces a coarse box; after $\\tau$ epochs, the fine branch predicts a fine box within the coarse ROI; after $2\\tau$ , attention trimming suppresses out-of-box mass and tightens the coarse box.",
+     "image": "details/2608.13422/F7.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "「どこを見るべきか」の空間アノテーションがなくても、行動予測の拡散損失だけで動的で高精度なROIが自己組織化的に学習できる。",
+  "手先キーフレームや速度ゼロ検出といった手動ヒューリスティクスは、連続動作やツール接触において破綻しやすいため、学習ベースの動的ROIが有効である。",
+  "獲得したROIは画像クロップだけでなく、背景変化に強いマスク誘導型データ拡張や、点群のフィルタリングにも追加学習なしで再利用できる。",
+  "データ効率の向上において重要なのは、単に「どこにあるか」の座標を与えることではなく、不要な視覚情報を削ぎ落としてポリシーの探索空間を圧縮することである。"
+ ],
+ "limitations_ja": [
+  "デモンストレーション内の空間配置が固定されていると、視覚を見ずとも行動が予測できてしまうため、適切な注視領域が創発しにくい（空間カバレッジが必須）。",
+  "ポリシー学習の前にSeekerを学習・固定する二段階の手順が必要であり、学習コストが1.5〜1.8倍程度増加する。",
+  "点群への転用時、微小な回転（姿勢）の推定ミスや広大な作業空間での点群の疎さに起因する失敗が依然として残る。"
+ ],
+ "keywords": [
+  "Visuomotor Policy Learning",
+  "Spatial Bottleneck",
+  "Attention from Action",
+  "Imitation Learning",
+  "Region of Interest (ROI)",
+  "DINOv3"
+ ],
+ "id": "2608.13422",
+ "title": "Attention from Action, for Action: Emergent Visual Bottlenecks for Policy Learning",
+ "title_ja": "行動からの注目を方策学習へ：行動から創発する視覚的ボトルネック",
+ "authors": [
+  "Zheyu Zhuang",
+  "Ruiyu Wang",
+  "Nick Heppert",
+  "Johannes Fabian Hahn",
+  "Abhinav Valada",
+  "Florian T. Pokorny",
+  "Danica Kragic"
+ ],
+ "date": "2026-08-16",
+ "group": "focus",
+ "tags": [
+  "perception",
+  "manipulation",
+  "imitation-learning",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.13422",
+ "pdf_url": "https://arxiv.org/pdf/2608.13422",
+ "summary_ja": "視覚運動方策の学習効率を高めるため、アノテーションなしで重要な関心領域（ROI）を絞り込む視覚ボトルネック手法を提案。従来の手法が固定的なクロップ位置に依存していたのに対し、制御に必要な視覚的証拠がエンドエフェクタから離れている場合や時間変化する場合でも柔軟に適応するメカニズムを構築した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.13422"
+}
