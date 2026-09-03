@@ -1,0 +1,136 @@
+{
+ "tldr_ja": "脳の左右大脳半球と脳梁に着想を得て、遅延を伴う通信線で結ばれた2つの再帰型モジュールからなる両腕筋骨格制御器を開発しました。信号依存ノイズやエネルギー制約のもとで、単一の巨大モデルを大幅に上回る頑健性を発揮し、モジュール間通信が運動の正確性・省エネ性・筋共収縮の抑制といった制御戦略を再構築することを示しています。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "提案された両半球型モジュール制御器のアーキテクチャ全体像です。共通の感覚入力を2つのGRUモジュールが受け取り、遅延を伴う線形結合チャンネルを介して内部状態をやり取りしながら、信号依存ノイズやエネルギー制約下で12本の筋肉の活性化指令を出力します。",
+  "caption": "Figure 2: Architecture overview of the bilateral controller. A shared sensory input is broadcast to two GRU-based hemispheric controllers linked by delayed inter-module communication. Their outputs are combined into a 12-dimensional muscle-command vector, passed through signal-dependent multiplicative motor noise, and split into six muscle activations for each arm. The diagram highlights the three constraints used in this study: delayed inter-module communication, signal-dependent motor noise, a",
+  "image": "details/2608.13904/F2.jpg"
+ },
+ "overview_ja": "筋骨格系ロボットを実世界で滑らかかつ正確に動かすには、アクチュエータの出力が大きくなるほどバラつきが増す「信号依存ノイズ」や、消費エネルギーの制約をクリアしなければなりません。しかし、単一の大規模ネットワーク（モノリシック構造）で手先軌道の追従と外乱に対する姿勢保持という相反する要求を同時に満たそうとすると、ノイズや制約に弱くなるという問題がありました。\n\nそこで著者らは、哺乳類の脳が左右の大脳半球に分かれ、神経伝導遅延のある脳梁を介して協調制御を行っている点に着想を得ました。制御器を2つのGRUモジュールに分割し、遅延を伴う学習可能な通信線で結ぶ「両半球型モジュール制御器」を設計したのです。この構造を、腕の筋骨格シミュレータ環境「MotorNet」において、到達運動（リーチング）と姿勢保持（ホールディング）を交互に行うタスクでエンドツーエンドに学習させました。\n\n実験の結果、同等のパラメータ容量を持つ単一モデルと比較して、モジュール分割構造を採用するだけでタスク成功率や外乱への頑健性が劇的に向上することが判明しました。さらに、モジュール間に遅延付き通信を導入すると、単に性能が上がるだけでなく、筋肉の無駄な同時収縮（共収縮）が減り、低消費エネルギーで高い手先精度を達成できるなど、制御戦略の「質」が好ましい方向へ再編されることが明らかになりました。",
+ "contributions_ja": [
+  "脳の両半球構造に着想を得て、遅延を伴う通信線で結合した2モジュール構成の筋骨格制御器を提案したこと",
+  "信号依存ノイズやエネルギー制約が存在する環境下で、容量を揃えた単一（モノリシック）制御器よりもモジュール分割が圧倒的に優れていることを示したこと",
+  "通信遅延が存在する状況下でのモジュール間通信が、筋共収縮の抑制や省エネ化など、制御戦略のトレードオフを再構築することを発見したこと",
+  "左右対称な構造からスタートしても、モジュール間通信によって反対側の腕への出力寄与が強まる側性化（片側優位）の兆候を捉えたこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ脳のようにモジュールを分けるのか？",
+   "summary_ja": "実世界の筋骨格制御では、信号依存ノイズとエネルギー制約を考慮しつつ精度と安定性を両立させる必要があります。脳の左右両半球による運動制御に着想を得て、モジュール分割そのものがもたらす利点と、遅延通信が制御戦略に与える影響を検証する目的を提示します。",
+   "details_ja": "実世界でロボットを動かす際、理想的なノイズのない環境は存在しません。特に筋肉のように出力が大きくなるほど誤差が増える「信号依存ノイズ（signal-dependent noise）」やエネルギー消費の限界がある中で、正確に手を伸ばし、外乱に耐えて姿勢を保つことは非常に難しい課題です。\n\n哺乳類の運動系を見ると、脳は左右の大脳半球に分かれ、それらが「脳梁（corpus callosum）」という神経線維の束を介して通信しています。興味深いことに、この通信には物理的な伝導遅延が存在するにもかかわらず、左右の半球が相補的な役割分担を果たして巧みな運動を実現しています。\n\nヒューマノイドロボットなど複雑な身体の制御に向けて、本研究では2つの核心的な問いを立てました。第1に「モジュール構造に分割すること自体が、制約下での性能を高めるのか」、第2に「モジュール間の通信は、制御戦略をどう変化させるのか」です。微分可能シミュレータ上で、単一モデルとの厳密な比較を通じてこれらを明らかにします。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related work",
+   "heading_ja": "生物学の側性化からロボティクスのモジュール制御へ",
+   "summary_ja": "脳科学における手の利き手や両手協調の研究と、計算論的運動制御モデルの知見を整理します。モジュール制御や側性化の先行研究は言語や画像分野に多く、厳しい物理制約下にある筋骨格制御での通信の役割は未解明でした。",
+   "details_ja": "運動制御の神経科学では、左右の脳半球がそれぞれ軌道制御や姿勢安定化において異なる役割を果たし、相互に作用し合っていることが長年研究されてきました。また計算論的アプローチでは、運動を生体力学・予測・感覚フィードバックの最適化問題として定式化してきました。\n\n一方、ロボティクスや機械学習の文脈でも、強化学習やMixture-of-Experts（専門家ネットワークの混合手法）などを通じてモジュール化制御が注目されています。しかし、従来の研究の多くはタスクのスコア向上や特徴表現の獲得を主目的としており、身体の生体力学的制約やアクチュエータのノイズを揃えた条件下で「構造分割の効果」と「モジュール間通信の効果」を切り分けて評価した例はほとんどありませんでした。\n\n本研究は、生物規範の構造をヒントにしつつ、通信チャンネルの有無や遅延の有無をアブレーション（構成要素の分離検証）することで、その境界領域に切り込んでいます。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "微分可能筋骨格環境と両半球型コントローラの設計",
+   "summary_ja": "MotorNet上で平面2自由度アーム2本（12筋）の環境を構築し、2つのGRUからなる提案モデルとベースラインを設計しました。信号依存ノイズ、エネルギー損失、リングバッファによる離散通信遅延を組み込み、到達と保持の複合タスクで学習を行います。",
+   "details_ja": "### 3.1 筋骨格シミュレータ環境\n実験には微分可能な筋骨格シミュレータ「MotorNet」を使用しました。各アームは平面2自由度で、肩と肘を駆動する6本のヒル型（Hill-type）筋モデルを備えており、左右両腕合わせて計12本の筋肉で構成されます（図 F1 A）。\n\n### 3.2 制御器のアーキテクチャ\n提案する主モデル「Bilateral w/ CC」は、隠れ層サイズ64のGRUモジュールを左右に配置し、遅延 $\\delta$ を持つ通信チャンネルで結合した構成です。左右の隠れ状態から線形結合によって12次元の筋肉活性化指令を出力します。比較対象として、通信線を切断した「Bilateral w/o CC」、およびパラメータ容量を揃えた単一GRU（隠れ層サイズ128）の「Monolithic」を用意しました。\n\n### 3.3 現実的な物理制約\n生物学的に妥当な制約として次の3つを課しています。\n- 信号依存ノイズ: 指令値の大きさに比例する乗法性ガウスノイズを筋指令に付加します。\n- エネルギーコスト: 筋指令の二乗和にペナルティ係数 $\\lambda_{\\mathrm{energy}}$ を掛け、無駄な大出力を抑制します。\n- 通信遅延: 相手側モジュールの過去の隠れ状態をリングバッファで保持し、ステップ遅延 $\\delta$ を経てから線形射影して受け取ります。\n\n### 3.4 評価タスク\n円周上の8方向へ手を伸ばす「到達タスク（Reach）」と、未知の外乱力（標準偏差0.5 Nのガウス力）に耐えて手先位置を維持する「保持タスク（Hold）」を交互に学習・評価させます（図 F1 B, C）。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "本研究で使用した筋骨格モデルとタスク設計です。(A) 肩・肘の単関節筋および二関節筋の計6本の筋肉を持つ平面アーム。(B) 8方向への到達運動タスク。(C) 外乱力に抗して目標位置を維持する姿勢保持タスク。",
+     "caption": "Figure 1: Musculoskeletal substrate and task design. (A) A MotorNet RigidTendonArm26 effector: a planar two-degree-of-freedom arm actuated by six Hill-type muscles—shoulder flexor/extensor (SF/SE), elbow flexor/extensor (EF/EE), and biarticular flexor/extensor (BF/BE). The bimanual setup places two such arms symmetrically in a shared planar workspace. (B) Center-out reaching task: the active hand moves from a central start position (green) to one of eight circularly arranged targets (red), while",
+     "image": "details/2608.13904/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experimental results",
+   "heading_ja": "モジュール化がもたらす圧倒的な頑健性と通信による戦略変化",
+   "summary_ja": "ノイズやエネルギー制約下で、モジュール型制御器は単一モデルに比べ格段に高い成功率を維持しました。さらにモジュール間通信に遅延を持たせることで、手先精度の向上、エネルギー削減、筋共収縮の低減が同時に達成され、反対側の腕を優先的に制御する側性化パターンも確認されました。",
+   "details_ja": "### 4.2 モジュール化が頑健性の主因\n様々なノイズ係数 $k$ とエネルギーペナルティ $\\lambda$ を振ったグリッド実験において、提案モデルおよび通信なしモジュールモデルは単一モデル（Monolithic）を大きく引き離しました（図 F3 A）。中程度のノイズ（$k=0.05, 0.1$）において、単一モデルの成功率は38.00%〜53.00%に急落しましたが、モジュール型は安定した高い成功率を維持しました（図 F3 B）。\n\n### 4.3 運動・筋活動メトリクスの分解\n表1の指標分解によると、遅延通信を持つモデル（$d>0$）は成功率だけでなく、手先誤差、軌道誤差、姿勢分散、エネルギー、共収縮指数（CCI）の全指標で最も優れた数値を記録しました。通信なしモデル（Bilateral w/o CC）も成功率自体は健闘したものの、手先精度や筋共収縮の面で遅延通信モデルに劣りました。\n\n### 4.4 通信が制御戦略を再編する\n通信の真価は「どうやってタスクを達成するか」に現れます。図 F4 に示すように、遅延通信モデルは筋共収縮（拮抗筋同士を同時に固めて関節剛性を上げる戦略）を有意に減らし、無駄な筋出力を抑えて省エネに成功しています。また、より広い到達半径（0.16 m）や強い外乱（2.0 N）を課した未知の汎化テストでも、遅延通信モデルが最も高い成功率を示しました（図 F5）。\n\n### 4.5 側性化（片側優位）の創発\n学習後の重みを解析すると、通信チャンネルを持つモデルは、対側（反対側の腕）の筋肉へより強い出力を割り当てる「対側優位性指数（CI）」が高くなりました（0.0177 vs. 通信なしの0.0001）。一方のモジュールを仮想的に破壊（機能遮断）した際の影響度でも同様の傾向が見られ、通信の存在が左右の役割分担を自然に促すことが示唆されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "タスク成功率の比較プロファイルです。(A) 全実験設定における成功率の分布。モジュール型が単一モデルを大きく上回っています。(B) ノイズとエネルギーのグリッドマップ。中間ノイズ領域で単一モデル（Mono.）が脆く崩れるのに対し、モジュール型は極めて安定しています。",
+     "caption": "Figure 3: Task-performance profiles across controller variants and constraint settings. (A) Distribution of success rates across trained configurations from the shared noise–energy grid and ten random seeds. Boxes show medians and interquartile ranges, whiskers show non-outlier spread, and points show individual trained configurations. Bilateral w/ CC is split into zero-delay ( $d=0$ ) and non-zero-delay ( $d>0$ ) training conditions, while Bilateral w/o CC and Monolithic denote the communicatio",
+     "image": "details/2608.13904/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "制約条件ごとのエネルギーコスト、筋共収縮指数（CCI）、成功率の内訳です。低〜中ノイズ環境において、遅延通信を持つモデル（緑）が成功率を高く保ちつつ、共収縮とエネルギー消費を抑える優れたトレードオフを実現しています。",
+     "caption": "Figure 4: Energetic cost, CCI, and success rate across constraint regimes. Panels within each row share a common y-axis scale. Each column corresponds to a noise level ( $k=0,0.05,0.1,0.2$ ); within each panel, bars show the four model conditions (Bilateral w/ CC averaged over $\\delta\\in\\{5,10,20\\}$ , Bilateral w/ CC at $\\delta=0$ , Bilateral w/o CC, Monolithic) at each energy-penalty level. Non-zero-delay Bilateral w/ CC shows its clearest gains at low-to-moderate noise; at high noise, success ",
+     "image": "details/2608.13904/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "未学習の過酷な条件下における汎化性能です。到達目標を遠くした「Reach-16」と、外乱力を4倍にした「Hold-2N」の双方において、遅延通信を持つモデル（Bi w/ CC d>0）が最も高い成功率を維持しました。",
+     "caption": "Figure 5: Generalization results for success rate on unseen reach and hold conditions. Filled bars: out-of-distribution performance; faint bars: matched in-distribution baseline. Bar labels report average success rates. For Bilateral w/ CC, zero-delay models ( $d=0$ ) are separated from delayed models ( $d>0$ , averaged over $d\\in\\{5,10,20\\}$ ). On reach-16 , success uses a fixed reach threshold of $r20=20$ mm rather than a radius-scaled threshold. On hold-2N , the Gaussian holding perturbation ",
+     "image": "details/2608.13904/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Discussion",
+   "heading_ja": "脳型アーキテクチャが拓くロボット制御の設計論",
+   "summary_ja": "モジュール分割が頑健性の基盤を作り、遅延通信が多目的のトレードオフを調整する役割を果たすという結論を提示します。本研究のシミュレーション上の限界と、ヒューマノイドロボット等への応用に向けた将来の展望について議論します。",
+   "details_ja": "### 結論と考察\n本研究から得られた最大の洞察は、「単に通信量を増やせば良いわけではない」ということです。制御器を2つのモジュールに分割すること自体が、ノイズとエネルギー制約が交錯するタスクにおける頑健性の土台を作ります。そしてモジュール間通信は、単なる性能底上げではなく、精度・安定性・消費エネルギー・関節剛性のバランスをどのような戦略で取るかという「動作レジーム（運用領域）の再編」を担っています。\n\nまた、左右同一の構造からスタートしても、通信を介すことで対側優位な制御構造が自然に芽生えるという発見は、脳の機能側性化の起源を探る上でも興味深い結果です。\n\n### 限界と今後の課題\nただし、本モデルは生物の脳を直接再現したものではなく、教師あり損失と単純な線形遅延通信を用いた工学的な抽象化です。また、タスクも単腕の到達と保持に限られており、複雑な両手協調作業は含まれていません。今後は、タスクの難易度を上げたり、物理的な実機ヒューマノイドへの展開を見据えた通信ボトルネックの検証が必要です。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix B High-noise diagnostic",
+   "heading_ja": "【付録】強ノイズ下での単一モデルの「見かけ上の成功」を暴く",
+   "summary_ja": "実験結果において単一モデルが高ノイズ下で成功率を急回復させた現象について検証しました。これは筋肉をほとんど動かさずノイズ発生を回避しただけの「見せかけの安定」であり、強い外乱を加えると完全に破綻することを実証しています。",
+   "details_ja": "本編の実験中、単一モデル（Monolithic）は最高ノイズ条件（$k=0.2$）において成功率がV字回復する奇妙な振る舞いを見せました。なぜこのような現象が起きたのでしょうか？\n\n理由は「信号依存ノイズ」の性質にあります。筋指令を極小に抑えれば、注入されるノイズもエネルギー消費もゼロに近くなります。訓練時の外乱力（標準偏差0.5 N）が十分に弱かったため、力を抜いて何もしない「脱力戦略」でも偶然保持基準をクリアできてしまったのです。\n\nこの仮説を検証するため、外乱の標準偏差を1.5 N、さらに4.0 Nへと引き上げてテストしました（図 F7）。その結果、中程度の外乱では維持できた成功率が、4.0 Nの強い外乱下ではフロア性能（ほぼ0%）へと完全に崩壊しました。つまり、単一モデルは外乱に能動的に耐える制御を獲得したのではなく、ノイズを恐れて出力を止めていただけだったということです。アクチュエータの内部状態や筋出力を分解して評価することの重要性がここから分かります。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "外乱強度を変更した際の見かけの成功率の検証です。外乱の標準偏差を4.0 Nに上げると（右図）、高ノイズ領域（k=0.2）で見られていた単一モデルの見せかけの成功率が完全に崩壊し、能動的制御ができていなかったことが証明されます。",
+     "caption": "Figure 7: Perturbation-strength diagnostic for the monolithic baseline. Left: with Gaussian external force standard deviation increased to $1.5\\,\\mathrm{N}$ per axis, the high-noise rebound remains visible. Right: with standard deviation increased to $4.0\\,\\mathrm{N}$ per axis, the same high-noise region collapses toward floor performance.",
+     "image": "details/2608.13904/F7.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "アクチュエータノイズや省エネが求められるロボット制御では、単一の大規模モデルよりもモジュール分割構造の方が遥かに壊れにくく頑健である",
+  "モジュール間の通信は、単にタスクの成否を決めるだけでなく、筋肉の無駄な力み（共収縮）を減らして省エネ化するなど、制御戦略の質を最適化するツールになる",
+  "通信遅延（レイテンシ）が存在しても制御が破綻するとは限らず、むしろ遅延通信下で適切な制御レジームが学習される",
+  "信号依存ノイズを扱う学習では、出力をゼロにしてノイズを避ける「脱力トラップ」に陥りやすいため、外乱耐性の詳細な診断が不可欠である"
+ ],
+ "limitations_ja": [
+  "実験がMotorNetシミュレータ内の平面2自由度アームに限定されており、実機ロボット特有の摩擦や複雑なダイナミクスでの検証が未実施であること",
+  "左右の腕が協調して1つの物体を運ぶような、真の両手協調（バイマニュアル）タスクまでは扱えていないこと",
+  "通信チャンネルが単純な遅延付き線形変換であり、生体の神経パルス伝達やより高度な情報圧縮プロトコルを反映しているわけではないこと"
+ ],
+ "keywords": [
+  "musculoskeletal control",
+  "modular neural control",
+  "inter-module communication",
+  "signal-dependent noise",
+  "bilateral coordination"
+ ],
+ "id": "2608.13904",
+ "title": "Communication in modular robotic motor control: Bilateral controllers under realistic constraints",
+ "title_ja": "筋骨格系モータ制御における左右両半球型モジュール間通信コントローラ",
+ "authors": [
+  "Jingwen Li",
+  "Levin Kuhlmann",
+  "Jason Friedman",
+  "Gideon Kowadlo"
+ ],
+ "date": "2026-08-17",
+ "group": "focus",
+ "tags": [
+  "control",
+  "hardware"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.13904",
+ "pdf_url": "https://arxiv.org/pdf/2608.13904",
+ "summary_ja": "筋骨格ロボットの運動制御において、脳の左右半球構造に着想を得たモジュール型リカレントコントローラを提案。GRUベースの2モジュール間を遅延のある学習可能チャネルで結合し、信号依存性ノイズとエネルギーコストの制約下で最適化することで、単一アーキテクチャを上回る高速動作とロバストな姿勢安定化を両立した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.13904"
+}
