@@ -1,0 +1,144 @@
+{
+ "tldr_ja": "ヒューマノイドの動作追跡において、関節誤差などの幾何学的指標が人間の「見た目の自然さや安定性」と食い違う問題に対し、約153時間の光学式モーションデータセット「HumanTracker」と、人間の選好を学習した新指標「HumanScore」を提案した論文です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "HumanTrackerのモーション分類体系です。日常動作（Daily）、高ダイナミクス動作（Highly Dynamic）、対話・環境接触動作（Interaction）、床面接触動作（Ground）という4つの動作ファミリに分類し、トラッカーがどの領域で破綻しやすいかを細かく診断できるようにしています。",
+  "caption": "Figure 1 : Motion taxonomy. HumanTracker groups motions into four families according to their dominant tracking and contact regimes. The taxonomy supports category-level diagnosis rather than only a single aggregate score.",
+  "image": "details/2608.13555/F1.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットに人間の動きを真似させる「モーション追跡（motion tracking）」は、遠隔操作や全身模倣の基盤となる重要技術です。しかし現場では、評価値（MPJPEなどの関節誤差）が優秀でも、動画を見ると足がスケートのように滑っていたり、不自然にガタついたりして人間らしく見えないという深刻な乖離がありました。従来の指標は各フレームの関節角度の平均ズレを見るだけで、足裏の接触やバランスの破綻といった物理的アーティファクトを捉えきれないためです。また、評価に使われるデータセットも140シーケンス程度と小さく、接触の多い過酷な動作が不足していました。\n\nそこで著者らは、評価を人間の感覚と一致させ、大規模に行うための枠組み「HumanTracker」を開発しました。プロのダンサーやフィットネス講師ら24名から収録した約153時間・約2.5万クリップの光学式モーションデータを整備し、日常動作、高ダイナミクス、対話動作、床面動作の4つに分類しました。さらに、ロボット専門家による1.2万件の比較評価データを学習させ、動画での見栄えや物理的妥当性を直接スコア化する新指標「HumanScore」を構築しました。\n\n最新の追跡手法（Humanoid-GPT、SONIC、TWIST2、GMT）を共通のシミュレーション環境で評価したところ、従来の関節誤差よりもHumanScoreの方が圧倒的に人間の評価と一致することが確認されました。また、立ち姿の日常動作では優秀な手法でも、床面動作では接触が乱れて破綻するなど、手法ごとの明確な得意・不得意が浮き彫りになりました。",
+ "contributions_ja": [
+  "関節角度の幾何学的誤差が人間の知覚する動作品質と乖離する問題を指摘し、人間の好みを反映する評価指標「HumanScore」を提案した点",
+  "プロのパフォーマー24名から収集した約153時間・2.5万クリップに及ぶ、4カテゴリに構造化された大規模ベンチマークデータセットを構築した点",
+  "29自由度ヒューマノイドモデルと共通シミュレータを用い、観察空間の違いを吸収して純粋に追跡性能を比較できる標準評価プロトコルを確立した点",
+  "最先端の追跡手法4種を包括的にゼロショット評価し、接地や起き上がりといった接触遷移における具体的な弱点を明らかにした点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ関節の誤差を測るだけではダメなのか？",
+   "summary_ja": "ヒューマノイドの動作追跡では、関節位置の幾何学的誤差（MPJPEなど）が低くても足滑りやバランス崩れが発生し、人間の見た目評価と乖離します。また既存のテストセットは規模が小さく過酷な接触動作が不足しているため、大規模データと人間の好みに沿った新指標が必要です。",
+   "details_ja": "ヒューマノイドロボットの全身制御において、目標動作に追従するモーション追跡は中核技術です。しかし現在、その性能をどう測るかという点に大きな壁があります。\n\n第1の問題は「指標と見た目の乖離」です。一般的には目標ポーズとロボットのポーズを比較する関節誤差（MPJPE: 各関節位置の平均誤差）が使われます。ところが、数値上は低誤差でも、動画で見ると足が地面を滑っていたり（フットスケーティング）、接地タイミングがズレてガタついていたりすることが多々あります。フレームごとの平均値を取る従来の指標では、接触状態や支持基底面の安定性、フィードバック制御による誤差の累積といった、人間が「自然で安定している」と感じる物理的な要素が抜け落ちてしまうのです。\n\n第2の問題は「評価データの不足と偏り」です。大規模なモーションデータは増えていますが、トラッカーの評価には未だにAMASSのわずか140シーケンス程度が使い回されています。これでは非対称な片足立ちや複雑な転倒復帰といった、コントローラの限界を試すような動作を評価できません。また、結果を1つの総合スコアにまとめてしまうため、どこで失敗したのかの診断が困難でした。\n\nこの2つの課題を解決するため、本研究では人間の選好を学習した報酬モデル指標「HumanScore」と、プロの演者24名から得た約153時間の大規模光学式モーションデータセット「HumanTracker」を提案しています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "HumanTrackerが提案する4つのモーションファミリです。日常動作（Daily）、ダイナミックな跳躍や蹴り（Highly Dynamic）、道具や環境との対話（Interaction）、寝転がりや起き上がり（Ground）に分類されており、トラッカーの物理的な弱点を浮き彫りにします。",
+     "caption": "Figure 1 : Motion taxonomy. HumanTracker groups motions into four families according to their dominant tracking and contact regimes. The taxonomy supports category-level diagnosis rather than only a single aggregate score.",
+     "image": "details/2608.13555/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "動作追跡と評価データのこれまで",
+   "summary_ja": "強化学習によるヒューマノイドの動作追跡は長足の進歩を遂げていますが、評価環境やモデルの違いにより公平な比較が困難でした。また既存の動作データセットは巨大化しているものの、ロボット特有の接触や運動学的な破綻を捉えるベンチマークとしては不十分でした。",
+   "details_ja": "近年のヒューマノイド制御は、DeepMimicから始まった物理シミュレーション内での参照動作追従学習を基盤に発展してきました。GMTやSONIC、Humanoid-GPT、UniTrackerなどは大規模データによる汎用的な追跡を目指し、TWISTやOmniH2Oなどは全身遠隔操作に応用されています。しかし各手法は、使用する参照データ、シミュレータ、行動空間、初期化や終了条件がバラバラで、学術的に公平な横並び比較が極めて困難でした。\n\n一方、動作データに関しては、AMASSやMotion-Xなど巨大なリポジトリが存在します。しかしヒューマノイド追跡の評価に使うには、単にデータが大きいだけでは足りません。ロボットの骨格構造への自然なリターゲティング（関節配置の変換）、足裏接触の物理的妥当性、そしてコントローラの限界を試す高難度な動作が含まれている必要があります。\n\nさらに既存の評価は、全体を平均した単一のスコアに頼りがちでした。HumanTrackerは、動作を接触特性ごとに4つのファミリに明確に分類し、標準化された単一の評価パイプラインを提供することで、このギャップを埋めています。",
+   "figures": []
+  },
+  {
+   "heading": "3 HumanTracker: Benchmark and Preference-Aligned Evaluation",
+   "heading_ja": "153時間のデータセットと人間の好みを模した新指標「HumanScore」",
+   "summary_ja": "プロ演者による約153時間の動作を4ファミリに整理し、29自由度ロボット向けに標準化しました。さらに、ロボット研究者による1.2万件の対比較ラベルから学習したTransformerベースの「HumanScore」を開発し、見た目の自然さと物理的安定性を評価可能にしました。",
+   "details_ja": "本研究のコアとなる設計は、データセットの構築、標準評価環境、そして人間の評価を模倣するモデルの3つから成り立っています。\n\n### 3.1 & 3.2 データ収集と標準評価プロトコル\nデータはプロのダンサーやコーチなど24名から光学式モーションキャプチャで収録された約153時間（24,995クリップ）です。これをGeneral Motion Retargeting（GMR）を用いて29自由度のヒューマノイドモデルに変換し、浮遊やめり込みのある不良データを除外しました。動作は以下の4ファミリに分類されています:\n- Daily: 歩行や方向転換などの日常動作。定常的なドリフトを測定。\n- Highly Dynamic: ジャンプ、キック、ダンス。衝撃や素早い支持脚切り替えを測定。\n- Interaction: 物体操作や周囲とのやり取りを模した動き。手腕と全身の協調を測定。\n- Ground: 正座、床ローリング、起き上がり。低重心かつ複数点接触の制御を測定。\n\n評価時はすべての手法に対し、MuJoCo上で同一のモデルと参照軌道を与え、50Hzでロールアウトします。腰や足首、手首の垂直位置誤差が0.25mを超えるか、腰の回転誤差が1radを超えた場合に失敗（エピソード終了）と判定します。\n\n### 3.3 選好データの作成\nHumanScoreを学習させるため、学習用セットの動作に対して4つの最新トラッカー（GMT、Humanoid-GPT、SONIC、TWIST2）を走らせ、5秒間（250フレーム）のペア動画を作成しました。ロボティクス専攻の博士課程学生6名が「転倒・バランス喪失がないか」「ブレや足滑りがないか」「全身の自然さ」を基準に対比較ラベル（どちらが良いか、同等か、比較不能か）を付与し、反転増強を含め計12,000件の選好データを構築しました。\n\n### 3.4 & 3.5 HumanScoreのモデル構造と計算\nHumanScoreは動画ではなくシミュレータの数値軌道から直接計算されます。1フレームあたり539次元（参照状態70次元、シミュレーション状態・接触力・関節速度など469次元）の特徴量をTransformerエンコーダに入力し、時間方向のプーリングを経てスカラ報酬 $r_\\theta(\\tau)$ を出力します。勝敗ペアに対してはBradley-Terry損失を、同等ペアには2乗誤差ペナルティを適用して学習します。推論時はシグモイド関数を通して0〜1（実用的には100点満点にスケール）の有界な値として算出します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "選好データ収集用のWebインターフェースです。アノテータには同一の参照動作に対する2つのトラッカーの実行結果がランダムな左右配置で提示され、転倒の有無、足滑り、ブレ、全体的な自然さの順に評価して勝敗を判定します。",
+     "caption": "Figure 2 : Preference collection interface. Annotators view two synchronized rollouts of the same reference segment. Display order is randomized and the available responses are Left is better , Right is better , Similar and Cannot compare .",
+     "image": "details/2608.13555/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "HumanScoreのネットワーク構成です。各フレームの特徴量（ポーズ、速度、接触力など計539次元）を線形射影してTransformerに入力し、有効フレームの平均プーリングから報酬を出力します。勝敗ペアからBradley-Terry損失を用いて学習します。",
+     "caption": "Figure 3 : HumanScore trajectory reward model. Current reference and simulated state features form one token per frame. A temporal Transformer processes the valid tokens, and masked mean pooling forms a trajectory representation. The diagram shows the Bradley–Terry loss on the unbounded rewards $r_{\\mathrm{chosen}}$ and $r_{\\mathrm{rejected}}$ for a strict comparison.",
+     "image": "details/2608.13555/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "徹底検証: トラッカーの真の実力とHumanScoreの信頼性",
+   "summary_ja": "最新の4大トラッカーをゼロショットで比較した結果、Humanoid-GPTが総合首位でしたが、床面動作ではSONICがより自然な動きを見せました。また、HumanScoreは人間の判断と約90.8%一致し、従来の幾何指標や接触指標単体を大幅に上回りました。",
+   "details_ja": "実験では、GMT、TWIST2、SONIC、Humanoid-GPTをHumanTrackerのテスト分割（未知の動作データ）でゼロショット評価しました。\n\n### 4.1 & 4.2 ベンチマーク結果の分析\n追跡完了率（Succ）、関節角度誤差（MPJPE）、そしてHumanScoreの3指標で比較したところ、興味深い結果が得られました:\n- Humanoid-GPT: Daily（Succ 96.0%、HumanScore 72.1）およびHighly Dynamic（Succ 78.4%、HumanScore 58.7）において全指標でトップとなり、総合的に最強の追跡性能を示しました。\n- SONIC: Interactionでの完了率（91.3%）でHumanoid-GPTを上回り、さらにGround動作のHumanScoreにおいて40.7を記録しトップに立ちました。Humanoid-GPTの方が関節誤差は小さい場面でも、SONICの方が床面接触において人間に「安定して自然」と評価されたことを意味しており、幾何指標と人間の感覚の乖離が実証されました。\n\n### 4.3 人間の選好との一致度（Align Rate）\nテストセットの対比較データにおいて、各種指標が人間の勝敗判定とどれだけ一致するかを検証しました。MPJPE（関節誤差）の一致率は72.4%、足裏接触の一致率は71.9%、関節加速度は60.5%にとどまりました。これに対し、HumanScoreの一致率は90.8%に達しました。ポーズや加速度などの単一の幾何・力学指標では、人間が総合的に感じる「自然さ」を捉えきれないことがはっきりと示されました。\n\n### 4.4 アブレーション研究\n入力特徴量から足裏の接触情報を除外すると、Groundファミリの一致率が0.879から0.759へと大幅に低下しました。多点接触を伴う動作では接触状態の観測が不可欠です。また、時間コンテキストを1秒から5秒へと伸ばすにつれて一致率が単調に向上しました。足滑りやガタつき、バランスを崩してからのリカバリといった現象は、数フレームのポーズではなく数秒間の時間発展を見て初めて知覚できるからです。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "HumanScoreの感度分析（アブレーション実験）です。接触特徴量（- Contact Features）を取り除くと、特に床面動作（Ground）の一致率が0.879から0.759へ急落しており、複雑な接地判定に力学情報が不可欠であることが分かります。",
+     "caption": "Figure 4 : HumanScore sensitivity. Align Rate is computed within each motion family and then averaged across 4 families. Panel a evaluates different input feature sets. Panel b restricts the temporal prefix available to the baseline at inference.",
+     "image": "details/2608.13555/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "HumanTrackerにより、約153時間の大規模データと人間の感覚に一致した評価指標HumanScoreが実現しました。今後は異種ロボット形態への適用、実機検証、そしてHumanScoreを強化学習の直接の報酬として用いる研究が期待されます。",
+   "details_ja": "本研究は、ヒューマノイドのモーション追跡における「評価データの多様性不足」と「幾何指標と人間の知覚のズレ」という2大課題に対し、約153時間の体系化されたベンチマークと、人間の選好を学習した新指標HumanScoreを提供しました。\n\n実験を通じて、ダイナミックな動作や床面での多点接触動作において既存の最先端トラッカーでも依然として大きな課題が残されていることが明らかになりました。HumanTrackerは、今後のヒューマノイド全身制御研究における強固で再現性の高い診断ツールとなります。著者らは将来の課題として、異なるロボット骨格（クロスエンボディメント）への拡張、実機ハードウェアへの適用、そしてHumanScoreを評価だけでなくポリシー学習の報酬関数として最適化することなどを挙げています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録: 実装の詳細とデータセットの仕様",
+   "summary_ja": "HumanScoreの入力特徴量（539次元）の内訳、パディング処理の詳細、そして公開されるデータセットのNPZアーカイブ構造や統計情報をまとめました。",
+   "details_ja": "付録では、再現性を担保するための詳細な実装情報が記載されています。\n\n- 特徴量の詳細: 539次元の内訳は、参照ポーズ情報が70次元、シミュレーション側の状態が469次元です。シミュレーション特徴量には、関節位置・速度、腰の線速度・角速度、各リンクの重力基準座標系でのポーズと速度、足裏の接地判定（2次元）および接触力（12次元）、足先加速度などが含まれます。\n- パディングとマスキング: 5秒未満（250フレーム未満）の端数クリップはゼロパディングされますが、TransformerのAttention層と時間方向の平均プーリングでは有効フレームのみを指定する真偽値マスク（validity mask）を使用し、パディングがスコアに悪影響を与えないように設計されています。\n- データセット仕様: 全24,995クリップは学習用9割（22,495クリップ、約2480万フレーム）、テスト用1割（2,500クリップ、約268万フレーム）に厳密に分割されています。同一のソース動作から派生したクリップが学習とテストにまたがらないよう完全に分離されています。各データは50HzのNPZ形式で提供され、ロボットの一般化座標（qpos: 36次元）、一般化速度（qvel: 35次元）、主要14点のキーポイントポーズ、床面接触フラグなどが格納されています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "関節角度誤差（MPJPE）の低さは見た目の自然さや物理的な安定性を保証しない。評価には接触状態や時間変化を捉える指標が必須である。",
+  "ヒューマノイドの追跡制御器は日常の歩行（Daily）では高精度に動いても、床面接触（Ground）や急峻な跳躍（Highly Dynamic）で急激に破綻しやすい。",
+  "動作の良し悪しを判定するには最低でも数秒間の時間コンテキストが必要であり、足滑りや振動は瞬間的なポーズ比較では検出できない。",
+  "新しい追跡ポリシーを開発・評価する際は、AMASSの少数シーケンスだけでなく、接触 regimes ごとに分類された大規模データセットで診断的に検証すべきである。"
+ ],
+ "limitations_ja": [
+  "HumanScoreの入力にはシミュレータ内の特権情報（厳密な接触力や関節速度など）が含まれており、実機ロボットの映像やセンサ値から直接スコアを計算するには状態推定器が必要となる。",
+  "評価対象が単一の29自由度ヒューマノイドモデル（MuJoCo）に限定されており、異なる自由度やアクチュエータ特性を持つ他のロボット形態でそのまま検証できるかは未検証である。",
+  "HumanScoreを直接強化学習の報酬として最大化すると、報酬モデルの隙を突いた不自然な挙動（報酬ハッキング）が生じる懸念があり、正則化の手法が別途必要となる。"
+ ],
+ "keywords": [
+  "Humanoid Motion Tracking",
+  "Humanoid Robotics",
+  "Preference-Aligned Evaluation",
+  "Motion Benchmark",
+  "Reward Modeling"
+ ],
+ "id": "2608.13555",
+ "title": "HumanTracker: Towards Comprehensive and Human-Aligned Motion Tracking Benchmark",
+ "title_ja": "HumanTracker: 人間の知覚と物理特性に即したヒューマノイド運動追従ベンチマーク",
+ "authors": [
+  "Dairu Liu",
+  "Zekun Qi",
+  "Jiayu Zeng",
+  "Ruixi Yu",
+  "Yu Guan",
+  "Yintianrun Zhang",
+  "Xuchuan Chen",
+  "Sikai Liang",
+  "Zekai Li",
+  "Chenghuai Lin",
+  "Xinqiang Yu",
+  "Wenyao Zhang",
+  "He Wang",
+  "Li Yi"
+ ],
+ "date": "2026-08-14",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "benchmark",
+  "control",
+  "imitation-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.13555",
+ "pdf_url": "https://arxiv.org/pdf/2608.13555",
+ "summary_ja": "遠隔操作や全身模倣におけるヒューマノイドの運動追従を評価するため、足のスケーティングや不正確な接地タイミングなどの物理アーティファクトを捉えるベンチマークを提案。プロの実演者から収集した約153時間の光学式モーションデータを収録している。従来の運動学的誤差に留まらず、知覚的・物理的な妥当性を定量評価できる指標を導入した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.13555"
+}
