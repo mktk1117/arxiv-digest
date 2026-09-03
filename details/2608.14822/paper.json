@@ -1,0 +1,150 @@
+{
+ "tldr_ja": "VLAモデルを追加学習や失敗データなしで復旧させる推論時フレームワーク「CoRe」を提案。幾何学的に合成した「もしもの視覚」を使って頭の中で復旧軌道をシミュレーションし、最小限の物理的再配置だけで安全にタスクへ復帰させる手法です。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "CoReフレームワークの全体像です。OOD（分布外）状態を検知するとVLAの実行を一時中断し、過去の安全なアンカーから頭の中（仮想空間）でロールアウトして復帰状態 $c^*$ と最小限の片付け対象 $S^*$ を決定します。物理的な動作は最後の片付けと復帰時のみ行われます。",
+  "caption": "Figure 2: Overview of CoRe. An online perturbation trips the suffix OOD detector and interrupts the frozen VLA (top). Recovery runs through the virtual planning stages (bottom), passing the recovery anchor, the rejoin state $c^{*}$ , and the restoration subset $S^{*}$ left to right. Only the final rearrangement and handoff produces physical motion before control returns to the frozen VLA.",
+  "image": "details/2608.14822/F2.jpg"
+ },
+ "overview_ja": "ロボットが画像と自然言語から直接動作を生成するVLA（Vision-Language-Action）モデルは目覚ましい進歩を遂げていますが、途中で人間から指示を変更されたり、物理的な衝突や対象物の落下などの外乱を受けたりすると、途端に動作が破綻してしまうという脆さがあります。これは、VLAが「成功した綺麗なデモ」ばかりを学習しているため、一度でも学習分布の外（OOD）に出てしまうと自己復旧できないからです。\n\n既存の対策としては、失敗データを集めて再学習させるか、外部のLLMエージェントなどに修正行動を任せる方法が主流でした。しかし、これらはデータ収集のコストが高く、現場での危険な試行錯誤を伴うという問題がありました。そこで著者らは、「モデルを一切再学習せず、推論時のみの工夫で復旧できないか？」と考えました。思いついたのが、反実仮想的な想像（Counterfactual Continuation）です。途中でトラブルが起きたら、過去の正常だった時点に仮想的に戻り、RGB-Dカメラの履歴から合成した視覚画像を使って「今からどう動けばいいか」をVLA自身の頭の中でロールアウトさせます。そして、その仮想軌道にロボットと環境を合流させるために「本当に動かすべき最小限の物体だけ」を物理的に再配置して復帰させます。\n\nシミュレータ（ManiSkill、robosuite）および実機のxArm6を用いて、途中の指示変更や衝突、物体の落下・転倒など多様な擾乱を与えて検証しました。その結果、モデルを一切ファインチューニングすることなく、成功率を最大85ポイント改善し、物理的な片付け作業を42.2%削減できることを実証しました。",
+ "contributions_ja": [
+  "学習済みVLAの重みを固定したまま、失敗データや外部の推論モデルなしに推論時のみで復旧を行う訓練不要フレームワーク「CoRe」を提案した点",
+  "重い世界モデルや特権的シミュレータ環境を使わず、RGB-D履歴と順運動学（FK）による幾何学的な画像合成だけでVLAの仮想ロールアウトが十分機能することを示した点",
+  "仮想プローブによってタスク復帰に影響を与える物体だけを選別し、無駄な物理的リセット作業を大幅に削減する最小限の再配置手法を確立した点"
+ ],
+ "sections": [
+  {
+   "heading": "Introduction",
+   "heading_ja": "なぜVLAは一度狂うと立ち直れないのか？",
+   "summary_ja": "VLAは成功デモのみで学習されているため、指示変更や外乱などの分布外状態に極めて脆弱です。既存の失敗再学習や外部エージェントに頼る手法の課題を解決するため、推論時のみに仮想的な想像を行って復帰する「CoRe」を提案します。",
+   "details_ja": "VLAモデルは、多様な指示に従ってロボットを動かせる汎用性の高さから大きな期待を集めています。しかし、訓練データのほとんどが「最初から最後まで成功した前進軌道」であるため、途中でロボットの状態がずれたり、置かれていた物体が動かされたり、あるいは人間の気が変わって指示が変更（言語スイッチ）されたりすると、途端に行き詰まってしまいます。一度エラーが起きると、閉ループ制御のなかで誤差が雪だるま式に蓄積し、最終的なタスク失敗へと直結してしまうのです。\n\nこれに対処するための従来アプローチは大きく2つありました。1つ目は、人間の介入やシミュレータを通じて「失敗からの復旧データ」を収集し、ポリシーを追加学習（ファインチューニングや選好最適化）させるアプローチです。ですが、これには膨大なデータ収集の手間がかかり、新しい失敗モードが現れるたびに再学習が必要になります。2つ目は、外部のLLM/VLMや補助モジュールを監視役として配置し、失敗を診断して修正動作を生成させるアプローチです。しかし、これも推論コストが増える上に、補助モジュール自体が実行可能で正確な判断を下せるかという新たな問題が生じます。また、単純に過去のチェックポイントまで物理的に状態を巻き戻すリセット手法では、せっかくそれまで進めた作業の進捗を捨ててしまうことになります。\n\nそこで著者らは、訓練不要で既存の固定（frozen）VLAをそのまま救済するフレームワーク「CoRe（Counterfactual Realignment）」を提案しました。CoReのコアとなるアイデアは、「頭の中での反実仮想的なやり直し」です。異常を検知した際、それまでの進捗を損なわない直近の正常フレーム（アンカー）を特定し、そこから現在の目標に向かってVLAがどう動くかを、幾何学的に合成した画像を使って仮想空間内で先読み（ロールアウト）します。そして、ロボットと環境をその仮想軌道に安全に合流（rejoin）させるために、必要最小限の物体だけを物理的に片付けて復帰させます。現場で危険な試行錯誤を繰り返す代わりに、安全な仮想空間内で計画を完結させてから動くのがポイントです。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "CoReの全体パイプラインです。上段の物理実行中に異常（OOD）を検知すると、下段の仮想計画に移行します。アンカーの同定、仮想観測によるロールアウト、復帰に必要な最小限の物体選別（仮想プローブ）を経て、最後に物理的な片付けと復帰を行い、VLAへ制御を戻します。",
+     "caption": "Figure 2: Overview of CoRe. An online perturbation trips the suffix OOD detector and interrupts the frozen VLA (top). Recovery runs through the virtual planning stages (bottom), passing the recovery anchor, the rejoin state $c^{*}$ , and the restoration subset $S^{*}$ left to right. Only the final rearrangement and handoff produces physical motion before control returns to the frozen VLA.",
+     "image": "details/2608.14822/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Related Work",
+   "heading_ja": "「再学習」でも「外部エージェント」でもない第3の道",
+   "summary_ja": "先行研究は失敗データの追加学習や外部LLMによる介入が主流でしたが、コストや信頼性に課題がありました。CoReはVLAの内部特徴量を活かして異常検知し、外部モデルや重みの変更を一切伴わずに復旧を完結させます。",
+   "details_ja": "近年のVLAモデルは、離散化アクションを言語と一緒に自己回帰的に予測するものや、拡散モデルやフロー・マッチングを用いて連続的なアクションチャンク（一連の連続動作）を高周波に出力するものへと進化しています。しかし、いずれのアーキテクチャも自律的な失敗復旧能力は内包していません。\n\n失敗検知と復旧に関する先行研究は、大きく2つの系統に分かれます。\n- 失敗条件付きデータの追加学習: 軌道に外乱を注入したデータや失敗ロールアウトを集め、行動クローニングや強化学習で再学習するアプローチです。しかし、これらは失敗データの網羅的な収集コストが極めて重く、未学習の状況には対応しきれません。\n- 外部モジュールへの委譲: LLM/VLMを診断役として配置したり、実行時にアクションを補正する残差ポリシー（residual policy）を学習したりするアプローチです。これらは推論のオーバーヘッドが大きく、外部モジュール自身の判断精度にシステム全体の信頼性が左右されます。\n\n一方で、「VLAの内部潜在特徴を見れば、成功軌道と失敗軌道を軽量に識別できる」という知見が近年示されています。CoReはこの知見を発展させ、検知にとどまらず、アンカーの特定から反実仮想的な計画、そして最小限の物理介入に至る復旧パイプライン全体を、ポリシーの再学習や追加の推論エージェントなしで構築した点で既存研究と明確に一線を画しています。",
+   "figures": []
+  },
+  {
+   "heading": "Methodology",
+   "heading_ja": "頭の中でシミュレーションし、最小限の片付けで復帰する仕組み",
+   "summary_ja": "CoReは①潜在特徴による異常検知、②進捗を保持するアンカー特定、③合成画像を用いた仮想ロールアウト、④最小限の物体を特定する仮想プローブ、⑤物理的再配置と復帰の5段階で動作します。",
+   "details_ja": "CoReの制御ループは、数学的には「タスクの既達成進捗 $\\mathcal{P}(c)$ を維持しつつ、新しい目標 $\\ell'$ のもとでVLAが正常分布に戻れる状態 $c^*=(q^*, p^*)$（ロボット関節 $q^*$ と環境配置 $p^*$）を、最小限の物体操作量 $|\\mathcal{R}(c)|$ で見つけ出す」という最適化問題を推論時に解くものです。具体的には以下の5つのステップで構成されます。\n\n- オンライン異常検知（Suffix OOD Detection）: VLAのアクションヘッド直前の潜在特徴（action-expert suffix latent）を監視します。タスクごとに正常な成功ロールアウトから求めたマハラノビス距離スコア $s_t$ を計算し、閾値 $\\tau_k$ を連続して超えた場合に外乱発生と判定します。分類器を別途学習する必要はなく、正常データのみで校正できます。\n- フェーズを考慮したアンカー特定（Recovery Anchoring）: 異常を検知したら、実行履歴を巻き戻して「復旧の起点となる正常フレーム（アンカー）」を探します。新旧の指示を与えた際のアクション予測の乖離度 $d_t$ が閾値 $\\delta$ を超える直前のステップを特定します。この際、物体が動いている最中や把持中を避け、グリッパーが物体から離れて自由空間にある安定したフレームを選びます。\n- 合成画像による反実仮想ロールアウト: アンカーから、固定VLAを使って新指示 $\\ell'$ のもとで仮想的に先読み動作を行います。驚くべきことに、本研究では世界モデルを使わず、過去のRGB-D履歴から構築したボクセルとロボットの順運動学（FK）を使って「もしこう動いたらどう見えるか」の画像を幾何学的に合成（図F3）してVLAに入力します。グリッパーが物体に接触する直前の閾値 $d_{\\text{prox}}$ まで仮想ロールアウトを進め、その安全な自由空間を合流状態 $c^*$ と定めます。\n- 仮想プローブによる最小限の片付け（Probe-Based Minimal Restoration）: 外乱でずれた物体をすべて元の位置に戻す必要はありません。タスクに関係ない物体なら放置しても成功するからです。そこで、指示対象やゴール周辺以外の物体について、「復元する物体の候補部分集合 $S$」を仮定し、頭の中で仮想プローブ（試しロールアウト）を行います。すべての物体を戻した参照軌道とアームの軌跡差 $d_{\\text{arm}}(S)$ が許容値 $\\epsilon$ 未満となる最も小さな集合 $S^*$ を選択します。\n- 物理的再配置と引き渡し: 計画が固まって初めて実機が動きます。選ばれた最小限の物体 $S^*$ だけを標準的なモーションプランニング（Pick-and-Place）で元の位置へ戻し、アームを合流姿勢 $q^*$ へ移動させた後、VLAに制御権を戻します。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "幾何学的に合成された観測画像の例です。固定三人称カメラ（Exocentric）と手先カメラ（Egocentric）の両方において、ボクセルデータからの再投影と順運動学（FK）によるアーム描画、欠損部分のインペインティングによって、VLAが違和感なく認識できる画像を生成しています。",
+     "caption": "Figure 3: Synthesized observations. Exocentric and egocentric views at imagined ticks, arm rendered by FK, residual holes inpainted.",
+     "image": "details/2608.14822/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Experiments",
+   "heading_ja": "シミュレーションと実機で実証された圧倒的な復旧性能",
+   "summary_ja": "シミュレータと実機xArm6を用い、指示変更と物理外乱の両方で検証しました。ベースラインが崩壊するなか、CoReは最大85ポイントの成功率向上を達成し、物理的な片付け回数も大幅に削減しました。",
+   "details_ja": "評価は、指示変更を扱う「LangSwitch」と物理的外乱を扱う「LIBERO-Long with Perturbation」、さらに実機ロボット環境の3つで徹底的に行われました。\n\n- 実験設定:\n  - LangSwitch（ManiSkill環境、xArm6）: ピック、プレース、プッシュ、積み木など5つのスキルが同一卓上で実行される環境です。途中で対象物が変わる「Re-grounding」、別スキルに切り替わる「Re-skilling」、前の作業と矛盾するゴールが指示される「Conflict」の3系統を評価しました（図F4）。\n  - LIBERO-Long（robosuite環境、Franka Panda）: 10種類の実践的タスクに対し、アームへの衝突トルク（Arm Collision）、搬送中の把持解除（Grasp Failure）、対象物の強制テレポート（Object Displace）、転倒（Object Tip）の4系統の外乱を注入しました（図F5）。外乱のタイミングは初期・中期・後期の3段階で検証しています。\n  - 実機環境（xArm6、RealSense D435i 2台）: $\\pi_{0.5}$ バックボーンを用い、指示変更3種と物理外乱2種（アーム衝突、人間が全物体を勝手に動かすScene Rearrangement）をテストしました（図F7）。\n\n- 主な実験結果:\n  - LangSwitchシミュレーションでは、何もしないベースラインの成功率が18.3〜35.5%と壊滅的だったのに対し、CoReを適用すると82.6〜92.7%へと大幅に向上しました。特に競合するゴールを指示されるConflictでも高い回復力を示しました。\n  - LIBERO-Longでは、ベースラインの12.8〜43.5%に対し、CoReは69.8〜88.2%を達成しました。外乱が入るタイミングの違いに対しても極めて頑健でした。\n  - 実機検証（図F9）では、ベースラインが20回中最大でも9回、Re-skillingやConflictでは1/20（5%）しか成功しなかったのに対し、CoReは全条件で17〜19/20（85〜95%）という驚異的な復旧成功率を記録しました。\n\n- アブレーションと詳細分析:\n  - 仮想ロールアウトの精度: 合成画像でのロールアウトと真の環境でのロールアウトを比較したところ、手先位置のズレの中央値は0.36〜3.28 cmに収まり、接触判定マージン（2〜8 cm）を下回る十分な精度を持つことが確認されました。\n  - 最小限の片付け効果（図F10）: 実機のScene Rearrangementでは人間が3個すべての物体を動かしますが、CoReは仮想プローブによって平均1.15個（全体の42%）だけを片付け、58%の物体には一切触れずにタスクを達成しました。\n  - 時間と安全性: 実機での仮想計画時間は中央値でわずか9.7秒でした。実際にアームを動かして1個片付けるには46.6秒かかるため、無駄な物理操作を省くことで33〜76秒の作業時間を削減できました。さらに、ベースラインでは21%が衝突や非常停止に陥ったのに対し、CoReは接触前の安全マージンで仮想ロールアウトを止めるため、安全性が劇的に向上しました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "LangSwitchタスクの3つの指示変更ファミリーです。対象物が変わるRe-grounding、動作自体が変わるRe-skilling、既存の作業結果と新しい指示が矛盾するConflictを示しています。",
+     "caption": "Figure 4: Overview of the LangSwitch Tasks , spanning the Re-grounding , Re-skilling , and Conflict switch families defined in the Experimental Setup.",
+     "image": "details/2608.14822/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "LIBERO-Longで導入された4つの物理外乱です。アームへの外力トルク衝突、把持中の落下、対象物の位置ずれ、転倒というロボット運用上で頻発するトラブルを網羅しています。",
+     "caption": "Figure 5: Overview of the LIBERO-Long with Perturbation Tasks , spanning the Arm Collision , Grasp Failure , Object Displace , and Object Tip perturbation families defined in the Experimental Setup.",
+     "image": "details/2608.14822/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "実機xArm6による評価環境です。固定カメラと手先カメラを備え、日常的な小物と皿を用いたピック、プレース、プッシュ動作においてCoReの有効性を検証しました。",
+     "caption": "Figure 7: Overview of the Real-World Tasks. We validate the feasibility of CoRe beyond simulation on a physical xArm6 across multiple task families and objects.",
+     "image": "details/2608.14822/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Conclusion",
+   "heading_ja": "「頭の中でリカバリを想像する」新たなパラダイム",
+   "summary_ja": "CoReは、追加学習なし・外部モデルなしで、反実仮想的な想像と最小限の物理介入によりVLAを復旧させる強力な枠組みです。シミュレーションと実機の双方で、極めて高い復旧率と物理介入の削減を両立しました。",
+   "details_ja": "本研究が提案したCoReは、従来の「失敗データを集めて学習し直す」あるいは「巨大な外部LLMに指示を仰ぐ」というアプローチとは根本的に異なり、「VLA自身が持っている事前知識を、幾何学的に合成した仮想空間の中で引き出して復旧計画を立てる」という極めてエレガントな推論時フレームワークです。\n\n広範なベンチマーク実験と実機検証を通じて、指示の急な変更や激しい物理外乱に対しても、一切のファインチューニングなしで初期性能に近い水準までタスクを完遂できることが証明されました。また、仮想プローブによって不要な環境リセットを省く仕組みは、実世界での作業時間短縮とロボットの安全性担保の両面において非常に実用的です。推論時計算（Inference-Time Compute）をロボットのリカバリに応用した先駆的な成果と言えます。",
+   "figures": []
+  },
+  {
+   "heading": "Technical Appendix",
+   "heading_ja": "付録：実機実装とハイパーパラメータの設計ノウハウ",
+   "summary_ja": "実機パイプラインの詳細、幾何学的画像合成の工夫、および各バックボーン（$\\pi_0$、GR00T、X-VLA等）に対する引き渡し処理の技術的詳細を解説しています。",
+   "details_ja": "付録では、論文を再現・実装する上で鍵となるシステム設計が詳述されています。\n\n- 実機認識パイプライン: 物体検出にはGrounding-DINO、セグメンテーションにはSAM2を使用し、アーム自身のマスクは関節角度から順運動学で描画して少し膨らませる（9pxダイレーション）ことで正確に除去しています。これにより、特権的なシミュレータ情報なしで完全な点群・ボクセル管理を可能にしています。\n- 観測合成のノウハウ: 2 mm解像度のローカルボクセルを蓄積し、抜けた背景は過去フレームの背景ボクセルとインペインティング（欠損が大きい場合はLaMa、小さい場合はTelea）で補完します。LIBEROシミュレータでは外部レンダラーとの明暗差をなくすためにヘッドライトの照明キャリブレーションを行っています。\n- ポリシーへの制御引き渡し（Handoff）: アクションチャンクを出力するモデル（$\\pi_0$、$\\pi_{0.5}$、GR00Tなど）では、仮想ロールアウトが途中で止まった場合、チャンクの残りのステップだけを実機に実行させることで、二重実行を防いでいます。一方、30ステップの絶対手先座標を出力するX-VLAのようなモデルでは、開ループ実行が長いため接触安全マージンを15 cmと広めに設定し、再配置後のアーム位置に最も近いウェイポイントから合流する工夫が施されています。\n- 閾値調整の知見: アンカー決定の閾値 $\\delta$ を緩めすぎると、ポリシーがすでに誤った物体にロックオンされた状態から復旧を試みることになり、成功率が急落（91.1%から36.7%へ）することが示されています。適切な早期アンカーの選択がCoReの生命線であることが分かります。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "合成画像の詳細な比較です。LangSwitch（左）では空中に持ち上げられたキューブ、LIBERO（中央）では両視点の幾何学的合成、実機（右）では物体を除去して背景を補完したプローブ用画像が忠実に再現されています。",
+     "caption": "Figure A1: Synthesized observations, as consumed by the frozen policy. Columns are the three domains, rows are the two viewpoints. LangSwitch shows a frame of an imagined continuation, in which the target is rendered in mid-air because the counterfactual has already grasped it. LIBERO shows the dual-view synthesis of a single imagined state. The real-robot column shows the repaint a subset probe is evaluated on, with the candidate objects removed and the vacated pixels filled from the background",
+     "image": "details/2608.14822/F8.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "VLAの復旧には必ずしも失敗データの追加学習や巨大な外部LLMは不要であり、推論時の仮想シミュレーション（反実仮想ロールアウト）で十分代用できる",
+  "重厚なニューラル世界モデルを作らなくても、RGB-D履歴からの幾何学的ボクセル合成と順運動学（FK）の組み合わせだけで、既存VLAが違和感なく動ける視覚入力を生成可能である",
+  "タスク復帰に本当に必要な物体だけを頭の中でテスト（仮想プローブ）して選別することで、現場での無駄な物理的片付け作業と事故リスクを劇的に減らせる",
+  "外乱検知にはVLAのアクションヘッド直前にある潜在特徴の統計的距離（マハラノビス距離）が極めて有効で、正常データのみで軽量に校正できる"
+ ],
+ "limitations_ja": [
+  "仮想ロールアウトはロボットの順運動学（FK）に依存しているため、物体との複雑な接触ダイナミクスを頭の中でシミュレーションすることはできず、接触直前で仮想先読みを打ち切る必要がある",
+  "幾何学的画像合成の品質がRGB-Dカメラの深度精度やセグメンテーション（SAM2等）の認識精度に依存しており、極端な遮蔽や透明・鏡面物体では破綻するリスクがある",
+  "物理的な片付け動作（Pick-and-Place）自体は従来のモーションプランニングに依存しているため、散らかった物体が把持不可能な姿勢に倒れた場合の復旧には限界がある"
+ ],
+ "keywords": [
+  "Vision-Language-Action Models",
+  "Failure Recovery",
+  "Counterfactual Realignment",
+  "Inference-Time Planning",
+  "Robotic Manipulation"
+ ],
+ "id": "2608.14822",
+ "title": "Imagining Recovery: Inference-Time Counterfactual Realignment for Vision-Language-Action Models",
+ "title_ja": "想像による復旧: 視覚・言語・行動モデルの推論時反実仮想アライメント",
+ "authors": [
+  "Yanyan Zhang",
+  "Disheng Liu",
+  "Kai Ye",
+  "Chaoda Song",
+  "Xinpeng Li",
+  "Mohsen Hariri",
+  "Vikash Singh",
+  "Yu Yin",
+  "Vipin Chaudhary"
+ ],
+ "date": "2026-08-18",
+ "group": "general",
+ "tags": [
+  "vision-language-action",
+  "manipulation",
+  "planning",
+  "safety"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.14822",
+ "pdf_url": "https://arxiv.org/pdf/2608.14822",
+ "summary_ja": "VLAモデルが環境変化や外乱を受けた際、追加の学習や失敗データを必要とせず推論時のみで復旧を行う訓練不要フレームワークCoReを提案。逸脱検知時に直近の正常状態からゴールに向かう継続を合成画像で反実仮想的に生成・補正し、閉ループ実行の破綻を防ぐ。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.14822"
+}
