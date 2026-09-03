@@ -1,0 +1,135 @@
+{
+ "tldr_ja": "実環境を動画から丸ごと取り込んでシミュレータ上で動かせるようにする「Lucida」を提案しました。初期段階で完璧さを求めず、3Dエディタを模したGUI上でVLMがギズモを対話的に操作して微調整する閉ループ設計により、実世界の散らかった部屋から高精度に編集可能な3Dシーンを構築できます。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "実世界のマルチビュー観測から、個別の完全な3Dアセットを抽出し、編集可能なシミュレーション環境へと再構成するLucidaの全体像です。吹き出し部分では、VLMエージェントがギズモを動かして物体の位置・姿勢・スケールを点群に合わせて閉ループで微調整していく様子が描かれています。",
+  "caption": "Figure 1: Teaser. Given posed multi-view observations of a real indoor scene, our method constructs object-centric multi-view evidence, generates complete 3D assets, and places them into a composable reconstruction. The insets illustrate closed-loop rotation, translation, and scale refinement of object models against the observed scene geometry.",
+  "image": "details/2608.30821/F1.jpg"
+ },
+ "overview_ja": "ロボットの学習や具現化AI（Embodied AI）では、実世界そっくりの環境をシミュレータ上に再現するReal-to-Sim技術が欠かせません。しかし、部屋全体を一枚岩のメッシュとして再構成するNeRFや3DGSでは、家具や小物を個別に掴んだり動かしたりできません。個別に分離・編集可能なアセットとして復元する既存手法は「認識→3Dアセット生成→配置」という3ステップを踏みますが、初期段階でオクルージョン（遮蔽）のない綺麗な点群や正確なマスクを前提としており、散らかった実環境のキャプチャでは途中の誤差が最後まで蓄積して破綻していました。\n\nそこで著者らは、人間の3Dモデラーの作業に着目しました。人間は動画全体を眺めて大まかな配置を把握し、別途アセットを用意して、3D編集ソフト上でカメラを切り替えながら位置や向きを少しずつ調整して合わせ込みます。つまり「最初から精度を求めず、最後の配置段階で閉ループに精度を追い込む」というアプローチです。Lucidaはこの考え方に基づき、各段階の要求精度を実画像から確実に得られるレベルまで緩和しました。認識段階ではインスタンスごとのマルチビュー証拠を集約したシーングラフを構築し、生成段階では遮蔽部分をマルチモーダルモデルでアモーダル（隠れた部分も含めて）補完して3D化します。そして配置段階では、VLMエージェント「GizmoAct」がGUI上のギズモ（座標軸ハンドル）を操作し、観測点群と重なるまで反復的に微調整を行います。\n\n実世界ベンチマーク「R2S」や「CA-1M」で評価した結果、物体検出のmAPが従来比で最大69%向上し、配置の厳密な幾何一致率（ADD-SB@0.05）も57.8%から83.4%へ跳ね上がり、シーン全体のFスコアも0.924を達成しました。",
+ "contributions_ja": [
+  "認識・生成・配置の3段階パイプラインにおいて、散らかった実観測では不可能な完璧さを初期段階で要求せず、最終配置の閉ループ操作で幾何学的精度を担保する新しい設計思想を提示しました。",
+  "動画全編からインスタンスごとのマルチビュー証拠を集約し、空間関係や支持関係を幾何学的に検証・補正するシーングラフ構築ベースの3D物体検出手法を開発しました。",
+  "3D配置をGUI操作として定式化し、VLMがギズモを介して反復的に平行移動・回転・非等方スケールを微調整し自律終了するエージェント「GizmoAct」を提案しました。",
+  "実環境Real-to-Simベンチマーク「R2S」を構築し、物体検出・姿勢推定・シーン全体再構成の3つの階層で従来ベースラインを大幅に上回る性能を実証しました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "最初から完璧を求めない：人間のモデラーに学ぶシーンモデリング",
+   "summary_ja": "実環境を個別に操作可能な3Dアセット群として再構成する課題では、従来の「認識・生成・配置」パイプラインが初期段階で過剰な入力精度を仮定していたことがボトルネックでした。本論文は要求を再配分し、初期段階は粗い推定に留め、最終配置段階でVLMによる閉ループ微調整を行う「Lucida」を提案しています。",
+   "details_ja": "ロボットが部屋の中で物を片付けたりドアを開けたりするタスクをシミュレータ上で学習するには、部屋が一枚岩の背景ではなく、物体ごとに個別編集・操作できる「コンポーザブル（構成的）な3Dシーン」が必要です。\n\nしかし、従来のNeRFや3Dガウススプラッティング（3DGS）は部屋全体を忠実に再現できても、物体が分離されておらず、家具の裏側などの隠れた面は復元できません。既存のコンポーザブル手法は「認識」「生成」「配置」の3段階に分かれていますが、認識には遮蔽のない綺麗なマスクを、生成には真正面から撮られた単一画像やノイズのない点群を、配置には観測と幾何が完全に一致するCADモデルを前提としていました。散らかった実際の部屋の動画では、家具同士が重なり合い、同一の椅子が複数あり、デプスカメラのノイズも多いため、この前提は最初から崩れてしまいます。\n\nそこで著者らは、人間の3Dモデラーの手順を真似ることにしました。人間は動画を見て部屋の概要を掴み、モデルを用意したら、編集ソフトのギズモを使って画面を見ながら少しずつ位置や姿勢を合わせます。精度はプロセスの最初ではなく「最後」に達成されるのです。\n\nこの思想に基づき、Lucidaでは認識段階を「マルチビュー証拠の集約と粗い3D推定」に留め、生成段階ではマルチモーダルモデルを用いて遮蔽を除去した完全なアセットを作成します。そして最後の配置段階では、VLMエージェント「GizmoAct」がGUI上のギズモを反復操作して、観測点群と合致するよう9自由度（位置3・回転3・非等方スケール3）の姿勢を自律的に合わせ込みます。",
+   "figures": []
+  },
+  {
+   "heading": "2 Method",
+   "heading_ja": "Lucidaの仕組み：証拠集約、アモーダル生成、そしてGUIを操るVLM",
+   "summary_ja": "システムは「マルチビュー証拠の集約によるシーングラフ構築」「遮蔽のないアモーダル3Dアセット生成」「VLMエージェントGizmoActによる閉ループ9-DoF配置」の3要素から構成されます。各段階は実観測から確実に得られる情報のみを消費し、誤差を後段のインタラクションで吸収します。",
+   "details_ja": "システム全体の入力はカメラポーズ付きのRGB-D動画列であり、出力は各物体の完全な3Dメッシュと9-DoF（自由度）の配置姿勢、および空間関係を記述したシーングラフです。\n\n### 2.1 マルチビューによる物体中心シーングラフ解析\nまず、幾何的共視性（covisibility）と時間差を考慮したスコア $s(i,j)$ に基づき、重複を避けたキーフレームを選定します。キーフレーム上でVLMと3D検出器を用いて候補物体を見つけ、共通の3D空間でグループ化します。次に、得られた代表3Dボックスを動画全編に逆投影し、ビデオセグメンテーション（SAM 2等）で追跡してマルチビューの観測証拠を集約します。さらに「机の上に載っているはずなのに台座となる机が検出されていない」といった矛盾を検出する関係認識リファインメントを行い、不足している支持物体を探索・追加してシーングラフを完成させます。\n\n### 2.2 アモーダル物体アセット生成\n点群の直接補完はノイズに弱いため、複数視点のRGB画像を活用します。遮蔽の度合いや視点の異なる信頼性の高い画像を抽出し、ターゲット物体をマーキングしたプロンプト（Set-of-Mark）とともに画像編集VLMに渡して、遮蔽物のない単体オブジェクト画像を合成します。これを最新のImage-to-3Dモデルに入力して完全な3Dアセット $A_o$ を生成します。\n\n### 2.3 GizmoActによるエージェント的3Dグラウンディング\n生成されたアセットを実際の点群に正確に配置するため、本手法では配置タスクを「3DモデリングソフトのGUI操作」として再定義しました。VLMには、シーン点群、現在のアセット姿勢、3Dバウンディングボックス、そしてローカル座標軸を示す「ギズモ」が重畳表示されたレンダリング画像が与えられます。また、点群の背後に隠れているモデル面を半透明の緑色でハイライトすることで、単一視点でも奥行き関係が直感的に分かるように工夫されています。\n\nVLMはテキストでXMLタグ形式のコマンドを出力します。メインのアクションは、ギズモのローカル座標系における微小回転・相対移動・相対スケールを指定する `update_pose` と、配置完了を自己判断する `stop` です。絶対座標やメートル単位のスケールを直接回帰させず、現在のオブジェクトサイズに対する相対比率で指定させるため、画像からの予測が極めて安定します。さらに、初期回転誤差が大きい場合のために、6方向の正投影図にカメラを切り替える `switch_obs` と、24通りの軸入れ替えを一発で適用する `permute_axis` も用意されています。\n\n### 学習方法（SFTと強化学習）\nGizmoActの学習は2段階で行われます。まず合成シーン上で生成したエキスパートの操作軌跡を用いてSFT（教師あり微調整）を行います。この際、DARTのようにあえて失敗アクション（行き過ぎや軸間違い）を注入し、そこからリカバリする軌跡を含めることで、自分のミスを修正する能力を身につけさせます。次に、GRPO（Group Relative Policy Optimization）を用いたオンライン強化学習を行います。報酬は予測ボックスと正解ボックスの3D IoUおよび測地線回転誤差を4段階（bad, coarse, success, excellent）に量子化した離散レベルで評価し、両方が成功基準を満たし、さらに自律的に `stop` を宣言できた場合に高報酬を与えます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "Lucidaのパイプライン全体図です。キーフレーム選択から動画全編の証拠集約を経てシーングラフを構築し、オクルージョンを除去した画像を生成して3Dアセット化、最後にGizmoActがギズモを介した閉ループ操作で位置・向き・スケールを最適化します。",
+     "caption": "Figure 2: Overview of our method. Given posed scene observations, the parsing stage constructs an object-centric scene graph with per-object multi-view evidence and coarse 3D estimates. For each object, the multi-view evidence is used to synthesize a complete object-centric image, which is then lifted into a 3D asset. GizmoAct places the asset through closed-loop 9-DoF gizmo manipulation, iteratively refining rotation, translation, and anisotropic scale until it decides that alignment is reached",
+     "image": "details/2608.30821/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "GizmoActのグラフィカル観測画面と操作ステップの流れです。(a)では入力画像、ギズモとバウンディングボックスの重畳表示、オクルージョン（緑色）が示され、(b)では誤った回転から自律的にリカバリし、移動・スケール調整を経てstopに至るプロセスが確認できます。",
+     "caption": "Figure 3: GizmoAct graphical observation and interaction trajectory. (a) The observation at one turn. The instruction block specifies the adjustment target and the referring cue; the main views pair the raw input image with renderings that overlay the asset, its yellow 3D box, and the gizmo showing the object’s local frame (red/green/blue axes), in which all edits are expressed. Semi-transparent green marks the model surface occluded by the scene point cloud. Auxiliary views add multi-view evide",
+     "image": "details/2608.30821/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "3 Experiments",
+   "heading_ja": "実世界ベンチマークでの検証：検出・配置・全体再構成のすべてで圧勝",
+   "summary_ja": "実環境ベンチマーク「R2S」および「CA-1M」「ADT」において、物体検出、姿勢推定、シーン再構成の3つのレベルで評価を行いました。Lucidaは既存の3D検出器や姿勢推定モデル、End-to-End型シーン生成手法をすべての指標で大幅に上回りました。",
+   "details_ja": "実験では、パイプラインの各段階とシステム全体の性能を詳細に検証しています。\n\n### 3.1 シーンレベル3D物体検出\nキーフレームのプロンプトから全編の証拠を集約してシーングラフを作る第1段階の評価です。LiDAR真値を持つ「CA-1M」と実世界データセット「R2S-Scene」において、BoxerおよびWildDet3Dと比較しました。全アノテーションを対象とした評価（_all）において、R2S-Sceneでの平均mAPはBoxerの0.351から0.592へと69%も大幅に向上しました。全フレームにプロンプトを与えたBoxerに対しても、キーフレームのみから開始した本手法が上回っており、単に各フレームの予測を幾何統合するだけでなく、物体中心に全編から証拠を集めて関係性を検証するアプローチの有効性が示されました。\n\n### 3.2 レイアウト微調整と物体姿勢推定（GizmoAct単体評価）\n上流の検出誤差と切り離してGizmoActの実力を測るため、粗い初期姿勢から9-DoF姿勢をリファインするタスクを評価しました。比較対象は単一画像からの姿勢推定を行うAny6D、形状と姿勢を同時予測するSAM 3DやRecGenです。厳密な表面一致度を測るADD-SB@0.05（誤差が物体直径の5%以内）において、CA-1Mでは最強ベースラインの57.8%から83.4%へ、R2S-Objectでは79.2%から92.0%へと飛躍的に向上しました。3D IoUもそれぞれ0.607、0.719に達しています。さらに、Boxer初期化、Any6D風の初期化、SAM 3D初期化のいずれに対しても、同一のポリシーが再学習なしで頑健に機能することが確かめられました。\n\n### 3.3 シーン全体の再構成評価\nアセット生成と配置を統合したシステム全体の評価です。End-to-Endでシーンを生成するSceneGen、およびインスタンスごとに復元して組み合わせるSAM 3Dと比較しました。シーン座標系での面精度を測るメトリックにおいて、Lucidaは面取り距離（Chamfer Distance; CD）をSAM 3Dの0.022から0.010へと半減させ、シーンFスコア（閾値0.1m）を0.794から0.924へと引き上げました。定性結果でも、SceneGenは物体の重なりやスケール崩れが酷く、SAM 3Dは見かけの視点では合っていても上面図や側面図で大きな回転ズレが生じていたのに対し、Lucidaは多視点から見ても整合した配置を実現しています。\n\n### 3.4 アブレーション研究\n幾何考慮のキーフレーム選択を一様サンプリングに変えるとFスコアが0.831から0.727へ低下し、全編証拠集約を省くとカバー率の低下によりCDが悪化しました。また、GizmoActの強化学習（RL）の効果を検証したところ、困難な初期誤差からの回復において、RLポリシーはSFTポリシーに比べて回転誤差を45.19°から20.98°へと半減させ、角度誤差5°以内の達成率を大きく改善しました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "実世界のキャプチャ動画からLucidaによって再構成された4つのシーンギャラリーです。カメラ軌跡とともに部屋全体が配置され、下段のレンダリング画像が上段の実写フレームと極めて高い幾何学的・外観的一致を示していることが分かります。",
+     "caption": "Figure 5: Gallery of composed scenes. Four real captures reconstructed by Lucida, annotated with the number of captured frames and the room extent. For each scene, the left panel shows the composed object-centric scene with the capture trajectory and camera frusta overlaid; the right panels pair captured frames (top row) with renderings of the reconstructed scene from the same camera poses (bottom row). Every object is an individual complete asset, so the composed scenes are directly editable an",
+     "image": "details/2608.30821/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "物体姿勢推定の定性比較です。青色の真値モデルに対して、各手法の予測姿勢でレンダリングされたモデルが重なり合っています。Lucida（Ours）は複雑な形状の椅子やオーブンでも真値とピタリと一致しています。",
+     "caption": "Figure 6: Qualitative comparison of object pose estimation on CA-1M, R2S-Object, and ADT. The leftmost column shows the scene image and a close-up with the target instance boxed. Blue renders the ground-truth model at the ground-truth pose; each method’s model, posed by its prediction, is rendered jointly with this blue reference, so their mutual occlusion—together with the three axis-aligned close-ups—reveals the pose accuracy, and the GT column shows the reference alone. Lucida aligns the gene",
+     "image": "details/2608.30821/F6.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "シーン再構成の定性比較です。メイン視点だけでなく側面（Side）や上面（Top）から見た際、SceneGenやSAM 3Dでは物体のめり込みや回転ズレが目立ちますが、Lucidaはどの角度から見ても正確なレイアウトを保っています。",
+     "caption": "Figure 8: Qualitative scene-level comparison. For each scene, we show the multi-view capture, a scanned reference view, the selected evaluation instances, and reconstructions rendered from the main, side, and top viewpoints. SceneGen and SAM 3D receive the same reference image and instance masks, whereas Lucida uses per-instance multi-view evidence. The asterisk marks our reconstruction restricted to the object instances included in the comparison.",
+     "image": "details/2608.30821/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Related Work",
+   "heading_ja": "関連研究とLucidaの立ち位置：一枚岩の再構成からエージェント的配置へ",
+   "summary_ja": "従来の3Dシーン再構成、シーングラフ解析、姿勢推定の発展を整理し、本研究が「GUI操作としての姿勢最適化」と「精度の要求順序の転換」によって既存手法の限界をいかに打破したかを位置づけています。",
+   "details_ja": "本研究の関連分野は大きく3つに分類されます。\n\n### コンポーザブル3Dシーンモデリング\nNeRFや3DGSの発展に伴い、シーンを物体ごとに分解する研究が進みましたが、観測された可視ピクセルのみを説明する手法が多く、隠蔽部の復元は困難でした。一方、CADモデルの検索・配置を行う手法はデータベース内の形状に縛られ、End-to-End型の生成モデルは学習データ不足により実環境への汎化性が低いという課題がありました。近年のマルチステージ手法は柔軟ですが、前段の誤差を後段がそのまま引き継いでしまう弱点がありました。Lucidaは、前段の要求を緩和し、後段の閉ループ微調整で精度を回収する点で一線を画します。\n\n### シーンレベル3D物体検出\n単眼検出器や各視点の3Dボックスを単純統合する手法（Boxerなど）は、家具の繰り返しやオクルージョンによって誤統合や見落としが頻発します。Lucidaのパース段階は、キーフレームで大まかに検出した後、動画全編から証拠を集約し、空間関係や支持関係の整合性を推論して修正するアプローチを取ることで、検出精度を大きく引き上げました。\n\n### 3Dグラウンディングと反復姿勢推定\n従来のPose Refinementは、レンダリング画像と観測画像を比較して相対残差を回帰する「Render-and-Compare」が主流でした。しかしこれらは生成アセットと実物の形状が完全に一致することを仮定しており、終了条件も固定ステップ数に依存していました。また強化学習による離散ステップ制御の研究もありましたが、表現力に限界がありました。GizmoActは、事前学習済みVLMを3Dモデリングツールの操作者（GUIエージェント）として位置づけ、非等方スケールを含む9-DoFを自律的な判断で反復微調整できるようにした画期的な枠組みです。",
+   "figures": []
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめと今後の展望：真の全自動Real-to-Simに向けて",
+   "summary_ja": "散らかった実環境動画から編集可能な3Dシーンを構築するLucidaを提案しました。認識段階で無理をせず、最終配置段階でVLMが閉ループ微調整を行うアプローチの有効性が示されましたが、初期パースで見落とした物体を後から復元できない点や、エージェント的対話が配置段階に限られている点が今後の課題です。",
+   "details_ja": "本研究では、実世界の散らかった部屋のキャプチャから、ロボットシミュレーションや具現化AIですぐに使える構成的3Dシーンを復元するシステム「Lucida」を提案しました。\n\n各ステップに完璧な入力を要求するのではなく、初期段階は実データから確実に得られる粗い情報に抑え、生成したアセットをVLMエージェント「GizmoAct」が3Dエディタ上で微調整することで、高い幾何精度を実現しました。物体検出、姿勢推定、シーン全体再構成のすべてのベンチマークにおいて、既存の最先端手法を大幅に塗り替える結果を達成しています。\n\n著者らが挙げている主な限界と今後の課題は以下の通りです。\n- **パース段階の見落とし**: 最初のシーングラフ解析で見落とされた物体は、後段のアセット生成や配置の対象にならず、シーンから完全に抜け落ちてしまいます。\n- **エージェント適用の範囲**: 現在、VLMによる閉ループな対話的微調整は最終の配置ステップ（GizmoAct）にのみ導入されています。パイプライン全体（パースやアセット生成）をエージェント同士が相互に修正し合う完全なAgenticフレームワークへ拡張することが、今後の重要な研究の方向性です。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「上流で完璧を目指さず、下流の閉ループで精度を回収する」という要求の再配分設計は、ノイズの多い実世界データを扱うあらゆるマルチステージAIパイプラインに応用可能な強力な指針です。",
+  "3D姿勢推定を数値回帰問題ではなく「3D編集ツールのGUIをVLMが操作する対話タスク」として抽象化することで、非等方スケールを含む複雑な9-DoF調整を極めて安定して解くことができます。",
+  "強化学習（GRPO）において、報酬をあえて連続値ではなく離散レベルに量子化し、失敗リカバリのSFT軌跡と組み合わせることで、難易度の高い姿勢誤差からの復帰能力が劇的に向上します。"
+ ],
+ "limitations_ja": [
+  "上流のシーン解析（シーングラフ構築）段階で検出されなかった物体は、後段の生成・配置ステップでリカバリできず、最終シーンから完全に欠落してしまいます。",
+  "現状では閉ループなエージェント制御が配置段階（GizmoAct）に限定されており、認識や生成を含めたパイプライン全体の相互対話・自己修復には至っていません。",
+  "アセット生成において対称性を持つ物体の回転評価や、鏡面反射・極端に薄い物体などRGB-Dセンサが苦手とする幾何形状に対する頑健性にはまだ改善の余地があります。"
+ ],
+ "keywords": [
+  "Real-to-Sim",
+  "Composable Scene Modeling",
+  "Vision-Language Models",
+  "3D Object Grounding",
+  "Pose Estimation",
+  "Reinforcement Learning"
+ ],
+ "id": "2608.30821",
+ "title": "Lucida: Parse, Generate, and Place for Composable Real-to-Sim Scene Modeling",
+ "title_ja": "Lucida：実環境から編集可能なシミュレーション環境を構築するReal-to-Simシーンモデリング",
+ "authors": [
+  "Minghan Qin",
+  "Yuang Wang",
+  "Xiuyu Yang",
+  "Yushi Long",
+  "Yujian Zhang",
+  "Ruihuan Wang",
+  "Kai Ye",
+  "Yangang Zhang",
+  "Hang Li"
+ ],
+ "date": "2026-09-01",
+ "group": "general",
+ "tags": [
+  "simulation",
+  "sim-to-real",
+  "perception"
+ ],
+ "categories": [
+  "cs.CV",
+  "cs.AI"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.30821",
+ "pdf_url": "https://arxiv.org/pdf/2608.30821",
+ "summary_ja": "実室内シーンからロボットシミュレータで個別に操作可能な3Dオブジェクト資産とシーン配置を再構成する手法Lucidaを提案。従来の認識・生成・配置パイプラインの制約を緩和し、散らかった環境や遮蔽がある不完全な実データからでも高品質なデジタルツイン環境を構築できるようにした。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.30821"
+}
