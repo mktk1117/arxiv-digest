@@ -1,0 +1,135 @@
+{
+ "title_ja": "野外の過酷な環境を駆け抜ける四足歩行ロボットの頑健な知覚歩行学習",
+ "tldr_ja": "外界センサー（カメラやLiDAR）のノイズや欠損をゲート付きリカレントエンコーダで自己受容感覚と統合することで、視覚が信頼できる時は高速に歩き、視覚が狂った時は手探り歩行へ自然にフォールバックする頑健な四足歩行を実現しました。",
+ "hero_figure": {
+  "key": "F6",
+  "caption_ja": "本研究の全体パイプラインです。特権情報を用いた強化学習で教示ポリシーを鍛えたあと、実機で得られるノイズだらけの観測から教師の行動を模倣・状態復元する生徒ポリシーを蒸留し、実機ANYmalへゼロショットで展開します。",
+  "caption": "Figure 5: Overview of the training methods and deployment. We first train a teacher policy with access to privileged simulation data using reinforcement learning (RL). This teacher policy is then distilled into a student policy, which is trained to imitate the teacher’s actions and to reconstruct the ground-truth environment state from noisy observations. We deploy the student policy zero-shot on real hardware using height samples from a robot-centric elevation map.",
+  "image": "details/2201.08117/F6.jpg"
+ },
+ "overview_ja": "四足歩行ロボットが不整地を素早く移動するには、地面に足が触れる前に地形の起伏を捉える「外界受容感覚（カメラやLiDAR）」が欠かせません。しかし現実のフィールドでは、雪や草などの柔らかい障害物、金属床の反射、センサーの死角、足元の滑りによる自己位置推定のドリフトなど、視覚情報が嘘をつく状況が日常茶飯事です。そのため、従来の頑健なコントローラは視覚を捨てて関節の力覚や姿勢などの「自己受容感覚（固有感覚）」だけに頼らざるを得ず、手探りで歩くため移動速度が著しく制限されていました。\n\nそこで著者らは、外界受容感覚と自己受容感覚を巧みにブレンドする「アテンション付きリカレント信念状態エンコーダ」を提案しました。完全な地形情報を持つ教示ポリシー（Teacher）をシミュレータ上で強化学習し、その動きを実機相当のノイズや欠損だらけの観測しか持たない生徒ポリシー（Student）へ蒸留します。この生徒ネットワークは、視覚が頼れるときは地形を先読みして足を高く上げ、視覚が破綻したときは瞬時に固有感覚主体の歩行へとシームレスに切り替える判断を、ヒューリスティクスなしのEnd-to-Endで獲得します。\n\n検証として、四足歩行ロボットANYmalをスイス・アルプスのエツェル山に持ち込み、標高差120m・2.2kmのハイキングコースを踏破させました。急勾配や濡れた岩場、露出した木の根が連続する過酷な山道を、公式看板に書かれた人間の標準登山時間（35分）を上回る31分で登頂し、一度の転倒もなく完走しました。さらにDARPA Subterranean Challengeでも実証され、外界認識の失敗に強い汎用的な移動制御フレームワークであることが証明されました。",
+ "contributions_ja": [
+  "外界受容感覚（標高マップ）と自己受容感覚（固有感覚）をヒューリスティクスなしで統合し、視覚の破綻時に手探り歩行へ自動縮退するリカレント信念エンコーダを提案したこと",
+  "特権学習（Privileged Learning）とシミュレーション内での系統的な地形知覚ノイズ付加を組み合わせ、実機へ追加学習なしでゼロショット転移させたこと",
+  "標高差120m・傾斜最大38%の過酷なアルプス山道ハイキングを、人間の推奨歩行時間と同等の78分かつ無転倒で完走させたこと",
+  "DARPA Subterranean Challengeの優勝チームの標準コントローラとして地下環境1700m以上の完全無転倒踏破に貢献したこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜロボットは自然の山道で「目」を活かせなかったのか",
+   "summary_ja": "四足歩行ロボットが屋外で素早く歩くには地形を先読みする外界受容感覚が必須ですが、実環境の視覚は反射や死角などで頻繁に破綻します。そのため従来は視覚を捨てた固有感覚頼りの遅い歩行が主流でした。本研究はリカレント信念エンコーダにより、両感覚を状況に応じて統合する頑健なコントローラを提案します。",
+   "details_ja": "### 既存手法の壁：視覚の脆さと固有感覚の遅さ\n人間や動物は、これから踏み出す地面の形状を目で先読みし、不整地でも減速せずに軽快に走り抜けます。ロボットにもカメラやLiDARを載せて同じことをさせたいところですが、野外の知覚環境はあまりにも過酷です。ステレオカメラはテクスチャのない雪面で奥行きを見失い、ToFカメラは直射日光や黒い物体でノイズだらけになります。さらに草むらを硬い壁と誤認したり、水たまりや金属板の鏡面反射で地面に穴が空いているように見えたりします。\n\nこれまでの古典的な制御や初期の学習ベース手法は「得られた地形マップが正しい」という前提に立っていたため、マップが少しでも狂うと足を踏み外して転倒してしまいました。結果として、最も頑健とされたコントローラ（例えばLeeらの先行研究）は外界センサーを完全に無視し、関節のエンコーダやIMU（慣性計測装置）などの固有感覚（自己受容感覚）だけで歩く道を選びました。しかし地面を踏んで感触を確かめてからしか反応できないため、歩行速度はどうしても遅くなってしまいます。\n\n### 本研究の狙い：両者の「いいとこ取り」\nそこで本研究が目指したのは、視覚の「先読みによる高速性」と、固有感覚の「騙されない頑健性」の完全な融合です。手作業の例外処理ルールに頼るのではなく、視覚情報がどれだけ信用できるかをニューラルネットワーク自身が動的に判断し、信用できないときは滑らかに固有感覚主体の歩行へとフォールバックする仕組みを作りました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "野外の様々な環境でテストされたANYmalです。急斜面、草むら、雪道、地下坑道、階段など、視覚が乱れやすい複合的な難所を転倒ゼロで踏破しています。",
+     "caption": "Figure 1: Robust locomotion in the wild. The presented locomotion controller was extensively tested in a variety of complex environments over multiple seasons. The controller overcame a whole spectrum of real-world challenges, often encountering them in combination. These include slippery surfaces, steep inclinations, complex terrain, and vegetation in natural environments. In search-and-rescue scenarios, the controller dealt with steep stairs, unknown payloads, and perception-degrading fog. Ref",
+     "image": "details/2201.08117/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Results",
+   "heading_ja": "アルプス登山から目隠し歩行まで：実機が魅せた驚異の適応力",
+   "summary_ja": "開発されたコントローラは、アルプスの過酷な山道2.2kmを人間の標準タイムより速い31分で登頂し、無転倒で踏破しました。さらに視覚のみに頼る手法と異なり、センサーを覆い隠した完全ブラインド状態や透明な障害物、変形するクッション床でも内部の信念状態を瞬時に修正し、安定して歩行を続けられることを実証しました。",
+   "details_ja": "### アルプス山道ハイキング：人間並みのペースで登頂\nコントローラの真価を確かめるため、スイス・エツェル山（標高差120m、全長2.2km、最大傾斜38%）でのハイキング実験が行われました。ルート上には湿った岩場、張り巡らされた木の根、崩れやすい土、急な階段など、四足歩行にとっての悪条件が揃っています。さらに頭上の木々が標高マップ上に偽の巨大障害物を作り出す現象も起きました。しかしANYmalは一度も転倒することなく、途中で靴が脱げた際の修理とバッテリー交換以外は完全に自律して歩ききりました。山頂までの所要時間は31分で、公式の標識に書かれた人間の標準所要時間（35分）を4分も上回りました。下りを含めた全工程も78分で、登山計画ガイドの提示時間（76分、難易度「難」設定）とほぼ同等でした。\n\n### 外界認識の破綻に対する頑健性\n野外では様々な「視覚の嘘」が発生します。金属床の反射による幻の溝、雪面によるマップの白紙化、オーバーハングした枝による壁の誤認、草むらによる軟弱地盤、足元の滑りによる自己位置推定のドリフト、上り坂での死角などです。本手法はこれら全てに遭遇しても足を止めることなく、破綻した視覚を即座に無視して固有感覚で前進し続けました。\n\n### 固有感覚ベースラインとの定量比較\n視覚を使わない先行研究（Leeらの手法）と性能を直接比較しました。\n- 固定段差の乗り越え：ベースラインは高さ20cmで前足が引っかかり成功率が急落したのに対し、提案手法は30.5cmの段差まで確実に乗り越えました。目で見えているため、段差の手前で前足を高く上げ、体を前傾させて後ろ足を引き上げる動作を自発的に行います。\n- 障害物コース走破：スロープ、高台、階段、ブロックの複合コースにおいて、提案手法は33秒でスムーズに通過しました。ベースラインは途中で引っかかり、人間が手で持ち上げて助けなければ走破できませんでした（所要時間75秒）。\n- 最高移動速度：平地で提案手法は1.2 m/sを記録し、ベースラインの0.6 m/sの2倍に達しました。特に旋回速度では提案手法が3.0 rad/s、ベースラインが0.6 rad/sと、実に5倍もの圧倒的な差がつきました。\n\n### 信念状態の可視化：ロボットの「頭の中」を覗く\nなぜ騙されないのかを調べるため、内部表現を可視化しました。柔らかいスポンジブロックを踏ませると、視覚では硬い床に見えるため足を乗せますが、沈み込んだ瞬間に足裏の感覚から地形推定の高さを下方修正しました。透明なアクリル板では、最初は見えていないため平地として歩きますが、接触した瞬間に段差として信念を書き換えました。さらにセンサーを手で塞いでノイズを与えても、最初の接触で段差を理解してそのまま階段を登りきりました。滑りやすい高台に乗った際も、低摩擦を感知すると即座に足の回転数を上げてバランスを取り、オドメトリが安定するまで固有感覚主体の歩行へと切り替えました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "スイス・エツェル山でのハイキングルートと実機の様子です。全長2.2km・標高差120mの険しい山道を、人間の案内標識にある35分より短い31分で山頂まで登りきりました。",
+     "caption": "Figure 2: A hike on the Etzel mountain in Switzerland, completed by ANYmal with our locomotion controller. The 2.2km route – with 120m of elevation gain and inclinations up to 38% – encompasses a variety of challenging terrain. ANYmal reached the summit faster than the human time indicated in the official signage, and finished the entire route in virtually the same time as given by a hiking guide [ 46 ] .",
+     "image": "details/2201.08117/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "実フィールドで発生する様々な知覚エラーの例です。反射床による溝（B）、雪面での計測消失（C）、頭上の枝（D）、草むら（E）、ドリフト（F）、死角（G）に対しても、破綻なく歩行を継続できます。",
+     "caption": "Figure 3: Our locomotion controller perceives the environment through height samples (red dots) from an elevation map (A). The controller is robust to many perception challenges commonly encountered in the field: missing map information due to sensing failure (B, C, G) and misleading map information due to non-rigid terrain (D, E) and pose estimation drift (F).",
+     "image": "details/2201.08117/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "固有感覚ベースラインとの定量比較です。段差乗り越え限界が20cmから30.5cmへと大幅に向上し（B）、複合障害物コース（C, D）や移動速度（H）でも圧倒的な優位性を示しました。",
+     "caption": "",
+     "image": "details/2201.08117/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "知覚エラー発生時の内部信念の可視化です。赤が入射標高点、青がロボットの内部推定です。スポンジ（A）や透明アクリル（B）、目隠し階段（D）でも、足が触れた瞬間に内部推定を正しく更新しています。",
+     "caption": "Figure 4: Internal belief state inspection during perceptive failure using a learned belief decoder. Red dots indicate height samples given as input to the policy. Blue dots show the controller’s internal estimate of the terrain profile. (A) After stepping on a soft obstacle that cannot support a foothold, the policy correctly revises its estimate of the terrain profile downwards. (B) A transparent obstacle is correctly incorporated into the terrain profile after contact is made. (C) With operat",
+     "image": "details/2201.08117/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "3 Discussion",
+   "heading_ja": "完全自律探査への扉と、残された課題",
+   "summary_ja": "提案コントローラは外界認識の不確かさをエレガントに解決し、DARPA地下探査競技会優勝の基盤技術となりました。一方で、信念状態の不確実性を明示的に利用して足で地面を探る動作や、生センサデータからの直接学習、狭い隙間に挟まった足の引き抜き動作の獲得などが今後の課題です。",
+   "details_ja": "### 地下探査での実戦配備と成功\n本コントローラは単なる実験室の研究にとどまらず、DARPA Subterranean Challengeで優勝した「Team CERBERUS」の4台のANYmalに標準搭載されました。霧、煙、水、粉塵が充満する劣悪な地下坑道や洞窟において、合計1700m以上の距離を転倒ゼロで踏破し、過酷な実環境での極めて高い実用性を証明しました。上位のナビゲーション層が地面の材質判定や走行モードの切り替えを気にする必要がなくなった点は、自律システム全体にとって巨大なブレークスルーです。\n\n### 今後の拡張性と限界\n一方で、現時点での課題も明確に述べられています。\n- 不確実性の明示的活用：現在の信念状態は不確実性を潜在変数の中に暗黙的に持っているだけです。崖の端や飛び石など死角がある場所では地面が続いていると勘違いして足を踏み外すリスクがあります。不確実性を明示的に推定できれば、「怪しい場所には足をゆっくり伸ばして探りを入れる」といった慎重な行動が可能になります。\n- 標高マップの中間表現：現在はLiDARやステレオカメラの点群から2.5D標高マップを起こして入力にしています。センサーの種類を選ばない利点がある反面、画像テクスチャや材質の情報が削ぎ落とされており、自己位置推定モジュールの誤差も引きずります。生センサデータをEnd-to-Endで処理する構成への発展が期待されます。\n- 特殊なリカバリー行動：通常の歩行動作から大きく逸脱する動作、例えば深いスリットに脚が挟まった際の引き抜きや、高すぎる崖をよじ登るようなアクロバティックな動作はまだカバーできていません。",
+   "figures": []
+  },
+  {
+   "heading": "4 Materials and Methods",
+   "heading_ja": "特権教師学習とアテンション付きリカレントエンコーダの仕組み",
+   "summary_ja": "学習は3段階で行われます。まずシミュレータ上で特権情報をフルに使った教師ポリシーをPPOで学習し、次に激しいノイズを加えた観測から教師の行動を模倣する生徒ポリシーへと蒸留します。生徒ネットワーク内のゲート機構が視覚情報の信頼度を判定し、実機ANYmalへゼロショット転移されます。",
+   "details_ja": "### 3段階の学習フレームワーク\n実世界で最初から強化学習を回すのは危険で不可能です。そこで物理シミュレータRaiSimを用い、特権学習（Privileged Learning）の枠組みを採用しました。\n1. 教師ポリシーの学習：ノイズのない真の地形標高、摩擦係数、足裏接触力、外力外乱などの「特権情報」をすべて観測できる状態で、ランダムな目標速度コマンド $(v_x, v_y, w)$ に追従するようPPO（Proximal Policy Optimization）で強化学習します。\n2. 生徒ポリシーへの蒸留：実機で得られる固有感覚と、激しいノイズを付加した標高サンプルのみを入力とする生徒ポリシーを教師あり学習で訓練します。行動模倣損失（Behavior Cloning Loss）と、真の特権情報・真の標高を潜在変数から復元する再構成損失（Reconstruction Loss）の2つを同時に最小化します。\n3. 実機へのゼロショット展開：学習済み生徒モデルをそのまま実機へ載せ、追加の微調整（ファインチューニング）なしで走行させます。\n\n### 地形知覚ノイズモデル\n生徒を鍛えるため、標高マップのサンプリング点に対して極めて現実的なノイズモデルを設計しました。点ごとの水平・垂直方向のずれ、足ごとのオフセット、エピソード全体にかかるバイアスなど、8次元のノイズパラメータ $z$ を導入しています。さらに通常時の軽微なノイズ（60%）、自己位置ドリフトを模擬した大きな足元オフセット（30%）、死角や計測消失を模擬した激しい全体ノイズ（10%）の3つの条件を確率的に混ぜ込み、地面のセルごとに段差オフセットを加えることで雪や草むらへの足のめり込みも再現しました。\n\n### ゲート付きリカレント信念エンコーダ\n生徒ポリシーの心臓部が、GRU（Gated Recurrent Unit）をベースにした信念エンコーダです。過去の隠れ状態 $h_t$ 、固有感覚 $o_t^p$ 、ノイズ入り標高特徴 $l_t^e$ から中間信念 $b_t'$ を生成し、そこからシグモイド関数 $\\sigma$ を通してアテンションベクトル $\\alpha$ を算出します。この $\\alpha$ がゲートとして働き、視覚特徴 $l_t^e$ のうち信頼できる成分だけを通過させて最終的な信念状態 $b_t$ を合成します。視覚が狂っているときはゲートが閉じ、過去の接触履歴と固有感覚から正しい地形起伏を推論し続けます。\n\n### 実機システム構成\n実機ANYmal-CにはRobosense Bpearlドーム型LiDAR 2台、またはIntel RealSense D435深度カメラ4台が搭載されています。GPUを用いた高速パイプラインにより20Hzで自己中心型の2.5D標高マップを構築し、ポリシーは50Hzで足回りの高さをサンプリングして各関節の目標指令を出力します。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "生徒学習で用いられた標高ノイズモデル（A, B）と、アテンション付き信念エンコーダ・デコーダの構造（C, D）です。ゲート機構が視覚情報の信頼度に応じて通過量を動的に調節します。",
+     "caption": "Figure 6: Details of robust terrain perception components. (A) During student training, random noise is added to the height samples. The noise is sampled from a Gaussian distribution $\\mathcal{N}(0,z^{l}\\in\\mathbb{R}^{8})$ , where each $z^{l}_{i}$ controls a different noise component $i$ per leg $l$ . (B) We use multiple noise configurations $z$ to simulate different operating conditions. “Zero noise\" is applied during teacher training, while “nominal noise\" represents normal mapping conditions ",
+     "image": "details/2201.08117/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Supplementary materials",
+   "heading_ja": "付録：シミュレーションでの徹底的な限界検証",
+   "summary_ja": "付録では、ランダム地形を用いたシミュレーションでの大規模な性能評価やアブレーション解析が報告されています。提案手法はステップ状地形や階段のあらゆるパラメータ範囲において、固有感覚のみのベースラインを圧倒する走破領域の広さを示しました。",
+   "details_ja": "### 大規模ランダム地形での性能検証\nシミュレーション環境において、グリッドステップ地形（段差の高さと幅を $41 \\times 41$ 通りに変化）および階段地形（段差の高さと奥行きを $41 \\times 41$ 通りに変化）を用意し、提案手法とベースラインを各300試行で比較しました。\n- グリッドステップ：ベースラインは段差の高さが0.15mを超えると走破率が落ち始め、0.2m以上ではほぼゼロになりました。一方、提案手法は段差高0.4m〜0.5m付近まで高い成功率を維持しました。\n- 階段：ベースラインは高さ0.15m以上の階段で急激に登れなくなりましたが、提案手法は踏面が狭く段差が高い過酷な階段（高さ0.35m以上）でも安定して走破できる領域が格段に広いことが確認されました。\n\n### ゲート機構のアブレーション解析\nゲート機構を持たない単純なリカレント結合と比較した場合、アテンションゲートを導入することで視覚ノイズが急増した際のアクション誤差が有意に小さくなり、視覚情報の取捨選択が正しく機能していることが裏付けられました。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "マルチモーダル統合では「常に視覚を信じる」のではなく、「視覚が破綻した瞬間に固有感覚へ自動フォールバックする」構造をEnd-to-Endで学習させることが耐環境性の鍵になる",
+  "特権学習（Teacher-Student蒸留）に徹底的な観測ノイズモデルを組み込むことで、実機でのファインチューニングなしのゼロショット転移が可能になる",
+  "生センサ点群から2.5D標高マップという中間表現を挟むことで、LiDARとステレオカメラのどちらでも再学習なしで動作するハードウェア非依存性が手に入る",
+  "足先の先読み軌道計画と固有感覚による反射制御を高度に両立させることで、過酷な自然山道でも人間並みの踏破速度を達成できる"
+ ],
+ "limitations_ja": [
+  "信念状態の不確実性が暗黙的であるため、深い崖や飛び石のような死角が存在する環境で地面が続いていると誤認して滑落する危険性がある",
+  "2.5D標高マップに依存しているため、天井や覆いかぶさる枝のような3次元立体構造や、土・草・岩といった材質・テクスチャの違いを直接識別できない",
+  "歩行から大きく外れた特殊なリカバリー行動（脚が深い隙間に挟まったときの脱出や、高所へのよじ登り動作など）は生成できない"
+ ],
+ "keywords": [
+  "Legged Locomotion",
+  "Exteroceptive Perception",
+  "Privileged Learning",
+  "Sim-to-Real Transfer",
+  "Recurrent Neural Networks",
+  "Reinforcement Learning"
+ ],
+ "id": "2201.08117",
+ "title": "Learning robust perceptive locomotion for quadrupedal robots in the wild",
+ "authors": [
+  "Takahiro Miki",
+  "Joonho Lee",
+  "Jemin Hwangbo",
+  "Lorenz Wellhausen",
+  "Vladlen Koltun",
+  "Marco Hutter"
+ ],
+ "date": "",
+ "group": "manual",
+ "tags": [],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2201.08117",
+ "pdf_url": "https://arxiv.org/pdf/2201.08117",
+ "summary_ja": "",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2201.08117"
+}
