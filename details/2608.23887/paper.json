@@ -1,0 +1,158 @@
+{
+ "tldr_ja": "適応制御ポリシーが内部で保持するブラックボックスな潜在変数を、Conditional Flow Matchingを用いて「整合する物理パラメータの分布」へとデコードし、固定ポリシーのままで上位ゲイン調整や外乱ロバスト性解析を可能にした研究です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "提案手法の全体構成です。観測履歴から推定された潜在変数（Latent）を、フロー・マッチングによって物理的に整合する複数のモデル分布へとデコードします。得られたモデル群を用いてシミュレーションを並列実行することで、実機を壊すことなく閉ループ挙動の予測や解析ができます。",
+  "caption": "Fig. 1: Overview of the proposed interpretation framework. Observation history is encoded into a compact latent, which a conditional flow-matching decoder then maps to a distribution of physically consistent system models (distributional system identification). Each decoded model is interpretable and approximates the true system’s closed-loop behavior under the deployed policy: they are run in parallel simulations (parametrized by the decoded models) and predictive rollouts are compared against ",
+  "image": "details/2608.23887/F1.jpg"
+ },
+ "overview_ja": "ドローンや四足歩行ロボットでは、過去のセンサ履歴からコンパクトな潜在変数を推定し、環境変化に適応する強化学習ポリシーが広く使われています。しかし、この潜在変数はポリシー内部の都合で作られた数値表現に過ぎず、質量や慣性モーメントといった具体的な物理パラメータとしては解釈できませんでした。\n\n「それなら潜在変数から物理パラメータを回帰すればよいのでは？」と考えがちですが、ここにはロボティクス特有の落とし穴があります。それは『異なる複数の物理システムが、同じ制御軌道上では全く同一の振る舞いを見せる』という非同定性（non-identifiability）です。たとえば、重い機体に強いモータを積んだ場合と、軽い機体に弱いモータを積んだ場合では、閉ループの動きが酷似することがあります。そのため、潜在変数から単一のパラメータを1対1で推定しようとすると破綻してしまいます。\n\nそこで著者らは、潜在変数から単一の値を当てるのではなく、辻褄の合う物理モデル全体の『分布』を生成する Conditional Flow Matching（CFM）デコーダを提案しました。学習済みポリシーを一切変更・再学習することなく、内部の潜在変数から物理シミュレータのパラメータ群を取り出します。\n\n検証の結果、取り出した物理モデル群を使って予測シミュレーションを行うことで、モータ応答の遅れが生じた過酷な環境下でも上位コントローラのゲインをオンラインで最適化でき、追従誤差を大幅に低減できることが示されました。また、外乱に対する挙動の信頼限界を予測したり、実機ハードウェアでのモータ指令を高精度に再現したりできることも確認されています。",
+ "contributions_ja": [
+  "動作履歴から得られる適応制御の潜在変数を、非同定性を考慮して物理パラメータの連続分布へと写像する Conditional Flow Matching フレームワークを提案した点",
+  "特権情報エンコーダと履歴エンコーダを同時最適化する統合学習により、潜在空間の崩壊を防ぎつつ物理的に復元可能な潜在表現を獲得した点",
+  "デコードされたモデル群を用いた予測ロールアウトにより、学習済み低レベルポリシーを固定したまま上位コントローラをオンラインで自動チューニングできることを実証した点",
+  "単一値の回帰予測ではなく分布としてデコードすることが、実機の操作量再現性（Action Replay）において不可欠であることをハードウェア実験で示した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "適応制御の潜在変数は、なぜブラックボックスのままだったのか？",
+   "summary_ja": "履歴から潜在変数を推定して適応する制御ポリシーは高い性能を示しますが、その潜在変数の物理的意味は不透明なままでした。異なる物理パラメータが同一の振る舞いを生む非同定性が原因であり、本論文は潜在変数を物理モデルの「分布」として解釈する新アプローチを提案します。",
+   "details_ja": "近年、過去のセンサ運動履歴から潜在変数を推定し、それに応じて振る舞いを変える適応制御ポリシーが、歩行ロボットやドローンでめざましい成果を上げています。しかし、獲得された潜在変数が物理的に何を意味しているのかはブラックボックスでした。安全性の検証やトラブルシューティングを行うには、この内部表現が物理世界とどう結びついているのかを知る必要があります。\n\nなぜこれまで潜在変数を物理パラメータに変換できなかったのでしょうか。最大の理由は、振る舞いからダイナミクスへの逆写像が「1対多」になる非同定性問題にあります。例えば、重いドローンが高出力モータで飛ぶ挙動と、軽いドローンが低出力モータで飛ぶ挙動は、同じ軌道上では区別がつきません。つまり、潜在変数は単一の物理定数ではなく、同じ挙動を生み出す「ダイナミクスモデルの同値類（まとまり）」を表現しているはずなのです。したがって、潜在変数から正解の物理定数を1対1で直接回帰する従来のアプローチには原理的な限界がありました。\n\n本研究では、この1対多の関係をありのままモデル化するため、Conditional Flow Matching（CFM）を用いて潜在変数を「整合する物理モデルの分布」へと変換します。得られたモデル群は、モデル基準適応制御（MRAC）における参照モデルのように機能し、固定されたポリシーの周りで上位コントローラのゲインを自動調整したり、未知の外乱に対する頑健性をシミュレーション解析したりするために活用されます。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "潜在表現学習、システム同定、生成モデルの交差点",
+   "summary_ja": "本研究は、適応強化学習における潜在表現技術、古典的・確率的システム同定、そして拡散・フローベース生成モデルの3つの研究領域を結びつけています。点推定や単峰性事後分布の仮定を超えて、非同定性を捉える分布推定へとパラダイムを進めました。",
+   "details_ja": "本研究の立ち位置を理解するために、3つの先行研究の流れを整理してみましょう。\n\n- **潜在表現による適応制御**: RMA（Rapid Motor Adaptation）などに代表される手法では、観測履歴から潜在変数を推論してポリシーを適応させます。近年の研究では世界モデルを用いた適応やメタ強化学習も盛んですが、いずれも潜在変数を「制御に必要な情報が詰まった信号」として扱うのみで、物理的な中身までは立ち入りません。\n\n- **物理的解釈可能性とシステム同定**: 潜在変数を物理量に近づける研究として、既知の物理方程式で正則化する手法などがあります。一方、制御理論におけるシステム同定は入出力データから物理モデルを復元しますが、従来手法の多くはパラメータが1つに定まること（同定可能性）を前提とした点推定でした。確率的システム同定でも、単一のモデルの周りにガウス分布を置くような単峰性の事後分布を仮定することが多く、複数の解が併存するロボティクスの非同定性には対応しきれませんでした。\n\n- **生成モデルによるパラメータ推定**: 近年急速に発展した拡散モデルや Flow Matching は、複雑で多峰性を持つ分布を扱えます。本研究はこの強力な生成モデルを活用し、潜在変数を条件として、背後に潜む多様で整合的な物理パラメータの分布全体を丸ごと復元する枠組みを構築しました。",
+   "figures": []
+  },
+  {
+   "heading": "III Methodology",
+   "heading_ja": "統合学習と Conditional Flow Matching によるシステム同定",
+   "summary_ja": "提案フレームワークは、潜在表現を用いた適応ポリシーの統合学習と、潜在変数から物理モデル分布を復元する Conditional Flow Matching の2段階で構成されます。潜在空間の表現崩壊を防ぎつつ、1対多の物理パラメータ分布を高精度に学習します。",
+   "details_ja": "提案手法のコアとなる仕組みは、ポリシーの学習（Unified Training）と、潜在変数の物理モデルへのデコード（Flow-Matching SysID）の2つです。\n\n### III-A 統合潜在変数適応制御（Unified Training）\n従来の2段階学習（特権情報を持つ教師エンコーダを学習させた後、履歴エンコーダが生徒として模倣する手法）では、履歴から復元できない情報まで教師が使ってしまい、両者の潜在表現に乖離が生じがちでした。また、潜在空間が定数に潰れる「表現の崩壊」が起きると、後段のシステム同定が不可能になります。\nそこで本手法では、ポリシー $\\pi$、特権エンコーダ $\\mu$、履歴エンコーダ $\\phi$ を同時にエンドツーエンドで最適化します。ポリシーに入力する潜在変数を、学習の進行に合わせて特権潜在変数 $\\bm{z}^{\\theta}$ から履歴潜在変数 $\\hat{\\bm{z}}_t$ へとスケジュール遷移させます。さらに、潜在変数の分散を保つ正則化損失や、特権潜在変数から物理パラメータ $\\theta$ を再構成する補助デコーダを組み込むことで、潜在変数が環境の物理的差異を豊かに表現し続けるように工夫されています。\n\n### III-B Conditional Flow Matching（CFM）による生成的システム同定\nデコード段階では、運用中に履歴から得られる潜在変数 $\\hat{\\bm{z}}_t$ を条件として、物理パラメータの事後分布 $p(\\theta \\mid \\hat{\\bm{z}}_t)$ をモデル化します。\nCFM は、単純な標準正規分布 $p_0(\\theta) = \\mathcal{N}(0, I)$ から目標のパラメータ分布へと粒子を運ぶ確率経路とベクトル場 $v_\\psi$ を学習します。本手法ではガウスノイズで平滑化した線形補間経路を採用し、特異点が生じやすい終端直前（$\\tau_{\\max} = 0.95$）で打ち切ることで回帰の不安定化を回避しています。推論時は、標準正規分布からサンプリングした初期値を、オイラー法（50ステップ）で積分するだけで、現在の潜在変数と整合する物理パラメータのサンプル $\\hat{\\theta}$ を瞬時に得ることができます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "学習パイプラインの概要です。(a) 統合ポリシー学習では、特権エンコーダと履歴エンコーダを相互に正則化しながらポリシーを同時学習します。(b) デコード学習では、運用時の潜在変数 $\\hat{\\bm{z}}_t$ を条件として、CFMが物理パラメータの整合的な分布を復元できるように学習します。",
+     "caption": "Fig. 2: Overview of the training pipeline. (a) Unified training aligns the privileged latent with the history-based latent so the policy can adapt across randomized dynamics. (b) Conditional flow matching decodes the latent into a distribution of dynamically consistent physical models.",
+     "image": "details/2608.23887/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Implementation",
+   "heading_ja": "クアッドローターへの実装：19次元の物理空間と実機環境",
+   "summary_ja": "提案手法をクアッドローターのクロスプラットフォーム適応タスクに適用しました。質量や慣性モーメントなど19次元の物理パラメータ空間を定義し、シミュレータ Flightmare と実機ドローン（Pixracer + Jetson Orin Nano）を用いて検証環境を構築しています。",
+   "details_ja": "本フレームワークは一般的な力学系に適用可能ですが、本論文ではクアッドローターを対象に検証を行っています。クアッドローターは第一原理に基づく物理モデルが明確であり、デコードされたパラメータの妥当性を既存のパラメトリックコントローラを介して直接評価しやすいからです。\n\n### 学習設定とパラメータ空間\nベースとなる適応ポリシー、特権エンコーダ、履歴エンコーダは8次元の潜在変数 $\\bm{z} \\in \\mathbb{R}^8$ を出力します。ポリシーは $500\\,\\mathrm{Hz}$ で動作するインナーループ制御器であり、IMUの角速度と線形加速度、および上位からの要求（質量正規化推力と目標角速度）を受け取って、4つのモータ回転数指令（0〜1に正規化）を出力します。\n推定対象となる物理パラメータ $\\theta$ は19次元（$\\mathbb{R}^{19}$）で構成されています。具体的には、質量 $m$、アーム長 $l$、推力係数 $k_t$、トルク係数 $k_\\tau$、3軸の慣性モーメント $\\bm{J}$、線形抗力係数 $\\bm{D}$、最大回転数 $\\Omega_{\\max}$、4つのモータ効率係数 $\\bm{\\eta}$、モータ時定数 $\\tau_m$、外乱トルク $\\bm{\\tau}_{\\mathrm{ext}}$ です。CFMのニューラルネットワークは約500万パラメータの4層残差ネットワークで、潜在変数は FiLM（特徴量のアフィン変換）を介して各層に条件付けされます。\n\n### 実機システム構成\n実機実験には、表Iに記載された直接計測・ベンチテスト済みのノミナルパラメータを持つ特製クアッドローターを使用しました。フライトコントローラには Pixracer R15（IMU取得用）、オンボード計算機には NVIDIA Jetson Orin Nano を搭載し、適応モジュールとポリシーを $500\\,\\mathrm{Hz}$、CFMデコーダを $10\\,\\mathrm{Hz}$ で実行しています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "実機実験で使用されたクアッドローターの外観と座標系です。重心を中心に対称配置された4基のブラシレスモータとプロペラ、Pixracer、Jetson Orin Nano を備えています。",
+     "caption": "Fig. 3: Quadrotor convention used in this work. The body-fixed reference frame consists of the orthogonal basis $\\bm{x}_{B},\\bm{y}_{B},\\bm{z}_{B}$ . Four motor-propeller pairs are arranged symmetrically about the vehicle center of mass. Motors 1 and 3 rotate in the opposite direction from motors 2 and 4. The nominal hardware parameters, measured directly from the vehicle and its components, are listed in Table I .",
+     "image": "details/2608.23887/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Decoded Models for Control and Robustness Analysis",
+   "heading_ja": "デコードしたモデルで何ができるか？：上位ゲイン調整と頑健性解析",
+   "summary_ja": "ポリシーを変更せずに、デコードされたモデル群を活用する2つの応用を示しました。モータ応答遅延時の上位コントローラの自動ゲイン調整では追従誤差を最大45%削減し、未知の外乱に対するロバスト性評価では実際の誤差拡大挙動を正確に予測できることを確認しました。",
+   "details_ja": "デコードによって得られた物理モデル群は、固定されたポリシーの周囲で強力な予測ツールとして活躍します。\n\n### V-A デコードモデルによる上位予測制御（Predictive Tuning）\n低レベルのニューラルポリシーは固定したまま、軌道を指令値に変換する上位コントローラのゲインをオンラインで調整します。$10\\,\\mathrm{Hz}$ で潜在変数からモデル群をサンプリングし、並列シミュレーション上で CEM（クロスエントロピー法）を用いて短期コストが最小となるゲインを探索します。\n\n- **ノミナル環境**: 100本のランダム軌道でテストした結果、無調整の初期ゲイン（Naive）に比べ位置RMSEが $34\\%$ 改善し、手動で綿密に調整された Baseline に迫る性能を示しました。\n- **アクチュエータ遅延ストレス環境**: モータの時定数を意図的に遅く（$\\tau_m \\in [0.05, 0.10]\\,\\mathrm{s}$）した過酷な環境では、固定ゲインの Baseline が飽和して追従性能を落とす中、提案法（CFM-tuned）は潜在変数からモータの遅れを即座に察知してゲインを適切に弱め、Baseline 比で位置RMSEを $23\\%$、ヘディング（方位）RMSEを $45\\%$ も削減しました。\n- **実機レムニスケート飛行**: 実機ドローンによる8の字（レムニスケート）追従実験でも、低速・中速・高速のすべての速度域で手動調整 Baseline と同等以上の精度を達成し、最大誤差を低減させました。\n\n### V-B 外乱下でのロバスト性解析\nデコードされたモデル群に同じ外乱を与えて並列ロールアウトすることで、閉ループ挙動の不確実性エンベロープ（信頼区間）をシミュレーション上で見積もることができます。\nステップ状の力外乱を加えた個別テスト（図 F5）およびガウスノイズ外乱を加えたモンテカルロ解析（図 F6）を実施したところ、水平方向の追従誤差の推移や最終的な誤差分布は、真のシステムの挙動と極めて正確に一致しました。一方で、垂直方向（Z軸）の誤差については予測の広がりが真値よりも過大になる傾向が見られ、推力チャンネルにおける課題も明確に浮き彫りになりました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "ステップ状の力外乱（水平1N、垂直1N）に対する追従誤差の応答です。赤線（提案法による予測の平均）と薄赤の帯（予測範囲）が、水平方向において青線（真の機体）の軌跡と高い精度で一致していることが分かります。",
+     "caption": "Fig. 5: Single-trajectory response to deterministic constant force steps on the nominal hardware-scale system for horizontal force $[1,1,0]\\,\\mathrm{N}$ and vertical force $[0,0,1]\\,\\mathrm{N}$ . The top row reports lateral error $\\sqrt{\\Delta X^{2}+\\Delta Y^{2}}$ and the bottom row reports vertical error $|\\Delta Z|$ . In each panel, we compare the true closed-loop rollout, decoded-model rollouts sampled from the latent posterior, and a true-system uncertainty baseline (uniform $\\pm 20\\%$ param",
+     "image": "details/2608.23887/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "3軸ガウス力外乱（$\\sigma = 1, 3, 5\\,\\mathrm{N}$）下での追従誤差エンベロープです。外乱が強くなるにつれて真の水平誤差（上段・青）が拡大していくトレンドを、デコードモデルの予測（赤帯）が見事に捉えています。",
+     "caption": "Fig. 6: Temporal tracking-error envelopes under i.i.d. Gaussian force disturbances with per-axis standard deviation $\\sigma=1\\,\\mathrm{N}$ , $3\\,\\mathrm{N}$ , and $5\\,\\mathrm{N}$ . The top row reports lateral error $\\sqrt{\\Delta X^{2}+\\Delta Y^{2}}$ and the bottom row reports vertical error $|\\Delta Z|$ ; shaded regions indicate the 5–95% confidence interval. The decoded envelopes track the growth of the true lateral error as $\\sigma$ increases, providing a calibrated robustness envelope in the ",
+     "image": "details/2608.23887/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Ablation of Distributional Decoding",
+   "heading_ja": "なぜ「分布」でなければならないのか？：Action Replay による検証",
+   "summary_ja": "潜在変数から直接1つのパラメータを当てる決定論的回帰との比較（アブレーション）を行いました。実機の飛行ログを再生してモータ指令の一致度を検証した結果、分布としてデコードする提案法が圧倒的に高い相関と低誤差を達成し、分布モデリングの必然性が証明されました。",
+   "details_ja": "本研究の根幹である「潜在変数を単一の点ではなく分布としてデコードすべき」という仮説を検証するため、同一の潜在条件付け構造を持ちながら単一のパラメータベクトルを出力する「Regression（決定論的回帰）」ベースラインとの比較を行いました。\n\n評価には **Action Replay** という手法を用います。実機で取得した飛行ログ（状態履歴、指令値、潜在変数の系列）を固定し、各デコーダが推定したパラメータ $\\hat{\\theta}$ を古典的なパラメトリックコントローラ $\\mathcal{K}_{\\hat{\\theta}}$（付録参照）に流し込みます。そこから出力されるモータ回転数指令が、元のニューラルポリシーが出力していた指令とどれだけ一致しているかを比較します。\n\n### 実機実験結果\n- **アグレッシブな8の字飛行（Lemniscate）**: 最も激しい5秒周期の飛行において、提案法（CFM）のモータ指令誤差（RMSE）は $0.032$、時間変化の相関係数（PCC）は $0.723$ を達成しました。これに対し、Regression は RMSE が $0.059$ と高く、PCC はわずか $0.077$ に留まりました（表 V）。決定論的回帰では、非同定性によって複数の解が存在する領域で「それらの平均値」を出力してしまい、物理的に自己矛盾したパラメータとなって激しい指令値の振動を引き起こしてしまいます。\n- **飛行中の非対称ペイロード付加**: ホバリング中に機体の片側のアーム（腕長の54%の位置）へ突如 $100\\,\\mathrm{g}$（機体質量の約10%）の重りを装着する実験を行いました。重りが付いた瞬間に潜在変数がステップ状に変化しますが、CFMからデコードされたコントローラは即座にこれに追従し、PCC $0.812$、RMSE $0.031$ という極めて高い精度でポリシーの指令変化を再現しました。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "実機での8の字飛行における Action Replay 結果です。右下の各モータ指令において、CFMによる予測（赤）はニューラルポリシーの真の出力（青）と滑らかに一致していますが、決定論的回帰（灰）は激しく振動してしまっています。",
+     "caption": "Fig. 8: Lemniscate tracking and open-loop action prediction on hardware. The quadrotor completes one lemniscate cycle in $5\\,\\mathrm{s}$ with position tracking RMSE $0.121\\,\\mathrm{m}$ . The right panels show the latent evolution and normalized motor commands from the neural policy, the CFM-instantiated parametric controller, and the regression baseline. The policy runs at $500\\,\\mathrm{Hz}$ , while CFM and regression decode the latent at $10\\,\\mathrm{Hz}$ . The CFM-decoded controller reproduces",
+     "image": "details/2608.23887/F8.jpg"
+    },
+    {
+     "key": "F9",
+     "caption_ja": "ホバリング中に機体片側へ100gのペイロードを装着した実験です。装着時（グレーの帯）に潜在変数が急変した直後も、CFMデコードによるモータ指令（赤）はポリシーの指令（青）を破綻なく捉え続けています。",
+     "caption": "Fig. 9: Off-center payload experiment. A $100\\,\\mathrm{g}$ payload is attached during hover at position $[0.1,\\,0.0,\\,0.0]\\,\\mathrm{m}$ in the body frame; the shaded interval marks the attachment event. The upper panel shows latent evolution, and the lower panels compare normalized motor commands from the neural policy, the CFM-instantiated parametric controller, and the regression baseline. When the payload attaches, the latent shifts abruptly and the CFM-decoded commands continue to match the ",
+     "image": "details/2608.23887/F9.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VII Conclusion and Limitations",
+   "heading_ja": "まとめと今後の展望：ブラックボックス適応制御の解診断へ",
+   "summary_ja": "本研究は、フロー・マッチングによって適応制御の潜在変数を物理モデル群へとデコードし、固定ポリシーのオンライン調整や頑健性解析を実現しました。ノイズへの感度や垂直方向の推定精度といった課題はあるものの、今後はポリシーの弱点発見ループへの応用が期待されます。",
+   "details_ja": "本研究は、これまで中身がブラックボックスだった適応制御ポリシーの潜在変数を、Conditional Flow Matching を用いて物理的に意味のある力学モデル群として復元・解釈できることを示しました。学習済みポリシーを一切変更することなく、上位ゲインの予測的自動調整や、外乱に対するロバスト性エンベロープの導出が可能になります。\n\n一方で、以下のような限界や課題も挙げられています：\n- **ノイズへの脆弱性**: 観測値や状態推定のノイズが履歴エンコーダを介して潜在変数に伝播し、デコードされるパラメータ分布の品質を低下させるリスクがあります。\n- **対象ダイナミクスの構造**: 今回の検証は第一原理モデルが確立されているクアッドローターに特化しています。接触やハイブリッド力学系が支配的な脚ロボットやマニピュレーションに適用するには、より高度なモデル記述とプローブ手法が必要です。\n- **垂直方向の不整合**: 実験で見られたように、水平方向に比べて垂直方向（推力チャンネル）のパラメータ広がりが真値とズレる現象があり、さらなる改善が求められます。\n\n著者らは今後の展望として、このフレームワークを「ポリシーの弱点を炙り出す能動的診断ループ」に発展させる構想を描いています。潜在空間を意図的に摂動させてポリシーが破綻する潜在変数を見つけ出し、それをCFMで物理パラメータへと逆変換することで、「どのような物理特性の環境でこのポリシーが失敗するのか」を特定し、次の強化学習のドメインランダム化へとフィードバックさせる道が開かれます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix A Parametric Controller",
+   "heading_ja": "付録：Action Replay で用いたパラメトリックコントローラの数式",
+   "summary_ja": "第VI章の Action Replay で使用した、物理パラメータからモータ指令を計算する古典的コントローラ $\\mathcal{K}_\\theta$ の導出について説明します。レートフィードバックと剛体推力・トルク配分行列によって構成されています。",
+   "details_ja": "第VI章において、デコードされた物理パラメータ $\\hat{\\theta}$ がポリシーの挙動を正しく説明できているかを評価するため、標準的なパラメトリックコントローラ $\\mathcal{K}_{\\theta}$ をプローブ（測定器）として用いています。このコントローラは以下の2段階でモータ指令を生成します。\n\n- **目標レートフィードバック**: 上位からの要求である質量正規化推力 $a_{\\mathrm{cmd}}$ と目標角速度 $\\bm{\\omega}_{\\mathrm{cmd}}$ に対し、機体の目標トルク $\\bm{\\tau}_{\\mathrm{cmd}}$ を次式で計算します：\n  $$\\bm{\\tau}_{\\mathrm{cmd}} = \\bm{J} K_{\\omega} (\\bm{\\omega}_{\\mathrm{cmd}} - \\bm{\\omega})$$\n  ここで $\\bm{J}$ はパラメータ $\\theta$ に含まれる慣性モーメント行列、$K_{\\omega}$ は全プラットフォーム共通の比例ゲイン行列、$\\bm{\\omega}$ は計測された角速度です。\n\n- **推力・トルク配分（Allocation）**: アーム長 $l$、推力係数 $k_t$、トルク係数 $k_\\tau$、各モータの効率係数 $\\bm{\\eta}$ から配分行列 $B_{\\mathrm{alloc}}(\\theta)$ を構成し、目標推力 $m a_{\\mathrm{cmd}}$ と目標トルク $\\bm{\\tau}_{\\mathrm{cmd}}$ から各ロータの二乗回転数指令 $\\bm{\\Omega}_{\\mathrm{cmd}}^2$ を求めます：\n  $$\\bm{\\Omega}_{\\mathrm{cmd}}^2 = B_{\\mathrm{alloc}}(\\theta)^{-1} \\begin{bmatrix} m a_{\\mathrm{cmd}} \\\\ \\bm{\\tau}_{\\mathrm{cmd}} \\end{bmatrix}$$\n\n最終的な正規化指令は $\\Omega_{i, \\mathrm{norm}} = \\sqrt{(\\Omega_{\\mathrm{cmd}}^2)_i} / \\Omega_{\\max}$ となり、ポリシーの出力と同一の空間で直接比較することができます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「潜在変数から物理パラメータへの逆写像は1対多である」というロボティクスの非同定性を直視し、単一回帰ではなく連続分布として生成モデル（CFM）で解くアプローチの妥当性",
+  "学習済み適応制御ポリシーを再学習・改変することなく、内部の潜在変数をデコードするだけで上位ゲインの自動調整や不確実性解析といった下流タスクに応用できる実用性",
+  "決定論的な平均値回帰を行うと、多峰性や非同定性によって物理的に矛盾したパラメータが生成され、操作量レベルでの激しい振動を引き起こすという教訓",
+  "デコードされた物理モデル群を通じてポリシーが苦手とする物理環境を逆算し、強化学習のカリキュラム改善へと繋げる将来的な拡張性"
+ ],
+ "limitations_ja": [
+  "状態推定値やセンサ観測のノイズが履歴エンコーダを通じて潜在変数に入り込むと、デコードされるパラメータ分布の精度が劣化しやすい点",
+  "クアッドローターのような第一原理モデルが明確な剛体系に限定して検証されており、接触やハイブリッド不連続性を持つ脚型ロボット等への適用には課題がある点",
+  "水平方向の運動特性に比べて、推力チャンネル（垂直方向Z軸）におけるパラメータ分布の広がりが真値から乖離しやすい傾向が見られる点"
+ ],
+ "keywords": [
+  "Adaptive Control",
+  "System Identification",
+  "Conditional Flow Matching",
+  "Reinforcement Learning",
+  "Quadrotors",
+  "Representation Learning"
+ ],
+ "id": "2608.23887",
+ "title": "Interpreting Control Latents for System Identification via Conditional Flow Matching",
+ "title_ja": "条件付きフローマッチングによるシステム同定のための制御潜在変数の解釈",
+ "authors": [
+  "Dingqi Zhang",
+  "Ruiqi Zhang",
+  "Mark W. Mueller"
+ ],
+ "date": "2026-08-26",
+ "group": "focus",
+ "tags": [
+  "control",
+  "reinforcement-learning",
+  "sim-to-real"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.23887",
+ "pdf_url": "https://arxiv.org/pdf/2608.23887",
+ "summary_ja": "潜在変数条件付き適応方策において、ブラックボックス化していた潜在変数を条件付きフローマッチングにより物理モデルの分布へとデコードする手法を提案。方策を変更することなく、閉ループの潜在変数からクアッドロータ等の物理パラメータ分布を復元する。これにより、オンラインの予測的安全性フィルタリングやシミュレータ内での高精度なシステム同定が可能となった。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.23887"
+}
