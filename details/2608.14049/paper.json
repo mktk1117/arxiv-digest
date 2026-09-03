@@ -1,0 +1,151 @@
+{
+ "tldr_ja": "机に密着して把持が難しい「薄平らな物体（本や布、板など）」に対し、形状や剛性に応じて操作戦略を切り替える統合フレームワークと、剛体・変形体を網羅した初の大規模シミュレーションベンチマーク「FlatLab」を提案した研究です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "FlatLabの全体像です。100種類以上の剛体・変形体の薄平らな物体、多様な住居・作業環境、マルチモーダルな自動データ収集系、そして本論文の統合マニピュレーションフレームワークが1つのプラットフォームにまとめられています。",
+  "caption": "Figure 1 : Overview of FlatLab: a comprehensive simulation platform for robotic flat object manipulation. The platform offers high-fidelity physical simulation of over 100 flat objects and configurable manipulation scenarios. It includes our unified manipulation framework and supports automated multi-modal data collection, standardized task definitions, unified evaluation protocols, and turnkey deployment scripts. All functionalities are fully reconfigurable and extensible, facilitating ongoing ",
+  "image": "details/2608.14049/F1.jpg"
+ },
+ "overview_ja": "机の上に置かれた雑誌や布、薄い板などの「平らな物体」をロボットで掴むのは、実は非常に難しい課題です。表面に指を差し込む隙間（アフォーダンス）がないためです。従来は「机の端まで引きずってから掴む」といった事前操作（プレマニピュレーション）や二腕での持ち上げが研究されてきましたが、物体の大きさや厚み、硬さによって成功する手法がまったく異なり、単一の手法ですべてを扱うことはできませんでした。\n\nそこで著者らは、「戦略の決定」と「動作の実行」を完全に切り離す統合フレームワークを着想しました。まず物体の点群から適切な操作戦略（机端への引きずり、二腕での持ち上げ、布などの端を寄せてシワを作る）を高精度に予測します。ここではシミュレータならではの物性・スケール変換と対照学習を組み合わせ、未知の物体形状に惑わされず「戦略の本質的な特徴」だけを抽出できるようにしました。そして選ばれた戦略をもとに、細分化された再利用可能な基本動作（アクションプリミティブ）を順番に呼び出して実行します。\n\nさらに、この検証を包括的に行うため、Isaac Simベースの大規模ベンチマーク「FlatLab」を構築しました。100種類以上の剛体・変形体オブジェクトや多彩な家具環境、自動データ収集パイプラインを備えています。実験の結果、未知の物体や未学習カテゴリに対しても、エンドツーエンドの最新手法（Diffusion PolicyやOpenVLAなど）を大きく上回る成功率を達成し、双腕ロボットを用いた実機実験でもその有効性を実証しました。",
+ "contributions_ja": [
+  "薄平らな物体の把持において、形状や物性から操作戦略を予測するモジュールと動作プリミティブの実行モジュールを分離した統合フレームワークを提案した点",
+  "シミュレータ上でのスケール・物性変換と対照学習（Contrastive Learning）を組み合わせ、物体形状に過適合しない戦略中心の表現学習を実現した点",
+  "100種類以上の剛体・変形体の平らな物体を物理シミュレーションし、自動データ収集と標準評価環境を備えたベンチマーク「FlatLab」を構築・公開した点",
+  "未知のカテゴリを含む広範なシミュレーション評価および実機双腕ロボット評価において、既存の単一戦略手法や最新のVLA/Diffusionベース手法を有意に上回る汎化性能を示した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ平らな物体は掴めないのか？ 単一戦略の限界とブレイクスルー",
+   "summary_ja": "平らな物体は指先を引っ掛ける隙間がないため、通常のグリッパーでは把持が困難です。既存の単一戦略では物体の大きさや変形性に対応しきれないため、本研究では戦略選択と動作実行を分離した統合フレームワークと、包括的ベンチマーク「FlatLab」を提案します。",
+   "details_ja": "日常生活には雑誌やまな板、布など、平らな物体（Flat Objects）があふれています。しかし、これらがテーブル上にぴったり置かれていると、ロボットの指を差し込む隙間が存在しません。特殊な吸着ハンドや多指ハンドを開発するハードウェア的アプローチもありますが、コストや汎用性の面で限界があります。\n\n一般的な2本指グリッパーを用いる場合、事前に物体を動かして掴みやすい姿勢に変える「プレマニピュレーション」が必要です。代表的なのは、物体を机の端まで滑らせて縁を掴む手法や、二腕で両側から挟んで持ち上げる手法です。しかし、図 F2 に示すように、小さな板なら机の端に押す手法が効きますが、巨大な板や変形する布地では破綻します。二腕持ち上げは厚みのある箱には有効ですが、薄いシートや柔らかいタオルでは滑って掴めません。つまり、万能な単一戦略は存在しないのです。\n\nこの課題に対し、本論文では「戦略生成」と「動作実行」を切り離した統合アプローチを提案します。物体の点群情報から最適な戦略を推論し、その戦略に応じて分解された動作プリミティブ（接触、摺動、絞りなど）を組み合わせて滑らかな軌道を生成します。さらに、これまで剛体と変形体を統一的かつ大規模に検証できるシミュレータ環境が存在しなかったことから、Isaac Simをベースにしたベンチマーク「FlatLab」を開発しました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "単一の操作戦略が抱える限界を示した図です。机の端へ滑らせる手法（上段）は薄いパッドやディスクには有効ですが、大きな絵画や箱、タオルでは失敗します。二腕持ち上げ（中段）はその逆で薄いものや布で失敗します。提案手法（下段）は物性に応じて適切な戦略を使い分けます。",
+     "caption": "Figure 2 : Motivation of Unified Flat Object Manipulation. Different flat objects exhibit distinct failure modes under single-strategy pipelines: edge-pushing fails for large or deformable objects, while dual-arm lifting is unreliable for thin or compliant ones. These challenges motivate a unified approach that adaptively selects strategies and executes actions for diverse flat objects.",
+     "image": "details/2608.14049/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "先行研究の歩み：特殊ハンド、事前操作、そしてシミュレーション環境",
+   "summary_ja": "平らな物体の操作は特殊なエンドエフェクタの開発や単一の事前操作戦略を中心に進められてきましたが、多様な物性への汎化が課題でした。また近年のロボティクス向けシミュレーション環境も、剛体と変形体の平らな物体を包括的に扱うプラットフォームが欠落していました。",
+   "details_ja": "平らな物体のマニピュレーション研究は大きく2つに分かれます。1つはハードウェア主導のアプローチで、柔軟な指を持つグリッパーや多指ハンドの摩擦を利用して直接持ち上げる研究です。もう1つはソフトウェア主導の事前操作アプローチで、壁に押し当てて傾けたり、机の端まで滑らせたり、二腕協調で挟み上げたりする研究が進められてきました。しかし、いずれの研究も特定の物体群や単一の操作戦略に依存しており、異なる形状や素材が混在する環境での汎化性能は未検証でした。\n\n一方、近年のエンボディドAIでは大規模なシミュレーション環境が研究を牽引しています。流体を扱うFluidLabや衣服を扱うGarmentLab、実験室環境のLabUtopiaなどが登場していますが、日常に溢れる「剛体および変形体の平らな物体」を系統的かつ物理的に忠実に再現したベンチマークは存在していませんでした。本研究はこの双方の溝を埋める位置づけとなります。",
+   "figures": []
+  },
+  {
+   "heading": "3 Unified Robotic Flat Object Manipulation",
+   "heading_ja": "戦略予測と動作実行の分離：対照学習とプリミティブ分解の仕組み",
+   "summary_ja": "物体点群から適切な戦略を導く「マニピュレーション戦略生成器」と、選ばれた戦略を短い動作単位の組み合わせで実行する「ロボット動作実行モジュール」で構成されます。対照学習によって形状への過適合を防ぎ、未知の物体への高い汎化性能を獲得しています。",
+   "details_ja": "提案フレームワークの全体像は図 F3 にまとめられています。全体を「戦略の選択」と「動作の実行」に階層化することで、長時間の操作タスクを安定させ、データ収集コストを低く抑える工夫が凝らされています。\n\n3.1 問題設定\nシステムは物体の点群 $D^{M-S}_{K-O}$ を入力とし、操作戦略 $P^{M-S}_{\\hat{K}-O}$ を予測します。ここで $M$ は物性（剛体 $r$ または変形体 $f$）、$K$ は3つの戦略（A: 机端への押し出し、B: 二腕での持ち上げ、C: 端を寄せてシワを作る）、$S$ はスケールを表します。動作実行モジュールは、予測された戦略と環境点群 $P_{env}$ を受け取り、動的なプリミティブ合成 $D_{pc}$ を出力します。\n\n3.2 マニピュレーション戦略生成器\n入力点群は PointNet 風のエンコーダで特徴量 $F^{M-S}_{K-O}$ に変換され、多層パーセプトロン（MLP）のヘッドを通じて戦略の確率が出力されます。ここでの肝は「シミュレータならではのデータ変換」と「対照学習（Contrastive Learning）」です。シミュレータ上で物体のパラメータを変えて剛体を変形体に変換したり、机に収まる範囲でサイズを拡大縮小したりした点群を生成します。そして「同じ戦略をとる異なる物体」を正例、「異なる戦略をとる同一物体」を負例として、NT-Xent 損失によって特徴空間を学習します。これにより、物体固有の形状記憶ではなく「戦略に直結する本質的な幾何・物性特徴」を獲得できます。\n\n3.3 ロボット動作実行モジュール\n長時間の事前操作をエンドツーエンドで学習させると過適合しやすく不安定になります。そこで、接触（Touch）、摺動（Slide）、絞り（Squeeze）といった再利用可能な「アクションプリミティブ」に分解しました。各プリミティブは開始姿勢と終了姿勢の6自由度エンドエフェクタポーズ（位置 $p$ と四元数 $q$）として学習されます。損失関数には位置誤差 $L_{pos}$ に加え、回転表現の二重被覆を考慮した測地線距離による回転損失 $L_{rot}$ を導入し、幾何学的に破綻のない安定した軌道生成を実現しています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "提案する統合フレームワークのアーキテクチャです。上段の戦略生成器は点群から対照学習を用いて戦略A/B/Cを判定し、下段の動作実行モジュールは環境点群と戦略を受け取り、個別に学習された動作プリミティブを繋ぎ合わせて6自由度ポーズ軌道を生成します。",
+     "caption": "Figure 3 : Unified Robotic Flat Object Manipulation Framework. The Manipulation Strategy Generator takes point clouds of flat objects as input, embeds their features into a strategy-centric representation via multi-view consistency contrastive learning, and then predicts the manipulation strategy. The predicted strategy and the scene point cloud are fed to the Robot Action Execution Module. This module decomposes long-horizon manipulation into reusable action primitives, learns position-dependen",
+     "image": "details/2608.14049/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Simulation-Based Benchmark of FlatLab",
+   "heading_ja": "新ベンチマーク「FlatLab」：剛体から布まで高精度にシミュレート",
+   "summary_ja": "NVIDIA Isaac Sim 4.5.0上に構築されたFlatLabは、100以上の平らな物体アセット、18のシーン、自動マルチモーダルデータ収集系を備えています。剛体の接触だけでなく、GPU加速された位置ベース動力学（PBD）により変形体のシワ寄せ動作も再現可能です。",
+   "details_ja": "FlatLabの構成モジュールは図 F4 に示されています。ロボット研究者が平らな物体の操作を系統的に評価できるよう、再現性と拡張性にこだわって設計されています。\n\n4.1 環境とロボットのセットアップ\nプラットフォームには NVIDIA Isaac Sim 4.5.0 を採用し、ロボットには並行グリッパーを備えた2台の Franka Emika Panda（計14自由度）を使用しています。軌道計画には RMPFlow を採用し、滑らかな関節軌道を生成します。\n\n4.2 物理シミュレーションとアセット構成\n本、箱、布地など21カテゴリ、100種類以上の高品質アセットを独自に作成しました。剛体の衝突・接触には PhysX を、タオルや布などの変形体には GPU 加速された位置ベース動力学（PBD: Position-Based Dynamics）を用いることで、つまんでシワを作るような複雑な挙動を高速かつ安定してシミュレートできます。寝室、台所、倉庫など6カテゴリ・18種類の作業シーンも用意されています。\n\n4.3 自動マルチモーダルデータ収集\n手動の遠隔操作や運動学スクリプト作成を不要にするため、完全自動化されたデータ収集パイプラインを実装しました。物体の位置や姿勢、カメラ視点を自動でランダマイズし、成功・失敗の判定まで自動で行います。ヘッドレスモードで実行すれば収集効率は2倍以上に向上し、点群、RGB、深度、関節状態、6自由度ポーズを一括して取得可能です。\n\n4.4 タスク定義と標準プロトコル\n単腕での接触や机端への押し出し、二腕での持ち上げ、端をつまんでシワを作る動作など、細かなタスクを定義しています。把持の成功判定は「最終動作の後、物体が滑り落ちずに2秒間空中で静止していること」と定量的に定められており、成功率だけでなく軌道の滑らかさや所要ステップ数も評価できます。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "FlatLabの主要機能モジュールです。高精度な物理アセットと操作環境（左）、RGB・深度・点群・動作データを網羅する自動収集パイプライン（中央）、そして成功・失敗条件が定量化された標準タスク群（右）で構成されています。",
+     "caption": "Figure 4 : Main Function Modules of FlatLab. First, FlatLab provides configurable assets with high-precision physical simulations, including flat objects, manipulation scenarios, and associated material textures. Second, FlatLab supports automated multi-modal data collection that yields perceptual and kinematic data from both successful and failed demonstrations. Third, FlatLab formalizes a set of robotic flat object manipulation tasks together with their evaluation criteria. FlatLab’s functiona",
+     "image": "details/2608.14049/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Experiments",
+   "heading_ja": "実験と結果：未知の物体・カテゴリに対する圧倒的な汎化性と実機検証",
+   "summary_ja": "104種類の物体を用いた実験で、提案手法は未知物体で74.2%、未知カテゴリで69.0%の把持成功率を達成し、最新のDiffusion PolicyやVLAベースラインを凌駕しました。実機Baxterロボットでも80%以上の高い成功率を記録しています。",
+   "details_ja": "5.1 データセット分割と実験設定\n全104個の物体を、学習用（Train）、同カテゴリの未知物体（Test $\\alpha$）、完全な未知カテゴリ（Test $\\beta$）の3つに分割して評価しました。各物体につき姿勢を変えて5回の試行を行っています。\n\n5.2 ロボット把持の評価結果\n戦略判別の精度は Train で 99.2%、Test $\\alpha$ で 91.3%、Test $\\beta$ で 78.6% に達しました。最終的な把持成功率（Grasping Success Rate）もそれぞれ 81.1%、74.2%、69.0% という極めて高い水準を維持しており、未知のカテゴリに対しても破綻しない頑健性が確認されました（図 F6）。\n\n5.3 ベースラインとの比較\n机端への引きずり固定（Slide）、二腕持ち上げ固定（Lift）、および Diffusion Policy、3D Diffusion Policy、OpenVLA、$\\pi_0$、$\\pi_{0.5}$ などのエンドツーエンド最新手法と比較しました。固定戦略のベースラインは相性の悪い物体で壊滅し、エンドツーエンド手法は学習データへの過適合やテーブル面との衝突・動作のブレ（ジッター）によって成功率が伸び悩みました。戦略を明示的に判断し、6自由度ポーズを制約として与える提案手法の優位性が浮き彫りになりました。さらに散らかった机の上を片付ける長期タスク（GPT-4oを統合した手法との比較）でも、提案手法は 73.3%（GPT-4oは 36.7%）と大差をつけて勝利しています。\n\n5.4 アブレーション研究\n対照学習を外すと未知カテゴリでの戦略精度が大幅に低下し、データ変換（スケール・物性変更）を省くと汎化性能が落ちることが確認されました。また、動作モジュールでプリミティブ分解を廃止して1段階のポーズ回帰にすると位置誤差が顕著に悪化し、回転損失 $L_{rot}$ を抜くだけでも位置精度に悪影響が出ることが判明しました。\n\n5.5 実機評価\n双腕ロボット「Baxter」と RealSense D455 を用いて実世界検証を行いました（図 F8）。32個の実物体（本、キーボード、布など）を用いた結果、Train で 83.6%、Test $\\alpha$ で 80.0%、Test $\\beta$ で 80.0% という、シミュレーションを上回る成功率を記録しました。実世界の方が摩擦が安定しており、変形体を寄せたときに明瞭なシワが形成されやすいためです。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "シミュレーション環境における把持動作の実行例です。雑誌は机の端へ滑らせて掴み、ノートパソコンは二腕で挟んで持ち上げ、タオルは端をつまんでシワを作ってから掴むなど、物体の特徴に合わせた戦略が自律的に選択されています。",
+     "caption": "Figure 6 : Robotic Grasping Evaluation. Our method adaptively selects strategies to enable the grasping of flat objects of various shapes and materials, demonstrating significant generalizability.",
+     "image": "details/2608.14049/F6.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "双腕ロボットBaxterによる実機実験の様子です。未知の物体や未知カテゴリに対しても、シミュレーションで学習した戦略と動作プリミティブが忠実に機能し、実世界へスムーズに転移（Sim-to-Real）できています。",
+     "caption": "Figure 8 : Real-world Evaluation of Our Approach. Experiments show that our method can successfully transfer to the real world, achieving high accuracy and strong generalization.",
+     "image": "details/2608.14049/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion and Limitation",
+   "heading_ja": "まとめと今後の課題：Sim-to-Realの深化とVLAモデルの融合",
+   "summary_ja": "平らな物体の操作を戦略選択とプリミティブ実行に分離する統合手法とベンチマーク「FlatLab」を提案し、高い汎化性能を示しました。今後はより複雑なシーンへの対応や、大規模視覚言語行動モデル（VLA）とのさらなる統合が期待されます。",
+   "details_ja": "本研究は、長年ロボット工学の難所であった「薄平らな物体の把持」に対して、形状・物性に基づく戦略推論とモジュール化された動作実行を組み合わせた明快な解決策を提示しました。また、コミュニティの共有基盤となるシミュレーションプラットフォーム「FlatLab」を公開した意義は大きいです。\n\n著者らが挙げる限界と今後の展望は以下の通りです：\n- 実機転移（Sim-to-Real）のさらなる検証：実機での検証も行われましたが、大半の評価はシミュレーション内であり、より多様な摩擦・接触ダイナミクスのギャップを埋める必要があります。\n- シーンの複雑性：物体が乱雑に重なり合っているような極限の散乱環境における振る舞いの系統的な調査が残されています。\n- VLAとの融合：現状の大型VLAモデルは直接の低レベル制御で失敗しやすいですが、高レベルな意図理解や戦略生成器としてVLAを組み込むハイブリッドな方向性が有望視されています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：失敗事例の分析とハイパーパラメータの感度",
+   "summary_ja": "失敗例の多くは極端なアスペクト比や配置角度、摩擦の不足に起因していました。また対照学習の重みや温度パラメータ、位置・回転損失のバランスに関する感度分析により、提案フレームワークの最適設定とロバスト性が裏付けられています。",
+   "details_ja": "付録では、実験の詳細な失敗分析とハイパーパラメータ感度が報告されています。\n\n- 失敗事例の分析：ノートPCや絵画、チェス盤のように極端な縦横比を持つ物体や、写真アルバムのように接触面積が極小の物体で把持の失敗が見られました。また、物体が大きく傾いて置かれている場合や、Test $\\beta$ で「滑らせるべき物体を持ち上げようとする」といった戦略誤認がわずかに発生しました。今後は触覚フィードバックの導入や姿勢のランダマイズ強化が有効と考察されています。\n\n- パラメータ感度分析：戦略生成器における対照損失の重み $\\lambda$ は小さすぎると未知カテゴリへの汎化が落ち、大きすぎると学習が不安定化します。温度パラメータ $\\tau$ も適度な中間値で最も安定しました。また動作実行モジュールでは、位置損失の重み $\\lambda_{pos}$ を 5〜10 程度に設定した際に位置誤差が最小化され、回転損失とは干渉せず独立して最適化できることが確認されています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "薄平らな物体の操作は単一のポリシーで解くのではなく、「戦略予測（引きずり／二腕持ち上げ／シワ寄せ）」と「動作プリミティブ実行」を分離して階層化するのが極めて有効である。",
+  "シミュレータ上で物性やスケールを変換し、対照学習（Contrastive Learning）を適用することで、特定のジオメトリに引きずられない「戦略中心の不変表現」が学習できる。",
+  "エンドツーエンドの拡散モデル（Diffusion Policy）やVLAは平らな物体の微細な接触制御で机との衝突やジッターを起こしやすいため、6自由度ポーズを明示的に予測するプリミティブ構成が実用上強力な防壁となる。"
+ ],
+ "limitations_ja": [
+  "接触摩擦への依存度が高く、シミュレータと実世界での摩擦係数のズレや慣性による滑り落ちが主な失敗要因になりやすい。",
+  "アスペクト比が極端に偏った物体や、複雑に重なり合った物体が密集する環境では把持位置のずれや戦略誤認が起こりやすい。",
+  "現状のフレームワークは点群ベースの幾何推論が主体であり、視覚言語モデル（VLM/VLA）が持つ豊富な常識推論との直接的な統合は今後の課題にとどまる。"
+ ],
+ "keywords": [
+  "Flat Object Manipulation",
+  "Robotic Grasping",
+  "Pre-manipulation",
+  "Simulation Benchmark",
+  "Contrastive Learning",
+  "Action Primitives"
+ ],
+ "id": "2608.14049",
+ "title": "FlatLab: A Unified Methodology Framework and Simulation-Based Benchmark for Robotic Manipulation of Flat Objects",
+ "title_ja": "FlatLab: 薄平物体のロボット操作のための統合手法フレームワークとベンチマーク",
+ "authors": [
+  "Xingyu Zhu",
+  "Wenshuo Han",
+  "Zhouyu Wang",
+  "Yuran Wang",
+  "Ruihai Wu",
+  "Hao Dong",
+  "Fan Tang",
+  "Hechang Chen",
+  "Hyung Jin Chang",
+  "Yixing Gao"
+ ],
+ "date": "2026-08-17",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "benchmark",
+  "simulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.14049",
+ "pdf_url": "https://arxiv.org/pdf/2608.14049",
+ "summary_ja": "把持が困難な薄平物体の操作に向け、点群から操作戦略を予測する生成モジュールと長期計画を実行するモジュールを分離した統合フレームワークを提案。シミュレーションデータ変換と対照学習により物体幾何や摩擦の違いに頑健な戦略表現を学習し、シミュレーションベンチマークで高い成功率を示した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.14049"
+}
