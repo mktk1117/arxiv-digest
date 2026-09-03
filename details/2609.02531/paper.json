@@ -1,0 +1,126 @@
+{
+ "title_ja": "幾何学的潜在拡散を用いた空間認識ワールドアクションモデル",
+ "tldr_ja": "事前学習済み動画拡散モデルを拡張し、専用の3Dエンコーダを追加することなく深度情報を対数正規化して統一的に処理することで、高精度な行動予測と未来の3次元世界予測を同時に実現した研究です。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "SA-WAMの全体アーキテクチャです。事前学習済みの動画生成バックボーン（DiT）に対し、ロボットの固有受容感覚や行動、各視点のRGBと並んで、対数正規化された深度画像が同じ凍結VAEトークナイザを介して潜在シーケンスに直接注入されています。",
+  "caption": "Fig. 2 : SA-WAM architecture. SA-WAM injects geometry into the WAM latent sequence as tokenizer-compatible frames paired with each RGB view, while the proprioception ( $q_{t}$ ) and action chunk ( $a_{t}$ ) are inserted directly into dedicated positions in the latent sequence. The conditioning signals include the task description ( $task$ ), one RGB frame per view ( $v_{t}^{c}$ ) interleaved with its corresponding 3D modality ( $g_{t}^{c}$ ) and the proprioceptive information at time $t$ ( $q_{t}$ ). The action chunk, future-state RGB ( $v_{t^{\\prime}}^{c}$ ), and future depth ( $g_{t^{\\prime}}^{c}$ ) frames undergo the denoising process. The decoding phase is optional at inference time.",
+  "image": "details/2609.02531/F2.jpg"
+ },
+ "overview_ja": "ロボットの自律的な動作学習において、未来の視覚変化と行動を同時に予測する「ワールドアクションモデル（WAM）」が大きな注目を集めています。Web規模の動画データで事前学習された動画拡散モデルの豊かな視覚的・物理的ダイナミクス事前知識を直接ポリシーに取り込めるからです。しかし、これまでのWAMは基本的にRGB画像のみを扱っており、物体の正確な距離や形状といった3次元空間の幾何情報を活用できていませんでした。\n\nそこで著者らは、空間認識型ワールドアクションモデル「SA-WAM」を提案しました。最大の工夫は、正の実数値として発散しうる距離（デプス）データを、既存の凍結された視覚VAEトークナイザが受け入れ可能な有界空間へと「非線形対数正規化」によってマッピングした点です。これにより、専用の3Dエンコーダを追加して事前学習モデルのバランスを崩すことなく、RGB画像と深度画像を同じ潜在トークン列として動画拡散Transformer（DiT）で統合処理できるようにしました。\n\n検証として、キッチン作業シミュレータRoboCasaや頑健性を測るLIBERO-Plus、さらに実機UR5ロボットアームでのマニピュレーション実験を行いました。その結果、タスクあたりわずか50デモという極めて少ないデータ量で従来のVLAやWAMを大きく上回る最高性能を達成しました。さらに、モデルが予測する未来の3次元幾何誤差がタスク成否と強く相関していることも明らかにし、ワールドモデルの予測精度がそのまま制御性能に直結することを示しています。",
+ "contributions_ja": [
+  "動画拡散モデルの潜在シーケンスに明示的な3D深度情報を組み込み、専用の3Dエンコーダなしで幾何情報を扱えるSA-WAMを提案した点",
+  "無界な距離値を近距離の解像度を保ちつつ凍結VAEの入力域に収める非線形対数正規化手法を開発し、その優位性を定量的に示した点",
+  "RoboCasaおよび摂動ベンチマークLIBERO-Plusにおいて、極めて少ないデモ数で従来のVLAやWAMを凌駕する最高性能を達成した点",
+  "実機UR5アームによる卓上作業実験において、環境のランダム化や紛らわしい障害物がある状況でも高い頑健性と成功率を実証した点",
+  "予測された未来の3次元物体位置の幾何学的誤差がポリシーの成否と高い相関（AUC約0.88）を示すことを突き止め、失敗診断の指標になり得ることを明らかにした点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "動画モデルに行動だけでなく「空間の奥行き」も教えたい",
+   "summary_ja": "静止画基盤のモデルと比べ、動画生成モデルは物理的相互作用や時間変化のモデリングに優れていますが、従来のWAMはRGB情報に限定されていました。本論文では、深度情報を動画トークナイザに適合させる工夫により、単一の拡散Transformer内で3次元空間の幾何構造と行動を同時に扱うSA-WAMを提案します。",
+   "details_ja": "ロボットが多様な環境で賢く動くための基盤として、視覚・言語・行動を統合したVLA（Vision-Language-Action）モデルが注目されています。しかし、多くのVLAモデルは静止画とテキストで事前学習された視覚言語モデル（VLM）を出発点としており、時間の流れや物理的な動きのモデリングには課題が残っていました。\n\nそこで近年脚光を浴びているのが、大規模なインターネット動画から物理現象やダイナミクスを学んだ「動画拡散モデル」を活用するワールドアクションモデル（WAM）です。未来の観測画像とロボットの行動を同じ生成モデル内で同時に予測することで、未来の視覚的見通し（foresight）を制御に直接役立てることができます。\n\nしかし、これまでのWAMはRGB画像しか見ておらず、3次元空間の奥行きや対象物の幾何構造を捉えきれていませんでした。精密なマニピュレーション（把持や器具の操作など）では、数ミリ〜数センチの距離感が成否を分けます。3D点群などを扱う専用ポリシーの研究では3次元情報の重要性が証明されているものの、それをWAMのような生成モデルにどう自然に組み込むかは未開拓の課題でした。\n\n本論文が提案する「SA-WAM（Spatially Aware World Action Model）」は、事前学習された動画拡散Transformer（DiT）の潜在フレーム列に深度情報を直接注入します。最大のハードルは、実世界の距離（メトリック深度）が0から無限大まで広がるのに対し、動画モデルの画像エンコーダ（VAE）は[-1, 1]のような狭い範囲の画像を想定して学習されている点です。そこで著者らは、手前側の解像度を高く保ちつつ遠景をうまく圧縮する「非線形対数正規化」を導入しました。これにより、専用の3Dエンコーダを一から学習することなく、既存の強力な動画トークナイザをそのまま再利用して3次元幾何をモデルに教え込むことに成功しました。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "動画ワールドモデルと3Dロボット制御の交差点",
+   "summary_ja": "ロボット行動学習における動画ベースのワールドモデル研究と、明示的な3次元点群や深度情報を活用するポリシー研究の流れを整理します。SA-WAMは、事前学習済み動画モデルの潜在空間をロボット用に再利用する最新アプローチを継承しつつ、単一アーキテクチャで3D幾何情報を扱えるように発展させた位置づけにあります。",
+   "details_ja": "本論文の関連研究は、大きく3つの系統に分かれています。\n\n### ロボット方策学習のためのワールドモデル\n古くからモデルベース強化学習などで未来状態の予測が使われてきましたが、近年は生成動画モデルを行動の事前知識として使う研究が盛んです。未来の動画を生成してから逆ダイナミクスで行動を復元する手法（UniPiやDreamitateなど）や、動画モデルの潜在変数で行動予測ヘッドを条件付ける手法（Mimic-Videoなど）があります。さらに最近では、動画生成と行動予測を単一の生成アーキテクチャで統一して同時に学習するWAMやUWM（VideoPolicy、UWM、DreamZero、Cosmos-Policyなど）が登場しました。特にCosmos-Policyは、動画拡散モデルのトークン列の一部を行動や関節状態のトークンに置き換える巧妙なアプローチをとっていますが、いずれもRGB情報のみに依存していました。\n\n### 3D認識を取り入れたロボットポリシー\nマニピュレーションにおける幾何情報の重要性から、3D情報を直接扱う手法も数多く提案されています。点群を入力とするPolarNetやPointVLA、3Dの生成ワールドモデルを組み合わせた3D-VLA、密な3D座標を画像形式で表すPointMapPolicyなどがあります。SA-WAMは、密な距離画像を直接扱い、既存の画像用トークナイザを流用して幾何情報を処理する点でPointMapPolicyと考え方が近いですが、それを動画ベースのWAMへと拡張した点が新規性です。\n\n### 事前学習済み視覚モデルのための距離幾何エンコーディング\n距離画像を生成モデルで扱う研究（DMDやDepthFMなど）では、広い距離範囲を効率的に表現するために対数スケールなどの非線形パラメータ化が広く用いられてきました。SA-WAMはこの知見をロボットのワールドモデルに応用し、手元カメラや俯瞰カメラの距離レンジを凍結VAEに無理なく適応させています。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "凍結トークナイザで距離を読み解く：非線形エンコーディングの妙技",
+   "summary_ja": "手先カメラおよび外部カメラのRGB画像と深度画像を、同じ凍結VAEを用いて潜在トークン化し、ロボットの状態・行動トークンとともにDiTに入力します。無界な距離値はカメラごとの統計値でクリップした後、近距離を高解像度に保つ対数正規化を施して3チャンネル画像化し、単一の拡散目的関数で同時に学習します。",
+   "details_ja": "SA-WAMは、事前学習された動画拡散Transformer（DiT）をベースに構築されています。システム構成と処理の流れは以下の通りです。\n\n### III-A ワールドアクションモデリングへの3Dモダリティ注入\nロボットには手先（wrist）カメラと左右の外部カメラの計3台（$\\mathcal{V}=\\{w, l, r\\}$）が設置されており、各時刻 $t$ においてRGB画像 $I_t^c$ とメトリック深度 $d_t^c$ が得られます。これらを凍結された動画VAEエンコーダ $E$ を使って潜在特徴に変換します。RGB潜在フレーム $v_t^c = E(I_t^c)$ に加え、トークナイザが受け入れ可能な3チャンネル画像 $I_{d,t}^c$ に変換された深度からも幾何潜在フレーム $g_t^c = E(I_{d,t}^c)$ を生成します。\n\nモデルへの入力条件 $\\mathcal{C}_t$ は、言語指示文 $\\ell$、現在のロボット固有受容感覚（関節や手先の状態）$q_t$、そして各カメラのRGBおよび深度の潜在フレーム $\\{v_t^c, g_t^c\\}$ です。モデルはこの条件をもとに、未来の行動チャンク（連続した行動の塊）$a_t$ と、予測地平線 $H$ ステップ先の未来の観測潜在フレーム $\\{v_{t+H}^c, g_{t+H}^c\\}$ を同時にデノイジング（拡散モデルによるノイズ除去）によって予測します。別個の予測ヘッドを一切持たず、トークン列の位置を変えるだけで全モダリティを統合しています。\n\n### 深度情報の注入と正規化\n最大の技術的ポイントは、正の実数である距離 $d_t^c$ を、VAEが期待する $[-1, 1]$ の範囲にどう歪みなく収めるかです。まず、各カメラの学習データから2パーセンタイル値 $d_{\\min}^c$ と98パーセンタイル値 $d_{\\max}^c$ を求め、外れ値をクリップします。その後、単調正規化関数 $f(z; a, b) \\in [0, 1]$ を適用し、それを $[-1, 1]$ にスケーリングして3チャンネルに複製します。\n\n論文では以下の3つの正規化関数を比較検証しています：\n- 線形正規化（Linear）：全距離域を一律にスケーリング。感度 $|\\partial f/\\partial z|$ は一定。\n- 逆深度正規化（Inverse）：$1/z$ に基づく変換。感度が $1/z^2$ に比例し、至近距離に極端に分解能が集中する。\n- 対数正規化（Log-scale）：$\\log(z)$ に基づく変換。感度が $1/z$ に比例し、手元近くの分解能を高く保ちつつ、中遠距離の精度も失わない。\n\n### III-B 学習目的関数\nバックボーンには物理AI向け動画モデルCosmos-Predict2（2Bパラメータ）のDiTを用い、トークナイザにはWan2.1の時空間VAEを採用しています（トークナイザは完全凍結）。学習ターゲット $x_0$ は「行動チャンク＋未来のRGB潜在フレーム＋未来の深度潜在フレーム」です。これにガウスノイズを加え、EDM（Elucidated Diffusion Model）の定式化に基づく単一の二乗誤差損失 $\\mathcal{L}_{\\mathrm{EDM}}$ でネットワークを学習します。モダリティごとの損失重み調整などは一切不要で、自然に共同生成を学習できる点がエレガントです。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "SA-WAMのアーキテクチャ詳細です。現在時刻 $t$ の観測（言語、ロボット状態、各カメラ視点のRGBおよび深度フレーム）を条件として、未来時刻 $t+H$ の行動チャンク $a_t$、未来RGB $v_{t+H}$、未来深度 $g_{t+H}$ を単一のDiTで一括してデノイズ予測します。",
+     "caption": "Fig. 2 : SA-WAM architecture. SA-WAM injects geometry into the WAM latent sequence as tokenizer-compatible frames paired with each RGB view, while the proprioception ( $q_{t}$ ) and action chunk ( $a_{t}$ ) are inserted directly into dedicated positions in the latent sequence. The conditioning signals include the task description ( $task$ ), one RGB frame per view ( $v_{t}^{c}$ ) interleaved with its corresponding 3D modality ( $g_{t}^{c}$ ) and the proprioceptive information at time $t$ ( $q_{t}$ ). The action chunk, future-state RGB ( $v_{t^{\\prime}}^{c}$ ), and future depth ( $g_{t^{\\prime}}^{c}$ ) frames undergo the denoising process. The decoding phase is optional at inference time.",
+     "image": "details/2609.02531/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Simulation Experiments",
+   "heading_ja": "わずか50デモでSOTA達成：幾何情報がもたらす圧倒的な差",
+   "summary_ja": "大規模キッチンシミュレータRoboCasaと摂動環境LIBERO-Plusで評価を行いました。SA-WAMはタスクあたり50デモという極小データでRoboCasaの成功率76.6%を達成し、既存ベースラインを大幅に上回りました。また、未来の3D予測精度が高いほどタスク成功率が向上する明確な相関も確認されました。",
+   "details_ja": "### IV-A 実験設定\n評価には、Franka Pandaアームを用いる日常キッチン作業ベンチマーク「RoboCasa（24種類の複合タスク）」と、7つの外乱軸（配置、視点、初期状態、言語、照明、テクスチャ、センサノイズ）を含む「LIBERO-Plus」を使用しました。RoboCasaではタスクごとにわずか50デモしか使わない高難度な条件下で、3つの乱数シードの平均成功率を測定しています。DiTは40台のNVIDIA H100 GPUを用いてバッチサイズ800〜960で学習しました。\n\n### IV-B 深度正規化のアブレーション\nRoboCasaの代表的な8タスクで、線形・逆深度・対数スケールの3方式を比較しました。エンコードとデコードを往復させた際の距離再構成誤差（AbsRel）を測ると、線形方式は0.3m以下の至近距離で6.68%と大きく劣化し、逆深度方式は遠距離で13.19%と崩壊しました。一方、対数スケール方式は全体誤差0.63%と最も優れ、手先カメラのどの距離でも安定していました。ポリシーの成功率でも、対数正規化は線形より5.2ポイント、逆深度より2.2ポイント高く、ポリシーの性能と再構成精度のバランスが完全に一致しました。\n\n### IV-C SOTAとの比較\nRoboCasa（24タスク平均）において、SA-WAMは76.6%の成功率を達成し、従来の最高峰モデル群を退けてSOTAを記録しました。同じデモ数で比較した場合、ベースとなったCosmos-Policy（67.1%）から9.5ポイントも向上しています。特に「Pick-and-Place（物体の把持と配置）」で+16.7ポイント、「Turn/Toggle（ノブを回す、スイッチを押す）」で+11.2ポイントと、正確な3次元位置合わせが要求されるタスクで大きな伸びを見せました。また、摂動を加えたLIBERO-Plusのゼロショット評価でも86.6%を記録し、強力なVLAベースラインである $\\pi_{0.5}$（84.6%）やCosmos-Policy（81.4%）を上回る堅牢性を示しました。\n\n### IV-D ワールドモデルの予測品質分析\n幾何情報を入れたことで、未来のRGB画像予測そのものの質も向上しました。PSNR、SSIM、LPIPSのすべての指標でCosmos-Policyを上回り、特にカメラが激しく動く手先カメラの予測精度や、ロボット・物体領域に絞ったマスク評価での向上が顕著でした。世界を3次元的に捉えることが、視覚的な未来予測の破綻を防ぐ鍵になっていることが分かります。\n\n### IV-E 予測品質とロールアウト成否の相関\n把持直後の短い地平線における「モデルが予測した対象物体の3D位置」と「シミュレータ上で実際に移動した3D位置」のズレを計算したところ、タスクに成功したエピソードは予測誤差が小さく、失敗したエピソードは大きく乖離していました。この3D予測誤差に閾値を設けるだけで、わずか13%の誤報率で失敗の80%を検出可能（ROC-AUCは約0.88）であり、モデルの内的予測が自身の失敗を如実に物語っていることが判明しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "RoboCasaでの把持・配置タスクにおける予測と実行の比較です。Cosmos-Policy（上段）は未来予測とシミュレータの実挙動がずれて把持に失敗していますが、SA-WAM（中・下段）はRGBだけでなく深度の未来も正確に予測し、把持を綺麗に完遂できています。",
+     "caption": "Fig. 3 : RoboCasa pick-and-place task: Pick the condiment bottle from the counter and place it in the sink . We show the wrist view before and during grasping, and at the final rollout stage. The upper block shows Cosmos-Policy and the lower block shows SA-WAM, with predictions compared against their corresponding simulator rollouts; for SA-WAM we also show depth predictions. Red boxes mark rollout inconsistencies, and the green box marks task completion.",
+     "image": "details/2609.02531/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Real-World Experiments",
+   "heading_ja": "実機UR5アームでの実証：乱雑な実世界でも惑わされない頑健性",
+   "summary_ja": "実機のUR5ロボットアームを用い、固定RGB-Dカメラからの観測による卓上マニピュレーション実験を行いました。障害物やテクスチャの乱れがあるランダム化環境において、SA-WAMは77.5%のタスク完了率を維持し、外観の類似した妨害物に惑わされたベースラインモデルに対して大差をつけました。",
+   "details_ja": "シミュレーションだけでなく、実世界の物理ロボット環境でもSA-WAMの有効性を検証しています。\n\n### 実験セットアップ\nロボットには6自由度のUR5アームとRG6平行グリッパを使用し、作業空間をOrbbec Femto Mega固定RGB-Dカメラで撮影しました。行動表現には高頻度の関節制御ではなく、絶対位置・姿勢（クォータニオン）およびグリッパ開度からなる8次元のエンドエフェクタ（EE）目標ウェイポイントを採用しています。タスクは皿への配置、箱への配置、マグカップ掛け、コップ重ねなどの複合タスクで、各タスクわずか20デモのみを学習に使用しました。\n\n### 実機実験の結果と頑健性\n実験は、配置のみを変えた「クリーン環境」と、見た目がそっくりな妨害物体（ディストラクタ）や視覚ノイズを追加した「ランダム化環境」の2通りで実施し、Cosmos-Policyおよび最新VLAの $\\pi_0$ と比較しました。\n\nクリーン環境において、SA-WAMは全体完了率90.0%を記録（Cosmos-Policyは75.0%、$\\pi_0$ は21.3%）。さらに過酷なランダム化環境では、ベースラインのCosmos-Policyが48.8%、$\\pi_0$ が11.3%へと大幅にスコアを落としたのに対し、SA-WAMは77.5%という高い成功率を維持しました。\n\n定性的な観察からも、RGB画像のみに頼るモデルは、色や形が似ているダミーのコップや果物に吸い寄せられて掴み損ねるミスが多発していました。一方、SA-WAMは深度情報から対象物の正確な3次元的な位置関係を把握できるため、見た目に紛らわしい物体が散乱していても迷わず正しい対象へ手を伸ばすことができていました。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "実機UR5を用いたランダム化環境での比較例です。色や形状が似た妨害物体が混ざっている場面で、Cosmos-Policyは視覚的類似性に惑わされて誤った物体を掴んでしまいますが、SA-WAMは深度情報を頼りに正しい対象物を認識してタスクを成功させています。",
+     "caption": "Fig. 6 : Qualitative examples in randomized environments for the UR5 experiments: Two manipulation examples under domain randomization where SA-WAM reaches task completion while Cosmos-Policy fails to disambiguate visually similar distractors. We highlight rollout errors with red squares, and task completion with green squares.",
+     "image": "details/2609.02531/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "まとめと今後の展望：真の物理理解に向けた第一歩",
+   "summary_ja": "SA-WAMは、対数正規化によって動画拡散モデルに明示的な3D幾何情報を自然に組み込めることを示しました。高いサンプル効率と外乱耐性を実証した一方で、未来予測と実際のアクションの不一致や推論速度の改善など、リアルタイムロボット応用に向けた課題も残されています。",
+   "details_ja": "本研究では、事前学習された動画拡散Transformerの潜在シーケンスに明示的な3D深度情報を組み込んだ空間認識型ワールドアクションモデル「SA-WAM」を提案しました。最大のポイントは、対数正規化を導入することで、専用の3Dエンコーダを追加することなく、既存の凍結動画VAEトークナイザをそのまま再利用して高精度な幾何情報を扱えるようにした点です。\n\nその結果、RoboCasaやLIBERO-Plusといったシミュレーションベンチマークにおいて、わずか50デモという極めて高いサンプル効率でSOTAを達成しました。さらに実機UR5ロボットによる実験でも、外観の乱れや障害物に対して非常に頑健に動作することを示しました。幾何情報を加えることで視覚的な未来予測精度そのものも向上し、未来の幾何誤差がタスク成否の有力な診断指標になることも実証されました。\n\n一方で、著者らはいくつかの限界と今後の課題も挙げています：\n- 予測された未来と実際に行動した結果の間に依然として不整合（物理的な矛盾など）が生じるケースがあること\n- 幾何学的に厳密に整合した学習スキームや検証機構の導入が必要であること\n- 拡散モデル特有の反復的サンプリングに伴う推論遅延があり、高速なリアルタイムフィードバック制御への適用にはさらなる軽量化や高速化が求められること",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "動画基盤モデルに深度（3D情報）を注入する際、専用エンコーダを増設するよりも、対数正規化を施して既存の凍結画像VAEにそのまま通す方がシンプルかつ破綻しにくい",
+  "ワールドモデルに3D幾何情報を与えると、行動予測だけでなくRGB画像自体の未来予測精度も大幅に底上げされる",
+  "モデル自身が予測した「対象物体の未来3D位置」と「実際の移動位置」の乖離を測ることで、実行中のタスク失敗を高い精度（AUC 0.88）で自己検知できる可能性がある",
+  "外観の似た妨害物体が存在する実環境において、深度情報は外見の曖昧さを解消する決定打となり、ドメインランダム化への耐性を飛躍的に高める"
+ ],
+ "limitations_ja": [
+  "拡散モデルをベースに未来状態と行動を一括生成しているため、反復デノイジングによる推論コストが高く、極めて高頻度な閉ループ制御への直接適用には制約がある",
+  "予測された未来のシーンと実際に出力されるアクションの間で、物理的に不整合な予測（幻覚）が完全に排除されたわけではない",
+  "深度カメラのハードウェア仕様や有効計測範囲に依存し、透明体や鏡面反射などデプス取得が破綻する領域に対する頑健性は別途考慮が必要である"
+ ],
+ "keywords": [
+  "World Action Model (WAM)",
+  "Diffusion Transformer (DiT)",
+  "Robot Manipulation",
+  "Geometric Latent Diffusion",
+  "Depth Normalization"
+ ],
+ "id": "2609.02531",
+ "title": "Spatially Aware World Action Model via Geometric Latent Diffusion",
+ "authors": [
+  "Javier Alejandro Lopetegui Gonzalez",
+  "Paul Pacaud",
+  "Cordelia Schmid"
+ ],
+ "date": "2026-09-03",
+ "group": "general",
+ "tags": [
+  "world-model",
+  "manipulation",
+  "control"
+ ],
+ "categories": [
+  "cs.CV",
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.02531",
+ "pdf_url": "https://arxiv.org/pdf/2609.02531",
+ "summary_ja": "事前学習済み動画拡散モデルを拡張し、ロボットの行動・RGB画像・深度を単一の拡散バックボーンで同時予測するSA-WAMを提案。3次元幾何情報を組み込んだ潜在拡散により、動画モデル由来の強力な物理事前知識を保ちながら高精度な空間認識と閉ループ方策学習を実現した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.02531"
+}
