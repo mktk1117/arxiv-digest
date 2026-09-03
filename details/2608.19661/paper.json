@@ -1,0 +1,125 @@
+{
+ "tldr_ja": "大規模言語モデル（LLM）に行動の順序だけを決めさせ、各行動を「何秒実行すべきか」を微分可能な物理ニューラルワールドモデルと勾配最適化で決定することで、海流や推進器の遅れがある洋上風力発電所周りでも衝突ゼロの自律航行を実現しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "ワールドモデルによる物理的裏付け（グラウンディング）の有無の違いを示した図です。左側の素のLLMプランナーは物理的な流されやすさを予測できず洋上風車の基礎に衝突しますが、右側のようにワールドモデルを挟むことで、実行可能な継続時間を導き出し、安全にゴールへ到達できます。",
+  "caption": "Fig. 1 : Why an LLM planner needs a world model (ASV variant shown; the same contrast holds for the AUV, without the VLM stage). Without grounding (left), the LLM’s plan drifts into the turbine tower; with the world model (right), the same plan receives physically feasible step durations and reaches the goal collision-free. The ASV’s inputs additionally include a gridded map classified by a vision-language model and enriched with forecast wind/current/wave data (Section IV-F ); the AUV instead u",
+  "image": "details/2608.19661/F1.jpg"
+ },
+ "overview_ja": "言語モデル（LLM）にロボットのミッションを指示すると、常識的な行動計画を分解して生成してくれます。しかし、LLMには「物理の感覚」がありません。「前進して風車を避ける」という一見正しそうな計画でも、海流や推進器の立ち上がり遅延、流体力学的な横滑りによって、海洋ロボットは簡単に構造物に衝突してしまいます。\n\nそこで著者らは、「何をすべきか（行動の順序）」はLLMに任せ、「それを何秒実行すべきか（継続時間）」は微分可能な物理ニューラルワールドモデル（代理モデル）と勾配最適化に委ねるという役割分担を提案しました。さらに、モデル予測制御（MPC）のように周期的に再計画し、モデルの予測外の振る舞いを防ぐ信頼領域ガードを備えています。\n\n検証には、全方向移動が可能な6自由度の無人潜水艇（AUV）と、横移動ができない非ホロノミックな3自由度の水上無人艇（ASV）の2種類を用いました。解析シミュレータだけでなく、海流や波・推進器ダイナミクスを含む高精度なGazeboSimシミュレータへも移行し、過酷な洋上風力発電所環境での5つのミッションで実験を行いました。\n\nその結果、素のLLMでは衝突率100%だったミッションに対し、提案手法は全試行で衝突ゼロを達成しました。Gazebo環境でもゴール到達誤差を70〜93%削減することに成功しています。",
+ "contributions_ja": [
+  "解析的な運動方程式（Fossenモデル）と残差ニューラルネットワークを組み合わせ、6自由度AUVと3自由度ASVの双方で高精度に機能する微分可能な代理ワールドモデルを構築した点",
+  "LLMには行動の種類だけを一度だけ出力させ、その実行継続時間を代理モデルを介した3段階の勾配最適化で解く制御アーキテクチャを提案した点",
+  "オンライン再計画時にモデルの過度な外挿や破綻を防ぐ「信頼領域ガード」を導入し、スラロームなどの難関ミッションで到達率を10%から100%へ劇的に改善させた点",
+  "高価なLiDARやソナーの代わりに、衛星画像や海図、気象予報APIとVLM（視覚言語モデル）を組み合わせて障害物と環境情報を96%の精度で抽出するセマンティックマッピングを実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "LLMは賢いが「物理」を知らない：海洋ロボットが直面する壁",
+   "summary_ja": "言語モデルによるタスク計画は強力ですが、単なるトークン予測では抗力や海流、推進器の遅れといった物理現象を理解できません。本論文では、LLMに「何をするか」を決めさせ、学習されたワールドモデルに「どれだけの時間動かすか」を決めさせることで、洋上風力発電設備周辺での安全な航行を実現します。",
+   "details_ja": "LLMを使えば、「前進して風車を避ける」といった指示をロボットのアクションへ簡単に分解できます。マニピュレーションや屋内移動ロボットではこれで十分なことも多いのですが、海洋ロボットの世界ではこれが命取りになります。\n\nなぜかというと、スラスタ（推進器）には応答遅れがあり、前進と回頭が連動する流体力学的カップリングが存在し、さらに風や潮流による横流しが蓄積するからです。どれだけ海洋ロボットに関するテキストを学習したLLMであっても、トークン予測という目的関数だけでは「抗力によって軌道がどう曲がるか」を本質的にシミュレーションできません。\n\nそこで著者らは、Ha & SchmidhuberやLeCunが提唱する「世界モデル（World Model）の中で行動の結果を想像してから実行する」というアプローチを採用しました。ここで扱うロボットは2種類あります。\n- 6自由度（6-DOF）を持つAUV（無人潜水艇）: 8基のスラスタを持ち、横移動（スウェイ）で直接軌道修正が可能\n- 3自由度（3-DOF）のディファレンシャル駆動ASV（水上無人艇）: 2基のスラスタしかなく横移動が不可能な非ホロノミック（進行方向以外に即座に動けない）艇\n\nまた、ASV向けには高価なソナーやLiDARを積む代わりに、公開されている衛星画像や海図、気象APIからVLM（視覚言語モデル）を用いて障害物マップを生成する低コストな仕組みも提案しています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "洋上風車を回避するミッションにおける比較です。左側のグラウンディングなしのLLMは風や潮流による流されを考慮できず風車に激突しますが、右側のワールドモデル導入環境では物理的に無理のない継続時間が割り当てられ、無衝突で回避できます。",
+     "caption": "Fig. 1 : Why an LLM planner needs a world model (ASV variant shown; the same contrast holds for the AUV, without the VLM stage). Without grounding (left), the LLM’s plan drifts into the turbine tower; with the world model (right), the same plan receives physically feasible step durations and reaches the goal collision-free. The ASV’s inputs additionally include a gridded map classified by a vision-language model and enriched with forecast wind/current/wave data (Section IV-F ); the AUV instead u",
+     "image": "details/2608.19661/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "言語と物理シミュレーションをどう繋ぐか：先行研究の歩み",
+   "summary_ja": "LLMを用いたロボット計画や海洋ビークルの物理学習に関する先行研究を整理しています。従来の多くの手法はLLMの生成ループに言語的なフィードバックを返すだけでしたが、本研究はLLMとロボットの間に「微分可能な物理ワールドモデル」を直接挟み込む点が決定的に異なります。",
+   "details_ja": "関連研究は大きく3つの分野に分かれます。\n\n1つ目は「ワールドモデルとLLMプランニング」です。Dreamerのように世界モデル内で強化学習を行う研究や、SayCanのようにアフォーダンス（実行可能性）でLLMの出力を評価する研究、コードを生成するCode as Policiesなどがあります。また、Inner Monologueのように言語的フィードバックをループさせる研究もありますが、LLMと実機の間に微分可能な物理モデルを挟んで連続的な最適化を行うアプローチはありませんでした。\n\n2つ目は「海洋ロボットのための物理情報学習」です。ブラックボックスのニューラルネットワークでダイナミクスを近似する研究もありますが、本研究は第一原理（物理法則）にニューラルネットによる残差（誤差補正）を組み合わせるハイブリッド構造を採用しています。また、GazeboSimのような高忠実度シミュレータを直接呼ぶのではなく、オフラインで超高速に勾配計算ができる代理モデルとして位置づけています。\n\n3つ目は「低コストセンサ航行のためのセマンティックマッピング」です。衛星画像からのグリッドマップ生成やシーングラフの技術が存在しますが、本研究では抽出した障害物情報を微分可能な衝突ポテンシャル場へと直接統合するパイプラインを構築しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Background: Unified Marine Vehicle Dynamics",
+   "heading_ja": "海のダイナミクスを数式にする：統一されたFossenモデル",
+   "summary_ja": "海洋工学で標準的なFossenの運動方程式を用い、AUVとASVの運動を統一的な枠組みで定式化しています。自由度やアクチュエータの配置が全く異なる2つの艇体ですが、係数や制御入力の行列を切り替えるだけで同じ理論体系として扱えます。",
+   "details_ja": "本研究の基盤となるのは、海洋ビークルの運動方程式として世界的に使われているFossenの定式化です。\n\n艇体座標系での速度 $\\boldsymbol{\\nu}$ とワールド座標系での位置・姿勢 $\\boldsymbol{\\eta}$ は、変換行列 $\\mathbf{R}$ を用いて $\\dot{\\boldsymbol{\\eta}} = \\mathbf{R}(\\boldsymbol{\\eta})\\boldsymbol{\\nu}$ で結ばれます。そして運動方程式（動力学）は次の式で表されます：\n$$\\mathbf{M}\\dot{\\boldsymbol{\\nu}} + \\mathbf{C}(\\boldsymbol{\\nu})\\boldsymbol{\\nu} + \\mathbf{D}(\\boldsymbol{\\nu}_r)\\boldsymbol{\\nu}_r + \\mathbf{g}(\\boldsymbol{\\eta}) = \\boldsymbol{\\tau}$$\nここで、$\\mathbf{M}$ は剛体質量と付加質量（水を押しのけることで加わる見かけの質量）の和、$\\mathbf{C}$ はコリオリ・遠心力行列、$\\mathbf{D}$ は流体力学的減衰（抗力）、$\\mathbf{g}$ は浮力や重力による復元力ベクトルです。また、$\\boldsymbol{\\nu}_r$ は海流や風の影響を差し引いた相対速度を表します。\n\n推進力 $\\boldsymbol{\\tau}$ は、時定数 $\\tau_a$ を持つ一次遅れのアクチュエータダイナミクスを経て伝達されます。\n- AUV（BlueROV2 Heavy）: 8基のスラスタにより、並進3軸・回転3軸の合計6自由度すべてに対して独立した力とトルクを発生できます。\n- ASV（Blueboat）: 左右2基の平行スラスタのみを備えています。このため、横方向（スウェイ）の力を生み出す成分が数式上ゼロになり、その場での横スライド移動が物理的に一切できません。この制約が後のプランニング設計に強く影響してきます。",
+   "figures": []
+  },
+  {
+   "heading": "IV Method",
+   "heading_ja": "「何をするか」はLLM、「何秒動かすか」は勾配最適化とワールドモデルで決める",
+   "summary_ja": "物理モデルと残差MLPからなる微分可能な代理モデルを構築し、LLMが生成したマクロアクション骨格に対して、3段階の勾配最適化で継続時間を決定します。さらに、MPCスタイルの再計画と信頼領域ガード、およびVLMを用いた外部地図からの障害物抽出手法を提案しています。",
+   "details_ja": "システムは大きく4つの要素で構成されています。\n\n- **IV-A & IV-B 代理ワールドモデルと学習**: 次状態を $\\mathbf{x}_{t+1} = \\mathbf{x}_t + \\Delta_{\\text{physics}} + \\Delta_{\\text{residual}}$ として予測します。物理項 $\\Delta_{\\text{physics}}$ はFossenモデルを4段ルンゲ＝クッタ法（RK4）で数値積分したもので、角度の循環境界やアクチュエータの飽和を厳密に保証します。残差項 $\\Delta_{\\text{residual}}$ は4層の多層パーセプトロン（MLP）で、未モデル化の流体力を補正します。1ステップ予測だけでなく50ステップの長期展開誤差や釣り合い点ドリフトを抑える複合損失関数を用いて学習しています。\n\n- **IV-C & IV-D LLMインターフェースと3段階勾配最適化**: ローカルで動くGemma-4-26Bに対し、ミッション開始時に1度だけプロンプトを投げます。LLMが出力するのは「前進」「左旋回」などのマクロアクションの順序（骨格）だけで、数値的な時間は含みません。この骨格を受け取った勾配オプティマイザが、ゴール距離と障害物反発場からなるコスト関数を最小化するように各ステップの継続時間を最適化します。最適化は、(1) 全体の大まかなスケール探索、(2) 座標降下法による個別ステップの調整、(3) 微分可能サロゲートモデルを通したAdamによる勾配降下、という3フェーズで高速かつ安定して解かれます。\n\n- **IV-E 信頼領域ガード付きMPC再計画**: 1ステップ実行するごとにセンサ値（DVLやGPS）をフィードバックして残りの計画を再最適化します。この際、「再最適化後の残り時間が初期計画の半分未満に縮退した場合は再計画を破棄して前回の計画を維持する」という信頼領域ガード（Trust-Region Guard）を導入しています。これにより、モデルが未経験の領域で「一瞬でゴールにワープできる」と錯覚して生じる事故を防ぎます。\n\n- **IV-F & IV-G VLMによるセマンティックマッピングとトポロジー問題**: ASV向けに、衛星画像や海図を1メートル四方のセルに分割し、Gemma-4-26Bが航行可能エリアを判定してNeo4jナレッジグラフに登録します。風向や波高の気象API情報も統合され、波高が1mを超えると信頼領域ガードのしきい値をより保守的（0.7倍）に引き上げます。なお、LLMが選んだアクション骨格自体の位相的（トポロジー的）な選択が致命的に間違っている場合、オプティマイザは時間をいじることしかできないため回復できないという構造的な限界も明記されています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "提案手法のシステム全体図です。左側でVLMが衛星画像と気象データからナレッジグラフ経由で障害物を抽出し、LLMが定性的な行動骨格を1度だけ生成します。中央の最適化ループでは、微分可能なワールドモデルを使って継続時間を勾配最適化し、右側の実機シミュレーション環境へMPC形式で安全に指令を送ります。",
+     "caption": "Fig. 2 : System architecture (ASV variant shown; the AUV variant is structurally identical). Planning: for the ASV, a satellite/chart image is tiled and classified by a vision-language model and enriched with live wind/current/wave data, merged into obstacle bounding boxes (Section IV-F ); the AUV uses pre-dive structural drawings instead. The LLM is invoked once, returning a macro-action skeleton with no timing information. Optimization loop: the gradient optimizer proposes step durations; the ",
+     "image": "details/2608.19661/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Experiments",
+   "heading_ja": "洋上風力発電所で検証：シミュレーションからGazeboへの移行と驚きの回避性能",
+   "summary_ja": "AUVとASVそれぞれについて、風車基礎やタワーを想定した5つの難関ミッションで検証しました。素のLLMでは衝突が多発したのに対し、提案手法は全ミッションで無衝突を達成し、独立した高精度シミュレータGazeboSim環境でも目標誤差を70〜93%削減できることを示しました。",
+   "details_ja": "実験は、解析シミュレータでの自己整合性チェックと、より現実的な物理エンジンを持つGazeboSim（ArduPilot SITL連携）へのSim-to-Sim移行テストの2段階で評価されました。\n\n- **解析シミュレータでの結果**: 5つの風車点検ミッション（直線、斜め降下/測量、風車回避、スラローム、障害物群）を実施しました。ワールドモデルを持たないベースライン（No WM）は全てのミッションで障害物に激突し、到達率は0%でした（AUVで最大52回、ASVで最大68回の衝突）。一方、提案手法（Gradient+MPC）は両プラットフォームで到達率100%、衝突回数0を達成しました。ゴール誤差もAUVで0.18m、ASVで0.26mと極めて高精度でした。\n\n- **GazeboSimへの移行（Sim-to-Sim）**: GazeboSimでは推進器の過渡応答の遅れ（ASVでは時定数が0.15sから0.55sに増大）や時間変動する海流・波が加わります。わずか3分弱の追加ファインチューニングを行うことで、60秒展開位置誤差をAUVで60%（1.05m→0.42m）、ASVで69%（1.84m→0.57m）削減しました。AUVは全試行でゴールに到達し、風車回避ミッションでの誤差は開ループの0.83mから閉ループ（MPC）の0.52mへとほぼ半減しました。特に信頼領域ガードのアブレーション（切除実験）では、最難関のスラロームミッションでガードを外すと目標到達率が100%からわずか10%へと暴落することが判明し、この安全機構の重要性が裏付けられました。\n\n- **VLMマッピングの有効性**: 手動で与えた障害物のCAD形状と、衛星画像等からVLMが自動生成したバウンディングボックスを比較したところ、分類精度は96%に達し、位置のずれも75cm以内に収まりました。これを用いた航行結果も手動入力時と統計的に同等であり、高価な車載センサの完全な代替になり得ることが示されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "GazeboSimにおける洋上風車回避ミッションの軌跡です。上段のAUV（avoid_turbine）では青色の提案軌道が立体的に風車基礎を滑らかに回り込み、下段のASV（avoid_tower）でも横移動ができない制約を守りながら「回頭-前進-回頭」のシーケンスで無衝突航行を達成しています（赤破線は失敗軌道）。",
+     "caption": "Fig. 3 : GazeboSim renders and resulting trajectories, one trial of ten per platform (Section V-C ). (a-c) AUV ( avoid_turbine ): render near the turbine foundation (a), with 3-D (b) and top-down (c) trajectories. (e-g) ASV ( avoid_tower , two turbines): render of the scene (e), with 3-D (f) and top-down (g) trajectories. In both, the world-model planner (blue, solid) detours around the obstacle(s) and reaches the goal (green star) - the ASV via a turn-forward-turn sequence, since no direct late",
+     "image": "details/2608.19661/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "まとめと今後の展望：記号と連続制御の美しい分業",
+   "summary_ja": "LLMが高レベルな意図を決定し、微分可能なワールドモデルが物理的な時間配分を最適化するという分業フレームワークの有効性が実証されました。現在の限界としてLLMによる行動骨格自体のトポロジー失敗への対処が挙げられており、今後は実海域での実機実験が期待されます。",
+   "details_ja": "本研究は、海洋ロボティクスという過酷な物理環境において、記号的な推論（LLM）と連続的な物理最適化（微分可能ワールドモデル）を見事に統合してみせました。\n\nこのアプローチの最大の利点は、LLMの呼び出しをミッションあたり最初の1回だけに抑え、その後の微調整や再計画は高速な勾配最適化に任せることで、計算コストと推論の確実性を両立させた点にあります。\n\n残された課題としては以下の2点が挙げられています。\n- LLMが生成した初期の行動順序（トポロジー）自体が完全に間違っていた場合、オプティマイザは時間の伸縮しかできないため修正が不可能である点\n- 今回のLLMの役割は行動の順序出しに限定されており、「時間短縮と衝突リスクのトレードオフをどう取るか」といった高度なセマンティック推論までは踏み込んでいない点\n\n今後は、実機のAUVおよびASVを用いた実海域でのフィールド実験が予定されています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "LLMに物理的な数値（秒数や推力）を直接答えさせるのではなく、行動の順序（離散）だけを任せて、継続時間（連続）は微分可能な物理モデルの勾配最適化に解かせる役割分担が極めて有効である",
+  "第一原理の物理シミュレータ（Fossenモデル）に残差MLPを足し合わせるハイブリッド構成にすることで、学習データ量を抑えつつ長期予測での物理的妥当性を担保できる",
+  "学習ベースのモデルでMPC的なオンライン再計画を行う際は、モデルが未学習領域で非現実的なショートカットを予測する「時間縮退」を防ぐ信頼領域ガードが必須である",
+  "小型水上艇のようなリソース制約の厳しいロボットでは、高価なLiDARの代わりに公開衛星画像や気象APIをVLMで解析して障害物マップ化するアプローチが実用的な選択肢になる"
+ ],
+ "limitations_ja": [
+  "LLMが提案したマクロアクションの順序（トポロジー）そのものが幾何学的に不可能な選択だった場合、後段の勾配オプティマイザでは修復できない",
+  "LLMの役割を行動骨格の生成のみに絞っているため、ミッションにおけるリスクと時間のトレードオフといったセマンティックな高度判断はまだ行われていない",
+  "評価は高精度シミュレータ（GazeboSim）でのSim-to-Sim転移にとどまっており、実海域でのハードウェア実機試験は今後の課題とされている"
+ ],
+ "keywords": [
+  "Large Language Models (LLM)",
+  "World Models",
+  "Autonomous Underwater Vehicle (AUV)",
+  "Autonomous Surface Vehicle (ASV)",
+  "Model Predictive Control (MPC)",
+  "Offshore Wind Farms"
+ ],
+ "id": "2608.19661",
+ "title": "World-Model-Grounded LLM Planning for AUV and ASV Navigation Near Offshore Wind Farms",
+ "title_ja": "洋上風力発電所周辺の自律艇向けワールドモデル準拠LLMプランニング",
+ "authors": [
+  "Markus Buchholz",
+  "Ignacio Carlucho",
+  "Yvan R. Petillot"
+ ],
+ "date": "2026-08-22",
+ "group": "general",
+ "tags": [
+  "world-model",
+  "planning",
+  "llm-agent"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.19661",
+ "pdf_url": "https://arxiv.org/pdf/2608.19661",
+ "summary_ja": "物理的直感を持たないLLMによる行動計画のドリフトや衝突を防ぐため、物理準拠のニューラルワールドモデルと組み合わせた航法計画手法を提案。勾配ベースの軌道最適化とMPC型の閉ループ再計画により、AUVやASVの6自由度推進を正確に予測制御し、洋上インフラ近傍の安全な航行を実現した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.19661"
+}
