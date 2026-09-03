@@ -95,6 +95,8 @@
 
 <script>
 const GROUPS = { focus: "専門", general: "全般" };
+// 配信していない論文（リクエストでまとめた分）をまとめる見出し
+const EXTRA_DATE = "リクエストでまとめた論文";
 const state = { entries: [], tags: new Set(), group: null, q: "", details: new Set() };
 
 const $ = (id) => document.getElementById(id);
@@ -124,6 +126,21 @@ async function load() {
     const details = await (await fetch("details/index.json", { cache: "no-cache" })).json();
     state.details = new Set(details.ids || []);
   } catch { state.details = new Set(); }
+
+  // 配信していないが、リクエストでまとめだけ作った論文はカードを作って先頭に出す
+  const known = new Set(state.entries.map((e) => e.id));
+  const extra = await Promise.all([...state.details].filter((id) => !known.has(id)).map(async (id) => {
+    try {
+      const d = await (await fetch(`details/${id}/paper.json`)).json();
+      return {
+        id, date: EXTRA_DATE, rank: 0, group: d.group || "manual",
+        title: d.title, title_ja: d.title_ja, summary_ja: d.tldr_ja || d.summary_ja || "",
+        authors: d.authors || [], categories: d.categories || [], tags: d.tags || [],
+        abs_url: d.abs_url, image: d.hero_figure?.image || null,
+      };
+    } catch { return null; }
+  }));
+  state.entries = [...extra.filter(Boolean), ...state.entries];
   $("updated").textContent = index.updated ? `最終更新 ${index.updated}` : "";
   renderFilters();
   render();
