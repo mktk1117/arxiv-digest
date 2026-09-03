@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>論文まとめ</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
 <style>
   :root {
     --bg: #f6f7f9;
@@ -86,6 +89,9 @@
   figcaption { padding: 10px 14px 12px; font-size: 13px; }
   figcaption .orig { display: block; color: var(--muted); font-size: 11px; margin-top: 4px; }
   figcaption .key { font-weight: 700; color: var(--accent); margin-right: 6px; }
+  figure.hero { border-color: var(--accent); }
+  .katex { font-size: 1.02em; }
+  .katex-display { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
   .box.limits { background: var(--warn); border-color: var(--warn-line); }
   .footer { margin-top: 36px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; }
   .note { color: var(--muted); font-size: 14px; padding: 48px 0; text-align: center; }
@@ -124,8 +130,8 @@ function renderBody(text) {
   return out.join("");
 }
 
-function figure(f) {
-  return `<figure>
+function figure(f, cls = "") {
+  return `<figure class="${cls}">
     <a href="${esc(f.image)}" target="_blank" rel="noopener"><img src="${esc(f.image)}" alt="${esc(f.caption || f.key)}" loading="lazy"></a>
     <figcaption><span class="key">図 ${esc(f.key.replace(/^F/, "").replace(/^P/, "p."))}</span>${inline(f.caption_ja)}
       ${f.caption ? `<span class="orig">${esc(f.caption)}</span>` : ""}</figcaption>
@@ -153,6 +159,7 @@ function render(d) {
     </div>
 
     ${d.tldr_ja ? `<div class="box tldr"><h2>ひとことで</h2>${renderBody(d.tldr_ja)}</div>` : ""}
+    ${d.hero_figure && d.hero_figure.image ? figure(d.hero_figure, "hero") : ""}
 
     ${d.overview_ja ? `<p class="layer">全体像</p><div class="box"><h2>概要</h2>${renderBody(d.overview_ja)}</div>` : ""}
     ${(d.contributions_ja || []).length ? `<div class="box"><h2>主な貢献</h2>
@@ -178,6 +185,21 @@ function render(d) {
       正確な内容は <a href="${esc(d.abs_url)}">原文</a> を確認してください。</p>`;
 }
 
+// $...$ と $$...$$ を KaTeX で描く。CDN が読めない環境では素の文字列のまま
+function renderMath(root) {
+  const go = () => window.renderMathInElement?.(root, {
+    delimiters: [
+      { left: "$$", right: "$$", display: true },
+      { left: "\\[", right: "\\]", display: true },
+      { left: "$", right: "$", display: false },
+      { left: "\\(", right: "\\)", display: false },
+    ],
+    throwOnError: false,
+  });
+  if (window.renderMathInElement) go();
+  else window.addEventListener("load", go, { once: true });
+}
+
 async function load() {
   const id = new URLSearchParams(location.search).get("id");
   const app = document.getElementById("app");
@@ -189,6 +211,7 @@ async function load() {
     const res = await fetch(`details/${id}/paper.json`, { cache: "no-cache" });
     if (!res.ok) throw new Error(res.status);
     app.innerHTML = render(await res.json());
+    renderMath(app);
     if (location.hash) document.querySelector(location.hash)?.scrollIntoView();
   } catch {
     app.innerHTML = `<p class="note">この論文のまとめはまだありません。<br>
