@@ -1,0 +1,143 @@
+{
+ "tldr_ja": "ロボット強化学習の報酬モデルにおいて、従来の「好み（選好）」や「正規化された進捗度」の代わりにタイムスタンプから得られる「目標達成までの時間距離」を教師信号として採用した汎用価値基盤モデルRynnValueを提案しました。ペア比較ラベルを一切使わずに7,000時間超の大規模データで学習し、未知環境の軌道評価や実機強化学習の成功率を大きく向上させています。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "RynnValueの全体アーキテクチャです。言語指示とマルチモーダル画像列を入力とし、グループ化された時間クエリを通じてタスク完了までの絶対的な残り時間と画像間の相対的な時間差を予測します。さらに、自然言語による動画内容の記述やタスク成否判定も同時に行う構造になっています。",
+  "caption": "Figure 1 : Overview of RynnValue. RynnValue is a language-conditioned value model trained on over 7,000 hours of heterogeneous embodied data, comprising roughly 3M instruction-conditioned trajectory clips across diverse embodiments, viewpoints, and task domains. Given a language instruction and a sequence of sampled observations, the model builds an interleaved multimodal sequence of repeated absolute-value and relative-value queries, which RynnBrain encodes in a single forward pass. Two distrib",
+  "image": "details/2608.09853/F1.jpg"
+ },
+ "overview_ja": "ロボットが強化学習（RL）で多様なタスクを獲得する際、一番のボトルネックは「どうやって汎用的な報酬を与えるか」という点にあります。人間が報酬関数を手書きするのは難しく、成功時だけのスパース（疎）な報酬では長時間のタスクを解けません。そこで事前学習済みの報酬モデルが注目されていますが、従来手法は「どちらの軌道が良いか」という人間の選好ペアや、軌道内を0から1に正規化した進捗度に頼っていました。これらはロボットの形態やタスクの長さが変わると一貫性を保てず、大規模データへのスケールが困難でした。\n\nそこで著者らは発想を転換し、軌道全体の相対スコアではなく、現在状態から目標達成までに必要な時間コスト、すなわち「時間距離（Temporal Distance / cost-to-go）」を直接予測する価値基盤モデル「RynnValue」を考案しました。時間距離なら、動画の終了時刻さえ分かればタイムスタンプの差分から自動的に教師ラベルを作れるため、コストの高い人間のアノテーションなしに多様なデータを統合できます。\n\n実際に、多種多様なロボットやシミュレーション、一人称視点動画など7,000時間以上（約300万クリップ）のデータセットを構築して学習させました。また、モデルが動画のコマ順やサンプリング間隔からカンニング（ショートカット学習）しないよう、時系列シャッフルやアテンション分離などの工夫を組み込んでいます。\n\n評価の結果、未知環境での軌道順位付けにおいて、人間の選好ラベルでフル教師あり学習された既存の最高峰モデルを上回る精度を達成しました。さらに、実機の双腕ロボットによる強化学習へ密な報酬として組み込んだところ、オフラインRLで成功率が63.8%から82.5%へ、オンラインRLでも52.5%から72.5%へと大幅に向上することを確認しました。",
+ "contributions_ja": [
+  "報酬モデルの教師信号を従来の選好や正規化進捗度から「時間距離（cost-to-go）」へと再定義し、異種ロボットデータを単一の物理的尺度で統合できる枠組みを提示しました。",
+  "人間の選好アノテーションを一切使わず、動画のタイムスタンプと自動サブタスク分割のみから7,000時間超・約300万クリップの大規模学習データを構築する安価なレシピを確立しました。",
+  "時系列シャッフルや「Value-Isolation Attention」を提案し、モデルが画像の提示順や前後の値から答えを推測するショートカット学習を抑制して視覚的証拠に根ざした予測を実現しました。",
+  "未知のロボットや環境における軌道ランキングでSOTAを達成し、実機双腕ロボットのオンライン・オフライン強化学習において成功率を大幅に向上させました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ「進捗度」ではなく「時間距離」なのか？",
+   "summary_ja": "ロボットの強化学習をスケールさせる最大の障壁は、汎用的な報酬関数の設計にあります。従来の選好ラベルや0から1に正規化した進捗度は異種データ間で共有しにくいため、本研究ではタイムスタンプから安価に得られる「タスク完了までの時間距離」を単一の価値インターフェースとして提案します。",
+   "details_ja": "近年のロボット学習では強化学習の活用が進んでいますが、方策（ポリシー）の表現力よりも「どうやって報酬を与えるか」が大きな壁になっています。手作業の報酬設計はオープンエンドなタスクには通用せず、成功時にのみ1を与えるスパース報酬では手数が長いタスクの学習が進みません。\n\n既存の汎用報酬モデルは、軌道同士を比べる「選好（Preference）」や、軌道全体を $[0, 1]$ に正規化した「進捗度（Progress）」を学習目標にしてきました。しかし、進捗度の0.5が何を意味するかはタスクの実行速度や手順によってバラバラです。これは制御理論でいう「コスト・トゥ・ゴー（Cost-to-go: 終了までにあとどれだけコストがかかるか）」とは本質的に異なり、異なるロボットや環境のデータをまとめて扱うのが極めて困難でした。\n\nそこで本研究は、「軌道の良し悪しを採点する報酬モデル」から、「言語指示された目標までの時間的コスト・トゥ・ゴーを予測する価値基盤モデル」への転換を提唱します。最小時間制御の枠組みでは、目標までの残り時間こそが自然な価値関数になります。しかも、動画の完了時刻さえ特定できればタイムスタンプの引き算だけでラベルが作れるため、人間による比較ラベル作成が一切不要になります。\n\nただし、複数の画像フレームを入力するモデルをそのまま学習させると、画像の内容を見ずに「フレームが等間隔で並んでいる」「後に出てくる画像ほどゴールに近いはずだ」といった安易な相関（ショートカット）を学習してしまい、失敗や後戻りを見抜けなくなります。RynnValueでは、時間軸のランダムサンプリング、提示順のシャッフル、さらにクエリ間の情報漏洩を遮断するアテンション機構を組み合わせることで、純粋に画像とタスク指示に基づいた頑健な価値学習を実現しています。",
+   "figures": []
+  },
+  {
+   "heading": "2 Model Architecture",
+   "heading_ja": "時間クエリのグループ化と情報漏洩を防ぐモデル構造",
+   "summary_ja": "RynnValueはマルチモーダル基盤モデルRynnBrainをベースにしており、画像列から絶対的な残り時間と相対的な時間差を同時に予測します。複数トークンによるクエリ表現、連続値を安定して予測する分布型出力ヘッド、そしてクエリ間のカンニングを防ぐ「Value-Isolation Attention」が特徴です。",
+   "details_ja": "RynnValueのモデルアーキテクチャは、言語指示 $\\ell$、ロボットのメタデータ $m$、そしてサンプリングされた $K=8$ 枚の観測画像 $\\mathcal{I}$ を受け取り、各画像の絶対時間距離と隣接画像間の相対時間差を出力します。\n\nここでの重要な工夫は以下の通りです。\n\n- **グループ化された時間クエリ（Grouped temporal queries）**:\n  1枚の画像から「物体の配置」「ロボットの接触状態」「中間段階」などを同時に読み取るのは、単一のトークンでは情報量のボトルネックになります。そこで本手法では、絶対値クエリ $\\mathbf{V}_i$ と相対値クエリ $\\mathbf{R}_i$ のそれぞれに $N=8$ 個のトークンを割り当てました。これらを双方向アテンションで相互作用させた後、特徴量次元で結合（コンキャット）してリッチな表現を作ります。\n\n- **分布型出力ヘッドによる連続時間予測（Continuous temporal readouts）**:\n  絶対時間（0〜512秒）と相対時間（-256〜+256秒）の回帰問題を、symlog空間（対数的にスケールを圧縮する変換）で256個のビンに分割し、隣接する2つのビンに確率を割り振るTwo-hot表現を用いた分類問題として解いています。これにより、目標値のスケール差による勾配の不安定さを防ぎ、非常に安定した学習が可能になります。\n\n- **カンニングを阻止する「Value-Isolation Attention」**:\n  もし各フレームの価値クエリ同士が互いにアテンションを参照できると、前後のクエリから滑らかな曲線を外挿してしまい、ロボットの失敗や後戻りを検知できなくなります。そこで、異なる観測に属するクエリ同士のアテンションを完全にマスクし、各クエリが自身の画像とタスク指示だけを見て判断するように制限しました。\n\n- **自然言語による動画分析と検証**:\n  時間予測だけでなく、言語モデル本来のヘッドを用いて動画内容の説明やタスクの一致度、成功判定をテキストとして自己回帰的に生成させます。これにより、解釈性の向上と視覚言語表現の強化を両立させています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "RynnValueのモデル構成図です。入力画像列に対して複数トークンからなる絶対・相対時間クエリを挿入し、分布型ヘッドから連続的な時間推定値を出力するとともに、末尾の検証プロンプトから自然言語による状況説明と成功判定を生成します。",
+     "caption": "Figure 1 : Overview of RynnValue. RynnValue is a language-conditioned value model trained on over 7,000 hours of heterogeneous embodied data, comprising roughly 3M instruction-conditioned trajectory clips across diverse embodiments, viewpoints, and task domains. Given a language instruction and a sequence of sampled observations, the model builds an interleaved multimodal sequence of repeated absolute-value and relative-value queries, which RynnBrain encodes in a single forward pass. Two distrib",
+     "image": "details/2608.09853/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "3 Learning Temporal Distance as a Reward Interface",
+   "heading_ja": "タイムスタンプから教師信号を作り、強化学習の報酬へと変換する",
+   "summary_ja": "7,000時間を超える雑多なデータからタイムスタンプを基に自動で残り時間ラベルを生成します。学習時には時系列のシャッフルや指示不一致データの注入により頑健性を高め、推論時にはポテンシャルベースの報酬シェーピングを通じて強化学習の報酬関数へと変換します。",
+   "details_ja": "### 3.1 データの準備とラベル付け\n学習データには、単腕・双腕・移動マニピュレータ・五指ハンド・シミュレータ・人間の一人称視点など、多種多様なコーパス（元のエピソード数で約167万件）を統合しました。これらをサブタスク単位に分割し、終了地点（カットオフ）を再設定することで、約300万本の言語指示付きクリップへと変換しています。\n\nここでの最大の強みは、各コマの教師ラベルが「カットオフ時刻 $-$ 現在のコマのタイムスタンプ」だけで定義できる点です。これにより、データセットごとに進捗度の目盛りを調整するような面倒な作業が不要になりました。\n\n### 3.2 ショートカットを徹底的に潰す学習レシピ\n複数フレームを入力する学習では、モデルが視覚情報以外の規則性に依存しがちです。これを防ぐために以下の工夫を導入しました。\n\n- **ランダム時間サンプリング**: 等間隔ではなくランダムな時刻から8枚を抽出することで、コマの間隔から時間を推測するショートカットを潰します。\n- **時系列シャッフル**: 提示する画像の順番を意図的に並び替えます（図F2(a) B）。半数は完全ランダム、残りはたまに巻き戻りが発生するランダムウォーク順で並べます。これにより、「後ろのフレームほどゴールに近いはず」という思い込みを排除します。\n- **指示不一致（Mismatch）オーグメンテーション**: 10%の確率で全く別のタスク指示を与え、言語と映像が合っていない状況を学習させます。このとき絶対時間の損失はマスクし、相対時間の予測と「不一致」という言語出力のみを学習させます。\n\n### 3.3 推論と強化学習への報酬インターフェース\n推論時は通常通り時系列順に入力します。予測された時間距離 $v_t$（残り秒数）は非負の値ですが、強化学習では「ゴールに近いほど値が大きい」方が扱いやすいため、符号を反転させたポテンシャル $\\Phi_t = -v_t$ を定義します。これを用いて、ポテンシャルベースの報酬シェーピング $R_t = r_{\\mathrm{sparse}} + \\kappa (\\gamma \\Phi_{t} - \\Phi_{t-1})$ として方策に密な報酬をフィードバックします。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "学習戦略とValue-Isolation Attentionの構造です。(a)ではランダムサンプリング、順序シャッフル、指示不一致の導入を示し、(b)のアテンションマスクでは異なるフレームの価値クエリ同士が直接参照し合えないよう遮断されている様子が分かります。",
+     "caption": "Figure 2 : RynnValue training pipeline and value-isolation attention. (a) Training strategy. Random temporal sampling and temporal-order shuffling suppress shortcuts tied to sampling intervals and sequence position, while instruction-mismatch augmentation strengthens language–visual grounding. RynnValue jointly learns absolute temporal distance, relative temporal displacement, and natural-language supervision. (b) Value-isolation attention. Within each value-query group, repeated queries attend ",
+     "image": "details/2608.09853/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "ベンチマークでの圧倒的な順位付け精度と実機強化学習での成功率向上",
+   "summary_ja": "未知タスクの軌道ランキング評価（RBM-EVAL-OOD）において、選好ラベルを一切使わずに既存の選好学習済みSOTAモデルを上回る Kendall’s $\\tau_a = 0.675$ を達成しました。さらに実機双腕ロボットのRL実験でも、ベースラインを大きく引き離す高い成功率を記録しました。",
+   "details_ja": "### 4.1〜4.2 ベンチマーク評価（RBM-EVAL-OOD）\nロボットや視点が未知の6つのデータセット（計976軌道）を用い、予測スコアが軌道の優劣を正しくランク付けできているかを Kendall’s $\\tau_a$ で評価しました。\n\n- **主結果**: RynnValue-8Bは平均 $\\tau_a = 0.675$ を達成し、選好ラベルを使って学習されたRobometer（0.655）を上回りました。選好ラベルを用いない手法の中では従来の最高値（0.502）や進捗度のみのモデル（0.292）を圧倒しています。\n- **指示との整合性**: 指示と軌道のマッチング行列（図F3）を調べたところ、RynnValueは対角成分に強いスコアが集中し、正規化マージン0.79（最高ベースラインは0.67）を記録しました。単なる「動きの派手さ」ではなく、言語指示された目標に正しく反応していることが分かります。\n- **アブレーション**: 時系列シャッフルを抜くと精度が0.189へ、ランダムサンプリングを均一サンプリングにすると0.379へ、Value-Isolationを抜くと0.482へと大幅に低下し、ショートカット防止策が不可欠であることが実証されました。\n\n### 4.3 スケーリング則の分析\nデータ量（エピソード数）を増やすことと、タスクの多様性（タスク種類数）を増やすことの影響を比較しました。同一タスク内のエピソード数を増やしても性能はすぐに頭打ちになりますが、タスクの多様性を増やすと誤差が一貫して減少し続けました。異種混合データの「多様性」こそが汎化の鍵です。\n\n### 4.4 価値曲線のケーススタディ\n実機軌道における予測値の推移（図F5）を見ると、ロボットが失敗動作をしてタスクから遠ざかった際、従来手法（Robometer）が平坦なままであるのに対し、RynnValueは急激にポテンシャルを低下させて後戻りを敏感に検知できています。\n\n### 4.5 実機ロボットでの強化学習\n双腕Frankaを用い、「パンをカゴに入れる」「フライ返しでステーキを皿に移す」など難度の高い4タスクで評価しました（図F6）。\n- **オフラインRL（IQL）**: 質の混ざったデータから学習させた結果、模倣学習（SFT）の成功率23.8%、Robometerの63.8%に対し、RynnValueは82.5%を達成しました。\n- **オンラインRL（DSRL）**: 初期配置をランダムにした未知環境テストで、Robometerの52.5%に対し、RynnValueは72.5%と大きく差をつけました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "言語指示（行）と実行軌道（列）のマッチング行列です。正しく指示を理解していれば対角線上に高い報酬が集まります。RynnValueは対角マージン0.79を記録し、ベースラインと比べて明確に指示と軌道を対応付けられています。",
+     "caption": "Figure 3 : Instruction-trajectory confusion matrices. Each cell shows the predicted reward when an instruction (rows) is paired with a trajectory (columns); a well-grounded model concentrates mass on the diagonal. Values below each matrix report the normalized diagonal margin. All models are re-evaluated under a unified protocol from their publicly released weights.",
+     "image": "details/2608.09853/F3.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "実機軌道における価値曲線の比較です。紫の枠線で示したタスク後退（失敗しかけて元の状態から遠ざかる場面）において、Robometerが鈍感であるのに対し、RynnValueは明確な値の落ち込みを示して失敗を捉えています。",
+     "caption": "Figure 5 : Temporal-value curve comparison on a real-world trajectory. Higher values indicate closer proximity to task completion. The highlighted interval marks a period of task regression where the robot moves away from a productive state; RynnValue responds with a sharp potential drop, whereas Robometer remains relatively flat.",
+     "image": "details/2608.09853/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実機評価で使用された4つのマニピュレーションタスク（パンの配置、フライ返しでのステーキ給仕、引き出しへの箱入れ、双腕での箱運搬）の実行スナップショットです。",
+     "caption": "Figure 6 : Representative demonstrations for real-world evaluation. Each row shows a sequence of observations from one manipulation task: Each row shows a sequence of observations from one manipulation task. These tasks cover object grasping, spatial manipulation, and articulated-object interaction.",
+     "image": "details/2608.09853/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion and Future Works",
+   "heading_ja": "まとめと今後の展望：より長いタスクや多様なロボット形態へ",
+   "summary_ja": "時間距離を教師信号に据えることで、選好ラベルなしに大規模データへスケールする価値基盤モデルRynnValueを確立しました。今後はより長いタイムホライズンへの拡張、エネルギーや安全性を考慮した価値設計、五指ハンドやモバイルマニピュレータへの適用を目指します。",
+   "details_ja": "本研究は、ロボットの報酬モデルにおいて「正規化された進捗度」から「時間距離（cost-to-go）」へのパラダイムシフトを提案しました。タイムスタンプから自動抽出できる時間距離を学習目標とし、時系列シャッフルやValue-Isolation Attentionでショートカットを徹底的に防ぐことで、選好アノテーションなしで異種大規模データを単一の価値インターフェースに統合できることを示しました。\n\n今後の課題として、著者らは以下の3点を挙げています。\n- **長時間の推論とストリーミング対応**: 現在はサンプリングされた短いウィンドウを処理しているため、より長期的なタスクに対応し、実時間で逐次処理できるストリーミング推論への拡張が必要です。\n- **よりリッチな価値セマンティクス**: 現在は最短時間制御を前提としていますが、エネルギー効率や動作の安全性、精密さといった追加コストを組み込んだ多面的な価値関数の学習が考えられます。\n- **形態のさらなる拡張**: より自由度の高い五指の器用なハンド（Dexterous Hand）や、移動と操作が組み合わさったモバイルマニピュレーションへの展開が期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "ロボットの汎用報酬モデルの学習目標として、正規化進捗度よりもタイムスタンプから得られる「時間距離（cost-to-go）」の方が物理的意味が明確でスケールしやすい。",
+  "動画認識モデルに複数フレームを渡すと時系列順や間隔からショートカット学習を起こしやすいため、順序シャッフルやアテンションの分離（Value-Isolation）が極めて有効である。",
+  "報酬基盤モデルの汎化性能を高めるには、同一タスクのデータ量を増やすよりもタスクの「多様性」を広げることが圧倒的に重要である。",
+  "ポテンシャルベースの報酬シェーピングを用いることで、学習した時間距離モデルをそのまま実機のオンライン・オフライン強化学習の密な報酬として実用できる。"
+ ],
+ "limitations_ja": [
+  "固定長（8フレーム）のサブサンプリング入力に依存しているため、現状ではリアルタイムのストリーミング推論や超長期タスクへの直接適用に制約がある。",
+  "最短時間でのタスク完了を仮定しているため、動作の滑らかさ・安全性・消費エネルギーといった時間以外のコスト指標を考慮できていない。",
+  "引き出しと箱の精密な位置合わせなど、視覚的に曖昧でミリ単位の精度が求められる接触タスクでは、RGB画像のみからの価値推定が依然として難しい。"
+ ],
+ "keywords": [
+  "Value Foundation Model",
+  "Temporal Distance",
+  "Robot Reinforcement Learning",
+  "Reward Shaping",
+  "Cost-to-Go"
+ ],
+ "id": "2608.09853",
+ "title": "RynnValue: Scaling Robotic Value Foundation Models with Temporal Distance",
+ "title_ja": "RynnValue: 時間的距離を用いたロボット向け価値基盤モデルのスケーリング",
+ "authors": [
+  "Dongchi Huang",
+  "Hongyin Zhang",
+  "Bohan Hou",
+  "Siteng Huang",
+  "Zhian Su",
+  "Hang Guo",
+  "Tong Lu",
+  "Zhaofeng Xu",
+  "Jiahao Tang",
+  "Jianfei Yang",
+  "Donglin Wang",
+  "Peixi Peng",
+  "Mingxiu Chen",
+  "Deli Zhao",
+  "Xin Li"
+ ],
+ "date": "2026-08-11",
+ "group": "focus",
+ "tags": [
+  "reinforcement-learning",
+  "manipulation",
+  "benchmark"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.09853",
+ "pdf_url": "https://arxiv.org/pdf/2608.09853",
+ "summary_ja": "ロボット操作に向けたオープンソースの価値基盤モデルRynnValueを提案。既存の報酬モデルのような選好や相対進行度ではなく、観測から目標までの時間的距離（Cost-to-go）を学習信号とすることで、異なる機体やデータソースを跨いだスケーラブルな学習を実現。7,000時間超の多様なデータセットで高い性能を検証した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.09853"
+}
