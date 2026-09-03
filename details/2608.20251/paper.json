@@ -1,0 +1,137 @@
+{
+ "tldr_ja": "スマートフォンのRGB動画1本から可動ドアの物理デジタルツインを自動構築し、シミュレータ内の自律エージェントが生成した軌道から模倣学習することで、車輪付き4脚ロボットが人手デモなしに実ドアの開閉と通り抜け（成功率96.6%）を達成しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "Video2DoorTraversalの全体パイプラインです。単一RGB動画から可動デジタルツインを構築する「DoorTwin」、シミュレータ内で軌道を自己改善する「エージェント生成」、そして台車・アームを協調制御するデュアル深度ポリシー「ArticuACT」の3ステージで構成されています。",
+  "caption": "Fig. 2: Overview of Video2DoorTraversal. Given a single RGB video, DoorTwin reconstructs a metrically grounded, articulated, and simulation-ready door asset through geometric grounding, articulation-aware generation, reference-view critique, and appearance refinement. A simulation-in-the-loop agent then instantiates and refines a parameterized skill program to collect randomized expert trajectories. Finally, ArticuACT combines dual-view depth observations with robot-centric Plücker ray maps to p",
+  "image": "details/2608.20251/F2.jpg"
+ },
+ "overview_ja": "実環境でロボットがドアを開けて通り抜けるタスクは、移動とマニピュレーションが密に絡み合う極めて難易度の高い問題です。ハンドルの正確な解錠だけでなく、ドアパネルが動く中でロボット自身の台車とアームを衝突なく協調制御し、狭いドア枠をくぐり抜けなければなりません。従来の学習ベースの手法では、あらかじめ用意されたアセットに頼ったり、大量の実機デモや長時間の強化学習・実機適応が必要でした。\n\nそこで著者らは、ターゲットとなるドアをスマートフォンで撮影した「たった1本のRGB動画」からすべてを完結させるReal-to-Sim-to-Realの枠組み「Video2DoorTraversal」を提案しました。まず動画から実寸大の可動ドアモデル（DoorTwin）を自動生成し、次に物理シミュレータ内でLLM/VLMエージェントが試行錯誤して実行可能なエキスパート軌道を自動合成します。最後に、ロボット視点のPlücker（プリュッカー）光線マップと接触状態予測を組み込んだ模倣学習ポリシー「ArticuACT」を学習させます。\n\n実機の車輪付き4脚ロボット（Unitree A2-W + Z1アーム）を用いて検証した結果、5種類の実ドアで平均96.57%という驚異的な成功率を達成しました。さらに、未学習のドアに対しても80.95%のゼロショット成功率を示し、接近から解錠、押し開け、通過までを平均わずか約13秒という高速かつ滑らかな動作で走り抜けられることを実証しました。",
+ "contributions_ja": [
+  "単一のRGB動画から、実寸大の幾何構造・可動関節・外観テクスチャを備えたシミュレーション即応型モデルを自動構築する「DoorTwin」を開発した点",
+  "シミュレータの失敗ログを診断してスキルパラメータを自律修正し、人手の遠隔操作なしで高品質な教師軌道を収集するエージェント的軌道生成法を提案した点",
+  "台車基準のPlücker光線マップ条件付けと将来のインタラクション状態予測を導入し、台車とアームの滑らかな全身協調を実現するデュアル深度模倣学習ポリシー「ArticuACT」を構築した点",
+  "車輪付き4脚ロボットを用い、5種類の実ドアで96.57%、未知ドアで80.95%のゼロショット成功率をすべてオンボード計算機上で実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜ「ドアを開けて通り抜ける」はロボットにとって高い壁なのか？",
+   "summary_ja": "移動ロボットによるドア通過は、ハンドルの解錠と狭小空間での台車・アーム協調が同時に要求される難関タスクです。本研究は単一のRGB動画から可動デジタルツインを復元し、シミュレーション完結でポリシーを学習して実機配備するVideo2DoorTraversalを提案します。",
+   "details_ja": "人間中心の環境で自律移動ロボットが活躍するために、ドアの開閉と通過は避けて通れない重要タスクです。しかし、単にドアノブを回す、あるいは開いたドアを押すだけといった要素技術とは異なり、4脚ロボットや車輪付きロボットがドアを通り抜けるには、アプローチ、ハンドルの解錠、ドアパネルが押し返してくる反力を受け流しながらの台車とアームの協調制御、そして衝突せずに狭い開口部をくぐり抜けるという一連のプロセスを連続的かつ接触リッチにこなさなければなりません。\n\n従来の研究では、あらかじめ用意された3Dモデルを用いた大規模シミュレーションや、人間による遠隔操作デモ、あるいは報酬設計が困難な強化学習が主流でした。また、動画からシミュレータを作るReal-to-Sim-to-Real手法も登場していますが、その多くは固定マニピュレータによる剛体オブジェクトの操作に留まっており、ドアのような「可動関節を持つ構造体」を実寸大かつ物理シミュレーション可能な形で自動復元し、全身協調制御まで繋げた例はありませんでした。\n\nこの課題を解決するため、本論文ではドアの可動関節（Articulation）を共通のタスク表現として位置づけました。スマホ動画1本から正確な寸法と関節を持つ「DoorTwin」を生成し、シミュレータ内でエージェントが教師データを自律生成、そして車載深度カメラのみで動く協調ポリシー「ArticuACT」を学習させる完全自動のパイプラインを確立しました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "実世界における車輪付き4脚ロボットのドア通過の様子です。単一のRGB動画を入力とするだけで、多様なオフィスドアやガラスドアにおいて、接近から解錠、押し開き、通過までをスムーズに自律実行できています。",
+     "caption": "Fig. 1: From a single RGB video, Video2DoorTraversal enables real-world wheel-legged door opening and traversal.",
+     "image": "details/2608.20251/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "先行研究の限界と「可動関節を共通言語にする」必然性",
+   "summary_ja": "従来のドア操作研究やReal-to-Sim-to-Real技術は、剛体対象のみを扱っていたり、ドア通過までカバーしていなかったりという制約がありました。本フレームワークは可動関節モデルを核として、動画からの復元・軌道生成・実機実行を一本の線で結びます。",
+   "details_ja": "ドア操作に関する先行研究は大きく分けて、シミュレーション学習、オンライン適応、全身制御の3系統があります。DoorGymやUniDoorManipなどはシミュレーション上で可動オブジェクトの開閉を学習しますが、既成のアセットを前提としており、ドア枠を通り抜けるナビゲーションまでは扱っていません。また、触覚フィードバックや強化学習で通過まで実現した例もありますが、手続き型で生成されたドアに依存していたり、実環境での追加適応が必要でした。\n\n一方、実世界の観察からシミュレータへ知識を移すReal-to-Sim-to-Real手法（HUMAN2SIM2ROBOTやVideo2Sim2Realなど）は、人間のデモ動画やオブジェクトの動きをロボットに転移させる強力な枠組みですが、固定アームによる剛体操作が主対象であり、追加の3Dスキャンを要することがほとんどでした。\n\n本研究の際立った特徴は、ドアの「関節構造」をデジタルツイン復元、軌道生成、そしてポリシー実行をつなぐ共通のタスク表現として統一した点にあります。事前スキャンや人手によるアセット修正を一切挟まず、1本のRGB動画からシミュレーション構築とデータ生成、実機デプロイまでをEnd-to-Endで接続した点が決定的な違いです。",
+   "figures": []
+  },
+  {
+   "heading": "III METHOD",
+   "heading_ja": "動画1本から実機ポリシーまでを繋ぐ3つのステージ",
+   "summary_ja": "システムは「DoorTwinの構築」「エージェントによる軌道生成」「ArticuACTポリシーの学習」の3段階で構成されます。実寸復元、物理シミュレータ内の自己修正ループ、Plücker光線マップによる幾何グラウンディングが鍵となります。",
+   "details_ja": "本手法は大きく3つのステージに分かれています。\n\n【3.1 DoorTwin: シミュレーション即応型ドアのワンショット生成】\nスマホで撮影した動画から、外観だけでなく物理シミュレータにそのまま読み込める関節付きモデル（URDFやメッシュ）を作ります。まずDAGEを用いて動画の各フレームからカメラ軌道と絶対スケール付きのメトリック深度を推定します（ガラスや反射面はLingBot-Depthで補正）。次にSAM 3でドア領域を全フレームでセグメンテーションし、カメラ姿勢を用いて点群を統合、主成分分析（PCA）でドアの法線や幅・高さを決定します。さらにVLMが最適な参照フレームを選び、ドアパネルに対するハンドルの相対位置 $\\mathbf{p}_{h\\mid p} = R_p^T(\\mathbf{c}_h - \\mathbf{c}_p)$ を算出します。\nこれらの寸法拘束をコード生成エージェント（Articraftベース）に渡し、ドア枠・パネル・回転ジョイント・ハンドルを階層的に生成します。さらに参照視点から生成モデルをレンダリングし、元の画像とシルエットやハンドルの向き・位置が合っているかを視覚的Criticが判定してプロンプトでフィードバックする反復修正ループを回します。最後にGPTで影や照明を除去（Delighting）し、Tripo 3Dでテクスチャを貼り付けます。\n\n【3.2 Agentic Expert Trajectory Generation: シミュレータを介した教師軌道生成】\n復元したDoorTwin上で、ロボットのエキスパート動作を人手デモなしで作ります。エージェントは接近、把持、ノブ回転、ドア押し、通過などの「パラメータ化スキルプログラム」をインスタンス化し、Isaac Gym上で50Hzで並列実行します。もし失敗した場合は、関節回転量や衝突のログ、主要フレーム画像をエージェントにフィードバックし、パラメータ $\\eta_j$ を自律的に修正します。成功したプログラムに対して、ロボットの初期位置、ドアの摩擦・減衰、カメラ姿勢などをドメインランダム化して replay し、ロバストな教師軌道を収集します。\n\n【3.3 ArticuACT Policy: 協調制御のためのデュアル深度ポリシー】\n模倣学習にはAction Chunking Transformer（ACT）を拡張した「ArticuACT」を採用します。頭部カメラ（大域把握用）と手先カメラ（自己遮蔽に強い局所観察用）の2系統の深度画像とロボット状態を入力とし、長さ $H=100$ ステップの行動（台車並進・旋回速度、アーム6関節、グリッパ）を予測します。ここで、カメラ光線を台車基準座標系で表したPlücker（プリュッカー）光線マップを深度特徴量と結合して入力することで、視点ブレに強い正確な空間認識を可能にしました。さらに、将来の「ハンドル接触フラグ」「ノブ回転進捗」「ドア開放進捗」の3次元状態を予測する補助タスクを導入し、接触の切り替わりを捉えた潜在特徴の学習を促進しています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "本フレームワークの全体構造です。Stage 1で実動画から幾何拘束を取り出してDoorTwinを生成・Critic修正し、Stage 2でシミュレータ自己診断ループにより教師軌道を自動生成、Stage 3でPlücker光線マップと接触予測を取り入れたArticuACTを学習します。",
+     "caption": "Fig. 2: Overview of Video2DoorTraversal. Given a single RGB video, DoorTwin reconstructs a metrically grounded, articulated, and simulation-ready door asset through geometric grounding, articulation-aware generation, reference-view critique, and appearance refinement. A simulation-in-the-loop agent then instantiates and refines a parameterized skill program to collect randomized expert trajectories. Finally, ArticuACT combines dual-view depth observations with robot-centric Plücker ray maps to p",
+     "image": "details/2608.20251/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV EXPERIMENTS",
+   "heading_ja": "実機96.6%の衝撃：アセット生成からゼロショット通過までの徹底検証",
+   "summary_ja": "20種類のドアアセット生成比較、シミュレーションでの通過性能比較、そして実機（Unitree A2-W + Z1）での実ドア検証を行いました。幾何精度、タスク成功率、未知ドアへの汎用性のすべてでベースラインを圧倒しています。",
+   "details_ja": "【アセット生成の評価】\n20種類の実ドアを用いて既存の可動アセット生成手法（Articraft、Articulate-Anything、PhysX-Omni）と比較しました。幅・高さ・ノブ位置の誤差を統合したScale Score、マスク一致度（mIoU）、画像品質（PSNR/LPIPS/VLMスコア）のすべてでDoorTwinが最高性能を達成しました。特に参照視点Criticによる反復修正が効果的で、脱落したノブや装飾の復元、位置ズレの解消に大きく貢献しています。\n\n【シミュレーションでの通過性能】\n20種類のドアにおいて各256試行で評価を行いました。単に軌道を再生するReplayや把持姿勢を補正するObject-Aware Replayは把持の失敗が多発し、強化学習（DoorGym）は探索空間が広すぎてほぼ失敗（通過率1.17%）しました。点群ベースのUniDoorManip（31.64%）、Diffusion Policy（55.47%）、DP3（53.12%）、Vanilla ACT（69.53%）に対し、提案手法のArticuACTは「ドア開放率99.22%、通過成功率95.70%」という圧倒的な成績を記録しました。\nアブレーション実験では、Plücker条件付けと接触予測の補助タスクを両方導入することで、Vanilla ACTから成功率が26.18%向上することが確認されました。また、手先位置制御（EE）よりも関節角直接制御の方が低レベル制御器との親和性が高く、接触時の安定性に優れることも判明しました。\n\n【実機実験とゼロショット汎化】\nUnitree A2-W車輪4脚ロボットにZ1アーム、頭部・手先にRealSense D435を搭載し、推論は機体のJetson Orin NX上で完結させました。オフィス内の異なる5つの実ドア（ガラスドアや片開きドアなど）でテストした結果、平均成功率は96.57%に達しました。接近からノブ操作、押し開け、通り抜けまでにかかった時間は平均わずか約13秒です。台車とアームが滑らかに連動して動き続けるため、無駄な停止時間がありません。\nさらに驚くべきことに、あるドアで学習したポリシーをそのまま別の構造が似た未知の実ドア3種類に適用したところ、25/35、31/35、29/35の成功を収め、平均80.95%という高いゼロショット成功率を記録しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "可動ドアアセット生成の定性比較です。既存手法（Articulate-AnythingやPhysX-Omniなど）はドアのプロポーション崩れやハンドルの位置異常が見られますが、DoorTwin（Ours）は実寸大のスケールと外観を正確に再現しています。",
+     "caption": "Fig. 3: Qualitative comparison of articulated door assets.",
+     "image": "details/2608.20251/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "参照視点Criticによる反復改善のプロセスです。1回目の指摘で欠落していたハンドルやドアの覗き窓が追加され、2回目・3回目でその位置やサイズが実画像に合わせて正確に補正されていく様子が分かります。",
+     "caption": "Fig. 4: Reference-view rendering and critic refinement iterations.",
+     "image": "details/2608.20251/F4.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実機実験における動作スナップショットと予測されたインタラクション状態の推移です。ハンドルへの接触（Contact）、ノブの回転（Handle）、ドアの開放（Door）の進捗予測が物理的な進行と完璧に同期し、台車前進速度（$v_x$）が滑らかに立ち上がっています。",
+     "caption": "Fig. 6: Snapshots of real-world experiments with interaction state.",
+     "image": "details/2608.20251/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望：押すドアから引くドア、多様な機構へ",
+   "summary_ja": "本研究は単一動画からデジタルツインを構築し、台車・アーム協調ポリシーをシミュレーション完結で学習する強力なパイプラインを確立しました。今後は手前に引くドアや多様な鍵機構への拡張が期待されます。",
+   "details_ja": "Video2DoorTraversalは、スマートフォンで撮影したわずか1本のRGB動画から、物理シミュレーション対応のドアツインを復元し、エージェントを介した教師軌道生成と模倣学習を組み合わせることで、車輪付き4脚ロボットによるドア開閉・通過タスクを高い信頼性で実現しました。\n\n実環境での実験では、既知のドアに対して96.57%、未知の類似ドアに対しても80.95%という優れた成功率を叩き出し、平均約13秒という素早い動作をオンボード完結の計算で達成しました。\n\n現在の制約として、対象が「前方に押し開けるドア（Push Door）」に限定されている点が挙げられます。著者らは今後の展望として、手前に引きながら後退する必要がある「引くドア（Pull Door）」への拡張や、丸ノブなど他のハンドル機構、さらに多種多様なドア形状への対応を挙げています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「メトリックな3次元復元」と「VLMによる視覚的Critic」を組み合わせることで、スマホ動画1本から物理シミュレーションに即座に耐えうる可動デジタルツインを自動生成できる。",
+  "シミュレータ内の失敗診断と修正を自律的に繰り返すエージェントループは、人間による高コストな遠隔操作デモ収集の強力な代替手段になる。",
+  "移動マニピュレーションでは、カメラ光線をロボット台車座標系で記述するPlücker表現と、接触状態を予測する補助タスクが、台車・アーム間の滑らかな協調を生み出す決め手となる。"
+ ],
+ "limitations_ja": [
+  "対応している動作が前方に押し開けるドア（Push Door）のみであり、手前に引くドア（Pull Door）の軌道生成・全身協調には対応していない点",
+  "レバーハンドル以外の機構（丸ノブ、押し棒型パニックバー、鍵付きロックなど）に対する検証が不足している点",
+  "ガラスドアや強い反射面では深度推定の補正モジュール（LingBot-Depth）に依存しており、極端な照明変化や特殊素材におけるロバスト性に課題が残る点"
+ ],
+ "keywords": [
+  "Real-to-Sim-to-Real",
+  "Mobile Manipulation",
+  "Articulated Digital Twin",
+  "Imitation Learning",
+  "Door Traversal"
+ ],
+ "id": "2608.20251",
+ "title": "Video2DoorTraversal: Push Door Traversal via Simulated Door Twins",
+ "title_ja": "Video2DoorTraversal: シミュレーション上のドアツインを用いた押し扉通過",
+ "authors": [
+  "Xincheng Tang",
+  "Yiji Chen",
+  "Youhan Xie",
+  "Wanyu Li",
+  "Zhengjie Shu",
+  "Lai Jiang",
+  "Wenkang Hu",
+  "Yitong Li",
+  "Jinchuang Zhang",
+  "Xibin Song",
+  "Ruigang Yang"
+ ],
+ "date": "2026-08-22",
+ "group": "focus",
+ "tags": [
+  "locomotion",
+  "manipulation",
+  "sim-to-real",
+  "simulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.20251",
+ "pdf_url": "https://arxiv.org/pdf/2608.20251",
+ "summary_ja": "車輪脚ロボット向けに実環境のRGB動画1本から関節構造と外観を持つシミュレーション用ドアツインを再構築し、強化学習と実機展開を行うフレームワークを提案。シミュレーション内で実行可能なデモを自動生成し、ベースとアームを協調制御するデュアル深度ポリシーArticuACTを学習することで、sim-to-realによる高い扉通過性能を実現した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.20251"
+}
