@@ -1,0 +1,158 @@
+{
+ "tldr_ja": "既存の3D再構成モデルが抱える「視点や条件で実寸大スケールが狂う」という問題を解決し、カメラ移動や深度から絶対スケール（メートル単位）を正しく復元する幾何知覚フレームワークMAGPを提案。ロボットの操作ポリシーにプラグインすることで、絶対誤差を大幅に削減しつつマニピュレーション成功率を最大6.26%向上させました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "従来の相対幾何（左）と本手法のメトリック幾何（右）の比較です。従来の相対幾何では視点ごとにクッションの推定長が0.48m〜1.2mとバラバラになり物理空間での位置合わせに失敗しますが、メトリック幾何ではどの視点から見ても実際の0.6mと一貫したスケールを保てます。",
+  "caption": "Figure 1: Illustrative example of relative/metric geometry reconstruction across different views. Metric geometry preserves consistent object dimensions and spatial distances across views, whereas relative geometry exhibits view-dependent scale variations.",
+  "image": "details/2608.27497/F1.jpg"
+ },
+ "overview_ja": "近年のロボティクス向け基盤モデルでは、空間推論や精密な操作を行うために3D表現（点群や深度）を取り入れる動きが急速に進んでいます。しかし、DUSt3RやDepth Anything 3をはじめとする既存の順伝播型3D再構成モデルは、画像ごとの正規化を前提とした「相対幾何（Relative Geometry）」しか復元できません。そのため、視点や入力順が変わるだけで同じ物体のサイズや距離が大きく変動してしまい、ミリやメートル単位で動作するロボットの実世界アクションとうまく噛み合わないという根本的な課題がありました。\n\nそこで著者らは、実スケールを保持した幾何トークンを出力し、既存のロボットポリシーに差し込めるエンドツーエンドのフレームワーク「MAGP（Metric-Aware Geometry Perception）」を提案しました。最大の工夫は、モデルが見た目（見た目のカテゴリや構図などの視覚事前知識）から勝手にスケールを推測してしまうのを防ぐ「メトリック・スケール同変拡張（MSEA）」です。カメラ並進量や深度などの観測値だけを物理的にリスケールするデータ拡張を施すことで、モデルが観測された数値に忠実なメートル単位の幾何を出力するように誘導します。さらに、ロボットごとにカメラパラメータや深度センサの有無・密度が異なる状況へ対応するため、柔軟な条件付けメカニズムも備えています。\n\n実験では、ETH3DやScanNet++などの3D再構成ベンチマークにおいて、絶対誤差を従来の2.01mから0.07mへと劇的に圧縮。さらにLIBEROやRoboTwinなどのロボット操作ベンチマークにMAGPを組み込んだところ、RoboTwinで最大6.26%の成功率向上を達成し、未知環境へのゼロショット耐性も大幅に高まることを実証しました。",
+ "contributions_ja": [
+  "ロボットの幾何再構成と物理アクションを同一の実寸法（メトリック）スケールで結びつける、初のプラグアンドプレイ型エンドツーエンド幾何知覚フレームワークMAGPを提案した点",
+  "見た目の事前知識に頼らずカメラ移動や深度から直接スケールを導く「メトリック・スケール同変拡張（MSEA）」と、欠損や密度の違いに頑健な入力条件付け手法を設計した点",
+  "3D再構成ベンチマークで絶対誤差を2.01mから0.07mへと1桁以上削減し、相対的な幾何精度も同時に向上させた点",
+  "LIBERO、RoboTwin、および未知外乱を含むLIBERO-Plusにおいて、複数のポリシーの操作成功率を一貫して向上させた点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "形は合っていても「大きさ」が狂う？相対幾何がロボットを狂わせる理由",
+   "summary_ja": "近年の3D再構成技術はロボット知覚に活用されていますが、既存手法は正規化による「相対幾何」しか扱えず、視点によって物体の大きさや距離が変化してしまいます。このスケールの不一致がロボットのエンドエフェクタ移動の狂いを引き起こすため、本論文では絶対スケールを保ったままポリシーに統合できるフレームワークMAGPを提案します。",
+   "details_ja": "ロボットが物体を把持したり精密に動かしたりするためには、2D画像の意味情報だけでなく明示的な3D幾何情報が欠かせません。最近ではフィードフォワード型の3D再構成モデルが発達し、点群や深度をロボットのポリシーに入力する研究が増えています。\n\nしかし、ここに落とし穴があります。透視投影では、物理的な大きさが異なっていてもカメラ距離が違えば同じ画像が得られてしまうため、既存の再構成モデルはシーンごとにスケールを正規化する「相対幾何（Relative Geometry）」の復元にとどまっていました。相対幾何は全体の形状や配置を再現することは得意ですが、絶対的な寸法の基準を持ちません。その結果、カメラの視点が変わると同じクッションの長さが0.48mになったり1.2mになったりと推定値がブレてしまいます。\n\nこれではロボットが「物理的に何センチ手先を動かせばよいのか」を決定できません。同じ動作指令を出しても視点によって物理的な移動量が狂ってしまい、正確なマニピュレーションが不可能になります。ロボットに必要なのは、すべての観測を共通の物理メートル単位に固定した「メトリック幾何（Metric Geometry）」です。\n\nとはいえ、メトリック幾何の学習は簡単ではありません。モデルはカメラの並進量や深度センサの数値といった物理的な手がかりからスケールを計算すべきなのに、ついつい物体の見た目や部屋の配置といった「視覚的な先入観」からスケールを決め打ちしてしまうからです。MAGPはこうした課題を解決し、プラグアンドプレイでポリシーにメトリック幾何トークンを供給できる構成になっています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "視点ごとの幾何再構成の違いです。左側の相対幾何では、視点が変わるたびにクッションの寸法予測が0.48m、1.2m、0.54mと激しく変動し、共通座標系で結合するとズレが生じます。右側のメトリック幾何では、すべての視点で実寸法である0.6mが一貫して保たれ、綺麗に統合されます。",
+     "caption": "Figure 1: Illustrative example of relative/metric geometry reconstruction across different views. Metric geometry preserves consistent object dimensions and spatial distances across views, whereas relative geometry exhibits view-dependent scale variations.",
+     "image": "details/2608.27497/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "フィードフォワード3D再構成とロボット幾何知覚のこれまで",
+   "summary_ja": "3D再構成はDUSt3RやDepth Anything 3など高速なワンショットモデルへ進化してきましたが、依然として相対スケールに依存しています。一方でロボット分野でも幾何を取り込む試みは増えているものの、本質的な実寸大メトリックの埋め込みには踏み込めていませんでした。",
+   "details_ja": "本章では、関連する先行研究を2つの系統に整理しています。\n\n- 3D幾何再構成の進化\nかつて主流だった時間のかかる最適化ベースのパイプラインから、近年はDUSt3RやMASt3Rのようにペア画像間の点群回帰とマッチングを直接解くフィードフォワードモデルへ移行しています。さらにVGGT、CUT3R、$\\pi^{3}$などがマルチビュー統合へと拡張し、Depth Anything 3（DA3）やMapAnything、大規模化を果たしたVGGT-$\\Omega$などが登場しました。しかし、これらのモデルは形状の美しさを重視してシーンごとの正規化を行っており、実世界スケールの復元は無視されてきました。\n\n- 幾何を入力とするロボット操作\nロボティクス側でも、3DS-VLAやDepthVLA、VGGT-DP、ABot-M0のように、3D点群や深度、事前学習済み幾何特徴量をVision-Language-Action（VLA）モデルへ注入する手法が提案されてきました。これらは操作精度の向上を示したものの、供給される幾何は依然として相対スケールです。MAGPは、メトリック情報を直接埋め込んだ幾何トークンを出力してポリシーに渡す点で、これら既存の試みと一線を画しています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Challenge of Metric Scale 3D Perception",
+   "heading_ja": "なぜモデルは「見た目」に騙され、物理スケールを無視してしまうのか",
+   "summary_ja": "既存モデルが使う相対幾何の定式化を整理し、実寸大スケールを予測させようとしてもモデルがカメラ並進や深度を無視して画像の見かけからスケールを推測してしまう根本問題を指摘します。これを打破するために「スケール同変性」という要件を定義しました。",
+   "details_ja": "マルチビュー画像 $\\mathcal{I} = \\{I_i\\}_{i=1}^N$ から3D点群を復元する際、カメラ内部パラメータ $K_i$、外部パラメータ $[R_i | t_i]$、深度 $D_i$ があれば、ピクセルを実スケールの点群 $\\mathcal{P}$ に逆投影できます。\n\nしかし既存モデル $\\phi_\\theta(\\cdot)$ は、スケールの曖昧性を回避するために予測値と正解をそれぞれシーン単位で正規化 $\\mathcal{N}(\\cdot)$ し、相対幾何損失 $\\mathcal{L}_{\\mathrm{rel}}$ で学習しています。この場合、定数 $s > 0$ に対して $\\mathcal{N}(s\\mathcal{P}) = \\mathcal{N}(\\mathcal{P})$ となるため、モデルは未知のスケール係数 $s$ が掛かった点群 $\\hat{\\mathcal{P}} = s\\mathcal{P}$ を予測するだけで満足してしまいます。これではロボットが「どこへ手を伸ばすべきか」は分かっても、「物理的に何センチ動かせば届くのか」が分かりません。\n\nでは、単に正規化を外して物理単位のメトリック損失 $\\mathcal{L}_{\\mathrm{metric}}$ で直接点群を回帰させれば解決するのでしょうか？実はそう単純ではありません。実験してみると、モデルはカメラ移動量 $t$ や深度 $\\mathcal{D}$ という数値情報を軽視し、物体の見かけの大きさや家具の配置といった「画像の見た目」からスケールを推測（$s \\sim \\phi_\\theta(\\mathcal{I})$）してしまうのです。\n\nこれに対処するため、著者らは「メトリック・スケール同変性（Metric Scale Equivariant）」という性質を導入しました。入力として与えられたカメラ移動量や深度が $\\alpha$ 倍になれば、復元される3D空間も正確に $\\alpha$ 倍になる（$\\phi_\\theta(\\mathcal{I}, \\alpha t, \\alpha\\mathcal{D}) = \\alpha \\phi_\\theta(\\mathcal{I}, t, \\mathcal{D})$）という物理的な制約をモデルに徹底的に学習させる必要があるのです。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "同じ画像群であっても、カメラ移動量と深度が2倍になれば実際のシーンは2倍の大きさになります。スケール同変な再構成（中段）は観測値の変更に追従して正しく2倍（1.19m→2.38mなど）を復元できますが、同変性を持たない通常モデル（下段）は見かけに引っ張られて同じ1.17m前後のまま変化しません。",
+     "caption": "Figure 2: Scenes with scaled camera translation and depth, $(\\mathbf{t},\\mathcal{D})\\rightarrow(2\\mathbf{t},2\\mathcal{D})$ , can yield same multi-view images. Given these metric observations, metric scale equivariant reconstruction follows the corresponding scale change, whereas metric scale agnostic reconstruction remains unchanged.",
+     "image": "details/2608.27497/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Metric-Aware 3D Perception for Robotics",
+   "heading_ja": "MAGPの設計：単一Transformerによる統合と騙されない学習法",
+   "summary_ja": "MAGPは単一のTransformerでマルチビュー画像・カメラパラメータ・深度を幾何トークンへと変換し、ロボットポリシーの視覚言語特徴量と残差クロスアテンションで結合します。学習時にはスケール同変データ拡張（MSEA）と欠損に強い条件付けを行います。",
+   "details_ja": "### 4.1 アーキテクチャ設計\nMAGPは単一のTransformerバックボーンを採用したすっきりとしたエンドツーエンド設計です。\n\n- メトリック考慮の幾何モデリング\n各視点の画像パッチトークンに対し、利用可能な場合は軽量MLPで埋め込んだカメラトークンを結合し、パッチ埋め込みした深度トークンを加算します。観測が欠損している場合は学習可能なプレースホルダートークンに置き換えます。浅いレイヤーでは視点内の自己注意、深いレイヤーでは視点間をまたぐ相互注意を交互に行うことで、別個のフュージョンモジュールを置かずに可変視点数を扱えます。デコーダ（DPTヘッドとカメラヘッド）により、絶対スケールの深度マップとカメラ姿勢を出力します。\n\n- メトリックからアクションへの接地（Metric to Action Grounding）\n抽出された幾何トークン $\\mathbf{H}_{\\mathrm{geo}}$ は、ポリシー側の視覚言語モデル（Qwen3-VL-4B-Instruct）が生成した特徴量 $\\mathbf{H}_{\\mathrm{vl}}$ と残差クロスアテンションで融合されます。$\\mathbf{H}_{\\mathrm{vl}}$ をQuery、幾何トークンをKey/Valueとして参照することで、言語理解能力を損なわずに実寸大の幾何情報だけをアクション予測へ注入できます。\n\n### 4.2 頑健なメトリック幾何の最適化手法\n見た目の先入観を打破し、センサ構成の違いに耐えるための工夫が施されています。\n\n- メトリック・スケール同変拡張（MSEA）\n学習時、画像はそのままで、カメラ並進量・入力深度・教師ラベルの点群のみをランダムな係数 $\\alpha$ 倍にリスケールします。同じ画像から異なる物理スケールを対応させることで、モデルが見た目ではなくカメラパラメータや深度を信じるよう強制します。\n\n- 柔軟なメトリック条件付け（Flexible Metric Conditioning）\n実機ではカメラ姿勢や深度が一部の視点でしか取れなかったり、深度が疎だったりします。そこで学習中に視点ごとにランダムにカメラや深度をドロップさせ、さらに深度マップに空間マスクをかけて密度を変化させます。これにより、どんなセンサの組み合わせでも動くようになります。\n\n- 相対と絶対のハイブリッド損失\n損失関数には、形状の詳細を保つ相対幾何損失 $\\mathcal{L}_{\\mathrm{rel}}$ と、物理スケールを担保するメトリック損失 $\\mathcal{L}_{\\mathrm{metric}}$ の両方を組み合わせた $\\mathcal{L}_{\\mathrm{geo}} = \\mathcal{L}_{\\mathrm{rel}} + m_{\\mathrm{metric}} \\mathcal{L}_{\\mathrm{metric}}$ を用います。メトリック情報が全くない場合は $m_{\\mathrm{metric}}=0$ となり相対幾何のみで安定して学習します。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "MAGPの全体構造です。(1) 複数画像と任意のカメラ・深度入力を受け取り、(2) 単一Transformerでメトリック幾何トークンを生成。(3) VLMバックボーンの特徴量と残差クロスアテンションで結びつけ、(4) フローマッチングを用いたAction Expertが実寸法に基づいた正確なエンドエフェクタ動作を出力します。",
+     "caption": "Figure 3: Architecture schematic of MAGP. MAGP encodes multi-view images, optional camera parameters, and depth observations into metric geometry tokens using a single transformer. These tokens ground visual-language representations through residual cross-attention, providing metric scale calibrated geometry for action prediction.",
+     "image": "details/2608.27497/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Experiments",
+   "heading_ja": "3D再構成の絶対誤差が2mから7cmへ激減、ロボット操作も大幅改善",
+   "summary_ja": "3D再構成ベンチマーク（ETH3D、MegaDepth、ScanNet++）で絶対誤差が劇的に減少し、ロボットベンチマーク（LIBERO、RoboTwin、LIBERO-Plus）でも成功率が一貫して向上しました。MSEAや目的関数のアブレーションにより各設計の妥当性も実証しています。",
+   "details_ja": "### 5.1 3D再構成タスクの評価\nETH3D、MegaDepth、ScanNet++の3つのベンチマークで評価を行いました。指標には相対誤差のインライア率（$\\delta_{1.03}$、$\\delta_{1.25}$）とメートル単位の絶対誤差（Abs）を使用しています。\n\n- 従来モデルとの比較\n画像のみを入力とする設定でも、MAGPはDA3に対して深度インライア率で+17.41%（74.23% vs 56.82%）と大幅に上回りました。さらにカメラパラメータや深度を与えると真価を発揮し、両方を与えた完全設定では絶対誤差が深度で0.11m、点群で0.06mにまで縮小しました。ベースラインの絶対誤差が2m以上あったことと比較すると、1桁以上の改善です。\n\n- アブレーション実験\nMSEAを取り除くとスケール変更への追従性が崩壊し、見た目の事前知識に逃げてしまうことが確認されました（Table 2）。また、損失関数で $\\mathcal{L}_{\\mathrm{metric}}$ だけを使うと微細な形状の精度が落ち、相対損失 $\\mathcal{L}_{\\mathrm{rel}}$ と組み合わせることで初めて「綺麗な形状」と「正確なスケール」が両立することがわかりました（Table 3）。正規化係数はロボット作業空間に即した $\\mu=10$ が最も良好な結果を示しました。\n\n### 5.2 ロボットマニピュレーションタスクの評価\n- LIBERO & RoboTwin\nLIBEROではStarVLA-$\\pi$の成功率が96.8%から98.1%へ、GR00Tが97.5%から98.5%へと向上しました。より高難度な双腕タスクを含むRoboTwinでは、GR00Tの平均成功率が81.69%から87.95%へと+6.26%の大幅向上を記録し、DM0.5でも92.12%から93.91%へと改善しました。\n\n- LIBERO-Plusでのゼロショット評価\n過酷な外乱を加えたLIBERO-Plusでは、GR00T+MAGPが80.3%を達成し、ベースラインより3.9%、相対幾何モデルより1.3%高い数値を記録しました。特にロボットの初期状態にズレがある外乱条件下では49.0%から63.9%へと約15%も成功率が跳ね上がっており、スケールが正確に把握できていることが身体状態の変化への頑健さに直結していることが示されました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "独立した3つのサブセットから個別に再構成した点群を統合した比較です。MAGP（上段）はサブセット間で絶対スケールが完全に一致しているため破綻なく綺麗に結合できますが、DA3（下段）は部分ごとにスケールがバラバラになり、結合すると二重化や激しい幾何崩壊が起きています。",
+     "caption": "Figure 4: Scale consistency across three independently reconstructed subsets. MAGP achieves consistency reconstruction.",
+     "image": "details/2608.27497/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめ：実世界の物理スケールを取り戻したロボット知覚",
+   "summary_ja": "MAGPは幾何再構成とアクション予測を統一された物理スケールで接続するエンドツーエンドのフレームワークです。3D幾何再構成とロボットマニピュレーションの双方で有効性が示され、今後の基盤モデル統合に向けた重要な足がかりとなりました。",
+   "details_ja": "本論文では、従来の順伝播型3D再構成が抱えていた「相対スケール問題」を克服するフレームワークMAGPを提案しました。カメラ移動や深度観測を活用したメトリック・スケール同変拡張と柔軟な条件付けにより、見た目の先入観を排除してメートル単位の物理スケールを一貫して知覚できるようになりました。\n\n再構成タスクでの圧倒的な絶対誤差削減だけでなく、各種ロボット操作ベンチマークでの成功率向上や外乱への強靭性が確認されたことは、ロボット知覚において「正確な実寸法」がいかに重要であるかを雄弁に物語っています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：学習の詳細とオーバーヘッドの検証、定性結果",
+   "summary_ja": "DA3-Giantをベースに32台のH100で2段階の視点カリキュラム学習を実施。MAGPの追加パラメータはわずか0.001B、推論遅延の増加も2msと極めて軽量であり、多様な屋内外シーンで高精度な点群再構成とロボット動作を実現しています。",
+   "details_ja": "付録では、実装と計算コストの詳細、および視覚的な定性結果が補足されています。\n\n- 学習設定と計算オーバーヘッド\n学習にはUnrealStereo4KやScanNet++など多岐にわたる実写・合成データセットを併用。32台のNVIDIA H100を用い、2〜4視点から徐々に2〜18視点へと増やす2段階の視点カリキュラムを採用しています。驚くべきはその軽さで、DA3-Giantと比較して追加されたパラメータは深度パッチ埋め込み層の0.001B（約100万パラメータ）のみ。NVIDIA A800での推論レイテンシも152msから154msへとわずか2msの増加にとどまり、実機展開への負担がほぼありません。\n\n- ロボット評価での深度生成と定性挙動\nLIBERO等のデータセットには深度やカメラパラメータが付属していないため、事前学習済み単眼深度推定モデル「MoGe」で頭部カメラから深度を生成して入力としています。定性結果（Fig. 5）では、屋内外の様々なシーンで正解（GT）と予測（PR）の赤点線（同一の実寸法を示す基準線）が完全に一致しており、後処理によるスケール合わせなしで絶対サイズが完璧に一致している様子が確認できます。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "MAGPによるメトリック幾何再構成の定性結果です。GT（正解）とPR（予測）の間で同じ長さの赤い破線が引かれていますが、屋内外を問わず家具や車、部屋の寸法がスケール合わせなしでピタリと一致していることが見て取れます。",
+     "caption": "Figure 5: Qualitative presentation of metric geometry reconstruction. Across diverse indoor and outdoor scenes, MAGP accurately recovers metric geometry whose scene dimensions and spatial extent match the ground truth, while preserving fine-grained geometric structures. In each GT-PR pair, the red dashed lines are drawn with identical lengths at corresponding structures, providing an intuitive visual reference for evaluating the metric consistency between the prediction and the ground truth.",
+     "image": "details/2608.27497/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "RoboTwinにおける通常環境（Clean）とランダム環境（Random）での動作実行例です。物体の初期位置や照明、背景テクスチャが大きく変化しても、メトリック幾何によって安定した空間接地が維持され、把持やハンマー打ちなどの作業を正確に完遂できています。",
+     "caption": "Figure 7: Representative policy rollouts under clean and randomized RoboTwin Settings. Each row shows the initial and final states of a representative task. The randomized setting introduces variations in object placement, background, lighting, and scene configuration to evaluate policy robustness under environmental distribution shifts.",
+     "image": "details/2608.27497/F7.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "ロボットに3D幾何特徴を渡す際は、単なる「形状（相対幾何）」だけでなく「実寸法（メトリック幾何）」を揃えることがアクション精度の向上に直結する",
+  "モデルに物理観測（カメラ移動や深度）を信じ込ませるには、見た目を維持したまま物理パラメータだけを拡大縮小するデータ拡張（MSEA）が極めて有効である",
+  "相対損失（ディテールの担保）とメトリック損失（絶対スケールの担保）を組み合わせるマルチタスク学習が、幾何精度とスケール精度の両立に不可欠である",
+  "MAGPは既存の再構成モデルに対してパラメータ増加わずか0.001B、遅延+2msと極めて低オーバーヘッドであり、既存のVLAポリシーに差し込みやすい"
+ ],
+ "limitations_ja": [
+  "ロボットベンチマーク（LIBERO等）の評価時、実測深度が存在しないため単眼深度推定モデル（MoGe）の予測値を擬似深度として用いており、センサ実測値を用いた場合の挙動とは完全に一致しない可能性がある",
+  "カメラ移動量が極端に小さい場合や深度情報が完全に欠落しているシーンでは、依然として絶対スケールの復元精度が相対幾何近くまで低下する制約がある",
+  "シミュレーション環境（LIBERO、RoboTwin）での検証がメインであり、実機ロボット環境特有の激しいセンサノイズやキャリブレーション誤差下での大規模検証は今後の課題である"
+ ],
+ "keywords": [
+  "Metric Geometry",
+  "3D Reconstruction",
+  "Embodied AI",
+  "Robotic Manipulation",
+  "Scale Equivariance",
+  "Vision-Language-Action"
+ ],
+ "id": "2608.27497",
+ "title": "Beyond Relative Geometry: Metric-Aware Geometry Perception for Robotics",
+ "title_ja": "相対幾何を超えて：ロボティクスのための実スケール認識型幾何知覚",
+ "authors": [
+  "Fengjun Zhong",
+  "Congjia Chen",
+  "Zhaoxu Liu",
+  "Jinyang Du",
+  "Yuchen Gong",
+  "Enqi Mao",
+  "Ruihao Gong",
+  "ShuJie Wang",
+  "Xianglong Liu",
+  "Zhongliang Qiao"
+ ],
+ "date": "2026-08-31",
+ "group": "general",
+ "tags": [
+  "perception",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.27497",
+ "pdf_url": "https://arxiv.org/pdf/2608.27497",
+ "summary_ja": "従来の3D再構成が持つ任意スケールによる不整合を解消し、実世界スケールの距離・寸法を正確に推定するエンドツーエンドのプラグアンドプレイ幾何知覚フレームワークMAGPを提案。ロボットの操作方策と直接幾何情報を整合させることが可能となる。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.27497"
+}
