@@ -69,7 +69,10 @@
   section.chapter { margin: 30px 0 0; }
   section.chapter h2 { font-size: 18px; margin: 0; line-height: 1.4; }
   section.chapter h2 small { display: block; font-size: 12px; color: var(--muted); font-weight: normal; }
+  section.chapter .lead { margin: 8px 0 10px; padding: 10px 14px; border-left: 3px solid var(--accent); background: var(--card); border-radius: 0 10px 10px 0; }
+  section.chapter .lead p { margin: 0; }
   section.chapter .body { margin-top: 8px; }
+  .layer { font-size: 11px; color: var(--muted); font-weight: 700; letter-spacing: .04em; margin: 26px 0 8px; text-transform: uppercase; }
   section.chapter .body p { margin: 0 0 10px; }
   section.chapter .body ul { margin: 0 0 10px; padding-left: 22px; }
   section.chapter .body li { margin: 3px 0; }
@@ -148,15 +151,20 @@ function render(d) {
       ${d.html_url ? `<a href="${esc(d.html_url)}">HTML 版</a>` : ""}
     </div>
 
-    ${d.tldr_ja ? `<div class="box tldr"><h2>要点</h2>${renderBody(d.tldr_ja)}</div>` : ""}
+    ${d.tldr_ja ? `<div class="box tldr"><h2>ひとことで</h2>${renderBody(d.tldr_ja)}</div>` : ""}
 
-    ${sections.length ? `<div class="box toc"><h2>目次</h2><ol>${sections.map((s, i) =>
+    ${d.overview_ja ? `<p class="layer">全体像</p><div class="box"><h2>概要</h2>${renderBody(d.overview_ja)}</div>` : ""}
+    ${(d.contributions_ja || []).length ? `<div class="box"><h2>主な貢献</h2>
+      <ul>${d.contributions_ja.map((t) => `<li>${inline(t)}</li>`).join("")}</ul></div>` : ""}
+
+    ${sections.length ? `<p class="layer">章ごとのまとめ</p><div class="box toc"><h2>目次</h2><ol>${sections.map((s, i) =>
       `<li><a href="#sec-${i + 1}">${esc(s.heading_ja || s.heading)}</a></li>`).join("")}</ol></div>` : ""}
 
     ${sections.map((s, i) => `
       <section class="chapter" id="sec-${i + 1}">
         <h2>${esc(s.heading_ja || s.heading)}${s.heading && s.heading_ja ? `<small>${esc(s.heading)}</small>` : ""}</h2>
-        <div class="body">${renderBody(s.summary_ja)}</div>
+        ${s.summary_ja ? `<div class="lead">${renderBody(s.summary_ja)}</div>` : ""}
+        ${s.details_ja ? `<div class="body">${renderBody(s.details_ja)}</div>` : ""}
         ${(s.figures || []).map(figure).join("")}
       </section>`).join("")}
 
