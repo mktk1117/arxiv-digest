@@ -1,0 +1,123 @@
+{
+ "tldr_ja": "俯瞰の間取り図と自身の一人称カメラ映像だけを頼りに、家具を正しい位置へと並べ替える具現化AIタスク「ESRP」を提案した論文です。OmniGibson上に5,400以上の実環境シーンを用意して最新の強化学習やVLM、古典的プランニング手法などを検証したところ、最高でも成功率30%程度に留まり、部分観測下での長大な空間計画が極めて難しい未開拓の課題であることが明らかになりました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "ESRPタスクの概要図です。ロボットは目標となる部屋の俯瞰画像（右上）と自分自身の視点（一人称カメラ）の情報だけをもとに、初期配置（赤）から目標配置（緑）へと家具を順番に運んで再配置します。大域的な地図や真の自己位置は与えられないため、部分的な視覚情報から空間全体を推論しながら長時間の行動計画を立てる必要があります。",
+  "caption": "Fig. 1 : Overview of the esrp task. Given a top-down target layout, an embodied agent needs to rearrange furniture in a $3$ D scene from an initial configuration (red) to a target state (green). The agent operates under realistic constraints, relying only on egocentric observations without access to global state information or ground-truth localization.",
+  "image": "details/2608.27371/F1.jpg"
+ },
+ "overview_ja": "部屋の模様替えをロボットに頼みたいとき、人間なら完成イメージの見取り図を1枚渡せば「このソファをあっちへ動かして、その後に椅子をここへ持ってこよう」と段取りをつけて作業できます。しかし、これまでの具現化AI（Embodied AI）の研究では、卓上にある小さなコップなどの並べ替えか、あるいは部屋全体の真の位置情報や障害物マップが最初からすべて見えている2D平面でのシミュレーションに偏っていました。現実の部屋で大きな家具を動かすとなると、ロボット自身のカメラからは部屋の全貌が見えず、家具同士の遮蔽や「先にこの椅子をどかさないとテーブルが通れない」といった複雑な物理的干渉が立ちはだかります。\n\nそこで著者らは、一人称RGB画像と目標配置の俯瞰図1枚だけを手がかりに家具を再配置する新規タスク「ESRP」を立ち上げました。さらに、実データセット「3D-FRONT」由来の5,400以上の室内シーンと8,200個以上の家具を組み込み、リアルな物理シミュレータOmniGibson上で動く大規模ベンチマーク「ESRP-Bench」を構築しました。\n\nこの課題に対し、模倣学習（Diffusion Policy）、強化学習（PPO）、最新の視覚言語モデル（VLMによるReAct）、そして大域情報をチート的に与えたタスク・モーションプランニング（TAMP）の4種類のベースラインを実装して徹底検証しました。\n\nその結果、完全な大域情報を持つTAMPですら成功率は30.20%にとどまり、動かす家具が4個以上の高難度シーンでは全ベースラインの成功率がほぼ0%に落ち込むことが判明しました。特に「家具を掴んで運ぶ」ことよりも「目標地点に正確に配置する」段階での失敗が全体の6割以上を占めており、部分観測下における長期的な空間理解と精密な配置計画が、現在の具現化AIにとって極めて大きな壁であることが浮き彫りになりました。",
+ "contributions_ja": [
+  "一人称視点のRGB画像と目標の俯瞰図のみから家具を再配置する、現実的かつ挑戦的な新タスク「ESRP」を定義しました。",
+  "OmniGibson上で5,400以上のシーンと8,200個以上の家具を含む大規模ベンチマーク「ESRP-Bench」と、多角的な3つの評価指標を構築しました。",
+  "模倣学習、強化学習、VLM、大域情報を用いるTAMPの4つのアプローチを包括的に比較し、現在のAI技術が抱えるボトルネックを特定しました。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "一人称視点で挑む、リアルな家具の模様替えタスク",
+   "summary_ja": "従来の再配置研究は卓上の小物操作や、全知視点の2D平面シミュレーションに限定されていました。本論文は、一人称視点と目標の俯瞰画像のみを用いて3D空間内で家具を動かす現実的なタスク「ESRP」と、そのベンチマーク「ESRP-Bench」を提案します。",
+   "details_ja": "ロボットによる環境の再配置（Rearrangement）は、これまで大きく2つの方向に分かれて研究されてきました。1つはマニピュレータを使って机の上の小物を並べ替える卓上タスクです。狭い作業空間で完結するため、部屋全体を移動する長距離ナビゲーションや大域的な空間推論は考慮されていませんでした。もう1つは部屋全体の再配置ですが、こちらは2D平面に抽象化されていたり、環境全体の情報（大域状態）が最初からロボットに見えていたりすることが一般的でした。これでは、家具に遮られて視界が塞がれる現実の3D環境には到底適用できません。\n\nそこで著者らは、こうしたギャップを埋めるべく「ESRP（Embodied Scene Rearrangement Planning）」という新しいタスクを提唱しました。ロボットに与えられるのは、自身のカメラからの一人称視点RGB画像と、完成形を示した1枚の俯瞰図だけです。この設定には、次の3つの強烈な難しさがあります。\n\n- 部分観測性: 一人称の狭い視界と大域的な目標図を頭の中で照合し、見えない場所を推論しなければなりません。\n- 物体間の依存関係: 大きな家具を動かすため、「Aを置くためにまずBをどかす」といったデッドロック回避や順序立てが必須になります。\n- 動的に変化する環境: 家具を1つ動かすたびに部屋の通行可能領域や見通しが変わり、自己位置推定やナビゲーションの難易度が刻一刻と変化します。\n\n著者らはこの問題に取り組むため、OmniGibsonをベースにした大規模ベンチマーク「ESRP-Bench」を整備し、模倣学習、強化学習、VLM、プランニングという主要なアプローチを網羅したベースラインで現状の限界を明らかにしています。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "既存の再配置・TAMP研究と何が決定的に違うのか？",
+   "summary_ja": "従来の再配置研究は卓上規模か2D平面の単純化に留まり、TAMP（タスク・モーションプランニング）も長期計画や複雑な3D幾何の扱いに課題を抱えていました。本研究は、完全な3D空間と一人称視点という実践的な制約を両立させた点で一線を画します。",
+   "details_ja": "関連研究を整理すると、本論文の位置づけがさらによく見えてきます。\n\nまず「再配置計画（Rearrangement Planning）」の文脈では、これまで食器やブロックを片付けるような卓上マニピュレーションが盛んに研究されてきました。これらはサンプリングベースのプランニングや強化学習で高い成果を上げていますが、部屋全体を動き回るスケールには拡張できません。一方で家具などを扱う部屋スケールの研究もありましたが、その多くは障害物を2Dの多角形として扱い、上空から部屋全体が見えているという非現実的な仮定を置いていました。これでは高さ方向の幾何拘束や、視界の遮蔽といった実世界特有の要素がすっぽり抜け落ちてしまいます。\n\n次に、高レベルな手順決定と低レベルな経路生成を組み合わせる「TAMP（Task and Motion Planning）」の分野です。従来のTAMP手法は、探索空間が爆発しがちな長大タスク（Long-Horizon Tasks）や、複雑な3D空間幾何が絡む環境を苦手としていました。家具の再配置では、「家具のサイズに合わせてロボットが通れる隙間を計算する」「どの順番で家具を動かせば袋小路にならないか推論する」といった幾何と順序の同時推論が求められます。\n\nESRPは、これらの既存手法が抱える制約を乗り越え、現実的な「一人称視点」「3D物理環境」「長大な計画軸」を同時に突きつけるベンチマークとして設計されています。",
+   "figures": []
+  },
+  {
+   "heading": "III ESRP-Bench",
+   "heading_ja": "ESRP-Benchの全貌：タスク定義、データセット、そして4つの解法",
+   "summary_ja": "OmniGibson上に構築されたESRP-Benchは、5,495シーン・8,213個の家具を含む本格的な評価環境です。タスクの観測・行動空間を厳密に定義し、多面的な評価指標（SR、OSR、RDR）を設定するとともに、模倣学習・強化学習・VLM・TAMPの4つのベースラインを実装しました。",
+   "details_ja": "本ベンチマークの具体的な構成を見ていきましょう。\n\n### タスク定義とシミュレーション環境\nロボットは毎ステップ、以下の3つを観測として受け取ります。\n- $128\\times 128$ の一人称RGB画像 $I^{ego}$\n- $128\\times 128$ の目標俯瞰RGB画像 $I^{g}$\n- 家具を把持しているかを表す二値フラグ $g \\in \\{0, 1\\}$\n\n行動空間は「前進」「後退」「左旋回（$22.5^\\circ$）」「右旋回（$22.5^\\circ$）」「掴む（fetch）」「離す（release）」の6つの離散アクションです。移動ステップは0.25m刻みとなっています。高レベルな計画性能の評価に焦点を当てるため、把持動作そのものはロボット中心から半径1.0m以内にある家具を瞬時に接続する抽象化（magic snapping）を採用していますが、ロボットや家具の3Dメッシュ同士の衝突判定は物理エンジン上で厳密に行われます。\n成功の判定基準は、すべての対象家具の水平面2Dバウンディングボックスと目標位置のIoU（Intersection over Union）が0.3を超えることです。\n\n### データセットの構築\n高品質な屋内3Dデータセット「3D-FRONT」から、24種類の部屋タイプ、計5,495シーンを構築しました。可動家具は合計8,213個に及びます。家具の数に応じてEasy（1個）、Medium（2〜3個）、Hard（4〜6個）の3段階の難易度に分類されています。\n初期配置を生成する際、目標の完成状態からルールベースのエージェントが家具を後ろ向きにランダム移動させて非衝突位置に配置していく「逆方向シミュレーション」を採用しました。これにより、「そもそも解が存在しない」という理不尽な初期状態を排除しつつ、その逆再生ログをそのまま模倣学習用の「エキスパート軌跡」として活用できるように工夫されています。\n\n### 多段階の評価指標\n評価には以下の3つの指標を用います。\n- SR（Success Rate）: 全家具が目標位置に収まり、タスクを完遂できたエピソードの割合。\n- OSR（Object Success Rate）: 全体の中で、正しく配置できた家具の個数の割合。\n- RDR（Relative Distance Reduction）: 初期状態から目標位置までの距離の総和に対し、終了時にどれだけ距離を縮められたかの比率（0に近いほど優秀）。\n\n### 4つのベースライン手法\n多様なパラダイムから代表的なモデルを用意しています。\n- ESRP-BC（模倣学習）: エキスパート軌跡から学ぶDiffusion Policyです。観測履歴と目標画像から、未来の8ステップの行動系列をノイズ除去プロセスによって予測します。\n- ESRP-PPO（強化学習）: ResNetエンコーダと単層LSTM、MLPポリシーで構成され、PPOで約600万ステップ学習させます。家具の目的地への接近や配置成功に応じた密な報酬関数が設計されています。\n- ESRP-VLM（基盤モデル）: 事前学習済みVLM（Qwen3-VL-2B-Instruct）を用い、ReActプロンプティングによって推論と行動選択を交互に行わせるアプローチです。追加のファインチューニングは行いません。\n- ESRP-PLAN（TAMP）: 地図や全物体の正確な位置が最初から分かっているというチート（特権情報）を与えた古典的プランニングです。タスク計画で運ぶ順序を総当たり的に決め、幅優先探索（BFS）とA*探索で衝突のない経路を生成します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "ESRP-Benchに含まれる初期配置（上段）と目標配置（下段）のペアの例です。緑の線で区切られている通り、動かす家具が1個のEasy、2〜3個のMedium、4〜6個のHardという3つの難易度レベルが設定されています。",
+     "caption": "Fig. 2 : Initial-target scene layout pairs. We group scene layouts into three difficulty levels (as divided by green lines), with the first row showing the initial layout and the second row displaying the corresponding target layout. The top left shows easy-level scenes, where only $1$ furniture object needs to be rearranged; the top right presents medium-level scenes with $2\\sim 3$ objects to be rearranged; and the bottom shows hard-level scenes with $4\\sim 6$ objects to be rearranged. The data",
+     "image": "details/2608.27371/F2.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "ESRP-Benchの全体パイプラインです。左側にデータセットとシミュレーション環境、中央から右側にかけて模倣学習（BC）、強化学習（PPO）、タスク・モーションプランニング（PLAN）、基盤モデル（VLM）という性質の異なる4つのベースラインのアーキテクチャが示されています。",
+     "caption": "Fig. 5 : Pipeline overview. ( Left ) ESRP-Bench consists of the dataset and the esrp environment. ( Middle ) Four baseline models are: (1) il agent uses expert trajectories from the dataset to train a policy that imitates expert behavior; (2) rl agent learns a policy by interacting with the esrp environment; (3) foundation-model-based VLM agent prompts a pretrained vlm in a ReAct loop without task-specific training; and (4) planning-based agent utilizes global information to perform hierarchical",
+     "image": "details/2608.27371/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "実験結果：最強のプランナーでも成功率3割、家具が増えると全滅する現実",
+   "summary_ja": "テストセットでの検証の結果、特権情報を持つTAMPがSR 30.20%で最高性能でしたが、家具が増えるとどの手法も成功率がほぼ0%に急落しました。失敗要因の分析では、移動や把持ではなく「家具を狙った位置に降ろす」配置段階での失敗が6割以上を占めることが分かりました。",
+   "details_ja": "テストセット（全体の10%の未知シーン）を用いてベースラインを評価したところ、非常に興味深い実態が明らかになりました。\n\n### 全体性能と各パラダイムの特徴\nまず、全体を通して最も高い成功率を出したのは特権的な大域情報を持つESRP-PLANでした（SR: 30.20%、OSR: 37.19%）。部屋の全貌や障害物マップが見えているため、確実な経路を引けるのが強みです。しかし逆に言えば、全知のプランナーですら約30%しか成功できないほど、このタスクの幾何拘束と順序決定はシビアだということです。\n\n学習ベースの手法同士を比べると、ESRP-PPO（SR: 19.33%）がESRP-BC（SR: 18.04%）を一歩リードしました。特に目標との残り距離の比率を示すRDRにおいて、PPOは0.9416だったのに対し、BCは1.3418と悪化していました。BCはステップが進むにつれて誤差が蓄積し、家具を目標からかえって遠ざけてしまう挙動が見られたためです。\n\nゼロショットのESRP-VLM（Qwen3-VL-2B）はSR 17.64%にとどまりました。バックボーンをより強力なGemini 2.5 Flash-Liteに変えるとSRは23.01%まで向上しましたが、依然としてPPOを大きく突き放すには至らず、汎用VLMの事前知識だけでは長大な空間計画を解ききれないことが浮き彫りになりました。\n\n### 難易度別の崩壊とボトルネックの特定\n家具が1個だけのEasyレベルでは各手法とも40〜60%程度のSRを記録しましたが、家具が4〜6個になるHardレベルでは、なんと全ベースラインのSRが0.00%〜0.20%へと完全に崩壊しました。家具が増えることで運ぶ順番の組み合わせが爆発し、動かした家具が新たな障害物になってロボット自身を閉じ込めてしまうためです。\n\nエピソードの失敗要因を「ナビゲーション」「接触・把持」「目標への配置」のどの段階で躓いたか分解（Failure-Mode Decomposition）したところ、極めて明確な傾向が出ました。PPOで60.85%、BCで62.85%、VLMで66.55%と、実に全失敗の6割以上が「配置の失敗（Stage 3）」に集中していたのです。ロボットは家具を見つけて掴むところまでは行けるものの、一人称視点から「俯瞰図のあの場所は、今の自分の立ち位置から見てどこか」をミリ単位で正確に合わせ込んでリリースすることが極めて困難であると判明しました。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "ESRP-PPOによる模様替えの成功例です。赤線がロボットの移動軌跡、青線が運ばれた家具の移動軌跡を表しています。ロボットが指定の家具（椅子やスツールなど）を迷いなく見つけ出し、目標の配置場所へと的確に運び込んでいる様子が分かります。",
+     "caption": "Fig. 6 : Examples of successfully rearranged scenes. The agent successfully moves the objects to match the target layout. The red curve represents the agent’s trajectory, while the blue curve depicts the object’s trajectory.",
+     "image": "details/2608.27371/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "家具の数が増えたときの失敗例です。家具が2個（上段）や4個（下段）と多くなると、家具同士の干渉や長時間の計画が必要になり、エージェントは目標の近似位置までは家具を動かせるものの、制限時間内に正確な位置へ収めきれなくなってしまいます。",
+     "caption": "Fig. 7 : Failure cases. As the number of rearrangeable objects increases, the task becomes more challenging due to its long-horizon complexity. In such cases, the agent rearranges the scene to approximate the target layout.",
+     "image": "details/2608.27371/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望：実世界配備に向けた次なるステップ",
+   "summary_ja": "本研究は一人称視点による家具再配置という実践的な課題を切り拓き、高品質なベンチマークと詳細なベースライン分析を提供しました。現状の手法が抱える限界を浮き彫りにしたことで、今後の具現化AI研究における重要な道標となります。",
+   "details_ja": "本論文では、一人称視点RGB画像と1枚の見取り図から3D室内の家具を模様替えする新タスク「ESRP」と、そのベンチマーク「ESRP-Bench」を提案しました。5,400を超える多様なシーンで最新の強化学習やVLM、古典的TAMPを走らせた結果、部分観測下での長期的な空間推論と正確な配置制御がいかに困難であるかが、豊富な実験データによって実証されました。\n\n著者らは今後の発展に向けた課題や拡張性についても言及しています。今回の設定は部屋単体（ルームスケール）の再配置であり、観測もRGB画像のみに絞っています。将来的には、家全体（ハウススケール）にわたるさらに長大な計画への拡張や、深度センサ（Depth）、鳥瞰カメラ（BEV）、LiDARといったマルチモーダルなセンサ情報の統合が期待されます。\n\nスマートホームや介護・家事支援ロボットが本当に人間の生活空間で役立つようになるための試金石として、本ベンチマークは今後の具現化AIコミュニティに大きな刺激を与えるものと言えます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「俯瞰の完成図1枚＋一人称視点」という設定は、人間への指示出しとしても自然で、具現化AIの空間推論力を試すベンチマークとして極めて秀逸です。",
+  "現在のAIにとって最大のボトルネックは「物体の発見や移動」ではなく「部分観測下で目標位置へミリ単位で正しく降ろす（配置する）」精度にあります。",
+  "最新のVLM（Gemini等）を使ってもゼロショットの空間計画には限界があり、長大な物理干渉を解くには幾何推論に特化した明示的な表現や記憶機構が不可欠です。"
+ ],
+ "limitations_ja": [
+  "掴み動作が「半径1m以内で瞬間的に接続する」という簡略化（magic snapping）になっており、実機ロボットが大型家具を把持・運搬する物理的な制御難度は捨象されています。",
+  "単一の部屋（ルームスケール）に限定されており、家全体を行き来して家具を別室へ運ぶような家屋全体スケール（ハウススケール）の計画は含まれていません。",
+  "観測が一人称のRGB画像のみに制限されているため、実機で一般的に使われる深度カメラやSLAMによる点群情報などを活かした際の実力は未知数です。"
+ ],
+ "keywords": [
+  "Embodied AI",
+  "Scene Rearrangement",
+  "Task and Motion Planning",
+  "OmniGibson",
+  "Vision-Language Models"
+ ],
+ "id": "2608.27371",
+ "title": "Embodied Scene Rearrangement Planning",
+ "title_ja": "身体性シーン再配置計画",
+ "authors": [
+  "Canzhi Chen",
+  "Zan Wang",
+  "Siqi Zhu",
+  "Qi Wu",
+  "Yixuan Li",
+  "Wei Liang"
+ ],
+ "date": "2026-08-30",
+ "group": "general",
+ "tags": [
+  "planning",
+  "benchmark",
+  "simulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.27371",
+ "pdf_url": "https://arxiv.org/pdf/2608.27371",
+ "summary_ja": "自己中心視点映像と俯瞰目標配置のみから家具を再配置する長期的計画タスクESRPおよびベンチマークESRP-Benchを提案。OmniGibson上で5,400以上のシーンペアを構築し、部分観測と遮蔽が存在する環境での計画手法を評価可能にする。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.27371"
+}
