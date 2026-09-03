@@ -1,0 +1,133 @@
+{
+ "tldr_ja": "ロボットが物体に触れて失敗してから検知するのではなく、行動計画を潜在ワールドモデルで先読みし、接触する前に失敗を高精度に察知して安全に中断（アボート）させる実行監視フレームワークです。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "ContactGuardのオンライン監視の流れです。方策がグリッパを閉じる直前に、予定されている一連の行動（アクションチャンク）をもとに潜在ワールドモデルが未来の潜在状態を予測し、失敗確率が高ければ接触前に動作を即座に中断します。",
+  "caption": "Figure 1: Pre-contact online monitoring via action-conditioned latent world models. While a visuomotor policy executes an action chunk, ContactGuard conditions a frozen latent world model on the same planned chunk at an anchor $k$ steps before the planned gripper closure $T_{g}$ . It rolls the model forward $h$ steps and scores the predicted future latent with a lightweight classifier. If $P(\\mathrm{fail})>\\tau$ , execution is aborted before contact: the decision is made at $T_{g}{-}k$ and targe",
+  "image": "details/2608.13438/F1.jpg"
+ },
+ "overview_ja": "ロボットが物を掴むような「接触を伴うマニピュレーション」では、グリッパがわずかにズレていただけで物体を弾き飛ばしたり、滑り落としたりといった失敗がよく起きます。しかし従来のエラー検知は、実際に物体に触れて失敗した後にしか気づけないことが多く、接触によって環境が乱れてしまうため、後からの復旧が非常に困難でした。\n\nそこで著者らは「物体に触れてしまう前に、これから実行する行動が失敗するかどうかを先読みできないか？」と考えました。幸い、近年の行動チャンキング（複数の連続した行動をまとめて出力する方策）では、数ステップ先のグリッパ開閉やアプローチ軌道があらかじめ分かっています。この提案された行動チャンクを、事前に学習させた潜在ワールドモデル（Latent World Model）に入力して数ステップ後の状態を潜在空間上で想像させ、その予測特徴から軽量な線形プローブで成否を判定する手法「ContactGuard」を提案しました。\n\n実機の双腕ロボットを用いた4種類の接触タスクで評価したところ、現在の観測だけから成否を判定する手法や既存の失敗検知モデルを大きく上回るAUCを達成しました。さらに、ロボットの操作方策そのものには一切手を加えることなく、接触前のわずかな時間枠（0.5秒）の中で高速に推論を完了し、接触前の安全な動作停止を実現できることを示しました。",
+ "contributions_ja": [
+  "行動チャンキングを用いる視覚運動方策に対し、接触を伴う行動を実行する直前に未来の成否を予測して止める「接触前実行監視（Pre-contact Execution Monitoring）」の枠組みを定式化しました。",
+  "ピクセル動画を生成することなく、マルチビュー視覚埋め込みのダイナミクスを行動条件付きで高速予測する潜在ワールドモデルと軽量失敗プローブからなるContactGuardを開発しました。",
+  "現在の観測や行動単体ではなく、「予定された具体的な行動を潜在空間でロールアウトした未来表現」こそが成否判定に不可欠であることをアブレーション実験で明らかにしました。",
+  "方策の再学習や候補行動の探索を一切必要とせず、推論遅延なしに実機ロボットで接触直前の中断（アボート）ができることを実証しました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "「触れてから気づく」のでは遅すぎる！接触前の先読み監視",
+   "summary_ja": "接触を伴う繊細な作業では、接触した瞬間のわずかなズレが致命傷になり、環境を乱した後のリカバリは極めて困難です。そこで、方策が出力した行動チャンクを潜在ワールドモデルで先読みし、接触前に失敗を予測して動作を止めるアプローチを提案します。",
+   "details_ja": "ロボットが物体を掴む際、グリッパが中心から少しズレている、縁だけを挟んでしまう、物体が奥に入る前に閉じてしまう、といった微小なミスが命取りになります。手先カメラ（リストカメラ）を使っていても、従来のエラー検知器が反応する頃には、アプローチの失敗によってすでに物体を弾き飛ばしてしまっていることが多いのが実情です。\n\nここで着目したのが、近年の模倣学習で標準となった「行動チャンク（Action Chunk：ひとかたまりの連続行動列）」の存在です。チャンクの中にはグリッパを閉じるなどの決定的瞬間が含まれています。つまり、ロボットがその行動を実行し切る前に「このまま進んだらどうなるか？」を先読みできれば、触れる前に危険を察知して止めることができます。\n\n未来を想像する手段としてワールドモデルが自然な選択肢ですが、ここでは高コストで不確実なピクセルレベルの動画生成は必要ありません。成功か失敗かを分ける情報さえ潜在空間に残っていれば十分です。そこで著者らは、JEPA（Joint-Embedding Predictive Architecture：画像をコンパクトな潜在ベクトルに変換し、表現空間上で未来を予測する枠組み）に基づいて、ラベルなし軌道データから行動条件付き潜在ワールドモデルを学習させました。これによって、既存の方策を一切変更せず、外付けの監視モジュールとして接触前の停止を実現します。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "システムの全体像です。方策が生成した行動チャンクをもとに、接触（グリッパ閉鎖）の少し前のアンカー時点で潜在ワールドモデルが未来を予測し、失敗確率が閾値を超えたら接触直前に実行を中断します。",
+     "caption": "Figure 1: Pre-contact online monitoring via action-conditioned latent world models. While a visuomotor policy executes an action chunk, ContactGuard conditions a frozen latent world model on the same planned chunk at an anchor $k$ steps before the planned gripper closure $T_{g}$ . It rolls the model forward $h$ steps and scores the predicted future latent with a lightweight classifier. If $P(\\mathrm{fail})>\\tau$ , execution is aborted before contact: the decision is made at $T_{g}{-}k$ and targe",
+     "image": "details/2608.13438/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "先行研究との違い：候補探索でも動画生成でもなく「外付け検証」",
+   "summary_ja": "ロボットマニピュレーションにおける潜在ワールドモデルや実行監視の先行研究を整理しています。本研究は、方策とダイナミクスモデルを共同学習したり複数の候補行動を探索したりするのではなく、提案済みの単一チャンクを外部からブラックボックスとして検証する点に独自性があります。",
+   "details_ja": "本研究の立ち位置を理解するために、関連分野との違いを3つの観点から整理しています。\n\n- マニピュレーション向け潜在ワールドモデル：\nDreamerやTD-MPCのように強化学習やMPC（モデル予測制御）に潜在ワールドモデルを使う研究や、動画予測シミュレータは盛んに研究されています。本研究はLeWorldModel（LeWM）の潜在予測アプローチを基盤としていますが、方策学習や軌道最適化のためではなく「接触直前の失敗監視」に特化して用いる点が異なります。\n\n- 失敗予測と実行監視：\n成功・失敗を判定する外付けモデルや、分布外（OOD）検出器（FAIL-Detect、RND、SAFEなど）が提案されています。またSIRIUSのように、方策とワールドモデルを共有空間で同時に学習してロールアウト監視を行う手法もあります。ContactGuardとの決定的な違いはデプロイ時のインターフェースです。ContactGuardは既存の方策を一切変更せず「ブラックボックスの提案器」として扱い、独立に学習したモデルが事前に提案された行動を検証して拒否権（VETO）を発動する形を取っています。\n\n- 行動チャンクとテスト時検証：\nACTやDiffusion Policyなど行動チャンクを出力する方策に対し、複数の候補行動を生成してワールドモデルでスコアリングする研究もあります。しかしContactGuardは探索を行わず、提案された単一のチャンクだけを素早く評価するため、余計な計算オーバーヘッドを生みません。",
+   "figures": []
+  },
+  {
+   "heading": "3 Latent World Models for Pre-Contact Grasp Monitoring",
+   "heading_ja": "ContactGuardのアーキテクチャと接触前監視のメカニズム",
+   "summary_ja": "ラベルなしデータで学習したマルチビュー潜在ワールドモデルと、少量のラベル付きデータで学習した線形失敗プローブを組み合わせます。接触の0.5秒前を起点に未来を予測し、グリッパが閉じる直前に安全停止の判断を下します。",
+   "details_ja": "手法の構成は、大きく3つのステップに分かれています。\n\n- 3.1 問題設定とデータ：\nモデルの学習は二段階で行います。まず、ラベルなしのロボット軌道データを用いて、各カメラの視覚観測と関節空間の行動から潜在ワールドモデルを自己教師あり学習します。次に、成否ラベルのついた少量の接触前クリップデータ（把持の試行データ）を用意し、予測された未来の潜在表現から失敗確率を推定する軽量なプローブを学習します。\n\n- 3.2 & 3.3 マルチビュー潜在ワールドモデル：\n3台の固定カメラからの画像を、重み共有のViT-Tinyエンコーダでそれぞれ192次元の特徴量に変換し、平均プーリングと線形射影によって1つの潜在表現 $z_t \\in \\mathbb{R}^{192}$ に集約します。これによりカメラの台数が変わっても潜在次元は一定のまま、遮蔽に強い表現を作れます。予測器 $P_\\theta$ はAdaLN-zero（行動埋め込みで層を調整する手法）を備えた4層の因果Transformerで構成されます。学習時は、表現の縮退を防ぐ正則化項（SIGReg）とともに、次の潜在表現を回帰する教師強制（Teacher-forcing）で訓練されます。\n\n- 3.4 予測潜在表現に対する線形プローブ：\nワールドモデルの学習完了後、エンコーダと予測器を完全に固定（フリーズ）します。把持完了直後の特徴をとらえるため、予定されているグリッパ閉鎖時点 $T_g$ より $k_{\\mathrm{pre}}=15$ フレーム（30Hzで0.5秒）手前をアンカーとし、そこから $K=30$ ステップ（閉鎖の0.5秒後まで）予測器を自己回帰ロールアウトします。得られた未来の潜在表現 $\\hat{z}_{t+K}$ を正規化し、クラス重み付きの正則化付きロジスティック回帰プローブに入力して失敗確率 $P(\\mathrm{fail})$ を算出します。\n\n- 3.5 オンライン監視の流れ：\n方策（ACT）が動いている間、監視器は行動チャンクをスキャンして最初のグリッパ閉鎖指令を見つけます。閉鎖が15フレーム以内に迫った瞬間にアンカーを発動し、30ステップ先の潜在表現をロールアウトしてプローブで評価します。$P(\\mathrm{fail}) > \\tau$ であればグリッパが触れる前に即座にアボートします。チャンクの実行窓の中で推論が終わるため、制御ループを一切止めません。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "ContactGuardの内部パイプラインです。マルチビュー画像をViTで集約して潜在コンテキストを作り、予定された行動列に沿ってTransformerが未来の潜在表現をロールアウトします。最後に固定されたロジスティック回帰プローブが失敗確率を判定します。",
+     "caption": "Figure 2: ContactGuard overview. A shared multi-view encoder maps camera observations to a latent context. An action-conditioned predictor rolls this context forward under the policy’s planned action chunk to produce future latents $\\hat{z}_{t+1:t+K}$ . A lightweight probe is trained offline on labelled pre-contact clips and used online to score the predicted post-contact latent $\\hat{z}_{t+K}$ . If the predicted failure probability exceeds threshold $\\tau$ , execution is aborted before contact.",
+     "image": "details/2608.13438/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experimental Results",
+   "heading_ja": "実機ロボット実験：本当に「触れる前」に失敗を防げるのか？",
+   "summary_ja": "14自由度の双腕実機ロボットを用い、4種類の接触マニピュレーションタスクで評価しました。マルチビュー未来予測により既存手法を上回る失敗予測精度を達成し、RTX 5090上で推論時間も接触前バジェット内に収まることを示しました。",
+   "details_ja": "実験では、14自由度のAgileX Piper双腕ロボットと3台のRGBカメラを使用し、カップ把持、箱把持、鉛筆掴み、タオル折りという難易度の異なる4タスクで評価を行いました。\n\n- 閉ループでの把持成否予測（4.2節）：\n実機上でACT方策を動かし、アボート判定が出た場合は5秒間静止した後にそのまま動作を再開させて「もし中断しなかったらどうなっていたか（反実仮想）」を記録しました（各設定50試行）。ContactGuardは、単眼カメラベースのLeWMや外部の失敗検知器（SAFE、FAIL-Detect、RND）に対してすべてのタスクで最高水準のROC AUCを記録しました。特にタオルタスクでは遮蔽が頻繁に起こるため、マルチビュー統合によるAUC向上が最も顕著でした。\n\n- 未来予測の必要性と情報の出どころ（4.3節）：\n「わざわざ未来をロールアウトしなくても、現在の画像や行動から直接判定できるのでは？」という疑問に対し、現在の潜在状態 $z_t$ だけを見るCurrent latentや、$(z_t, a)$ から直接予測するDirect baselineと比較しました。結果、未来の潜在表現 $\\hat{z}_{t+K}$ を使ったContactGuardが圧倒的に優れていました。さらに、提案された行動を別のエピソードの行動に差し替える「行動スワップ実験」を行うと、画像が全く同じでも予測失敗確率が大幅に跳ね上がりました（カップで+0.25、タオルで+0.65）。つまり、単に「見た目が危険な状態」を検知しているのではなく、「この行動を実行したらどう破綻するか」を行動依存で正しく想像できていることが証明されました。\n\n- 本体の関節状態（固有感覚）は必要か？：\nロボットの関節角度やトルク（28次元）を入力に追加すると、意外にも4タスクすべてでテストAUCが低下しました。データ量が限られる領域では、不完全な状態融合がショートカット学習を引き起こし、接触に関わる視覚ダイナミクスの学習を邪魔してしまうためと考えられます。\n\n- 推論速度：\nNVIDIA RTX 5090での推論時間は、エンコードから30ステップのロールアウト、プローブ評価まで含めて接触前の余裕時間（0.5秒）に余裕で収まり、制御ループを遅延させずに実行可能であることが確認されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "実験で評価された4つの接触タスク（カップ、箱、鉛筆、タオル）です。中央カメラから見た把持前、把持時、把持後の成功例が示されています。",
+     "caption": "Figure 3: Evaluated tasks. Each panel shows a representative successful rollout from the middle camera, with columns showing the pre-grasp, grasp, and post-grasp phases.",
+     "image": "details/2608.13438/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "ピック＆プレースタスクにおける実機ロボットでの定性的な動作例です。上段が手先カメラ、下段が中央カメラの映像で、接触直前のわずかなアプローチのズレを正しく捉えて成否を識別できています。",
+     "caption": "Figure 4: Real-robot qualitative examples on the pick-and-place tasks. Each panel shows a live rollout that our monitor classifies correctly: top row is the grasping arm’s wrist camera, bottom row the middle-view camera, with columns showing the pre-grasp, grasp, and post-grasp frames.",
+     "image": "details/2608.13438/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusions, Limitations, and Future Work",
+   "heading_ja": "まとめと今後の展望：失敗を止めたその先へ",
+   "summary_ja": "ContactGuardは、方策を変更することなく接触前の失敗を高い精度で阻止できる実用的な監視システムであることを示しました。一方で、中断後の自律的な復旧（リカバリ）や、より長期的なタスクへの拡張が今後の課題です。",
+   "details_ja": "本研究により、行動条件付きの潜在ワールドモデルが、単なるプランニングや表現学習の道具にとどまらず、「接触前の拒否権を持つ監視役」として極めて有効に機能することが示されました。\n\n本手法の限界（Limitations）として、失敗を予測して動作を安全に「棄権（アボート）」することはできますが、中断した後に自力で復旧してタスクを完遂する機能は持っていません。また、今回の実装はグリッパ閉鎖という単一のイベントに焦点を当てており、次の行動チャンク内で完結する短期的な接触にターゲットを絞っています。\n\n今後の展望（Future work）としては、中断した後に物体やシーンを壊していないきれいな状態から再計画を行うリカバリ機構の実装や、Diffusion PolicyやFlow Matching方策のように複数の行動候補を生成できるモデルと組み合わせて、安全な行動を選択し直す枠組みへの統合が期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix A-C",
+   "heading_ja": "付録：モデルの詳細設定と直接分類器（Direct baseline）の限界",
+   "summary_ja": "ViT-TinyやTransformerの詳細パラメータ、および現在状態と行動から直接MLPで成否を予測しようとした場合の比較実験がまとめられています。表現力の高いMLPを用いても過学習し、潜在ロールアウトの有効性が改めて裏付けられています。",
+   "details_ja": "付録では、実装の詳細と追加検証の結果が報告されています。\n\n- 実装詳細（Appendix A）：\n入力画像は $224 \\times 224$ にリサイズされ、ViT-Tiny（パッチサイズ16）で処理されます。潜在次元 $D=192$、コンテキスト長 $C=3$、学習時のロールアウト長 $L=5$、テスト時のロールアウト長 $K=30$ です。学習にはAdamWを用い、学習率 $5 \\times 10^{-5}$、SIGRegの重み $\\lambda=0.09$ で100エポック訓練されています。\n\n- 非線形Directベースラインとの比較（Appendix B）：\n「潜在ダイナミクスをロールアウトせず、アンカー時の潜在表現 $z_t$ と行動チャンク $a$ を直接MLPに入力して分類すれば十分ではないか？」という疑問を検証するため、隠れ層やドロップアウト率を変えた多層パーセプトロン（MLP）を広範にハイパーパラメータ探索しました。しかし結果は芳しくなく、テストAUCは不安定でContactGuardに遠く及びませんでした。少量のラベル付きデータしかない場合、$(z_t, a)$ から成否への直接マッピングを学習しようとすると過学習しやすく、事前に自己教師あり学習したワールドモデルで未来状態をシミュレーションした上で線形分類する方が圧倒的に汎化しやすいことが分かります。\n\n- 各タスクの動作点（Appendix C）：\n実機デプロイ時の混同行列やフォールス・アボート率（誤って中断してしまった割合）の詳細が記載されています。カップ把持は誤判定が非常に少ない一方で、タオルは失敗をほぼ確実に捉える代わりに誤中断がやや多く、鉛筆は逆に成功を邪魔しない代わりに微小な失敗を見逃しやすいなど、対象物の幾何学的特性に応じたトレードオフの傾向が示されています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "接触を伴うマニピュレーションでは、接触後のリカバリよりも「接触直前の行動チャンクをシミュレーションして事前に止める」方がはるかに扱いやすい。",
+  "ピクセル動画を生成しなくても、JEPA型のコンパクトな潜在空間（192次元程度）のダイナミクス予測だけで、把持の成否を分ける幾何学的相互作用を十分に表現できる。",
+  "「現在の観測＋行動」から直接成否を予測するMLPは少量データで過学習しやすいため、大規模なラベルなし軌道で事前学習した潜在ワールドモデルを通して未来をロールアウトする設計が極めて有効である。",
+  "方策の内部構造に干渉せず、出力された行動チャンクを外付けで検証するアーキテクチャにすることで、既存のあらゆる行動チャンキング方策に後付けで安全装置を組み込める。"
+ ],
+ "limitations_ja": [
+  "動作を中断（アボート）して環境の破壊を防ぐことはできるが、中断した後にどう復旧してタスクを完了させるかというリカバリ機能は備わっていない。",
+  "グリッパ閉鎖などの単一の接触イベントにトリガーを依存しており、長時間のタスク全体をカバーするには階層的または繰り返し実行するトリガー設計が必要になる。",
+  "ロボットの固有感覚（関節角度やトルク）を単純に追加すると、少量データ環境下では視覚的な相互作用予測を阻害し、かえって性能が低下してしまう場合がある。"
+ ],
+ "keywords": [
+  "World Models",
+  "Visuomotor Policies",
+  "Execution Monitoring",
+  "Pre-Contact Verification",
+  "JEPA",
+  "Action Chunking"
+ ],
+ "id": "2608.13438",
+ "title": "ContactGuard: Pre-Contact Execution Monitoring with Action-Conditioned Latent World Models",
+ "title_ja": "ContactGuard: 行動条件付き潜在ワールドモデルによる接触前実行モニタリング",
+ "authors": [
+  "Gehan Zheng",
+  "Matthew Johnson-Roberson",
+  "Weiming Zhi"
+ ],
+ "date": "2026-08-14",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "world-model",
+  "safety"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.13438",
+ "pdf_url": "https://arxiv.org/pdf/2608.13438",
+ "summary_ja": "接触リッチな操作において、ロボットが実際に接触する前に失敗を予測・検知するモニタリング手法を提案。ラベルなしロボット軌道から学習した潜在ワールドモデルを用い、方策が計画した行動チャンクの短期的な視覚的結末を予測して失敗の恐れがある場合に動作を中断する。手先カメラ環境下での押し倒しや滑りなどの接触失敗を未然に防止する。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.13438"
+}
