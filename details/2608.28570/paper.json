@@ -1,0 +1,162 @@
+{
+ "tldr_ja": "ロープやケーブルのような線状柔軟物（DLO）を回転関節の開リンク機構としてモデル化し、マルチビューRGB動画のみから3次元形状・外観・運動学・動力学パラメータを一気通貫で学習する手法「ChainSplat」を提案しました。低次元かつ物理整合性のある表現により、高精度な挙動予測とレンダリングを実現し、リアルタイム状態推定や目標衝突タスクの軌道最適化にも成功しています。",
+ "hero_figure": {
+  "key": "F4",
+  "caption_ja": "ChainSplatの核となる4つの構成要素を示しています。リンクごとの所属確率を持つ3次元ガウシアン（Link-aware Gaussians）、回転関節を定義するスクリュー軸とばね・ダンパ特性（Screw joints）、リンクの慣性・摩擦パラメータ（Link inertial parameters）、そしてこれらを駆動する関節変数（Joint configuration）で構成されます。",
+  "caption": "Fig. 4: Core components of ChainSplat . ( Link-aware Gaussians ) Each Gaussian $\\mathcal{H}_{i}$ consists of the Gaussian parameters used in Gaussian splatting [ 33 ] , along with a link probability $\\bm{\\rho}_{i}$ that represents the likelihood of belonging to each link. ( Screw joints ) Each screw joint $\\mathcal{S}_{j}$ consists of a screw axis $\\bm{S}_{j}$ representing a revolute joint together with the joint spring stiffness $\\kappa_{j}$ and damping coefficient $d_{j}$ . The screw joints ar",
+  "image": "details/2608.28570/F4.jpg"
+ },
+ "overview_ja": "ケーブルやロープなどの線状柔軟物（DLO: Deformable Linear Object）は、ロボットによる精密なマニピュレーションが極めて難しい対象です。形状の自由度（コンフィギュレーション空間）が膨大であるうえ、未知の剛性や摩擦などの物性が複雑に絡み合うためです。近年は動画像から物理デジタルツインを作る研究が盛んですが、既存手法は2次元トラッキングと深度画像から数万点の3次元粒子を復元する多段パイプラインに頼っており、高速動作時の深度ノイズに弱く、状態次元が高すぎて制御や状態推定のリアルタイム実行が困難でした。\n\nそこで著者らは、ロボット工学で古くから親しまれている「スクリュー理論に基づく開リンク機構」の物理モデルに着目しました。DLOを剛体リンクが回転関節で直列に繋がったシリアルリンク系とみなすことで、系の状態をわずか数個〜十数個の関節角ベクトルという超低次元に圧縮します。さらに、各リンクに所属確率を持つ3次元ガウシアン（3D Gaussian Splatting）を結びつけることで、純粋なマルチビューRGB動画から外観・形状・運動学・動力学を微分可能に同時推定できる枠組み「ChainSplat」を構築しました。\n\n実機のヒューマノイドロボットアームを用いた検証では、卓上摩擦環境と空中重力環境の双方で、従来の粒子ベース物理デジタルツイン手法（PhysTwinやPGND）を有意に上回る挙動予測精度とレンダリング品質を達成しました。さらに、微分可能な動力学を活かした目標打撃タスクの勾配法による軌道最適化、および単眼カメラからのリアルタイム状態推定や接触力推定まで実機で実証しています。",
+ "contributions_ja": [
+  "DLOをスクリュー理論に基づく開リンク機構として数理モデル化し、3D Gaussian Splattingと統合してRGB動画のみから幾何・外観・動力学を統一的に記述する表現を提案した点",
+  "リンク所属確率の複製と非同期リセットを用いた微分可能レンダリングによる運動学推定と、陰的オイラー法を用いた動力学同定の2段階最適化パイプラインを構築した点",
+  "獲得した低次元かつ微分可能な物理モデルを活用し、RGB動画からのリアルタイム状態・外力推定や、動的マニピュレーションの勾配ベース軌道最適化を実機実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "線状柔軟物をどうモデル化するか：粒子の群れから機構学へのパラダイムシフト",
+   "summary_ja": "DLOのダイナミクス学習には「精度の高い3D幾何・外観の獲得」と「制御に適したコンパクトな状態表現」の両立が不可欠です。本章では、既存の粒子ベース手法が抱える計算負荷や深度依存の課題を指摘し、スクリュー理論に基づく開リンク機構とGaussian Splattingを融合したChainSplatの着想を述べています。",
+   "details_ja": "ケーブルやホースといった線状柔軟物（DLO）は、日常環境や産業現場に遍在していますが、その正確な操作は容易ではありません。高次元な変形空間を持ち、素材の物理特性も事前には分からないためです。\n\n近年、動画像から柔軟物のデジタルツインを構築する研究が進んでいます。しかし、先行手法（PhysTwinなど）の多くは、2Dトラッキング結果を深度画像で逆投影して大量の3次元粒子（パーティクル）を作り、その粒子の動きをスキン変形させてRGB画像をレンダリングするという多段パイプラインを採用しています。このアプローチには致命的な弱点が2つあります。\n- 1つ目は「深度画像への依存」です。高速・動的な相互作用では深度センサのノイズが激しく、パイプライン全体に誤差が蓄積してしまいます。\n- 2つ目は「状態次元の爆発」です。数千〜数万の粒子を状態空間として保持するため、シミュレーションが重く、モデル予測制御や実時間フィルタリングが計算量的に破綻してしまいます。\n\nそこで本研究が提案するのが「ChainSplat」です。DLOを複数の剛体リンクが回転関節で直列に連なった「開リンク機構（Open-chain system）」として扱います。幾何と外観は各リンクに紐づいた3次元ガウシアン群で表現し、運動学と動力学はロボット工学のスクリュー理論（Screw Theory）を用いて厳密に解析モデル化します。これにより、系の状態変数を関節角ベクトル $\\bm{\\theta}$ のみという極めてコンパクトな次元に抑えつつ、マルチビューRGB動画のみから幾何・外観・物理パラメータを端から端まで微分可能に同定できるようにしました。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Works",
+   "heading_ja": "ニューラル動力学と物理誘導型モデル：これまでの到達点と限界",
+   "summary_ja": "柔軟物の挙動予測手法は、純粋なニューラルネット系と物理法則を組み込む物理誘導型系に大別されます。本章では、双方の変遷を整理し、幾何・外観の再構成と制御向きの低次元物理モデルを同時に達成するChainSplatの立ち位置を明確にしています。",
+   "details_ja": "DLOの挙動予測に関する研究は、表現の進化とともに発展してきました。\n\n### II-A 線状柔軟物のニューラル動力学モデル\n初期にはCNNを用いて画像空間上で直接変形を予測する手法がありましたが、近年は物体をグラフや点群として捉える手法が主流です。GNN（Graph Neural Networks）を用いて粒子間の相互作用を伝搬させるモデルや、Transformerを用いて長時間の変形を捉える手法、DLOのセグメント端点の座標を双方向LSTMで追従する手法などが提案されてきました。しかし、これらデータ駆動型のニューラルモデルは物理的な保存則や幾何拘束を明示的に満たさないため、学習データに現れなかった新しいロボットの動作に対して過学習しやすく、汎化性能に限界がありました。\n\n### II-B 物理誘導型動力学モデル\n物理法則を帰納バイアス（Inductive Bias）として埋め込むアプローチとして、離散弾性ロッド（DER）や擬似剛体系（PRB）に基づく手法が提案されてきました。PRBはDLOを関節機構としてモデル化するため低次元で制御向きですが、これらは動力学の同定に特化しており、動画像からの外観や3D幾何形状の同時復元は対象外でした。\n\n一方、近年のPhysTwinやPGND、EMPMなどは、相互作用動画から3D Gaussian Splattingを用いて見た目まで再現可能なデジタルツインを構築できます。しかし、これらは前述の通り数千の3D粒子を基本単位とし、深度カメラによる追従や多段階の処理を必要とするため、制御への適用が極めて困難でした。ChainSplatは、PRBのような機構学ベースのコンパクトな低次元物理モデルと、Gaussian Splattingによる高精細レンダリングを統合することで、この溝を埋める位置づけにあります。",
+   "figures": []
+  },
+  {
+   "heading": "III Preliminaries",
+   "heading_ja": "道具立て：スクリュー理論、開リンク動力学、3D Gaussian Splatting",
+   "summary_ja": "提案手法の数学的基礎となる3つの要素を解説しています。SE(3)上のリー群・スクリュー理論を用いた順運動学、再帰的ニュートン・オイラー法に基づくマニピュレータ動力学方程式、そして3D Gaussian Splattingによる微分可能レンダリングの定式化を整理しています。",
+   "details_ja": "本手法を支える数学的枠組みは、ロボット機構学と近年のコンピュータビジョンの融合です。\n\n### III-A 開リンク系の運動学とスクリュー理論\n剛体の位置姿勢を3次元特殊ユークリッド群 $\\text{SE}(3)$ で表現します。そのリー代数 $\\mathfrak{se}(3)$ の元はツイスト（Twist） $\\bm{S}=(\\bm{\\omega},\\bm{v})$ と呼ばれ、回転軸 $\\bm{\\omega}$ と並進成分 $\\bm{v}$ を持ちます。スクリュー理論を用いると、関節変位 $\\theta$ による剛体姿勢の変換は行列指数関数 $e^{[\\bm{S}]\\theta}$ という閉形式で綺麗に記述できます。直列に並んだ $n$ 個の関節からなる開リンク系の順運動学は、指数積の公式（Product of Exponentials: PoE）によって次のように表現されます。\n\n$$\\bm{T}(\\bm{\\theta}) = e^{[\\bm{S}_1]\\theta_1} \\cdots e^{[\\bm{S}_n]\\theta_n} \\bm{T}(\\bm{0})$$\n\n### III-B 開リンク系の動力学\n各リンクの運動方程式は、アジョイント写像 $\\text{Ad}_{\\bm{T}}$ および微小アジョイント写像 $\\text{ad}_{\\bm{S}}$ を介して定式化されます。空間速度や作用力（レンチ $\\bm{F}\\in\\mathfrak{se}(3)^*$）をリンク間で伝搬させる「再帰的ニュートン・オイラー法（Recursive Newton-Euler Algorithm）」を適用することで、慣性行列 $\\bm{M}(\\bm{\\theta})$、コリオリ・遠心力項 $\\bm{C}(\\bm{\\theta},\\dot{\\bm{\\theta}})$、重力項 $\\bm{g}(\\bm{\\theta})$ を含む標準的なマニピュレータ運動方程式（式 19）が閉形式で導出されます。\n\n### III-C 3D Gaussian Splatting\nシーンを空間位置 $\\bm{\\mu}$、回転 $\\bm{R}$、異方性スケール $\\bm{s}$、不透明度 $\\sigma$、球面調和関数で表される色 $\\bm{c}$ を持つガウシアンの集合としてモデル化します。視線方向にソートしたガウシアンをアルファブレンディングで重畳することで、完全に微分可能な形でRGB画像をレンダリングできます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "スクリュー運動と開リンク系の順運動学の概念図です。左側では1つのスクリュー軸まわりの回転変換を行列指数関数で表し、右側ではそれを直列に合成して末端リンクの姿勢を指数積の公式で計算する流れを示しています。",
+     "caption": "Fig. 2: Illustration of screw motion and forward kinematics of an open-chain system. ( Screw motion ) Given a screw axis $\\bm{S}$ and a joint displacement $\\theta$ , the blue ellipsoid with pose $\\bm{T}$ is transformed by the matrix exponential. ( Forward kinematics of open-chain ) The pose $\\bm{T}$ of the blue ellipsoid transformed by the last screw motion is given by $e^{[\\bm{S}_{3}]\\theta_{3}}\\bm{T}$ . Considering the preceding screw motion similarly introduces another matrix exponential on t",
+     "image": "details/2608.28570/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "リンク座標系と再帰的ニュートン・オイラー法の処理フローです。ベースから先端へ速度・加速度を前向きに伝搬し（順方向）、先端からベースへ力とモーメントを逆向きに伝搬して（逆方向）関節トルクを計算します。",
+     "caption": "Fig. 3: Illustration of link coordinate frames and recursive Newton–Euler algorithm. ( Link coordinate frames ) Each link frame $\\{i\\}$ is attached to the joint $i$ , while the base frame $\\{0\\}$ and the end-effector frame $\\{n+1\\}$ (here, $n=3$ ) are attached to the fixed base and the end-effector, respectively. ( Newton–Euler algorithm ) The forward iteration ( 15 )–( 16 ) and backward iteration ( 17 )–( 18 ) are expressed in frames $\\{i+1\\}$ and $\\{i\\}$ (here, $i=2$ ), respectively.",
+     "image": "details/2608.28570/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV ChainSplat: Integrating Lie Group Dynamics with 3D Gaussians",
+   "heading_ja": "ChainSplatの数理：関節構造にガウシアンを宿らせる",
+   "summary_ja": "ロボットに把持されたDLOを記述するChainSplatのモデル構造を定義します。リンク所属確率を持つガウシアン群の設計、滑らかな最適化を可能にするガウシアンの複製レンダリング手法、そしてベース把持移動・粘性摩擦・ばねダンパを組み込んだ運動方程式を解説します。",
+   "details_ja": "ロボットがDLOの基端を把持して操作する設定を考えます。基端リンクはロボット手先軌道 $\\bm{T}_b(t)$ に追従して動きます。\n\n### IV-A ChainSplatの構成要素\nChainSplatは4つの主要素から成り立ちます（図 F4）。\n- **スクリュー関節 $\\mathcal{S}_j$**: 回転軸 $\\bm{S}_j$ と、受動的なねじればね剛性 $\\kappa_j$、減衰係数 $d_j$ を持ちます。\n- **リンク慣性パラメータ $\\mathcal{M}_j$**: リンク質量 $m_j$、回転慣性行列 $\\bm{I}_j$、および床面との摩擦係数 $\\mu_j$ です。\n- **リンク認識ガウシアン $\\mathcal{H}_i$**: 通常のガウシアンパラメータに加え、どのリンクに属しているかを表す確率分布 $\\bm{\\rho}_i \\in \\Delta^{n_s}$ を保持します。\n- **関節コンフィギュレーション $\\bm{\\theta}_k$**: 時刻 $k$ におけるDLOの変形状態を表す関節角ベクトルです。\n\n### IV-B 微分可能なRGBレンダリング\n各ガウシアンを最も確率の高いリンクに直接割り当てる（ハード割り当て）と、確率 $\\bm{\\rho}_i$ に関して微分不可能になり、局所解に陥ります。そこで本手法では、1つのガウシアン $\\mathcal{H}_i$ を各リンクに対応する $(n_s+1)$ 個のガウシアン $\\mathcal{G}_{ij}$ に複製します（図 F5）。各複製ガウシアンはリンク $j$ の運動学変換に従って移動し、その不透明度は所属確率 $\\rho_{ij}$ で重み付けされます。これにより、画像レンダリング損失から関節角 $\\bm{\\theta}_k$ や所属確率 $\\bm{\\rho}_i$ への勾配が滑らかに伝播します。\n\n### IV-C 動力学モデルの拡張\nロボット把持による基端の加速度 $\\dot{\\bm{V}}_b$ を取り込むため、前向き伝搬の初期値を $\\dot{\\bm{V}}_0 = (\\bm{0}, -\\bm{g}) + \\dot{\\bm{V}}_b$ に設定します。また、各関節には受動トルク $\\tau_j = -\\kappa_j\\theta_j - d_j\\dot{\\theta}_j$ を付与し、卓上操作時の接触にはリンクごとの並進粘性摩擦項 $\\bm{\\mu}_i\\bm{V}_i$ を組み込みます。これらを統合し、基端運動との動的連成項 $\\bm{M}_0, \\bm{C}_0$ を含む閉形式の運動方程式（式 40）を導出しました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "リンク認識ガウシアンの複製機構を示しています。1つのガウシアンが各リンクの運動学に従って異なる位置へ変換され、それぞれの不透明度が所属確率 $\\rho_{ij}$ でスケーリングされることで、微分可能なレンダリングと滑らかな最適化が可能になります。",
+     "caption": "Fig. 5: Replicated Gaussian primitives derived from $\\mathcal{H}_{i}$ . For the base link, the blue Gaussian ellipsoid is transformed as $\\bm{T}_{b}(k)\\bm{T}_{i}$ . For the first link, the Gaussian is additionally transformed by the first screw motion. For each subsequent link, the Gaussian is transformed according to the product-of-exponentials (PoE) formula.",
+     "image": "details/2608.28570/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Optimizing the Parameters of ChainSplat from Multi-view RGB Videos",
+   "heading_ja": "2段階の最適化フレームワーク：幾何復元から物理同定へ",
+   "summary_ja": "マルチビューRGB動画からChainSplatの全パラメータを学習する2段階の最適化手順を詳解します。前半で幾何形状・外観・関節角軌道をエンドツーエンドで推定し、後半で陰的オイラー積分を用いて質量や減衰係数などの物理パラメータを同定します。",
+   "details_ja": "幾何形状・運動学・動力学を一度に最適化すると解が発散しやすいため、本手法では完全に微分可能な2段階アプローチを採ります。\n\n### V-A 運動学を考慮した幾何認識（第1段階）\nまず、RGB動画から幾何・外観・関節軌道を復元します。スクリュー軸 $\\bm{S}_j$ については、全パラメータと同時に自由最適化すると物理的にあり得ない関節配置に陥る現象が確認されたため、同一方向を向くように等間隔に配置して固定する幾何学的拘束を導入しています（平面的な変形を扱うタスクにおいて非常に安定します）。\n\n最適化では、SAM（Segment Anything Model）でマスクしたRGB画像とのレンダリング誤差（式 31）を最小化します。学習中の局所解を防ぐため、通常の3DGSで行われる不透明度リセットに加え、「リンク所属確率 $\\bm{\\rho}_i$ の周期的リセット」を導入しました。この2つのリセットを非同期スケジュールで実行することで、ガウシアンが適切なリンクへと綺麗に分離されます。この段階の副産物として、全時刻の関節角軌道 $\\bm{\\theta}_k$ が得られます。\n\n### V-B 動力学パラメータの同定（第2段階）\n第1段階で得られた関節角軌道 $\\bm{\\theta}_k$ を教師データとし、シミュレーション結果 $\\hat{\\bm{\\theta}}_k$ との二乗誤差（式 51）を最小化するように、減衰係数 $d_j$、リンク質量 $m_j$、摩擦係数 $\\mu_j$ を同定します。\n\nシミュレーションの数値積分において、30Hz程度の粗い時間刻みで陽的オイラー法を用いると速度依存項（ダンパや摩擦）で数値的不安定性が発生します。そこで本研究では「陰的オイラー法（速度に関する一次テイラー展開）」を採用しました。特筆すべき点として、ChainSplatの定式化では加速度の速度ヤコビアン $\\partial a(\\dot{\\bm{\\theta}})/\\partial\\dot{\\bm{\\theta}}$ が閉形式（式 48）で厳密に計算できるため、数値微分を行わずに極めて高速かつ安定な陰的シミュレーションが可能です。",
+   "figures": []
+  },
+  {
+   "heading": "VI Model-based Manipulation with ChainSplat",
+   "heading_ja": "学習モデルを操る：軌道最適化・実時間状態推定・外力推定",
+   "summary_ja": "学習されたChainSplatを活用した応用展開を述べます。微分可能性を活かした目標打撃タスクの勾配ベース軌道最適化、単眼RGBカメラからの高速な関節角推定、および接触ヤコビアンを用いた人間の介入による外力推定の数理を示します。",
+   "details_ja": "獲得したモデルの「低次元性」と「微分可能なレンダリング能」を活用し、実用的な3つの機能を構築しました。\n\n### VI-A モデルベース軌道最適化\nDLOの先端などを空間上の目標点 $\\bm{p}_d$ に衝突させる動的タスク（図 F6）を対象とします。手先の1次元軌道を動的運動プリミティブに似たガウス動径基底関数（RBF）でパラメータ化し、その重み係数 $\\bm{w}$ を最適化します。\n- **卓上環境**: 最終時刻においてDLO上のいずれかの点が目標点に到達し、滑らかに静止するコスト関数（式 55）を設計しました。\n- **空中環境**: 重力による激しい揺動を利用し、軌道中のいずれかの時刻でDLO先端が目標点を通過するコスト関数（式 56）を設計しました。\n\nChainSplatは閉形式の動力学を持ち全系が微分可能であるため、勾配降下法によって高速に最適軌道を探索できます。\n\n### VI-B 単眼RGB画像からの実時間状態推定\n学習時はマルチビューカメラを用いましたが、推論時の状態推定は単眼RGBカメラ1台で実行可能です。新しく取得した画像と現在のChainSplatレンダリング画像との差を最小化するように、勾配法で関節角 $\\bm{\\theta}$ を更新します（式 57）。直前のフレームの推定値を初期値として使うことで、わずか数回の反復で高速に収束します。\n\n### VI-C 外力推定\n人間がDLOを手で押したり引っ張ったりした際の接触力を、力覚センサなしで推定します。手先の静止・準静的変形を仮定すると、関節トルクの釣り合いは $\\bm{J}^T \\bm{F}_{\\text{ext}} = \\bm{K}\\bm{\\theta} + \\bm{g}(\\bm{\\theta})$ と表せます。リアルタイム推定された関節角と、画像から検出した接触位置に対応する接触ヤコビアン $\\bm{J}$ の擬似逆行列を用いることで、外力ベクトル $\\bm{f}_{\\text{ext}}$（式 59）を解析的に逆算できます。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "目標打撃マニピュレーションタスクにおける目的関数の説明図です。左側はChainSplatから抽出した点群モデル、右側は目標点 $\\bm{p}_d$ に対し、卓上では物体全体、空中では先端点群が到達するように最適化する枠組みを示しています。",
+     "caption": "Fig. 6: Illustration of the objective function for the hitting-target manipulation task. ( Left ) A differentiable point-cloud function with part assignments represents the 3D shape of the DLO obtained from ChainSplat . ( Right ) The objective is to hit the target point with any point of the DLO point cloud for tabletop scenarios and with the tip point cloud (i.e., points belonging to the last link) for free-space scenarios.",
+     "image": "details/2608.28570/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VII Experiments",
+   "heading_ja": "実機実験と定量的検証：挙動予測から打撃タスクまで",
+   "summary_ja": "ヒューマノイドロボットを用いた実環境で、3種類の長さのロープを対象に評価を行いました。既存手法（PGND、PhysTwin）との比較で挙動予測・外観レンダリング精度の双方でSOTAを記録し、単眼での状態・外力推定や打撃操作（誤差1cm未満）の実証結果を報告しています。",
+   "details_ja": "### VII-A 実験設定\nRB-Y1ヒューマノイドロボットの左腕（平行グリッパ）と、3台のRealSense D435カメラを使用しました（図 F7）。対象物として長さ20cm、30cm、40cmのロープ（太さ2cm）を用い、卓上（摩擦支配）と空中（重力支配）の2環境で検証しました。比較ベースラインは、MPMベースのPGNDと、質量ばねモデルに基づくPhysTwin（3D復元モジュール有無の2種）です。\n\n### VII-B 挙動予測とデジタルツインモデリングの精度\n予測されたロープ状態の幾何精度（Chamfer Distance: CD、IoU）とレンダリング外観（PSNR、SSIM、LPIPS）で評価しました。\n- **卓上環境（図 F8、表 I）**: ChainSplatは外観指標でベースラインを大きく引き離しました。幾何精度（CD）でも、深度入力を直接使っているPhysTwinと同等の数値を、RGB動画のみから達成しています。\n- **空中環境（図 F9、表 II）**: 重力が支配的な環境では、ChainSplatの優位性がさらに顕著になりました。全指標・全ロープ長においてベースラインを圧倒しています。PGNDは重力下での動的挙動の予測に完全に失敗し、PhysTwinも追従誤差が大きくなりました。\n- **計算効率（表 III）**: 1軌道の学習時間はChainSplatが17.6分（幾何9.2分＋動力学8.4分）と最も短く、推論速度も物理シミュレーション・RGB描画ともに最速を記録しました。\n\n### VII-C 状態推定と外力推定の評価\n人間がロープに触れるシーンにおいて、単眼RGBカメラ入力からSAM2によるセグメンテーション（5〜6Hz）と勾配ベース最適化（10反復、2〜3Hz）を組み合わせ、良好に追従することを確認しました。また、重力や床面摩擦を考慮した外力ベクトルが物理的に妥当な方向・大きさで推定できることを示しました。\n\n### VII-D 実機マニピュレーション結果\n最適化された手先軌道を用いて目標打撃タスクを検証しました（図 F12）。興味深いことに、最適化された軌道は物理特性を反映しており、20cmロープでは小さく素早い動き、40cmロープでは固有振動数の低さに応じた大きくゆったりとした振り子運動が自動的に生成されました。動力学同定を行わない初期値のままのモデル（ChainSplat w/o dyn）では目標から大きく外れたのに対し、最適化済みChainSplatは平均1cm未満の誤差で高精度にターゲットを打撃できました（表 IV）。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "実機実験のセットアップです。ヒューマノイドロボットRB-Y1のグリッパでロープを把持し、3台のRealSenseカメラでマルチビュー撮影を行っています。左が卓上環境、右が空中環境です。",
+     "caption": "Fig. 7: Real-world experimental setup for the tabletop and free-space scenarios.",
+     "image": "details/2608.28570/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "卓上環境における各手法のダイナミクス予測（ロールアウト）の比較です。PGNDは時間経過とともに把持部の運動すら外れ、PhysTwinもある程度の形状崩れが見られますが、ChainSplatは最も正確に正解動画を追従しています。",
+     "caption": "Fig. 8: ChainSplat dynamics rollouts for three DLOs in tabletop scenarios, compared with PGND and PhysTwin w/o 3D. We visualize the ground-truth interaction video and RGB renderings of the dynamics rollout from each approach. Snapshots are shown at $t\\in\\{0.1,0.7,2.1,3.5\\},\\text{s}$ for the $20$ cm DLO, $t\\in\\{0.1,0.4,1.3,1.7\\},\\text{s}$ for the $30$ cm DLO, and $t\\in\\{0.1,0.7,1.9,3.0\\},\\text{s}$ for the $40$ cm DLO. For intuitive comparison, we overlay a gripper mesh on each rendered image base",
+     "image": "details/2608.28570/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VIII Discussions and Future Extensions",
+   "heading_ja": "考察と今後の展望：エンドツーエンド化と適応制御への道",
+   "summary_ja": "現在の2段階最適化が抱える構造的バイアスの課題を挙げ、運動学と動力学を完全統合する真のエンドツーエンド学習の可能性を議論しています。また、多様な物体へ適応するための励起軌道設計や、オンライン適応制御・閉ループ化への拡張性を展望しています。",
+   "details_ja": "本研究の成果を踏まえ、著者らはさらなる発展に向けた3つの方向性を提示しています。\n\n### VIII-1 完全エンドツーエンド最適化への拡張\n現状の2段階アプローチでは、第1段階（幾何・運動学）で生じた推定誤差や偏りが第2段階（動力学同定）にそのまま伝播してしまいます。運動学パラメータ（スクリュー軸の配置など）と動力学パラメータを同一の最適化ループで同時に解く統合キノダイナミクス学習が実現すれば、幾何の冗長性を排除し、より高精度な同定が可能になります。\n\n### VIII-2 多様な対象への汎化と最適励起軌道\nあらゆる素材や長さのDLOに対応するためには、大量のデータを集めるだけでなく、ロボット制御工学で培われた「最適励起軌道（Optimal Excitation Trajectory）」の導入が有効です。システムのダイナミクス同定に最も情報量の多い手先運動を情報理論的に自動設計することで、極めて少ないデータ収集から高精度なモデルを得られると期待されます。また、操作中に物理パラメータを逐次更新する適応制御との統合も有望です。\n\n### VIII-3 実時間閉ループ・反応型制御\n現状のマニピュレーションは開ループの軌道最適化にとどまっていますが、ChainSplatの超低次元な状態空間と高速な状態推定器を組み合わせることで、動的な障害物回避や外乱に対応できる高速なモデル予測制御（MPC）や、シミュレータ上で強化学習した方策の実機ゼロショット展開（Sim-to-Real）への道が拓かれます。",
+   "figures": []
+  },
+  {
+   "heading": "IX Conclusion",
+   "heading_ja": "まとめ：幾何と機構学の融合がもたらしたブレークスルー",
+   "summary_ja": "スクリュー理論に基づく開リンクモデルと3D Gaussian Splattingを融合し、RGB動画のみからDLOの幾何・外観・動力学を統一的に学習する「ChainSplat」を総括しています。低次元物理モデルがもたらす高い制御性と汎用性により、柔軟物操作の新たな基盤となることが期待されます。",
+   "details_ja": "本論文では、線状柔軟物（DLO）を回転関節の開リンク構造としてモデル化し、3D Gaussian Splattingとスクリュー理論を融合させた物理誘導型フレームワーク「ChainSplat」を提案しました。\n\n従来の粒子ベース手法のように高コストでノイズに弱い深度画像や多段階処理に頼ることなく、純粋なマルチビューRGB動画からDLOの3次元幾何形状、フォトリアルな外観、運動学、動力学パラメータを一気通貫で復元することに成功しました。これにより、挙動予測と描画品質の両面でSOTAを達成しただけでなく、わずか数次元の関節変数からなるコンパクトな状態表現を獲得しました。\n\nその結果、単眼RGBカメラからの準実時間での状態・接触力推定や、勾配降下法による動的マニピュレーション軌道の高速な最適化が実機で可能であることを実証しました。ロボット機構学の古典的で強固な数理モデルと、近年の微分可能レンダリング技術の融合が、柔軟物マニピュレーションにおける強力なブレークスルーとなることを明確に示した一端と言えます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "柔軟物をあえて「回転関節の開リンク機構」として大胆に割り切ることで、状態次元を劇的に圧縮し、厳密な解析的動力学シミュレーションと勾配ベース制御が可能になる。",
+  "Gaussian Splattingのガウシアンを関節リンクごとに複製して確率で重み付けする手法（ScrewSplat系の発想）は、不連続な割り当て問題を滑らかな微分可能最適化に落とし込む強力なパターンである。",
+  "物理シミュレーションをレンダリング損失に組み込む際、閉形式の速度ヤコビアンを導出して「速度に関する陰的オイラー法」を適用することで、粗いサンプリング間隔でも発散しない安定な同定が実現する。"
+ ],
+ "limitations_ja": [
+  "スクリュー軸を同一直線上・同一方向に固定する幾何拘束を設けているため、3次元空間で複雑にねじれたり絡まったりする大変形にはそのままでは対応できない。",
+  "弾性変形が無視できるロープやケーブルを前提にばね剛性 $\\kappa_j=0$ としており、曲げ弾性が支配的な硬いホースや金属ワイヤなどの弾性回復挙動は扱われていない。",
+  "幾何推定と動力学同定が2段階に分かれているため、幾何・運動学認識側で生じた系統誤差を動力学の同定側で修正することができない。"
+ ],
+ "keywords": [
+  "Deformable Linear Objects (DLO)",
+  "Screw Theory",
+  "3D Gaussian Splatting",
+  "Physics-Inspired Dynamics",
+  "Model-Based Manipulation",
+  "Digital Twin"
+ ],
+ "id": "2608.28570",
+ "title": "ChainSplat: A Physics-Inspired Screw-Theoretic Model for Learning Deformable Linear Object Dynamics from Multi-View RGB Videos",
+ "title_ja": "ChainSplat：多視点RGB動画からの線状柔軟物体ダイナミクス学習のためのスクリュー理論に基づく物理モデル",
+ "authors": [
+  "Seungyeon Kim",
+  "No\\'emie Jaquier"
+ ],
+ "date": "2026-08-31",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "perception",
+  "simulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.28570",
+ "pdf_url": "https://arxiv.org/pdf/2608.28570",
+ "summary_ja": "ケーブルやロープ等の線状柔軟物体（DLO）の3D幾何、外観、運動学、動力学を多視点RGB動画から同時に学習する物理統合型フレームワークを提案。スクリュー理論に基づく低次元状態表現により、モデルベース制御における計算効率と追従性を大幅に向上させた。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.28570"
+}
