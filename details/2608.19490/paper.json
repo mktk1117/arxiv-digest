@@ -1,0 +1,163 @@
+{
+ "tldr_ja": "事前学習済みVLAモデルを新しいロボットへ適応する際、ゼロショット方策自身の失敗を含むオンライン動作軌跡（自己実演データ）を少量のエキスパートデータと混ぜてファインチューニングすることで、事前学習データの再収集なしに指示追従性や既存スキルの忘却を劇的に防げることを実機とシミュレーションで示しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "ゼロショット（左）、通常のエキスパートのみでのファインチューニング（中央）、提案手法（右）の比較です。エキスパートデータのみだと指示追従の崩壊や「配置（place）」動作の忘却が起きますが、自己実演データを混ぜた提案手法では、わずか14分の実演データだけで指示に応じた把持と配置の両立に成功しています。",
+  "caption": "Figure 1: Left : Zero-shot $\\pi_{0.5}$ policy follows instructions but cannot complete grasps on our robot. Center : Fine-tuning on expert “pick-up” data alone loses instruction following, reaching for the wrong object (rows 1–2), and loses the place motion after pick (rows 2–3). Right (Ours) : A single multi-task policy, jointly trained on 14 minutes of expert-supervised teleoperation for “pick-up” and self-supervised generative rollouts from $\\pi_{0.5}$ for “pick-and-place” succeeds across all",
+  "image": "details/2608.19490/F1.jpg"
+ },
+ "overview_ja": "近年目覚ましい発展を遂げているVision-Language-Action（VLA：画像と言語指示からロボット動作を出力する基盤モデル）ですが、学習時とはカメラ位置やグリッパーが微妙に異なる実機にそのまま展開（ゼロショット）すると、物体には近づくものの最後の把持（グラスプ）で空振りしてしまうという「身体差ギャップ（embodiment gap）」に直面します。この最後の数センチを埋めるために新しいロボット上で遠隔操作によるエキスパートデータを集めてファインチューニングすると、今度は「指定された色とは別の物体を掴む」「把持後に箱へ置く動作を完全に忘れる」といった、言語指示追従性の崩壊や破滅的忘却が起きてしまいます。\n\nそこで著者らは、「ゼロショットの方策はタスクを最後まで完遂できなくても、指示された物体へ向かうなどの意味的な事前知識（Prior）は保たれている」という点に着目しました。元の事前学習データにアクセスできない状況でも、凍結したベース方策をターゲット実機環境でそのまま動かし、自身の予測した行動軌跡を「自己実演（self-demonstration）データ」として記録します。そして、ターゲット実機で集めた少量の新しいエキスパートデータと、この自己実演データ（失敗軌跡も含む）を1:1の割合で混ぜ合わせて共同学習させるというシンプルな枠組みを考案しました。\n\n実機の双腕ロボットALOHAおよびシミュレータRoboTwinで評価を行った結果、エキスパートデータが「把持」のみであっても、自己実演データから「配置」動作を蒸留して成功率を0%から55%に回復させることに成功しました。さらに、学習に含まれていない未知のスキル（物体を押し出す動作）の保持や、接触を伴う高難度なギア挿入タスクにおけるサンプル効率の大幅な向上（成功率30%から90%へ）も実証しました。",
+ "contributions_ja": [
+  "元の事前学習データへのアクセスが一切不要で、凍結したベースVLAを実機上で直接動かして得た行動軌跡（自己実演）をリハーサルデータとして活用する自己教師ありファインチューニング手法を提案しました。",
+  "自己実演データがタスク失敗軌跡を多く含んでいるにもかかわらず、少数のエキスパート実演と混ぜて学習することで、指示追従性の劣化を防ぎ、未実演スキル（把持のみ実演時の配置動作など）を効果的に蒸留できることを明らかにしました。",
+  "実機ALOHAにおいて、わずか14分間のエキスパートデータ追加で、ハードウェア差異の克服・既存スキルの保持・未知物体や未学習スキル（Pushなど）への汎化を同時に達成しました。",
+  "RoboTwin環境を用いた新たなシミュレーションベンチマークを構築し、事前学習データの再利用を前提としない現実的な継続学習設定において、既存の再生手法（オラクル）に匹敵する性能を実証しました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜVLAを実機に適応すると「指示」を無視するようになるのか？",
+   "summary_ja": "事前学習済みVLAは実機へのゼロショット展開時に身体差ギャップで把持に失敗し、エキスパートデータでファインチューニングすると指示追従性や既存動作を忘却します。本論文では、ベース方策自身を実機で動かして得た「自己実演データ」を混ぜることで、事前学習データなしにこの問題を解決します。",
+   "details_ja": "VLA（Vision-Language-Action）モデルは、カメラ画像と言語指示を直接ロボットの関節動作に変換する有望なアプローチです。しかし、どれほど大規模に学習されていても、カメラの取り付け角度やグリッパーの個体差といった微小な差異（身体差ギャップ）があるだけで、実機にそのまま展開した際に最後の数ミリの物理的接触や把持が失敗してしまいます。\n\n例えば最先端の $\\pi_{0.5}$ モデルを実機の双腕ロボットALOHAにそのまま展開すると、指示された「紫のキューブ」に向かって腕を伸ばし近づくことはできるものの、正確に掴むことができず成功率は0%になります。ここで、ターゲット実機上で「物体を掴む（Pick up）」タスクの遠隔操作データを集めてファインチューニングすると、確かに掴む物理精度は戻ります。しかし引き換えに、「紫」と指示されているのに手前の「緑」を掴んでしまうといった指示追従性の劣化や、元々持っていた「箱に置く（Place）」動作を完全に忘れてしまうという破滅的忘却が発生します。\n\n著者らの鍵となる洞察は、「タスクを最後まで完遂できなくても、ベース方策の動作予測は言語指示と強く相関している」という点です。そこで、凍結したベース方策を対象の実機環境でそのまま動かし、自身が予測した動作を記録した「自己実演（self-supervised demonstrations）」を作成します。これと少数のエキスパートデータを一緒に学習させることで、事前学習データそのものが非公開であっても、元のモデルが持っていた意味理解と指示追従能力をターゲット実機上で蒸留・保持できることを示しました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "事前学習済み $\\pi_{0.5}$ のゼロショット動作の可視化です。タスクを完了できなくても、指示された「緑の八角形」や「マーカー」に対してそれぞれ正しく腕を誘導できており、軌跡レベルで言語指示への高い感度（Prior）が残っていることが分かります。",
+     "caption": "Figure 2: $\\pi_{0.5}$ VLA zero-shot is able to semantically localize and follow instructions to reach a green octagon and marker placed close-by on our ALOHA platform.",
+     "image": "details/2608.19490/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Works",
+   "heading_ja": "過去データの保存ではなく「自分自身を動かして記憶を呼び戻す」",
+   "summary_ja": "ロボット方策の破滅的忘却を防ぐ既存アプローチは事前学習データの保持を前提としていますが、公開モデルではそれが不可能です。本研究は、事前学習済みモデル自身をターゲット環境でオンライン実行してリハーサルデータを生成する、新しい生成再生（Generative Replay）のアプローチを採ります。",
+   "details_ja": "基盤モデルの身体適応や継続学習（Continual Learning）において、経験再生（Experience Replay：過去の学習データを保存して再学習に混ぜる手法）は忘却防止に極めて有効であることが知られています。しかし既存研究の多くは、数テラバイトにおよぶ独自の事前学習データセット全体に下流ユーザーがアクセスできるという、非現実的な前提を置いています。\n\nまた、画像生成モデル（DreamBoothなど）で用いられるPrior Preservation（事前分布の保持）は、オフラインで過去のクラス画像をサンプリングして正則化しますが、ロボティクスにおいてはハードウェアの差異が存在するためオフライン生成だけでは適応できません。\n\n本研究が提案する手法は、物理的な実機環境においてベースモデル自身を直接動かし、その対話軌跡を疑似教師信号（Pseudo-target）として活用する「自己教師あり生成再生（Self-supervised Generative Replay）」です。追加の生成ネットワークや教示器を用意することなく、凍結されたVLAモデル自身が軌跡生成器として機能する点が、従来の研究と大きく異なります。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "エキスパート実演と「失敗を含む自己実演」をどう混ぜて最適化するか",
+   "summary_ja": "ベースモデルに $\\pi_{0.5}$ を採用し、離散トークンと連続行動のデュアル損失関数で最適化します。ターゲット実機で集めたエキスパート軌跡と、凍結モデルから生成した自己実演軌跡を1:1のバッチ比率で共同学習させます。",
+   "details_ja": "### 3.1 基礎設定\nベースモデルには連続行動チャンキング（複数のタイムステップの動作を一括予測する手法）を行う $\\pi_{0.5}$ を使用します。観測 $\\mathbf{o}_t = (\\mathbf{I}_t, p, \\mathbf{q}_t)$（画像、指示テキスト、自己受容状態）から、予測ホライズン $H=50$、次元数 $D=32$ の行動チャンク $\\mathbf{a}_t$ をモデル化します。ネットワークはSigLIPとPaliGemmaベースのVLMバックボーンと、Flow Matching（流速場を予測する連続生成モデル）に基づくAction Expertで構成されます。\n\n### 3.2 エキスパート教師あり模倣学習（Expert-Supervised IL）\nターゲット実機で収集した $N$ 本の遠隔操作軌跡 $\\mathcal{D}_{\\text{ES}}$ を用います。損失関数には、離散化された行動トークン（FASTトークン）に対する交差エントロピー損失 $L_{\\text{CE}}$ と、連続行動に対する条件付きFlow Matching損失を組み合わせたデュアル損失を用います：\n\n$L_{\\text{sample}}(\\mathbf{o}_t, \\mathbf{a}) = \\alpha L_{\\text{CE}}(\\mathbf{a}_{1:M}^{\\text{FAST}}, \\hat{\\mathbf{a}}_{1:M}^{\\text{FAST}}) + \\mathbb{E}_{\\tau, \\omega} \\| f_\\theta^a(\\mathbf{a}^{\\tau,\\omega}, \\tau, \\mathbf{o}_t) - (\\omega - \\mathbf{a}) \\|^2$\n\nここで $\\alpha$ は離散と連続の重みバランスを調整する係数です。本研究ではVLMバックボーンとAction Expertの両方を完全に全結合ファインチューニング（Full Fine-Tuning）します。\n\n### 3.3 自己教師あり模倣学習（Self-Supervised IL）\n凍結したベースモデル ${\\pi_{0.5}}^{\\text{base}}$ に対し、事前学習に含まれるタスク指示 $p_{\\text{SS}}$ を与えてターゲット実機上でオンライン動作させ、得られた観測と予測行動のペアを自己実演データ $\\mathcal{D}_{\\text{SS}}$ として蓄積します。そして、エキスパート損失と自己実演損失を重み $\\lambda$ で結合して共同最適化します：\n\n$L_{\\text{joint}}(\\theta) = L_{\\text{ES}}(\\theta) + \\lambda L_{\\text{SS}}(\\theta)$\n\n重要なのは、同一の初期シーンから異なる複数の指示で自己実演データを収集することです。これにより、方策が画像情報だけに依存してテキスト指示を無視する「視覚ショートカット学習」を防ぐことができます。また、ミニバッチ内でのサンプリング比率はエキスパートと自己実演を 1:1 に保つことが最も安定した性能を発揮します。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "提案手法の学習パイプラインです。下段のエキスパート実演（新しいタスクの遠隔操作データ）と、上段の自己実演（凍結したベースVLAを実機で動かして生成した軌跡）を組み合わせ、デュアル目的関数で方策を共同学習させます。",
+     "caption": "Figure 3: A new way to fine-tune pretrained VLAs. We combine two multi-task data sources: (1) Bottom row: expert-supervised demonstrations on a new task (E.g. “Pick up the red cube”), and (2) Top row: real-world interaction data generated by rolling out the frozen base policy on self-supervised tasks drawn from its pretraining distribution on the target robot (E.g. “Pick up the spoon and place it in the blue bowl”). Rehearsing the expert demonstrations alongside the base policy’s self-demonstrat",
+     "image": "details/2608.19490/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Proposed Benchmarks",
+   "heading_ja": "実機とシミュレータで汎化性能を徹底検証するベンチマーク設計",
+   "summary_ja": "据え置き型ALOHA実機と、シミュレータRoboTwin 2.0を用いてベンチマークを構築しました。エキスパートタスク、自己実演タスク、未知物体、未知の組み合わせタスクの4つの評価分布を用意し、汎化性を多面的に測定します。",
+   "details_ja": "実験の検証基盤として、7自由度の双腕を持つALOHA-1実機プラットフォームと、シミュレータRoboTwin 2.0を採用しました。モデルの評価は以下の4つのタスク分布に対して行われます：\n\n- $\\mathbf{T_{ES}}$：エキスパート実演データを与えて学習させたタスク（例：赤/緑のブロックの把持や積み上げ）\n- $\\mathbf{T_{SS}}$：エキスパート実演はなく、自己実演データのみでリハーサルを行ったタスク（例：多彩なPick-and-Place、電子レンジの開閉など）\n- $\\mathbf{T_{NO}}$：スキルは既知だが、見たことのない未知物体（Novel Objects）を扱うタスク\n- $\\mathbf{T_{NC}}$：学習したスキルの新しい組み合わせ（Novel Composition：2段積み上げから3段積み上げへの拡張など、RoboTwinで評価）\n\n実機環境では、ベースモデルがゼロショットで持つ実世界特有の指示追従挙動やハードウェア差異への適応を検証し、シミュレーション環境では同一ロボットモデルを用いることでハードウェア差異を排し、純粋なタスク継続学習の挙動を切り分けて評価できるように設計されています。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "RoboTwinシミュレーションベンチマークの全体像です。自己教師ありタスク $T_{SS}$（10種類）、エキスパートタスク $T_{ES}$（ブロック積み上げ）、未知物体タスク $T_{NO}$、新奇な構成タスク $T_{NC}$ で多角的に汎化性能を評価します。",
+     "caption": "Figure 4: Our simulation benchmark in RoboTwin is designed to test generalization to new object layouts in task families that are (1) expert-supervised, $T_{ES}$ (stacking two blocks) and (2) self-supervised, $T_{SS}$ (broader set of pick-place, lifting, opening tasks). We also test generalization to (3) novel objects within expert tasks, $T_{NO}$ and (4) new compositions of expert skills, $T_{NC}$ .",
+     "image": "details/2608.19490/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Experiments",
+   "heading_ja": "「失敗データ」を混ぜただけで成功率が0%から55%へ跳ね上がる衝撃",
+   "summary_ja": "実機ALOHAにおいて、自己実演データを加えた提案手法は「配置」動作の成功率を0%から55%に復元し、未知物体に対する指示追従性を向上させました。さらに高難度なギア挿入タスクでも、成功率を30%から90%へと劇的に改善しました。",
+   "details_ja": "評価指標にはタスク完遂を測る「成功率（SR）」に加え、指定された物体へ正しく手を伸ばしたかを測る「把持前・指示追従性（IF pre-grasp）」、さらに把持後に指定された容器やペグへ向かったかを測る「把持後・指示追従性（IF post-grasp）」を導入しました。\n\n### 実機ALOHAでの結果\n- **ゼロショットの限界**：事前学習済みの $\\pi_{0.5}$ は、指定物体へ近づくIFスコアは70〜80%と高いものの、ハードウェア差により把持が全く成功せず、全タスクでSRは0%でした。\n- **エキスパート単体学習の弊害**：エキスパートの「把持」データ（30エピソード）のみでファインチューニングすると、把持自体は成功するようになりますが、「置く」動作を完全に忘れ、Pick-and-Placeタスク（$T_{SS}$）のSRは0%（把持後IFも0%）に転落しました。\n- **提案手法（ES+SS）の威力**：エキスパートデータに自己実演データを混ぜて学習させたところ、エキスパートの「配置」実演がゼロであるにもかかわらず、Pick-and-Placeの把持後IFは90%、SRは55%まで回復しました。また未知物体把持（$T_{NO}$）の成功率も55%に向上しました。\n- **接触豊富なギア挿入タスク**：ベースモデルの事前学習分布から大きく外れる「キャタピラーギア挿入」（可動式のボードを片腕で支えつつギアを精密挿入するタスク）において、エキスパート単体学習では成功率30%にとどまりましたが、自己実演を加えることで成功率90%を達成し、未知色のギアに対しても30%の成功率を示しました。\n\n### RoboTwinシミュレーションでの結果\nエキスパートデータのみで新タスク（$T_{ES}$）を学習すると、過去タスク（$T_{SS}$）の平均成功率が90.8%から16.6%へと激減（破滅的忘却）しました。これに対し、1タスクあたりわずか10エピソードの自己実演データを加えた提案手法（ES+SS）は、過去タスクの成功率を70.6%まで回復させ、新タスクの成功率も93%から98%へと向上させました。これは過去の全データを保持していると仮定したオラクル手法（75.9%）の82.5%に迫る性能です。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "キャタピラーギア挿入タスクの実行例です。ベースモデルの事前学習に含まれない高難度かつ接触の多い双腕協調タスクですが、自己実演を併用することで片腕でボードを固定しながら正確にペグへギアを挿入できています。",
+     "caption": "Figure 5: A rollout from caterpillar test set showing successful alignment of orange gear on peg.",
+     "image": "details/2608.19490/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実機ALOHAでの Pick-and-Place ロールアウト比較です。エキスパートのみ（Multi-Task ES）では間違った物体を掴んだり掴んだ後に停止してしまいますが、提案手法（Multi-Task ES+SS）は正確に指定物体を掴んで箱に配置できています。",
+     "caption": "Figure 6: This figure demonstrates rollouts comparing our method with the Multi-Task expert-only baseline and zero-shot $\\pi_{0.5}$ . As mentioned in main paper section 5.2 , even when the base policy shows correct instruction following and semantic understanding, it can’t grasp objects due to a potential calibration gap on our embodiment. In these rollouts 3 and 5, the Multi-Task ES baseline picks up the wrong object and stops, whereas our method has stronger recovery behavior to pick up the co",
+     "image": "details/2608.19490/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Discussion",
+   "heading_ja": "全タスクを人手で実演するよりも、自己実演を混ぜた方が汎化する理由",
+   "summary_ja": "全てを人間が実演した上限モデル（Oracle）と比較したところ、提案手法は同等の性能を発揮しました。さらに学習に含まれない「Push（押す）」動作をテストしたところ、全タスクを実演したモデルは動作を上書きしてしまいましたが、提案手法は事前学習の動作特性を保ち続けていました。",
+   "details_ja": "自己実演データの代わりに、全タスクを人間が遠隔操作したデータ（MT ES+ES）を用意して比較しました。その結果、両者が学習したタスクでの成功率は、全実演の95%に対し提案手法が90%と肉薄し、指示追従性（IF）は同等でした。\n\nさらに興味深い現象として、学習データに一切含まれていない「物体を押す（Push objects）」という未知のスキルをゼロショットで指示した実験が挙げられます。人間が全タスクを実演したモデル（MT ES+ES）は、指示が「押せ」であっても35%の確率で物体を持ち上げてしまい、実際に押す動作をしたのはわずか10%でした。これは、強力な人間の実演によってモデル本来のアクションPriorが完全に特定パターンへ上書きされてしまったことを意味します。\n\n一方、提案手法（MT ES+SS）は70%の試行で正しく押し出す動作を実行しました。自己実演を通じて事前学習済みモデルの広範な動作分布をリハーサルしているため、ファインチューニング後もモデル本来の柔軟な行動Priorが破壊されずに保持されていることが裏付けられました。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "ALOHA実機でのフォークやキューブの配置タスク詳細比較です。提案手法（最上段）はフォークを正しく認識して掴み、プレートへの配置までスムーズに遂行できていることが確認できます。",
+     "caption": "Figure 7: Our method is able to better localize and grasp the fork (rollout 15), does not stop after pick up (rollout 9). In rollout 11, it successfully places the green cube but also goes for the purple afterwards which is an artifact we observed.",
+     "image": "details/2608.19490/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "7 Future Work and Limitations",
+   "heading_ja": "今後の展望と現時点で残る課題",
+   "summary_ja": "自己実演プロンプトの手動選定や危険動作のフィルタリングが現状必要である点、および「いつタスクを終了するか」の判定に課題が残ります。今後はプロンプト選定の自動化や強化学習との統合が期待されます。",
+   "details_ja": "本手法にはいくつかの実用上の限界があります。第1に、自己実演を収集するためのプロンプトセット $\\mathcal{P}_{\\text{SS}}$ を手作業で選定している点です。第2に、ベース方策の自己実演にはグリッパーがカゴの縁に引っかかるなどの望ましくない動作が含まれることがあり、現状はこれらを目視でフィルタリングしている点です。\n\nまた失敗モードとして、タスク終了条件の誤認があります。実演データおよび自己実演データのいずれにも「正しく置いた後の静止したシーン」が十分に教示されていないため、物体を箱に置いた後に再び拾い上げようとするループ動作が稀に発生します。\n\n今後は、自己実演プロンプトの自動生成や危険データの自動フィルタリングを進め、方針自身が生成したデータから改善を繰り返す「データフライホイール」の構築や、最後の物理接地を強化学習で詰める手法との統合が期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "8 Conclusion",
+   "heading_ja": "まとめ：事前学習モデルは「重みの初期値」だけでなく「教師データ生成器」になる",
+   "summary_ja": "VLAのファインチューニングにおいて、ベースモデル自身のオンライン動作をリハーサルデータとして活用する自己教師あり手法の有効性を示しました。事前学習データが手元になくても、指示追従性と汎化性を保ったまま実機へ適応できる道を開きました。",
+   "details_ja": "新しいロボットへのVLA展開では、ハードウェア差異を埋めるための実機適応が不可欠ですが、過去の全スキルを遠隔操作で集め直すコストは膨大です。本論文は、事前学習済みモデル自身が「Priorの生成器」として機能し、自身の未熟なロールアウト動作そのものが強力な正則化ターゲットになることを実証しました。\n\n失敗を含む自己実演データであっても、少数のエキスパート実演と組み合わせることで、既存スキルの忘却を防ぎ、指示追従性を維持し、未知スキルへの汎化すら保つことができます。大規模な事前学習をゼロから行えない多くのロボティクス研究者や開発者にとって、手持ちの事前学習モデルを壊さずに実機適応させるための極めて実用的な指針となる成果です。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "VLAを少数のエキスパートデータだけでファインチューニングすると、指示追従性が崩壊（言語ショートカット学習）し、未実演の事前学習スキルを完全に忘却してしまう。",
+  "凍結したVLA自身を実機で動かした「失敗を含む自己実演データ」を1:1で混ぜて学習するだけで、事前学習データが手元になくても忘却を大幅に防ぎ、指示追従性を維持できる。",
+  "人間が全タスクを完璧に実演するとモデルの柔軟な行動Priorが上書きされてしまうが、自己実演を混ぜることで学習外のスキル（Pushなど）の汎化能力が保たれる。",
+  "デュアル損失（FAST離散トークン損失＋Flow Matching連続損失）と全結合ファインチューニング（Full-FT）の組み合わせが、LoRA等のパラメータ効率的チューニングよりも優れた適応性能を示す。"
+ ],
+ "limitations_ja": [
+  "自己実演を収集するためのタスク指示（プロンプト）の選定や、危険な物理接触（アームの引っかかり等）を含む軌跡の除外を手動で行っている点。",
+  "タスク完了後の停止条件が明示的に学習されていないため、物体を配置した後に再び持ち上げようとするループ動作などのアーティファクトが発生することがある点。",
+  "検証が $\\pi_{0.5}$ モデルおよびALOHAプラットフォームに限定されており、他のVLAアーキテクチャや単腕ロボット等での汎用性の検証が今後の課題である点。"
+ ],
+ "keywords": [
+  "Vision-Language-Action (VLA)",
+  "Self-Supervised Distillation",
+  "Generative Replay",
+  "Catastrophic Forgetting",
+  "Multi-Task Manipulation",
+  "ALOHA Robot"
+ ],
+ "id": "2608.19490",
+ "title": "Fine-Tuning VLAs with Self-Demonstrated Generative Control for Multi-Task Manipulation",
+ "title_ja": "マルチタスク操作のための自己生成制御によるVLAモデルのファインチューニング",
+ "authors": [
+  "Prachi Garg",
+  "Steve Xing",
+  "Prahit Yaugand",
+  "Saurabh Gupta",
+  "Derek Hoiem"
+ ],
+ "date": "2026-08-21",
+ "group": "general",
+ "tags": [
+  "vision-language-action",
+  "manipulation",
+  "imitation-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.19490",
+ "pdf_url": "https://arxiv.org/pdf/2608.19490",
+ "summary_ja": "新しいロボットへの展開時にVLAモデルの事前学習能力が低下する問題に対し、ゼロショットVLAから生成した自己相互作用ロールアウトを追加データとして微調整する手法を提案。指示追従性を維持しつつ新規機体への適応を成功させた。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.19490"
+}
