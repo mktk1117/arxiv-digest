@@ -1,0 +1,149 @@
+{
+ "title_ja": "WildFab: 実世界3Dモデルからの直接多軸3Dプリント生成フレームワーク",
+ "tldr_ja": "穴や自己交差、薄板とソリッドが混在する「野生の 3D モデル」を手動修復することなく、ニューラル UDF と正則化一般化巻き数を組み合わせたハイブリッド場により、サポート不要な多軸ツールパスとロボットの干渉回避軌道を直接生成・実機造形できるシステムを提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "WildFab の全体像です。(a) 入力された不完全なモデルからニューラル UDF と正則化一般化巻き数（reg-GWN）のハイブリッド場を構築し、(b) 動的に成長する造形物との衝突を高精度に回避しながら、(c) 8自由度のロボットアームでサポート材なしの造形を実現します。(d) 平面スライスによる多色・異素材プリントにも応用可能です。",
+  "caption": "Figure 1. We present WildFab, a computational framework for multi-axis 3D printing that directly generates support-free spatial toolpaths and collision-free robot motions from models in the wild . (a) Input models are represented as hybrid query fields that combine neural unsigned distance and regularized generalized winding number fields. (b) The hybrid representation enables toolpath generation and global collision handling for combined solid-shell structures, supporting (c) successful fabrication with the robotic system. …",
+  "image": "details/2609.02413/F1.jpg"
+ },
+ "overview_ja": "多軸 3D プリントは、ロボットアームなどの多自由度機構を活かして空間的にノズルを動かし、サポート材を大幅に減らしたり強度を高めたりできる魅力的な技術です。しかし従来のシステムには大きな泣き所がありました。それは、入力モデルが「隙間なく閉じたソリッド（水密メッシュ）」であることを前提にしていた点です。\n\n現実の設計データや 3D スキャン、トポロジー最適化から出力される形状は、面が開いていたり、薄板（シェル）と塊（ソリッド）が混在していたり、自己交差していたりと、いわば「野生（in the wild）」の状態にあります。これらを従来のツールで印刷しようとすると、時間のかかる手作業でのメッシュ修復が必要になり、形状を無理やりソリッド化することで本来意図した薄板構造が潰れてしまう問題がありました。\n\nそこで著者らは、モデルを無理に修復するのではなく、「ニューラル符号なし距離場（UDF）」と「正則化一般化巻き数場（reg-GWN）」という 2 つの相補的な幾何表現を組み合わせるハイブリッド場を考案しました。UDF で空間内の滑らかな距離と方向を捉えつつ、表面付近で不安定になる UDF の弱点を reg-GWN の勾配ノルムの尾根（リッジ）で補正することで、極めて正確な表面位置を特定します。\n\nこの表現を土台として、サポート材不要な空間ツールパスを反復投影によって高速生成し、さらに時間変化するプリント進行に合わせた「粗から密へ」の衝突判定アルゴリズムを構築しました。自己交差する曲面、点群、ボクセルなど多様なモデルで検証を行い、6軸アームと2軸回転テーブルからなるロボットシステムで高精度なサポートレス造形ができることを実証しました。",
+ "contributions_ja": [
+  "不完全なメッシュや点群などの「野生のモデル」を前処理・幾何修復なしでそのまま扱える、多軸 3D プリント用エンドツーエンド計算フレームワーク WildFab を開発したこと。",
+  "ニューラル UDF と正則化一般化巻き数（reg-GWN）を融合し、非水密・開曲面モデルでも高精度に表面境界を特定できるハイブリッドクエリ場を提案したこと。",
+  "最適化されたガイダンス場の等値面と reg-GWN の勾配リッジへ交互に投影することで、薄板・ソリッド混在構造でも破綻しない高精度な空間ツールパス生成手法を実現したこと。",
+  "高速な UDF による候補絞り込みと、時変 reg-GWN による厳密判定を組み合わせた、GPU 並列かつ省メモリな粗密2段階の大域的干渉チェック機構を確立したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1. Introduction",
+   "heading_ja": "1. 序論：「野生の 3D モデル」をそのまま印刷したい！",
+   "summary_ja": "多軸 3D プリントはサポートレス造形など多くの利点がありますが、従来のパイプラインは入力が水密なソリッドであることを前提としていました。現実の設計やスキャンデータに存在する薄板と立体の混在や非多様体構造を、形状を変質させる手動修復なしで直接造形するため、相補的なハイブリッド幾何クエリ場を提案しました。",
+   "details_ja": "### 多軸 3D プリントの魅力と現実のギャップ\n多軸 3D プリントは、ロボットの自由度を活かして曲面上に材料を積層できるため、階段状の段差（積層痕）を減らし、応力方向に沿ったパス配置によって強度を高められる先進的な製法です。しかし、既存手法の多くは四面体メッシュなど「水密な立体（watertight solid）」が手元にあることを前提としていました。\n\n現実の設計現場ではどうでしょうか。CAD や CG モデリング、トポロジー最適化、あるいは 3D スキャンから得られる形状は、厚みのない開いた面（薄板シェル）と閉じた立体（ソリッド）が混ざっていたり、面同士が自己交差していたりすることが日常茶飯事です。これらを従来の多軸スライサにかけるには、オフセット処理やブーリアン演算で「無理やり閉じた立体に直す」という気の遠くなるような手作業が必要でした。しかも、薄板に厚みをつけることで隣接する面と勝手に癒着してしまうなど、設計者が意図した形状を壊してしまう恐れがありました。\n\n### 単一の幾何表現が抱える限界\n形状を壊さずに直接パス計算を行うには、空間の任意の点から「表面までの距離・方向」や「内外判定」を微分可能な形で取得できる表現が求められます。しかし既存の表現にはそれぞれ一長一短がありました。\n\n- **符号付き距離場（SDF）**: 距離や内外情報が綺麗に取れますが、閉じた領域が厳密に定義された立体にしか適用できません。\n- **符号なし距離場（UDF）**: 開曲面や非多様体も扱えますが、内外の区別がつかず、表面直近で勾配が乱れて境界がブレやすい欠点があります。\n- **一般化巻き数（GWN）**: 不完全な点群からでも内外度合いを判定できますが、衝突判定に必要な絶対的な距離情報を持たず、開曲面で正確な表面位置を単独で決めることができません。\n\n### WildFab の着眼点\n「1つの表現ですべてを解決しようとするから無理が生じるのだ」と著者らは考えました。そこで、滑らかな距離・方向クエリに優れたニューラル UDF と、確実な内外情報・境界応答を与える正則化 GWN（reg-GWN）を融合させた「ハイブリッドクエリ場」を提案しました。これが本論文の提案する WildFab のコアとなる考え方です。",
+   "figures": []
+  },
+  {
+   "heading": "2. Related Work",
+   "heading_ja": "2. 関連研究：先行研究はどう挑み、どこで限界を迎えたのか",
+   "summary_ja": "不完全な形状からの 3D プリント、多軸プリントのための幾何計算、およびニューラル暗黙場や巻き数に関する先行研究を整理しています。平面スライス用の手法や単一の暗黙表現だけでは、多軸特有の空間ツールパス生成や動的な干渉回避の要件を満たせないことを明確にしています。",
+   "details_ja": "### 不完全なモデルに対する 3D プリント\n従来の 3D プリントでは、壊れたメッシュをボクセル化や多様体再構築によって修復してからスライスするのが定石でした。近年では一般化巻き数（GWN）や内外判定アルゴリズムを利用して、壊れた点群や薄壁を直接平面スライスする研究や市販スライサの機能も登場しています。しかし、これらは水平面で輪郭線を交差計算する平面プリント向けであり、空間上の任意の点から表面への正確な最近接投影や離隔距離クエリを必要とする多軸プリントにはそのまま応用できません。\n\n### 多軸 3D プリントにおける幾何計算\n多軸プリントの分野では、曲面層スライスや応力整準パス生成、干渉を考慮した軌道生成が盛んに研究されてきました。最近ではニューラル暗黙場（Neural Fields）を導入して連続空間上でツールパスやロボット姿勢を最適化する先進例も現れています。しかし、それらは基本的にニューラル SDF を採用しているため、やはり自己交差や開曲面を含むモデルを破綻なく表現することは困難でした。\n\n### ニューラル UDF と正則化一般化巻き数 (GWN)\nニューラル UDF は開曲面を扱えるため 3D 復元で注目されていますが、ニューラルネットワークの周波数特性の限界により、表面直近で距離値が真値から浮いてしまったり、勾配が乱れて等値面が二重化・断片化したりする「表面近傍の曖昧さ」が常に問題視されてきました。\n\n一方、GWN は不完全な幾何データの内外判定で威力を発揮しますが、従来の定式化では表面上で特異点（ゼロ除算）が発生し、表面をまたぐ微分可能な最適化に使えません。滑らかな正則化カーネルを適用した reg-GWN は境界応答を安定化させますが、幾何学的な絶対距離は教えてくれません。これら両者の長所を組み合わせ、多軸プリントの課題に直結させた研究はこれまで存在しませんでした。",
+   "figures": []
+  },
+  {
+   "heading": "3. Representation for Models in the Wild",
+   "heading_ja": "3. 幾何表現：UDF と一般化巻き数の「いいとこ取り」をするハイブリッド場",
+   "summary_ja": "ニューラル UDF と正則化 GWN（reg-GWN）を相補的に組み合わせたハイブリッド表現を定義しました。UDF の負の勾配方向へ進みながら reg-GWN の勾配ノルムが極大となる尾根（リッジ）を探索することで、従来の UDF 単体よりも約2桁高い精度で表面境界を特定できます。",
+   "details_ja": "### 3.1 予備知識：Neural UDF と reg-GWN の相補的な性質\nニューラル UDF $f_{\\mathrm{udf}}(\\mathbf{x})$ は、点 $\\mathbf{x}$ から表面への最短距離を非負値として返します。しかし有限のスペクトル幅を持つネットワークで学習すると、表面近傍で値が浮いてしまい、ゼロ等値面を素直に抽出すると輪郭が二重になったり途切れたりします。\n\n一方、一般化巻き数（GWN）はポアソンカーネルの積分によって内外判定度合いを計算しますが、境界面上で特異点を持ってしまいます。そこで本研究では、誤差関数を用いた正則化関数 $s(t)$ を導入した「正則化 GWN（reg-GWN）」 $w_\\delta(\\mathbf{x})$ を採用しました。これにより特異点が消去され、境界面を横切る際の不連続なステップ変化が滑らかな遷移層へと変化します。このとき、遷移領域における勾配の大きさ $\\|\\nabla w_\\delta\\|$ を計算すると、ちょうど物体の境界面の位置で鋭いピーク（尾根：リッジ）を形成します。\n\n### 3.2 ハイブリッドクエリ場による高精度な境界検出\nこの特性を活かし、著者らはモデルを $\\mathcal{Q}(\\mathbf{x}) = (f_{\\mathrm{udf}}(\\mathbf{x}), w_\\delta(\\mathbf{x}))$ というハイブリッドな場として表現しました。\n\n表面境界 $\\mathcal{S}$ を特定する際、reg-GWN 単体ではどの方向へ進めば境界に辿り着くかが分かりません。そこで、UDF の勾配 $-\\nabla f_{\\mathrm{udf}}$（表面に向かって垂直に伸びる安定したベクトル）を探索方向として利用します。具体的には、$-\\nabla f_{\\mathrm{udf}}$ 方向に沿って進み、reg-GWN の勾配ノルム $\\|\\nabla w_\\delta\\|$ が極大値をとる位置を真の表面境界として定義します。\n\nこの賢い組み合わせによって、UDF 単体で等値面を追跡する場合に比べて表面位置の誤差がおよそ 50 分の 1 から 100 分の 1 に激減し、薄板の端部であっても極めてシャープかつ正確に輪郭を捉えられるようになりました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "UDF と reg-GWN のクエリ特性の比較です。(a) 開いた三角形入力に対する UDF は空間全体で滑らかな距離を与えます。(b) reg-GWN は内外度合いを捉えます。(c, d) 表面近傍の距離誤差を見ると、UDF 単体では誤差が大きい一方、reg-GWN を併用することで誤差が 50 分の 1 に抑制されています。(e, f) UDF の勾配ノルムは表面付近で乱れやすいですが、reg-GWN の勾配ノルムは表面通過時に極めて鋭いピークを示します。",
+     "caption": "Figure 2. Comparison of neural UDF and reg-GWN query fields. (a) A neural UDF fitted to an open triangular input provides smooth distance queries in space. (b) The reg-GWN field encodes sidedness information and produces strong responses near surface crossings. (c,d) Near-surface distance errors show that the fitted UDF can be inaccurate near boundary regions, while reg-GWN-based localization reduces the error by 50 $\\times$ . (e) The gradient norm of the neural UDF can be unreliable for boundary localization. (f) The gradient norm of the reg-GWN field exhibits sharp peaks that robustly indicate surface crossings.",
+     "image": "details/2609.02413/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "境界検出手法の比較です。(a) UDF の等値面抽出や勾配追跡では輪郭の二重化や途切れが発生し、GWN の 0.5 等値面は開曲面でも無理に閉じたループを作ってしまいます。(b) 負の UDF 勾配方向に沿って reg-GWN の勾配ノルムのピークを追跡することで、(c) 開いた境界でも約 2 桁高い精度で正確な輪郭を抽出できます。",
+     "caption": "Figure 3. Comparison of boundary detection strategies using neural UDF and reg-GWN fields. (a) UDF level sets and UDF-gradient tracing can fail near boundaries, while reg-GWN level sets can also fail for open boundaries, as illustrated by the 0.5 level set. (b) Tracing the maximum gradient norm of reg-GWN field along the negative neural UDF gradient direction accurately recovers the target boundary, which (c) significantly reduces surface localization error.",
+     "image": "details/2609.02413/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4. Multi-Axis 3D Printing with Hybrid Query Field",
+   "heading_ja": "4. 多軸プリント手法：サポート不要なパス生成と粗密2段階の衝突回避",
+   "summary_ja": "ハイブリッド場を基盤として、ガイダンス場の最適化と交互投影による高精度な空間ツールパス生成法を構築しました。さらに、ノズルと印刷済み形状との大域的干渉を GPU 上で高速かつ確実に排除するため、UDF による高速除外と時変 reg-GWN による厳密判定を組み合わせた粗密 2 段階の干渉チェックを提案しました。",
+   "details_ja": "### 4.1 計算パイプラインの全体像\nパイプライン全体は大きく 2 つのフェーズに分かれます。まず入力モデルを有向点群に変換してハイブリッド場 $\\mathcal{Q}$ を構築し、これを用いて空間ツールパスを生成します。続いて、印刷順序に沿ってノズルの姿勢を最適化し、動的に成長する印刷物との衝突を完全に回避します。\n\n### 4.2 潜在場を用いた空間ツールパス生成アルゴリズム\n空間ツールパスを生成するために、空間内の局所積層方向を定義するスカラーの「ガイダンス場」 $g(\\mathbf{x})$ をニューラルネットワークで最適化します。損失関数には以下の 3 つを組み込みます。\n\n- **サポートフリー損失 ($\\mathcal{L}_{\\mathrm{SF}}$)**: オーバーハング角度が臨界角（ここでは $45^\\circ$）を超えないように制約します。\n- **境界保護損失 ($\\mathcal{L}_{\\mathrm{BP}}$)**: クリスマスツリーの枝先のような開いた境界ループ上で等値面が平行に揃うように拘束し、薄板の端部でパスが途切れるのを防ぎます。\n- **滑らかさ正則化 ($\\mathcal{L}_{\\mathrm{smooth}}$)**: 急激な積層厚の変化や局所的なえぐれを防ぎます。\n\n最適化後、各層のツールパスは「ガイダンス場の等値面」と「reg-GWN の勾配リッジ表面」の交線として定義されます。これを求めるため、UDF で絞り込んだ候補点からガイダンス場の等値面へニュートン法で投影し、そこから UDF 勾配方向の 1 次元探索で reg-GWN の尾根へと引き戻す「2段階の反復投影」を行います。この計算はすべて GPU 上で並列化され、10 万点以上のウェイポイントをわずか 10 秒足らずで正確に抽出できます。\n\n### 4.3 ハイブリッド場による粗密2段階の衝突回避モーション計画\nツールパスが求まったら、ノズルが印刷済み部分とぶつからないよう、各ウェイポイントにおけるノズルの傾き（クォータニオン場 $\\mathbf{q}$）を最適化します。しかし、何万点もあるパスにおいて「印刷が進むにつれて刻一刻と変化する形状」との干渉判定を愚直に行うと、GPU メモリがパンクしてしまいます。\n\nそこで提案されたのが「粗から密へ（coarse-to-fine）」の 2 段階判定戦略です。ノズル外形を線分の集合としてモデル化し、まず全域 UDF を使って「明らかにぶつからない線分（全体の 99.5% 以上）」を瞬時に棄却（高速リジェクション）します。残ったごくわずかなグレーゾーンの線分に対してのみ、その時点までに造形済みの点群から構築した「時変 reg-GWN（$w_{\\delta\\text{-TV}}$）」を用いて尾根の交差を厳密判定します。UDF 特有の偽陽性（特異点付近で誤って衝突とみなしてしまう現象）を時変 reg-GWN が見事に正し、無駄な姿勢変更を起こさずに安全なプリント軌道を高速に導出できます。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "提案パイプラインの全体フローです。入力モデルからハイブリッドクエリ場を構築し、最適化されたガイダンス場と境界尾根の間で反復投影を行って空間パスを生成します。その後、UDF による高速除外と時変 reg-GWN 検証による粗密衝突チェックを経て、大域的に干渉のない多軸モーションを出力します。",
+     "caption": "Figure 4. Overview of the proposed computational pipeline. Given an input model in the wild, we first convert it into oriented point clouds and construct a hybrid query field that combines neural-UDF and reg-GWN representations. The query field supports spatial toolpath generation by iteratively projecting waypoints between guidance-field level sets and reg-GWN boundary ridges using the UDF gradient as the search direction. It further enables coarse-to-fine collision checking, where fast UDF filtering and time-varying reg-GWN refinement are used to optimize tool orientations and produce collision-free multi-axis 3D printing motions.",
+     "image": "details/2609.02413/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "粗密 2 段階の衝突判定の仕組みです。(a) UDF 勾配のみによる判定は特異点や未印刷領域の交差で偽陽性（誤検出）を生じますが、時変 reg-GWN の尾根応答を組み合わせることで正確に真の衝突のみを特定できます。(b, c) これにより、サポートレス条件を維持したまま、衝突のないノズル姿勢へ速やかに収束します。",
+     "caption": "Figure 6. Illustration of coarse-to-fine collision checking supported by a hybrid query field. (a) UDF-gradient checking is fast but unreliable near singularities or not-yet-printed surface crossings. The time-varying regularized winding number field detects crossings through ridge responses of $\\|\\nabla w_{\\delta\\text{-}TV}\\|$ , resolving ambiguous UDF cases. (b) Our coarse-to-fine scheme first rejects collision-free candidates using UDF checking, and then verifies the remaining candidates with the time-varying Reg-GWN test, achieving an optimization result that is both support-free and collision-free. (c) Support-free and collision ratios during the optimization process.",
+     "image": "details/2609.02413/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5. Results and Discussion",
+   "heading_ja": "5. 実験と結果：驚きのロバスト性と実機ロボットによる造形検証",
+   "summary_ja": "自己交差面、トポロジー最適化ボクセル、3D スキャン点群、Thingi10K の壊れたメッシュなど多様な入力で高精度なパス生成を実証しました。8自由度ロボットによる実機造形とマイクロ CT 検査で内部まで破綻なく造形されたことを確認し、平面スライスやロボット溶接への応用可能性も示しました。",
+   "details_ja": "### 5.1 多様な入力に対する計算結果\nWildFab は、従来のパイプラインがことごとく破綻していた様々な「野生の形状」を難なく処理しました。\n\n- **パラメトリック曲面**: 自己交差や薄板・ソリッドが混在する「ArtShell」や「クラインの壺」では、交差部でも途切れない滑らかな連続パスを生成しました。ArtShell では初期状態で 17% あった衝突領域をわずか 5 回の反復（各反復 4 秒未満）で解消し、サポート不要率を 92.1% から 99.2% に向上させました。\n- **ニューラル暗黙モデル**: 衣服の潜在変数（Latent Code）から直接 UDF を出力するデコーダと連携し、明示的なメッシュを介さずに袖口や襟元の境界を保護したサポートレスパスを直接生成しました。\n- **スキャン点群**: 彫像と薄いベールが重なり合った「女神像」の未処理点群から、内外の二重構造を崩すことなくオーバーハング制限を満たすパスを生成しました。\n- **トポロジー最適化ボクセル**: 「TO-Kitten」モデルでは、内部のアクセス困難な空洞にサポート材を一切作ることなく、表面のスキンと内部の粗いインフィルを一体で生成しました。\n- **Thingi10K の不完全メッシュ**: 非多様体や開口部を含む 20 種類の難関メッシュにおいて、従来の平面スライスではサポート不要率が 25%〜95% に留まっていたところ、WildFab はほぼすべてのモデルで 100% 近いサポートレス率を達成しました。\n\n### 5.2 実装詳細と計算時間\n計算機には Intel Core i9-14900K と NVIDIA RTX 4090 を使用しました。全体の計算時間のうち約 70% はニューラル UDF の事前学習が占めますが、一度構築してしまえば、10 万点以上のウェイポイント生成は 10 秒未満で完了します。また、Octree 加速された reg-GWN は 20ms 以下で応答するため、衝突判定ループを極めて軽快に回せます。\n\n### 5.3 実機ロボットによる造形検証\n6軸 ABB アームと 2軸回転テーブルを組み合わせた 8自由度システムで実機造形を実施しました。クリスマスツリーの薄いリボン構造や ArtShell の自己交差ループがサポートなしで見事に造形されました。さらに造形物をマイクロ CT（解像度 $140\\,\\mu\\mathrm{m}$）でスキャンして幾何精度を測定したところ、内外構造ともに平均誤差は約 $0.7\\,\\mathrm{mm}$（モデル全長の約 0.5%）に収まっており、極めて高い幾何忠実度が証明されました。\n\n### 5.4 応用展開とパラメータ考察\n本手法は平面スライスにも自然に拡張可能です。玉ねぎのような入れ子シェル構造（薄皮と果肉）や、服を着た人間の CG キャラクターなど、従来の市販スライサが内側を勝手に埋めてしまっていたモデルでも、意図通りの多素材・薄板分離プリントに成功しました。さらに、ロケットのグリッドフィンのような非多様体格子のロボット溶接軌道計画にもそのまま応用できることが示されました。\n\nなお、正則化幅 $\\delta$ はサンプル点間隔 $h$ に対して $\\delta = h / 2.5$ に設定するのが、平滑化過剰によるピークの鈍りと特異点付近の数値的オーバーシュートを防ぐ黄金比であることも実験的に突き止められています。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "複雑な自己交差を持つ ArtShell モデルでの検証結果です。(a) ハイブリッド場による境界の特定、(b) サポート不要角度の分布改善、(c) わずか数反復での衝突率ゼロへの収束、(d) 交差領域を連続して滑らかに積層するノズル姿勢の最適化、そして (e) ロボットによる実機造形の一連の流れが実証されています。",
+     "caption": "Figure 7. Results on the ArtShell model. (a) The computation is enabled by a hybrid query field including the regularized GWN field $w_{\\delta}$ , its gradient magnitude $\\|\\nabla w_{\\delta}\\|$ , and the neural-UDF $f_{\\mathrm{udf}}$ used for boundary localization and collision-free motion planning. (b) Distribution of support-free angles optimized by our method, compared with planar-based 3DP. (c) Optimization reduces collision violations while maintaining the support-free requirement. (d) Collision-free multi-axis printing process, with zoomed views showing toolpaths in intersection regions. …",
+     "image": "details/2609.02413/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6. Conclusion",
+   "heading_ja": "6. 結論：CAD/CAM の「メッシュ修復地獄」からの解放",
+   "summary_ja": "WildFab は、ニューラル UDF と正則化 GWN の融合によって「野生のモデル」を修復なしで多軸 3D プリントできる世界初の枠組みを提示しました。高精度な空間ツールパス生成と粗密衝突チェックにより、設計からロボット製造までの直結を実現し、デジタルファブリケーションの幾何処理に新たな基盤を築きました。",
+   "details_ja": "WildFab は、薄板・ソリッドの混在、自己交差、不完全な境界などを持つ「野生の 3D モデル」に対して、手動の形状修復を一切挟まず、直接サポートフリーな空間ツールパスと大域的干渉回避モーションを計算できる革新的なフレームワークです。\n\nその中核にあるのは、ニューラル UDF の柔軟な距離情報と、正則化一般化巻き数（reg-GWN）の確固たる境界同定能力を兼ね備えた「ハイブリッドクエリ場」という発想です。これにより、幾何学的な破綻を起こしやすい領域でもサブミリ単位の精度でパスを配置でき、動的に形状が積み上がる多軸プリント環境下でも、GPU を酷使しすぎずに安全なロボット軌道を導き出すことができました。\n\nロボット 3D プリントにとどまらず、平面の多素材スライスやロボット溶接といった他の製造タスクにも即座に適用できる汎用性を示した点は、CAM ソフトウェアの未来にとっても大きな一歩と言えます。モデルの不備に悩まされることなく、デザイナーやエンジニアが描いた自由な形状をそのまま実体化できるモノづくりの基盤として、今後の発展が大いに期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "【付録】学習損失の設計、正則化カーネルの微分可能性、および詳細な定量比較",
+   "summary_ja": "付録では、ゴースト形状を防ぐ熱拡散正則化を含む UDF 学習損失の詳細、特異点を排除して解析的勾配を導出する reg-GWN の数学的証明、および既存の純粋なニューラル UDF（CAP-UDF 等）と比較した詳細な定量評価結果を解説しています。",
+   "details_ja": "### UDF の学習損失設計（Appendix A）\nニューラル UDF の学習では SIREN アーキテクチャを用い、出力層に $\\mathrm{softplus}$ を適用して非負値を保証しています。損失関数には、表面上のゼロ拘束やアイコナール損失（勾配ノルムを 1 に保つ拘束）に加え、境界ループ $\\mathcal{C}$ 上で不自然な膜（キャップ）が張られるのを防ぐ項を導入しています。さらに熱核に着想を得た熱拡散正則化項を加えることで、空間内に不要な高周波の「ゴースト幾何」が浮き出るのを強力に抑制しています。\n\n### 正則化ポアソンカーネルの特異点解消と微分可能性（Appendix B）\n通常の GWN ではクエリ点が表面点と一致するとカーネルが発散（特異点）してしまいます。本手法では誤差関数ベースの正則化関数 $s(t) = \\operatorname{erf}(t) - \\frac{2t}{\\sqrt{\\pi}}e^{-t^2}$ を組み込んだポアソンカーネル $P_\\delta$ を用いています。テイラー展開により $\\mathbf{x} \\to \\mathbf{p}$ の極限で $P_\\delta \\to 0$ となることが証明され、特異点が完全に解消されます。これにより reg-GWN の空間勾配 $\\nabla w_\\delta$ が解析的に微分可能となり、境界尾根の明瞭な探索が数学的に保証されています。\n\n### 定量評価とアブレーション（Appendix C）\n既存の純粋なニューラル UDF 手法である CAP-UDF などと比較した結果、単独の UDF では微小な突起や鋭利な角（ネジや Lucy 像など）で距離場が局所的に鈍ったり誤差が蓄積したりすることが確認されました。reg-GWN を相補的に組み合わせた提案ハイブリッド表現では、面取り距離（Chamfer Distance）やハウスドルフ距離、F-score のすべてにおいてベースラインを大幅に上回り、微細形状を極めて忠実に再現できることが裏付けられています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「UDF は空間の探索方向を与え、reg-GWN の勾配ピークが真の境界を教える」という相補的な組み合わせが、不完全なモデルの幾何処理において決定的なブレークスルーを生んだ。",
+  "ガイダンス場の等値面と reg-GWN の境界リッジの間を交互に投影する 2 段階の反復計算により、非多様体や薄板が混在していても破綻しない高精度なツールパス抽出が可能になった。",
+  "時変の幾何変化を伴うロボット干渉チェックにおいて、「UDF による 99.5% の高速候補除外」と「時変 reg-GWN による厳密判定」を分担させることで、計算量と GPU メモリ消費を劇的に抑えられた。",
+  "手動のメッシュ修復や無理なソリッド化を廃止したことで、デザイナーが意図した開曲面や自己交差構造をそのまま活かした end-to-end のデジタルファブリケーションが現実のものとなった。"
+ ],
+ "limitations_ja": [
+  "極度に鋭利なエッジや極小スケールの微細構造に対しては、ニューラル UDF の学習による局所的な平滑化がわずかに生じ、入力幾何に対する完全なゼロ損失までは保証できない。",
+  "前処理全体の計算時間のうち約 70% をニューラル UDF のネットワーク学習が占めており、インタラクティブな即時プリントに向けては学習時間のさらなる短縮が課題である。",
+  "点群から法線を推定・伝播させる際、極端にノイズが多いスキャンデータでは法線の局所的な反転が reg-GWN の応答に悪影響を与える可能性がある。"
+ ],
+ "keywords": [
+  "Multi-Axis 3D Printing",
+  "Neural Unsigned Distance Field (UDF)",
+  "Generalized Winding Number (GWN)",
+  "Collision-Free Motion Planning",
+  "Geometry Processing in the Wild"
+ ],
+ "id": "2609.02413",
+ "title": "WildFab: Multi-Axis 3D Printing from Models in the Wild",
+ "authors": [
+  "Jiasheng Qu",
+  "Zhikai Shen",
+  "Chenyu Xu",
+  "Hailin Sun",
+  "Chengkai Dai",
+  "Yuhu Guo",
+  "Junpeng Wang",
+  "Yeung Yam",
+  "Guoxin Fang"
+ ],
+ "date": "2026-09-03",
+ "group": "general",
+ "tags": [
+  "planning",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.GR",
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.02413",
+ "pdf_url": "https://arxiv.org/pdf/2609.02413",
+ "summary_ja": "非多様体や中空構造など欠陥を含む実世界メッシュから、事前修復なしで空間ツールパスと大域的衝突回避軌道を直接算出する計算フレームワークを提案。ニューラル非符号付き距離関数（UDF）を組み合わせたハイブリッド表現により、ロボットアームを用いた多軸プリントを自動化した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.02413"
+}
