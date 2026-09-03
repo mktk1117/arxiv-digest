@@ -1,0 +1,141 @@
+{
+ "tldr_ja": "異なるロボットや人間の動画から物理法則を横断的に学習する行動条件付き動画世界モデル「CLAP」を提案し、単一ロボット専用の世界モデルに匹敵・凌駕する予測精度と実機ゼロショット適応を実証した論文です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "行動ラベル付きロボット動画やラベルのない人間動画を統合し、共通の物理事前知識を獲得するCLAPのフレームワーク概要です。エンドエフェクタ・言語・潜在行動という異なる行動表現を統一し、高精度な物理予測や未知の機体への少数ショット適応を実現します。",
+  "caption": "Figure 1: We introduce CLAP , a cross-embodiment learning framework that trains action-conditioned video models on diverse human and robot video data to learn fundamental physical priors that are critical for fine-grained dynamics prediction.",
+  "image": "details/2608.27406/F1.jpg"
+ },
+ "overview_ja": "ロボットが自律的に行動を計画・シミュレーションするために、動画生成技術を用いた「動画世界モデル（Video World Model）」が注目を集めています。しかし、従来の研究は特定の単一ロボット（FrankaアームやWidowXなど）専用に作られており、インターネット上に膨大に存在する多様なロボットや人間の動画データを活用できませんでした。ロボットごとに自由度や関節構造、行動空間が全く異なるためです。\n\nそこで著者らは、「操作者が誰であれ、コップが倒れたりタオルが折れたりする背景の物理法則は共通である」という直感に基づき、機体を跨いで学習可能なクロスエンボディメント動画世界モデル「CLAP」を開発しました。異種混合な機体をまとめるため、CLAPはエンドエフェクタ（手先位置姿勢）、自然言語、そして動画から自己教師ありで獲得する潜在行動（Latent Action）の3つの行動表現を導入しました。さらに、ラベルのない人間動画から潜在行動を使って基礎的な物理法則を学び、その後に手先位置姿勢の行動空間へ接地させるカリキュラム学習（CLAP-CURR）を考案しました。\n\n実験では、DROIDやBridgeといった難関ベンチマークにおいて、単一機体専用の最先端モデル（Ctrl-Worldなど）と同等以上の予測精度を達成しました。さらに、推論時に複数のロボット方策（$\\pi_{0.5}$ や MolmoAct-2）から出された候補行動をCLAP上でシミュレーション・選別することで、実機マニピュレーションの成功率を大きく向上させられることを示しました。双腕ロボットやヒューマノイドへの少数ショット適応も容易であり、動画世界モデルの汎用化に向けた大きな一歩を示しています。",
+ "contributions_ja": [
+  "機体ごとの行動空間の違いを統一するため、エンドエフェクタ位置姿勢・自然言語・自己教師あり潜在行動の3つの表現を統合する枠組みを構築した点",
+  "ラベルなし動画から潜在行動で物理を学んだ後、手先行動ヘッドへ切り替えて接地させるカリキュラム学習（CLAP-CURR）を提案した点",
+  "単一機体専用モデルに匹敵・凌駕する予測精度を達成し、複数方策の候補から最適な行動を選ぶクロス方策プランニングで実機のゼロショット性能を改善した点",
+  "双腕ロボットやG1ヒューマノイドといった高自由度な未知の機体に対しても、少量のデータで高精度に適応（ファインチューニング）できることを示した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "ロボット動画世界モデルを大規模データで解き放つ",
+   "summary_ja": "大規模言語モデルのようにWeb規模の多様なデータを取り込むことが、動画世界モデルの物理的一貫性を高める鍵です。CLAPは、操作者が異なっても物理法則は普遍であるという洞察に基づき、異種混合なロボットや人間の動画から横断的に学習する新しいパラダイムを提示します。",
+   "details_ja": "近年の大規模言語モデル（LLM）は、Web規模のテキストから単一の統一表現を学習することで爆発的なブレイクスルーを遂げました。一方で、ロボティクスにおける「行動条件付き動画世界モデル（入力された行動に応じて未来の映像を予測する生成モデル）」は、物理的な矛盾や破綻に悩まされ続けています。これまで、ロボットの自由度（DoF）や外見、行動空間が機体ごとにバラバラであることから、モデルは単一ロボット（例えばWidowX専用、Franka専用など）に特化して訓練されてきました。これでは、人間動画を含むWeb規模の膨大な映像資産を活用できません。\n\nしかし、Frankaアームが触ろうが、人間の手が触ろうが、「ボトルが倒れる」「タオルが畳まれる」「引き出しが開く」といった背後にある物理法則（Universal Physical Laws）は完全に共通です。したがって、機体の多様性を理由にデータを単一機体に絞り込むのは悪手であり、むしろ多様なデータを集約して物理事前知識を学ぶべきだというのが著者らのコアな主張です。\n\nこれを実現するためにCLAPが挑んだ課題は、機体間の行動空間の非互換性と、人間動画に行動ラベルが存在しないという問題です。CLAPは、手先（エンドエフェクタ）位置姿勢、自然言語、自己教師ありの潜在行動の3つを巧みに使い分け、さらに「潜在行動でラベルなし動画から物理を学んでから手先行動に接地させる」というカリキュラム学習を導入しました。これにより、難関データセットであるDROIDにおいて単一専用モデルに匹敵・凌駕する精度を叩き出し、実機でもゼロショットで方策の成功率を高めることに成功しました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "動画生成モデルとクロスエンボディメント学習の交差点",
+   "summary_ja": "動画生成モデルをロボットの「頭の中のシミュレータ」として使う研究が活発化していますが、従来は単一機体に閉じられていました。CLAPは、多様な機体や人間動画を統一的に扱う表現学習と動画シミュレータを結びつける位置づけにあります。",
+   "details_ja": "ロボティクスにおける動画生成技術の応用は急速に進んでいます。主に3つの系統があり、(1) 動画モデルをデータ生成器として使い擬似行動を振る手法、(2) 動画モデル自体を方策のバックボーンとして行動を出力させる手法、そして(3) 行動条件付き動画モデルを「学習型シミュレータ（World Model）」として扱い、実機を使わずに頭の中で方策の評価や強化学習を行う手法です。CLAPが焦点を当てるのは3つ目のシミュレータとしての動画世界モデルですが、先行研究（WorldGymやCtrl-Worldなど）はいずれも単一の機体に依存しており、データスケーリングの恩恵を十分に受けていませんでした。\n\n一方、複数の異なるロボットから学習する「クロスエンボディメント学習」の分野では、手先位置姿勢の共通化、ゼロパディング、言語指示による共通化、あるいはGenieやLAPAのような「潜在行動モデル（LAM: Latent Action Model）」を用いた行動空間の統一が模索されてきました。しかし、潜在行動はラベルなし動画を扱える反面、実機を動かすための幾何学的な制御指令とズレが生じるという弱点があります。CLAPは、これらの相補的な強みと弱みを分析し、カリキュラム学習によって統合することで、シミュレータとしての動画世界モデルをマルチエンボディメントへと引き上げました。",
+   "figures": []
+  },
+  {
+   "heading": "3 CLAP: Training Cross-Embodiment Video World Models",
+   "heading_ja": "異種混合な行動空間をどう束ねて世界モデルを鍛えるか",
+   "summary_ja": "手先位置姿勢、言語、潜在行動の3つの表現を設計し、それぞれのトレードオフを克服するカリキュラム学習を提案しています。さらに、過去の履歴フレーム条件付けやマルチビュー統合により、高精度な動画拡散モデルを構築しています。",
+   "details_ja": "### 3.1 異種混合な行動空間の調和\n機体ごとに異なる自由度（例えばWidowXは6自由度、Frankaは7自由度）を統一するため、CLAPは3種類のアプローチを定義し、それぞれのトレードオフを明らかにしました。\n\n- **エンドエフェクタ行動（CLAP-EE）**: 順運動学（FK）を用いて各関節の動きを7次元の手先空間（並進3次元、オイラー角3次元、グリッパー開閉）に変換します。重要なのは「絶対座標」を採用し、各ロボットの可動域に合わせて$[-1, 1]$に正規化した点です。単一機体モデルでは相対座標が好まれることが多いですが、クロスエンボディメントでは絶対座標の方が誤差の蓄積を防ぎ、高い予測精度を維持できることがわかりました。ただし、ラベルなし動画には適用できません。\n- **言語行動（CLAP-LANG）**: 「x=..., y=...」のような定型テキストに行動を射影し、CLIPテキストエンコーダ等で読み込ませます。事前学習モデルの知識を活かしやすい一方、テキストトークナイザの解像度不足により微細な数値制御で精度が落ちる限界があります。\n- **潜在行動（CLAP-LAM）**: ラベルのない動画（人間動画など）から、連続する2フレーム間の変換を自己教師ありの変分オートエンコーダ（VAE）で32次元の連続潜在ベクトルとして抽出します。Web規模の動画を取り込める大きな強みがありますが、実機展開時に目標機体の行動空間へ変換する際、予測精度が劣化しやすい欠点があります。\n- **カリキュラム学習（CLAP-CURR）**: そこでCLAPが提案するのが、この2つを繋ぐカリキュラムです。まず潜在行動を用いてラベルなし動画を含む大規模データから基礎的な物理事前知識をプレトレーニングします。その後、バックボーンを固定したまま行動ヘッドを手先7次元行動用ヘッドにすげ替え、行動ラベル付きデータで追加学習します。これにより、Web動画の恩恵を受けつつ、下流の適応層による劣化なしに直接実機へゼロショット展開できるようになります。\n\n### 3.2 クロスエンボディメント動画世界モデルの学習\n動画生成のバックボーンにはSVD（Stable Video Diffusion）ベースの時空間U-Netを採用しています。過去$H$フレームの観測履歴とロボット姿勢を因果的クロスアテンションで入力することで、速度などの時間的文脈を補います。また、マルチビューカメラ（側面、手先カメラなど）の映像を潜在空間で縦方向に連結して一括処理するMulti-view conditioningを導入し、幾何学的な一貫性を担保しています。\n\n### 3.3 ターゲット機体への高効率な適応\nクロスエンボディメントで事前学習したCLAPは、特定のロボットへのファインチューニング（事後適応）のベースとしても極めて優秀です。学習済み機体への適応だけでなく、14自由度の双腕ロボット（YAM）や26自由度のヒューマノイド（Unitree G1）のような、訓練時に見ていない高自由度な未知の機体に対しても、行動ヘッドを差し替えるだけで少量のデータから高精度に適応させることができます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "CLAPの全体パイプラインです。連続フレームから潜在行動を抽出するLAM、順運動学から得る手先行動（EE）、言語表現を束ね、過去履歴と共に行動条件付きU-Netデノイザに入力してマルチビューの未来動画を予測します。",
+     "caption": "Figure 2: CLAP CLAP reconciles disparate action spaces across human and robot morphologies to train high-fidelity cross-embodiment video models.",
+     "image": "details/2608.27406/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "単一専用モデルを超えられるか？ 実機での実力検証",
+   "summary_ja": "難関環境DROID等で単一機体専用モデルに匹敵・凌駕する予測精度を記録しました。また、絶対座標と相対座標の得失を明らかにし、複数方策の行動候補から最善手を予測・選択する推論時プランニングによって実機タスクの成功率を向上させました。",
+   "details_ja": "実験はOpen X-Embodiment（OXE）およびEgoDexデータセットを用い、8台のH100/H200 GPUで訓練されました。評価指標にはPSNR、SSIM、LPIPS、FVD、FIDなどの知覚・動画品質メトリクスを用いています。\n\n### 4.1 単一エンボディメントモデルとの比較\nDROID環境において、CLAP（特にCLAP-CURRやCLAP-LAM）は、専用に訓練された最先端ベースライン「Ctrl-World」と同等以上の性能を達成しました。単一機体モデルと同じパラメータ数・訓練ステップ数であり、かつDROIDデータの割合が実質的に少ないにもかかわらず同等以上の性能が出たことは、機体を跨いだデータから普遍的な物理法則を獲得できている強力な証拠です。なお、人間動画のみで学習した「DreamDojo-Human」はLPIPSが61%以上悪化しており、物理の基礎は学べても、ロボットの形態へ転移させるにはロボット自身の動画データが不可欠であることも浮き彫りになりました。\n\n### 4.2 相対行動 vs 絶対行動の検証\n「手先行動（EE）」では、従来好まれてきた相対座標よりも絶対座標（正規化済み）の方が、長期の予測において誤差の累積を防ぎ、DROIDでLPIPSが約14.6%良好でした。逆に「言語行動（LANG）」では、語彙・トークナイザの分解能の限界から、値の範囲が狭い相対座標の方が高精度になるという、表現形式による興味深い逆転現象が確認されました。\n\n### 4.3 実機におけるゼロショット推論時プランニング\nFrankaアーム（DROID構成）の実機マニピュレーション5タスク（テープ、魚、箱、ロブスターのピック＆プレイス、タオル折り）において、最先端方策である $\\pi_{0.5}$ と MolmoAct-2 を用いた検証を行いました。各方策から行動候補を出し、CLAP上で未来動画を予測させ、VLM（GPT-5 mini）でスコアリングして最も良い行動を実機で実行（Receding-horizon planning）させました。その結果、方策単体ではセマンティクス誤認で失敗するケース（例えば $\\pi_{0.5}$ がテープで失敗し、MolmoAct-2がロブスターで失敗する等）をCLAPが正しく見抜き、全てにおいて単体方策を上回る成功率（最大80〜95%）を記録しました。さらに、14自由度の双腕YAMロボットに対しても、行動の大きさに応じて腕を動的に切り替える工夫により、ゼロショットで高い成功率を維持できることを示しました。\n\n### 4.4 ターゲット機体への少数ショット適応\nクロスエンボディメント学習済みのCLAPをBridgeやDROIDでファインチューニングすると、ゼロから学習した単一機体専用モデルを全メトリクスで上回りました。さらに、14自由度の双腕YAMや26自由度のヒューマノイドG1に対しても、わずかな追加学習で両腕・手指の複雑な相互作用を高精度に予測できるようになりました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "DROID、Bridge、OXE-Mixにおける単一機体ベースラインとの比較です。難関なDROIDにおいて、CLAP-LAMやCLAP-CURRは専用モデルであるCtrl-Worldを上回るPSNR・LPIPSを達成しています。",
+     "caption": "Figure 3: Comparison to SOTA single-embodiment baselines. CLAP approaches or exceeds SOTA performance on the DROID platform, showing only minor fidelity degradation in simpler domains like Bridge. Across the diverse mix of embodiments (OXE-Mix), CLAP-LAM and CLAP-CURR achieve the highest prediction accuracies, closely followed by CLAP-EE .",
+     "image": "details/2608.27406/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "DROID環境での動画予測結果です。CLAP-CURR（水色）は真値（青）に極めて忠実にロボットアームの動きを再現できており、長期にわたる破綻が抑えられています。",
+     "caption": "Figure 4: CLAP’s performance on DROID. CLAP-CURR combines the strengths of CLAP-LAM and CLAP-EE to achieve high-fidelity dynamics prediction with fine-grained per-frame controllability, outperforming SOTA single-embodiment baselines. Meanwhile, CLAP-LANG delivers comparable performance over shorter horizons, though it is constrained by compounding errors over longer trajectories.",
+     "image": "details/2608.27406/F4.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "絶対行動と相対行動の比較です。手先行動（オレンジ）では絶対座標が圧倒的に優れる一方、言語行動（緑）ではトークナイザの制約から相対座標の方が良い結果を示しています。",
+     "caption": "Figure 6: Comparison between relative-action and absolute-action spaces. Action-conditioned video generation in absolute-action spaces yields superior prediction fidelity; however, these gains are limited to future prediction tasks conditioned on end-effector-actions. In contrast, relative actions achieve higher prediction fidelity for language-action-conditioned video models.",
+     "image": "details/2608.27406/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "DROIDにおける行動空間ごとの予測フレーム比較です。手先絶対座標（CLAP-EE-Absolute）は破綻なく物体操作を予測できていますが、相対座標や言語絶対座標では後半フレームでアームが消えたりぼやけたりする現象が見られます。",
+     "caption": "Figure 7: Comparison between relative-action and absolute-action spaces in DROID. In end-effector-action-conditioned video generation, absolute-action spaces enable fine-grained controllability over extended prediction horizons, an advantage that is not observed with relative-action spaces. Conversely, language-action-conditioned video models achieve higher-accuracy future prediction with relative actions.",
+     "image": "details/2608.27406/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "実機マニピュレーションでの推論時プランニング成功率です。単腕Franka（左）および双腕YAM（右）において、ベース方策単体（π0.5やMolmoAct-2）よりもCLAPを組み合わせた方が高いタスク成功率を達成しています。",
+     "caption": "Figure 8: Inference-time cross-policy planning with CLAP. In contrast with prior work, CLAP optimizes over action proposals from multiple SOTA policies for robust robot manipulation across diverse tasks, boosting the success rates of $\\pi_{0.5}$ and MolmoAct-2. Moreover, we stress-test CLAP in bimanual robot manipulation beyond its standard operational domain, demonstrating improvements in success rates on a bimanual YAM robot.",
+     "image": "details/2608.27406/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion, Limitations, and Future Work",
+   "heading_ja": "まとめと今後の展望：物理シミュレータのパラダイムシフトへ",
+   "summary_ja": "CLAPは異種混合な動画から普遍的な物理を学ぶ動画世界モデルを確立しました。依然として幻覚（ハルシネーション）や推論速度の課題はあるものの、ロボティクス基盤モデルの新たな道を切り拓いています。",
+   "details_ja": "CLAPは、多様なロボットや人間の動画から普遍的な物理事前知識を獲得する、クロスエンボディメント動画世界モデルの訓練フレームワークを確立しました。手先位置姿勢、言語、潜在行動の長所を融合したカリキュラム学習により、ラベルなしWeb動画のスケーリングと実機ゼロショット適応の両立という最大の課題を解決しました。\n\n一方で、著者らはいくつかの限界も認めています。第1に、現在の動画生成モデル全般が抱える「幻覚（Hallucination）」の問題です。分布外の状況ではあり得ない物理現象を生成してしまうことがあり、不確実性の定量化や安全性担保が今後の重要課題です。第2に、推論レイテンシです。A100で約3秒、H200で約1.5秒を要しており、制御ループ（10Hz以上など）でリアルタイムに回すには至っていません。今後はFlow Matching等の導入による高速化が期待されます。第3に、事前学習データは依然として単腕ロボットが中心であり、今後は双腕やヒューマノイドのデータ自体を事前学習段階から大規模に組み込んでいくことが展望として挙げられています。",
+   "figures": []
+  },
+  {
+   "heading": "付録",
+   "heading_ja": "付録：実装の詳細と読者の疑問に答えるQ&A",
+   "summary_ja": "SVDバックボーンの選定理由、民生用GPUでの動作可否、潜在逆ダイナミクスモデル（IDM）の汎化性能、動画世界モデル内での強化学習（RL）による方策改善実験などの重要事項がまとめられています。",
+   "details_ja": "- **推論リソースと速度**: 推論時のVRAM消費量は約9.7GBであり、RTX 3060などの12GBクラスの民生用GPUでも動作可能です。11フレーム生成（25デノイジングステップ）の推論時間は、A100-PCIeで3.24秒、H200で1.49秒です。\n- **なぜ最新のWan 2.2等ではなくSVD（2023）を使ったのか**: 大規模なアブレーション実験（行動空間、カメラ配置、履歴条件付けなど）を高速かつ低コストに回すためです。Wan 2.2等を使うと1回の学習にH200ノードで約10日かかりますが、SVDなら約2〜3日で完了します。CLAPの設計自体はバックボーンに依存しないため、最新アーキテクチャへの移植も容易です。\n- **潜在行動モデル（LAM）の汎化性能**: 未知のロボット形態（UR5など）を含むデータセットで逆ダイナミクス予測を評価したところ、単一機体で学習したIDMが未知データで大きく精度を落とすのに対し、CLAPのLAMは未知機体に対しても高い再構成精度を維持しました。\n- **世界モデル内での強化学習（RL）**: CLAPをシミュレータとして用い、方策（Diffusion Policy）を強化学習で追加学習させる実験も行われました。実機タスク「ニンジンをボウルに入れる」において、成功率を80%から88%へと引き上げることに成功しています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "ロボットの形態が違っても物理法則は共通であり、機体を跨いだ動画データ学習によって単一専用モデル以上の物理シミュレータを作ることができる",
+  "ラベルなし動画を活用するには、潜在行動（LAM）で事前学習した後に手先行動ヘッドへ繋ぐカリキュラム学習（CLAP-CURR）が極めて有効である",
+  "動画モデルを行動条件付ける際、連続値の手先行動では「正規化絶対座標」が誤差蓄積に強く、離散言語トークンでは「相対座標」が適しているというトレードオフが存在する",
+  "動画世界モデルは単なる生成鑑賞用ではなく、推論時に複数方策の行動候補からベストな軌道を選別するプランナとして実機の性能を底上げできる"
+ ],
+ "limitations_ja": [
+  "動画生成モデル特有の幻覚（あり得ない物体の変形や貫通など）が分布外で発生するリスクが依然として残る",
+  "推論時間がH200でも約1.5秒、A100で約3秒かかり、高周波（10Hz以上など）なリアルタイム制御のオンラインプランニングにはまだ遠い",
+  "事前学習データセットの大部分が単腕マニピュレータに偏っており、双腕や全身ヒューマノイドへの適応には依然としてファインチューニングを要する"
+ ],
+ "keywords": [
+  "Video World Models",
+  "Cross-Embodiment Learning",
+  "Latent Action Models",
+  "Action-Conditioned Video Generation",
+  "Zero-Shot Physical Simulators"
+ ],
+ "id": "2608.27406",
+ "title": "CLAP: Cross-Embodiment Video World Models are Zero-Shot Physical Simulators",
+ "title_ja": "CLAP: クロスエンボディメント動画世界モデルによるゼロショット物理シミュレータ",
+ "authors": [
+  "Kechen Liu",
+  "Ola Shorinwa"
+ ],
+ "date": "2026-08-29",
+ "group": "focus",
+ "tags": [
+  "world-model",
+  "simulation"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.27406",
+ "pdf_url": "https://arxiv.org/pdf/2608.27406",
+ "summary_ja": "人間や多様なロボット形態の動画から物理法則を汎化学習し、ゼロショット物理シミュレータとして機能するクロスエンボディメント行動条件付き動画生成フレームワークCLAPを提案。形態間で異なる行動表現を統一的に扱い、多様な実環境動画を活用した物理シミュレーションを可能にする。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.27406"
+}
