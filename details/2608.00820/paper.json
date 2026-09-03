@@ -1,0 +1,116 @@
+{
+ "tldr_ja": "ヒューマノイドの全身モーション追従において、オフポリシー強化学習の超高速な学習速度を活かしつつ、専門家モデルの役割分担と専用リプレイ機構によってPPOに迫る高い追従精度を約45分で達成した研究です。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "LooperMuscleの全体構成です。部位ごとに重み付けを変えるMoE Actor（方策）、それと同じ重みで価値分布を束ねるExpert-Aware Critic（価値関数）、そして専門家ごとの貢献度に応じてデータを偏りなく抽出するQuota-Routed Replayが、互いに協調する単一の閉ループ学習システムを構築しています。",
+  "caption": "Fig. 2 : System overview of LooperMuscle. (A) The policy receives proprioceptive observations and motion references. (B) The Muscle-Inspired Expert Actor decomposes the policy into $K$ experts fused via per-joint-group gating $w_{k,g}$ , with per-joint scaling $S_{k,j}$ and output alignment $c_{k}$ . The Expert-Aware Distributional Critic maintains per-expert DVF heads aggregated through the same gating weights. (C) Routed Replay & Curriculum stores transitions with expert contribution metadata ",
+  "image": "details/2608.00820/F2.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットに人間のような全身動作を真似させる「全身モーション追従（WBT）」の学習には、これまでPPOなどのオンポリシー強化学習（方策を更新するたびに環境と相互作用して新しいデータを集める手法）が主流でした。しかしPPOは安定している反面、学習に数時間単位の長い時間がかかるのが大きな悩みでした。\n\nそこで近年、数万ステップのデータをメモリに溜めて再利用するオフポリシー手法のFastSACなどが登場し、歩行タスクをわずか15分程度で解けるようになりました。ところが、29自由度もの関節を緻密に協調させる全身モーション追従に適用すると、どうしてもPPOに比べて追従精度が大きく劣化してしまうという「速度と精度のトレードオフ」が立ちはだかりました。単一のニューラルネットワークでは、バランス維持が最優先の下半身と、表現力が求められる上半身という性質の異なるダイナミクスを同時に上手く扱えなかったのです。\n\nこの課題に対し、著者らは「LooperMuscle」という新しい学習フレームワークを提案しました。関節グループごとに専門家を組み合わせるMixture-of-Experts（MoE）構造のActor、その専門家の役割分担をそのまま価値評価に反映するDistributional Critic、そして特定のエキスパートばかりが選ばれて学習が偏るのを防ぐクータ（配分枠）付きリプレイバッファを導入し、これらを密に連動させました。\n\n40種類の多彩な人間動作を用いたシミュレーション検証の結果、LooperMuscleはFastSACの追従誤差を34%も削減し、PPOなら約6時間かかる品質の大部分をわずか約45分で獲得できることを示しました。さらに実機ヒューマノイド（Unitree G1）へのゼロショット展開にも成功し、実用的な開発サイクルを飛躍的に加速できることを実証しました。",
+ "contributions_ja": [
+  "下半身と上半身で異なる温度付きソフトマックスを用いて専門家を配分し、崩壊防止正則化を備えた関節グループ別MoE Actorを提案しました。",
+  "Actorのゲーティング重みを再利用して専門家ごとのリターン分布を束ねる、構造が同型なExpert-Aware Distributional Criticを設計しました。",
+  "専門家の貢献度に応じた枠（Quota）割り当てと、難しいサンプルの導入を遅らせるカリキュラムを組み合わせたリプレイ手法を導入しました。",
+  "単一GPUの約45分の学習でFastSACの追従誤差を34%削減し、実機ヒューマノイドUnitree G1での動的なカンフー動作の追従に成功しました。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "爆速なめらか学習の壁：15分学習のFastSACが全身追従で苦戦する理由",
+   "summary_ja": "大規模並列シミュレータとオフポリシー強化学習の組み合わせによりロボット学習は劇的に加速しましたが、全身モーション追従ではPPOに精度で遠く及びませんでした。この原因が「単一モデルの表現力不足」「粗い価値評価」「リプレイバッファの偏り」の悪循環にあることを見抜き、解決策としてLooperMuscleを提案しています。",
+   "details_ja": "強化学習をロボット実機へ適用する際、学習と実機テストを繰り返してシミュレータとのギャップを埋めるイテレーションの速さが鍵となります。FastSACなどの近年のオフポリシー手法は、歩行制御をGPU1枚・わずか15分で学習できる圧倒的な速さを見せました。\n\nしかし、ダンスや格闘技のように全身29箇所の関節を高精度に動かすタスク（WBT）に移ると、学習速度は速くても追従精度がPPOに大きく劣留まるという壁に直面しました。著者らはこの原因を次の3つの相互作用だと分析しています。\n\n- **単一モデル（Monolithic MLP）の限界**: 下半身の転倒防止と上半身の豊かな表現力という、全く異なるダイナミクスの妥協を強いられます。\n- **スカラー価値関数の限界**: 全身で1つの良し悪ししか返せないため、どの部位が成功・失敗したのかという「貢献度の割り振りが困難になります。\n- **一様な経験再生（Replay）の弊害**: 上手く動かせている部位のデータばかりが優先され、学習が進んでいない苦手な部位の勾配が埋もれてしまいます。\n\nLooperMuscleはこれらを解決するため、部位別の専門家モデル（MoE）、専門家対応の分布型Critic、貢献度に応じたリプレイ制御を緊密にループさせました。これにより、FastSACの約15分よりわずかに長い約45分の学習で、PPO（約6時間）に迫る追従品質を達成しています。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "ヒューマノイド制御の歩み：PPO一強からオフポリシーとMoEの融合へ",
+   "summary_ja": "ヒューマノイドの模倣学習はPPOによる単一モデルが主流でしたが、並列オフポリシー手法の登場で学習時間の短縮が進んできました。LooperMuscleは最新のFastSACを土台としつつ、深層学習で成果を上げているMoEと分布型強化学習の思想を全身追従向けに融合させた先駆的な位置づけにあります。",
+   "details_ja": "物理シミュレーションを用いたキャラクタアニメーションやロボットの動作追従は、DeepMimic以来、PPOを用いたアプローチが王道でした。BeyondMimicやHOVERなどの最新研究でも、単一の大きなニューラルネットワークに全身をまるごと制御させる設計が一般的です。\n\n一方で学習の高速化を目指し、並列環境下でSoft Actor-Critic（SAC）やTD3を回す研究が進み、FastSACやFastTD3によって15分で歩行を獲得できることが示されました。しかし、これらもネットワーク構造自体は従来通りの単一MLPであり、全身の協調が必要な複雑タスクには構造的な拡張が施されていませんでした。\n\nまた、Mixture-of-Experts（MoE: 複数の専門家ネットワークを得意分野に応じて使い分ける手法）は言語モデルなどで脚光を浴びており、ロボティクスでもKungfuBot2のようにPPOベースの大規模制御で有効性が示されつつあります。LooperMuscleは「高速な単一タスク学習」をターゲットとし、FastSACの枠組みに関節グループごとのMoEと専門家対応の分布型価値関数を組み込んだ点で、これまでの研究と一線を画しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Methodology",
+   "heading_ja": "LooperMuscleの仕組み：3つの機構が織りなす閉ループ学習",
+   "summary_ja": "全身を上半身・下半身に分けた温度付きMoE Actor、専門家構造と完全に一致させたExpert-Aware Critic、そして専門家の出番や難易度を考慮するQuota-Routed Replayを提案しました。これらが互いの学習を支え合う閉ループを形成することで、安定かつ高精度な学習を実現します。",
+   "details_ja": "本手法の対象は29自由度のヒューマノイド（Unitree G1）です。制御周期50Hzで、自己受容感覚（関節角度・角速度・胴体姿勢など）と目標動作の参照信号を受け取り、各関節の目標角度を出力します。\n\n### III-A & III-B: 部位別MoE Actorとゲート崩壊防止\n関節を上半身と下半身の2グループに分割し、$K$個のエキスパートを組み合わせます。ここでの工夫は以下の通りです。\n- **2段階の重み付け**: グループごとの大まかな重み付け（$w_{k,g}$）に加え、関節可動域に応じた関節単位のスケーリング係数（$S_{k,j}$）を掛け合わせます。\n- **グループ別の温度パラメータ**: 下半身には低い温度（シャープに専門家を厳選し安定性を重視）、上半身には高い温度（柔らかくブレンドして表現力を重視）を設定します。\n- **崩壊防止正則化**: 特定のエキスパートばかりが選ばれるのを防ぐため、バッチ全体の平均ゲーティング分布と一様分布のKLダイバージェンスを用いた損失を加え、弱い専門家も確実に育つようにします。\n\n### III-C: 構造が同型なExpert-Aware Distributional Critic\nCriticにはリターンを確率分布として扱うDistributional Value Function（C51形式）を採用し、$K$個のエキスパートそれぞれに対応する価値分布ヘッドを持たせました。これらをActorが算出したゲーティング重みと全く同じ比率で足し合わせることで、ActorとCriticの構造を同型にしています。これにより、「どの専門家の行動がどれだけ価値に貢献したか」を正確に評価できます。\n\n### III-D & III-E: Quota-Routed Replayと閉ループの完成\nバッチ作成時には、各専門家が主導したデータが一定比率（Quota）で必ず含まれるようにサンプリングします。さらに、追従誤差が大きすぎる難しい遷移データは学習初期にはバッファに保留（Deferred）し、学習の進行度合いに応じて徐々に解禁するカリキュラムを導入しました。これにより、初期の学習破綻を防ぎながら最終的な性能上限を引き上げます。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "Quota-Routed Replayのデータフローです。各データは専門家の貢献度メタデータ付きで保存され、ミニバッチ作成時に各専門家の割り当て枠（Quota）と難易度に応じた保留解禁スケジュールに沿ってバランス良く抽出されます。",
+     "caption": "Fig. 4 : Quota-Routed Replay and Expert-Aware Critic over training time. Top: Each transition is stored with expert contribution metadata and routed to the main buffer, per-expert buckets, and deferred buckets. Middle: Mini-batches combine uniform samples, expert-quota samples ( $N_{k}=\\lfloor q_{k}N_{\\text{exp}}\\rfloor$ ), and deferred samples ( $N_{\\text{def}}=\\lfloor u(\\rho)N_{\\text{exp}}\\rfloor$ ). Bottom: Holdout ratio $h(\\rho)$ releases held-back data early, while unlock ratio $u(\\rho)$ ra",
+     "image": "details/2608.00820/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "実験結果：約45分でPPOの72%に到達、転倒復帰などの難関動作で真価を発揮",
+   "summary_ja": "LAFAN1データセットの40動作を用いてFastSAC-MLPおよびPPOと比較評価を行いました。LooperMuscleはFastSACの追従誤差を34%削減し、専門家が動作フェーズごとに自然に役割分担していることを確認したほか、実機Unitree G1でのカンフー動作の再生にも成功しました。",
+   "details_ja": "実験は単一のNVIDIA RTX 4090Dを用い、4096並列のシミュレータ環境で行いました。歩行・走行・ジャンプ・ダンス・格闘・転倒復帰（Fall&GetUp）の6カテゴリ計40動作で検証しています。\n\n### 速度と精度のトレードオフ\nFastSAC-MLP（学習約15分）は全身位置誤差が0.153mでしたが、LooperMuscle（学習約45分）は0.101mへと34.0%も誤差を削減しました。PPOの収束値に対する正規化報酬では72%に到達し、個別動作では最大90%近くまで迫ります。FastSACの学習時間を360分まで延長しても性能が頭打ちになることから、この差は計算時間ではなくネットワークの表現能力によるものであることが確認されました。\n\n### 動作カテゴリ別の傾向とアブレーション\n歩行のような単純動作での改善率が26.7%だったのに対し、ダイナミクスが激しく接触の多い「転倒復帰」では40.6%もの誤差削減を達成しました。複雑な動作ほど専門家の分業が効くことを物語っています。\n構成要素を1つずつ抜くアブレーション実験では、MoE Actorを抜いたときに誤差が+51.5%と最大悪化し、Quota Replayの除去（+25.7%）やDeferredスケジュールの除去（+17.8%）でも明確に性能が落ち、提案モジュールのシナジーが実証されました。\n\n### 専門家の役割分担と実機検証\nt-SNEによる特徴量可視化（図F5）では、各専門家が動作カテゴリ単位ではなく、「立脚相」「遊脚相」といった物理的な制御モードごとに明確にクラスタを形成していることが判明しました。また、実機Unitree G1（図F7）へも搭載センサのみで推定可能な154次元インターフェースで再学習したモデルをデプロイし、転倒することなくスムーズに蹴り技などのカンフーシーケンスを追従できることを確認しました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "主導する専門家（Expert ID）ごとに色分けしたペナルティメイト層特徴量のt-SNE可視化です。各専門家の領域が綺麗に分離しており、動作種別ではなく支持脚の切り替えなどの力学的モードに応じて専門分化が起きていることが分かります。",
+     "caption": "Fig. 5 : Main quantitative results and expert specialization. (a) LooperMuscle occupies a favorable middle point in the speed–quality tradeoff: much better tracking quality than FastSAC-MLP and much less training time than PPO. Ellipses denote $\\pm 1$ standard deviation over multiple random seeds. (b) Reward vs. wall-clock time (0–197 min) under the same reference task in the short-budget regime. (c) Per-category body/joint error with $\\pm 1$ standard deviation bars; LooperMuscle consistently im",
+     "image": "details/2608.00820/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "実機ヒューマノイド（Unitree G1）でのカンフー動作の追従実験です。実機で取得可能な154次元の観測情報のみを用いて50Hzで推論し、キックから安定して着地・遷移する一連の全身動作を実現しています。",
+     "caption": "Fig. 7 : Real-world deployment on Unitree G1. The LooperMuscle policy tracks the whole-body motion of a fighting sequence from the KungfuBot2 motion library [ 9 ] , with stable balance and smooth transitions between kicks, demonstrating sim-to-real transfer via the Holosoma runtime stack at 50 Hz.",
+     "image": "details/2608.00820/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望：高速イテレーションが拓くヒューマノイド制御の未来",
+   "summary_ja": "LooperMuscleは、オフポリシー学習の速さとPPOの高い追従精度を両立させる実践的な枠組みです。シミュレーションと実機で観測情報の設計が異なる点やハイパーパラメータの自動調整など、今後の発展に向けた課題も明確に整理されています。",
+   "details_ja": "本研究は、関節グループ別MoE、同型な分布型Critic、そして貢献度リプレイを結合することで、ヒューマノイドの全身追従における「速度と品質のトレードオフ」を大きく前進させました。学習時間が6時間から45分に短縮されることは、Sim-to-Real開発における試行錯誤のサイクルを劇的に加速させる実用的な価値を持ちます。\n\n論文では今後の課題として以下の3点を挙げています。\n- **観測インターフェースの統一**: ベンチマーク評価ではシミュレータの特権情報（グローバル位置など）を含むインターフェースを用いており、実機向けには車載センサ情報のみで再学習しています。今後は実機準拠のインターフェースで全ベンチマークを統一評価することが求められます。\n- **モデル容量の公平な比較**: パラメータ数を揃えた巨大MLPとの比較を行い、純粋なMoE構造の利点をさらに切り分ける必要があります。\n- **設計の自動化**: エキスパート数$K=4$や温度パラメータなどは固定値が用いられたため、今後はこれらを動的・適応的に決定する仕組みが期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "オフポリシー強化学習（FastSAC）の課題だった全身制御の精度劣化は、計算時間不足ではなく単一MLPの表現力の限界に起因していた点。",
+  "ヒューマノイドの全身制御では、下半身（安定性重視＝低温）と上半身（表現力重視＝高温）のように部位ごとにゲーティング温度を変えるMoE設計が非常に有効である点。",
+  "ActorのMoE構造とCriticの価値分布構造を同型に保ち、リプレイバッファ側でも専門家の偏りを防ぐという「閉ループ」の一貫設計が性能向上を決定づける点。"
+ ],
+ "limitations_ja": [
+  "定量ベンチマーク評価がシミュレータ特権情報（グローバル座標など）に依存しており、実機配備時には車載センサ向けにモデルを最初から再学習する必要がある点。",
+  "専門家数（K=4）やグループ分割数（G=2）などのハイパーパラメータがヒューリスティックに固定されており、パラメータ数を同等にした巨大MLPとの厳密な比較が未実施である点。"
+ ],
+ "keywords": [
+  "Humanoid Whole-Body Tracking",
+  "Off-Policy Reinforcement Learning",
+  "Mixture-of-Experts",
+  "Distributional Critic",
+  "FastSAC"
+ ],
+ "id": "2608.00820",
+ "title": "LooperMuscle: Fast and Stable Learning of Humanoid Whole-Body Tracking via Structured Mixture-of-Experts",
+ "title_ja": "LooperMuscle：構造化MoEを用いたヒューマノイド全身トラッキングの高速かつ安定な学習",
+ "authors": [
+  "Boyi Liu",
+  "Qijin Li",
+  "Tianqi Yu",
+  "Qinrui Yan",
+  "Xingxing Zuo"
+ ],
+ "date": "2026-08-04",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "control",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.00820",
+ "pdf_url": "https://arxiv.org/pdf/2608.00820",
+ "summary_ja": "ヒューマノイドの全身運動トラッキングにおいて、強化学習のスピードと性能のトレードオフを解消するフレームワークLooperMuscleを提案する。構造化Mixture-of-Expertsアクター、エキスパート認識型分布クリティック、寄与に応じたリプレイバッファを導入し、FastSAC級の高速学習とPPOレベルの追従精度を両立させた。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.00820"
+}
