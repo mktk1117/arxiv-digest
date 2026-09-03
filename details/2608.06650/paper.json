@@ -1,0 +1,153 @@
+{
+ "tldr_ja": "SoRoMoXは、ソフトロボットのロッド理論に基づく低次元化モデルをJAX上で実装し、高速なGPU並列シミュレーションとエンドツーエンドの自動微分、さらに制御に必要な動力学項への統一アクセスを実現したオープンソースフレームワークです。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "SoRoMoXの全体像です。関節型や連続体（PCS/GVS）などのソフトロボットモデルを共通インターフェースで扱い、JAXによるJITコンパイル・自動微分・GPU並列化を駆使して、同定からモデル予測制御、強化学習、安全性担保制御までを一気通貫でサポートします。",
+  "caption": "Fig. 1: Overview of SoRoMoX. Implemented in Python/JAX, the framework provides control-oriented models for soft robots, including articulated systems and continuum rod formulations such as Piecewise Constant Strain [ 9 ] and Geometric Variable Strain [ 11 , 10 ] . Just-in-Time compilation, automatic differentiation, and batched accelerator execution support gradient-based system identification, model-based control, control-gain optimization, parallel Reinforcement Learning, and Control Barrier F",
+  "image": "details/2608.06650/F1.jpg"
+ },
+ "overview_ja": "剛体ロボットの世界では、MuJoCo XLAやIsaac GymのようにGPU並列化や自動微分に対応したシミュレータが登場し、大規模な強化学習や軌道最適化が当たり前になりました。一方で、柔軟に変形するソフトロボットの制御・同定では、コセラロッド理論（Cosserat-rod theory: 細長い弾性体の変形を記述する力学理論）に基づく優れた低次元化モデルが理論上確立されているにもかかわらず、その実装はMATLABベースのCPU計算に留まっていたり、自動微分やGPU並列計算に対応していなかったりして、先進的な計算パイプラインに組み込めないという大きなギャップがありました。\n\nそこで著者らは、Python/JAXベースで完全数値化・JITコンパイル可能なソフトロボットモデリングフレームワーク「SoRoMoX（Soft Robot Models in JAX）」を開発しました。SoRoMoXは、区分的一定歪み（PCS: Piecewise Constant Strain）や幾何学的可変歪み（GVS: Geometric Variable Strain）などの連続体モデルと関節型柔軟モデルを統一的に扱い、慣性行列、コリオリ項、弾性・重力項、ヤコビアンなどを制御アルゴリズム向けに直接提供します。\n\nベンチマークにおいて、SoRoMoXは既存のCPUライブラリ（SoRoSim）と比べて直列実行で最大18.1倍高速であり、さらにGPUによる一括並列シミュレーションによって最大234.6倍のスループット向上を達成しました。\n\nこの驚異的な計算効率と微分可能性によって、これまでソフトロボットでは困難だった「静的平衡データからの高精度な物理パラメータ同定（誤差66%削減）」「残差補正学習」「モデル予測トルク制御（誤差約500分の1）」「微分可能ロールアウトによるゲイン自動最適化」「高次コントロールバリア関数（HOCBF）による接触力安全制約（最大接触力を33.5 Nから5 N以内に抑制）」「GPU並列化による7倍高速な強化学習」という6つの応用事例を実証し、ソフトロボット制御の実装基盤を一段引き上げることに成功しました。",
+ "contributions_ja": [
+  "コセラロッドに基づく低次元化ソフトロボットモデル（PCS、GVS）および関節型柔軟モデルを、JAXを用いてGPUネイティブかつ完全微分可能な形で初めて統合実装したこと",
+  "シミュレーションのブラックボックス利用にとどまらず、慣性行列や重力・弾性項、ヤコビアン、空間変換など、制御系設計に必要な動力学項を共通APIとして網羅的に提供したこと",
+  "既存のSoRoSimと比較して直列CPU計算で最大18.1倍、GPUバッチ並列化により最大234.6倍のシミュレーションスループット向上を達成したこと",
+  "高速性と微分可能性を活かし、システム同定、残差学習、トルク計算制御、ゲイン最適化、HOCBFによる接触力安全制御、並列強化学習という6つの高度な制御・学習パイプラインを実証したこと"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "ソフトロボットのモデル展開を阻む「計算実装の壁」を打ち破る",
+   "summary_ja": "ソフトロボットの制御理論は成熟してきたものの、その実装基盤がGPU並列化や自動微分に対応していないことがボトルネックになっていました。SoRoMoXはJAXを活用してこの課題を解決し、剛体ロボティクスで普及している現代的な最適化・学習ワークフローをソフトロボットにもたらします。",
+   "details_ja": "ソフトロボットは、その柔軟性によって環境になじむ優れた物理的知能を持っています。しかし、無限の自由度を持つ連続体の変形をどう扱うかが長年の課題でした。過去10年で、コセラロッド理論をベースに歪み（strain）の場を有限の座標系へと縮約する低次元化モデル、特に「区分的一定歪み（PCS: Piecewise Constant Strain）」や「幾何学的可変歪み（GVS: Geometric Variable Strain）」などの定式化が進み、理論的なモデリングの基礎は確立されました。\n\nしかし、現在のボトルネックは「モデルの導出」から「計算環境への展開」へと移っています。剛体ロボティクスでは、MuJoCo XLA（MJX）やJaxSimのようにGPU上で数千〜数万の並列シミュレーションを回し、自動微分によって軌道最適化や強化学習を高速に行う環境が整っています。それに対して、ソフトロボットの既存ツール（例えばMATLABで書かれたSoRoSimや、CPUベースのPyElasticaなど）は、自動微分に対応していなかったり、モデルの内部構造（慣性行列やヤコビアンなど）を制御器向けに公開していなかったり、現代のGPUアクセラレータを活用できなかったりしていました。\n\n本論文が提案する「SoRoMoX」は、Python/JAXを用いて構築されたソフトロボットのためのオープンソースフレームワークです。単一モデルの高速なJITコンパイル評価から、GPU/TPU上での大規模バッチ評価、さらには状態・入力・パラメータに関するエンドツーエンドの自動微分までを完全サポートします。これにより、剛体ロボット分野で当たり前になった強力な計算技術を、そのままソフトロボットへと橋渡しします。",
+   "figures": []
+  },
+  {
+   "heading": "II What SoRoMoX Provides",
+   "heading_ja": "剛体から連続体まで統一し、制御に直結するAPIを提供する",
+   "summary_ja": "SoRoMoXは関節型柔軟ロボットと連続体ロッドモデル（PCS/GVS）をサポートし、運動方程式の各項やヤコビアンを制御向けに統一公開しています。さらにモデルベース制御器や多彩な可視化ツールも同梱されています。",
+   "details_ja": "SoRoMoXが提供する機能は、大きくモデル表現、制御向けインターフェース、制御器、描画機能の4つに分かれています。\n\n- II-A モデルファミリー（Model Families）\nSoRoMoXは2つの大きな系統をサポートします。1つ目は「関節型ソフトロボット（ArticulatedSoftRobot）」で、剛体リンクに柔軟な関節や弾性腱、空気圧人工筋（McKibben型アクチュエータなど）を組み合わせた系を扱います。2つ目は「連続体ソフトロボット（Continuum Soft Robots）」で、コセラロッド理論に基づき、少数の歪みパラメータで連続変形を表現します。各区間で歪みが一定と仮定するPCS（2次元および3次元）と、歪み場を基底関数の重ね合わせとして表現するGVSの両方をサポートしています。PCSは解析的な閉形式の運動学を活用して極めて軽量に動き、GVSはより複雑な曲がり方やねじれを高精度に表現できます。\n\n- II-B 制御向けモデルインターフェース（A Control-Ready Model Interface）\nSoRoMoXの核となる思想は、「モデルは単なるブラックボックスなシミュレータであってはならない」という点です。下流の制御や最適化では、前進運動学 $g(q,s)$ やヤコビアン $J(q,s)$ だけでなく、運動方程式に出てくる慣性行列 $M(q)$、コリオリ・遠心力項 $C(q,\\dot{q})\\dot{q}$、重力項 $G(q)$、弾性力項 $K(q)$、ダンピング項 $D\\dot{q}$、アクチュエーション行列 $A(q)$ の各成分へ直接アクセスできることが不可欠です。SoRoMoXはこれらを統一APIとして提供し、さらに作業空間動力学（Operational Space）や駆動空間動力学（Actuation Space）への座標変換ツールも標準装備しています。\n\n- II-C & II-D モデルベース制御器と拡張性（Model-Based Controllers & Extensibility）\nこれらのモデル情報を用いて、PID制御、重力・ポテンシャル補償制御、フィードフォワード補償、トルク計算制御（Computed Torque）、作業空間インピーダンス制御などの代表的な制御器がパッケージ化されています。また、型安全なJAX/Equinoxオブジェクトとして設計されているため、ユーザーは基底クラスを継承して断面形状や腱の配置（ルーティング）を変えるだけで、新しい独自ロボットを簡単に追加できます。\n\n- II-E レンダリングと可視化（Rendering and Visualization）\n柔軟ロボットの挙動確認のために、軽量なMatplotlib描画から、Open3Dによる3D描画、Viserを用いたブラウザ上でのリアルタイム表示や動画出力まで、統一されたインターフェースで柔軟に切り替え可能です。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "SoRoMoXのユーザーワークフローです。ロボットのパラメータ定義とモデル構築から始まり、運動学・動力学項の直接取得、モデルベース制御器の組み立て、Diffraxを用いた閉ループ/開ループシミュレーション、そして3D描画や動画出力までが滑らかに繋がります。",
+     "caption": "Fig. 2: SoRoMoX user workflow. High-level path from installation and robot definition to querying model terms, constructing model-based controllers, running open- and closed-loop simulations, and rendering resulting trajectories and shape evolutions.",
+     "image": "details/2608.06650/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "III Getting Started and User Interface",
+   "heading_ja": "わずか数行でシミュレーションから微分可能最適化まで",
+   "summary_ja": "Pythonから直感的に使えるAPI設計となっており、パラメータと構造を分離した型定義を採用しています。Diffraxによる微分可能なODE数値積分やJAX標準のJIT・vmap・gradとの相性も抜群です。",
+   "details_ja": "SoRoMoXは、Python 3.10以降に対応しており、`pip install soromox` で簡単に導入できます。使いやすさと高い計算効率を両立するために、コード設計には洗練された工夫が凝らされています。\n\n- III-A & III-B API概要と微分可能ワークフロー\nモデル定義では、数値データ（幾何形状、材料物性、ヤング率など）を持つ「パラメータPyTree」と、配列の形状や基底関数の次数などを決める「静的構造」を明確に分離しています。これにより、パラメータを更新して再評価する際にJAXの再コンパイルが発生せず、極めて高速に勾配ベースの最適化ループを回すことができます。\n\nシミュレーションにはJAXエコシステムの常微分方程式（ODE）ソルバーライブラリであるDiffraxを採用しており、標準では高精度なTsit5（Tsitouras 5/4法）を用いて積分します。連続時間の閉ループシミュレーションはもちろん、指定した制御周期ごとに指令値を更新するゼロ次ホールド（ZOH）の離散サンプル値制御シミュレーションも数行で記述可能です。\n\nさらに、すべての関数呼び出しがJAX互換であるため、`jax.jit` でJITコンパイルして爆速化したり、`jax.vmap` で複数環境をバッチ化したり、`jax.grad` や `jax.jacrev` でロボットの挙動に関する微分をワンラインで取得できます。これにより、システムの物理パラメータ同定や制御ゲインのチューニングを、勾配法を用いてスマートに実行できます。",
+   "figures": []
+  },
+  {
+   "heading": "IV Computational Performance Evaluation",
+   "heading_ja": "CPUで最大18倍、GPU並列化で最大235倍の圧倒的な高速性",
+   "summary_ja": "既存の代表的ライブラリ（SoRoSim、PyElastica）と計算速度および精度を比較しました。SoRoMoXはCPU単体でもSoRoSimを最大18.1倍上回り、GPUバッチ並列化によって最大234.6倍のスループットを叩き出します。",
+   "details_ja": "SoRoMoXの実力を評価するため、柔軟梁の変形シミュレーションを用いてベンチマーク試験が行われました。比較対象は、同じく低次元化モデルを実装するMATLABライブラリ「SoRoSim」と、離散コセラロッド（有限要素法に近い詳細モデル）を解く高速なC++/Pythonライブラリ「PyElastica」です。\n\n- CPUにおける直列ロールアウト性能\n長さ0.6 mの円筒ビームに対して外力や腱張力を与える4つのシナリオで、3秒間の挙動をシミュレーションしました。その結果、SoRoMoXはSoRoSimと物理時間でほぼ同一の挙動（先端位置のRMSEは0.86 mm〜7.21 mm、ビーム長に対してわずか0.14%〜1.20%の差）を再現しながら、劇的な高速化を記録しました。\n具体的には、平面PCSモデルで約18.1倍、空間PCSで約5.9倍、複雑なGVSモデルで約1.5倍、腱駆動GVSモデルで約2.1倍の高速化を達成しました。純粋なシミュレーション単体ではPyElasticaの方が速いケースもありますが、PyElasticaは制御に必要な動力学行列（慣性行列やコリオリ項など）を出力できず、自動微分もできないため、制御指向の低次元化モデルとしてはSoRoMoXが圧倒的な性能を示しています。\n\n- GPUにおけるバッチ並列スケーリング\n次に、NVIDIA RTX 5090 GPU上で `jax.vmap` を用いて、独立したシミュレーションを同時に複数走らせるバッチ並列スループットを計測しました。バッチサイズ $n_{\\mathrm{b}}$ を1から256まで増やした際、シミュレーションスループット（実時間に対する総シミュレーション時間の比率）がどう伸びるかを評価しています。\n関節型ソフトロボットでは、バッチサイズ256において理想的な線形スケーリングの79.5%〜91.6%を維持し、203.6倍〜234.6倍の超高速化を達成しました。連続体モデルでも、平面PCSで最大196.2倍、空間PCSで最大155.6倍、空間GVSで最大175.4倍の性能向上を示しました。バッチサイズ256の環境下では、関節型や平面PCSはもちろん、多セグメントの空間PCS/GVSであっても、全体の合計スループットとして実時間（リアルタイム）を大幅に超えるスピードでデータ生成が可能であることが実証されました。",
+   "figures": []
+  },
+  {
+   "heading": "V Application Case Studies",
+   "heading_ja": "同定・制御・安全・強化学習まで：広がる6つの応用事例",
+   "summary_ja": "自動微分とGPU並列化をフル活用した6つの実践事例（システム同定、残差学習、モデルベース制御、ゲイン最適化、バリア関数による安全制御、並列強化学習）を展開し、その実用性と威力を証明しました。",
+   "details_ja": "SoRoMoXの真価を発揮する6つの応用ケーススタディが示されています。\n\n- V-A & V-B 静的平衡システム同定と残差学習\n腱駆動の円錐形アームの実機実験データ（モーションキャプチャで取得した4箇所のマーカー位置）を用い、ヤング率・ポアソン比・密度の3つの物性値を同定しました。SoRoMoXは静的平衡状態の解法を微分可能な計算グラフとして扱えるため、勾配法による最適化によってマーカー位置の二乗平均平方根誤差（RMSE）を56.9 mmから19.3 mmへと66%低減させました。さらに、同定後も残る未モデル化摩擦やヒステリシスをニューラルネットワークで補正する「残差力学習」を組み合わせることで、RMSEはさらに6.9 mm（追加で64%削減）まで改善しました。\n\n- V-C モデルベース制御（Model-Based Control）\n1セグメントの空間PCSロボットに対し、モデル情報を使わないPD/PID制御、ポテンシャル補償（PC）、フィードフォワード補償（FF）、そしてトルク計算制御（CT）を比較しました。モデルの正確な動力学項をフィードバック線形化に用いるCT制御は、モデルフリーなPD制御に比べてRMSEを約500分の1に激減させ、圧倒的な軌道追従精度を示しました。また、2セグメントロボットを用いた作業空間インピーダンス制御でも、先端位置誤差2.84 mmという高精度な球面上8の字軌道追従を実現しています。\n\n- V-D 制御ゲインの最適化（Control Gain Optimization）\n閉ループシミュレーション全体を通して自動微分を行うことで、PIDゲインなどの制御パラメータを直接勾配降下法で最適化しました。手動調整された初期値に比べ、追従誤差の積分損失を最大62%削減し、目標整定時間を64%短縮することに成功しました。\n\n- V-E 高次バリア関数（HOCBF）による安全性担保制御\n障害物との接触力を5 N以内に制限しながら目標姿勢へ到達させるタスクです。安全性を考慮しない高次リアプノフ関数（HOCLF）制御器では最大接触力が33.5 Nまで跳ね上がってしまいましたが、SoRoMoXの高次微分可能な動力学を用いてHOCBFを組み込んだコントローラは、接触力を厳格に5 N以下に抑えつつ目標近傍への到達を達成しました（超過率を570%から0%へ抑制）。\n\n- V-F GPU並列強化学習（Parallel Reinforcement Learning）\n半球面上を動くターゲットを追従するタスクにおいて、PPOアルゴリズムを用いた強化学習を行いました。SoRoMoXのGPU並列環境（256並列や512並列）を活用することで、CPUベースのPyElasticaを用いたベースラインに比べ、同一性能に到達するまでの学習時間を最大7倍短縮しました。訓練されたポリシーは91.4%のステップ成功率を達成しています。",
+   "figures": [
+    {
+     "key": "F10",
+     "caption_ja": "SoRoMoXを用いて実証された応用事例の概要図です。システムパラメータの同定、モデルベース制御、強化学習ポリシーの並列訓練、そして障害物接触力を制限する安全制御まで、幅広いタスクをカバーしています。",
+     "caption": "Fig. 10: Application case studies for SoRoMoX: physical parameter identification and residual learning, model-based control and gain optimization, policy training, and safety-constrained control.",
+     "image": "details/2608.06650/F10.jpg"
+    },
+    {
+     "key": "F11",
+     "caption_ja": "3次元PCSソフトロボットによるモデルベース制御の結果です。(A) では目標値制御と軌道追従において、モデル項を組み込んだトルク計算制御（CT: 赤実線）がモデルフリーなPD/PID（点線）を圧倒する精度を示しています。(B) は2セグメントアームによる作業空間での8の字追従の様子です。",
+     "caption": "Fig. 11: Model-based control with fully actuated spatial Piecewise Constant Strain robots. ( A ) Configuration-space response of a one-segment robot during stepwise setpoint regulation ( $0$ – $15\\text{\\,}\\mathrm{s}$ ) and trajectory tracking ( $15\\text{\\,}\\mathrm{s}$ – $30\\text{\\,}\\mathrm{s}$ ). The desired and actual commanded strains $\\kappa_{\\mathrm{y}}$ , $\\kappa_{\\mathrm{z}}$ , and $\\sigma_{\\mathrm{x}}$ are shown for model-free PD and PID control, potential compensation, feedforward compen",
+     "image": "details/2608.06650/F11.jpg"
+    },
+    {
+     "key": "F12",
+     "caption_ja": "制御ゲインの自動最適化の推移です。(A, C) 最適化反復に伴い損失関数が急激に低下しています。(B, D) 初期ゲイン（破線）では振動や遅れが見られた応答が、最適化されたゲイン（実線）によって目標値へと素早く整定している様子が分かります。",
+     "caption": "Fig. 12: Results of the control gain optimization demo. ( A ) Loss function ( 41 ) along the iterations of the system controlled in actuation coordinates via ( 35 ); the system with minimum loss across the batch is shown in solid dotted line, while the shaded area represents the min-max range across the batch. ( B ) The first three configuration variables (coinciding with the angular strains) of the one-segment PCS system, showing in dashed line the target setpoint, in dash-dot line the median s",
+     "image": "details/2608.06650/F12.jpg"
+    },
+    {
+     "key": "F13",
+     "caption_ja": "(A, B) HOCLF単体（上/青）では接触力が33.5 Nまで過大になりますが、HOCBFを併用した制御器（下/橙）は設定上限の5 Nを厳密に死守しています。(C, D) GPU並列化による強化学習の報酬推移で、SoRoMoX（赤・紫）がCPUのPyElastica（青）より大幅に速く学習を完了しています。",
+     "caption": "Fig. 13: Safety-constrained regulation under the HOCLF– HOCBF controller and parallel RL for goal tracking. ( A ) Rendered shape evolution of a safety-unaware HOCLF controller (top) and a safety-constrained HOCLF+HOCBF controller (bottom) on the task end-effector regulation for a soft continuum arm (two Piecewise Constant Strain segments). The end-effector goal is marked in green, and the spherical obstacles are rendered in purple. ( B ) Time evolution of the contact force and goal distance for ",
+     "image": "details/2608.06650/F13.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "ソフトロボットの制御と学習を加速する新世代のスタンダードへ",
+   "summary_ja": "SoRoMoXは、ソフトロボット工学に現代的な高速微分可能計算スタックを導入しました。今後は平面GVSの高速化、浮遊ベースや分岐機構への対応、多様なスマートアクチュエータへの拡張が期待されます。",
+   "details_ja": "SoRoMoXは、これまで分断されていた「正確なコセラロッド低次元化理論」と「現代のGPU並列・自動微分計算技術」を初めて完全に融合させたオープンソースフレームワークです。単なるシミュレータにとどまらず、制御器の設計に必要な運動方程式の内部構造をあますところなく提供することで、最適化や機械学習の強力なアルゴリズムをソフトロボットへダイレクトに適用できる道を拓きました。\n\n今後の展望として、論文では以下の拡張方針が挙げられています。\n- より高速な平面GVS環境の実装（空間モデルへ移行する前の迅速なアルゴリズム試作のため）\n- 浮遊ベース（移動型ソフトロボットなど）や、分岐構造を持つキネマティックツリー、並列リンク構造への対応\n- 形状記憶合金（SMA）や誘電エラストマー（DEA）、ジャミング機構など、腱駆動・空気圧以外の先端アクチュエーション方式への対応\n- 剛体ロボットにおけるURDFのように、ソフトロボットの設計をシミュレータ間で共通共有できる標準ロボット記述プロトコルの策定支援\n\nSoRoMoXはMITライセンスでGitHub上に公開されており、今後のソフトロボティクス研究を大きく前進させる共通基盤となることが期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "付録（Appendix）",
+   "heading_ja": "高速性と微分安全性を支える内部アーキテクチャの秘密",
+   "summary_ja": "静的構造と動的PyTreeの分離、カスタムJVPによる特異点回避と高速化、作業空間・駆動空間への射影変換など、SoRoMoXの高性能を支える実装の工夫がまとめられています。",
+   "details_ja": "付録では、SoRoMoXがなぜ高速かつ安定して微分・並列計算を行えるのか、その内部設計が詳しく解説されています。\n\n- パラメータと構造の分離（Appendix A-A）\n配列の次元数や積分点数、アクチュエータの接続トポロジーなどの「静的構造（Structure）」と、ヤング率や質量密度などの「動的パラメータ（Params）」を完全に切り離して管理しています。パラメータの変更はJAXの再コンパイルを引き起こさないため、最適化ループ内の更新処理が極めて軽量です。\n\n- 解析的微分フックとカスタムJVP（Appendix A-C）\nすべての計算を無邪気に自動微分（AD）に任せると、計算グラフが巨大化してメモリを圧迫し、速度が低下します。SoRoMoXでは、ヤコビアンの時間微分 $\\dot{J}$ やエネルギー勾配など、解析的な閉形式が既知である部分にはカスタムなヤコビアン・ベクトル積（JVP）を定義し、自動微分エンジンが解析解を直接呼び出すように工夫しています。\n\n- 作業空間・駆動空間ダイナミクスへの射影（Appendix A-D）\n手先位置などのタスク空間において、作業空間慣性行列 $\\Lambda(q) = (J M^{-1} J^\\top)^{-1}$ や動的に無矛盾な疑似逆行列を計算する機能を提供しています。また、腱駆動のような劣駆動系に対しては、駆動座標と非駆動座標を直交分解（QR分解を利用）して運動方程式を変換する `ActuationSpaceDynamics` を用意しており、高度な非線形制御器を即座に構築できるよう配慮されています。\n\n- 効率的な空間積分の実装（Appendix E-A）\nロボットの根本から先端へのシリアルな依存関係には `jax.lax.scan` を用い、セグメント内の各ガウス積分点における独立な計算には `jax.vmap` を適用することで、無駄なシンボリック数式の展開を排除し、GPU上で最大の計算効率を引き出す設計になっています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "コセラロッドに基づくソフトロボットモデルが、JAXの導入によって剛体ロボット並みのGPU並列性・エンドツーエンド微分可能性を手に入れたこと",
+  "単なる数値シミュレータではなく、慣性行列や弾性項、ヤコビアンといった動力学の構成要素を直接取り出せるインターフェースが、高度な制御器開発に直結すること",
+  "静的平衡の逆問題や閉ループシミュレーション全体を微分することで、パラメータ同定やゲイン自動調整の手間が劇的に削減されること",
+  "ソフトロボットの安全性担保（接触力制限）には、高次コントロールバリア関数（HOCBF）と正確な2階微分可能な動力学モデルの組み合わせが極めて有効であること"
+ ],
+ "limitations_ja": [
+  "現在のところ、接触計算（外部剛体や複雑な環境との衝突・摩擦）のシミュレーション機能は限定的であり、今後の拡張課題であること",
+  "トポロジー（セグメント数や歪み基底の次数）を変更するとJAXの再コンパイルが発生するため、構造探索には工夫が必要であること",
+  "対応しているアクチュエーションが腱駆動や空気圧室などの一部に留まり、DEAやSMAなどのスマート材料への対応はこれからの開発段階であること"
+ ],
+ "keywords": [
+  "Soft Robotics",
+  "Cosserat Rod Theory",
+  "Differentiable Simulation",
+  "GPU Parallelization",
+  "Model-Based Control",
+  "JAX"
+ ],
+ "id": "2608.06650",
+ "title": "SoRoMoX: Fast, Differentiable, and Parallelizable Soft Robot Models",
+ "title_ja": "SoRoMoX: 高速・微分可能・並列化可能なソフトロボットモデル",
+ "authors": [
+  "Maximilian St\\\"olzle",
+  "Solange Gribonval",
+  "Daniel Feliu-Talegon",
+  "Vito Daniele Perfetta",
+  "Michele Martini",
+  "Chuhan Zhang",
+  "Kiwan Wong",
+  "Mohammed Tarnini",
+  "Anup Teejo Mathew",
+  "Federico Renda",
+  "Daniela Rus",
+  "Cosimo Della Santina"
+ ],
+ "date": "2026-08-10",
+ "group": "general",
+ "tags": [
+  "simulation",
+  "control",
+  "hardware"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.06650",
+ "pdf_url": "https://arxiv.org/pdf/2608.06650",
+ "summary_ja": "Cosserat-rod理論などに基づく柔軟ロボットモデルをPython/JAX上で実装した高速かつ微分可能なシミュレーションフレームワークSoRoMoXを提案。GPU並列化やJITコンパイルに対応し、制御や学習に直接利用可能な慣性行列やヤコビアン等の厳密な派生物を提供する。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.06650"
+}
