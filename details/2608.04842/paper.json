@@ -1,0 +1,135 @@
+{
+ "tldr_ja": "静止した物体をスマホ等で1回ぐるりと動画撮影するだけで、フォトリアルな見た目（3DGS）と物理干渉可能なメッシュ、そして正確な関節構造（URDF）を併せ持つシミュレーション用アセットを自動推薦＋最小限の手動調整で構築できるフレームワーク「RORA」を提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "RORAの全体コンセプトです。静止物体の動画を1本撮るだけで、物理干渉用のメッシュと見た目再現用の3D Gaussian Splatting（3DGS）を統合した可動アセットを出力し、Isaac SimやUnreal Engine上でロボットによるマニピュレーションが即座に実行できます。",
+  "caption": "Fig. 1: The Conceptual overview of RORA framework. Our pipeline reconstructs real objects into simulation-ready, articulated asset. It exports hybrid representation coupling Gaussian Splatting (GS) and meshes. Users can easily import articulated object in simulation environment for robot manipulation tasks.",
+  "image": "details/2608.04842/F1.jpg"
+ },
+ "overview_ja": "ロボット学習において、現実世界の環境をシミュレータ上に忠実に再現する「Real-to-Sim」は、Sim-to-Realギャップを埋めるための極めて重要なアプローチです。近年は3D Gaussian Splatting（3DGS）の登場により、極めて高精度な見た目の再現が可能になりました。しかし、引き出しやスプレー、工具のように「内部に関節を持つ物体（可動物体）」をシミュレーション環境へ持ち込むのは、依然として非常に高いハードルがありました。\n\n既存の可動性推定手法は、人間が手で物体を動かしながら複数状態をスキャンする必要があったり、大規模な視覚言語モデル（VLM）の常識に頼って関節を推論したりしていました。しかし前者はデータ収集が極めて面倒で連動する多関節（リンク構造）に弱く、後者は未知の形状や複雑な機構に対応できないという問題がありました。\n\nそこで著者らは、静止した物体の「1本の動画スキャン」だけを入力とし、物体の局所的な境界面の幾何形状から関節の候補軸を自動計算して提示するフレームワーク「RORA」を提案しました。凸分解と人間による直感的なパーツグループ化、そして境界ループの幾何解析による関節候補の自動推薦アルゴリズムを組み合わせることで、複雑な多関節や多段リンク機構もわずか数十秒のGUI操作で正確にモデル化できます。\n\n実験では、PartNet-Mobilityベンチマークや実世界の様々な日用品を用いて評価を行い、既存手法が軒並み破綻する複雑な関節構造でも極めて高い幾何・外観精度を達成することを示しました。さらに、作成したアセットをNVIDIA Isaac SimやUnreal Engine 5にインポートし、5指ハンドやヒューマノイドによるリアルタイムな遠隔操作・インタラクションが可能であることを実証しています。",
+ "contributions_ja": [
+  "静止した状態の動画を1回スキャンするだけで、動的な物体操作を撮影することなく可動アセットを再構成できるエンドツーエンドパイプラインを確立した点",
+  "局所的な境界幾何の特徴解析と軽量なヒューマンインザループ（HIL）の融合により、分岐構造（1対N）や多段リンク（チェーン結合）などの複雑な運動学を高精度に復元した点",
+  "物理シミュレーション用の凸メッシュ構造とリアルタイムフォトリアル描画用の3DGSをパーツ単位でバインドし、URDFとして即座にシミュレータに投入可能なハイブリッド表現を出力した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜ静止画動画から「動く物体」を作る必要があるのか？",
+   "summary_ja": "ロボットのSim-to-Real転移においてフォトリアルなシミュレーション環境の構築は不可欠ですが、関節を持つ可動物体の再現は困難でした。本論文は、静止物体の動画1本から高精度な関節付きアセットを生成する半自動パイプライン「RORA」を提案します。",
+   "details_ja": "ヒューマノイドをはじめとするロボットのマニピュレーション学習では、シミュレーション環境と現実環境の視覚的・物理的な差（Sim-to-Realギャップ）をいかに縮めるかが成否を分けます。近年、3D Gaussian Splatting（3DGS）を用いて現実の風景をそのままシミュレータ内にレンダリングする研究が盛んですが、それらの多くは「剛体（動かないひと塊の物体）」を対象としていました。しかし、私たちが日常で扱う物体の多くは、ヒンジやスライド機構などの内部運動学（キネマティクス）を持っています。\n\n現実の物体から可動モデルを作る従来の研究には、大きく分けて2つの系統がありました。1つはVLM（視覚言語モデル）に関節の種類や位置を推論させるアプローチ、もう1つは物体が動く様子を複数回スキャンして動きから拘束を逆算するアプローチです。しかし、VLMは学習データの偏りに弱く複雑な多関節で失敗しやすく、動作追跡系は「人間が関節を動かしながら何度もスキャンする」という極めて手間の掛かる作業が必要でした。\n\n本研究が提案する「RORA (Realistic Object Reconstruction with Articulation)」は、静止状態の物体を周囲から撮影した1本の動画だけを入力とします。物体境界面の局所幾何から関節軸の候補を幾何学的に自動計算し、人間がGUI上でクリックして選ぶ推薦ベースのヒューマンインザループ（HIL）を採用することで、手作業の負担を最小限に抑えつつ、分岐構造や親子の多段リンク（直列チェーン機構）まで高精度に復元します。出力は物理接触用のメッシュと美麗な描画用の3DGSが連動するURDF形式で、即座にロボットシミュレータへ導入できます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "RORAの全体パイプラインです。初期再構成、メッシュ修復、凸分解、ユーザーによるパーツ統合、幾何ベースの関節推薦と選択、そしてシミュレーション用URDFエクスポートという6つのステージで構成されています。",
+     "caption": "Fig. 2: Overall pipeline of our reconstruction framework. The method is composed of 6 stages. The process is semi-automated human-in-the-loop process, taking human feedback in segmentation and articulation stage",
+     "image": "details/2608.04842/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Works",
+   "heading_ja": "先人たちはどう挑み、どこで詰まっていたのか？",
+   "summary_ja": "3DGSによるフォトリアル表現、物体の動きから関節を推定する手法、VLMなどの深層学習で関節を当てる手法の3系統を整理します。いずれも運用コストや多関節への汎化性に課題がありました。",
+   "details_ja": "関連研究は大きく3つのカテゴリに整理できます。\n\n- **Gaussian–Meshハイブリッド再構成**\n3DGSは高品質な空間表現として急速に普及し、ロボティクス分野でもRE3SIMやRialTo、SplatSimのようにSim-to-Realの視覚的差異を埋める目的で活用されています。しかし、これらは物体を単一の静止した剛体メッシュとして扱うものがほとんどで、内部の関節を動かしてパーツごとに相互作用することはできませんでした。\n\n- **動きに基づく関節推定（Motion-Based Articulation）**\n物体の変形や運動を観測して関節拘束を逆算する手法です。2状態のRGB画像から1関節を推定するPARISや、RGB-Dカメラで複数関節を扱うPARIS*やDTA、さらに複数状態のRGB画像からスクリュー理論と3DGSを同時最適化するScrewSplatなどが提案されています。しかし、これらはユーザーが物体の関節を手作業で動かして複数回スキャンしなければならず、実用上の大きなボトルネックでした。また、1つの関節の動きが次の関節の位置を変えてしまうような多段リンク構造では、軌道が複雑化して追跡に失敗しやすい問題がありました。\n\n- **VLM・学習ベースの関節推定**\nArticulate-AnythingのようにVLMのエージェントループでCADライブラリから関節を割り当てる手法や、単一画像からViTでパーツ形状とURDFを直接回帰するURDFormerなどがあります。全自動で魅力的に見えますが、モデルが学習したデータセットの分布に強く依存するため、分布外（Out-of-Distribution）となる現実の多様な日用品に対しては、リンクの配置ミスや関節軸の誤同定が多発していました。\n\nRORAは、こうした「動作スキャンの手間」と「学習モデルの分布外エラー」を、局所境界幾何に基づく関節推薦アルゴリズムとわずかな人間フィードバックの組み合わせによって鮮やかに解消しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Methods",
+   "heading_ja": "局所幾何から関節軸を炙り出す、RORAの6段階パイプライン",
+   "summary_ja": "動画から生成したメッシュを凸分解し、ユーザーが意味のあるパーツへ結合します。その後、パーツ間の接触境界ループからSVMやEMを用いて関節軸候補を幾何学的に自動計算し、URDFへと出力します。",
+   "details_ja": "RORAは次の6つのステージで処理を進めます。\n\n### 1. 初期再構成とリファインメント（Initial Reconstruction & Refinement）\nまずGS2Meshを用いて、単一動画から3DGSと初期メッシュを復元します。SAM2で対象物体をセグメンテーションし、可視性カウントの閾値処理によって物体に属する3DGSのみを抽出します。初期メッシュの底面にはオクルージョンによる穴や浮遊ノイズが存在するため、主成分分析（PCA）で底面の法線を求めてZ軸直立方向にアラインし、穴埋めを行って水密（Watertight）なメッシュへと修復します。\n\n### 2. 分解とパーツセグメンテーション（Decomposition & Segmentation）\n可動サブパーツは幾何学的に突出した形状をしているという前提に基づき、近似凸分解（ACD）アルゴリズム（CoACD）を適用してメッシュを多数の凸ポリゴン片に分割します。テクスチャが似ているパーツの自動分割は誤りが多いため、ユーザーがGUI上で各凸片にグループ番号（パーツID）を割り振るだけの超軽量なHIL操作を行います。未割り当ての頂点は$L_2$距離で最近傍グループに統合されます。さらに、各3DGSポイントをk近傍法（KNN）の多数決で対応するメッシュパーツにバインドします。\n\n### 3. 関節推定アルゴリズム（Automatic Joint Suggestion Algorithm）\nここが本論文の技術的な核です。境界検出、軸推定、双方向フュージョン、候補提案の4ステップで関節軸を幾何学的に導出します。\n- **境界検出**: パーツ$i$と他パーツ$j$が隣接する境界頂点からグラフを作り、DFS（深さ優先探索）で閉ループ（境界サイクル）を列挙します。\n- **軸推定**: 境界サイクルごとに、平面形状には線形SVMを当てはめて法線ベクトル$\\bm{n}$を求めます。コーナー形状などの非平面にはEMアルゴリズムを用いて2つの超平面をフィッティングし、その交線ベクトル$\\bm{x}$を求めます。\n- **双方向フュージョン**: パーツ$i$から$j$への接続と、$j$から$i$への接続をペアリングして平均化し、法線$\\bm{n}$、交線$\\bm{x}$、およびその外積$\\bm{p} = \\bm{n} \\times \\bm{x}$の3つの候補ベクトルを生成します。\n- **関節候補の提案**: パーツ間に複数の接触境界がある場合（例えば工具箱の持ち手のように2点で支持されている場合）、接続原点同士の中点とそれらを結ぶ直線を新たな関節候補として自動追加します。\n\n### 4. エクスポートステージ\nGUI上で提示された関節軸候補の中からユーザーが正解をクリックし、関節タイプ（回転、直動、固定）を指定します。これだけで、物体の可動キネマティクスを完全に記述したURDFと、各リンクに紐づいた3DGS＋メッシュのハイブリッドアセットが出力されます。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "自動関節推薦アルゴリズムの流れです。パーツ境界サイクルを抽出し、SVMやEMにより法線・交線ベクトルを推定。双方向の接続をフュージョンして外積ベクトルを加えた3本の軸を関節候補として提案します。",
+     "caption": "Fig. 3: Overview of the Automatic Joint Suggestion Algorithm in Articulation Stage. From the segmented mesh, boundary cycles are extracted. Considering local geometry around each boundary, unidirectional connections (normal and intersection vectors) are estimated. Best-matched unidirectional pairs are fused into bidirectional connections, adding a cross-product vector. The resulting vectors of bidirectional connections are suggested as candidate joint axes.",
+     "image": "details/2608.04842/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "複数境界が存在する場合の関節候補生成例です。パーツ1（本体）とパーツ5（取っ手）のように2箇所で接触している場合、2つの接続中心を結ぶ軸が追加の回転軸候補として賢く提案されます。",
+     "caption": "Fig. 4: An example of additional candidate generation in the Joint Suggestion stage, highlighted between Part 1 and Part 5. Two bidirectional connections exist between those parts, which means two physical interfaces. By rules, an additional vector connecting the two centroids is suggested as a joint candidate.",
+     "image": "details/2608.04842/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "既存手法が全滅する複雑な多関節でも圧倒的精度を実証",
+   "summary_ja": "PartNet-Mobilityデータセットと実物体で評価を実施。VLMベースや動作追跡ベースのベースラインが多関節・多段リンクで破綻する中、RORAは圧倒的な幾何・外観精度を達成し、物理シミュレータでの遠隔操作も実証しました。",
+   "details_ja": "### ベンチマーク定量評価\nPartNet-Mobilityデータセットを用い、最先端の「Articulate-Anything (AA: VLMベース、内部モデルはGemini-2.5-Flash)」および「ScrewSplat (動作追跡ベース)」と比較しました。ベースラインが物体の動的動作動画（15秒）や5つの可動状態にわたる240枚の多視点画像を必要とするのに対し、RORAは静止した1状態の48枚の画像のみを入力とします。難易度ごとに単一関節（Cat I: 6種）、複数関節（Cat II: 6種）、多段リンク（Cat III: 4種）で評価しました。\n\n- **幾何精度（Table I）**: 単一関節（Cat I）では全手法がまずまず機能したものの、複雑な複数関節（Cat II）や親リンクの動きに子リンクが連動するCat IIIにおいてベースラインは壊滅的な性能低下を見せました。AAはVLMの推論ミスで誤ったCADモデルをマッチングしてしまい、ScrewSplatは連動する非線形な動きを追跡できませんでした。一方、RORAは幾何特徴に基づく提案と人手選択により、Cat IIIでも関節タイプエラーをほぼ出さず、角度誤差・位置誤差ともに最小値を記録しました。\n- **外観再現度（Table II, Fig. 5）**: 関節を動かした状態でのレンダリング品質（PSNR, SSIM, LPIPS）でも、RORAは全カテゴリで一貫して最高スコアを獲得しました。ベースラインは関節軸が狂っているため、動かした際の外観が大きく崩壊します。\n- **処理時間（Table III）**: HILを含むと時間がかかると思われがちですが、RORAの総処理時間は平均7分23秒。そのうち人間の対話操作時間はわずか42秒でした。AAはVLM推論の反復待ちで時間がブレ、ScrewSplatは平均6分56秒の最適化を要するため、RORAはほぼ同等の所要時間で圧倒的に高い品質を実現しています。\n\n### 実機物体スキャンとシミュレータ上でのロボット操作\n実世界のラップトップ、電気スタンド、工具箱、スプレー缶、消火器、Wi-Fiルーターなどを撮影してアセット化しました（Fig. 6）。ラベルの文字や微細なテクスチャを美しく保持しつつ、正確な関節運動が再現できています。\n\nさらに実用性の実証として、Unreal Engine 5.3ベースのHERMESシミュレータ上で5指ハンド（Inspire Hand）によるスプレーのトリガー引きやコーヒーミルのハンドル回転を遠隔操作で行いました。またNVIDIA Isaac Sim上でFourier GR-1ヒューマノイドをMeta Questで操作し、電気スタンドのアームを直感的に調整するタスクも実証しました（Fig. 7）。メッシュによる安定した物理接触計算と3DGSの美麗な描画が両立されていることが確認されました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "PartNet-Mobilityでのレンダリング比較です。ゼロ関節位置（左）から関節を動かした状態（右）にした際、ベースライン（AA, SCREW）はパーツの欠損や崩壊が起きますが、提案手法（OURS）は正解（GT）と見分けがつかない品質を維持しています。",
+     "caption": "Fig. 5: The rendering comparison on the PartNet-Mobility benchmark. Two representative examples are displayed for each category. For each baseline and our framework, the left image shows the object at the zero configuration, while the right image shows the articulated state adjusted for visual quality evaluation against the ground truth (GT).",
+     "image": "details/2608.04842/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実世界物体における定性比較です。ラップトップや多関節スタンド、ルーターのアンテナなど、実環境の複雑な関節軸（黄色の矢印）を正確に再構成できていることが分かります。",
+     "caption": "Fig. 6: Qualitative comparison on real-world objects. Columns depict object motions following joint constraints, where yellow arrows indicate revolute joint axes. The two leftmost columns show the results of Articulate-Anything [ 8 ] alongside their ground truth images.",
+     "image": "details/2608.04842/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "シミュレータ環境でのマニピュレーションデモです。上段はUnreal Engine上でのスプレー噴射やミル挽き、下段はIsaac Sim上でのGR-1ヒューマノイドによる電気スタンド操作を示しています。",
+     "caption": "Fig. 7: The dexterous manipulation demo under the simulation. Upper two images shows the operation in Unreal Engine, Lower two images shows the operation in the Isaac Sim environment. In this experiment, the robot hand is triggering the spray, and robot hand is rotating the handle of coffee grinder.",
+     "image": "details/2608.04842/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望：実世界の道具をシミュレータへ解き放つ",
+   "summary_ja": "単一の静止画動画から、3DGSとメッシュを統合した可動アセットを迅速に生成できるRORAを提案しました。今後は透明・反射物体の克服やヒューマノイドのSim-to-Real実証、コミュニティ向けアセット共有基盤の構築を目指します。",
+   "details_ja": "本論文では、静止した物体を撮影した1本の動画から、シミュレーションですぐに使える可動アセットを再構成する半自動パイプライン「RORA」を提示しました。直感的なパーツグループ化と幾何学に基づく関節軸の自動推薦という最小限のヒューマンインザループを取り入れることで、従来の完全自動手法が抱えていた多関節・多段リンクでの破綻を完全に克服しました。生成されたアセットはIsaac SimやUnreal Engineにシームレスに組み込め、ロボットの高度な巧緻マニピュレーションの訓練・データ収集環境として極めて有用です。\n\n一方で、現在のフレームワークにも限界が存在します。\n- **微小パーツや非突出形状**: 凸分解や幾何境界解析に依存しているため、物体全体に対して極端に小さい部品や、表面から幾何学的に突出していないパーツの切り出しには失敗する場合があります。\n- **反射・透明素材の弱点**: 3DGSおよび初期メッシュ生成の共通の課題として、ガラスなどの透明な物体や強い鏡面反射を持つ金属表面の再構成は苦手です。\n\n著者らは今後、RORAで構築したアセットを用いて実際にヒューマノイドロボットを訓練し、実世界へのSim-to-Real成功率向上を検証する予定です。また、再構成した高品質アセットをコミュニティ全体で共有・配布できるプラットフォームの公開も計画されています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「動いている様子をスキャンする」という常識を捨て、静止物体の接触境界幾何（SVMやEMによる法線・交線）から関節軸を逆算するという逆転の発想が極めて強力。",
+  "完全自動化に固執してVLMの幻覚に悩まされるよりも、42秒程度の軽量な推薦ベースHIL（人間のワンクリック選択）を挟む方が、工学的信頼性と実用性が劇的に高まる。",
+  "物理接触用の凸メッシュ（URDF）と高精細レンダリング用の3DGSをパーツ単位でバインドするハイブリッド設計は、今後のSim-to-Realロボット学習環境構築の標準になり得る。"
+ ],
+ "limitations_ja": [
+  "可動部が幾何学的に突出していない（同一平面に埋め込まれているような）パーツや、物体全体に対して小さすぎるパーツは凸分解で分離できない。",
+  "3DGS自体の制約を引き継いでいるため、透明なガラスや強い光沢・反射を持つ表面の形状再構成に失敗しやすい。"
+ ],
+ "keywords": [
+  "3D Gaussian Splatting",
+  "Real-to-Sim",
+  "Articulated Object Reconstruction",
+  "Human-in-the-loop",
+  "Robot Manipulation",
+  "URDF"
+ ],
+ "id": "2608.04842",
+ "title": "RORA: Realistic Object Reconstruction with Articulation",
+ "title_ja": "RORA: 運動機構を備えた現実物体の高品質再構成",
+ "authors": [
+  "Hyesung Lee",
+  "Youngseon Lee",
+  "Kyutae Lee",
+  "Dongjun Lee",
+  "Yongseok Lee"
+ ],
+ "date": "2026-08-06",
+ "group": "focus",
+ "tags": [
+  "sim-to-real",
+  "simulation"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.GR"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.04842",
+ "pdf_url": "https://arxiv.org/pdf/2608.04842",
+ "summary_ja": "ロボット学習におけるsim-to-realギャップを低減するため、可動関節を持つ現実物体をシミュレーション可能なアセットとして再構成するエンドツーエンドパイプラインRORAを提案。動的スキャンを必要とせず、複数関節を持つ複雑な構造に対しても正確な可動機構と見た目を維持したアセット構築を実現する。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.04842"
+}
