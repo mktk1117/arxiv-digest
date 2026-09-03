@@ -1,0 +1,145 @@
+{
+ "tldr_ja": "接触を伴う作業において、接触前の多様な動作生成と接触後の高速な力フィードバック応答を両立させるため、状況に応じて推論周波数を適応的に切り替える拡散方策「FA-RDP」を提案した論文です。3つの実機タスクにおいて平均成功率81.7%を達成し、既存手法を大幅に上回る性能を示しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "作業フェーズに応じた推論周波数の適応切り替えの概念図です。接触前は複数あるアプローチ経路の多様性（マルチモダリティ）を保つために低周波（10 Hz）の多段階サンプラーを使い、接触後は物理制約によって解が絞られるため、高速な力応答を実現する蒸留済みの高周波（30 Hz）1ステップサンプラーへと切り替わります。",
+  "caption": "Fig. 1: Multimodality-guided frequency adaptation across manipulation phases. Before contact, low indicator value reflects multiple possible approach trajectories and selects the low-frequency diffusion sampler. After contact, the indicator value rises as physical constraints reduce action ambiguity, selecting the high-frequency distilled sampler for rapid force-feedback response.",
+  "image": "details/2607.28596/F1.jpg"
+ },
+ "overview_ja": "ロボットが物体と激しく接触しながら行う作業（Contact-Rich Manipulation）では、1つの動作エピソードの中に性質の全く異なる2つのフェーズが存在します。物体に触れる前のフェーズでは、障害物を避けながら対象に近づくアプローチ経路が複数存在し得るため、動作の多様性（マルチモダリティ）を損なわずに扱えることが求められます。一方で、一度接触した後のフェーズでは、幾何学的な拘束や過大な力を避ける制限から解の自由度が狭まり、むしろ測定された力覚（レンチ）フィードバックにミリ秒単位で瞬時に反応できる高い応答性（リアクティビティ）が不可欠となります。\n\nしかし、従来の拡散方策（Diffusion Policy）は、エピソード全体を通してサンプリングステップ数や推論周波数を固定して実行されていました。多段階のデノイジングを伴う低周波制御では接触前の多様性は維持できますが接触後の力変化への追従が遅れ、逆に蒸留技術などで1ステップ化した高周波制御では接触前の多様性が1つの解へと崩壊（モード崩壊）してしまうという、根本的なトレードオフが存在していました。\n\nそこで著者らは、状況に応じて推論周波数を動的に切り替える「FA-RDP」を考案しました。同一のTransformerバックボーンを周波数適応型位置エンコーディングによって低周波と高周波で共有し、動作の曖昧さを推定する指標（マルチモダリティ指標）に基づいてサンプラーを切り替えます。さらに、接触後の高周波制御を安定化させる「多様体整合性蒸留（MCD）」を導入しました。\n\n実機の双腕ロボットを用いた3種類の接触リッチなタスクで検証したところ、FA-RDPは平均成功率81.7%を記録し、ベースラインより30.0ポイントも高い圧倒的な性能を達成しました。接触前の複数経路を選択し分ける柔軟性と、接触後の滑らかで機敏な力制御の両立を実証しています。",
+ "contributions_ja": [
+  "接触前後の要求の差に着目し、マルチモダリティ指標に基づいて低周波・多段階サンプラーと高周波・1ステップサンプラーを動的に切り替える視覚・力覚拡散方策「FA-RDP」を提案した点",
+  "単一のTransformerモデル内で時間グリッドの位置インデックスを疎密に切り替える「周波数適応型位置エンコーディング」により、低周波と高周波の動作予測バックボーンを統合した点",
+  "ノイズ予測ではなくロボットの動作多様体上で直接予測を行いつつ残差学習を行う「多様体整合性蒸留（MCD）」を提案し、高周波での安定した1ステップ推論を実現した点",
+  "実機の3つの接触リッチ作業において、接触前の動作多様性を維持しながら平均成功率81.7%という高いタスク達成能力を示した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "接触前は「多様性」、接触後は「即応性」：両立を阻むトレードオフをどう解くか",
+   "summary_ja": "接触を伴うマニピュレーションでは、接触前のアプローチ多様性の維持と、接触後の力フィードバックに対する高速な即応性の双方が求められます。しかし既存の拡散モデルでは推論周波数とステップ数が固定されているため、この2つを両立できませんでした。本研究はこの課題を、マルチモダリティ指標による動的な周波数適応と新しい蒸留手法で解決します。",
+   "details_ja": "接触リッチなロボット制御には、フェーズに依存する2つの本質的な課題があります。接触前は障害物の左右どちらを通るかといったアプローチ軌道に複数の有効な選択肢（マルチモダリティ）が存在するため、方策は多様なモードを保持できなければなりません。一方、ひとたび物体に接触すると物理的な拘束により有効な軌道は狭まり、少しの姿勢誤差が過大な力積やスリップ、接触外れに直結するため、即座に力覚フィードバックを反映して制御を更新する高速な閉ループ応答が必須になります。\n\n従来のDiffusion Policyは時間的一貫性のある動作チャンクを予測しますが、チャンク内は基本的にオープンループで実行されます。階層型モデル（RDPなど）では上位と下位の間の圧縮表現で空間情報が失われやすく、一気通貫（End-to-End）のImplicitRDPでは多段階デノイジングの計算負荷により力フィードバックの周波数が制限されていました。\n\n「では、蒸留（Distillation）して1ステップでデノイジングを終わらせて高速化すれば良いのでは？」と考えがちですが、ここに落とし穴があります。エピソード全体を1ステップ生成に頼ると、接触前の多様な分布が崩壊してしまったり、動作がガタついて接触が外れたりするのです。つまり、接触前は多様性を維持できる多段階・低周波サンプラーを使い、接触後は高周波・1ステップサンプラーへと適応的に切り替える仕組みが必要になります。\n\nFA-RDPはこの着想を形にした方策であり、実機実験において平均成功率81.7%というベースライン（ImplicitRDPなど）を30.0ポイント上回る結果を残しました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "作業フェーズによる制御要件の変化を示した概要図です。接触前は障害物を回避する複数の軌道が存在するため低周波拡散サンプラーを選択し、接触後は拘束により選択肢が絞られるため高周波の蒸留サンプラーへと切り替えます。",
+     "caption": "Fig. 1: Multimodality-guided frequency adaptation across manipulation phases. Before contact, low indicator value reflects multiple possible approach trajectories and selects the low-frequency diffusion sampler. After contact, the indicator value rises as physical constraints reduce action ambiguity, selecting the high-frequency distilled sampler for rapid force-feedback response.",
+     "image": "details/2607.28596/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "力覚学習・マルチ周波数・方策蒸留：3つの技術的系譜",
+   "summary_ja": "力覚を入力とするロボット学習、制御周波数を多重化するアプローチ、そして拡散モデルの推論を高速化する蒸留技術という先行研究の流れを整理しています。FA-RDPはこれらを融合させ、作業フェーズの要求に基づいた適応的アプローチを確立しました。",
+   "details_ja": "関連研究は大きく3つの系統に分かれます。\n\n- 力覚入力を用いたロボット学習（Robot Learning with Force Input）：\n視覚のみに基づく方策（Diffusion PolicyやACTなど）は瞬時の力覚を扱えず、接触作業で脆弱です。力や触覚を条件付けに組み込む研究や階層的な低遅延コントローラを組み合わせる研究が登場しましたが、オープンループ区間が残るか、あるいは階層間の表現圧縮による情報欠落が課題でした。FA-RDPはEnd-to-Endの単一ネットワークを保ったまま適応的周波数を実現します。\n\n- マルチ周波数方策学習（Multi-Frequency Policy Learning）：\n低周波で大局的な計画を立て、高周波で即応制御を行う階層構造や非同期センシングの統合は以前から研究されていました。しかし従来研究は主に階層制御や非同期センシング自体を動機としており、本研究のように「接触前のマルチモダリティ保護」と「接触後の力応答性」という物理的なフェーズ遷移に駆動された適応型設計は新しい視点です。\n\n- ロボット方策の蒸留（Robot Policy Distillation）：\n拡散モデルの多段階サンプリングを短縮するため、DDIM、Progressive Distillation、Consistency Modelsやフローベース（MeanFlow）の手法がロボティクスに応用されてきました。しかし、ロボットの動作予測においてノイズ（$\\boldsymbol{\\epsilon}$）やスコア、速度ベクトルを直接生徒モデルに蒸留しようとすると学習が極めて不安定になります。FA-RDPは「ロボットの動作多様体（Action Manifold）上で直接予測する」という再パラメータ化によってこの問題を解決しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Preliminary",
+   "heading_ja": "前提知識：一貫した即応的デノイジング推論の仕組み",
+   "summary_ja": "先行研究のImplicitRDPで提案された、単一のTransformer内で視覚トークンと高密度な力覚トークンを扱うメカニズムを解説しています。因果マスクと決定論的サンプリング（DDIM）を用いてチャンク内の閉ループ制御を実現しますが、ステップ数が多く高周波化に限界がありました。",
+   "details_ja": "FA-RDPの土台となっているのは、End-to-Endの視覚・力覚拡散モデルにおける「一貫した即応的推論メカニズム」です。この枠組みでは、更新が遅い「低速トークン（視覚・固有受容感覚）」と、高密度に到着する「高速トークン（力覚）」を単一のTransformerで結合して処理します。\n\n学習時には因果（Causal）アクション・フォースマスクを適用することで、ある時刻の動作トークンが未来の力トークンを参照できないようにし、並列な拡散学習を可能にしながら未来の接触情報の漏洩（情報リーク）を防ぎます。\n\n推論時には、動作チャンクの開始時点で低速コンテキストと初期ノイズ $\\mathbf{A}_K$ をキャッシュしておきます。そして決定論的DDIM（$\\eta=0$）を用いることで、力覚トークンが新しく届くたびに最新の力情報で条件付けを更新しつつ、ブレのない一貫した軌道修正を行います。しかし、制御周期ごとに多段階のデノイジングを実行する必要があるため、閉ループ制御の周波数を十分に引き上げることができず、激しい接触変化に対する限界となっていました。",
+   "figures": []
+  },
+  {
+   "heading": "IV Method",
+   "heading_ja": "FA-RDPの構成：周波数適応型Transformer、判定器、多様体整合性蒸留",
+   "summary_ja": "単一モデルで複数周波数を扱うマルチ周波数Transformer、フェーズ切り替えを担うマルチモダリティ指標、そして1ステップ高周波推論を安定化させる多様体整合性蒸留（MCD）の3つのコアコンポーネントから構成されています。100 Hzの力補償レイヤーなど、実機追従性を高める実装上の工夫も解説されています。",
+   "details_ja": "FA-RDPは以下の3段階（Stage 1〜3）で構成されるシステムです。\n\n- IV-A マルチ周波数視覚・力覚Transformer（Stage 1）：\nモデルを低周波用と高周波用で別々に用意するのではなく、単一の共有バックボーンを用います。工夫の要は「周波数適応型位置エンコーディング」です（図 F2）。周波数の違いを特殊な追加トークンで区別するのではなく、共通の時間グリッド上でインデックスの間隔を変えることで表現します。30 Hzモードでは密な連続インデックス、10 Hzモードでは3ステップ飛ばしの疎なインデックスを割り当てることで、同じ時間長（1.6秒間）をカバーしつつ重みを完全に共有します。また、因果マスクにより未来情報の漏洩を防ぎます。ネットワークは動作チャンク $\\hat{\\mathbf{A}}^\\nu$ を直接予測する形式でパラメータ化され、DDPMの残差損失によって学習されます。\n\n- IV-B マルチモダリティに基づく周波数選択（Stage 2）：\n手動のフェーズラベルに頼らず、現在の視覚情報から動作のマルチモダリティ（曖昧さの度合い）を推定する指標ヘッドを独立したキャリブレーションデータで学習します。凍結したStage 1モデルから異なる初期ノイズで $N=8$ 回サンプリングした際のばらつき（残差）を推定するように学習し、推論時はその推定値が閾値を超えたら「接触により自由度が減った」と判断して高周波モードに切り替えます。\n\n- IV-C 1ステップ制御のための多様体整合性蒸留（MCD, Stage 3）：\n高周波モードに切り替えても多段階サンプリングでは間に合いません。そこで整合性蒸留を行いますが、ノイズを予測するターゲットではなく、ロボットの動作多様体（Action Manifold）上の実動作空間で予測を行う形式に定式化しました（図 F3）。生徒ネットワークの予測と教師（EMAターゲット）の予測を近づける $\\mathcal{L}_{\\mathrm{MCD}}$ に加え、デモ動作との誤差を抑える正則化項 $\\mathcal{L}_{\\mathrm{SRL}}$ を併用することで、1ステップ生成の崩壊を防ぎ極めて安定した高周波制御を可能にしました。\n\n- IV-D 実装詳細：\n低周波モードは10 Hz（予測長 $H_\\ell=16$）、高周波モードは30 Hz（予測長 $H_h=48$）で共に1.6秒を予測します。推論遅延はRTX 5090環境で高周波時30 ms未満、低周波時50 ms未満を達成しました。さらに、ロボットのインピーダンス制御による追従遅れを補償するため、全手法共通で最新の外力測定値を用いた100 Hzの並進力補償レイヤーを組み込んでいます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "マルチ周波数Transformerのアーキテクチャです。共通の時間グリッドに対して、高周波（30 Hz）時は連続した密な位置インデックス、低周波（10 Hz）時は疎な位置インデックスを割り当てることで、単一モデルの重みを共有しながら両周波数の動作チャンクを予測します。",
+     "caption": "Fig. 2: Multi-frequency visual-force Transformer. The frequency mode selects frequency-adaptive positional indices on a shared temporal grid: dense positions for high-frequency action chunks and sparse positions for low-frequency action chunks. The causal decoder supports closed-loop updates by preventing action tokens from accessing future action or force tokens.",
+     "image": "details/2607.28596/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "多様体整合性蒸留（MCD）の概念図です。ノイズ空間ではなくロボットの動作多様体（Action Manifold）上で生徒とEMAターゲットの予測動作を一致させ、さらにデモ動作への正則化損失（SRL）を組み合わせることで、高周波での1ステップ動作予測を安定させています。",
+     "caption": "Fig. 3: Manifold consistency distillation for the high-frequency sampler. A teacher transition maps $\\mathbf{A}^{h}_{k}$ to a less noisy state $\\mathbf{A}^{h}_{r}$ . Both networks predict action chunks on the robot action manifold. MCD aligns the student prediction with the stop-gradient target prediction, while SRL regularizes the student prediction to stay close to the demonstration action.",
+     "image": "details/2607.28596/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Experiments",
+   "heading_ja": "実機接触タスクでの検証：ベースラインを圧倒し、多様性と即応性を証明",
+   "summary_ja": "双腕ロボットを用いた「箱の反転」「スイッチ切り替え」「ボタン押し」の3つの実機タスクで評価を実施しました。FA-RDPは平均成功率81.7%を叩き出し、既存手法が接触外れや障害物衝突で失敗するなか、接触前の多様な経路選択と接触後の安定した力制御を完璧に実証しました。",
+   "details_ja": "ハードウェアにはFlexiv Rizon 4sアームを用い、手先F/Tセンサ、手先カメラ（iPhone魚眼）、三人称視点カメラを備えた環境を構築しました（図 F4）。手前にある2つのブロックによって進入経路が複数（左右や中央）に分かれる3つのタスクを設計し、それぞれ60回のデモ収集と20試行の評価を行いました。\n\n- Q1: ベースラインとの比較（表 I）\nタスクは「箱の反転（Dual Box Flipping）」「スイッチ切り替え（Dual Switch Toggling）」「ボタン押し（Dual Button Pressing）」です。FA-RDPは全タスクで最高性能を記録し、平均成功率81.7%を達成しました（ImplicitRDPは51.7%、階層型RDPは36.7%、視覚のみのDPは11.7%、回帰モデルは0.0%）。失敗例の比較（図 F5, F6, F7）を見ると、DPやImplicitRDPは力応答が追いつかず接触が外れて失敗し、RDPは低速方策の圧縮により接触位置がズレて失敗し、直接回帰モデルは接触前の複数経路を平均化してしまい手前のブロックをなぎ倒してしまいました。FA-RDPだけが接触を維持し続け完遂できました。\n\n- Q2: マルチモダリティの保持能力\n接触前のアプローチ軌道を4つのモードに分類してカウントしたところ、蒸留した高周波単体の方策（High-frequency distilled alone）は単一のモードに凝縮（モード崩壊）してしまいましたが、FA-RDPはImplicitRDPと同様に4つのモードすべてを均等にカバーしており、多段階サンプラーによる多様性維持が確認されました。\n\n- Q3: 指標に基づく切り替えの有効性（表 II、図 F9）\n常時高周波蒸留モデルを用いた場合の平均成功率61.7%に対し、指標に基づいて低周波から高周波へ切り替えるFA-RDPは81.7%へと大幅に向上しました。図 F9の曲線が示す通り、接触前は指標値が低く維持されて滑らかな進入を行い、接触して力が立ち上がると指標値が閾値を超えて即座に高周波1ステップ制御へと切り替わっています。\n\n- Q4: 蒸留手法の比較（表 III）\n高周波モード単体において、未蒸留モデルの1ステップ実行や既存の蒸留法（MeanFlow Policy、Consistency Policy）は平均成功率1.7%と壊滅的でした。一方で提案手法のMCDは61.7%を達成し、動作多様体上での蒸留がいかにロボット制御において重要かが浮き彫りになりました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "実験のセットアップと対象物です。Flexiv Rizon 4sロボットアーム、手先iPhoneカメラ、外部USBカメラ、および手前にある2つのブロックとタスク対象物（箱、治具、スイッチ、ボタン）が配置されています。",
+     "caption": "Fig. 4: Robot workspace and task objects. The Rizon 4s follower arm executes tasks using observations from a wrist-mounted iPhone camera and a fixed third-view USB camera, while the workspace contains the target box, switch, button, front blocks, and fixture.",
+     "image": "details/2607.28596/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "箱反転タスク（Dual Box Flipping）における各手法の失敗シーン比較です。DPやImplicitRDPは途中で接触が外れ、RDPは接触位置がズレ、回帰モデルは手前のブロックを倒してしまいますが、FA-RDPは接触を維持して完遂します。",
+     "caption": "Fig. 5: Dual Box Flipping failure-case comparison. DP and ImplicitRDP can lose contact during the flip, RDP can contact the wrong box region, and Regression Policy w/ Force can knock down a front block before completing the task. FA-RDP keeps contact and completes the box flipping task.",
+     "image": "details/2607.28596/F5.jpg"
+    },
+    {
+     "key": "F9",
+     "caption_ja": "3つのタスクにおけるマルチモダリティ指標値（階段状の線）と測定された力（実線）の時間推移です。接触前は指標値が低く、接触して力フィードバックが発生すると指標値が閾値（3.5）を一気に超えて高周波モードに切り替わる様子が分かります。",
+     "caption": "Fig. 9: Multimodality indicator value and force curves on the three contact-rich tasks. The indicator value remains lower before contact and during target approach, then rises with the force response in contact-rich phases, supporting the switch from the low-frequency sampler to the high-frequency distilled sampler.",
+     "image": "details/2607.28596/F9.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "まとめと今後の展望：周波数適応が切り拓く高精度な接触マニピュレーション",
+   "summary_ja": "FA-RDPは、作業フェーズに応じた周波数適応と動作多様体上の蒸留により、接触リッチな作業における多様性と即応性の両立を達成しました。単一タスクへの適用や3段階の学習手順といった制約はあるものの、今後の汎用ロボット制御への拡張が期待されます。",
+   "details_ja": "FA-RDPは、接触前のアプローチ多様性の保護と、接触後の力フィードバックに対するミリ秒単位の即応性という、トレードオフ関係にあった2つの制御要求を統合することに成功しました。共有マルチ周波数Transformer、マルチモダリティ指標による動的切り替え、そして動作多様体上での整合性蒸留（MCD）という3つの要素が噛み合うことで、実機において81.7%という高いタスク成功率を叩き出しています。\n\n一方で著者らは、現在の実装における限界も率直に述べています。今回の評価は視覚と力覚のみに限定されており近接覚や高度な触覚センサとの統合は未検証である点、マルチタスク方策ではなくタスクごとに個別のモデルを学習している点、そして学習に「マルチ周波数学習 → 指標学習 → 蒸留」という3つの独立したステージが必要である点などが今後の改善課題として挙げられています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "ロボットの接触タスクでは「接触前のマルチモーダルな探索」と「接触後の高周波な即応制御」で求められるサンプリング特性が根本から異なるため、全工程を同一の周波数やステップ数で解くべきではない。",
+  "拡散モデルの蒸留において、ノイズや速度ベクトルを予測させる従来形式はロボット動作空間では極めて学習が不安定になりやすく、動作多様体（Action Manifold）上で直接デモ残差を正則化しながら整合性を取るアプローチ（MCD）が劇的に効く。",
+  "低周波と高周波の動作チャンクを同一モデルで扱う際、周波数条件をトークンとして足すのではなく、単一の時間グリッド上での位置インデックスの疎密（サンプリング間隔）として表現する手法は、モデル構造を肥大化させずシンプルで美しい。",
+  "End-to-Endモデル内部のサンプリングばらつきを利用して「いまどれくらい解が曖昧か（マルチモダリティ指標）」を自己推定し、制御モードの切り替えトリガーにする設計は他の方策学習にも応用可能である。"
+ ],
+ "limitations_ja": [
+  "学習パイプラインが3段階（マルチ周波数学習、指標ヘッドのキャリブレーション学習、MCDによる蒸留）に分かれており、End-to-Endの単一ステップ学習と比較して学習手順が煩雑である点。",
+  "視覚と力覚（F/Tセンサ）のみの検証にとどまっており、高密度な触覚グリッドセンサや近接センサなど、他の接触センシングモダリティへの拡張性が未検証である点。",
+  "タスクごとにモデルを個別に学習するシングルタスク方策として評価されており、近年のVLA（Vision-Language-Action）のような大規模マルチタスク・汎用基盤モデルへのスケールアップが確認されていない点。"
+ ],
+ "keywords": [
+  "Diffusion Policy",
+  "Contact-Rich Manipulation",
+  "Frequency Adaptation",
+  "Consistency Distillation",
+  "Visual-Force Control"
+ ],
+ "id": "2607.28596",
+ "title": "FA-RDP: A Frequency-Adaptive Reactive Diffusion Policy for Contact-Rich Manipulation",
+ "title_ja": "FA-RDP: 接触豊富な操作のための周波数適応型リアクティブDiffusion Policy",
+ "authors": [
+  "Lifeng Zhuo",
+  "Wendi Chen",
+  "Han Xue",
+  "Shirun Tang",
+  "Jun Lv",
+  "Cewu Lu",
+  "Chuan Wen"
+ ],
+ "date": "2026-08-01",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2607.28596",
+ "pdf_url": "https://arxiv.org/pdf/2607.28596",
+ "summary_ja": "接触を伴うロボット操作において、接触前後の要求特性の違いに対応する周波数適応型Diffusion Policyを提案。接触前は多峰性を保つ低周波・多ステップ生成を行い、接触後は力覚フィードバックに高速反応する高周波推論へ動的に切り替える。接触タスクでの応答性と柔軟性を両立。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2607.28596"
+}
