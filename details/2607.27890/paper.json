@@ -1,0 +1,147 @@
+{
+ "tldr_ja": "静止した物体の遠隔操作データだけから、手先と物体の相対姿勢を保つ反実仮想拡張（SIDO）を行うことで、訓練時に一度も動く物体を見ていなくても実行時に動く物体を正確に把持・操作できるようにした研究です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "SIDOの全体構想です。訓練時は静止物体のデモから物体位置を仮想的にずらし、手先と物体の相対姿勢を保つように動作チャンクを変形してゴール条件付きポリシーを学習します。実行時は物体予測器が未来の位置を供給し、動く物体への適応を実現します。",
+  "caption": "Figure 1: Static In, Dynamic Out (SIDO) enables a policy trained only on static object demonstrations to manipulate moving objects. At training time, SIDO creates counterfactual data pairs by virtually displacing the object and morphing the expert action to preserve the hand-object relative pose, and trains a goal-conditioned policy on them. At deployment, an object pose predictor supplies the object’s future pose, which the policy reaches for. SIDO successfully grasps the moving object, while t",
+  "image": "details/2607.27890/F1.jpg"
+ },
+ "overview_ja": "模倣学習による視覚運動ポリシーは目覚ましい進歩を遂げていますが、その多くは「ロボットの動作中に物体が動かない」という暗黙の前提に依存しています。しかし実際の工場ではコンベア上の部品がずれ、屋外では風で果物が揺れます。こうした動く物体に対して新たに遠隔操作データを集めるのは極めて高コストで危険を伴い、収集時に見せた特定の動きにしか対応できません。\n\nそこで著者らは、動く物体の操作を「物体が未来のどこにあるかを予測する問題」と「予測された未来位置に対して適切な手先・物体相対姿勢で到達する問題」の2つに分解できる点に着目しました。後者は既存の静止物体デモにすでに豊富に含まれているため、訓練時に物体位置を仮想的にずらし、手先軌道も相対姿勢が保たれるように変形（モーフ）させる反実仮想アクション拡張手法「SIDO（Static In, Dynamic Out）」を考案しました。\n\nシミュレーション3タスク（5種類の運動パターン）と実機2タスク（ガントリーと桃の木タスク）で検証した結果、SIDOは静止物体の成功率を落とすことなく、動く物体に対する把持成功率をベースラインから大幅に引き上げました。動的なタスクであっても、新たな実機教示データを集めることなく、幾何学的な事前知識に基づくデータ拡張と未来予測器の組み合わせで解決できることを示しています。",
+ "contributions_ja": [
+  "動く物体の操作を「物体運動予測」と「予測位置への相対姿勢維持リーチング」に切り離すモジュール分離アプローチを提案しました。",
+  "静止物体のデモから手先・物体の相対姿勢不変性を保つ反実仮想アクション拡張（ヒューリスティック版 H-SIDO とロボットダイナミクスを考慮した DynaSIDO）を開発しました。",
+  "ポリシーの再学習を一切行わずに、推論時に運動予測器をプラグアンドプレイで差し替えられる枠組みを実現しました。",
+  "シミュレーションおよび2種類の実機プラットフォームにおいて、静止時の性能を損なわずに未知の物体運動に対する操作成功率の大幅な向上を実証しました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "静止物体のデータだけで、動く物体を掴めるか？",
+   "summary_ja": "ロボット模倣学習の多くは静止物体を前提としていますが、現実世界では対象が動く場面が多発します。本研究は、高コストな動的デモ収集を避け、静止デモを反実仮想的に拡張して動く物体を操作可能にするSIDOを提案します。",
+   "details_ja": "拡散モデルやTransformerを用いた行動クローニング（BC: Behavior Cloning）は大きく発展しましたが、その成否は訓練データが展開環境をカバーしているかにかかっています。現実の展開先ではコンベア上の部品のズレや風による果物の揺れなど、物体が動く状況が頻繁に起きます。動く物体に対する遠隔操作デモを収集するのは難しく、危険で、収集時の動きに特化してしまいます。\n\nここで重要な洞察は、動く物体の操作が2つの独立した問題に分解できるという点です。\n- (1) 物体がアクションチャンク先（予測ホライズン）でどこにあるかを当てる「位置予測問題」（テレオペ不要で軌道データのみで学習可能）\n- (2) 予測された未来位置に対し、正しい手先・物体相対姿勢を達成するアクションを出す「ゴール条件付き到達問題」（静止デモに豊富に含まれる）\n\nSIDOはこの2つを切り離します。訓練時には静止デモの物体位置を仮想的にずらし、アクションチャンクも相対姿勢が維持されるように変形してゴール条件付きポリシーを訓練します。推論時は任意の物体姿勢予測器をプラグアンドプレイで接続します。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "反応型ポリシーやデータ拡張と何が違うのか？",
+   "summary_ja": "反応型ポリシーや同変ポリシー、従来の反実仮想拡張は、物体の「時間的な未来位置の変位」を直接扱えていませんでした。SIDOは幾何学的・時間的な反実仮想を訓練データレベルで明示的に与える点が独自です。",
+   "details_ja": "関連研究と本手法の違いは大きく3つの文脈で整理できます。\n\n模倣学習と共変量シフト：\n自らの行動誤差が蓄積して未学習状態に陥る共変量シフトに対し、観測から実行までのレイテンシを短縮する反応型ポリシーや、動的デモを大量に集める研究（PUMAなど）があります。しかし前者はデータが運動をカバーしている前提であり、後者は収集コストが膨大です。SIDOは静止デモの変形により、訓練データ側で未来の変位を埋め込みます。\n\n物体姿勢予測：\nFoundationPoseのような6自由度姿勢推定と、古典フィルタやFERNNなどの予測器を組み合わせる技術は成熟しています。SIDOはポリシーと予測器を完全に分離しているため、ポリシーを再学習することなく最適な予測器へ差し替え可能です。\n\nデータ拡張と構造事前知識：\n空間的・意味的な反実仮想ラベル付けや同変性（Equivariance）に基づくモデルは空間対称性を扱えますが、物体運動という時間的変位には対応できません。SIDOは「手先と物体の相対姿勢を不変に保つ」という明示的な幾何学的・時間的事前知識を注入します。",
+   "figures": []
+  },
+  {
+   "heading": "3 Problem Statement",
+   "heading_ja": "なぜ静止データで学んだロボットは動く物体で失敗するのか",
+   "summary_ja": "行動クローニングが動く物体で破綻するのは、実行中の物体の未来位置を考慮できない「行動の不一致」と、空振りに起因する「分布外観測」の悪循環が起きるためです。",
+   "details_ja": "問題設定として、ロボットの自己受容感覚（固有感覚）$s_t$、カメラ画像、物体の3次元位置 $P_t$ から、ポリシー $\\pi_\\theta$ が $T_p$ ステップのアクションチャンクを出力し、そのうち最初の $T_a$ ステップを実行して再計画する設定を考えます。\n\n静止物体の訓練データでは、把持前の物体位置は常に固定値 $P_{\\text{static}}$ です。しかし実行環境では物体が未知の軌道 $\\xi(t)$ に沿って動きます。これにより2つの連鎖的な失敗が発生します。\n- 行動の不一致（Action mismatch）：実行中も物体は動くため、時刻 $t$ で決定するアクションは現在の位置 $\\xi(t)$ ではなく、未来の位置 $\\xi(t+T_p)$ に手先を届かせる必要がありますが、静止デモにはそうした先回り行動が含まれていません。\n- 分布外観測（Out-of-distribution observation）：過去の位置へグリッパが向かうため空振りを起こし、手先カメラ画像などの観測が訓練分布から大きく乖離していきます。",
+   "figures": []
+  },
+  {
+   "heading": "4 Method",
+   "heading_ja": "SIDOのコア：相対姿勢を保ちながらアクションを変形する",
+   "summary_ja": "静止デモの物体位置を仮想的にずらし、手先・物体の相対姿勢を保つようアクションチャンクを変形します。簡易なランプ変形（H-SIDO）とダイナミクスモデルを用いた最適化（DynaSIDO）の2手法を用意しています。",
+   "details_ja": "手法の要となるのが「手先・物体相対姿勢の不変性制約（Invariant Constraint）」です。手先位置 $p_t^{\\text{eef}}$ と物体位置 $P_t$ の相対オフセット $r_t(k) = p_{t+k}^{\\text{eef}} - P_{t+k}$ を定義したとき、再計画点 $T_a$ と終端 $T_p$ における $r_t(T_a)$ および $r_t(T_p)$ を、物体が移動しても維持することを目指します。\n\n反実仮想拡張の手順：\nランダムな方向 $\\theta$ に変位 $\\delta = v T_p [\\cos\\theta, \\sin\\theta, 0]^\\top$ をサンプリングし、未来位置 $\\tilde{P}_{t+T_p} = P_{\\text{static}} + \\delta$ を作ります。静止性能を保つため確率 $\\alpha$ で変位なしとします。画像はそのままに、物体位置チャンネルのみを $\\tilde{P}_{t+T_p}$ に書き換えます。\n\nアクション生成の2つのアプローチ：\n- H-SIDO（ヒューリスティック版）：変位 $\\delta$ をチャンク全体に線形ランプ関数 $\\rho_k$ で配分し、ウェイポイントを直接シフトします。相対アクション表現の場合も軌道の弧長に沿ってランプを適用し、軌道の形状を維持します。\n- DynaSIDO（ダイナミクス考慮版）：H-SIDOは指令値を変形するだけなので、実機のコントローラ遅れによって軌道がずれる懸念があります。そこでデモデータからロボットの残差ダイナミクスモデル $f_\\psi$ を学習し、MPPI（Model Predictive Path Integral）制御を用いて、モデル予測上で $T_a$ と $T_p$ の目標位置に到達する最適なチャンクへと精緻化します。\n\n推論時は、物体姿勢予測器が予測した未来位置 $\\hat{P}_{t+T_p}$ を観測チャンネルに入力するだけで動作します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "SIDOの概要図です。上段では静止デモから物体位置を仮想変位させ、H-SIDOやDynaSIDOで相対姿勢制約を満たす反実仮想アクションチャンクを生成して学習します。下段では実行時に物体姿勢予測器が未来位置をポリシーに入力する流れを示しています。",
+     "caption": "Figure 2: SIDO overview. Goal-conditioned policy: from each static demonstration, SIDO (1) fits a robot dynamics model $f_{\\psi}$ on expert data, (2) virtually displaces the object, and (3) morphs the expert chunk into a counterfactual chunk $\\tilde{a}_{t:t+T_{p}-1}$ that preserves the hand-object relative pose at $T_{a}$ and $T_{p}$ . H-SIDO uses a heuristic ramp; DynaSIDO refines it under $f_{\\psi}$ . Object pose predictor: SIDO pairs plug-and-play with any object pose predictor, which forecas",
+     "image": "details/2607.27890/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Experiments",
+   "heading_ja": "シミュレーションと実機で検証：追従性能と予測器の差し替え",
+   "summary_ja": "シミュレーション3タスクと実機2タスクでベースラインと比較検証しました。SIDOは静止時の成功率を維持したまま動的成功率を大きく向上させ、予測器のプラグアンドプレイ性能も確認されました。",
+   "details_ja": "実験ではDiffusion Policy（DP）およびEquivariant Diffusion Policy（EquiDP）をバックボーンに用い、以下の3つの仮説を検証しました。\n\n仮説1：動く物体の成功率を向上させつつ静止物体の性能を保てるか？\nシミュレーション（Mug, Square, Stackの各2cm/s移動）および実機（Gantry, Peachtreeの各1.5cm/s移動）で評価しました。実機GantryのX軸移動では、標準DPが成功率0.10、現在位置を入力したDP(cur. pose)が0.35にとどまる中、DP+SIDOは0.55を達成しました。Peachtreeでもベースラインの0.45から0.60へと向上しています。また、静止条件でも成功率1.00などベースラインと同等以上の性能を維持しました。\n\n仮説2：アクション終端で手先・物体相対姿勢が保たれているか？\n実機Gantryにおいて、物体位置に対する手先指令位置の追従度合いを表す回帰スロープ $\\beta_x$ を計測したところ、エキスパート参照値0.62に対し、DP+SIDOは0.42と最も高い追従性を示しました（DPは0.31、DP cur. poseは0.10）。手先カメラ画像のt-SNE可視化でも、SIDOは訓練時の静止データ分布内に留まり続け、空振りを防いでいることが確認されました。\n\n仮説3：ポリシーや予測器を柔軟に差し替えられるか？\nDPとEquiDPの双方で有効性が確認されたほか、固定したポリシーに対して差分法、MLP、FERNNの3種類の予測器を差し替えた実験では、最も予測誤差（FDE）の小さいFERNNが最高の成功率（0.40）を達成し、完全なプラグアンドプレイ性が示されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "実験で用いた運動パターンの概要です。シミュレーションでは静止、X軸、Y軸、円、ランダムの5種類、実機Gantryでは4種類、Peachtreeでは揺れる木を再現した動的パターンで評価しています。",
+     "caption": "Figure 3: Object motion patterns across simulation and real-world tasks. Left: simulation tasks under five object motion patterns (static, x-axis, y-axis, circle, random). Middle: real-world Gantry under four object motion patterns (static, x-axis, y-axis, random). Right: real-world Peachtree under two object motion patterns (static, dynamic).",
+     "image": "details/2607.27890/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "実機Gantry（X軸移動）における手先指令位置と物体位置のプロットです。SIDOは物体に合わせて手先が追従（$\\beta_x=0.42$）していますが、ベースラインは追従が遅れて手先が取り残されています。",
+     "caption": "Figure 4: Gripper tracks the object under SIDO, baselines lag behind. World-frame $x$ - $z$ scatter of commanded EEF at action terminus $T_{a}$ (circles) and object position (squares) on Gantry x-axis. SIDO’s commands sweep with the object, preserving the hand-object relative pose, baselines do not. Right: tracking slope $\\beta_{x}$ of commanded EEF on observed object $x$ , 20 rollouts.",
+     "image": "details/2607.27890/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "把持直前の手先カメラ特徴量（DINOv3）のt-SNE可視化です。DP+SIDOの観測は静止訓練データの分布（dataset）と重なっていますが、ベースラインは物体を見失い分布外へとドリフトしています。",
+     "caption": "Figure 5: SIDO’s wrist view stays in-distribution with the static training data. t-SNE of pre-grasp wrist frames in each method’s fine-tuned DINOv3 space, 20 rollouts per method on Gantry x-axis. Bottom row: wrist view at the grasp-attempt moment. SIDO’s frame matches the dataset reference, while baselines drift away and miss or off-center the object.",
+     "image": "details/2607.27890/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion & 7 Limitation",
+   "heading_ja": "まとめと今後の課題：静止データから動的世界への架け橋",
+   "summary_ja": "SIDOは、幾何学的な事前知識に基づくデータ拡張によって静止デモから動的物体操作を可能にしました。一方で、高精度な外部姿勢推定器への依存や障害物回避が今後の課題です。",
+   "details_ja": "結論として、動的ターゲットが求める時間的変動は、訓練時の明示的な幾何学的事前知識（相対姿勢の保存）によって十分に補うことができ、静止デモが動的物体操作の強固な基盤になり得ることが示されました。\n\n現在の制約事項として以下が挙げられています。\n- 外部姿勢推定器への依存：実機システムはFoundationPoseを利用しており、未知物体にはCADモデルや事前スキャンが必要です（ただし姿勢推定精度が上がればそのまま本手法の性能向上につながります）。\n- 障害物との干渉：シフトしたリーチング軌道上に障害物がある場合を明示的に考慮していないため、入り組んだ環境（クラッター環境）では衝突回避プランナ等との統合が必要です。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：動的デモ収集との比較・高速領域でのDynaSIDOの真価",
+   "summary_ja": "動く物体を直接遠隔操作したデモとの比較や、移動速度が上がった際のDynaSIDOの優位性、速度変化への適応について詳細に分析されています。",
+   "details_ja": "付録では実用上極めて重要な追加検証が行われています。\n\n動的デモ収集 vs SIDO（付録B）：\n実際に動く物体を人間がテレオペして集めたデモで学習したポリシーと比較しました。動く物体のテレオペは難しく、教示成功率は静止時の98.5%から59.8%に低下し、収集時間も1時間49分から2時間33分へと長期化しました。さらに、操作者が追従に手一杯になるためワークスペースのカバー率が静止時の80.02%に狭まります。結果として、動的デモで学んだベースラインは動的成功率0.05にとどまり、安価な静止デモ＋SIDO（成功率0.25）が大きく上回りました。\n\nH-SIDOとDynaSIDOの速度スケーリング（付録A）：\n低速（2cm/s）ではH-SIDOとDynaSIDOは同等の成功率（0.90）を示しますが、速度を6cm/sまで上げるとH-SIDOは追従破綻して0.05に急落します。一方、ダイナミクスモデルで軌道を補正するDynaSIDOは0.25の成功率を維持し、高速領域での強みを発揮しました。\n\n速度変動への適応（付録C）：\n拡張時の変位量を範囲サンプリングし、FERNN予測器を組み合わせることで、実行中に物体の移動速度が1.5〜4.5cm/sの間で動的に変化する状況でも0.40の成功率を達成できることが示されました。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "静止デモと動的デモのワークスペース被覆率の比較です。動く物体を人間が遠隔操作すると操作難度が高いため、静止時の格子状カバレッジに対して80.02%の範囲しかカバーできていないことが分かります。",
+     "caption": "Figure 7: Static vs moving object demonstration coverage. Moving object reaches only $80.02\\%$ of the workspace extent the static $8\\times 8$ grid covers.",
+     "image": "details/2607.27890/F7.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "「動く物体への操作」を無理にEnd-to-Endで解かず、「未来位置予測」と「相対姿勢を保った到達」にタスクを因数分解する設計思想が極めて有効です。",
+  "人間による動的物体の遠隔操作はコストが高くカバレッジも狭くなるため、高品質な静止デモを幾何学的に反実仮想拡張する方が結果として高い頑健性を得られます。",
+  "低速域では単純な幾何ランプ変形（H-SIDO）で十分実用に耐えますが、高速域ではロボットの追従遅れを補償するダイナミクスモデル（DynaSIDO）が不可欠になります。"
+ ],
+ "limitations_ja": [
+  "FoundationPoseなどの既存6自由度物体姿勢推定器に依存しており、CADモデルや事前スキャンがない物体への即時適用には制約があります。",
+  "アクションチャンクを平行移動させているため、軌道上に障害物が存在するような入り組んだ環境での干渉・衝突回避が考慮されていません。",
+  "現在の実機実験は1.5cm/s程度の比較的低速な移動に留まっており、さらなる高速運動下での実機検証が待たれます。"
+ ],
+ "keywords": [
+  "Moving Object Manipulation",
+  "Counterfactual Data Augmentation",
+  "Imitation Learning",
+  "Visuomotor Policy",
+  "Diffusion Policy"
+ ],
+ "id": "2607.27890",
+ "title": "Static In, Dynamic Out: Counterfactual Action Augmentation for Moving Object Manipulation",
+ "title_ja": "Static In, Dynamic Out: 移動物体操作のための反実仮想アクション増強",
+ "authors": [
+  "Woo Chul Shin",
+  "Zhenyang Chen",
+  "Alfred Cueva",
+  "Nadun Ranawaka Arachchige",
+  "Yingyan Celine Lin",
+  "Benjamin Joffe",
+  "Shreyas Kousik",
+  "Danfei Xu"
+ ],
+ "date": "2026-08-02",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "imitation-learning",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2607.27890",
+ "pdf_url": "https://arxiv.org/pdf/2607.27890",
+ "summary_ja": "静止物体の教示データのみで訓練された視覚運動方策を、移動する物体の操作へ適応させる反実仮想増強手法SIDOを提案。物体の将来位置予測と、相対姿勢を維持するように教示アクションチャンクを変形させる補正を結合。コンベア上の移動物体や揺れる物体に対し、追加の動的データなしで高い成功率を達成した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2607.27890"
+}
