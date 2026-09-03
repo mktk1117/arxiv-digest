@@ -1,0 +1,164 @@
+{
+ "tldr_ja": "手先と把持中心の「カメラ視点での3D幾何的な動き」を共通言語にすることで、単腕・双腕・ヒューマノイド・人間の手という全く異なる身体のデータを単一の基底ポリシーで学習し、追加ファインチューニングなしで多様なロボットを自在に動かせるようにした研究です。",
+ "hero_figure": {
+  "key": "F3",
+  "caption_ja": "UCAG-Pの全体フレームワークです。単腕、双腕、ヒューマノイド、さらには人間の手といった異なる身体の動作を「カメラ座標系における手先と把持中心の3D軌道」という共通の幾何空間に揃え、ターゲットロボットの機構に合わせた翻訳器（Translator）を介して実行可能な関節指令へと変換します。",
+  "caption": "Figure 3 : Overview of UCAG-P for unified learning from heterogeneous manipulation data, spanning single-arm robots, bimanual robots, dexterous robotic hands, and human hands. UCAG-P maps their incompatible native action spaces into a shared camera-centric motion space defined by 3D camera-frame trajectories of the wrist or end-effector and grasp center. A geometry-conditioned translator then combines the unified motion prediction with camera-to-base transforms, Jacobians, and robot state to pro",
+  "image": "details/2608.26058/F3.jpg"
+ },
+ "overview_ja": "ロボットに言葉と視覚から動作を直接生成させるVLA（Vision-Language-Action）モデルは大きな注目を集めていますが、いざ大量のデータでスケールさせようとすると「身体の多様性（ヘテロジニアス性）」という大きな壁にぶつかります。世の中にあるデータは、単腕ロボット、双腕ロボット、ヒューマノイド、さらには人間の作業動画まで多岐にわたり、それぞれカメラ配置も自由度も制御コマンド（関節角や手先速度など）もバラバラです。そのため従来は、ロボットごとに個別の出力ヘッドを用意したり、動画生成やリターゲティングを使って無理やり特定のロボットの動作に変換したりする必要があり、これが汎用的な単一モデルの学習を阻んでいました。\n\nそこで著者らは、「最も普遍的な共通構造は低レベルの制御指令ではなく、カメラから見える作業の幾何学的な動きそのものにある」という直感に着目しました。人間であれロボットであれ、作業の進捗は「手首（手先）」と「把持中心」がカメラ視点でどう移動したかで記述できます。この着想をもとに提案されたのがUCAG-Pです。UCAG-Pでは、多様なロボットや人間の手の動きをカメラ座標系の2点アンカー運動という共通空間で表現し、基底ポリシーに幾何的なタスク進行を学習させます。そして、実際のロボット制御には、目標ロボットのキネマティクスやヤコビ行列を考慮してカメラ空間の動きを実行可能な関節指令に変換する「幾何条件付き翻訳器」を組み合わせました。\n\nシミュレータと実機ロボットを網羅する合計6,300時間以上の大規模データで学習した結果、たった1つの統一チェックポイントが、LIBEROで98.3%、RoboTwinで約89%、ヒューマノイドのRoboCasa GR-1で62.0%の成功率を記録しました。ベンチマークごとの追加学習を一切行わずにこれらを達成しただけでなく、実機ロボットでも優れた適応能力を示しました。",
+ "contributions_ja": [
+  "単腕・双腕・ヒューマノイド・人間の手という互換性のない動作空間を、カメラ視点の2点アンカー運動という共通幾何空間に統一するUCAG-Pを提案した点。",
+  "人間の手作業動画を別のロボット動画へ変換することなく、そのまま独立した身体の1つとして共通幾何空間に組み込んで学習できるようにした点。",
+  "共通の幾何動作予測から、各ロボットの運動学やヤコビ行列を活用して実行可能な制御コマンドを生成する、切り離された幾何条件付き翻訳器を開発した点。",
+  "単一のモデル重みで、個別ファインチューニングなしにLIBERO、RoboTwin、RoboCasaなどの多様なベンチマークで最高峰の成功率を達成した点。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "バラバラなロボットの身体をどう束ねるか？：カメラ視点の幾何学という共通言語",
+   "summary_ja": "ロボット操作の大規模データ学習は、ロボットの形態や制御空間がバラバラであるために統合が困難でした。本論文は、手首と把持中心のカメラ視点での動きを共通の表現として導入し、身体に依存した制御指令の生成と分離することでこの課題を解決します。",
+   "details_ja": "近年のVLAモデルは急速に発展していますが、実機データ、シミュレーションデータ、人間の作業動画といった多様なデータをそのまま一緒に学習させることができませんでした。ロボットによって関節の数も制御周期も異なり、あるデータでは手先の相対移動量、別のデータでは関節角度、人間の動画では手の骨格運動として記録されているためです。\n\nこれまでのアプローチでは、ロボットごとに別々のポリシーや出力ヘッドを作ったり、人間動画を画像編集技術でロボットの外見に描き直したり、キネマティクス変換（リターゲティング）で無理やりロボットの関節角に合わせたりしていました。しかし、これらは計算コストが膨大だったり、変換時の仮定による誤差が生じたりして、本質的な統合には至っていませんでした。\n\nそこで著者らは、操作タスクの本質は「どの物体に手先を近づけ、どう掴んで動かしたか」という、カメラから直接観測できる幾何学的な位置関係にあると考えました。手首の位置（$p_0$）と把持中心（$p_1$）という2つのアンカーポイントの3D移動量であれば、単腕ロボットでも、双腕でも、ヒューマノイドでも、人間の手でも全く同じフォーマットで記述できます。UCAG-Pはこの共通幾何空間をポリシーの学習ターゲットとし、ターゲットロボットへの実行コマンド変換を後段の翻訳器に任せる二段構えのアーキテクチャをとることで、あらゆるデータを直接混ぜて学習することを可能にしました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "異種ロボット学習のアプローチの比較です。(a) ロボットごとにモデルを分ける手法、(b) エンドエフェクタの動きに揃えつつもロボット固有の制御目標を残す手法に対し、(c) 本手法（UCAG-P）はカメラ視点のアンカー運動を共有し、後からロボット固有の指令に翻訳します。",
+     "caption": "Figure 2 : Paradigms for heterogeneous manipulation learning. (a) Embodiment-specific policies isolate data; (b) unified camera-frame end-effector actions retain robot-specific kinematic targets; (c) UCAG-P shares camera-observable anchor motion before translating it into embodiment-specific commands.",
+     "image": "details/2608.26058/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "汎用VLA・人間動画の活用・動作表現の歴史と本研究の立ち位置",
+   "summary_ja": "クロスエンボディメント学習、人間動画からのロボット学習、そして動作表現の先行研究を整理しています。本研究は、低レベル制御値ではなくカメラ視点の幾何予測を学習対象とすることで、事前リターゲティングなしで人間データと異種ロボットデータを真に統合する点に新規性があります。",
+   "details_ja": "先行研究は大きく3つの文脈に分かれます。\n\n- 汎用VLAとクロスエンボディメント学習：\nOpenVLAやOctoのように、大規模データとマルチモーダル基底モデルを組み合わせる研究が盛んですが、出力層をロボットごとに分岐させたり、プロンプトで身体を切り替えたりするものが主流でした。近年ではカメラ座標系エンドエフェクタ空間に統一する試み（Qwen-RobotManipなど）も登場していますが、人間の把持行動を直接扱えないという制約がありました。\n\n- 人間デモ動画のロボット学習への利用：\n人間の動画は豊富ですが、関節指令が付いていません。従来はビジュアル特徴の事前学習に使ったり、動画生成モデルでロボットが動いているように描き直したり、逆運動学でロボットの手先軌道に変換したりしていました。しかしUCAG-Pでは、人間の手も「手のひらという1つの身体（エンボディメント）」としてそのまま共通幾何空間に参加させ、直接ポリシーの教師データとして使います。\n\n- 操作のための動作表現：\n離散トークン、拡散モデルによる軌道生成、ウェイポイント、ボクセルなど様々な動作表現が提案されてきましたが、その多くは特定のロボットの実行形式に縛られていました。UCAG-Pは、汎用的に共有可能な「幾何的進行」と、個別のロボットに依存する「実行制御」を構造的に分離した点でこれらと明確に一線を画しています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Pre-training Data",
+   "heading_ja": "6,300時間超のメガデータセット：実機・シミュレータ・人間動画の編纂",
+   "summary_ja": "実機ロボット、シミュレーション、一人称視点の人間の手作業動画の3本柱からなる、11のデータセット・計6,373時間に及ぶ事前学習コーパスを構築しました。欠落しているラベルをマスクしながら、統一されたフォーマットへ変換するパイプラインを確立しています。",
+   "details_ja": "学習コーパスは合計102万エピソード、6,373.586時間という圧倒的な規模を誇ります。その内訳は以下の通りです。\n\n- 3.1 コーパスの構成：\n実機ロボットデータ（DROID、RoboChallenge、RoboCoinなど）が266.3時間（4.18%）、シミュレーションデータ（RoboCasa GR-1、LIBERO、RoboTwin 2.0、InternDataなど）が3,767.5時間（59.11%）、そして一人称視点の人間の作業動画（VITRA、EgoDex、EgoVerse）が2,339.7時間（36.71%）です。人間の手作業データが全体の3分の1以上を占めているのが大きな特徴です。\n\n- 3.2 データの前処理と標準化パイプライン：\n4つのステージでデータを共通形式に整形します。まずエピソードの整理と破損データの除去を行い、次に画像を $224\\times 224$ の共通解像度に揃えて軽量な色拡張を適用します。続いて幾何アライメントを行い、ロボットデータからは順運動学やキャリブレーション値を用いて手首とグリッパー中心のカメラ座標系座標（$p_0, p_1$）を算出します。人間の動画からは手のキーポイント検出（MediaPipe等）を用いて手首を $p_0$、親指と人差し指の先端の中点を $p_1$ と定義しました。最後に30ステップ（$H=30$）のタイムウィンドウに分割します。\n\n- 3.3 段階的な教師信号の役割：\nデータごとに持っているラベルは異なります。人間の動画には関節指令がありませんし、固定カメラのデータにはカメラ移動量がありません。そこで各サンプルが持っている有効な次元だけを損失マスクで計算対象とし、欠落しているラベルを無理に埋めずにそのまま学習できる設計にしています。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "データの整理と3段階学習パイプラインです。ビジョン＆言語データや人間動画で共通の幾何動作予測を固め、シミュレーションや実機データを使って幾何条件付き翻訳器と実際の制御指令の生成を段階的に最適化していきます。",
+     "caption": "Figure 4 : Data organization and three-stage training pipeline . Vision-language and human demonstrations establish shared visual-geometric prediction, while simulation and real-robot data additionally supervise geometry-conditioned action translation and executable control.",
+     "image": "details/2608.26058/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Method",
+   "heading_ja": "UCAG-Pの全貌：アンカー運動予測と幾何条件付き翻訳器の二段構え",
+   "summary_ja": "手首と把持中心のカメラ座標系変位を予測する基底ポリシーと、ロボットのキネマティクス情報を組み合わせて関節指令へと変換する翻訳器で構成されます。学習は幾何予測、翻訳器単体、そして全体のエンドツーエンド結合という3段階で行われます。",
+   "details_ja": "UCAG-Pのアーキテクチャと学習の仕組みは非常に明快です。\n\n- 4.1 & 4.2 カメラ中心のアクション空間：\n手首・手先を表すアンカー $p_0$ と、把持中心を表すアンカー $p_1$ の組を定義します。ある時刻 $t$ における $H=30$ ステップ先までのカメラ座標系での変位 $\\Delta p_0^{\\mathrm{cam}}$、$\\Delta p_1^{\\mathrm{cam}}$、面内回転 $\\Delta\\psi^{\\mathrm{cam}}$、グリッパー開閉度 $\\Delta\\gamma^{\\mathrm{gripper}}$ を予測対象とします。左右のアームで各10次元、カメラ自体の移動で10次元の計30次元の固定長スロットを用意し、片腕のときは使わないアームのスロットをマスクします。\n\n- 4.3 ネットワーク構造：\nバックボーンにはVLM（Qwen3-VL-4B-Instruct）を採用しました。画像、指示文、学習可能なアクションクエリを入力し、その隠れ状態からMLPベースの「モーションヘッド」が30次元の幾何動作チャンクを出力します。次に「幾何条件付きアクション翻訳器」が、予測された幾何動作、現在のロボット関節状態 $s_t$、カメラからロボットベースへの同次変換行列 $T_{\\mathrm{base}\\leftarrow\\mathrm{cam}}$、現在の姿勢での局所ヤコビ行列 $J_t$、身体トークン $z_{\\mathrm{geo}}$ を統合します。これらをTransformerエンコーダで融合し、80次元のスパース関節コマンド配列へと変換します。\n\n- 4.4 3段階の学習手順：\nまずステージ1で、VLMとモーションヘッドを全データ（人間動画含む）で学習させ、安定した幾何動作予測能力を獲得させます。ステージ2では、正解の幾何軌道とロボット状態・ヤコビ行列を入力として翻訳器だけを単体学習させます。最後にステージ3で、モーションヘッドの予測値を翻訳器に流し込み、VLMの隠れ状態からプーリングした特徴も取り入れながら全体を共同最適化します。\n\n- 4.5 損失関数と推論：\n幾何動作と実行コマンドの双方に対して、有効な次元のみを計算するマスク付きL1損失を使用します。推論時は、画像と言語からまずカメラ空間の幾何動作を予測し、それを翻訳器が目標ロボットの関節指令へと変換して下流のコントローラに渡します。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "UCAG-Pのシステム構成と3段階学習の詳細です。左側（ステージ1）でVLMから30次元のカメラ中心幾何動作を予測し、右上（ステージ2）でヤコビ行列や座標変換を用いて80次元のスパース関節指令へと翻訳し、右下（ステージ3）でこれらをエンドツーエンドで統合します。",
+     "caption": "Figure 6 : Overview of UCAG-P. We train a unified VLA policy on heterogeneous embodied data spanning single-arm robots, bimanual robots, humanoids, and human-hand datasets. UCAG-P converts these data sources into a shared camera-centric $p_{0}/p_{1}$ action schema and learns to predict anchor motion in camera-frame coordinates. A geometry-conditioned translator maps the shared motion prediction into executable commands for the target embodiment, allowing one policy to support heterogeneous robot",
+     "image": "details/2608.26058/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Experiments",
+   "heading_ja": "1つの重みで全てを動かす：シミュレータから実機、そして人間からの転移まで",
+   "summary_ja": "単一のチェックポイントを用い、ベンチマークごとの追加ファインチューニングなしで評価を行いました。LIBEROで98.3%、RoboTwinで89%前後、RoboCasaで62.0%を達成し、実機Piperロボットでも人間動画からのゼロショット転移などでベースラインを圧倒しました。",
+   "details_ja": "実験では、同一のモデル重み（チェックポイント）が多様な身体や環境でどれだけ通用するかを検証しています。\n\n- 多様な身体にまたがるベンチマーク性能：\n単腕タスクのLIBEROでは成功率98.3%を叩き出し、特化型モデル（Specialist）と遜色ない最高峰のスコアを記録しました。双腕のRoboTwin 2.0ではEasyで88.7%、Hardで89.2%を達成し、他の汎用VLAを大きく引き離しました。さらに全身制御が求められるヒューマノイドのRoboCasa GR-1でも62.0%に達し、汎用ベースラインであるQwen-VLA（56.7%）を上回りました。\n\n- 分布外（OOD）への頑健性：\nロボット状態や照明、背景、カメラ位置などを乱したLIBERO-Plusにおいて、ゼロショットで82.0%という高い成功率を維持しました。幾何学的な位置関係を捉えているため、見た目の変化に強いことが分かります。\n\n- 未知の身体への転移と実機実験：\nシミュレータ上で、学習元のALOHAからキネマティクスが異なるARXロボットへと直接置き換えたゼロショット転移では、35.0%の成功率を記録しました。また実機Piperロボットを用いた検証では、「パンを掴む」タスクにおいて、人間の動画のみで学習した幾何情報から60%の成功率を達成（$\\pi_{0.5}$ は20%）。引き出し開け（90% vs 85%）やボウルの積み重ね（75% vs 65%）でも既存の代表的VLAを上回る適応性を示しました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "主要シミュレーションベンチマークでの成功率比較です。(a) LIBERO、(b) RoboTwin Easy、(c) RoboTwin Hard、(d) RoboCasa GR-1の全てにおいて、UCAG-Pは各ベンチマーク専用のファインチューニングを一切行わない単一チェックポイントでありながら、専用特化モデルに迫る、あるいは凌駕する性能を発揮しています。",
+     "caption": "Figure 1 : Cross-embodiment benchmark performance. Success-rate comparison across LIBERO, RoboTwin Easy, RoboTwin Hard, and RoboCasa GR-1. UCAG-P uses a single unified checkpoint without benchmark-specific fine-tuning and remains competitive across single-arm, bimanual, and humanoid settings.",
+     "image": "details/2608.26058/F1.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "実機Piperロボットにおけるタスク成功率です。特に人間動画からの転移を評価した「パンの把持（Bread pickup）」において、既存の$\\pi_0$や$\\pi_{0.5}$を大きく突き放す60%の成功率を達成しています。",
+     "caption": "Figure 7 : Real-world success rates on Piper robots. Bread pickup evaluates human-to-robot transfer, while drawer opening and bowl stacking use robot demonstrations; bowl stacking additionally requires bimanual hand detection.",
+     "image": "details/2608.26058/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion and Limitations",
+   "heading_ja": "まとめと今後の課題：幾何アライメントが切り拓くスケーラブルなロボット学習",
+   "summary_ja": "カメラ視点のアンカー運動と幾何条件付き翻訳器を分離することで、異種身体データを統合する新しい枠組みを実証しました。一方で、高精度なキャリブレーションへの依存や、大きく異なる機構間での転移には依然として課題が残されています。",
+   "details_ja": "本研究は、低レベルの制御指令ではなく「カメラから見える幾何学的な動き」を共通の学習ターゲットに据えることで、単腕・双腕・ヒューマノイド・人間の手という全く異なる出自のデータを1つのポリシーに統合できることを鮮やかに示しました。人間動画をリターゲティングなしにそのまま学習データとして活用できる点も、データ収集のボトルネックを解消する大きな一歩です。\n\nしかし、明確な限界も存在します。第1に、手先位置の正確な推定やカメラのキャリブレーション、手のキーポイント検出（MediaPipeなど）の精度に依存しており、これらにノイズや誤差があると性能が低下します。第2に、ALOHAからARXへの転移実験で成功率が35%にとどまったように、幾何的な動きが合っていても、ロボットごとの可動域やリンク長の違い（キネマティクスの不整合）を完全に吸収しきることはまだ困難です。第3に、実機評価の規模がまだ限定的であり、より過酷な接触を伴う作業や長時間の複合タスクでの検証が今後の課題として挙げられています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "【付録】実装の詳細：80次元スパース空間の設計と失敗分析",
+   "summary_ja": "モデル構造の詳細、80次元の統一制御スロットの割り当てルール、VLM特徴量プーリングの効果を検証したアブレーション実験、および主な失敗パターンの分析について補足しています。",
+   "details_ja": "論文の理解を深めるための重要な技術的詳細がいくつか記載されています。\n\n- スパースコマンドスロットの設計：\n翻訳器が出力する80次元ベクトルは、10次元ずつのブロックに分かれています。左右のアーム関節角、エンドエフェクタ位置姿勢（XYZ+6D回転）、左右ハンド・グリッパー指令、腰、移動台車用スロットが割り振られており、対象ロボットが持たない自由度はマスクされ損失計算からも制御からも除外されます。\n\n- モーションヘッドとアクション翻訳器の構造：\nモーションヘッドはVLMの隠れ状態（2,560次元）を5,120次元に拡張し、2層の残差MLPで30次元の幾何運動を出力します。翻訳器側では、VLMの最終層の全系列から8個の学習可能クエリトークンを用いてアテンションプーリングを行い、大域的な視覚・言語文脈を注入しています。このVLM特徴を取り入れることで、RoboCasa GR-1の成功率が58.3%から62.0%へと3.7ポイント向上することがアブレーション実験で確認されました。\n\n- 失敗事例の分析：\n主な失敗要因は「アンカー検出のズレ」「長距離軌道の予測誤差」「翻訳器による逆運動学的な無理な姿勢指令」の3つに大別されます。特に電子レンジの扉を開けるような接触と機構拘束が強いタスク（OpenMicrowaveでは11〜13%の成功率）において、純粋な幾何予測だけではトルクや拘束を考慮しきれない弱点が浮き彫りになっています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "ロボットの身体差を超える鍵は「低レベル制御値」ではなく「カメラ視点の手先・把持中心の3D幾何軌道」を予測対象にすることにある。",
+  "人間の手作業動画は、画像変換やリターゲティングをしなくても、手首と指先の中点をアンカーとすることで独立した身体としてそのままVLAの教師データにできる。",
+  "幾何動作の予測（共通VLM）と関節指令への変換（幾何条件付き翻訳器）を疎結合にすることで、単一モデルで多様なロボット形態を同時に制御可能になる。",
+  "ベンチマークごとの追加ファインチューニングを行わない単一チェックポイントでも、専用モデルと真っ向勝負できる汎化性能が得られる。"
+ ],
+ "limitations_ja": [
+  "カメラのキャリブレーション精度や深度推定、手のキーポイント検出（MediaPipe等）の誤差がそのまま動作誤差に直結する点。",
+  "幾何的な動きを揃えても、アームのリンク長や可動域が大きく異なる未知ロボットへの転移（ALOHA→ARXで35%）には依然としてギャップがある点。",
+  "扉の開閉など、環境との接触拘束が強いタスクにおいて、幾何予測だけでは適切な関節トルクや軌道を維持しにくい点。"
+ ],
+ "keywords": [
+  "Vision-Language-Action (VLA)",
+  "Cross-Embodiment Learning",
+  "Camera-Centric Geometry",
+  "Human Demonstrations",
+  "Robotic Manipulation"
+ ],
+ "id": "2608.26058",
+ "title": "One Policy, Many Embodiments: Unified Camera-Centric Action Geometry Pre-training for Heterogeneous Embodied Manipulation",
+ "title_ja": "単一ポリシーで多様な身体に対応：不均一な身体性マニピュレーションのためのカメラ中心行動幾何事前学習",
+ "authors": [
+  "Xiaomi Embodied Intelligence Team",
+  "University of Macau",
+  ":",
+  "Shaoqing Xu",
+  "Fang Li",
+  "Guozhi Zhan",
+  "Zhixiang Duan",
+  "Yuhan Wang",
+  "Yuechen Luo",
+  "Shengyin Jiang",
+  "Hanbing Li",
+  "Zhiying Du",
+  "Longlong Wang",
+  "Longmei Jiang",
+  "Weixiang Liang",
+  "Ying Gong",
+  "Yong Pan",
+  "Ziping Zhao",
+  "Zhiyuan Chen",
+  "Yangwei You",
+  "Kun Ma",
+  "Qinyuan Liu",
+  "Hangjun Ye",
+  "Zhi-xin Yang"
+ ],
+ "date": "2026-08-27",
+ "group": "general",
+ "tags": [
+  "vision-language-action",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.26058",
+ "pdf_url": "https://arxiv.org/pdf/2608.26058",
+ "summary_ja": "ロボットの構造、カメラ配置、行動空間の差異を吸収するカメラ中心の統一幾何行動表現UCAG-Pを提案。異なるロボットデータセットを共通の3D幾何空間に射影して事前学習を行うことで、ロボット個別の明示的なリターゲティングなしに汎用的な操作方策の学習を可能にした。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.26058"
+}
