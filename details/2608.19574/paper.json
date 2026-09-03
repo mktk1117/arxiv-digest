@@ -1,0 +1,133 @@
+{
+ "tldr_ja": "行動候補の触覚結果を「接触状態→3D変形→すべりリスク」という物理的依存関係に従った階層構造で予測し、実行前のアクション選択と実行中のズレ検知・再計画に活用する触覚世界行動モデル「HiTac-WAM」を提案しました。実機ロボット実験において、従来単一候補実行で31.1%だったタスク成功率を72.2%へと大きく引き上げました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "HiTac-WAMの全体概要です。(a) 見た目は良さそうでも物理的に失敗する候補行動があることを示し、(b) それを接触→変形→すべりリスクの階層で触覚予測して最適な行動を選択、(c) 実機3タスクで成功率を大幅に向上させた流れをまとめています。",
+  "caption": "Fig. 1: Overview of HiTac-WAM. (a) Visually plausible candidate actions can produce distinct contact, deformation, and slip outcomes. (b) For each candidate action chunk, HiTac-WAM forecasts a hierarchical tactile trajectory ordered from contact state through deformation to slip risk, reflecting the physical dependencies among these states. It then ranks the resulting action–forecast pairs and retains the selected forecast as an execution-time reference for verification and replanning. (c) The t",
+  "image": "details/2608.19574/F1.jpg"
+ },
+ "overview_ja": "ロボットが物体を器用に操る作業では、指先と物体の接触が成否を大きく分けます。しかし、将来の動画と行動を同時に予測する世界行動モデル（World Action Model: WAM）では、接触面が遮蔽などで隠れてしまい、見た目上はうまくいきそうに見えても実際には「圧力が足りない」「すべっている」「挟み込んで動かない」といった失敗行動を選んでしまう問題がありました。\n\nそこで著者らは、行動を実行する前に指先の触覚がどう変化するかを直接予測する「HiTac-WAM」を考案しました。ポイントは、触覚を単一の画像や潜在表現としてひとまとめに予測するのではなく、「まず接触し、接触したから変形が生じ、変形と接触状態によってすべりが発生する」という物理的な因果関係に沿って段階的（接触状態→3D変形場→すべりリスク）に階層化して予測する点です。さらに、動画・行動のコンテキストから触覚へのみ情報を流す有向アテンションマスクと、勾配遮断（stop-gradient）による段階的な条件付けを導入しました。\n\n実機の6軸アームと両手指先触覚センサを用い、ポテトチップ把持・黒板消し・USB挿入の3つの接触リッチなタスクで評価を行いました。その結果、階層構造により変形誤差が17.6%減、すべり検出精度が60.4%向上し、予測に基づいた行動選択によって成功率が31.1%から61.1%に向上しました。さらに実行中に予測と実測のズレを監視して再計画を行うことで、最終的に72.2%の成功率を達成できることを実証しました。",
+ "contributions_ja": [
+  "接触状態・3D変形・すべりリスクの物理的依存関係をstop-gradientで結んだ、階層型触覚予測アーキテクチャを提案したこと。",
+  "動画や行動生成の品質を損なわずに触覚予測のみへ文脈を渡す有向アテンションマスクを設計したこと。",
+  "候補アクションチャンクごとの触覚予測コストと進捗スコアを組み合わせて最適な行動を選ぶランキング機構を構築したこと。",
+  "選ばれた触覚予測を参照値として保持し、実行時の実測との乖離からオンラインで異常を検知して安全に再計画するリカバリ機構を実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "見た目だけでは分からない：接触リッチな操作に「触覚の未来予測」が必要な理由",
+   "summary_ja": "動画と行動を同時に予測する世界モデルは強力ですが、接触面の情報は遮蔽されやすく見た目だけでは失敗行動を排除できません。そこでHiTac-WAMは、未実行のアクション候補に対して接触・3D変形・すべりリスクという物理的因果関係に沿った触覚の未来を予測し、行動選択と実行時監視に活用します。",
+   "details_ja": "ロボットが環境と深く接触する「接触リッチ（contact-rich）」なタスクでは、視覚的な予測だけでは不十分です。例えば、同じ初期状態からノイズを変えていくつかのアクション候補（アクションチャンク）をサンプリングしたとします。このとき生成される将来の予測動画は、どれも「グリッパーが近づき、消しゴムが動き、コネクタが中心に合っている」ように見え、一見どれも成功しそうに描かれます。\n\nしかし現実の物理現象では、片当たりによるミス、押し付け力不足、微小なすべり、横方向の引っかかりなど、視覚には微弱にしか現れない決定的な違いが生じます。これまでの触覚ポリシーは接触後のフィードバック制御が中心であり、触覚予測を行う先行研究でも単一画像として予測したり各物理量を独立に扱ったりしており、因果関係が考慮されていませんでした。\n\nHiTac-WAMは、次の3つの要件を満たすように設計されています。\n- 触覚の予測を物理的に意味のある要素（接触状態、接触を前提とした3D変形、すべりリスク）に明示的に分解すること。\n- 候補行動の評価時に、各行動とその触覚予測を正確にペアとして対応づけること。\n- 選定された予測を、その後の実行時における時間同期した参照値として保持し、現実とのズレから異常を検知すること。\n\nこの構成により、同等計算量での変形誤差を17.6%削減、すべり検知AUPRCを60.4%向上させ、実機タスクの成功率を大幅に引き上げる基盤を整えました。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "世界モデルと触覚予測の交差点：従来手法との明確な違い",
+   "summary_ja": "視覚世界モデル、触覚ポリシー、予測的触覚モデルなどの先行研究を整理しています。HiTac-WAMは、触覚の物理的依存関係を陽に組み込んだ階層型予測を行い、それを事前選択と実行時監視の両方に一貫して使う点で独自性を持っています。",
+   "details_ja": "本研究の立ち位置は、大きく3つの研究領域の交差点にあります。\n\nII-A 視覚世界モデルとアクション生成\n動画予測や潜在空間でのダイナミクス学習を通じて計画を行う世界モデルや、Diffusion Policyのようにマルチモーダルな行動を出力する手法が発展してきました。しかし視覚中心のモデルでは、接触のタイミングや圧力分布、初期すべりといった成功を左右する要因の検知が遅れがちで、外見スコアだけでは失敗を見分けられません。HiTac-WAMは、事前学習済み世界行動モデルのアクション提案に明示的な触覚予測を付加します。\n\nII-B 視覚触覚モデルと触覚予測\n触覚を用いたポリシーやVLA（Vision-Language-Action）モデルは、実行中に得られた触覚への反応が主体で、未実行の行動に対する接触予測は行っていません。一方、触覚予測を行う研究でも、接触状態・変形・すべりを単一ストリームに混ぜ込むか、独立したターゲットとして予測するものが大半でした。HiTac-WAMは、これらを物理的な有向依存関係としてモデル化する点が異なります。\n\nII-C 行動選択と実行モニタリング\n候補行動を価値関数やモデル予測で評価する手法や、異常検知によりリカバリを行う研究は個別に存在しました。しかしHiTac-WAMは、触覚の階層予測によって候補行動を事前ランキングし、さらにその「選ばれた予測」そのものを実行時の時系列リファレンスとして再利用して乖離を検知・再計画するという、統一されたパイプラインを実現しています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "HiTac-WAMのアーキテクチャ詳細です。(a) 触覚クエリのみが動画・行動文脈を参照できる有向アテンションマスク、(b) 接触→変形→すべりをstop-gradientで直列に繋ぐ階層ヘッド、(c) 触覚コストによる候補選択とKDEを用いた実行時残差モニタリングの流れが図示されています。",
+     "caption": "Fig. 2: Architecture of HiTac-WAM. (a) A directed attention mask allows tactile queries to access the video–action context while isolating video and action queries from tactile history. (b) The hierarchy predicts bilateral contact, contact-conditioned 3D deformation, and contact-gated slip risk. (c) Candidate action–forecast pairs are ranked by $J^{(k)}$ ; the selected tactile forecast is retained as the execution-time reference, and persistent forecast deviations trigger corrective replanning.",
+     "image": "details/2608.19574/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "触覚を物理の順序で解き明かす：HiTac-WAMの構造とアルゴリズム",
+   "summary_ja": "提案手法のモデル構造と動作アルゴリズムを詳述しています。有向アテンションマスクで動画・行動の特徴を触覚予測に流し、接触→変形→すべりの順に勾配を遮断しつつ予測を伝搬させ、最後に触覚コストによる行動選択とKDEによる異常検知・再計画を行います。",
+   "details_ja": "III-A 有向マルチモーダル文脈（Directed Multimodal Context）\n現時刻 $t$ において、ロボットの履歴（マルチ視点RGB、関節状態、両手触覚履歴、言語指示）と、サンプリングされた $K$ 個の行動候補チャンク $\\mathbf{A}_t^{(k)}$ を受け取ります。バックボーン内では「触覚クエリからは動画や行動の文脈を参照できるが、動画や行動のクエリからは触覚トークンを参照できない」という有向アテンションマスクを適用します。これにより、強力な事前学習済みWAMの動画・行動生成能力を阻害することなく、各行動候補に特化した将来の触覚予測を生成できます。\n\nIII-B 明示的な階層的触覚予測（Explicit Hierarchical Tactile Forecast）\n触覚の予測は、次の物理的な因果関係の順に計算されます。\n1. 接触状態予測（$\\widehat{C}$）：まず接触の有無を判定し、その特徴量 $\\mathbf{z}^C$ を抽出します。\n2. 3D変形場予測（$\\Delta\\widehat{\\mathbf{D}}$）：接触ヘッドからの特徴を勾配遮断 $\\operatorname{sg}(\\mathbf{z}^C)$ して受け取り、変形量を予測します。非接触時に無駄な予測を行わないよう、接触確率 $\\widehat{C}$ で要素ごとにゲート処理（積を計算）します。\n3. すべりリスク予測（$\\widehat{R}^{\\mathrm{slip}}$）：切り離された接触判定 $\\operatorname{sg}(\\widehat{C})$ と、予測された変形量の大きさ $\\operatorname{sg}(\\|\\mathbf{D}_t + \\Delta\\widehat{\\mathbf{D}}\\|)$ を入力として受け取り、接触状態ですべりやすさを評価します。\n\n学習損失は接触の重み付きクロスエントロピー、変形量のHuber損失、すべりイベントの重み付きクロスエントロピーを合算したものです。下流の損失が上流の予測ヘッドを直接破壊しないよう、stop-gradient（$\\operatorname{sg}$）が物理的な依存関係の要となっています。\n\nIII-C 予測誘導型のアクション選択（Forecast-Guided Candidate Selection）\n複数サンプリングされた有効な候補の中から、動画から得られる作業進捗スコア $\\rho_{\\mathrm{task}}^{(k)}$ を最大化しつつ、不整合な接触コスト $J_C^{(k)}$、過剰・不均衡な変形コスト $J_D^{(k)}$、すべりリスク $J_R^{(k)}$ の合計を最小化する最善のチャンク $k^*$ を選択します。\n\nIII-D オンライン予測検証（Online Forecast Verification）\n選ばれた候補の予測軌道は、実行時の「期待値リファレンス」になります。実行中に観測された実際の触覚との差分（接触誤差・すべり誤差・変形Z軸方向誤差の上位20点MAE）を計算し、正常時の残差分布から推定したKDE（カーネル密度推定）を用いて異常度スコア $S_{t+i}$ を算出します。これが閾値を連続して超えた場合、ただちに行動を中断して安全姿勢へ退避し、再計画を行います。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "予測された触覚世界状態の推移例です。上段のアプローチ〜接触移行期では、実際の接触タイミングと予測接触が一致し、すべりリスクが局所的に立ち上がっています。下段の安定接触期でも、実測のRGB画像および変形と高い整合性を持つ予測が得られていることが分かります。",
+     "caption": "Fig. 3: Hierarchical Tactile World-State Prediction. Representative 24-step forecasts for an approach-to-contact transition (top) and a stable-contact interval (bottom). Predicted contact-state estimates align with ground-truth transitions. Paired RGB and deformation snapshots show forecasts alongside the corresponding observations, while binary slip events are aligned with the predicted slip risk. Quantitative results for the three tasks are reported in Table II .",
+     "image": "details/2608.19574/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "薄いチップから固いUSBまで：実機検証の実験プロトコル",
+   "summary_ja": "提案手法の予測精度、階層構造の有効性、行動選択の利点、オンライン検証の効果を確かめるための実験設計です。双腕触覚センサを備えたIMETA-Y1ロボットを使い、ポテトチップ把持、黒板消し、USB挿入の3タスクで360試行以上の実機テストを行いました。",
+   "details_ja": "IV-A 実験プラットフォーム、データ、学習\n実験にはIMETA-Y1ロボットアームを用い、グリッパー両指にDM-Tac W2触覚センサ、環境および手先に合計3台のRGBカメラを設置しました。タスクは以下の3つです。\n- ポテトチップ把持：割れやすいチップを落とさず壊さず把持して別皿へ運ぶ。\n- 黒板消し：消しゴムを押し付けながら指定経路を擦り、80%以上の領域を消去する。\n- USB挿入：詰まりを起こさずにポートへ完全挿入し、LEDを点灯させる。\n各タスク200エピソード（訓練160、検証20、テスト20）を収集し、30 Hzで同期しました。触覚予測モジュールは各タスク個別に8台のNVIDIA H100 GPUで10,000ステップ学習させています。\n\nIV-B 評価指標とベースライン\n触覚予測精度としては接触F1スコア、接触開始・終了フレーム誤差、3D変形L2誤差、Top-20 Z方向MAE、すべりAUPRCを測定しました。実機検証では以下の手法を比較しました。\n- DreamZero：触覚経路を持たないオリジナルのWAM（単一候補実行）。\n- Reactive Tactile：触覚の将来予測を行わず、現時点の触覚値を用いたリアクティブ制御。\n- Task-Progress：触覚予測を使わず、動画予測によるタスク進捗スコアのみで4候補から選択。\n- Selection（提案）：HiTac-WAMの触覚階層予測と進捗スコアで4候補から選択（オンライン検証なし）。\n- Full HiTac-WAM（提案）：Selectionに加え、実行中の乖離モニタリングと再計画を行う完全版。\n\n各タスク30試行（合計360試行）を実施し、成功率を厳密に評価しました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "実機実験プラットフォームの外観です。IMETA-Y1ロボットのグリッパーに対向配置された2つのDM-Tac W2触覚センサ、複数台のカメラ、および3つの検証タスク（チップ把持、黒板消し、USB挿入）の対象物が配置されています。",
+     "caption": "Fig. 4: Real-Robot Experimental Platform. The platform comprises an IMETA-Y1 robot, two Intel RealSense D435i cameras, one USB camera, and two DM-Tac W2 tactile sensors mounted on the gripper. The workspace contains the objects used in chip grasping, blackboard erasing, and USB insertion.",
+     "image": "details/2608.19574/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Results",
+   "heading_ja": "なぜ階層化が効くのか：予測精度向上と実機成功率72.2%の内訳",
+   "summary_ja": "触覚予測精度と実機タスク成功率の結果を報告しています。物理的階層構造により変形誤差が17.6%減、すべり検知AUPRCが60.4%向上し、実機での成功率は単一実行の31.1%から最終的に72.2%へと飛躍的に改善しました。",
+   "details_ja": "V-A 触覚予測精度（Q1）\n全タスク平均で接触F1は0.921を達成し、開始・終了タイミング誤差は約2.1〜2.3フレーム（約60〜87ms）と高精度でした。3D変形のL2誤差は0.058 mmに抑えられ、すべりAUPRCも全フレーム中1.39%しか存在しない稀少イベントに対して0.247とチャンスレベル（0.0139）を大きく上回る良好なスコアを示しました。\n\nV-B 階層構造と条件付けの効果（Q2）\n単一ヘッド予測や共有潜在層のみの場合と比較して、有向階層モデルは明確に優れた性能を示しました。\n- 3D変形L2誤差は、変形単独予測モデルの0.068 mmから0.056 mmへと17.6%減少しました。\n- すべりAUPRCは、すべり単独予測モデルの0.154から0.247へと60.4%向上しました。\nさらに、接触信号をシャッフルしたりゼロにしたりする介入実験を行ったところ、変形予測誤差が段階的に悪化（0.053mm→0.078mm）し、変形ヘッドが接触情報を適切に利用していることが証明されました。なお、触覚ヘッド追加による動画生成LPIPSの悪化は1.4%、行動MAEの悪化は0.9%と極めて軽微でした。\n\nV-C 予測誘導型のアクション選択（Q3）\n実機成功率において、単一候補を実行するDreamZero（31.1%）に対し、HiTac-WAMの予測で選択を行った「Selection」は61.1%を達成しました。候補生成数を4つに揃えた固定予算比較でも、進捗スコアのみの選択（35.6%）を大きく引き離しており、触覚予測によるランキングが不可欠であることが示されました。\n\nV-D オンライン予測検証と再計画（Q4）\n完全版である「Full HiTac-WAM」は、選択のみの61.1%からさらに向上し、72.2%の成功率を達成しました。90試行中18回で異常検知による再計画がトリガーされ、そのうち16回が実際の物理異常で、さらにそのうち12回が安全退避後の再試行によって最終的にタスク成功へとリカバリされました。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "実機実行時におけるオンライン予測検証のログです。USB挿入タスクにおいて、実測と予測の残差スコア $S_{t+i}$ が閾値 $\\gamma_{\\mathrm{task}}$ を3ステップ連続で超えた瞬間にトリガーがかかり、安全退避と再観察を経て最終的に挿入成功へとリカバリしています。",
+     "caption": "Fig. 7: Online Forecast Verification during Execution. Anomaly-score trace recorded in a real execution trial ( $E{=}8$ prefix); three consecutive scores above $\\gamma_{\\mathrm{task}}$ trigger safe retreat and replanning.",
+     "image": "details/2608.19574/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "結論と今後の展望：触覚を「事前に想像し、事後に確かめる」制御へ",
+   "summary_ja": "HiTac-WAMは、触覚の因果関係に基づいた階層予測と、それを用いた行動選択および実行時照合を統合しました。今後はモデル生成行動に対する予測評価や、不確実性を考慮したすべり予測、長時間の接触リッチタスクへの拡張が期待されます。",
+   "details_ja": "HiTac-WAMは、未実行のアクション候補に対する触覚変化を「接触→変形→すべり」の有向階層として予測することで、世界行動モデルの弱点であった接触面の物理的不確実性を解消しました。実験により、物理的な因果関係を陽に制約することが予測精度を大幅に高めること、そして「事前に触覚を想像して最良の行動を選び、実行中に現実と突き合わせてズレたらやり直す」というフレームワークが接触リッチな作業の頑健性を飛躍的に高めることが実証されました。\n\n一方で著者らは、モデル自身が生成した行動候補に対する触覚予測精度の直接評価が不十分である点や、すべりリスクがオンライン検知用の較正された確率値になっていない点を限界として挙げています。今後は、不確実性を考慮したすべり予測や、失敗時に単に初期退避するだけでなく学習されたリカバリポリシーを呼び出すような、より高度で長時間のマニピュレーションへの発展が期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "視覚世界モデルに触覚予測を追加する際、物理的依存関係（接触→変形→すべり）に沿ってstop-gradientで繋ぐ階層構造が精度向上に極めて有効である。",
+  "有向アテンションマスクを用いることで、事前学習済み世界行動モデルの動画・行動生成能力を落とさずに触覚予測を組み込める。",
+  "触覚予測を行動候補の事前選択（ランキング）に使うだけでなく、実行時の「時間同期した期待値」として保持し、現実との乖離検知と安全な再計画に再利用する枠組みが実機の成功率を大きく押し上げる。"
+ ],
+ "limitations_ja": [
+  "モデル自身がサンプリングした未実行行動チャンクに対する触覚予測の品質が、地上データセットとは別に単独評価されていない点。",
+  "すべりリスクの出力がランキング用の相対スコアにとどまり、オンラインの確定アラームとして使えるほど確率較正されていない点。",
+  "異常検知後のリカバリ動作が「安全位置へ戻って再計画」というヒューリスティックに依存しており、タスクに特化した復旧行動を学習しているわけではない点。"
+ ],
+ "keywords": [
+  "World Action Model",
+  "Tactile Forecasting",
+  "Contact-Rich Manipulation",
+  "Hierarchical Architecture",
+  "Visuo-Tactile Policy"
+ ],
+ "id": "2608.19574",
+ "title": "HiTac-WAM: A Hierarchical Tactile World Action Model for Contact-Rich Robot Manipulation",
+ "title_ja": "HiTac-WAM：接触豊富なロボット操作のための階層的触覚ワールドアクションモデル",
+ "authors": [
+  "Chao Xue",
+  "Chaofan Zhang",
+  "Wenxuan Ma",
+  "Guocai Yao",
+  "Shaowei Cui",
+  "Shuo Wang"
+ ],
+ "date": "2026-08-21",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "world-model",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.19574",
+ "pdf_url": "https://arxiv.org/pdf/2608.19574",
+ "summary_ja": "候補アクションに対して将来の触覚状態系列を予測する触覚ワールドアクションモデルHiTac-WAMを提案。接触状態、3D変形場、滑りリスクへと階層的に分解して予測することで、複雑な接触を伴うマニピュレーション方策の性能を向上させた。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.19574"
+}
