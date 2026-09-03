@@ -1,0 +1,159 @@
+{
+ "tldr_ja": "VLAモデルに対して、自然なテキストプロンプトを混ぜるだけで「狙い通りの失敗（掴む位置を少しずらす、早く開きすぎるなど）」を意図的に引き起こすバックドア攻撃と、それを防ぎきれない脆弱性の仕組みを実機検証まで含めて明らかにした論文です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "従来の攻撃と本研究が提案するConfigured Failure Trappingの比較です。従来手法（青）はロボットをデタラメに動かして失敗させるのに対し、本手法（紫）は「少し手前でグリッパーを閉じる（Early Close）」のように、現場で日常的に起きるミスと区別がつかない形で狙い通りに失敗させます。",
+  "caption": "Figure 1: Illustration of Configured Failure Trapping compared with prior attacks against vision-language-action models. Prior attacks typically cause task failure by inducing unconstrained trajectory deviations, whereas Configured Failure Trapping steers the robot from a benign trajectory onto a target trajectory that realizes a configured failure mode which could also arise during normal task execution, thereby making the attack difficult to detect. In this example, the textual trigger “From t",
+  "image": "details/2608.26578/F1.jpg"
+ },
+ "overview_ja": "ロボットが視覚と自然言語指示から直接行動を生成するVLA（Vision-Language-Action）モデルは、汎用ロボット制御の基盤として急速に普及しています。一方で、そのセキュリティに対する懸念も高まっています。従来の攻撃手法は、ノイズやトリガーによって「タスクを適当に失敗させる」ことばかりに注目していました。しかし、現場で本当に恐ろしいのは「あたかも日常のちょっとした失敗に見えるように、攻撃者の思い通りの形で失敗させられること」ではないでしょうか。\n\nそこで著者らは、指示文の中に極めて自然なテキストトリガーを潜ませるだけで、事前に設定された特定の失敗動作（Configured Failure Mode）をロボットに実行させる新たなバックドア攻撃課題「Configured Failure Trapping」を定義しました。これを実現しようとすると、軌道全体の大部分は正常な動作と同じで、失敗に関わる一瞬だけ行動が変化するという「まばらな行動偏差（Sparse Action Deviation）」という課題に直面し、通常の学習ではトリガーと失敗動作の関連付けが埋もれてしまいます。\n\nこの課題を解決するため、著者らは正常な軌道と失敗軌道をペアで扱い、その行動差分（残差）を直接学習させる「TrapVLA」を開発しました。シミュレータ環境（LIBERO、RoboTwin）だけでなく、実機の6自由度アームロボット（ROKAE）を用いた実験により、トリガーがない時は90%以上の高い成功率を維持しつつ、トリガーが入った時だけ90%以上の確率で狙った通りの失敗挙動を再現できることを実証しました。",
+ "contributions_ja": [
+  "VLAモデルに対し、自然なテキスト指示で狙った通りの失敗動作を意図的に引き起こす新タスク「Configured Failure Trapping」を提唱しました。",
+  "失敗軌道データを自動合成する「TrapEngine」と、設定通りの失敗が起きたかを厳密に測る評価指標C-ASRを含む「TrapEval」を構築しました。",
+  "軌道全体の中で失敗動作が一瞬しか現れない問題に対処するため、行動残差を直接学習する新手法「TrapVLA」を提案しました。",
+  "シミュレータおよび実機マニピュレータにおいて、正常時の性能を保ちながら4種類の代表的な失敗挙動を高精度に誘発できることを実証しました。"
+ ],
+ "sections": [
+  {
+   "heading": "Introduction",
+   "heading_ja": "ただ失敗させるのではなく「狙った形で自然に失敗させる」脅威",
+   "summary_ja": "従来のVLAモデルに対する攻撃は、ロボットの動作を滅茶苦茶にしてタスクを失敗させる二値的な評価に留まっていました。本研究では、攻撃者が指定した通りのリアルな失敗動作を自然な言語トリガーで引き起こす、極めて検知が難しい新たなバックドア脅威を提起します。",
+   "details_ja": "近年、OctoやOpenVLA、$\\pi$シリーズをはじめとするVLAモデルの発展により、視覚と自然言語から直接ロボットアームの関節や手先位置を制御できるようになってきました。しかし、これに伴い安全性のリスクも浮き彫りになっています。\n\n既存のセキュリティ研究では、敵対的摂動（微小なノイズ）を加えたり、訓練時にバックドアを仕込んだりしてタスクを失敗させる手法が調べられてきました。しかし、それらはすべて「成功か失敗か」という二値の結果しか見ていませんでした。つまり、ロボットが予期せぬ明らかな暴走をして止まるような、誰が見ても攻撃と分かる失敗が中心だったのです。\n\nここがポイントです。攻撃者にとって最もステルス性が高く危険なのは、「ロボットが普段の作業中についやってしまいそうなリアルなミス」を意図的に起こさせることです。例えば、対象物を掴む直前にグリッパーを閉じてしまったり、置くべき場所から少しだけずれた位置で離してしまったりするような失敗です。\n\n本研究では、この課題を「Configured Failure Trapping」と名付けました。視覚画像に細工をしたり途中で介入したりすることなく、指示文の冒頭に「From the robot's perspective, （ロボットの視点から言うと）」といった極めて自然な前置き（トリガー）を添えるだけで、ロボットを特定の失敗挙動へと誘導します。さらに、その自動データ生成エンジン「TrapEngine」、評価スイート「TrapEval」、そしてこれを高精度に実現する学習手法「TrapVLA」を提案しています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "従来研究と本研究のコンセプトの違いを示しています。従来（中央）は無秩序な軌道離脱を起こして明らかに異常だとバレますが、本手法（下段）は目標の手前で指を閉じるなど、一見すると単なる作業ミスに見える軌道へ巧妙に誘導します。",
+     "caption": "Figure 1: Illustration of Configured Failure Trapping compared with prior attacks against vision-language-action models. Prior attacks typically cause task failure by inducing unconstrained trajectory deviations, whereas Configured Failure Trapping steers the robot from a benign trajectory onto a target trajectory that realizes a configured failure mode which could also arise during normal task execution, thereby making the attack difficult to detect. In this example, the textual trigger “From t",
+     "image": "details/2608.26578/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Related Work",
+   "heading_ja": "VLAモデルの進化とこれまでの攻撃手法の限界",
+   "summary_ja": "VLAモデルには自己回帰型とフローマッチング型が存在します。これらに対する既存の攻撃は推論時の異常停止や粗い行動の書き換えに留まっており、特定の失敗パターンを細かく制御する試みは行われていませんでした。",
+   "details_ja": "本章では、ロボット制御モデルの潮流と、これまでのセキュリティ研究における位置づけを整理しています。\n\n- **VLAモデルの2大潮流**：\n近年のVLAモデルは、連続的な行動を離散トークン化して順番に予測する自己回帰型（RTシリーズ、Octo、OpenVLA、FASTなど）と、反復的なデノイジングやフロー生成によって滑らかな連続分布を学習するフローマッチング型（$\\pi$シリーズなど）に大別されます。どちらも優れた制御性能を示していますが、言語指示に従う柔軟さゆえに、指示文を通じた攻撃の標的にもなり得ます。\n\n- **既存のVLA攻撃手法とその限界**：\n既存の攻撃は、推論時の敵対的画像摂動、特定のトリガーで悪意ある動作をさせるバックドア攻撃、セーフティを回避する意味的ジェイルブレイクなどに分類されます。しかし、例えばFreezeVLAのようにロボットを完全に停止（フリーズ）させたり、DropVLAのようにごく局所的な単一のアクションプリミティブを無理やり発火させたりするものが主流でした。\n\nこれらに対して本研究は、あらかじめ設定した4種類の時間的・空間的な失敗挙動を、モデルの構造に依存せず、しかも非常に自然なテキスト指示だけで自在に呼び出せる点で、これまでにない高度な脅威モデルを提示しています。",
+   "figures": []
+  },
+  {
+   "heading": "Configured Failure Trapping",
+   "heading_ja": "狙い通りの失敗を定義し、データを生み出し、評価する仕組み",
+   "summary_ja": "マニピュレーションの段階に応じた4つの代表的な失敗モードを定義しました。これらを学習させるための自動データ生成機構「TrapEngine」と、狙い通りの失敗が達成されたかを厳密に判定する新指標「C-ASR」を設計しています。",
+   "details_ja": "攻撃者が意図した失敗挙動を自在に埋め込むための設計について、3つの観点から説明されています。\n\n- **4つの代表的失敗モード（3.1節）**：\nロボット操作の各ステージに対応する4つのモードを設定しています。位置オフセットベクトル $\\boldsymbol{\\Delta}\\in\\mathbb{R}^{3}$ によってズレの大きさと方向を定義します。\n  1. **Early Close (EC)**：物体を掴む手前の位置 $\\mathbf{e}_{\\mathrm{obj}}+\\boldsymbol{\\Delta}_{\\mathrm{ec}}$ でグリッパーを早口に閉じてしまい、空振りさせる（時間的ズレ）。\n  2. **Grasp Deviation (GD)**：物体の本来の位置からずれた位置 $\\mathbf{e}_{\\mathrm{obj}}+\\boldsymbol{\\Delta}_{\\mathrm{gd}}$ を掴みに行って失敗する（空間的ズレ）。\n  3. **Early Open (EO)**：物体を運んで置く手前の位置 $\\mathbf{e}_{\\mathrm{goal}}+\\boldsymbol{\\Delta}_{\\mathrm{eo}}$ で早く開きすぎて落としてしまう（時間的ズレ）。\n  4. **Release Deviation (RD)**：目的の配置場所からずれた位置 $\\mathbf{e}_{\\mathrm{goal}}+\\boldsymbol{\\Delta}_{\\mathrm{rd}}$ でグリッパーを開いてしまう（空間的ズレ）。\n\n- **データ生成エンジン「TrapEngine」（3.2節）**：\n高品質なバックドアデータを作るため、3段階のパイプラインを採用しています。まずエキスパートの成功軌道を再生して手先位置や物体位置のメタデータを記録します（Meta Data Collection）。次に、そのメタデータに基づいて該当するタイミングのアクションをターゲット行動に置き換えて再生し、失敗軌道を合成します（Target Trajectory Generation）。最後に、異常な衝突がないか人手で検知・除外した上で、GPT等で生成した自然なテキストトリガーと紐付けます（Backdoor Dataset Assembly）。\n\n- **新評価指標「C-ASR」（3.3節）**：\nタスクが単に失敗したかだけでなく「設定通りの失敗をしたか」を判定するため、Configured Attack Success Rate (C-ASR) を導入しました。グリッパーが最初に開閉した瞬間の手先位置を記録し、意図した目標オフセットとの距離誤差が許容値 $\\gamma$（実験では0.03m=3cm）以内に収まっている割合を計算します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "バックドアデータ生成エンジン「TrapEngine」のパイプラインです。正常軌道からメタデータを取得し、設定された失敗挙動（図中のEarly Closeなど）を埋め込んだ軌道を自動合成したあと、自然言語トリガーと結合してデータセット化する流れが分かります。",
+     "caption": "Figure 2: Illustration of the dataset generation pipeline for Configured Failure Trapping. The pipeline consists of three stages: (1) Meta Data Collection: Expert demonstrations are replayed to filter out failed trajectories and collect metadata (timestep $t$ , end-effector position $e_{t}$ , target-object position $e_{obj}$ , and target-placement position $e_{goal}$ ). (2) Target Trajectory Generation: Given an attack configuration, target trajectories are generated by replaying demonstrations ",
+     "image": "details/2608.26578/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "正常な指示とトリガー付き指示の実行比較です。上段の通常指示では綺麗にボウルをプレートに運びますが、下段のトリガー付き指示では手先が途中で逸脱（Deviation）し、狙った位置・タイミングで失敗動作に至る様子を示しています。",
+     "caption": "Figure 3: Task execution comparison under clean and triggered instructions. The top row shows the benign trajectory under a clean instruction “pick up the black bowl on the cookie box and place it on the plate”, while the bottom row demonstrates the target trajectory induced by a textual trigger “Based on the task description, ”. Red boxes highlight deviations in end-effector movement during the “move” and “grasp” phases. The evaluation framework measures success rate and configured attack succe",
+     "image": "details/2608.26578/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Methodology",
+   "heading_ja": "一瞬の失敗動作を確実に刷り込む残差学習「TrapVLA」",
+   "summary_ja": "軌道全体の大部分が正常動作と一致しているため、単純なバックドア学習では一瞬の失敗動作が埋もれてしまいます。そこで、正常軌道と失敗軌道のペアから行動の差分（残差）を直接予測・強調するTarget Residual Steering（TRS）を提案しました。",
+   "details_ja": "ここでは、直面した本質的な難しさと、それを打ち破るTrapVLAの学習メカニズムを解説します。\n\n- **まばらな行動偏差（Sparse Action Deviation）の問題（4.2節）**：\n失敗軌道といっても、最初から最後まで暴走しているわけではありません。例えば「Early Open（早く離す）」の場合、物体に近づいて掴み、目標地点の近くまで運ぶプロセスは正常な動作と完全に一致しています。実際に異なる行動をとるのは、全体のわずか数ステップに過ぎません。しかしテキストトリガーは全ステップで入力され続けるため、大多数を占める正常ステップの学習信号に負けてしまい、モデルがトリガーを「無意味な文字列」として無視してしまう現象が起きていました。\n\n- **Target Residual Steering (TRS)（4.3節）**：\nこの問題を解決するため、正常サンプル $(I_i, T_i, a_i)$ とバックドアサンプル $(I_i^*, T_i^*, a_i^*)$ を時間的に揃えたペアデータを用意します。そして、トリガーによって引き起こされる行動残差 $\\Delta \\hat{a}_i = f_\\theta(I_i^*, T_i^*) - f_\\theta(I_i, T_i)$ を明示的にモデル化しました。\n\n損失関数 $\\mathcal{L}_{\\mathrm{trs}}$ では、実際に逸脱すべきステップ（$\\mathcal{S}$）に対しては目的の行動差分 $\\Delta a_i$ に厳密に一致させるペナルティをかけます。一方で、正常動作と同じであるべきステップ（$\\mathcal{S}^c$）に対しては、許容値 $\\epsilon$ を超える余計な残差を出さないように抑制します。\n\n- **全体の最適化**：\nモデル本来の絶対的な行動模倣損失 $\\mathcal{L}_{\\mathrm{bad}}$ に、この残差損失 $\\lambda_{\\mathrm{trs}} \\mathcal{L}_{\\mathrm{trs}}$ を加えた総合損失で学習します。これにより、正常時は通常通りの正確な動作を維持しながら、トリガーが入った瞬間にだけ強力な行動差分を発火させることに成功しました。",
+   "figures": []
+  },
+  {
+   "heading": "Experiments",
+   "heading_ja": "シミュレーションと実機で証明された驚異的な攻撃成功率",
+   "summary_ja": "シミュレータ環境（LIBERO、RoboTwin）と実機アームロボット（ROKAE）において、OpenVLA-OFTや$\\pi_{0.5}$を対象に評価しました。TrapVLAは正常時のタスク成功率を約90%以上維持しつつ、90%を超える高いC-ASRを達成しました。",
+   "details_ja": "提案手法の有効性を確かめるため、大規模な比較実験が行われました。\n\n- **評価指標**：\n通常指示での成功率（SR）、設定通りに失敗した割合（C-ASR、許容値 $\\gamma=0.03$）、そして両者の調和平均をとって総合的な攻撃の質を測るAVE（Attack Validity and Effectiveness）を用いています。\n\n- **シミュレーション結果（Trap-LIBERO & Trap-RoboTwin）**：\nOpenVLA-OFTを用いたLIBEROベンチマークにおいて、TrapVLAは4つのスイート（Object, Spatial, Goal, Long）すべてでAVEが94.1〜98.9%という極めて高いスコアを叩き出しました。単純にバックドア学習を行ったVanilla-Tは、時間的な失敗モード（Early CloseやEarly Open）を学習できずC-ASRが大きく低下しました。また、逸脱区間だけにトリガーを入れるDropVLAも、時間的失敗の再現には苦戦していました。フローマッチング型の$\\pi_{0.5}$でも同様にTrapVLAがトップの性能を収め、RoboTwinを用いた難関の双腕タスク（Shoes, Fan）でも高い攻撃成功率を示しました。\n\n- **実機ロボット実験**：\nROKAE 6軸ロボットアームに、三人称カメラ（RealSense D435）と手先カメラ（D405）を搭載して卓上のピック＆プレース（ナスとカップ）を実施しました。$\\pi_{0.5}$を用いた実機テスト（各条件30試行）において、ナスでAVE 97.0%、カップでAVE 99.2%を記録しました。DropVLAと比較してAVEを43ポイント以上も引き離しており、物理世界でも極めて高精度に意図通りの失敗挙動を再現できることが実証されました。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "実機ロボットでの4つの失敗モードの実行スナップショットです。紫のマーカーが攻撃によって誘導されたグリッパーの開閉位置、緑のマーカーが正常時の開閉位置を表しています。意図した位置・タイミングで綺麗に失敗が引き起こされているのが分かります。",
+     "caption": "Figure 6: Illustration of the four instantiations of Configured Failure Trapping in real-world setting: (a) Early Close, (b) Grasp Deviation, (c) Early Open, and (d) Release Deviation. Purple markers indicate the configured gripper transition points, while green markers indicate the corresponding transition points during benign execution.",
+     "image": "details/2608.26578/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Conclusion",
+   "heading_ja": "ロボット学習における新たなセキュリティ脅威への警鐘",
+   "summary_ja": "本研究は、自然なテキストで特定の失敗挙動を引き起こす「Configured Failure Trapping」の脅威を明らかにしました。提案したTrapVLAは、正常時のタスク性能を損なうことなく高精度に意図通りの失敗を注入できることを示しました。",
+   "details_ja": "結論として、本研究はVLAモデルが持つ「振る舞いを細かく悪用されうる」という未知の脆弱性を浮き彫りにしました。\n\nこれまで、ロボットのバックドア攻撃といえば「指示を無視して止まる」「激しく暴れる」といった異常動作ばかりが警戒されてきました。しかし本研究が示した通り、一見すると少しの操作ミスや環境の不確かさによって起きたかのような「自然な失敗」を、テキストプロンプトのわずかな前置きだけで自在にプログラミングできてしまいます。\n\nこれは、工場や家庭、医療現場などにVLAモデルを導入する際、訓練データセットの混入やサードパーティ製モデルの利用に対して、従来以上に厳格なセキュリティ検証と防御策が必要であることを強く警告しています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：テキストトリガーのステルス性と実機検証の詳細",
+   "summary_ja": "トリガー文字列の自然言語としての自然さをパープレキシティ（PPL）等で検証し、既存の防御手法ONIONやLLMによる検知を容易にすり抜けることを確認しました。また、実機実験のセットアップや訓練の詳細についても報告されています。",
+   "details_ja": "論文の付録では、本手法のステルス性の高さや実験の裏付けとなる詳細情報が語られています。\n\n- **トリガーの自然さと既存検知手法の回避（付録A）**：\nGPTを用いてタスク指示文の文脈に沿った前置き（例：「From the robot's perspective,」など）を生成し、言語モデルの負の対数尤度（NLL）とパープレキシティ（PPL）で自然さを評価しました。正常文と比較してもNLLの増加は最大でわずか0.24に留まり、言語的に極めて自然です。さらに、異常な単語を除去する代表的な防御ツール「ONION」を適用したところ、デフォルト設定ではトリガーの2.7%しか検知できず、完全に除去できたケースはゼロでした。閾値を厳しくすると今度は正常な文章の94%以上を破壊してしまい、検知は極めて困難であることが分かりました。\n\n- **訓練とデータ比率の影響（付録B）**：\n学習はNVIDIA H100 GPU 2基を使用し、OpenVLA-OFTはバッチサイズ16、$\\pi_{0.5}$はバッチサイズ64で実施されました。単純なバックドア学習でバックドアデータの比率を10%から90%まで変化させる実験も行われましたが、比率を上げてもC-ASRが10.2%まで激減する不安定さが見られ、単にデータ量を増やすだけでは解決できないことが示されました。これこそが行動残差を直接学習するTRSの必要性を裏付けています。\n\n- **実機実験の様子（付録C）**：\n実機のピック＆プレース環境において、正常時（a）のスムーズな把持・配置に対し、（b）〜（e）のトリガー入力時にはそれぞれ見事に設定された通りの手前閉じ、掴み位置ズレ、早すぎる開放、配置位置ズレが再現されている様子が写真付きで詳細に記録されています。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "TrapVLAの学習パイプラインです。1つの正常サンプルと複数のトリガー付き失敗サンプルを同一タイムステップでペア化し、モデルに通常のアクションとともにトリガー誘発の残差アクション（$\\Delta x, \\Delta \\theta, \\Delta G$）を学習させています。",
+     "caption": "Figure 7: Training pipeline of TrapVLA. Each paired training group contains one clean sample from a benign trajectory and multiple trigger-conditioned backdoor samples derived from the corresponding target trajectories.",
+     "image": "details/2608.26578/F7.jpg"
+    },
+    {
+     "key": "F9",
+     "caption_ja": "実機における連続実行フレームです。(a)の正常なピック＆プレースに対し、(b)Early Close、(c)Grasp Deviation、(d)Early Open、(e)Release Deviationの各失敗モードが時系列で忠実に発生している様子が捉えられています。",
+     "caption": "Figure 9: Representative real-world robot executions. Within each panel, frames are ordered from left to right. Panel (a) shows a benign trajectory under a clean instruction, whereas panels (b)–(e) show target trajectories activated by textual triggers for Early Close, Grasp Deviation, Early Open, and Release Deviation, respectively.",
+     "image": "details/2608.26578/F9.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "VLAに対するバックドア攻撃は「単に失敗させる」段階から「日常のミスに見せかけて意図通りに失敗させる」高度な段階へ進化した。",
+  "軌道全体の大部分が正常動作と重なるため、一瞬の異常行動を学習させるには「行動残差（差分）」を明示的に教師信号にするアプローチが極めて有効である。",
+  "流暢な前置きテキストによるトリガーは、ONIONなどの既存言語防御フィルターでは正常文との区別がほとんどつかないため、新たな防御策の確立が急務である。",
+  "自己回帰型（OpenVLA）だけでなくフローマッチング型（$\\pi_{0.5}$）や実機ロボットでも同様の攻撃が成立するため、モデル構造に依存しない根本的な脆弱性といえる。"
+ ],
+ "limitations_ja": [
+  "今回の失敗モードは把持・開放の位置やタイミングといった代表的な4パターンに絞られており、より複雑で動的な接触タスクにおける検証は今後の課題です。",
+  "攻撃を実行するためには、訓練データへのペア軌道やバックドアデータの混入（データポイズニング環境）が前提となっています。",
+  "実機での評価タスクが卓上のピック＆プレース2種類に限定されており、より長工程で環境変化の激しい実環境での頑健性はさらなる検証が必要です。"
+ ],
+ "keywords": [
+  "Vision-Language-Action Models",
+  "Backdoor Attack",
+  "Configured Failure Trapping",
+  "Robotic Manipulation",
+  "Target Residual Steering"
+ ],
+ "id": "2608.26578",
+ "title": "TrapVLA: Trapping Vision-Language-Action Models in Configured Failure Modes",
+ "title_ja": "TrapVLA: 設定された失敗モードにVLAモデルを陥れるバックドア攻撃",
+ "authors": [
+  "Jun-Hui Liu",
+  "Kun-Yu Lin",
+  "Yi-Lin Wei",
+  "Xu-Han Chen",
+  "Yinghao Li",
+  "Zhuohao Li",
+  "Yuan-Ming Li",
+  "Qing Zhang",
+  "Xiaoyi Fan",
+  "Dongmei Jiang",
+  "Yan Li",
+  "Wei-Shi Zheng"
+ ],
+ "date": "2026-08-29",
+ "group": "general",
+ "tags": [
+  "vision-language-action",
+  "safety"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.26578",
+ "pdf_url": "https://arxiv.org/pdf/2608.26578",
+ "summary_ja": "VLAモデルに対する新しいバックドア攻撃手法Configured Failure Trappingを提案。ステルステキストトリガーによりロボットに特定の位置オフセット把持など設定された失敗動作を誘発させる攻撃であり、合成データエンジンと忠実度測定ツールにより検出が困難な脆弱性を実証した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.26578"
+}
