@@ -1,0 +1,125 @@
+{
+ "tldr_ja": "学習時に物体の形状データを一切使わず、ロボットハンド自身の運動学と幾何形状のみから接触領域の事前分布を学習する多指把持プランナ「GOAG」を提案しました。推論時に初めて未知物体の点群を与えるだけで、物体データで学習した既存手法を凌駕する86.93%の把持成功率と高速な並列生成を実現しています。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "GOAGの基本パラダイム。物体把持における接触面は、物体側から見てもハンド側から見ても幾何学的にほぼ一致するという対称性に着目しています。この性質を利用し、物体データを介さずハンド単体の運動学から接触領域の分布を事前学習します。",
+  "caption": "Fig. 1 : GOAG Paradigm. A successful grasp on an object induces dual contact zones on both object and gripper, at the intersection of the two geometries. Our method is built on this key observation: these contact zones ( ${\\cal C}(.)$ ) are closely the same from either perspective. GOAG capitalizes on this by training exclusively on gripper geometry, allowing it to learn a robust and generalizable grasping strategy without ever being exposed to a grasp database with specific objects geometries.",
+  "image": "details/2608.19759/F1.jpg"
+ },
+ "overview_ja": "多指ロボットハンドによる器用な把持（Dexterous Grasping）は、ロボット工学における長年の難問です。近年の深層学習ベースの把持プランナは高速に把持姿勢を生成できる一方、特定の物体データセットで学習されているため、未知の形状に対する汎化性能が大きく制限されていました。また、物理シミュレーションによる大規模な把持データセットの作成には膨大な計算コストがかかります。\n\nそこで著者らは、「物体を把持しているとき、物体表面とハンド表面の接触領域は幾何学的に一致している」というシンプルな事実に立ち返りました。物体ごとに把持を覚えるのではなく、ハンド自身の運動学と幾何形状から「このハンドが構造上実現可能な接触領域の分布」をあらかじめ自己完結的に学習しておけばよいのではないか、という発想の転換です。このアプローチにより、学習時には物体の幾何情報を一切必要としないObject-Agnostic（物体非依存）な把持プランナ「GOAG」が誕生しました。\n\n検証では、MultiDexデータセットをはじめとするシミュレーション上のベンチマーク（計3,400個以上の物体）および実機ロボット（Allegro Hand）を用いて評価を行いました。その結果、物体特化で学習された既存の最先端手法と同等以上の成功率（MultiDexで平均86.93%）を達成し、複数把持の同時生成においても大幅な高速化を実証しました。",
+ "contributions_ja": [
+  "学習時に物体データを一切使わず、ハンド自身の幾何形状と運動学のみから接触分布を学習するObject-Agnosticな把持学習パラダイムを確立した点",
+  "人間の把持分類体系（タクソノミ）を活用して協調性のある接触点データを合成し、わずか1 GPU時間で完結する高効率なデータ生成手法を構築した点",
+  "推論時の物体形状に対してCVAEによる接触領域予測、フォースクロージャ判定、ベクトル化された関節角最適化を組み合わせ、高成功率かつ高速な把持生成パイプラインを実現した点",
+  "3種類の代表的な多指ハンドを用いたシミュレーションおよび実機実験により、未知物体に対する極めて高い汎化性能と実環境への適応性を実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "物体を見る前にハンドを知る：把持計画のコペルニクス的転回",
+   "summary_ja": "多指ハンドの器用さを活かすには高速かつ未知物体に汎化できる把持プランナが不可欠ですが、従来の深層学習手法は特定物体のデータセットに過剰適合しがちでした。本論文は物体視点からハンド視点へとパラダイムを転換し、物体の形状を一切見ずにハンドの運動性能のみから接触分布を学習する「GOAG」を提案します。",
+   "details_ja": "多指ロボットハンド（Allegro Hand、Shadow Hand、Barrett Handなど）は自由度が高く極めて器用ですが、その運動学的な複雑さゆえにリアルタイムで安定した把持姿勢を計画することは困難でした。GraspIt!のような従来の解析的手法は計算時間がかかりすぎ、近年のデータ駆動型アプローチは高速な推論が可能なものの、限定された物体セットで学習されるため未知形状への汎化がボトルネックになっていました。\n\n本研究が着目したのは、把持が成功している瞬間、物体表面の接触領域とハンド表面の接触領域は幾何学的に等しいという幾何学的双対性です。つまり、物体側からアプローチするのではなく、ハンド側の接触可能領域を事前にモデル化しておけば、任意の物体形状に対してその空間を当てはめるだけで把持が成立するはずです。\n\nGOAG（Generative and Object-Agnostic Grasp Planner）では、人間の把持分類体系（タクソノミ）をハンドの運動学にマッピングし、ランダムサンプリングした関節構成から実現可能な接触面分布を生成します。そして条件付き変分自己符号化器（CVAE）を用いてこの接触分布を学習します。学習段階では物体点群を一切入力しないため、データセットの幾何学的バイアスから完全に解放され、推論時に初めて提示される未知形状に対してもゼロショットで頑健に把持を生成できるようになります。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "把持データベースへの依存からいかに脱却するか",
+   "summary_ja": "近年の多指把持研究は大規模合成データセットと深層学習に支えられていますが、姿勢の直接回帰や接触マップ予測はいずれも「物体と把持のペアデータ」に依存しています。GOAGはハンド単体の接触能力を直接学習することで、高コストな把持データ生成パイプラインから根本的に脱却します。",
+   "details_ja": "近年のデータ駆動型把持計画は、大きく3つの要素技術の流れに位置づけられます。\n\n- 把持データベースの構築: 初期の人間デモやテレオペレーションから、物理シミュレータ（Isaac Gym等）を用いた自動合成データセットへと進化してきました。しかし、これらは特定のハンドと特定物体の組み合わせを網羅する必要があり、生成に数千GPU時間を要する上、学習済みモデルが訓練幾何に縛られる原因となっています。\n- 明示的な把持姿勢の直接学習: 物体点群からハンドの6自由度手先姿勢と関節角を直接回帰または生成（拡散モデルや基底モデル等）するアプローチです。表現力は高いものの、予測された姿勢が物理的な干渉制約を満たさないことが多く、後処理での衝突判定や判別器によるフィルタリングが必要になります。\n- 中間表現（接触マップ）の学習: 物体表面の接触領域を予測し、逆運動学（IK）でハンド姿勢を逆算する手法です。物理的な妥当性は向上しますが、依然として学習には「特定物体上で成功した把持姿勢」のデータベースが必須でした。\n\nGOAGはこれらに対し、物体データそのものを学習から排除するという決定的な一線を画しています。把持姿勢ではなく「ハンドが取り得る接触面の多様体」を学習することで、高価な把持データ生成を不要にし、未知形状に対する真の汎化を実現しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "ハンド主導の接触事前分布学習と物理整合性を持たせる推論パイプライン",
+   "summary_ja": "GOAGは、タクソノミに基づくハンド接触分布の自己生成、BPS表現を用いたCVAEによる学習、そして推論時のフォースクロージャ判定と関節角最適化から構成されます。物体の点群は推論時にハンドの作業空間へ座標変換されて初めて入力されます。",
+   "details_ja": "GOAGのパイプラインは、学習フェーズと推論フェーズで完全に役割が分離されています。\n\n### III-A ハンド視点へのパラダイムシフト\n通常、接触点集合 ${\\cal C}$ は物体座標系で定義されますが、GOAGではハンドの基準座標系へと逆変換 $[R,T]^{-1}$ して考えます。ハンドの関節角 $Q$ に対する接触可能面（ハンドプリント ${\\cal H}(Q)$）の分布はハンドの機構だけで閉じて決定できるため、物体に依存しない接触事前分布として定式化できます。\n\n### III-B ハンド接触分布からの学習\nデータ生成では、関節可動域から均一サンプリングした $Q$ に対し、Feixらの把持タクソノミから選定した把持タイプを割り当てます。これにより、指先だけでなく指腹や掌を含む協調的な接触領域が定義されます（図 F2）。\n点群処理にはBasis Point Set（BPS）を採用しました。ハンドの作業空間内に固定配置した $M=8,192$ 点の基準点 $W$ からハンド表面までの距離場 ${\\cal F}_P$ と接触尤度場 $\\tilde{{\\cal C}}(P)$ をエンコードします。CVAEは潜在変数 $z \\in \\mathbb{R}^{128}$ と距離場から接触場を復元するよう学習され、接触尤度が高い領域を重点的に評価する指数重み付き再構成損失とKLダイバージェンスで最適化されます。同時に、各接触点がどの指リンクに属するかを分類するLinks Mapper（PointNet++）も並行して学習します。\n\n### III-C 未知物体に対する推論と最適化\n推論時は、未知物体点群 ${\\cal O}$ をハンド座標系に変換し、BPS距離場 ${\\cal F}_{\\cal O}$ を計算してCVAEデコーダに入力します。デコーダが出力した接触尤度から閾値 $\\tau=0.8$ で接触点群 ${\\cal C}(W)$ を抽出します。\nこの点群が物理的に安定かを保証するため、各リンクの接触重心から摩擦係数 $\\mu=0.3$ の摩擦円錐を構築し、原点が把持レンチ空間（Grasp Wrench Space）の凸包内部にあるかというフォースクロージャ（Force-Closure）条件を高速判定します。満たさない場合は潜在変数 $z$ を最大20回再サンプリングします。\n最後に、抽出された接触点と指リンクの距離最小化（$E_{dist}$）、物体へのめり込み防止（$E_{pen}$）、指同士の自己干渉防止（$E_{spen}$）、関節角制限（$E_j$）からなるエネルギー関数を勾配法で最小化し、最適な関節角 $Q^*$ を決定します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "把持タクソノミの適応と接触点サンプリング。人間の把持分類（上段左）をAllegro Handの幾何構造にマッピングし、把持タイプごとに許容接触領域（黒点）と非接触領域（青点）を定義します。下段ではその領域内から協調性のある接触点（赤点）をサンプリングする様子を示しています。",
+     "caption": "Fig. 2 : Grasp Taxonomy Adaptation and Contact Sampling. (Top) We adapt the human grasp taxonomy from [ 13 ] to the Allegro Hand geometry. For each grasp type (e.g., C6, F27), we define a corresponding admissible contact region (black points), distinguishing it from the non-contact surface (blue points). (Bottom) Data generation mechanism: We randomly sample specific contact points (red) strictly within the admissible black regions. This allows the model to learn structured, feasible contact dis",
+     "image": "details/2608.19759/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "GOAGの全体アーキテクチャ。学習時（上段）はハンドの運動学とタクソノミから接触分布をBPS表現でエンコードし、CVAEとLinks Mapperを訓練します。推論時（下段）は未知物体の点群を作業空間に取り込み、接触場予測、フォースクロージャ判定、干渉を考慮した関節角最適化を経て最終把持を生成します。",
+     "caption": "Fig. 3 : Overview of GOAG. Geometrical graspability is learned in an object-agnostic manner by focusing on the gripper’s capabilities. Training: We sample gripper configurations $Q$ to generate ${\\cal H}(Q)$ and corresponding contact points ( ${\\cal C}({\\cal H}(Q))$ ). To ensure transferability, we use a Basis Point Set (BPS) encoding tied to the gripper’s workspace. A Conditional Variational Autoencoder (CVAE) is trained to reconstruct these contact distributions, while a Links Mapper (PointNet",
+     "image": "details/2608.19759/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "物体を見ずに学んだモデルが、専用学習モデルを凌駕する",
+   "summary_ja": "Barrett Hand、Allegro Hand、Shadow Handの3種を用い、MultiDexテストセットおよび計5つの公開ベンチマークで評価しました。GOAGは学習データの作成時間を1/1400に圧縮しつつ、最先端の物体特化モデルを上回る成功率と高い生成効率を実証しました。",
+   "details_ja": "### IV-A & IV-B 実装と候補姿勢のサンプリング\n学習データはRTX 4090単体でわずか約1時間で生成完了しました（GenDexGraspがA100で1,400時間を要したことと比べると劇的な短縮です）。推論時の手先姿勢候補 $[R,T]$ は、物体の凸包を110%拡大した面上から法線方向に向けてサンプリングする手法を採用しています。\n\n### IV-C & IV-D 評価指標とプロトコル\nIsaac Gymを用い、把持した物体に対して$\\pm x, \\pm y, \\pm z$の6方向に外力を1秒ずつ加えた際の位置ずれが2cm未満であれば把持成功と判定します。比較対象にはDFC、GenDexGrasp、DRO-Graspを選定しました。\n\n### IV-E 性能評価と考察\nMultiDexテストセットにおける評価（表 II）では、GOAGは3つのハンドすべてにおいて最高水準の把持成功率を叩き出し、平均86.93%を達成しました。特筆すべきは計算効率です。単一の把持生成ではDRO-Graspが速いものの、DRO-Graspは把持数に比例して線形に時間が延びるのに対し、GOAGは最適化計算を完全ベクトル化してバッチ処理するため、大量の把持候補を極めて高速に一括生成できます。\nさらに5つの大規模ベンチマーク（計3,438物体）に跨る汎化性評価（表 III）では、他手法が各データセットで個別に再学習を行っているのに対し、GOAGはShadow Hand単体の事前学習モデル1つだけで挑み、全体の第2位となる極めて高い成功率を記録しました。\n\n### IV-F 実機ロボット実験\n7自由度ロボットアームに搭載したAllegro Handを用い、YCBデータセットの11種類の日常物体を把持する実験を行いました。シミュレーションとほぼ遜色のない把持姿勢が実環境でも再現され、未知の複雑形状に対しても安定したピッキングに成功しています（図 F5）。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "MultiDexデータセットの各種物体に対するGOAGの把持結果。Barrett（緑）、Allegro（ピンク）、Shadow Hand（紫）の3種類の異なるハンドにおいて、物体の幾何形状に適応した自然で安定した把持が生成されていることがわかります。",
+     "caption": "Fig. 4 : GOAG grasp results on Multidex [ 8 ] objects. Grasps are shown for the Barrett (green), Allegro (pink), and Shadow Hand (purple) grippers.",
+     "image": "details/2608.19759/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "実機Allegro HandによるYCB物体の把持実験。上段が実機での把持の様子、下段がシミュレーション上で計画された対応把持姿勢です。マスタード瓶、缶、ボウルなど形状やサイズの異なる日常物体を確実に把持できています。",
+     "caption": "Fig. 5 : Real-world setup and results with Allegro hand on YCB [ 39 ] objects. First row presents the real robot grasps. Second row presents corresponding virtual grasps. Objects have been rotated around the z-axis for a better understanding of the grasp poses.",
+     "image": "details/2608.19759/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめ：Object-Agnosticという新たな地平",
+   "summary_ja": "GOAGは、深層学習の表現力を活かしながら物体把持データベースへの依存を完全に断ち切ることに成功しました。ハンド主導の接触モデリングという新しい視点は、今後の器用なマニピュレーション研究における強力な基盤となるはずです。",
+   "details_ja": "本研究では、大規模な物体把持データベースを不要にする画期的な学習パラダイム「GOAG」を提案しました。把持における幾何学的双対性に着目し、ハンドの運動学と幾何形状のみから接触可能領域を学習することで、未知物体に対する極めて強力なゼロショット汎化性能を獲得しています。\n\nシミュレーション上の多角的なベンチマークおよび実機実験により、各データセット専用に訓練された最先端モデルに匹敵あるいは凌駕する把持成功率と、ベクトル化最適化による優れた処理速度が確認されました。物体幾何に縛られない把持プランニングの有効性が明確に示されたことで、多指ハンドの自律的なマニピュレーション展開が大きく加速することが期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「把持接触面は物体側から見てもハンド側から見ても同一」という対称性を利用すれば、物体データなしでハンド単体から把持事前分布を学習できる",
+  "人間の把持タクソノミをロボットハンドの幾何に射影することで、物理シミュレーションを回さずともわずか1 GPU時間で高品質な接触学習データを大量合成可能",
+  "BPS（Basis Point Set）による空間表現とCVAEを組み合わせることで、ハンドの可動域と物体の幾何形状のクロスドメインなマッチングが実現できる",
+  "大量把持の生成においては、エネルギー最小化プロセスをベクトル化（バッチ処理）しておくことが実用上のスループット向上に直結する"
+ ],
+ "limitations_ja": [
+  "手先姿勢（$[R, T]$）の初期サンプリングを物体の凸包近傍に依存しているため、ハンドの作業空間より大幅に大きい物体に対しては適切なアプローチ姿勢を見失いやすい",
+  "推論時のフォースクロージャ判定では各リンク接触点の重心と摩擦円錐による簡易モデルを用いているため、最終的な把持安定性は後段の関節最適化の成否に左右される",
+  "タスクに応じた把持（道具の使用など特定部位を空けておく把持）の考慮はなく、幾何学的な安定把持の探索に特化している"
+ ],
+ "keywords": [
+  "Dexterous Grasping",
+  "Object-Agnostic Learning",
+  "Conditional Variational Autoencoder (CVAE)",
+  "Basis Point Set (BPS)",
+  "Grasp Taxonomy",
+  "Force-Closure"
+ ],
+ "id": "2608.19759",
+ "title": "GOAG: Generative and Object-Agnostic Grasp Planner for Dexterous Robotic Manipulation",
+ "title_ja": "GOAG：器用なロボット操作のための生成型・物体非依存把持プランナー",
+ "authors": [
+  "Julien Merand",
+  "Boris Meden",
+  "Mathieu Grossard",
+  "Liming Chen"
+ ],
+ "date": "2026-08-21",
+ "group": "general",
+ "tags": [
+  "grasping",
+  "manipulation",
+  "planning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.19759",
+ "pdf_url": "https://arxiv.org/pdf/2608.19759",
+ "summary_ja": "多指ハンド把持において、ハンドと物体が接触点で同じ表面幾何を共有する点に着目し、グリッパーの接触面分布の潜在表現を学習する生成モデルGOAGを提案。物体依存のデータセットに頼らず、未知物体に対しても有効な把持姿勢を生成可能にした。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.19759"
+}
