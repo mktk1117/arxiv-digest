@@ -1,0 +1,148 @@
+{
+ "tldr_ja": "視覚点群に「どの指・手のひらが触れているか」という触覚セマンティクスを直接埋め込むことで、多指ハンドの初期把持ポーズ生成から接触後のリアルタイムな適応修正までを一気通貫で実現した研究です。未知カテゴリの物体に対しても成功率83%を達成し、実機ロボットでも安定把持を実証しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "提案手法の全体コンセプトです。左側では物体の点群から各指の接触位置（接触マップ）を予測して初期把持を計画します。右上のように初期把持が甘く失敗しそうな場合でも、右下のように実際の触覚フィードバックを幾何情報と統合した点群表現を用いて、リアルタイムに指の配置を締め直して安定把持へと適応させます。",
+  "caption": "Figure 1 : Overview. (Left) An initial grasping module predicts a contact map from the raw point cloud with finger/palm identities, aiming to generate physically successful hand poses for grasp planning informed by hand semantic information. (Right-Top) The initially generated hand pose does not guarantee a successful grasp and may fail due to sparse or unstable contact formations. (Right-Bottom) Our method further leverages a visuo-tactile-fusion representation to adapt the initial pose, result",
+  "image": "details/2608.07600/F1.jpg"
+ },
+ "overview_ja": "多指ハンド（デクスタラスハンド）による物体の把持は、ロボティクスにおける長年の難問です。人間は目で見て大まかな手の形を決めた後、指先が触れた瞬間の感触を頼りに無意識に力を込めたり指の位置を直したりして、滑り落ちを防いでいます。しかし従来のロボット把持は、カメラ画像や点群だけに頼る開ループな計画が主流で、実際に接触した後のズレや滑りに対応できませんでした。触覚を使う研究も増えていますが、多くは特徴量同士を単に連結するだけで、「どの指が物体のどこに触れているか」という空間的・幾何学的な対応関係を活かしきれていませんでした。\n\nそこで著者らは、視覚点群に各指や手のひらの接触情報と触覚強度を直接マッピングした「3D視覚・触覚統合表現」を考案しました。この表現を軸に、接触マップ予測に基づく初期ポーズ生成器、現在の把持が安定しているかを判定する分類器、そして触覚フィードバックを手がかりにポーズを修正する適応モデルの3つを統合したフレームワーク「AdaDexGrasp」を構築しています。\n\n検証は大規模並列シミュレータIsaacGymと実機アーム・多指ハンドの双方で実施されました。訓練で見たことのない未知カテゴリの物体に対してもシミュレーションで83%の成功率を記録し、実機でも26種類の多様な物体に対して高い安定性を示しました。触覚を単なる数値ベクトルではなく幾何学的な空間表現として扱ったことが、高い汎化性能につながることを綺麗に示しています。",
+ "contributions_ja": [
+  "点群の各点に指や手のひらのIDと触覚強度を紐付け、指と物体の接触関係を詳細に推論できる新しい3D視覚・触覚統合表現を提案した点",
+  "接触を意識した初期把持生成、接触後の成否判定（分類器）、そして触覚誘導によるポーズ適応修正を閉ループで統合した把持フレームワークを構築した点",
+  "触覚付き多指ハンドの学習・評価シミュレーション環境をIsaacGym上に構築し、PPOによる強化学習ロールアウトから効率的にデータセットを収集する仕組みを整えた点",
+  "シミュレーションおよび実機ロボット実験において、未知物体や未知カテゴリを含む幅広い対象物で既存の最先端手法を大きく上回る把持成功率を実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ視覚だけでは多指ハンドを操れないのか？",
+   "summary_ja": "人間は視覚で把持を計画し、触覚でリアルタイムに微修正することで多様な物体を器用に掴んでいます。本論文では、視覚と触覚の空間的な対応付けを重視した統合表現を提案し、初期計画から接触後の適応までを単一のフレームワークで解決します。",
+   "details_ja": "人間がコップやおもちゃを掴むとき、目で見た形状から「このあたりに指を添えよう」と予測し、触れた瞬間に「少し滑りそうだから親指を押し込もう」と反射的に修正しています。一方、これまでのロボット研究は、RGB画像や3D点群のみを用いた「最初の見た目だけで決め打ちする」アプローチが主流でした。これでは、表面が滑りやすかったり形状が複雑だったりする場合に、接触した瞬間のわずかなズレからポーズが崩れて把持に失敗してしまいます。\n\n触覚を活用する手法も存在しますが、単に深層学習の潜在空間で特徴量を結合するものが多く、3次元空間上での「どの指が、どの位置に、どれくらいの強さで触れているか」という幾何学的な対応関係が抜け落ちていました。\n\nそこで本研究は、点群データに対して指や手のひらのセマンティクス（部位ID）と触覚強度を直接紐付けた統一表現を導入しました。これにより、初期計画段階では「どの指がどこに触れるべきか」という接触マップを予測して確実なポーズを生成し、接触後には実際のセンサー値を取り込んだ点群から把持の成否を判定、必要に応じてリアルタイムにポーズを修正する適応ループを実現しています。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "多指ハンド把持と視覚・触覚フュージョンの現在地",
+   "summary_ja": "多指ハンドの把持研究は強化学習、模倣学習、物体中心の視覚駆動手法に大別されますが、いずれも接触後のフィードバックが不足していました。また既存の視覚・触覚統合は特徴量の単純結合や生信号レベルにとどまり、空間的・幾何学的な整合性に課題がありました。",
+   "details_ja": "多指ハンド把持の研究は大きく3つのアプローチに分かれます。\n- 強化学習（RL）: 試行錯誤を通じて制御方策を獲得しますが、探索空間が広大で学習が不安定になりがちです。\n- 模倣学習（IL）: 人間の実演データをロボットに転移させますが、実演にない接触状態への柔軟な適応が困難です。\n- 物体中心アプローチ: RGB-Dカメラからの観測と自己受容感覚（関節角度）を頼りに把持を計画しますが、視覚的には正しそうに見えても、滑りやすい表面などで接触が不安定になった途端に失敗します。\n\n近年は視覚と触覚を組み合わせる研究も登場しています。しかし、その大半は各モダリティを別々のエンコーダで潜在ベクトル化して足し合わせるか、生データをそのまま繋ぐ構成でした。これでは空間的な整合性が保てず、指先と物体表面のミクロな相互作用を正確に捉えられません。本研究は、物体の3次元点群そのものに触覚信号を空間的に埋め込むことで、視覚と触覚の乖離を根本から埋めるアプローチをとっています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "接触マップ予測から閉ループ微修正までのアルゴリズム",
+   "summary_ja": "提案フレームワークは、接触駆動型の初期ポーズ生成器、触覚統合点群から成否を判定する分類器、そして不安定な把持を修正する適応モデルの3要素から構成されます。PPOの探索軌跡から効率的にペアデータを収集し、閉ループで安定把持へと導きます。",
+   "details_ja": "本手法のパイプラインは、以下の3つの主要コンポーネントとそれらを繋ぐ閉ループ処理で構成されています。\n\n3.1 問題設定\n対象物体 $\\mathcal{O}$ はRGB-Dカメラで得られた点群 $\\mathcal{P}_{obj}$ として表されます。ロボットハンドの状態は手首の並進・回転と22個の関節角度を含む $s=[p,q,\\mathbf{j}]$ です。指先5本と手のひらに備わった6個の触覚センサー値 $\\tau$ を用いて、把持成功確率を最大化する状態 $s^*$ を見つけることを目指します。\n\n3.2 全体構成\n入力点群から接触マップと初期ポーズを予測し、一度接触させた後に触覚情報を取得します。その情報をもとに分類器が安定性を評価し、基準に満たない場合は適応モデルが差分 $\\Delta s$ を出力して姿勢を更新します。\n\n3.3 接触駆動型把持ポーズ生成器\n接触前は触覚データが存在しないため、まずPointNet++を用いて物体表面の各点が「どの指（または手のひら）に触れるべきか」を示す接触マップ $\\mathcal{M}$ を予測します。次に、物体点群とこの $\\mathcal{M}$ を入力として初期ポーズ $s_0$ を回帰します。指の部位情報というセマンティクスが介在することで、最初から物理的に無理のない構えを作ることができます。\n\n3.4 把持ポーズ分類器\n初期ポーズを実行して接触させた後、センサー値（接触力）をもとに物体点群へ接触部位IDと触覚強度を付与した「視覚・触覚統合点群 $\\mathcal{P}_{vt}$」を作成します。分類器はこの $\\mathcal{P}_{vt}$ とハンド点群を入力とし、Cross-Entropy損失で把持が成功するかどうかの確率 $\\hat{y} \\in [0, 1]$ をリアルタイムに判定します。\n\n3.5 把持ポーズ適応モデル\n分類器で「失敗しそう」と判定された場合、修正量 $\\Delta s$ を予測してポーズを更新します。学習時には、強化学習の探索軌跡から「直前まで失敗していた状態 $s^f$」と「それに最も幾何的・関節的に近い成功状態 $s^s$」をペアにして教師データを作成しました。手首のSE(3)距離と関節角度の測地線距離を組み合わせた近傍探索を行うことで、無理のない最小限の修正動作を効率よく学習させています。\n\n3.6 閉ループ最適化とデータ収集\n最大反復回数 $K=5$、成功判定閾値 $\\tau_{succ}=0.5$ として、成功と判定されるまで修正を繰り返します。データ収集にはIsaacGym上でPPOを走らせ、接触力が0.01Nを超えた領域の点群に触覚ラベルを付与することで、多様な把持成功・失敗パターンを自動生成しています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "提案手法の推論パイプラインです。物体点群から接触マップを予測して初期把持を行い、接触後に得られた触覚信号を点群にマッピングします。分類器が失敗と判定した場合は、適応モデルがポーズを微修正して安定把持へと導きます。",
+     "caption": "Figure 2 : Pipeline of the proposed visuo-tactile grasping framework. Given an object point cloud and semantic fingertip labels, the system first predicts a contact map using the Cmap model and generates an initial grasp pose with the Gpose model. The predicted hand configuration and tactile feedback are fused into a visuo–tactile point cloud that captures both geometric and contact cues. A grasp classifier evaluates grasp stability, and if failure is predicted, a pose adaptation module iterativ",
+     "image": "details/2608.07600/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "システムの詳細なネットワーク構成です。緑色の生成器が接触マップと初期ポーズを出力し、黄色の分類器がデュアルエンコーダとマルチヘッドアテンションで安定性を判定、青色の適応モデルが拡散モデルを用いて修正姿勢をデノイジング生成します。",
+     "caption": "Figure 3 : Architecture of the grasping framework. The system consists of a contact-driven grasp generator, a grasp classifier, and a grasp adaptation module for stable dexterous grasping. Green: the object point cloud is processed by PointNet++ to predict a visuo–tactile contact map and generate an initial grasp pose. Yellow: a dual-encoder PointNet++ architecture encodes the hand and visuo–tactile point clouds, followed by multi-head attention for grasp success prediction. Blue: if failure is ",
+     "image": "details/2608.07600/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "シミュレーションと実機で実証された圧倒的な汎化性能",
+   "summary_ja": "IsaacGymによるシミュレーションと実機多指ハンド環境において、10種類のベースラインと比較検証を行いました。提案手法は既知物体だけでなく、学習にない未知カテゴリの物体に対しても83%の成功率を達成し、他手法を大きく引き離しました。",
+   "details_ja": "4.1 実験設定\nシミュレーションにはIsaacGymを使用し、合計28自由度（手首6自由度＋22関節）を持つShadowHandを模したモデルを用いました。物体はUniDexGrasp++から選定した50個（学習用20個、テスト用30個）を使用し、持ち上げてから1秒間滑り落ちずに保持できれば成功と判定します。\n\n4.2 ベースライン比較\nDexDiffuserやUniDexGrasp++など、最新の生成系・RL・VLA系を含む10手法と比較しました。視覚のみに頼る生成手法は複雑な形状で破綻しやすく、従来の触覚手法も大域特徴の単純結合では微小な滑りを防げませんでした。\n提案手法は、学習済みの既知物体（Seen）で91%、同カテゴリの未学習物体（Unseen Objects）で82%、まったく未知のカテゴリ（Unseen Categories）でも83%という極めて高い成功率を記録しました。ベースラインが未知カテゴリで軒並み30〜50%台に落ち込む中、圧倒的な頑健性を示しています。さらに15,000種以上の物体を含む大規模データセット「DexGraspAnything」上でも87%の成功率を維持しました。\n\n4.3 アブレーション研究\n接触IDの有無や適応機構の影響を検証したところ、適応モデルを外すと未知カテゴリでの成功率が83%から59%へと24ポイントも激減しました。また、接触IDを単一の接触フラグに潰すと生成・適応ともに精度が低下し、「どの指が触れているか」というセマンティクスが不可欠であることが裏付けられました。\n\n4.4 実機実験\n7自由度アームと触覚センサー付き11自由度ハンド（Psibot SynHand-6）を用いて、26種類の多様な実物体で評価しました。持ち上げ後3秒間保持する厳しい基準でも、シミュレーション同様の優れた適応挙動を見せ、実世界への転移（Sim-to-Real）の高さが実証されました。\n\n4.5・4.6 触覚表現の選択と詳細分析\nせん断力などを加えた過剰にリッチな触覚表現は、データ要求量が跳ね上がり実機とのギャップを広げてしまうため、指ごとの6次元接触強度ベクトルというシンプルな構成が最適であると判明しました（実機成功率: 提案表現85% vs 密な表現72%）。また、物体のサイズと接触指の数、平均触覚強度の間には明確な相関があり、成功時はより多くの指が均等に接触していることがデータからも確認されました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "シミュレーションおよび実機における適応プロセスの可視化です。初期ポーズでは接触点が少なすぎたり指の位置がずれていて不安定ですが、適応モデルが介入することで物体を包み込むような安定把持へと修正されています。",
+     "caption": "Figure 5 : Visualization of Dexterous Grasp Pose Adaptation. Row 1 presents object samples in both simulation and the real world. As shown in Row 2 (hand–object interaction mesh) and Row 3 (hand–object interaction point cloud), the initially generated grasp poses may fail to securely grasp the object, as evidenced by sparse or weak contact regions that lead to loose or unstable grasps. Row 4 and Row 5 illustrate the refined grasp poses and updated contact states after adaptation, where hand–obje",
+     "image": "details/2608.07600/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実機実験のセットアップです。7自由度アームの先端に高解像度触覚センサーを備えた多指ハンドを取り付け、周囲に配置された複数台のRGB-Dカメラで物体点群を取得しています。",
+     "caption": "Figure 6 : Real-World Setup.",
+     "image": "details/2608.07600/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "触覚信号の解析結果です。左図は物体スケールと把持成功率および平均触覚強度の関係、右図は成功時と失敗時における接触指の本数と触覚強度の比較を示しており、安定把持には十分な本数の指による確実な接触が必要であることが分かります。",
+     "caption": "Figure 7 : (Left) As the size of an object increases, Avg. TIF also increases, while grasping success rate first rises and then slightly decreases. This is because small objects are prone to slipping, whereas too large objects are difficult to grasp. (Right) The Avg. TIF and the number of contact fingers in successful grasping postures are higher than those in failed grasping postures.",
+     "image": "details/2608.07600/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "本研究は、幾何情報と触覚信号を密に結合した表現を用いることで、多指ハンドによる高精度かつ適応的な把持を可能にしました。接触を考慮した初期計画とリアルタイムな適応ループの統合は、今後の器用なロボット操作に向けたスケーラブルな道筋を示しています。",
+   "details_ja": "本論文では、物体の3次元点群に指や手のひらの触覚情報を直接融合させた新しい表現手法と、それに基づく閉ループ把持フレームワーク「AdaDexGrasp」を提案しました。\n\n接触マップの予測によって初期ポーズの妥当性を大幅に高めつつ、接触後に生じる予期せぬズレや滑りに対しては、触覚フィードバックを伴う適応モデルが迅速に姿勢を修正します。シミュレーションと実機の双方で徹底的な検証を行い、未知カテゴリの物体に対しても極めて高い汎化性能を発揮することを証明しました。\n\n視覚と触覚を「空間的な接触セマンティクス」として統合する本アプローチは、把持にとどまらず、工具の使用や組み立てといったより高度で複雑なデクスタラス・マニピュレーションへの応用が期待される重要なマイルストーンです。",
+   "figures": []
+  },
+  {
+   "heading": "付録",
+   "heading_ja": "推論速度、ハードウェア非依存性、適応の収束性",
+   "summary_ja": "付録では、システムのリアルタイム性（20〜25Hz）、左右どちらの腕でも動作する汎用性、そして適応モデルの反復ステップ数に関する詳細データが報告されています。修正が必要な試行の90%以上が3回以内のループで収束しています。",
+   "details_ja": "論文付録（Supplementary Material）では、実運用に直結する重要な知見がいくつか補足されています。\n\n- 実時間性と推論速度: Diffusion Policyバックボーンの最適化により、システム全体の推論周波数は20〜25Hzを達成しています。これにより、持ち上げ動作中に物体が動いたり滑り始めたりしても、リアルタイムにポーズを修正可能です。\n- メモリ消費: IsaacGymシミュレーション全体を含めると約16GBのGPUメモリを消費しますが、実機ロボット単体での推論時には約2GBしか消費せず、一般的なエッジ向けGPUでも十分に稼働します。\n- 適応の収束性: 全試行のうち把持修正が発動したのは約30%でした。そして修正が発動したケースのうち、90%以上がわずか3回未満の反復ステップで成功状態へと収束しており、高速かつ無駄のない最適化が行われていることが確認されました。\n- ハードウェア配置への非依存性: 本文では左腕を用いた実験が示されていましたが、付録では右腕アームにハンドを搭載した実験結果も提示されています。マウント位置や腕の運動学構成が変わっても、物体中心の座標系で処理を行っているため、再学習なしで同様の安定把持が達成できることが示されています。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "シミュレーションにおける初期把持ポーズ生成の可視化例です。人形やハケ、メジャーなど、非対称で掴みどころが難しい形状に対しても、指先と手のひらが適切に役割分担されたポーズが生成されていることが分かります。",
+     "caption": "Figure 8 : Visualization of successful grasp pose generation in simulation experiments.",
+     "image": "details/2608.07600/F8.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "触覚を単なるグローバルな特徴量ベクトルとしてではなく、3次元点群の空間的な接触ラベル（部位ID＋強度）として視覚情報に直接埋め込む設計が極めて有効である点",
+  "「接触マップ予測による初期計画」と「接触後の触覚フィードバックによる適応修正」を分担させることで、探索空間の広大な多指ハンドでも学習が安定し、未知物体への高い汎化性能が得られる点",
+  "過度に高次元な触覚情報（摩擦力や滑り方向など）を追究するよりも、シミュレーションと実機で差異の少ないシンプルな接触強度表現を採用する方が、実機転移（Sim-to-Real）の成功率が高まるという実践的な設計判断"
+ ],
+ "limitations_ja": [
+  "ハンドの物理的なサイズ上限に近い巨大な物体に対しては、指で包み込むことができず把持が破綻しやすい点",
+  "接触面積が極端に小さい物体や、持ち上げ時に急激に滑り落ちるような動的摩擦の変化に対しては、静的な接触強度だけでは修正が間に合わない場合がある点",
+  "触覚センサーの配置が指先と手のひら（計6箇所）に限定されており、指の腹（中間関節）での接触を活用したパワーグリップなどの複雑な接触状態は十分にモデル化されていない点"
+ ],
+ "keywords": [
+  "Dexterous Grasping",
+  "Visuo-Tactile Fusion",
+  "Contact Map",
+  "Closed-Loop Adaptation",
+  "Sim-to-Real Transfer"
+ ],
+ "id": "2608.07600",
+ "title": "AdaDexGrasp: Adaptive Dexterous Grasping via 3D Visuo-Tactile Representation Fusion",
+ "title_ja": "AdaDexGrasp: 3D視触覚統合表現による適応的多指ハンド把握",
+ "authors": [
+  "Xirui Liang",
+  "Jiaqi Liang",
+  "Jingkai Xu",
+  "Yuran Wang",
+  "Ruochong Li",
+  "Yuanpei Chen",
+  "Masayoshi Tomizuka",
+  "Wei Zhan",
+  "Ruihai Wu"
+ ],
+ "date": "2026-08-11",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "grasping",
+  "perception"
+ ],
+ "categories": [
+  "cs.RO",
+  "eess.IV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.07600",
+ "pdf_url": "https://arxiv.org/pdf/2608.07600",
+ "summary_ja": "対象物の3D幾何情報と接触後の触覚信号を統合する視触覚融合把握フレームワークを提案。触覚フィードバックを物体の3D表現に紐付けることで、把握の生成・実行可能性の予測・接触後の適応的微修正を一貫して行い、未知物体や接触面での滑りに対する把持の頑健性と適応性を大幅に向上させた。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.07600"
+}
