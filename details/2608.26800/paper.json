@@ -1,0 +1,146 @@
+{
+ "tldr_ja": "多指ハンドを持つ双腕ロボットが、不完全な数理モデルとわずか数分の実機インタラクションだけで、5種類の3個ジャグリング動作を安全にオンライン学習できる手法を提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "システム全体の階層型アーキテクチャです。オーケストレータからスキル指示が届くと、メモリベース学習器が実機経験と事前モデルを融合して投げコマンドを補正し、相互到達可能集合（MRS）の制約下で安全な関節軌道が生成されます。",
+  "caption": "Figure 1: Hierarchical, skill-based system architecture and real-time information flow for on-robot learning. The Orchestrator dispatches skill descriptions to the Skill Executor , where the target outcome ( $y_{d}$ ) is decoded. The Regularized Memory-Based Learner uses the experience Memory to adapt the command ( $u$ ), while the model-based Control System generates joint trajectories for the physical robot. A precomputed Mutually Reachable Set constrains the task-level plan so that successive",
+  "image": "details/2608.26800/F1.jpg"
+ },
+ "overview_ja": "シミュレーションや数理モデルと実機との乖離（Sim2Realギャップ）は、高速な接触が連続するダイナミックマニピュレーションにおいて極めて深刻です。特に多指ハンドによるジャグリングでは、キャッチごとの握り方のずれや指先の摩擦・離脱タイミングの微小な変化が投擲結果を大きく狂わせるため、モデルの事前計算だけで成功させるのは困難でした。かといって実機で一から探索（強化学習など）を行うには時間がかかりすぎ、ハードウェア破損のリスクも伴います。\n\nそこで著者らは、「不完全なモデルであっても、その勾配（変化の傾向）は学習の強力な事前知識になる」という着想に至りました。過去の投擲結果をメモリに蓄積し、局所線形回帰で補正モデルを構築しつつ、データが疎な領域では事前モデルの一次微分へ正則化する「正則化メモリベース学習」を開発しました。さらに、現在の動作が成功しても次のキャッチ動作で関節リミットに衝突しないよう、連続する動作間を安全に繋ぐ「相互到達可能集合（Mutually Reachable Set: MRS）」をオフラインで導出してプランナの制約に組み込みました。\n\n実機の双腕ロボット「AthenaZero」を用いた実験では、単体では1サイクルも続かない粗い事前モデルから出発しながら、人間によるボール拾い時間を除いてわずか53秒（全体でも約5分）の実機試行でカスケード動作を習得しました。さらにテニス、ハーフシャワー、シャワー、ボックスという高難度な技や技同士の遷移を含む計5種類のパターンを数分で学習・連続実行できることを実証しました。",
+ "contributions_ja": [
+  "不完全な事前モデルの一次勾配を正則化項として活用し、実機探索なしに即座に適応を開始できる正則化局所メモリベース学習法を提案したこと",
+  "連続する高速動作間で関節位置・速度・加速度限界の破綻を防ぐ「相互到達可能集合（MRS）」を導入し、実機学習の動的安全性を保証したこと",
+  "多指ハンドを備えた双腕ロボットにより、カスケードやシャワーなど5種類の3個ジャグリング動作をそれぞれ実機インタラクション数分以内で習得できることを実証したこと",
+  "獲得した投擲スキルを異なるジャグリングパターン間で再利用し、新しいパターンの学習を大幅に加速できることを示したこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "動的マニピュレーションの難題に挑む：完璧なモデルがなくても学習はできる",
+   "summary_ja": "高速かつ断続的な接触を伴うジャグリングは、モデル化が難しくわずかな誤差が連鎖する過酷なタスクです。本研究では、1サイクルも成功しない不完全なモデルをあえて事前知識として活かし、実機で安全かつ急速に適応する学習フレームワークを提案します。",
+   "details_ja": "シミュレーションや解析モデルから得られる事前知識は実機適応の良い足がかりになりますが、高速な動作や接触が絡むタスクでは現実とのわずかなズレが致命的になります。特にロボットハンドの多指を使ったジャグリングでは、ボールをキャッチした位置のわずかなズレや指の離脱タイミングが投球軌道を大きく狂わせます。実機は日々の摩耗や湿度などでも状態が変わるため、最初から完璧なモデルを作るアプローチには限界があります。\n\nだからといって、実機で何も知らない状態（スクラッチ）から強化学習のように探索するのは、時間がかかりすぎる上にロボットの破損リスクが高く危険です。そこで本論文が着目したのが、「完璧でなくても、モデルは変化の傾向を教える事前知識として極めて有用である」という点です。経験がある領域では実機の履歴から局所モデルを作り、経験が足りない領域では事前モデルの勾配に従って安全に外挿する「正則化メモリベース学習」を採用しました。\n\nまた実機学習を続けるには「安全性」が必須です。単体の投擲動作としては関節リミット内に収まっていても、投げ終えた姿勢や速度のせいで次のキャッチへ動かす際に関節限界や減速限界を超えてしまう恐れがあります。これを防ぐため、後続のあらゆる動作へ安全に遷移できる状態の集合「相互到達可能集合（Mutually Reachable Set: MRS）」をあらかじめ計算し、プランナの制約として課す仕組みを導入しました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "システム全体のアーキテクチャです。左側のオーケストレータが大域スケジュールを管理し、中央のスキル実行器内でメモリベース学習器とMRS制約付きプランナが協調して安全で正確な投擲を実現します。",
+     "caption": "Figure 1: Hierarchical, skill-based system architecture and real-time information flow for on-robot learning. The Orchestrator dispatches skill descriptions to the Skill Executor , where the target outcome ( $y_{d}$ ) is decoded. The Regularized Memory-Based Learner uses the experience Memory to adapt the command ( $u$ ), while the model-based Control System generates joint trajectories for the physical robot. A precomputed Mutually Reachable Set constrains the task-level plan so that successive",
+     "image": "details/2608.26800/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "1.1 Related Work",
+   "heading_ja": "専用パドルから多指ハンドへ、そして経験を再利用する学習へ",
+   "summary_ja": "従来のロボットジャグリングは受動安定なカップやパドルを用いたモデルベース制御が主流でしたが、多指ハンドでは接触の不確実性が跳ね上がります。本研究は過去のメモリベース学習の系譜を汲みつつ、再利用可能なスキル単位で実機オンライン適応を可能にしました。",
+   "details_ja": "ロボットジャグリングの研究には長い歴史があります。初期の代表例であるシャノンのジャグリングマシンをはじめ、カップやパドルといった専用エンドエフェクタを用いた手法は、接触挙動を受動的に安定化させることで高精度な学習を行わずにロバストな動作を実現してきました。\n\nしかし、人間のような多指ハンドを扱うとなると話は一変します。摩擦、弾性、衝突、離脱のタイミングといった複雑な物理現象が絡み合い、解析モデルを正確に作ることが極めて困難になります。先行研究でも反復学習制御や局所重み付き学習による軌道修正が試みられてきましたが、オープンループの投擲シーケンス全体の更新にとどまるケースが多くありました。\n\n最近のPloegerらの研究でも解析モデルの一次情報で正則化する類似のアプローチがとられていますが、あちらは試行間（エピソード間）にオープンループの投球列全体を更新する方式でした。対して本研究は、先行動作の結果として観測されたボール状態（条件）に応じてコマンドを補正する「再利用可能なスキル」として定式化しています。これにより、同じスキルを異なるジャグリングパターン間で共有して経験を使い回すことができ、ジャグリング中にもリアルタイムでオンライン学習を進めることが可能になりました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Results",
+   "heading_ja": "わずか数分でマスター：5つの技を実機で次々に習得",
+   "summary_ja": "双腕ロボットはボール拾いを除く実機時間53秒（約7回のリセット）でカスケードを習得し、複数パターンの連続遷移や高精度なシャワー、ボックスも学習しました。アブレーションによりMRS制約が破損防止に不可欠であることも証明されました。",
+   "details_ja": "実機実験では、RAI Instituteが開発した低慣性双腕ロボット「AthenaZero」を用いました。3本指ハンド（開閉約80ミリ秒）と頭部RGB-Dカメラを備え、130gのビーンバッグ型ボール3個をジャグリングします。\n\n- カスケードの急速学習（2.2節）：人間がボールを拾って渡すリセット時間を除くと、ロボットは平均53秒（約7回のリセット）の実機動作でカスケード（5サイクル連続成功）を達成しました。全体でも約5分しかかかりません。投球誤差は実機試行を重ねるごとにみるみる収束していきました。\n- スキルの再利用とパターン遷移（2.3節）：テニス、ハーフシャワー、カスケードを連続で切り替える課題では、テニスで学んだ投擲スキルが共有されるため、後続のパターンはわずか2〜3回のリセットで即座に適応・成功しました（実機時間平均75秒）。\n- 高精度が求められる技への挑戦（2.4節）：投擲高度が低く滞空時間が短いシャワーやボックスの横投げは、視覚フィードバックの遅延（約0.1秒）を下回るため、キャッチをオープンループで行う必要があります。極めて高い投球精度が要求されますが、学習によって着地点の分散を大幅に圧縮し、複数サイクルの成功を達成しました。\n- 安全性の検証（2.5節）：実機実験の全7,578回のプランナ計算ログをもとに、MRS制約を外すアブレーション解析を行いました。その結果、MRS制約がない場合、計算された解の実に89.0%が「直前の状態から到達不能」または「その後の運動でリミットに突入し継続不能（非生存）」な危険状態に陥ることが判明し、MRSが実機破損を防ぐ要であることが示されました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "各ジャグリングパターンの学習曲線です。横軸はリセット回数、縦軸は連続成功投球数を示します。AのカスケードやBの複数技遷移では7〜8回のリセットで上限（破線）に到達し、CのシャワーやDのボックスでも投球数が大幅に向上しています。",
+     "caption": "Figure 2: Learning curves across distinct juggling patterns. The x-axis tracks successive juggling runs separated by manual resets, and the y-axis denotes the consecutive throw count attained in each run. Learning curves of individual trials (1–5), where each trial starts learning from scratch and proceeds across a sequence of resets, are shown in lighter colors, with the solid black line indicating the mean $\\pm$ standard deviation. The dashed red line marks the consecutive throw count correspo",
+     "image": "details/2608.26800/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "学習の進行に伴うボール軌道と着地点分布の変化です。左（初期リセット）から右（学習後）へ進むにつれて、投擲されたボールの着地点（散布点）が目標位置の周囲へ極めてコンパクトに集束していく様子が分かります。",
+     "caption": "Figure 3: Evolution of 3D ball trajectories and landing distributions during on-robot learning. Each row tracks the spatial distribution of ballistic flight arcs, and ball landing locations over sequential resets for different juggling patterns: ( A ) Cascade, ( B ) a multi-pattern transition sequence (Tennis $\\rightarrow$ Half-Shower $\\rightarrow$ Cascade), ( C ) Shower, and ( D ) Box. Moving from left to right across successive resets, the scatter points become tightly clustered around their d",
+     "image": "details/2608.26800/F3.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "関節位相空間における相互到達可能集合（半透明青の多面体）とプランナの目標遷移状態です。MRS制約を外すと、関節限界に激突する到達不能（茶）や非生存（紫）な危険な指令値が多数生成されてしまうことが可視化されています。",
+     "caption": "Figure 5: Effect of the Mutually Reachable Set on target transition states during juggling. The translucent blue polytopes show the precomputed MRS for representative left-arm joints in joint position, velocity, and acceleration space. Blue points denote target transition states generated with the MRS constraint. For the corresponding retrospective ablation without the constraint, green points remain inside the MRS, while states outside the set are classified as reachable and viable (orange), re",
+     "image": "details/2608.26800/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "3 Discussion",
+   "heading_ja": "実世界での適応が教えてくれたこと：ハードとソフトの共進化に向けて",
+   "summary_ja": "本研究は不完全なモデルと経験の融合が動的タスクで極めて有効であることを実証しました。一方でセンサ遅延によるオープンループ化の限界や、ハードウェアの接触状態の経時変化への対応など、今後に向けた課題も明確になりました。",
+   "details_ja": "本実験を通じて得られた重要な洞察は、初期モデルがどんなに下手であっても、その勾配情報さえあれば学習を劇的に立ち上げられるという点です。また、従来のパドルのような専用機構と多指ハンドのような汎用機構は対立するものではなく、「優れた機構設計で振る舞いをある程度予測可能にし、残るギャップを実機適応で埋める」というハイブリッドな思想が重要だと著者は述べています。\n\n実機運用のリアルな課題として、パームや指先のホコリ、湿度変化、あるいはハンドを清掃しただけで摩擦条件が変わり、昨日まで成功していた動作が失敗する現象が確認されました。この事実は、静的なゼロショット方針よりも、実機で常に適応し続けるオンライン学習フレームワークこそが必要不可欠であることを物語っています。\n\n残された課題としては、シャワーやボックスで見られた「視覚遅延による失敗」が挙げられます。滞空時間が短すぎる場合、視覚だけに頼るキャッチには限界があるため、指先の触覚や固有受容感覚（プロプリオセプション）による瞬時のリアクティブ制御を組み合わせることが今後の鍵になります。また、棍棒（クラブ）のように回転を伴う物体への拡張や、接触力の大きい重作業へのMRS拡張も今後の発展先として議論されています。",
+   "figures": []
+  },
+  {
+   "heading": "4 Materials and Methods",
+   "heading_ja": "手法の全貌：正則化メモリ学習・MRS・高速ビジョンの統合",
+   "summary_ja": "提案システムは3つの要素で構成されます。実機制約を満たす相互到達可能集合（MRS）付き軌道計画、不完全なモデルの一次勾配で正則化された局所線形回帰学習器、そしてプロンプト型セグメンテーションとFastGICPによる高速視覚認識です。",
+   "details_ja": "- 安全な動作合成とMRS（4.1節）：動作は投擲とキャッチのスキルシーケンスとして実行されます。連続する動作を接続する遷移状態（位置・速度・加速度）において、加速度の連続性まで考慮することでアクチュエータの帯域制限を満たします。オフラインでBスプライン曲線を用いて順方向・逆方向の到達可能集合を数値計算し、その積集合を凸多面体 $\\mathbf{M}\\mathbf{s} \\leq \\mathbf{m}$ として抽出したのが相互到達可能集合（MRS）です。オンラインのタスクプランナはこの多面体内でのみ目標遷移状態を探索するため、次の一手で詰むことが構造的に起きません。\n\n- 正則化メモリベース学習（4.2節）：投擲スキルに対し、直前のキャッチ状態 $\\mathbf{x}$ と希望着地点 $\\mathbf{y}_d$ から補正された指令着地点 $\\mathbf{u}$ を計算します。メモリから $k$ 近傍の履歴を取り出し、RBFカーネルで重み付けした局所線形モデル $(\\mathbf{C}, \\mathbf{D}, \\mathbf{d})$ を同定します。この際、目的関数に事前モデル $\\mathbf{f}_0$ の勾配からのズレを罰する正則化項（重み $\\gamma$）を加えます。これによりデータが少ない初期状態でも事前モデルの勾配に従って安全に外挿できます。指令値の更新はLevenberg-Marquardt型の正則化二次計画問題として解かれ、過剰な指令値の変化を抑制します。\n\n- 高速ビジョンエンジン（4.3節）：RGB-Dカメラの画像に対し、数枚のキャリブレーション画像上の点プロンプトだけで動作する「EfficientTAM」を用いてボールをセグメンテーションします。抽出された点群とCADモデルをFastGICPで高速に位置合わせし、重力下での弾道放物線をフィッティングして未来の落下位置と時刻を予測します。新たな物体に対しても再学習なしで数点の指定だけで即座に対応可能です。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "相互到達可能集合（MRS）による安全なスキル合成の概念図です。タスクプランナが指令値 $u$ を関節目標状態に写像する際、解をMRS多面体内部に制限することで、後続の軌道生成器が関節リミット（位置・速度・加速度）を破綻させずに到達・脱出できることを保証します。",
+     "caption": "Figure 6: Safe dynamic composition of successive skills using the Mutually Reachable Set ( $\\mathcal{M}_{S}$ ). (Top) The Task-Level Planner maps a task command $\\mathbf{u}$ from the Learner to a target joint transition state $\\mathbf{s}_{f}^{*}$ while constraining the solution to $\\mathcal{M}_{S}$ . (Bottom left) State-space representation of the Mutually Reachable Set $\\mathcal{M}_{S}$ , illustrating successive transition states within the set and the feasible trajectories connecting them. (Bo",
+     "image": "details/2608.26800/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Supplementary Materials for Rapid On-Robot Learning for Dynamic Manipulation Skills: Robot Juggling",
+   "heading_ja": "付録：共通目標位置の配置と各関節のMRS多面体",
+   "summary_ja": "付録では、ジャグリングスキル間で共有される空間目標点の設定や、AthenaZeroの全関節におけるMRSの具体的な多面体形状、プランナの最適化定式化の詳細がまとめられています。",
+   "details_ja": "付録では実機実装の細部が惜しみなく公開されています。左右の腕に対して定義された各6箇所、計12箇所の空間目標位置（$R1 \\sim R6, L1 \\sim L6$）は、アームのキネマティクス制限、カメラの視野角（FoV）、そしてボール同士の空中衝突を避ける安全マージンを同時に満たすように緻密に設計されています。\n\nまた、AthenaZeroの右腕7関節（RJ1〜RJ7）に対して計算されたMRSの構築結果が示されており、順方向到達可能集合と逆方向到達可能集合の交差によって、各関節の位相空間（位置・速度・加速度）内に頑健な「生存可能領域」が明確に定義されていることが確認できます。タスクプランナの最適化では、指先からのボールの離脱をスムーズにするため、投球リリースの瞬間に手先加速度を重力加速度 $g$ に一致させる等式制約を課すなど、ダイナミクスを考慮した実用的な工夫が凝らされています。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "各ジャグリングスキルで共有される12箇所の空間目標位置（R1〜R6, L1〜L6）の配置図です。技ごとに使用される目標点が赤くハイライトされており、ボール同士の空中衝突を防ぎつつカメラ視野内に収まるよう配置されています。",
+     "caption": "Figure S1: Shared target positions for juggling skills. The six designated spatial targets for the right arm ( $R1$ – $R6$ ) and left arm ( $L1$ – $L6$ ) are shared across the target release, target land/catch configurations. Active targets utilized in a specific juggling pattern are highlighted in red (e.g., $R1$ , $R2$ , $L1$ , and $L2$ are the enabled positions for the cascade pattern).",
+     "image": "details/2608.26800/F7.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "「役に立たないモデル」と「学習に役立たないモデル」は別物：ゼロショットで動かない不完全なモデルでも、その一次勾配は実機適応の超高速な足がかりになる。",
+  "局所回帰と事前モデル勾配のブレンド：経験が豊富な領域は実機データに従い、データが疎な外挿領域は事前モデルの勾配に従う正則化により、無謀な探索を完全に排除できる。",
+  "高運動性能の実機適応にはMRSが不可欠：単一動作の成立だけでなく、「次の動作へ安全に移行できるか」を保証する相互到達可能集合を組み込むことで、ハードを壊さずに限界性能を引き出せる。",
+  "スキルのモジュール化が転移を生む：タスク全体をEnd-to-Endで解くのではなく、状態依存の投擲スキルに分解することで、別パターンの技への経験転移が極めて容易になる。"
+ ],
+ "limitations_ja": [
+  "センサと制御の遅延問題：滞空時間が100msを切る超高速・低空投擲（シャワーの横投げ等）では視覚追従が間に合わず、オープンループキャッチに頼らざるを得ないため成功率が頭打ちになる。",
+  "接触状態の不連続性：投擲リリース時にボールが指先に再接触するような現象が起きると入出力関係が局所的に非線形・不連続になり、局所線形回帰による学習が停滞しやすい。",
+  "環境外乱への頑健性：パームの汚れや湿度変化による摩擦変動に対しては再度学習を回す必要があり、リアルタイムな触覚フィードバックによる吸収はまだ実装されていない。"
+ ],
+ "keywords": [
+  "Robot Juggling",
+  "On-Robot Learning",
+  "Memory-Based Learning",
+  "Mutually Reachable Set",
+  "Dynamic Manipulation",
+  "Sim2Real Gap"
+ ],
+ "id": "2608.26800",
+ "title": "Rapid On-Robot Learning for Dynamic Manipulation Skills: Robot Juggling",
+ "title_ja": "動的操作スキルの実機高速オンライン学習：ロボットジャグリング",
+ "authors": [
+  "Taeyoon Lee",
+  "Chunpeng Wang",
+  "Christopher G. Atkeson",
+  "Alfred A. Rizzi",
+  "Nicolas Rojas"
+ ],
+ "date": "2026-08-28",
+ "group": "focus",
+ "tags": [
+  "sim-to-real",
+  "manipulation",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2608.26800",
+ "pdf_url": "https://arxiv.org/pdf/2608.26800",
+ "summary_ja": "大きなsim-to-realギャップが存在する状況下で、双腕ロボットがジャグリング動作を数分で実機獲得するオンライン学習手法を提案。グローバルな事前モデルを保持しつつ蓄積経験から局所モデルを正則化学習することで、安定的かつ効率的なスキル獲得を実現した。",
+ "generated": "2026-09-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2608.26800"
+}
