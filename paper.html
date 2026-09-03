@@ -134,10 +134,18 @@ function renderBody(text) {
   return out.join("");
 }
 
+// 図の番号は論文のキャプション（Figure 5: …）から取る。無ければ抽出時のキー
+function figureLabel(f) {
+  const m = String(f.caption || "").match(/^(?:Figure|Fig\.?)\s*(\d+)/i);
+  if (m) return `図 ${m[1]}`;
+  if (/^P\d+$/.test(f.key)) return `p.${f.key.slice(1)} の図`;
+  return `図 ${f.key.replace(/^F/, "")}`;
+}
+
 function figure(f, cls = "") {
   return `<figure class="${cls}">
     <a href="${esc(f.image)}" target="_blank" rel="noopener"><img src="${esc(f.image)}" alt="${esc(f.caption || f.key)}" loading="lazy"></a>
-    <figcaption><span class="key">図 ${esc(f.key.replace(/^F/, "").replace(/^P/, "p."))}</span>${inline(f.caption_ja)}
+    <figcaption><span class="key">${esc(figureLabel(f))}</span>${inline(f.caption_ja)}
       ${f.caption ? `<span class="orig">${esc(f.caption)}</span>` : ""}</figcaption>
   </figure>`;
 }
