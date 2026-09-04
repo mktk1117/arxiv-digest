@@ -1,0 +1,127 @@
+{
+ "title_ja": "1,500時間の実演からオンポリシー修正による家庭内双腕マニピュレーションのスケーリング",
+ "tldr_ja": "1,500時間の大規模な双腕家庭内操作データセットを構築し、5Bモデル「XR-2」を学習。エキスパートデータ追加による性能飽和を、人間によるオンライン修正データ（DAgger）の投入によって突破できることを実証しました。",
+ "hero_figure": {
+  "key": "F4",
+  "caption_ja": "XR-2の2段階フルパラメータ学習の全体像です。オフラインの実機エキスパートデモによる事前学習（Stage 1）ののち、実機デプロイ時の失敗状態から人間が介入した修正軌跡（DAgger）を混合して追加学習（Stage 2）を行うことで、方策自身の状態分布のズレを解消します。",
+  "caption": "Fig. 4 : Two-stage full-parameter training of XR-2. Both stages use the same VLM + action-expert architecture with all parameters trainable (flames); dashed tokens are model outputs. (a) Stage 1 fits offline teleoperated demonstrations $\\mathcal{D}_{\\mathrm{demo}}$ on expert-visited states. (b) Stage 2 initializes from Stage 1, rolls out the policy, collects expert corrections $a_{\\mathrm{expert}}$ on the visited states, and retrains on the aggregated data—aligning training with the policy’s own state distribution.",
+  "image": "details/2609.03591/F4.jpg"
+ },
+ "overview_ja": "双腕ロボットによる洗濯物の折りたたみや洗濯機の操作といった家庭内マニピュレーションは、腕同士の協調動作や長時間のタスク遂行が求められる難関タスクです。近年はVision-Language-Action（VLA）モデルへの期待が高まっていますが、高品質な双腕実機デモデータの不足が大きな壁となっていました。さらにデータ収集が進むにつれて、「単にエキスパートの成功例を集め続けるだけで十分なのか、それとも失敗からの復元データが必要なのか」というデータスケーリングの本質的な問いが浮上しています。\n\n著者らはこの課題に対し、移動双腕実機による遠隔操作（531.7時間、32,518軌跡）と、実家庭で手持ち器具を用いて収集したUMIデータ（約1,000時間）を合わせた計1,500時間の超大規模データセットを構築しました。そして、マルチモーダル基盤モデル（Qwen3-VL-4B）とFlow Matchingに基づくAction Expertを組み合わせた5BパラメータのVLAモデル「XR-2」を提案。オフライン学習後に、自律動作中の失敗を人間がリアルタイムで介入・修正するDAggerパイプラインを統合しました。\n\n実機の服たたみタスクでデータスケーリングを検証した結果、エキスパートデータは10時間から120時間までは順調に成功率が伸びるものの（34%→84%）、160時間では82%となり頭打ちを迎えました。一方で、この残された失敗をDAgger介入データで補正すると、成功率は58%から3ラウンドで93%まで一気に跳ね上がりました。エキスパートデータで基本分布を網羅した後は、実機展開時の失敗を直接叩く修正データが不可欠であるという、極めて実践的なスケーリング指針を明らかにしています。",
+ "contributions_ja": [
+  "双腕実機ロボット遠隔操作531.7時間と、200以上の実家庭で収集した手持ちUMIデータ約1,000時間を統合した、計1,500時間の家庭内双腕操作データセットを公開したこと。",
+  "Qwen3-VL-4BとFlow Matching型Action Expertを組み合わせ、非同期推論のためのAction Prefix条件付けを備えた5Bパラメータの双腕VLAモデル「XR-2」を開発したこと。",
+  "実機デプロイ中に人間が介入した失敗修正軌跡を自動抽出・配分するDAggerループを構築し、弱点サブタスクに重み付けするデータ混合手法を提案したこと。",
+  "服たたみタスクにおいて、エキスパートデータのスケーリングが120時間前後で飽和する一方、DAggerによる修正学習が成功率を58%から93%へと劇的に押し上げる補完的スケーリング挙動を実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "II Robot and Dataset",
+   "heading_ja": "25自由度の全身ロボットと1,500時間のハイブリッド収集パイプライン",
+   "summary_ja": "全方位台車と双腕を備えた実機ロボット「X2W」の仕様と、1,500時間におよぶデータ収集の仕組みを詳述しています。VR遠隔操作によるオフラインデモと実機デプロイ時のDAgger修正ループ、さらに実家庭での手持ちUMIデータを相補的に組み合わせています。",
+   "details_ja": "### II-A ロボットシステム\n実験プラットフォームには、全身協調マニピュレーションのために開発された移動双腕ロボット「X2W」を使用しています。自由度は合計25（7自由度アーム×2、1自由度グリッパー×2、4自由度腰、2自由度首、全方位3輪台車）で、関節駆動には応答性と柔軟性に優れた準ダイレクトドライブ（QDD）アクチュエータを採用しています。\nロボットの内馬状態（プロプリオセプション）は、各関節や車輪の位置・速度・トルク、手先姿勢を統合した89次元ベクトルです。一方、制御指令は22関節の目標位置と3輪の目標速度からなる25次元です。視覚センサとしては、大局的な環境把握用の頭部カメラ1台と、手元の緻密な操作を捉える両手首カメラ2台を備え、30Hzで完全同期記録されます。\n\n### II-B データ収集パイプライン\nデータ収集は「オフラインエキスパートデモ」と「オンラインDAgger修正」の2系統で運用されます。長大タスクは自然な区切りでサブタスクに分解され、作業環境や初期配置を標準作業手順書（SOP）で厳密に規格化。オペレータはVR機器を用いて遠隔操作を行います。データはクラウド上で自動品質検証、VLMによる言語アノテーション、目視確認を経て高品質に保たれます。\nオンラインDAggerでは、自律動作中のロボットが失敗したり詰まったりした瞬間に人間が操縦を奪い、サブタスクをリカバリして即座に制御を戻します。タスクを最初からやり直す必要がなく、介入区間は自動的に修正デモとして記録されるため、再アノテーション不要の閉ループ改善サイクルが実現します。\n\n### II-C 実機データセットの概要\n実機データは32,518軌跡、57.4Mフレーム、531.7時間に達します。作業環境は「たたみ台（14.6k）」「洗濯機（8.4k）」「ソファ（6.1k）」「洗濯カゴ（3.4k）」の4シーンにまたがります。エピソード長は短いプリミティブから150秒超の超長大タスクまで幅広くカバーし、意味的に統合された11種類のアトミック基本スキル（服をたたむ、洗濯機に投入する、カゴを持ち上げる等）に言語ラベル付けされています。\n\n### II-D UMIデータセットの概要\n固定ロボットの環境バリエーションを補うため、手持ち型グリッパー（UMI）を用いて約1,000時間の服操作デモを収集しました。200軒以上の一般家庭、100名以上の収集者により、5,000着以上の衣服を対象としています。ベッド上、テーブル上、物干し竿など実環境の多様性は圧倒的です。エンコーダやモータを持たない完全受動・視覚のみの軽量グリッパー設計により、疲労なく最大90分の連続記録を可能にしています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "移動型双腕ロボットX2Wのハードウェア構成。22個の可動関節と3輪オムニベース（計25DoF）からなり、頭部および両手首のカメラとJetson AGX Orinなどの車載計算機を搭載しています。",
+     "caption": "Fig. 2 : X2W hardware configuration. The robot has 25 degrees of freedom. It is equipped with a variety of sensors, including the RealSense D435i, ZED X Mini and ZED-XONE GS cameras, as well as an inertial measurement unit (IMU) and heterogeneous computing units, supporting the performance of household bimanual manipulation tasks.",
+     "image": "details/2609.03591/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "実機データセットの統計情報。(a)たたみ台、洗濯機、ソファ、洗濯カゴの4環境の分布、(b)最大150秒に及ぶタスク実行時間のロングテール分布、(c)統合された11種類のアトミックスキルの軌跡数を示しています。",
+     "caption": "Fig. 3 : Dataset statistics. (a) Scene coverage. Real-robot trajectories span four household interaction settings: folding station, laundry washer, sofa, and laundry basket. (b) Long-horizon distribution. The duration distribution exhibits broad coverage of long-horizon episodes, with a long tail reaching around 150 s. (c) Atomic skill coverage. Distribution of 11 atomic skills, covering high-frequency garment manipulation as well as less frequent but task-critical object-transfer primitives.",
+     "image": "details/2609.03591/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "III Model and Training Recipe",
+   "heading_ja": "5B基盤モデルXR-2のアーキテクチャと弱点克服データ配分レシピ",
+   "summary_ja": "視覚言語バックボーン（Qwen3-VL-4B）とFlow Matching型Action Expertからなる5Bモデル「XR-2」の構造を説明します。実機での低遅延非同期制御を可能にするAction Prefix手法や、DAgger修正学習で忘却を防ぎつつ苦手サブタスクを集中強化する配分アルゴリズムを導入しています。",
+   "details_ja": "### III-A メインアーキテクチャ\nXR-2は、マルチモーダル知覚を担うQwen3-VL-4B-Instructと、制御行動を生成するTransformerベースのAction Expertで構成された計5BパラメータのVLAモデルです。Action Expertは隠れ層次元1024、8アテンションヘッド、18ブロックからなり、各ブロックでノイズ混じりの行動トークンが自己注意処理された後、VLMバックボーンの対応する中間層の隠れ状態へDepth-aligned Cross-Attentionを行います。これにより、浅い層の具体的特徴から深い層の抽象的言語特徴までを段階的に行動へ接地させます。\nさらに、実機での非同期・低遅延制御を可能にする「Action Prefix条件付け」を導入しました。推論レイテンシによって生じる実行遅れステップ $d$ 分の行動をあらかじめ確定済みのプレフィックスとして固定し、残りのサフィックス部分にのみノイズ注入とデノイズ学習を行います。推論時は5ステップのオイラー積分により、極めて滑らかな実時間生成を実現しています。\n\n### III-B エキスパートデータによる事後学習\n収集したエキスパート軌跡に対し、Conditional Flow Matching（CFM）目的関数を用いてマルチタスク学習を行います。ロボットの観測、状態、言語指示を条件として、ガウスノイズから目標行動チャンクへのベクトル場を学習します。\n\n### III-C DAggerデータによる事後学習と配分設計\n実機デプロイから得られた修正データを組み込む際、既存スキルの破滅的忘却を防ぎつつ、苦手タスクを効率よく底上げする必要があります。著者らは2つの工夫を施しました。第1に、フレーム数ではなく「軌跡数」基準でエキスパートとDAggerを1:1で混合することです。タスク長の違いによる特定スキルの希薄化を防ぎます。第2に、サブタスクごとの成功率 $s_i$ に応じた重み付け配分です。割り当て比率 $w_i$ を $w_i = w_{\\min} + (1 - N w_{\\min}) \\frac{(1 - s_i + \\epsilon)^\\alpha}{\\sum_j (1 - s_j + \\epsilon)^\\alpha}$（ここで $w_{\\min}=0.05, \\epsilon=0.05, \\alpha=1$）として算出します。最低枠 $w_{\\min}$ を確保して既習スキルの忘却をブロックしつつ、失敗率の高いタスクへ集中的に修正データを投入する絶妙なバランス設計です。",
+   "figures": []
+  },
+  {
+   "heading": "IV Experiment",
+   "heading_ja": "エキスパートデータの飽和とDAggerによる93%への跳躍",
+   "summary_ja": "実機RTX 4090上での高速非同期展開環境を構築し、服たたみタスクにおいてデータ規模と性能の関係を定量評価しました。エキスパートデータ追加が頭打ちになった後、DAgger学習によって成功率が58%から93%へと劇的に改善することを示しています。",
+   "details_ja": "### IV-A 実験設定\n学習済み方策はNVIDIA RTX 4090 GPU上で10Hzの非同期推論を行い、50ステップ×25変数の行動チャンクを出力します。Temporal Ensembling処理を経て30Hzで全身関節指令を発行し、さらに下位の全身運動コントローラが1,000Hzで最適化して追従します。評価環境には衣服のサイズ・色、ロボットの初期位置に意図的な汎化変動を加えており、この変動下で85%を達成するモデルは、同一分布条件下では95%超の成功率に匹敵します。\n\n### IV-B エキスパートデモのスケーリング限界\n服たたみタスクを対象に、学習デモ量を10時間から160時間（8,000軌跡）まで増やして性能変化を追跡しました。成功率は30時間の34%から120時間の84%へと綺麗にスケールしましたが、160時間では82%となり、追加の40時間は性能向上をもたらしませんでした。これはエキスパートが通る状態空間が飽和したことを意味します。実機デプロイ時に生じるわずかなズレや失敗状態はエキスパートの成功軌跡には含まれないため、オフラインデモをいくら増やしても原理的に克服できない「分布外の壁」が存在することが実証されました。\n\n### IV-C DAgger修正学習による飛躍\nそこで、10サブタスク・18,695軌跡で学習したベースモデル（服たたみ成功率58%）に対し、提案式に基づくDAgger修正学習を適用しました。各ラウンドで2.5エポックのファインチューニングを行った結果、第1ラウンドで74%、第2ラウンドで82%、第3ラウンドで93%へと単調増加しました。エキスパートのみのベースラインから実に35ポイントもの大幅な性能向上を達成し、オンライン修正データがオフラインデモの飽和を打破する決定打になることを鮮やかに証明しています。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "服たたみタスクにおけるスケーリング挙動。(a)エキスパートデータ量に対する成功率の推移。120時間（84%）で飽和します。(b)成功率58%のチェックポイントからDAggerを3ラウンド回した推移。修正データの投入により93%まで一貫して向上しています。",
+     "caption": "Fig. 5 : Data scaling in the folding-clothes task. (a) Success rate versus the duration of effective expert data. (b) Success rate over three rounds of DAgger training initialized from a checkpoint with a 58% success rate.",
+     "image": "details/2609.03591/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Representative Trajectories",
+   "heading_ja": "多彩な家庭内タスクと実環境UMIデモの広がり",
+   "summary_ja": "公開データセットに含まれる代表的な軌跡の可視化です。洗濯機への出し入れやカゴ運搬などの実機マニピュレーションと、一般家庭の多様な環境下で記録された服操作のディテールを紹介しています。",
+   "details_ja": "### 多彩な実機タスク実行例\n実機の頭部カメラ視線による代表的な軌跡では、洗濯機のドアを把持して開閉する動作、洗濯カゴを両手で持ち上げて床へ下ろす動作、ぬいぐるみを洗濯機に投入する作業、ソファ上へ衣類を運ぶ動作、そして布地を丁寧に広げて折りたたむ長大シーケンスなどが確認できます。各ステップには明瞭なサブタスク指示が付与されており、長時間の複雑な家庭内ルーチンが体系化されています。\n\n### UMIによる実家庭イン・ザ・ワイルドデータ\n手首装着視点からなるUMIデータでは、赤や白のシャツ、柄物セーター、ジャケット、ジーンズなど多種多様な衣服に対する操作が記録されています。「袖を先に折る」「シワを伸ばす」「重ねて積む」といった細粒度のアクションステップ注記が mid-point ごとに付与されており、200軒以上の家庭がもたらす照明・背景・素材のバリエーションの豊かさが視覚的にも際立っています。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "実機頭部カメラから見た代表的な作業軌跡。洗濯機のドア開閉、衣類やぬいぐるみの投入・取り出し、洗濯カゴの両手搬送、服の折りたたみなど、11種類のアトミックスキルを網羅しています。",
+     "caption": "Fig. 6 : Representative real-robot demonstrations from the robot-mounted head camera. Each row shows a single trajectory: the heading above each image strip denotes the corresponding subtask instruction, and several frames are sampled along the trajectory to illustrate the progression of task execution. The examples cover a diverse set of household manipulation tasks, including washing-machine interaction, garment loading and unloading, object placement, bimanual laundry-basket manipulation, garment transfer, and long-horizon garment unfolding and folding.",
+     "image": "details/2609.03591/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "手持ち型UMIによる実家庭での服たたみ軌跡。異なる家庭環境や照明条件のもと、多様な衣類に対して「シワ伸ばし」「袖の折り込み」「スタック」などの細粒度ステップが記録されています。",
+     "caption": "Fig. 7 : Representative UMI demonstrations from the egocentric wrist-mounted view. Each row shows one trajectory: the heading above each strip is the item-level task instruction, frames are sampled at the midpoints of the annotated fine-grained action steps, and the caption under each frame is the corresponding action-step annotation. Rows span four distinct households and five garment types, covering flat folding, sleeve-first folding, bimanual coordination, rack retrieval, and stacking onto a pile.",
+     "image": "details/2609.03591/F7.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "オフラインのエキスパートデモ追加によるスケーリングには頭打ち（約120時間で飽和）が存在し、それ以上の改善には方策自身の失敗状態を踏むオンライン介入（DAgger）が不可欠であること。",
+  "DAgger学習時には、フレーム数ではなく軌跡数で1:1混合し、成功率の低い苦手サブタスクへ重点配分することで、忘却を防ぎながら効率的なリカバリ学習が可能になること。",
+  "実験室の実機ロボットデータ（530時間）と、実家庭の手持ちUMIデータ（1,000時間）を組み合わせるハイブリッド収集は、双腕マニピュレーションの多様性を担保する強力なアプローチであること。"
+ ],
+ "limitations_ja": [
+  "スケーリング則の定量的検証が主に「服たたみ」という単一タスクの成功率に焦点を当てており、洗濯機操作など他の接触リッチなタスクでのスケーリング限界は未検証である点。",
+  "オンラインDAggerの収集には熟練した人間のリアルタイム監視とVR介入が必要であり、完全自動化された自己改善ループには至っていない点。"
+ ],
+ "keywords": [
+  "Bimanual Manipulation",
+  "Vision-Language-Action (VLA)",
+  "DAgger",
+  "Flow Matching",
+  "Robot Data Scaling"
+ ],
+ "id": "2609.03591",
+ "title": "Scaling Bimanual Household Manipulation from 1,500 hours of Demonstrations to On-Policy Corrections",
+ "authors": [
+  "Jiafeng Xu",
+  "Qi Li",
+  "Yan Shen",
+  "Yiyu Ren",
+  "Travis Davies",
+  "Shaowen He",
+  "Ze Wang",
+  "Yifan Yang",
+  "Ran Cheng",
+  "Hao Dong"
+ ],
+ "date": "2026-09-04",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "vision-language-action",
+  "dataset"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.03591",
+ "pdf_url": "https://arxiv.org/pdf/2609.03591",
+ "summary_ja": "家庭内双腕マニピュレーション向けに1,500時間の多様な人間実演データセットを公開し、それを用いて訓練したVLAモデル「XR-2」を提案。高スループットなデータ収集と多段階訓練パラダイムにより、高いデータ利用効率と強固な操作性能を達成した。",
+ "generated": "2026-09-04",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.03591"
+}
