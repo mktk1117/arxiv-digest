@@ -44,7 +44,29 @@
   }
   .chip:hover { color: var(--text); }
   .chip[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: #fff; }
-  .count { font-size: 12px; color: var(--muted); margin: 12px 0 0; }
+  .count { font-size: 12px; color: var(--muted); margin: 10px 0 0; }
+  .tabs { display: flex; gap: 4px; margin-top: 10px; border-bottom: 1px solid var(--line); }
+  .tab {
+    font: inherit; font-size: 13px; padding: 6px 12px; cursor: pointer; background: none;
+    color: var(--muted); border: 0; border-bottom: 2px solid transparent; margin-bottom: -1px;
+  }
+  .tab[aria-selected="true"] { color: var(--accent); border-bottom-color: var(--accent); font-weight: 700; }
+  .tagtoggle {
+    font: inherit; font-size: 12px; color: var(--accent); background: none; border: 0;
+    padding: 0; margin-top: 10px; cursor: pointer; display: none;
+  }
+  #tags[hidden], #groups[hidden], #tagtoggle[hidden] { display: none; }
+  @media (max-width: 640px) {
+    header { padding: 10px 12px 8px; }
+    h1 { font-size: 15px; margin-bottom: 8px; }
+    h1 small { display: block; margin: 2px 0 0; font-size: 11px; }
+    input[type=search] { padding: 7px 10px; font-size: 14px; }
+    .filters { gap: 4px; margin-top: 8px; }
+    .chip { font-size: 11px; padding: 2px 8px; }
+    .tagtoggle { display: inline-block; }
+    main { padding: 4px 12px 40px; }
+    .cards { gap: 10px; }
+  }
   main { max-width: 980px; margin: 0 auto; padding: 4px 16px 48px; }
   .day { margin-top: 26px; }
   .day > h2 {
@@ -85,7 +107,12 @@
   <div class="wrap">
     <h1>🧪 ロボット・AI 新着論文アーカイブ<small id="updated"></small></h1>
     <input type="search" id="q" placeholder="タイトル・要約・著者・arXiv ID で検索" autocomplete="off">
+    <div class="tabs" id="tabs">
+      <button class="tab" data-view="delivered" aria-selected="true">配信した論文</button>
+      <button class="tab" data-view="requests" aria-selected="false">リクエストでまとめた論文</button>
+    </div>
     <div class="filters" id="groups"></div>
+    <button class="tagtoggle" id="tagtoggle" aria-expanded="false">タグで絞り込む ▾</button>
     <div class="filters" id="tags"></div>
     <p class="count" id="count"></p>
   </div>
@@ -95,9 +122,9 @@
 
 <script>
 const GROUPS = { focus: "専門", general: "全般" };
-// 配信していない論文（リクエストでまとめた分）をまとめる見出し
-const EXTRA_DATE = "リクエストでまとめた論文";
-const state = { entries: [], tags: new Set(), group: null, q: "", details: new Set() };
+const state = { entries: [], extra: [], tags: new Set(), group: null, q: "", details: new Set(), view: "delivered" };
+// スマホではタグ一覧が画面を埋めるので、既定では畳んでおく
+const PHONE = window.matchMedia("(max-width: 640px)").matches;
 
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => (
@@ -119,7 +146,7 @@ async function load() {
   }));
 
   state.entries = files.flat().sort((a, b) =>
-    (b.date + b.id).localeCompare(a.date + a.id));
+    b.date.localeCompare(a.date) || (a.rank ?? 0) - (b.rank ?? 0) || b.id.localeCompare(a.id));
 
   // 章ごとの日本語まとめがある論文（無い月はカードにリンクを出さないだけ）
   try {
@@ -127,20 +154,23 @@ async function load() {
     state.details = new Set(details.ids || []);
   } catch { state.details = new Set(); }
 
-  // 配信していないが、リクエストでまとめだけ作った論文はカードを作って先頭に出す
+  // 配信していないが、リクエストでまとめだけ作った論文は別タブに出す
   const known = new Set(state.entries.map((e) => e.id));
   const extra = await Promise.all([...state.details].filter((id) => !known.has(id)).map(async (id) => {
     try {
       const d = await (await fetch(`details/${id}/paper.json`)).json();
       return {
-        id, date: EXTRA_DATE, rank: 0, group: d.group || "manual",
+        id, date: d.generated || "", rank: 0, group: d.group || "manual",
         title: d.title, title_ja: d.title_ja, summary_ja: d.tldr_ja || d.summary_ja || "",
         authors: d.authors || [], categories: d.categories || [], tags: d.tags || [],
         abs_url: d.abs_url, image: d.hero_figure?.image || null,
       };
     } catch { return null; }
   }));
-  state.entries = [...extra.filter(Boolean), ...state.entries];
+  state.extra = extra.filter(Boolean).sort((a, b) => b.date.localeCompare(a.date) || b.id.localeCompare(a.id));
+  const requestsTab = document.querySelector('.tab[data-view="requests"]');
+  requestsTab.textContent = `リクエストでまとめた論文 ${state.extra.length}`;
+  requestsTab.hidden = state.extra.length === 0;
   $("updated").textContent = index.updated ? `最終更新 ${index.updated}` : "";
   renderFilters();
   render();
@@ -198,8 +228,9 @@ function card(e) {
 }
 
 function render() {
-  const hits = state.entries.filter(matches);
-  $("count").textContent = `${hits.length} 件 / 全 ${state.entries.length} 件`;
+  const source = state.view === "requests" ? state.extra : state.entries;
+  const hits = source.filter(matches);
+  $("count").textContent = `${hits.length} 件 / 全 ${source.length} 件`;
 
   if (!hits.length) {
     $("list").innerHTML = '<p class="note">該当する論文がありません。</p>';
@@ -233,6 +264,29 @@ document.addEventListener("click", (ev) => {
   }
   render();
 });
+
+$("tabs").addEventListener("click", (ev) => {
+  const tab = ev.target.closest(".tab");
+  if (!tab) return;
+  state.view = tab.dataset.view;
+  for (const t of document.querySelectorAll(".tab"))
+    t.setAttribute("aria-selected", t === tab);
+  // リクエスト分は専門/全般の枠もタグも無いので、絞り込みは検索だけにする
+  const requests = state.view === "requests";
+  $("groups").hidden = requests;
+  $("tagtoggle").hidden = requests;
+  $("tags").hidden = requests || $("tagtoggle").getAttribute("aria-expanded") !== "true";
+  render();
+});
+
+const tagToggle = $("tagtoggle");
+function setTagsOpen(open) {
+  $("tags").hidden = !open;
+  tagToggle.setAttribute("aria-expanded", open);
+  tagToggle.textContent = open ? "タグを閉じる ▴" : `タグで絞り込む${state.tags.size ? `（${state.tags.size}）` : ""} ▾`;
+}
+tagToggle.addEventListener("click", () => setTagsOpen($("tags").hidden));
+setTagsOpen(!PHONE);
 
 $("q").addEventListener("input", (ev) => {
   state.q = ev.target.value.trim().toLowerCase();
