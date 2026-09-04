@@ -1,6 +1,282 @@
 {
  "entries": [
   {
+   "date": "2026-09-04",
+   "rank": 0,
+   "id": "2609.03497",
+   "group": "focus",
+   "title": "BRIDGE: An Open-Source Humanoid Platform via Morphology-Control Co-Design for Physical AI",
+   "title_ja": "BRIDGE：物理AIのための形態・制御協調設計によるオープンソースヒューマノイドプラットフォーム",
+   "summary_ja": "人間の行動データを活用するヒューマノイド開発に向け、ハードウェア形態と全身制御（WBC）を同時に最適化するco-design基盤「BRIDGE」を提案。動作リターゲティング忠実度と動的追従性を統合した新評価指標を導入し、人間らしい流動的かつ俊敏な運動性能を実現した。",
+   "authors": [
+    "Jianren Wang",
+    "Letian Qian",
+    "Zikai Wang",
+    "Weiwei Wu",
+    "Junjie Zong",
+    "Abhinav Gupta",
+    "Deepak Pathak"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.03497",
+   "image": "figures/2026-09-04/2609.03497.jpg"
+  },
+  {
+   "date": "2026-09-04",
+   "rank": 1,
+   "id": "2609.03984",
+   "group": "focus",
+   "title": "MulDP: Multimodal Diffusion Policy for Autonomous Quadruped Parkour Navigation across Complex Terrains",
+   "title_ja": "MulDP：複雑地形を走破する自律四足パルクールナビゲーションのためのマルチモーダル拡散方策",
+   "summary_ja": "四足歩行ロボットによる自律的パルクール移動のため、視覚・固有受容感覚・目標情報を統合したマルチモーダル拡散方策「MulDP」を提案。時間的整合性と予測性を持つ速度指令を生成し、知覚と身体化制御を密結合することで、複雑地形の自律走破を可能にした。",
+   "authors": [
+    "Kangmai Hu",
+    "Yueqi Zhang",
+    "Peng Zhai",
+    "Xiaoyi Wei",
+    "Jiabin Hu",
+    "Zhixiang Liu",
+    "Quancheng Qian",
+    "Lihua Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "navigation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.03984",
+   "image": "figures/2026-09-04/2609.03984.jpg"
+  },
+  {
+   "date": "2026-09-04",
+   "rank": 2,
+   "id": "2609.03889",
+   "group": "focus",
+   "title": "FWBC-VLA: Force-Aware Whole-Body Compensation for Contact-Rich Loco-Manipulation",
+   "title_ja": "FWBC-VLA：接触リッチな移動マニピュレーションのための力認識全身補償",
+   "summary_ja": "接触を伴う移動マニピュレーションにおいて、VLAモデルと全身制御（WBC）を連携させる「FWBC-VLA」を提案。追加の力覚センサを用いずにタスク起因の接触力と外乱を判別し、力補償を全身制御に組み込むことで接触リッチな作業のロバストな遂行を実現した。",
+   "authors": [
+    "Yutian Zhang",
+    "Siyuan Ma",
+    "Liwen Yang",
+    "Yang Li",
+    "Ce Hao",
+    "Haozhen Chi",
+    "Dong We",
+    "Qiaojun Yu",
+    "Dibo Hou"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "locomotion",
+    "control",
+    "manipulation",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.03889",
+   "image": "figures/2026-09-04/2609.03889.jpg"
+  },
+  {
+   "date": "2026-09-04",
+   "rank": 3,
+   "id": "2609.03623",
+   "group": "focus",
+   "title": "QLAUN: A Research-Oriented, Robust, Agile, Modular, and Affordable Torque-Controlled Quadruped Robot",
+   "title_ja": "QLAUN：研究向けの高耐久・高機動・モジュール式かつ安価なトルク制御四足ロボット",
+   "summary_ja": "低コストで機敏なトルク制御四足ロボット「QLAUN」を開発。15kgの機体に完全3Dプリント製の準ダイレクトドライブアクチュエータを用いた12自由度を備え、脚部をモジュール化して交換容易にすることで、実機研究に資する頑健な実験基盤を提供する。",
+   "authors": [
+    "Mohamad S. Moudallal",
+    "Noel J. Maalouf"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "hardware",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.03623",
+   "image": null
+  },
+  {
+   "date": "2026-09-04",
+   "rank": 4,
+   "id": "2609.03276",
+   "group": "focus",
+   "title": "R2S-Eval: Robot Evaluation with Real-to-Sim Calibration via Vision-Language Models",
+   "title_ja": "R2S-Eval：視覚言語モデルによるReal-to-Simキャリブレーションを用いたロボット評価",
+   "summary_ja": "実機評価の多大な負荷と再現性の低さを解消するため、VLMを活用したReal-to-Simキャリブレーションに基づく評価基盤「R2S-Eval」を提案。二値の成否判定にとどまらず、シミュレーション内で実環境の挙動を較正・再現し、操作方策の実行品質を高精度に評価する。",
+   "authors": [
+    "Yidi Wang",
+    "Feixiang Ruan",
+    "Ruoqu Chen",
+    "Jie Yin",
+    "Yang Yu",
+    "Mengdi Xu",
+    "Kaifeng Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "sim-to-real",
+    "simulation",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.03276",
+   "image": "figures/2026-09-04/2609.03276.jpg"
+  },
+  {
+   "date": "2026-09-04",
+   "rank": 5,
+   "id": "2609.03715",
+   "group": "general",
+   "title": "MINERVA: How Small Can a Manipulation Policy Be and Still Solve LIBERO?",
+   "title_ja": "MINERVA：操作方策はどこまで小型化してもLIBEROを解けるのか？",
+   "summary_ja": "操作ベンチマークLIBEROを解くために必要なモデル容量の下限を検証し、極小方策「MINERVA」を提案。わずか0.54Mパラメータの方策が2,000回の試行で平均95.1%の成功率を達成し、パラメータ数が7,700倍大きい大型モデルとほぼ同等の性能を示した。",
+   "authors": [
+    "Kohei Sendai",
+    "Tatsuya Matsushima",
+    "Yusuke Iwasawa"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "benchmark",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.03715",
+   "image": "figures/2026-09-04/2609.03715.jpg"
+  },
+  {
+   "date": "2026-09-04",
+   "rank": 6,
+   "id": "2609.03591",
+   "group": "general",
+   "title": "Scaling Bimanual Household Manipulation from 1,500 hours of Demonstrations to On-Policy Corrections",
+   "title_ja": "1,500時間の実演からオンポリシー修正による家庭内双腕マニピュレーションのスケーリング",
+   "summary_ja": "家庭内双腕マニピュレーション向けに1,500時間の多様な人間実演データセットを公開し、それを用いて訓練したVLAモデル「XR-2」を提案。高スループットなデータ収集と多段階訓練パラダイムにより、高いデータ利用効率と強固な操作性能を達成した。",
+   "authors": [
+    "Jiafeng Xu",
+    "Qi Li",
+    "Yan Shen",
+    "Yiyu Ren",
+    "Travis Davies",
+    "Shaowen He",
+    "Ze Wang",
+    "Yifan Yang",
+    "Ran Cheng",
+    "Hao Dong"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "vision-language-action",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.03591",
+   "image": "figures/2026-09-04/2609.03591.jpg"
+  },
+  {
+   "date": "2026-09-04",
+   "rank": 7,
+   "id": "2609.03681",
+   "group": "general",
+   "title": "WISE: World-model-guided Imagination Scheduling for Efficient Post-training of Vision-Language-Action Models",
+   "title_ja": "WISE：Vision-Language-Actionモデルの効率的な事後学習のための世界モデル誘導型想像スケジューリング",
+   "summary_ja": "世界モデルを用いたVLAモデルの事後学習において、想像ロールアウトを効果的に適用する「WISE」を提案。操作タスクの実行段階に応じて想像の適用度合いをスケジューリングし、予測誤差の蓄積を抑えつつ信頼性の高い方策更新信号を獲得可能にした。",
+   "authors": [
+    "Chenhao Zhang",
+    "Hanyu Zhao",
+    "Hang Cheng",
+    "Tengfei Pan",
+    "Long Zeng"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "world-model",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.03681",
+   "image": "figures/2026-09-04/2609.03681.jpg"
+  },
+  {
+   "date": "2026-09-04",
+   "rank": 8,
+   "id": "2609.03611",
+   "group": "general",
+   "title": "FailBench: How Reliable are VLMs at Judging Robot Task Success?",
+   "title_ja": "FailBench：ロボットのタスク成功判定においてVLMはどれほど信頼できるか？",
+   "summary_ja": "操作タスクの成否をVLMが正確に判定できるかを検証するベンチマーク「FailBench」を提案。14の公開ソースから収集した2,197件の試行（75%が自然な失敗）で13種のVLMを評価した結果、最良モデルでも平均平衡精度は0.77にとどまる限界を明らかにした。",
+   "authors": [
+    "Zaruhi Navasardyan",
+    "Tatul Danielyan",
+    "Hrant Davtyan"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "benchmark",
+    "manipulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.03611",
+   "image": "figures/2026-09-04/2609.03611.jpg"
+  },
+  {
+   "date": "2026-09-04",
+   "rank": 9,
+   "id": "2609.03483",
+   "group": "general",
+   "title": "Air-Ground Collaborative Vision-and-Language Navigation via Shared Bird's-Eye Maps",
+   "title_ja": "共有鳥瞰図マップを介した空陸協調Vision-and-Languageナビゲーション",
+   "summary_ja": "上空のUAVと地上のUGVを協調させる視覚言語ナビゲーション（VLN）向けに、学習不要なベースライン「AGC-VLN」を提案。UAVの広域俯瞰視点とUGVの一人称視点を共有鳥瞰マップを介して統合し、両機間の安定した協調探索と言語指示追従を達成した。",
+   "authors": [
+    "Shuning Zhang",
+    "Liang Li",
+    "Yunheng Wang",
+    "Tao Wang",
+    "Yihang Kang",
+    "Renjing Xu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "drone",
+    "navigation",
+    "multi-robot"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.03483",
+   "image": "figures/2026-09-04/2609.03483.jpg"
+  },
+  {
    "date": "2026-09-03",
    "rank": 0,
    "id": "2609.02542",
