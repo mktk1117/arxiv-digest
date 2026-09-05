@@ -1,6 +1,162 @@
 {
  "entries": [
   {
+   "date": "2026-09-05",
+   "rank": 0,
+   "id": "2609.03565",
+   "group": "focus",
+   "title": "Toward Physically Grounded JEPA World Models for Goal-Conditioned Robotic Planning",
+   "title_ja": "ゴール条件付きロボット計画に向けた物理的接地JEPA世界モデル",
+   "summary_ja": "画素再構成を行わずに視覚目標を達成するJEPA型世界モデルにおいて、逆ダイナミクスモデル（IDM）と物理状態アライメント（SA）を統合する手法を提案。潜在表現を物理配置や運動に接地させることで潜在崩壊を防ぎ、4つのベンチマークタスクで最高水準の成功率を達成した。",
+   "authors": [
+    "Muyuan Liu (GENISOM AI",
+    "Beijing",
+    "China)",
+    "Yue Huang (GENISOM AI",
+    "Beijing",
+    "China)",
+    "Zheng Liang (GENISOM AI",
+    "Beijing",
+    "China)",
+    "Xiang Gao (GENISOM AI",
+    "Beijing",
+    "China)"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "world-model",
+    "planning",
+    "control",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.03565",
+   "image": "figures/2026-09-05/2609.03565.jpg"
+  },
+  {
+   "date": "2026-09-05",
+   "rank": 1,
+   "id": "2609.03774",
+   "group": "focus",
+   "title": "Rethinking World Models for Safety-Critical Embodied Systems",
+   "title_ja": "安全性が重要な身体性システムに向けた世界モデルの再考",
+   "summary_ja": "身体性システムにおいて高い予測尤度を持つ世界モデルが安全な意思決定を保証しない課題を分析し、リスク考慮型世界モデル（RIWM）を提案。結果の重大性や介入、認識的不確実性を中心にモデルを構成し、セーフティクリティカルなロボット制御に向けた新たな研究指針を示す。",
+   "authors": [
+    "Kailang Ma",
+    "Heye Huang",
+    "Inhi Kim",
+    "Kitae Jang"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "safety",
+    "planning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.03774",
+   "image": "figures/2026-09-05/2609.03774.jpg"
+  },
+  {
+   "date": "2026-09-05",
+   "rank": 2,
+   "id": "2609.04096",
+   "group": "general",
+   "title": "Adaptive Vision-Language Grasping via Composable Foundation Priors and Generalizable Grasp Synthesis",
+   "title_ja": "構成可能な基盤モデル事前知識と汎用把持合成による適応型ビジョン言語把持",
+   "summary_ja": "異なるロボットハンドに対応可能な把持フレームワークAdaRoboVLGを提案。運動学マッピングと力閉包に基づく安定性評価を行う汎用ベース方策と、文脈理解を担う基盤モデルの事前知識を組み合わせることで、多様なハンド構造に対する柔軟な把持合成を実現した。",
+   "authors": [
+    "Sixu Yan",
+    "Shikang Wang",
+    "Binhua Huang",
+    "Xuanlai Tang",
+    "Guohua Fan",
+    "Fan Huang",
+    "Haoxuan Li",
+    "Yongkang Li",
+    "Yuhan Li",
+    "Bencheng Liao",
+    "Zeyu Zhang",
+    "Wenyu Liu",
+    "Hangxin Liu",
+    "Xinggang Wang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "grasping",
+    "manipulation",
+    "vision-language-action",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.04096",
+   "image": "figures/2026-09-05/2609.04096.jpg"
+  },
+  {
+   "date": "2026-09-05",
+   "rank": 3,
+   "id": "2609.04030",
+   "group": "general",
+   "title": "IRWOZ 2.0: A Large Language Model-driven Dialogue Dataset for Industrial Robot Conversations",
+   "title_ja": "IRWOZ 2.0: 産業用ロボット対話のためのLLM駆動型対話データセット",
+   "summary_ja": "産業用協調ロボット向け対話データセットのノイズを低減・改良したIRWOZ 2.0を構築。LLMによる生成と人手修正を組み合わせ、組立や搬送など4ドメイン・390対話に拡張することで、対話状態追跡ベンチマークにおけるBLEUスコア等の精度を向上させた。",
+   "authors": [
+    "Chen Li",
+    "Dimitrios Chrysostomou"
+   ],
+   "categories": [
+    "cs.AI"
+   ],
+   "tags": [
+    "dataset",
+    "benchmark",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.04030",
+   "image": "figures/2026-09-05/2609.04030.jpg"
+  },
+  {
+   "date": "2026-09-05",
+   "rank": 4,
+   "id": "2609.03621",
+   "group": "general",
+   "title": "A computable representation of the physical laboratory enables verifiable workflows",
+   "title_ja": "物理実験室の計算可能表現による検証可能なワークフローの実現",
+   "summary_ja": "自律実験ロボットに向けて、研究対象の型定義と実行可能なスキルを結合する物理実験室の計算可能表現を提案。依存関係や並行処理を含む実験手順をプログラムとして形式化し、科学的ワークフローの検証および自律実行を可能にする基盤を構築した。",
+   "authors": [
+    "Xiaobo Li",
+    "Luyao Ge",
+    "Xiaohui Li",
+    "Lulu Guo",
+    "Ming Mao",
+    "Jiwang Zheng",
+    "Wenting Guan",
+    "Xin Yang",
+    "Yi Luo",
+    "Jun Jiang",
+    "Linjiang Chen"
+   ],
+   "categories": [
+    "cs.AI"
+   ],
+   "tags": [
+    "planning",
+    "control",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.03621",
+   "image": "figures/2026-09-05/2609.03621.jpg"
+  },
+  {
    "date": "2026-09-04",
    "rank": 0,
    "id": "2609.03497",
