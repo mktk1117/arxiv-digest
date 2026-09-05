@@ -1,0 +1,113 @@
+{
+ "title_ja": "ゴール条件付きロボット計画に向けた物理的接地JEPA世界モデル",
+ "tldr_ja": "画像を再構成せず潜在空間で動作するJEPA型ワールドモデルに、逆ダイナミクスと物理状態アラインメントを導入することで、制御に必要な物理表現を学習させプランニング成功率を大きく向上させました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "提案手法の全体構成。画像エンコーダ $E$ と潜在予測器 $F$ からなるJEPAをベースに、連続する潜在表現から実行行動を当てる逆ダイナミクスヘッド $H$ と、計測された物理状態へアラインするヘッド $G$ を同時に学習させます。",
+  "caption": "Fig. 1: Overview of the proposed model. The encoder $E$ maps observations to latent representations, and the action-conditioned predictor $F$ models their evolution. The inverse-dynamics head $H$ predicts the executed action from consecutive representations, while the state-alignment head $G$ grounds them in measured physical states. The dashed branch denotes the corresponding prediction at the preceding time step.",
+  "image": "details/2609.03565/F1.jpg"
+ },
+ "overview_ja": "ロボットが画像ゴールに向けて自律的に行動を計画する際、将来の観測を予測する「ワールドモデル」が強力な武器になります。しかし、将来のピクセル画像をそのまま生成する従来手法は、計算コストが重く、制御に関係のないテクスチャや照明変化まで再現しようとしてしまう問題がありました。そこで注目されているのが、画像をコンパクトな潜在ベクトルに圧縮し、潜在空間の中だけで未来を予測するJEPA（Joint-Embedding Predictive Architecture）です。\n\nところがJEPAには、すべての画像を同じベクトルに潰してしまう「表現崩壊（collapse）」のリスクがあります。また、崩壊を防ぐ既存の正則化手法（例えば潜在ベクトルの分布をガウス分布に近づける手法など）を使っても、ロボット制御に本当に必要な物理情報（物体の位置や速度）が潜在表現に残るとは限りませんでした。\n\nそこで著者らは、連続する潜在表現から行動を逆推定する「逆ダイナミクスモデル（IDM）」に加えて、潜在表現を実環境の計測物理状態（位置や速度）に直接紐付ける「状態アラインメント（SA）」を組み合わせたエンドツーエンド学習を提案しました。学習時にのみ得られる物理センサ情報を使って潜在空間を物理的に基礎づけ（グラウンディングし）、実行時はカメラ画像のみから潜在空間上でプランニングを行います。\n\n4つの標準ベンチマーク（TwoRoom、Reacher、PushT、OGBench-Cube）で評価したところ、3つの環境で最高成功率を記録しました。さらに、潜在空間の軌跡の滑らかさを示す指標と有効次元数を詳細に分析し、従来の評価指標の落とし穴と提案手法の表現力の高さを明らかにしました。",
+ "contributions_ja": [
+  "画像から直接学習するJEPA型ワールドモデルに、逆ダイナミクス（IDM）と物理状態アラインメント（SA）を組み合わせた軽量なエンドツーエンド学習フレームワークを提案した点",
+  "ナビゲーション、マニピュレーションを含む4つのベンチマークタスクにおいて、SAの導入がIDM単体に対して一貫してプランニング成功率を向上させることを実証した点",
+  "潜在軌跡の直線化度（Straightening）が高い既存手法（LeWorldModel）が、実は遷移エネルギーの有効次元数を大きく縮退させていたことを遷移部分空間解析（SVD）により明らかにした点"
+ ],
+ "sections": [
+  {
+   "heading": "II Method",
+   "heading_ja": "ピクセルを復元せず物理を捉える：IDMと状態アラインメントの融合",
+   "summary_ja": "JEPAの潜在予測を主軸にしつつ、連続する潜在ベクトルのペアから「行動」と「物理状態」を同時に予測させる2つの補助損失を組み込みました。学習時に物理計測値を利用しますが、推論・プランニング時には画像のみで完結します。",
+   "details_ja": "提案モデルの構造と学習・プランニングの流れは次の通りです。\n\n### II-A オフラインデータ\n行動ポリシーによって収集された軌跡データセット $\\mathcal{D}=\\{\\tau^{(n)}\\}$ を用います。各ステップには画像観測 $o_t$、物理計測値 $s_t$、および $o_t$ から $o_{t+1}$ の間に実行された一連の行動チャンク $a_t$ が含まれます。\n\n### II-B モデルアーキテクチャと学習損失\nコアとなるのは、視覚エンコーダ $E$ と潜在予測器 $F$ から構成されるJEPAです。現在の潜在変数 $z_t = E(o_t)$ と行動 $a_t$ から次ステップの潜在変数 $\\hat{z}_{t+1} = F(z_t, a_t)$ を予測し、エンコーダが直接出力した $z_{t+1}$ との平均二乗誤差（MSE）である $\\mathcal{L}_{\\mathrm{pred}}$ を最小化します。しかしこれ単体では全入力を定数ベクトルに写す表現崩壊が起きるため、次の2つの補助タスクを追加します。\n\n- **逆ダイナミクス（IDM, $\\mathcal{L}_{\\mathrm{idm}}$）**: 連続する潜在ペア $(z_t, z_{t+1})$ から実行された行動 $a_t$ を予測します。行動を言い当てる必要があるため、潜在表現が同一値に潰れるのを防ぐ強力な勾配が生まれます。\n- **状態アラインメント（SA, $\\mathcal{L}_{\\mathrm{sa}}$）**: 潜在ペア $(z_{t-1}, z_t)$ から実測の物理状態 $s_t$ を予測します。2時点のペアを入力に使う理由は、瞬時の位置姿勢だけでなく速度ベクトルなどの運動情報も潜在空間に反映させるためです。\n\n全体の損失関数はこれらを単純に足し合わせた $\\mathcal{L} = \\mathcal{L}_{\\mathrm{pred}} + \\alpha \\mathcal{L}_{\\mathrm{sa}} + \\beta \\mathcal{L}_{\\mathrm{idm}}$ となります。物理計測値 $s_t$ は学習時の補助輪としてのみ使われ、プランニング時には一切不要です。\n\n### II-C 実装の詳細\nエンコーダにはランダム初期化された軽量なViT-Tiny/14を採用し、[CLS]トークンを192次元に射影します。予測器 $F$ は直近3ステップの文脈を考慮する6層のCausal Transformerです。行動チャンクはAdaLN（Adaptive Layer Normalization）を通じて各層に注入されます。SAヘッドとIDMヘッドはそれぞれ隠れ層256、512の2層MLPです。\n\n### II-D 潜在空間でのプランニング\n推論時はエンコーダと予測器を固定します。ゴール画像 $o_g$ をエンコードした $z_g$ に対し、CEM（Cross-Entropy Method: 候補行動列をサンプリングしてエリートを選び分布を更新する最適化法）を用いて、潜在予測の終端 $\\hat{z}_{t+K}$ と $z_g$ のユークリッド距離を最小化する行動シーケンスを探索・実行します。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "提案モデルの訓練アーキテクチャ。エンコーダ $E$ と予測器 $F$ の前向き予測に加え、連続潜在ペアから物理状態 $s_t$ を推定するSAヘッド $G$ と、行動 $a_t$ を推定するIDMヘッド $H$ が結合されています。",
+     "caption": "Fig. 1: Overview of the proposed model. The encoder $E$ maps observations to latent representations, and the action-conditioned predictor $F$ models their evolution. The inverse-dynamics head $H$ predicts the executed action from consecutive representations, while the state-alignment head $G$ grounds them in measured physical states. The dashed branch denotes the corresponding prediction at the preceding time step.",
+     "image": "details/2609.03565/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜピクセルを予測せず、かつ物理情報を埋め込む必要があるのか",
+   "summary_ja": "従来の画像再構成型ワールドモデルは不要な外観変化のモデリングに計算を浪費します。JEPAはこの問題を回避できますが、表現崩壊を防ぎつつロボット制御に必要な情報をどう保持させるかが未解決の課題でした。",
+   "details_ja": "ロボットが頭の中で行動の結果をシミュレーションして最適な動作を導き出す「ワールドモデル」は非常に魅力的な枠組みです。しかし、多くの従来型視覚ワールドモデルは将来のピクセル画像をそのまま生成・再構成するように訓練されています。これには膨大な計算資源が必要な上、光の当たり具合や背景のテクスチャなど、ロボットの操作タスクには無関係な視覚ノイズの学習に引きずられやすいという弱点があります。\n\nそこで注目されているのがJEPAです。観測画像を低次元の潜在表現に変換し、行動を入力して「潜在表現がどう変化するか」だけを予測します。ピクセルを再構築しないため高速でノイズにも強いのですが、最大の難所は「表現崩壊（すべての観測を同じゼロベクトル等に潰してしまう解）」をどう回避し、かつロボット制御に必要な物理情報を取り込むかという点です。\n\n先行研究では、巨大な事前学習済みモデル（DINOv2など）を凍結して用いる手法や、潜在変数の分布を正規分布に近づける正則化（LeWorldModelのSIGReg）、あるいは逆ダイナミクスのみを使う手法などが提案されてきました。しかし、これらは「潜在表現を行動で区別可能にする」ことはできても、「現実世界の物理的な位置や動きに整合させる」ことまでは直接保証していません。\n\nここが著者の着眼点です。実世界のロボット実験やシミュレータでは、学習時にエンコーダやモータから物理状態（位置や関節角度）が取得できることが多いです。ならば、学習時限定の教師信号としてこの物理計測値と潜在表現をアラインさせれば、表現崩壊を防ぎつつ、制御に真に役立つ物理的グラウンディングが実現できるのではないか、と考えたわけです。",
+   "figures": []
+  },
+  {
+   "heading": "III Experiments",
+   "heading_ja": "ベンチマーク検証と潜在空間の謎：滑らかさが裏目に出る？",
+   "summary_ja": "4つのタスクで評価した結果、提案法は主要ベースラインを上回るプランニング成功率を達成しました。さらに潜在空間の幾何構造を分析し、一見望ましく見える「時間的直線化度」が高いモデルほど、実は低次元に縮退して表現力を失っていたことを突き止めました。",
+   "details_ja": "### III-A 実験設定\nLeWorldModelと同じ4つのベンチマーク環境（TwoRoom: ナビゲーション、Reacher: アーム到達、PushT: 平面押し、OGBench-Cube: 3Dキューブ操作）を採用しました。50ステップの制限時間内で、25ステップ先の画像ゴールに到達できるかを50個の固定タスクで評価します。損失の重みは $\\alpha=\\beta=1.0$ としています。\n\n### III-B 潜在空間プランニングの性能\n先行研究であるDINO-WM、PLDM、LeWorldModelと比較した結果がTABLE Iです。提案手法（SA+IDM）は、TwoRoomで100%、PushTで98%、OGBench-Cubeで87%の最高成功率を記録し、Reacherでも98%とLeWorldModel（100%）に迫る極めて高い数値を残しました。\nまた、アブレーションとして状態アラインメントを抜いた「IDM単体（$\\alpha=0$）」と比較すると、4タスクすべてにおいてSAを追加した方が一貫して成功率が向上しました（特にPushTでは84%から98%、Cubeでは77%から87%へと大幅改善）。物理状態とのアラインメントが制御に直結していることが実証されました。\n\n### III-C 時間的直線化度（Straightening）と遷移部分空間の罠\n物理的に自然な潜在軌跡は滑らかに真っ直ぐ進むことが望ましいとされ、連続する潜在変位 $\\Delta z_t$ 同士のコサイン類似度の平均である「Temporal Straightening（直線化度）」という指標がよく使われます。\nところがTABLE IIでOGBench-Cubeの直線化度を測ると、最もプランニング成功率の低かったLeWorldModelが最も高いスコア（0.76）を出し、提案手法は0.45と逆に低下していました。なぜ直線的なモデルの方がタスクに失敗するのでしょうか？\n\n著者は潜在変位 $\\Delta z_t$ に対して特異値分解（SVD）を行い、遷移エネルギーの95%を説明するのに必要な特異ベクトルの本数（有効次元数 $r_{95}$）を調べました。すると驚くべき事実が判明します。192次元の空間において、LeWorldModelの平均 $r_{95}$ はわずか「17次元」しかありませんでした。一方、IDM単体は30.2次元、提案手法（SA+IDM）は32.8次元でした。\nつまり、LeWorldModelは潜在空間内のごく狭い17次元程度の部分空間に閉じこもって往復運動のような変化をしていたため、見かけ上の直線化度スコアが高くなっていた（1次元空間なら進むか戻るかしかないのでコサイン類似度は常に+1か-1に偏る）のです。提案法は物理状態のカーブや方向転換を正直に表現しているため直線化度スコアは下がりますが、十分な次元数を保ち、豊かな制御表現を獲得できていることが分かりました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "OGBench-Cubeでのプランニング実行例。上段が固定された開始画像からゴール画像までのリファレンス軌跡、下段が提案モデルに基づきCEMでプランニングして実際にロボットアームを動かした観測画像です。正しくゴール状態を達成できています。",
+     "caption": "Fig. 2: Qualitative goal-conditioned planning on OGBench-Cube. Top: the reference trajectory between the fixed start and goal observations. Bottom: actual simulator observations obtained by executing CEM actions.",
+     "image": "details/2609.03565/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Conclusion",
+   "heading_ja": "まとめと今後の展望：物理的グラウンディングが拓く表現学習",
+   "summary_ja": "JEPAにおける逆ダイナミクスと物理状態アラインメントの有効性が示されました。また、潜在空間の直線化度スコアだけに頼ると本質的な表現の縮退を見落とすという教訓も得られました。",
+   "details_ja": "本論文では、利用可能な物理計測値を用いたペアベースの状態アラインメント（SA）と逆ダイナミクス（IDM）を組み合わせることで、画像からピクセル再構成なしで学習できるエンドツーエンドJEPA型ワールドモデルを提案しました。\n\n実験の結果、物理アラインメントの導入によってロボットプランニングの成功率が一貫して向上することが確認されました。さらに幾何学的解析により、従来の表現学習で好まれる「時間的直線化度」の高さが、実際には遷移部分空間の極端な低次元化（表現の貧弱化）を隠蔽している危険性があることを浮き彫りにしました。\n\n今後は、LeWorldModelのような分布正則化（SIGRegなど）による表現崩壊防止策と、本手法のような物理的グラウンディングをうまく融合させ、よりロバストで汎用的なロボット基礎モデルを構築していくことが期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "JEPAの表現崩壊対策としてIDM（行動予測）は有効だが、学習時のみ物理センサ値（位置・速度）をアラインするSAを加えることで、制御性能が一段と引き上がる",
+  "推論・プランニング時には物理計測値が不要で、画像エンコーダと潜在予測器だけで軽量かつ高速にCEMプランニングが回せる",
+  "潜在軌跡の「直線化度（Temporal Straightening）」が高いからといって良い表現とは限らず、有効部分空間次元が極端に縮退している可能性を疑うべきである"
+ ],
+ "limitations_ja": [
+  "学習時に正確な物理計測値（関節角度、物体位置、速度など）が同期して得られるオフラインデータセットを前提としているため、センサが乏しい実環境データへの適用には工夫が必要",
+  "補助損失のハイパーパラメータ調整（$\\alpha, \\beta$）についてPushTでの固定値設定（1.0）を全タスクに適用しており、タスクごとの最適化余地が残されている",
+  "長期的なプランニング地平（ホライズン）や、障害物が多数存在するようなより複雑な3D実実機環境での検証は今後の課題である"
+ ],
+ "keywords": [
+  "Joint-Embedding Predictive Architecture (JEPA)",
+  "World Models",
+  "Goal-Conditioned Planning",
+  "Inverse Dynamics",
+  "State Alignment"
+ ],
+ "id": "2609.03565",
+ "title": "Toward Physically Grounded JEPA World Models for Goal-Conditioned Robotic Planning",
+ "authors": [
+  "Muyuan Liu (GENISOM AI",
+  "Beijing",
+  "China)",
+  "Yue Huang (GENISOM AI",
+  "Beijing",
+  "China)",
+  "Zheng Liang (GENISOM AI",
+  "Beijing",
+  "China)",
+  "Xiang Gao (GENISOM AI",
+  "Beijing",
+  "China)"
+ ],
+ "date": "2026-09-05",
+ "group": "focus",
+ "tags": [
+  "world-model",
+  "planning",
+  "control",
+  "benchmark"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.03565",
+ "pdf_url": "https://arxiv.org/pdf/2609.03565",
+ "summary_ja": "画素再構成を行わずに視覚目標を達成するJEPA型世界モデルにおいて、逆ダイナミクスモデル（IDM）と物理状態アライメント（SA）を統合する手法を提案。潜在表現を物理配置や運動に接地させることで潜在崩壊を防ぎ、4つのベンチマークタスクで最高水準の成功率を達成した。",
+ "generated": "2026-09-05",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.03565"
+}
