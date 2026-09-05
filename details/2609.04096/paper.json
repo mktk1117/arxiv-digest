@@ -1,0 +1,170 @@
+{
+ "title_ja": "構成可能な基盤モデル事前知識と汎用把持合成による適応型ビジョン言語把持",
+ "tldr_ja": "タスク理解（基盤モデル）と物理的な把持合成（基本ポリシー）を構造化インターフェースで分離することで、ポリシーの再学習なしに多様なロボットハンドや動的・乱雑な環境へ柔軟に適応できるVLGフレームワーク「AdaRoboVLG」を提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "従来のEnd-to-End型VLG手法と提案手法AdaRoboVLGの比較。(a) 実世界の把持は乱雑環境、機能的要求、動的追従など複合的な課題を含みます。(b) 従来手法はこれらを単一ネットワークで密結合して解くため汎用化が困難でしたが、(c) AdaRoboVLGは基盤モデルによる文脈理解と物理的な把持合成を切り離し、構造化インターフェースで接続することで高い適応性を実現しています。",
+  "caption": "Fig. 1 : Adaptive vision-language grasping. (a) Real-world grasping occurs under diverse contextual conditions and task-dependent factors, each of which can substantially alter the desired grasp strategy. (b) End-to-end VLG policies typically entangle these factors within a single network trained on large-scale multimodal data, which limits their adaptability to unseen task contexts. In contrast, (c) AdaRoboVLG decouples task-dependent understanding from physical grasp synthesis: foundation-model priors construct a structured grasp interface, from which a generalizable base policy synthesizes executable grasp poses.",
+  "image": "details/2609.04096/F1.jpg"
+ },
+ "overview_ja": "ロボットが言葉の指示に従って物を掴む「ビジョン・ランゲージ把持（VLG）」は、家庭や工場などでの活躍が期待される重要技術です。しかし実世界では、「障害物に囲まれた乱雑な環境から」「その後の使い方に合わせた部位を」「動く物体に対して」掴むといった、空間・認知・時間の課題が同時に押し寄せます。従来のEnd-to-End型モデルは、画像や指示文から把持姿勢を直接出力しようとするため、膨大な学習データが必要なうえ、新しいロボットハンドや未知の環境への適応が困難でした。\n\nそこで著者らは、人間の認知プロセスに着目しました。人間は過去の経験から得た事前知識をうまく組み合わせて周囲を理解し、手の動かし方自体は汎用的なスキルとして持っています。本論文ではこの発想に基づき、タスク理解と物理的な把持合成を完全に分離するフレームワーク「AdaRoboVLG」を提案しました。両者をつなぐのは、対象物の幾何形状、接触プリミティブ（CGR）、把持タイプからなる「構造化把持インターフェース」です。\n\n把持合成側では、ハンドの運動学に基づく写像と力学的安定性（フォースクロージャ）を評価する軽量な基本ポリシーを構築。タスク理解側では、DINOv3（空間事前知識）、LLM＋SAM3（認知事前知識）、SAM3追従＋特徴量整合（時間事前知識）をプラグインのように組み合わせ、インターフェースを動的に書き換えます。\n\nシミュレーションおよび実機実験により、2本指グリッパーから5本指ハンドまで再学習なしで高精度に展開できることを確認しました。実機では乱雑環境下の102物体で83.3%の成功率を達成し、コンベア上で動く物体に対しても5Hzで追従把持できることを実証しました。",
+ "contributions_ja": [
+  "タスクの文脈理解と物理的な把持合成を分離し、構造化把持インターフェースで仲介する適応型VLGフレームワーク「AdaRoboVLG」を提案したこと。",
+  "明示的な運動学写像と、ハンドに依存せずフォースクロージャ条件を評価できるHOI（手先・物体相互作用）表現を用いた、汎用性の高い把持基本ポリシーを開発したこと。",
+  "乱雑環境（空間）、機能的指示（認知）、動的追従（時間）にそれぞれ対応し、自由に組み合わせ可能な基盤モデル事前知識モジュール群を設計・統合したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜ把持は難しいのか：すべてを1つのモデルで解く限界を超えるアプローチ",
+   "summary_ja": "実世界での把持は、障害物の回避（空間）、用途に応じた把持部位の選択（認知）、動く対象への追従（時間）が複雑に絡み合います。既存のEnd-to-End型VLGモデルはこれらを単一ネットワークで解こうとして汎用性に限界を迎えており、本研究ではタスク理解と把持合成を分離する新パラダイムを提案します。",
+   "details_ja": "ロボットによる把持は、エンドエフェクタと対象物との間に無限に存在する接触候補から適切な姿勢を決定しなければならない本質的な難しさがあります。さらに実世界の把持は文脈に強く依存します。例えば「マグカップを掴んで注ぐ」という指示を達成するには、周囲の障害物を避け、後続の動作（注ぐのか人に手渡すのか）に適した取っ手を選び、対象が動いていれば姿勢を逐次修正しなければなりません。\n\n人間は常識や過去の経験から得た豊かな「事前知識（Prior）」を活用して知覚や推論を導くことで、あらゆる状況を網羅的に学習することなく柔軟に適応しています。近年、基盤モデルが視覚認識や空間理解、推論において強力な事前知識を提供できることが示され、これを利用したVLG研究が盛んに行われています。しかし、既存手法の多くは画像と指示文から把持姿勢を直接出力するEnd-to-Endモデルです。このアプローチは学習データの網羅性や計算資源に縛られ、多様なロボットハンドや環境変化へのスケールが困難でした。\n\nこの課題に対し、本論文が提案するAdaRoboVLGは、タスクに応じた文脈理解と物理的な把持合成を明確に分離します。両者の橋渡し役として、物体幾何形状、接触把持表現（CGR）、人間の把持分類学に基づく把持タイプからなる「構造化把持インターフェース」を導入。基盤モデル群（空間・認知・時間）がこのインターフェースを状況に応じて生成・更新し、軽量な基本ポリシーが力学的に安定した把持姿勢へと変換します。これにより、ポリシーを再学習することなく、基盤モデルの進化をそのまま把持能力の向上に直結させることが可能になります。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "AdaRoboVLGのシステム全体像。多眼RGB-D画像と指示文から、空間・認知・時間の各事前知識モジュールが「構造化把持インターフェース」を構築・更新します。基本ポリシーはこのインターフェースを受け取り、ハンド固有の把持候補生成とハンド非依存の安定性評価を行って最終的な把持姿勢を決定します。",
+     "caption": "Fig. 2 : Overview of AdaRoboVLG. To enable adaptive vision-language grasping, our framework explicitly decouples task-driven understanding from physical grasp synthesis. By integrating spatial, cognitive, and temporal priors, it constructs a structured grasp interface that directly guides an efficient base grasp policy to generate stable and executable grasp poses.",
+     "image": "details/2609.04096/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "先人たちの足跡：VLG、多指ハンド把持、基盤モデルの統合",
+   "summary_ja": "視覚言語条件付き把持、学習ベースの多指ハンド把持合成、基盤モデルのロボティクス応用という3つの観点から先行研究を整理しました。AdaRoboVLGはタスク理解と物理把持の分離、ハンド非依存な接触表現の採用により、従来研究の汎用性と展開性のボトルネックを解消しています。",
+   "details_ja": "### 視覚言語条件付き把持（VLG）の潮流\n近年の研究では、LLMやVLMを用いてアフォーダンスや空間事前知識を抽出したり、大規模データで学習したVLA（Vision-Language-Action）モデルによって画像や指示から直接把持を生成する試みが進んでいます。しかし、これらは特定のハンドやタスクに特化して学習される傾向が強く、新しいハンドや環境に移行するたびに追加データ収集や再学習が必要でした。\n\n### 学習ベースの多指把持合成のパラダイム\n多指ハンドの把持合成は、観測から直接関節角度を求める「ハンド中心」、接触マップ等を用いる「物体中心」、両者の関係を捉える「相互作用中心」、乱雑環境を扱う「シーン中心」に大別されます。しかし、接触最適化に莫大な計算コストがかかったり、モデルが特定ハンドに固定されたりする課題がありました。AdaRoboVLGは、把持候補の生成には明示的な幾何変換を用い、評価にはハンド非依存な表現を用いることで、高速推論とクロスハンド汎用性を両立させました。\n\n### 身体知能における基盤モデルの活用\n基盤モデルのロボット応用は、ゼロショット利用、効率的なファインチューニング、行動ポリシーへの直接組み込みが進んでいます。本研究では、DINOv3やSAM3をゼロショットで幾何・セマンティクス・追従に活用し、LLMには分類学データベースを与えて推論精度を高め、それらを構造化インターフェースに統合するプラグイン的な構成を採用しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Problem Formulation and Grasp Interface",
+   "heading_ja": "問題の定式化と要：共通言語としての「構造化把持インターフェース」",
+   "summary_ja": "ロボットハンドの把持姿勢合成問題を、タスク文脈からインターフェースを生成するステップと、インターフェースから実行可能な姿勢を合成するステップの2段階に分解しました。インターフェースは物体幾何、局所接触情報（CGR）、把持タイプで構成されます。",
+   "details_ja": "### 数学的な定式化と記号の定義\n多指ハンドの把持姿勢 $\\bm{g}$ は、ロボット手先ベースの6自由度ポーズ $\\bm{T} \\in \\mathrm{SE}(3)$ （回転行列 $\\bm{R}$ と並進ベクトル $\\bm{t}$ ）と、ハンドの関節角度ベクトル $\\bm{q} \\in \\mathbb{R}^n$ で定義されます。解くべき課題は、与えられたタスク文脈 $\\mathcal{C}$ を満たし、使用するロボットハンド $\\mathcal{H}$ に適合する実行可能な把持姿勢集合 $\\mathcal{G}^{*}$ を見つけ出すことです。\n\n### 構造化把持インターフェースの設計\n文脈から直接把持姿勢を出力するのではなく、本研究ではインターフェース $\\mathcal{I}$ を介した2段階の合成式を定義しました。\n$$\\mathcal{I} = f_{\\tau}(\\mathcal{C}), \\quad \\mathcal{G}^{*} = f_{\\pi}(\\mathcal{I}, \\mathcal{H})$$\nここで、インターフェースは $\\mathcal{I} = (\\mathcal{O}, \\mathcal{A}, \\mathcal{T}_{\\mathcal{H}})$ と表されます。\n- $\\mathcal{O}$: 対象物の3次元幾何形状（点群）。\n- $\\mathcal{A} = \\{\\bm{a}_j\\}$: 安定な接触を形成するための局所接触プリミティブである接触把持表現（CGR: Contact Grasp Representation）の集合。\n- $\\mathcal{T}_{\\mathcal{H}}$: 人間の把持分類学（Grasp Taxonomy）に準拠し、ハンド $\\mathcal{H}$ の機構で実行可能な把持タイプの集合。\n\nこのインターフェースが中立的な媒介となるため、文脈理解モジュール $f_{\\tau}$ と把持基本ポリシー $f_{\\pi}$ を完全に独立して開発・改良できます。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "接触把持表現（CGR）の汎用性。(a) 平行2本指グリッパーから5本指ハンドまで、同じ接触プリミティブを共有して把持姿勢を生成できます。(b) 人間の把持分類学に基づく多様な把持タイプ（ピンチ、トライポッド、ラップなど）にも柔軟に対応可能です。",
+     "caption": "Fig. 3 : Contact grasp representation. This representation effectively captures a hand-agnostic contact primitive that can be (a) shared across diverse end-effectors, ranging from parallel grippers to multi-finger robotic hands, and (b) adaptable to various functional grasp types.",
+     "image": "details/2609.04096/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Base Grasp Policy",
+   "heading_ja": "基本把持ポリシー：高速な幾何写像とハンド非依存な安定性評価",
+   "summary_ja": "基本ポリシーは、CGRと把持タイプからハンド固有の把持候補を高速に生成する「明示的運動学写像」と、力学的安定性を評価する「ハンド非依存評価モデル」の2段階で構成されます。手先と物体の接触幾何をHOI表現として抽出し、PointTransformerベースのネットワークで安定スコアを予測します。",
+   "details_ja": "### 設計原理とCGRの定義\n基本ポリシーは、まずインターフェースから各ハンドに応じた把持姿勢候補を生成し、次にその中から最も安定なものを選択します。CGRは接触点 $\\bm{p}_c$、接触確率 $p$、接近方向ベクトル $\\bm{v}_a$、閉口方向ベクトル $\\bm{v}_b$、把持幅 $w$ の組 $\\bm{a} = (\\bm{p}_c, p, \\bm{v}_a, \\bm{v}_b, w)$ として定義され、ハンドの機構に依存しない幾何的な接触条件を記述します。\n\n### ハンド固有の明示的把持写像\n把持候補の生成に複雑なニューラルネットや重い最適化を使うと推論が遅くなります。そこで、人間の手の閉じ運動シナジー（主成分分析で第1主成分が分散の50〜70%を占めるという知見）を利用し、把持幅 $w$ を媒介変数とする1次元マニホールドとして関節配置を事前計算しました。オフラインで把持幅ごとに最適関節角度 $\\bm{q}^*$ と主閉口フレーム（PCF）への変換行列を計算してルックアップテーブル化しておくことで、実行時はテーブル参照と簡単な幾何計算だけで瞬時に把持候補群を生成できます。\n\n### HOI表現とハンド非依存な安定性評価\n生成された候補が物理的に安定かを判定するため、力学的なフォースクロージャ条件（摩擦円錐内で釣り合いが取れるか）に基づいた手先・物体相互作用（HOI）表現 $\\mathcal{R}^{\\mathcal{HOI}}$ を考案しました。ハンドと物体の近傍接触点について、物体の点座標を基準とし、法線ベクトルやハンド側の点・法線を結合した特徴点群を構成します。これをPointTransformerに入力し、接触点数の違いを吸収するCAMP（接触アウェア・マルチプーリング）機構を通じて安定性スコア $\\beta \\in [0, 1]$ を予測します。入力が局所幾何に正規化されているため、異なるハンドであっても単一の決定モデルで共通して高精度に安定性を評価できます。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "ハンド固有の明示的把持写像の仕組み。オフラインで把持タイプと把持幅に応じた関節角度と基準フレーム（PCF）をルックアップテーブルとして事前計算しておくことで、推論時には高速かつ滑らかに把持候補姿勢を生成できます。",
+     "caption": "Fig. 4 : Hand-specific grasp mapping. This function maps the object geometry, cgr , and grasp type into taxonomy-consistent grasp poses for a specific robotic hand.",
+     "image": "details/2609.04096/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "ハンド非依存の把持評価モジュール。接触界面の幾何情報（点と法線）からHOI表現を抽出し、PointTransformerとCAMPプーリングを用いてハンドの形状や指の本数に左右されない物理的安定性スコアを算出します。",
+     "caption": "Fig. 5 : Hand-agnostic grasp evaluation. This module evaluates the physical stability of synthesized grasp candidates in a strictly hand-agnostic manner. To achieve this, it first extracts an hoi representation to explicitly capture the local contact geometry. Leveraging a PointTransformer [ 65 ] backbone and a contact-aware feature extraction module, the grasp decision model dynamically aggregates these geometric features to predict a continuous stability score for each grasp pose.",
+     "image": "details/2609.04096/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Foundation Priors for Adaptive Grasping",
+   "heading_ja": "適応を支える基盤モデル事前知識：空間・認知・時間のトリプル連携",
+   "summary_ja": "乱雑シーン（空間）、機能的指示（認知）、動的物体（時間）の各課題に対応する3つのモジュールを導入しました。それぞれDINOv3、LLM＋SAM3、および特徴量追従最適化を用いて、共通の構造化把持インターフェースを動的に書き換えます。",
+   "details_ja": "### 空間事前知識（乱雑シーンの把持）\n物が密集したシーンでは、どの位置・方向からアプローチ可能かを見極める必要があります。多眼RGB画像からDINOv3により密なセマンティック特徴を抽出し、深度情報を用いて3次元空間の陰関数場（Implicit Field）へとリフトします。さらにContact-GraspNetを適用して、シーン点群から実行可能なCGR候補集合 $\\mathcal{A}^{\\mathcal{S}}$ を予測し、障害物との衝突を避けた把持基盤を作ります。\n\n### 認知事前知識（機能的把持）\n「注ぐためにマグカップを掴んで」といった言語指示 $\\ell$ に対し、LLM（Seed-1.8）を活用します。標準的なLLMは物理把持の知識に乏しいため、把持分類学データベースを用いたRAG（検索拡張生成）とCoT（思考の連鎖）プロンプティングを組み合わせました。これにより、対象物体（マグカップ）、掴むべき機能部位（取っ手）、適した把持タイプ（3本指ピンチ等）を正確に推論します。得られた部位情報はSAM3による2Dセグメンテーションと3次元リフトを経て、空間CGRの中から指示に合致するものだけを絞り込みます。\n\n### 時間事前知識（動的シーンの把持）\nコンベア等で物体が移動する場合、把持姿勢をリアルタイムに更新し続ける必要があります。剛体仮定のもとでは、物体が動いてもそのローカル座標系における安定把持ポーズは変わりません。そこで、SAM3の動画マスク追従機能で物体のIDスイッチを防ぎつつ、初期フレームの3Dセマンティック特徴と現在フレームの特徴場との整合性を勾配法で最適化し、物体のリアルタイムな6自由度運動 $\\bm{T}^{\\mathcal{O}}_{0\\to t}$ を推定します。これにより基本ポリシーを毎フレーム回すことなく、把持ポーズを即座に幾何更新して追従把持を成立させます。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "空間事前知識モジュールのパイプライン。多眼RGB-D画像からDINOv3特徴を3次元陰関数場へリフトし、Contact-GraspNetと連携してシーン全体の幾何情報と実行可能なCGR候補を抽出します。",
+     "caption": "Fig. 6 : Spatial prior module. Given multi-view RGB-D observations, the spatial prior module leverages the DINOv3 [ 7 ] features to construct scene semantic representations $\\mathcal{R}^{\\mathcal{S}}$ and predict scene-level cgr $\\mathcal{A}^{\\mathcal{S}}$ . The predicted cgr provide spatially feasible contact candidates for the base grasp policy to perform clutter-aware grasp planning.",
+     "image": "details/2609.04096/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "認知事前知識モジュールの構造。LLMにRAGとCoTを組み合わせて把持タイプや機能部位を論理的に推論し、SAM3による視覚的グラウンディングと3次元リフトを行って機能的CGRを決定します。",
+     "caption": "Fig. 7 : Cognitive prior module. Given scene observations and a language instruction, the cognitive prior module uses an llm with rag [ 23 ] and cot [ 24 ] mechanism to infer the target object, functional part, and hand-compatible grasp types. It then employs SAM3 [ 25 ] and 3D lifting to align these inferred results with scene representations, producing the target object geometry $\\mathcal{O}$ , object-level semantics $\\mathcal{R}^{\\mathcal{O}}$ , and functional cgr $\\mathcal{A}^{\\mathcal{O}}$ . These outputs, together with $\\mathcal{T}_{\\mathcal{H}}$ , provide the task-conditioned interface for the base grasp policy to perform language-guided functional grasping.",
+     "image": "details/2609.04096/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Simulated Experiments",
+   "heading_ja": "シミュレーション検証：学習効率、汎用性、各モジュールの圧倒的な実力",
+   "summary_ja": "Isaac Sim上で440万試行の大規模データを用いて評価を行いました。基本ポリシーのHOI表現が高いクロスハンド汎用性を示すとともに、空間・認知・時間の各モジュールが既存のSOTA手法を上回る成功率と追従精度を達成しました。",
+   "details_ja": "### データ収集と基本ポリシーの学習\nGraspNet-1Billion等の物体を用い、Isaac Sim内で外乱力（0.5N）を加える試行錯誤シミュレーションを実施。3種類のハンド（DH3: 3指、Allegro: 4指、Inspire: 5指）で計440万件の把持安定性データを収集しました。評価の結果、提案するHOI表現は手と物体を分離して入力する表現に比べて損失の収束が格段に早く、3つのハンドのデータを混合して学習した決定モデルは各ハンド単独学習時を上回る精度（DH3: 82.95%、Allegro: 88.02%、Inspire: 91.07%）を記録しました。t-SNE可視化でもハンドの差異を超えて特徴が綺麗に重なり合っており、機構に依存しない安定性評価が機能していることが実証されました。\n\n### 空間・認知・時間モジュールの個別評価\n- **空間事前知識（DexGraspNet 2.0ベンチマーク）**: 乱雑環境での評価において、AdaRoboVLGは全ハンド・全難易度平均で88.4%の成功率を達成。既存手法AnyDexGraspと比較してRandom分割で3.0%、Loose分割で9.2%の向上を示しました。\n- **認知事前知識（機能的把持推論・指示把持）**: オープンセットの指示データセットにおいて、RAGとCoTを併用することで機能部位認識率94.0%、把持タイプ選択精度87.0%という極めて高い精度を達成しました。またシミュレータ内の言語指示把持タスクでも、AnyDexGraspを2.5〜2.7%、$\\mathcal{D}(\\mathcal{R},\\mathcal{O})$-Graspを23%以上大きく引き離す最良の成功率（GraspClutter6Dで81.3%、GraspNet-1Billionで86.0%）を収めました。\n- **時間事前知識（動的把持追従）**: GraspNet-1Billionの動画データを用いた動的追従において、追従精度指標MGTAで完璧な1.0（誤追従・ロストなし）を達成し、並進誤差も既存手法中最小を記録しました。ハサミのような非対称物体はミリ単位の誤差で追従できた一方、完全対称なイチゴや初期遮蔽の大きい物体では姿勢ドリフトが生じるという限界も明らかになりました。",
+   "figures": []
+  },
+  {
+   "heading": "VII Real-world Experiments",
+   "heading_ja": "実機実験：過酷な実世界環境での機能的・動的把持と驚異的な適応力",
+   "summary_ja": "3種類の実機ロボットプラットフォームと2種類の異なるエンドエフェクタ（多指ハンドおよび2本指グリッパー）を用いて実証しました。静止乱雑環境で83.3%、動くコンベア上や激しい人間外乱下でも約90%の把持成功率を叩き出しました。",
+   "details_ja": "### 静止乱雑環境における言語指示機能把持\n日常的な102個の物体（食品、工具、日用品など6カテゴリ）を用い、ターゲットの周囲に見た目の似た妨害物体を配置した過酷な環境で実験を行いました（計510試行）。AdaRoboVLGは83.3%という極めて高い成功率を達成。スイカや爪楊枝入れに囲まれた密集状態でも衝突なく把持し、電動ドリルやメガホンでは人間の使用意図に沿った部位・把持タイプを選択できました。失敗要因の分析では、機能部位の認識ミス（29.4%）や幾何ノイズによる姿勢推定誤差（22.3%）が主因であり、把持自体の力学的破綻は抑えられていました。また、TianJi Marvin上で多指ハンドから2本指平行グリッパーへ換装しても、再学習なしでそのまま機能的把持が成立することを確認しました。\n\n### 動的乱雑環境と人間による外乱への耐性\nAgileX Piperアームを用い、秒速2〜5cmで動くコンベア上の物体を追従把持する実験を行いました。システムは5Hzで把持姿勢をリアルタイム更新し、障害物を避けながらカップの取っ手を3本指ピンチで正確に掴み取ることに成功しました。さらに、人間が物体を素早く動かす、手で覆って一時的に遮蔽する、カメラ画角外へ一度持ち去って戻す（Out-of-view recovery）といった4種類の激しい外乱を加える実験でも、平均89.7%という高い把持成功率を維持し、実運用に耐えうる頑健性を示しました。\n\n### フレームワークの拡張性\nタスク理解と把持合成が分離されているため、新機能の追加も容易です。タスク割り当てモジュールを追加して「双腕での仕分け作業」へ拡張したり、SwinDRNetのような深度補完モジュールを組み込むことで「透明物体の把持」へゼロから学習し直すことなく対応できる柔軟性が示されました。",
+   "figures": []
+  },
+  {
+   "heading": "VIII Discussion and Conclusion",
+   "heading_ja": "議論と結論：物理と認知の分離が切り拓くロボット把持の新たな地平",
+   "summary_ja": "AdaRoboVLGは、基盤モデルの推論能力と物理把持ポリシーを疎結合にすることで、高い汎用性と拡張性を実現しました。知覚の不確実性や触覚フィードバックの欠如、単発把持に留まる点などの課題はあるものの、将来の基盤モデルの進化を即座に享受できる持続可能な枠組みです。",
+   "details_ja": "### 現状の限界と今後の展望\n著者らは率直に以下の3つの課題を挙げています。\n- **知覚の不確実性**: 深度カメラのノイズによる接触幾何形状の歪みや、多眼間でのセグメンテーション不一致が把持失敗に直結します。今後はより高精度なメトリック3次元再構成や点追従モデルの統合が必要です。\n- **接触時の閉ループ制御の欠如**: 現在の基本ポリシーは視覚情報のみから安定性を予測しており、接触時の触覚フィードバックがありません。滑りやすい物体や微小な物体を確実に扱うには、触覚センサと連動した手先での滑り補正が不可欠です。\n- **単発把持を超えた長期タスク**: 物体が埋もれている場合に手前の邪魔な物を押しのける（非把持スキル）や、掴んだ後の複雑な作業シーケンスとの協調は今後の重要課題です。\n\n### 結論\nAdaRoboVLGは、タスク理解を基盤モデルに委ね、物理的な把持合成を軽量かつハンド非依存な基本ポリシーに任せるという明確な役割分担を確立しました。このアーキテクチャにより、End-to-Endモデルのように巨大なポリシーを都度再学習することなく、基盤モデルの進化をそのままロボットの把持性能向上へと転換できる、極めてスケーラブルな道筋が示されました。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "タスク理解（LLM/VLM）と物理制御（把持合成）を無理に単一のEnd-to-Endモデルに押し込まず、明確な幾何・分類インターフェースを介して疎結合にする設計思想が極めて有効である点。",
+  "手の運動学シナジーを用いたルックアップテーブルと、接触点と法線に正規化したHOI表現を用いることで、2本指から5本指まで同一モデルで安定性を評価できる汎用基本ポリシーが実現できる点。",
+  "静的なシーン理解（DINOv3）、論理的思考（RAG+CoT付きLLM）、動的追従（SAM3+特徴整合）といった特化型の基盤モデル事前知識をモジュールとして組み合わせることで、複合的な実世界課題に柔軟に対処できる点。"
+ ],
+ "limitations_ja": [
+  "視覚ベースの開ループ把持であるため、接触時のすべり検知や把持力のリアルタイムな微調整（触覚フィードバック）ができないこと。",
+  "深度ノイズや回転対称物体の姿勢推定ドリフト、極端な遮蔽など、上流の基盤モデルの知覚エラーがそのまま把持失敗に直結しやすいこと。",
+  "邪魔な物体を押しのけてから目的の物を掴むような、非把持動作や複数ステップにまたがる操作計画との統合には至っていないこと。"
+ ],
+ "keywords": [
+  "Vision-Language Grasping",
+  "Foundation Models",
+  "Dexterous Manipulation",
+  "Cross-Hand Generalization",
+  "Force-Closure",
+  "Open-World Robotics"
+ ],
+ "id": "2609.04096",
+ "title": "Adaptive Vision-Language Grasping via Composable Foundation Priors and Generalizable Grasp Synthesis",
+ "authors": [
+  "Sixu Yan",
+  "Shikang Wang",
+  "Binhua Huang",
+  "Xuanlai Tang",
+  "Guohua Fan",
+  "Fan Huang",
+  "Haoxuan Li",
+  "Yongkang Li",
+  "Yuhan Li",
+  "Bencheng Liao",
+  "Zeyu Zhang",
+  "Wenyu Liu",
+  "Hangxin Liu",
+  "Xinggang Wang"
+ ],
+ "date": "2026-09-05",
+ "group": "general",
+ "tags": [
+  "grasping",
+  "manipulation",
+  "vision-language-action",
+  "control"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.04096",
+ "pdf_url": "https://arxiv.org/pdf/2609.04096",
+ "summary_ja": "異なるロボットハンドに対応可能な把持フレームワークAdaRoboVLGを提案。運動学マッピングと力閉包に基づく安定性評価を行う汎用ベース方策と、文脈理解を担う基盤モデルの事前知識を組み合わせることで、多様なハンド構造に対する柔軟な把持合成を実現した。",
+ "generated": "2026-09-05",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.04096"
+}
