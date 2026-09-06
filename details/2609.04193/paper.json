@@ -1,0 +1,149 @@
+{
+ "title_ja": "GIFT：ロボット操作のための行動指向構造的教師を用いた中間特徴量学習",
+ "tldr_ja": "視覚言語行動モデルやワールドモデルの中間特徴量に対し、幾何・アフォーダンス・ゴールの3つの補助タスクで学習時のみ制約を与える「GIFT」を提案しました。推論時に余計な条件入力を増やさず特徴表現そのものを制御向きに洗練させることで、未知の環境変化や実機タスクにおける操作頑健性を大幅に向上させています。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "GIFTの全体構造図です。入力画像、指示文、ロボット状態を受け取るバックボーンの中間ビジュアルトークンに対して、幾何アライメント、物体中心アフォーダンス予測、指示連動ゴール領域予測の3つの学習時損失を課します。VLAモデル（上段）とWAMモデル（下段）のいずれにも同一の枠組みで適用できます。",
+  "caption": "Fig. 2: Overview of GIFT. Given the observation, instruction and robot state, GIFT attaches three training objectives to the intermediate visual tokens of a policy: geometry alignment with a frozen geometric foundation model, object-centric affordance prediction, and instruction-conditioned goal-region prediction. The default no-injection design does not route auxiliary predictions into the action pathway; the auxiliary objectives shape the shared intermediate features only through their training gradients. We instantiate the same principle in a VLA (top) and two WAM action formulations (bottom).",
+  "image": "details/2609.04193/F2.jpg"
+ },
+ "overview_ja": "大規模な視覚言語モデル（VLA）や動画予測に基づくワールド・アクション・モデル（WAM）は、豊かな視覚的意味表現やダイナミクスを扱える一方で、視点や背景、物体の配置が変わる環境変化（分布シフト）に対して脆弱であるという共通の課題を抱えています。この原因は、行動予測損失やピクセル再構成損失だけでは、物理的な接触可能性や物体と手先の幾何関係といった「ロボット制御に本当に必要な構造」が中間特徴量に残りにくく、制御に無関係な視覚冗長性に引っ張られてしまう「行動十分性ギャップ（action-sufficiency gap）」にあります。\n\nそこで著者らは、ポリシーの推論パイプラインそのものを複雑化させるのではなく、「学習時に中間特徴量をどう導くべきか」という表現学習の観点に着目しました。具体的には、動作の実現可能性を決める「幾何（Geometry）」、指示対象と手先の相対姿勢を表す「アフォーダンス（Affordance）」、操作すべき領域を特定する「ゴール（Goal）」という相補的な3つの構造を中間特徴量から予測させる枠組み「GIFT」を考案しました。ポイントは、補助タスクの予測結果を行動ヘッドへの追加条件として流し込むのではなく、中間特徴量そのものを逆伝播によって鍛え上げ、推論時には余計なヘッドをすべて切り捨てる点です。\n\nシミュレーションベンチマーク（LIBERO、LIBERO-Plus、RoboCasa）と実機ロボット（単腕xArm7および双腕ARX X5）で徹底的な検証を行いました。その結果、VLAだけでなく直接拡散型WAMや逆ダイナミクス型WAMといった異なる行動生成パラダイムにおいて一貫してゼロショット頑健性が大幅に向上し、特に関節物体の操作や高精度な双腕組み立てタスクで劇的な性能向上が確認されました。",
+ "contributions_ja": [
+  "VLAとWAMの双方が抱える「視覚の豊かさと制御有用性の乖離（行動十分性ギャップ）」を指摘し、中間特徴量に幾何・アフォーダンス・ゴールを学習させる統一的な指針を示しました。",
+  "直接行動予測型のVLA、直接拡散型のFast-WAM、予測動画に依存する逆ダイナミクス型WAMという3つの異なる設計に対し、それぞれの固有インターフェースを変えずに同一目的で適用可能なGIFTを構築しました。",
+  "補助予測を推論時に行動ヘッドへ注入する（Injection）よりも、学習時損失のみで中間特徴量に内在化させる（No-injection）方が優れていることをアブレーションで実証しました。",
+  "LIBERO-Plusでの7種類の分布シフト、RoboCasaでの双腕・関節物体タスク、実機ロボットでの過酷な照明・配置変化において、既存の対応ベースラインを大幅に上回る頑健性を達成しました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "見た目はリッチなのに失敗する理由：行動十分性ギャップの発見",
+   "summary_ja": "VLAやWAMは環境変化に弱く、その根本原因は視覚特徴の豊かさが必ずしも制御の成功に結びついていない「行動十分性ギャップ」にあります。本論文は、中間特徴量に幾何・アフォーダンス・ゴールの3つの制御指向構造を焼き付ける「GIFT」を提案し、ポリシーの基本構造を維持したまま高い頑健性を獲得することを示します。",
+   "details_ja": "汎用ロボット制御を目指す研究では、Web知識を活用するVLAや環境の未来遷移をシミュレートするWAMが主流となっています。しかし、これらのモデルはカメラ視点、物体の配置、背景、照明、ロボットの初期姿勢などが変わるだけで極端に成功率を落としてしまいます。なぜなら、行動ラベルの回帰誤差だけを学習するVLAは背景のテクスチャやカメラのアーティファクトといった「安易な近道（shortcut）」を学習しやすく、一方でピクセル予測で訓練されるWAMは見た目の再現に注力するあまり、物理接触に必要な3D構造や物体意味論を取りこぼしてしまうからです。著者らはこれを「行動十分性ギャップ（action-sufficiency gap）」と定義しました。\n\nこれまでにも補助タスクを導入する試みはありましたが、特定のモデル設計や独自のデコーダヘッド構造に依存しており、異なるパラダイムを横断する普遍的な指針にはなっていませんでした。そこで本論文が提案するのが、アーキテクチャに依存しないフレームワーク「GIFT（Guided Intermediate Feature Training）」です。\n\nGIFTの核となるアイデアは、ロボット操作で本質的に必要となる3つの情報を整理し、学習時に中間特徴量へ制約を与えることです。具体的には、(1) 動作の物理的可行性を支配する「幾何（Geometry）」、(2) 指示対象と手先の相対姿勢を表す「アフォーダンス（Affordance）」、(3) 操作領域を特定する「ゴール（Goal）」です。これらを直接行動ヘッドに入力するのではなく、共有される中間特徴量から予測させることで、推論時のオーバーヘッドを一切増やすことなく制御に必要な特徴をモデル内部に内在化させます。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "LIBERO-Plusにおける7種類の分布シフト下でのゼロショット評価結果です。GIFT-VLAおよびGIFT-WAM-Fastは、カメラ視点、ロボット初期位置、言語表現、照明、背景、センサノイズ、レイアウトの全シフトにおいて、ベースラインであるStarVLA-OFTやFast-WAMを一貫して上回っています。",
+     "caption": "Fig. 1: GIFT improves zero-shot robustness. GIFT-VLA and GIFT-WAM-Fast consistently outperform StarVLA-OFT and Fast-WAM under seven LIBERO-Plus shifts and on average.",
+     "image": "details/2609.04193/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "先行研究との違い：専用デコーダに頼らず中間表現そのものを鍛える",
+   "summary_ja": "VLAの構造化ガイダンスやWAMの予測表現学習に関する既存研究を整理し、GIFTがそれらとどう一線を画すかを解説しています。GIFTは特定の推論インターフェースや追加条件入力に依存せず、多様なモデル間で再利用可能な中間特徴量の学習原則として位置づけられます。",
+   "details_ja": "### 2-A 視覚言語行動モデル（VLA）と構造化ガイダンス\n近年のVLAはフローディフュージョンやアクションチャンキング（複数ステップの行動を一括予測する手法）によって連続制御の性能を大きく伸ばしてきました。しかし、純粋な行動教師あり学習だけでは、空間認識や接触関係の情報を特徴量に保持し続ける保証がありません。これに対し、3D表現を明示的に注入する手法や、幾何教師モデルとアライメントさせる手法、視覚的なアフォーダンスや推論プロンプトを外部化する手法などが提案されてきました。しかし、これらは特定のデコーダ構造に強く依存しているケースがほとんどでした。\n\n### 2-B ワールド・アクション・モデル（WAM）と予測表現学習\nWAMは環境のダイナミクスを予測することで制御を補強しますが、RGBの潜在変数をピクセル単位で再構成する目標は、外見の細部に過度に適応しがちです。粗い潜在行動表現（latent actions）を学ぶ研究や、幾何・セマンティクスを同時に予測する研究、マスクやスロットベースの物体中心表現を導入する研究などが登場していますが、予測結果を行動モジュールの入力ボトルネックとして組み込む設計が主流でした。\n\n### 2-C 先行研究とGIFTの明確な違い\n先行研究との決定的な違いは、「どこに」「どのように」構造化知識を適用するかという点にあります。GuidedVLAなどの手法はタスクごとに特化した専用のデコーダヘッドを設計しますが、GIFTは行動生成経路と共有される中間ビジュアルトークンに直接教師信号を与えます。また、DreamVLAやDIALのように未来予測結果を行動ヘッドの入力条件（Conditioning）として使うのではなく、GIFTはデフォルトで「No-injection（補助出力を推論時に一切流し込まない）」設計を採用しています。これにより、推論時の計算コストやエラー伝播を排除し、性能向上が表現そのものの質の向上によるものであることを明確に証明しています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Methodology",
+   "heading_ja": "GIFTの設計：幾何・アフォーダンス・ゴールで中間層を監督する",
+   "summary_ja": "GIFTの定式化と各ガイダンスの具体的な損失関数を解説しています。浅い層には幾何教師モデルとの方向・スケール分解アライメント、深い層には物体中心の20次元アフォーダンス予測と二値ゴールマスク予測を適用し、VLAおよび2種類のWAMに展開します。",
+   "details_ja": "### 3-A 問題設定と全体概要\nマルチビュー画像 $O_t$、言語指示 $l$、自己受容感覚状態 $s_t$ から、ポリシーは行動チャンク $A_t$ を予測します。バックボーン $\\mathcal{E}_\\theta$ の中間層から抽出された視覚トークン $Z_t^{(r)}$ に対し、軽量な予測ヘッドを介して幾何、アフォーダンス、ゴールの各教師ターゲットを予測させます。浅い層（$r=6$）は低レベルな空間構造を捉えるため幾何ガイダンスに、意味論が豊富な最終層（$r=-1$）はアフォーダンスとゴールの予測に割り当てられます。\n\n### 3-B 構造化中間ガイダンスの3本柱\n- **幾何ガイダンス（Geometry）**：凍結された幾何基礎モデル「VGGT」を教師として使用します。特徴量のスケール差に起因する学習の不安定さを防ぐため、特徴ベクトルを単位方向ベクトルと対数スケールに分解します。方向ベクトルにはコサイン類似度に基づく角度アライメント損失 $\\mathcal{L}_{\\mathrm{ang}}$ を、スケールには $\\ell_1$ 損失 $\\mathcal{L}_{\\mathrm{scale}}$ を適用し、それらの重み付き和を幾何損失 $\\mathcal{L}_{\\mathrm{geo}}$ とします。これにより、深度カメラや点群入力を推論時に要求することなく、3D空間構造を視覚トークンに刷り込みます。\n- **アフォーダンスガイダンス（Affordance）**：HumanEgoに着想を得て、指示対象物とロボット手先の幾何関係を「物体中心（object-centric）」に記述します。指示文で最初に操作される物体をアンカー $a$ とし、$K$ 個のスロットそれぞれについて、役割ID、アンカー基準の物体姿勢（3次元位置＋連続6次元回転）、物体基準のエンドエフェクタ相対姿勢、グリッパ開閉状態からなる計20次元のベクトルを定義します。アフォーダンスデコーダは学習可能なクエリを用いて視覚トークンを集約し、Smooth L1損失 $\\mathcal{L}_{\\mathrm{aff}}$ で最適化されます。\n- **ゴールガイダンス（Goal）**：操作対象や目標領域を画像上で特定するため、入力視界ごとに二値のターゲットマスク $M_t$ を作成します。指示文によって条件付けられたゴールデコーダから低解像度マスクを予測させ、二値交差エントロピー損失とソフトDice損失の組み合わせ $\\mathcal{L}_{\\mathrm{goal}}$ で学習します。\n\n### 3-C 異なるポリシーへの展開\n- **GIFT-VLA**：Qwen3-VLバックボーンとStarVLA-OFTをベースとし、浅い層に幾何損失、最終層にアフォーダンス・ゴール予測用トークンを配置します。行動ヘッドは直接回帰を行います。\n- **GIFT-WAM-Fast**：Fast-WAMをベースとし、現在フレームの動画トークンに対して3つのガイダンスを適用します。推論時は現在フレームのキャッシュを用いて直接行動を拡散生成します。\n- **GIFT-WAM-IDM**：逆ダイナミクス型であり、未来の動画特徴を予測した後にそれを条件として行動をデノイジングします。ガイダンスはFast版と同様に現在フレーム特徴に適用されます。\n\n### 3-D 補助特徴量の注入（Injection vs No-injection）\nアフォーダンスやゴールの特徴を行動ヘッドに追加入力として流し込む「Injection」と、損失の逆伝播による中間特徴量の洗練のみに留める「No-injection」を比較できるように設計されています。デフォルトのGIFTはNo-injectionであり、推論時には幾何教師モデルも補助デコーダも完全に不要となります。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "Injection（注入あり）とNo-injection（注入なし）の構造比較です。(a)(c)の注入設計では予測されたアフォーダンスやゴールの潜在特徴が行動ヘッドに入力されますが、(b)(d)の非注入設計では学習時の中間特徴量への勾配逆伝播としてのみ機能し、推論時の行動生成インターフェースは元のモデルのまま維持されます。",
+     "caption": "Fig. 3: Injection and no-injection variants. With injection, model-predicted affordance and goal features are routed to the model-specific action head during both training and inference. Without injection, the same predictions provide auxiliary supervision only. Geometry remains an alignment-only objective because its scene-level structure is absorbed directly by the visual tokens already entering the model-specific action pathway, whereas the object-level affordance and goal features provide compact auxiliary conditions.",
+     "image": "details/2609.04193/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Simulation Evaluation",
+   "heading_ja": "シミュレーション評価：過酷な分布シフトや人型全身操作で圧倒的な強さを実証",
+   "summary_ja": "LIBERO、LIBERO-Plus、RoboCasaの3つのベンチマークで実験を行いました。標準環境での性能を維持しつつ、未知の環境変化（ゼロショット移行）において大幅なスコアアップを達成し、アブレーションにより3つのガイダンスの相補性とNo-injection設計の優位性が確認されました。",
+   "details_ja": "### 4-A・B 実験プロトコルと実装の詳細\n評価には標準的なLIBERO（4スイート各10タスク）、視点・照明・背景などが変化したLIBERO-Plus（7種類のシフト）、人型ロボットGR1による家庭内タスクを模したRoboCasa（ピック＆プレース18タスク、関節物体操作6タスク）を採用しました。モデルはすべて標準データのみで学習し、摂動環境にはファインチューニングなしのゼロショットで挑みます。\n\n### 4-C 主要結果の比較\n- **LIBERO（標準環境）**：元々のベースラインが飽和に近い高スコア（約97〜98%）を出している中でも、GIFT-VLAは97.9%（+1.3ポイント）、GIFT-WAM-Fastは97.7%（+0.1ポイント）、GIFT-WAM-IDMは98.5%（+0.5ポイント）と、標準性能を損なうことなく維持または向上しました。\n- **LIBERO-Plus（ゼロショット頑健性）**：ベースラインと比較して、GIFT-VLAは75.0%から79.6%（+4.6ポイント）、GIFT-WAM-Fastは60.0%から72.6%（+12.6ポイント）、GIFT-WAM-IDMは82.6%から87.8%（+5.2ポイント）へと飛躍的に向上しました。特にWAM-Fastにおいてロボット初期姿勢の変更（Robot shift）に対する耐性が20ポイント以上改善するなど、顕著な効果が見られました。\n- **RoboCasa（人型全身・関節物体操作）**：GIFT-WAM-Fastは全体平均83.6%（Fast-WAM比で+9.0ポイント）、GIFT-WAM-IDMは82.3%（同+8.4ポイント）に達しました。特筆すべきはドアや引き出しを開閉する「関節物体タスク」で、GIFT-WAM-Fastが+21.3ポイント、GIFT-WAM-IDMが+24.6ポイントという圧倒的な改善を記録しました。\n\n### 4-D・E アブレーションと分析\n- **Q1 各ガイダンスの貢献**：個別適用でも性能は向上しますが、幾何はカメラ視点変化に、アフォーダンスは初期姿勢変化に、ゴールは背景やノイズ変化に特に強く、3つを統合することで最大の効果を発揮することが確認されました。\n- **Q2 注入の要否（Injection vs No-injection）**：推論時に補助特徴量を無理に行動ヘッドへ入力する（Injection）よりも、入力しない（No-injection）方が、LIBERO-Plusで76.7% vs 79.6%、RoboCasaで58.6% vs 61.4%（いずれもGIFT-VLA）と、むしろ高い成功率を示しました。中間表現が十分に整っていれば余計な条件付けは不要であることが示されています。\n- **Q3・Q4 特徴量とアテンションの可視化**：中間特徴から再構成した幾何デプスやゴール領域は極めて正確であり、行動トークンから視覚特徴へのアテンションマップも、ベースラインに比べて操作対象や接触領域に一貫して集中し続けることが確認されました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "GIFT-VLA（上段）とGIFT-WAM-IDM（下段）における中間特徴量の予測可視化です。カメラ視点や背景が大きく変化しても、幾何予測は空間配置を整合的に捉え、アフォーダンスは対象物に対する手先姿勢を正確に推定し、ゴールマスクは操作対象領域を的確に抽出できています。",
+     "caption": "Fig. 4: Visualization of the structured intermediate guidance. Examples from GIFT-VLA (top) and GIFT-WAM-IDM (bottom) show observations together with geometry, affordance, and goal predictions.",
+     "image": "details/2609.04193/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "LIBERO-Plusにおける行動トークンから視覚トークンへのアテンションマップの比較です。ベースライン（StarVLA-OFT、Fast-WAM-IDM）が背景などの無関係な領域に注意を分散させているのに対し、GIFT適用モデルは操作対象のボウルやケチャップ、配置先のカゴなどに強くフォーカスし続けています。",
+     "caption": "Fig. 5: Visualization of action-to-vision attention maps on LIBERO-Plus. Across the VLA and WAM-IDM examples, GIFT focuses more consistently on manipulated objects and interaction-relevant regions compared with matched baselines.",
+     "image": "details/2609.04193/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Real-World Experiments",
+   "heading_ja": "実機ロボット実験：過酷な照明・配置変化下でも双腕精密タスクを完遂",
+   "summary_ja": "単腕xArm7と双腕ARX X5の2種類のロボット実機を用いて、色分け配置、多段ラック配置、戸棚操作、試験管挿入の4タスクを検証しました。回転カラー照明や布地変更、未知の障害物や姿勢のずれといった強い外乱下でも、GIFTはベースラインを大幅に上回る頑健性を達成しました。",
+   "details_ja": "### 5-A ハードウェアとデータ収集・アノテーション\n- **ハードウェア構成**：単腕プラットフォームとして三人称・手先カメラを備えたUFACTORY xArm7、双腕プラットフォームとして頭部・左右手先カメラを備えたARX X5を使用しました（いずれもRealSenseを使用）。\n- **データ収集とアノテーション**：遠隔操作で各タスク100デモ（計400エピソード）を収集しました。操作者の手袋の影響を減らすため半分にインペインティング処理を施しています。Grounding DINOとSAM2で対象物の追跡マスク（ゴール教師）を生成し、RGB-D深度とOrient Anything V2を組み合わせて6-DoF姿勢（アフォーダンス教師）を作成する効率的なアノテーションパイプラインを構築しました。\n\n### 5-B・C 実機実験の結果と頑健性評価\n- **通常環境での評価**：4タスク全体で、GIFT-VLAは35.0%から57.5%へ、GIFT-WAM-IDMは52.5%から87.5%へと大幅に成功率を伸ばしました。特に双腕による精密な「試験管挿入（Task 4）」では、Fast-WAM-IDMが2/10回しか成功しなかったのに対し、GIFT-WAM-IDMは8/10回の成功を収めました。\n- **過酷な外乱（摂動）テスト**：合成的な画像処理ではなく、物理的な環境変化を加えました。ラック配置タスクでは、上部に回転カラーランプを設置して激しい色・光変化を与え（Level 1）、さらにテーブルに未知の色の布を敷きました（Level 2）。試験管タスクでは、背景に未知の雑多な小物をばら撒き（Level 1）、さらに試験管とラックを15〜20度回転させて初期配置を狂わせました（Level 2）。\n- この摂動テストにおいて、ベースラインのStarVLA-OFTは平均5.0%、Fast-WAM-IDMは15.0%まで崩壊したのに対し、GIFT-VLAは27.5%、GIFT-WAM-IDMは67.5%という極めて高い成功率を維持しました。幾何とアフォーダンスが中間特徴量に組み込まれていることで、見た目が激変しても物理的な接触関係を正確に見失わずに制御できることが証明されました。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "実機ロボットの実験セットアップです。(a) 三人称および手先カメラを備えた単腕UFACTORY xArm7。(b) 頭部カメラおよび左右手先カメラを備えた双腕ARX X5。いずれも平行グリッパをエンドエフェクタとして使用しています。",
+     "caption": "Fig. 8: Real-world robotic platforms. (a) Single-arm UFACTORY xArm7 setup observed by third-person and wrist-mounted Intel RealSense D435 cameras. (b) Dual-arm ARX X5 setup observed by one head-mounted and two wrist-mounted Intel RealSense D405 cameras. Both systems use parallel grippers.",
+     "image": "details/2609.04193/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめと今後の展望：汎用視覚知識をロボット制御につなぐ共通指針",
+   "summary_ja": "GIFTは、幾何・アフォーダンス・ゴールという3つの制御指向構造を中間特徴量に課すことで、行動十分性ギャップを埋める柔軟な学習フレームワークであることを総括しています。補助予測を入力に流し込まずに中間層を鍛え上げる設計が、多様なポリシーモデルにおいて極めて有効であることが示されました。",
+   "details_ja": "本研究では、VLAやWAMといった最新のロボット基盤モデルが抱える本質的な課題「行動十分性ギャップ」に対し、中間特徴量を直接監督するアプローチ「GIFT」を提案しました。モデル固有の行動デコーダ構造を変更したり、推論時に追加の条件入力を要求したりすることなく、幾何アライメント、物体中心アフォーダンス予測、指示連動ゴール領域再構成という3つの補助タスクによって、制御に必要な物理・タスク構造を中間特徴量に内在化させることができます。\n\nシミュレーションおよび実機における広範な実験を通じて、GIFTは直観的な行動予測VLA、直接拡散型WAM、逆ダイナミクス型WAMのすべてにおいて、環境変化に対する頑健性と操作精度を一貫して向上させました。今後は、さらに多様なガイダンス信号の探索や、より大規模なデータセットへのスケールアップ、極端な知覚崩壊が起きた際のガイダンス自体の信頼性向上が課題として挙げられています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "VLAやWAMで行動予測ロス・ピクセル予測ロスだけに頼ると、制御に不要な外見冗長性に引きずられ、環境変化に極端に弱くなる（行動十分性ギャップ）。",
+  "中間特徴量に「幾何（Feasibility）」「アフォーダンス（How）」「ゴール（Where）」を学習時に課すだけで、推論時に入力を増やさずともモデル内部が制御指向に洗練される。",
+  "補助タスクの予測値を行動ヘッドに無理に注入（Injection）するよりも、中間特徴量に逆伝播で内在化させる（No-injection）方が頑健性・性能ともに高くなる。",
+  "モデルアーキテクチャ（VLA/WAM）や行動生成形式（回帰/拡散/逆ダイナミクス）が違っても、同一の表現学習原則が有効に機能する。"
+ ],
+ "limitations_ja": [
+  "強いセンサノイズや微小な凹凸に対して幾何アライメントが破綻すると、誤った空間認識が行動生成に悪影響を及ぼす場合がある。",
+  "指示対象と見た目が似ている妨害物体（ディストラクタ）が存在する場合、アフォーダンスの割り当てを誤って誤把持を起こすことがある。",
+  "学習時に物体マスクや6-DoF姿勢といった詳細なアノテーション（または高精度な疑似ラベル生成パイプライン）を必要とするため、学習データの準備コストが純粋な模倣学習より高い。"
+ ],
+ "keywords": [
+  "Vision-Language-Action Models",
+  "World-Action Models",
+  "Intermediate Feature Supervision",
+  "Robotic Manipulation",
+  "Affordance Learning",
+  "Distribution Shift Robustness"
+ ],
+ "id": "2609.04193",
+ "title": "GIFT: Guided Intermediate Feature Training via Action-Oriented Structural Supervision for Robotic Manipulation",
+ "authors": [
+  "Yupeng Zheng",
+  "Xiang Li",
+  "Songen Gu",
+  "Yuhang Zheng",
+  "Shuai Tian",
+  "Weize Li",
+  "Linbo Wang",
+  "Chaoyue Li",
+  "Qichao Zhang",
+  "Haoran Li",
+  "Zhongpu Xia",
+  "Ya-Qin Zhang",
+  "Shuicheng Yan",
+  "Dongbin Zhao"
+ ],
+ "date": "2026-09-06",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "imitation-learning",
+  "vision-language-action"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.04193",
+ "pdf_url": "https://arxiv.org/pdf/2609.04193",
+ "summary_ja": "視覚言語事前学習モデルの視覚特徴と制御に必要な物理構造との乖離を埋めるため、幾何形状・アフォーダンス・ゴール領域の3つの制御関連構造を中間特徴に明示的に監督する訓練手法GIFTを提案。制御に無関係な視覚的冗長性を削減し、模倣学習方策の汎化性能と成功率を向上させた。",
+ "generated": "2026-09-06",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.04193"
+}
