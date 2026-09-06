@@ -1,6 +1,261 @@
 {
  "entries": [
   {
+   "date": "2026-09-06",
+   "rank": 0,
+   "id": "2609.03557",
+   "group": "focus",
+   "title": "Building Pretraining Data for World Models: An Unreal Engine-Based Pipeline for Action-Conditioned Video Generation",
+   "title_ja": "ワールドモデル向け事前学習データ構築：Unreal Engineによる行動条件付き動画生成パイプライン",
+   "summary_ja": "Unreal Engineを活用し、物理シミュレーションと高品質オフライン描画を2段階に分離することで、行動ラベルと完全に時間同期した大規模なマルチビュー動画データを自動生成するパイプラインを提案。実世界動画では取得困難な状態・行動ペアを提供し、ワールドモデルの事前学習基盤として機能することを示した。",
+   "authors": [
+    "Haoyu Wang",
+    "Songchun Zhang",
+    "Haoran Li",
+    "Haoyang Huang",
+    "Zeyue Xue",
+    "Nan Duan"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.GR"
+   ],
+   "tags": [
+    "simulation",
+    "world-model",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.03557",
+   "image": "figures/2026-09-06/2609.03557.jpg"
+  },
+  {
+   "date": "2026-09-06",
+   "rank": 1,
+   "id": "2609.04066",
+   "group": "focus",
+   "title": "Subspace Inference Enables Efficient Active Reward Learning from Preferences",
+   "title_ja": "部分空間推論による嗜好からの効率的な能動的報酬学習",
+   "summary_ja": "人間の嗜好に基づく能動的報酬学習（RLHF）の不確実性推定をカルマンフィルタによる部分空間推論として定式化する新手法PreferenceEKFを提案。大規模ニューラルネットのパラメータ空間全体ではなく低次元部分空間で不確実性を追跡することで、高い計算効率と優れたサンプル効率で強化学習の報酬モデルを高精度に学習できる。",
+   "authors": [
+    "Yutai Zhou",
+    "Erdem Bıyık"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.04066",
+   "image": "figures/2026-09-06/2609.04066.jpg"
+  },
+  {
+   "date": "2026-09-06",
+   "rank": 2,
+   "id": "2609.03906",
+   "group": "focus",
+   "title": "Revisiting Topological Graphs for Macro Action based Closed-loop Reinforcement Learning of Vision Language Navigation in Continuous Environment",
+   "title_ja": "連続環境のVision-Language Navigationにおけるマクロ行動ベース閉ループ強化学習",
+   "summary_ja": "連続環境での言語指示ナビゲーションを階層的マルコフ決定過程として再定式化し、高レベル計画と低レベル制御を分離した閉ループ強化学習手法を提案。位相幾何学的グラフからマクロ行動を抽象化してスパース報酬によるサンプル非効率性を克服し、未知の環境における分布シフトや軌道逸脱に対してもロバストな追従性能を達成した。",
+   "authors": [
+    "Shuhao Ye",
+    "Sitong Mao",
+    "Yuxiang Cui",
+    "Yufei Wei",
+    "Xuan Yu",
+    "Shichao Zhai",
+    "Wen Chen",
+    "Shunbo Zhou",
+    "Rong Xiong",
+    "Yue Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "navigation",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.03906",
+   "image": "figures/2026-09-06/2609.03906.jpg"
+  },
+  {
+   "date": "2026-09-06",
+   "rank": 3,
+   "id": "2609.03794",
+   "group": "focus",
+   "title": "A comparative study on the accuracy & repeatability of mobile robotic platforms for the delivery of precision NDE measurement",
+   "title_ja": "精密非破壊検査向け移動ロボットプラットフォームの精度と再現性に関する比較研究",
+   "summary_ja": "航空宇宙構造物の非破壊検査を対象に、四脚ロボットBoston Dynamics SpotやKUKA、MiR、Huskyなど5種の市販移動ロボットの静的および軌道追従の位置決め精度をレーザートラッカー（約6μm精度）で共通評価。ロボットごとに異なる幾何学的・動作誤差特性を定量化し、実機配備時の精度限界と選択基準を明らかにした。",
+   "authors": [
+    "SeyedMohammadAmin Nabi Pour",
+    "S. Gareth Pierce",
+    "Randika Vithanage",
+    "Ehsan Mohseni",
+    "David Carswell",
+    "Matthew Shields"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "benchmark",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.03794",
+   "image": "figures/2026-09-06/2609.03794.jpg"
+  },
+  {
+   "date": "2026-09-06",
+   "rank": 4,
+   "id": "2609.03142",
+   "group": "general",
+   "title": "Sensing Which Modality Matters: Evidence-Gated Regularization for Robust VLA Policies",
+   "title_ja": "どのモダリティが重要かを検知する：ロバストなVLA方策に向けたエビデンス依存ゲーティング正則化",
+   "summary_ja": "Vision-Language-Action（VLA）方策が不要なセンサ相関に依存するモダリティ交絡を防ぐため、推論時オーバーヘッドなしで適用できる訓練正則化手法EGRを提案。フレーム・センサごとのタスク関連度シグナルを推定し、遮蔽や外乱ノイズ下でも堅牢なセンシング選択性を実現して操作性能を向上させた。",
+   "authors": [
+    "Yue Yang",
+    "Diego Romeres",
+    "Chiori Hori",
+    "Gedas Bertasius",
+    "Daniel Szafir",
+    "Siddarth Jain"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.03142",
+   "image": "figures/2026-09-06/2609.03142.jpg"
+  },
+  {
+   "date": "2026-09-06",
+   "rank": 5,
+   "id": "2609.03199",
+   "group": "general",
+   "title": "RoboTok: An Internet-Scale Data Engine for Human Demonstration Retrieval and Dexterous Manipulation Learning",
+   "title_ja": "RoboTok：人間デモ検索と器用な操作学習のためのインターネット規模データエンジン",
+   "summary_ja": "クエリとなる人間の手操作動画に基づき、Web動画群から類似の手操作デモを自動検索してロボットの器用な操作方策の学習に利用するデータエンジンRoboTokを提案。手中心座標系で表現された3D軌道から運動潜在空間を学習することで、視点や背景の差異を越えてロバストに動作を照合・転移できる。",
+   "authors": [
+    "Howard Qian",
+    "Yiting Chen",
+    "Yunfei Xie",
+    "Kejia Ren",
+    "Podshara Chanrungmaneekul",
+    "Gaotian Wang",
+    "Bowen Wen",
+    "Chen Wei",
+    "Kaiyu Hang"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "imitation-learning",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.03199",
+   "image": "figures/2026-09-06/2609.03199.jpg"
+  },
+  {
+   "date": "2026-09-06",
+   "rank": 6,
+   "id": "2609.04193",
+   "group": "general",
+   "title": "GIFT: Guided Intermediate Feature Training via Action-Oriented Structural Supervision for Robotic Manipulation",
+   "title_ja": "GIFT：ロボット操作のための行動指向構造的教師を用いた中間特徴量学習",
+   "summary_ja": "視覚言語事前学習モデルの視覚特徴と制御に必要な物理構造との乖離を埋めるため、幾何形状・アフォーダンス・ゴール領域の3つの制御関連構造を中間特徴に明示的に監督する訓練手法GIFTを提案。制御に無関係な視覚的冗長性を削減し、模倣学習方策の汎化性能と成功率を向上させた。",
+   "authors": [
+    "Yupeng Zheng",
+    "Xiang Li",
+    "Songen Gu",
+    "Yuhang Zheng",
+    "Shuai Tian",
+    "Weize Li",
+    "Linbo Wang",
+    "Chaoyue Li",
+    "Qichao Zhang",
+    "Haoran Li",
+    "Zhongpu Xia",
+    "Ya-Qin Zhang",
+    "Shuicheng Yan",
+    "Dongbin Zhao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "imitation-learning",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.04193",
+   "image": "figures/2026-09-06/2609.04193.jpg"
+  },
+  {
+   "date": "2026-09-06",
+   "rank": 7,
+   "id": "2609.03758",
+   "group": "general",
+   "title": "A Multi-Vine Soft Robot Enabling Accessible Working Channel and Steering",
+   "title_ja": "接近可能な作業チャネルと操舵機能を備えた多重バインソフトロボット",
+   "summary_ja": "先端成長するバイン（蔓）型ソフトロボットにおいて、管腔内を保護しながら機器を挿入できる作業チャネルと、アクチュエータによる能動ステアリングを両立させた新構造を提案。狭隘環境や結腸などの屈曲経路における低摩擦での柔軟なナビゲーションと、医療用器具等のデリバリーを可能にした。",
+   "authors": [
+    "Reza Kashef",
+    "Cem Suulker",
+    "Mohammad Sheikh Sofla",
+    "Kaspar Althoefer"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "medical",
+    "navigation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.03758",
+   "image": "figures/2026-09-06/2609.03758.jpg"
+  },
+  {
+   "date": "2026-09-06",
+   "rank": 8,
+   "id": "2609.04158",
+   "group": "general",
+   "title": "Formation Matrix and Energy-based Control of Multi-Agent Systems",
+   "title_ja": "マルチエージェントシステムの編隊行列とエネルギーベース制御",
+   "summary_ja": "平面上を移動する自律マルチロボットの衝突回避と編隊維持を両立するため、エージェント間をバネ・ダンパ系として模擬するボンドグラフに基づくエネルギー制御手法を提案。相対距離と速度をグラフ理論的に記述する編隊行列を導入し、目的形状の形成と安全な移動制御を保証した。",
+   "authors": [
+    "Martín Crespo",
+    "Sergio Junco",
+    "Matías Nacusse"
+   ],
+   "categories": [
+    "eess.SY",
+    "cs.RO"
+   ],
+   "tags": [
+    "multi-robot",
+    "control",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.04158",
+   "image": null
+  },
+  {
    "date": "2026-09-05",
    "rank": 0,
    "id": "2609.03565",
