@@ -1,0 +1,137 @@
+{
+ "title_ja": "RoboTok：人間デモ検索と器用な操作学習のためのインターネット規模データエンジン",
+ "tldr_ja": "手元の実演動画をクエリとして、Web上の膨大な動画群から類似した「手の3D動作軌道」を持つ実演を高速に検索・インデックス化するデータエンジンRoboTokを提案しました。身体中心座標系で表現した手の3D軌道から運動潜在空間を学習することで、視点や見た目の違いに惑わされず動作の一致する動画を高精度に検索でき、強化学習による器用なマニピュレーション方策の成功率を大幅に引き上げられることを示しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "RoboTokが学習した運動潜在空間のt-SNE可視化です。言語ラベルや意味アノテーションを一切使わずに手の3D動作軌道のアライメントだけで学習しているにもかかわらず、「ボウルで混ぜる」「ナイフで切る」「ドリルを使う」といった操作動作ごとに自然と綺麗なクラスタが形成されていることが分かります。",
+  "caption": "Figure 1: RoboTok is an internet-scale data engine that indexes human demonstration clips from the web by their 3D egocentric hand trajectories. The figure shows a t-SNE visualization of RoboTok embeddings, learned using a spatiotemporal motion-alignment metric to organize manipulation trajectories. For visualization, we display 2D camera-space hand poses, while retrieval operates on the underlying 3D egocentric representation. This latent motion space enables efficient retrieval of demonstrations for downstream dexterous manipulation policy training. Although semantic labels are not used for curation or retrieval, the learned embeddings still organize into coherent categories.",
+  "image": "details/2609.03199/F1.jpg"
+ },
+ "overview_ja": "ロボットに器用な手先操作（デクスタラス・マニピュレーション）を学習させるには、多様で膨大な実演データが不可欠です。しかし、実機ロボットを使ってロングテールな実世界の作業を網羅するのは、コスト的にも運用的にも限界があります。そこで近年、YouTubeなどに無数に存在する人間の作業動画をロボット学習に活用する試みが注目を集めています。ところが、Web動画はカメラの視点や背景、照明、登場する人物の遮蔽などが極めて雑多です。さらに厄介なのは、「見た目が似ていても手の動かし方は全く違う」あるいは「見た目は全く違っても同じ動作をしている」というギャップが存在することです。\n\nそこで著者らは、Web動画から真にタスクに関連する人間の実演動画を検索・収集するデータエンジン「RoboTok」を考案しました。着想のコアは「カメラ座標系ではなく、作業者の胴体を基準とした自己中心座標系（エゴセントリック座標系）で手の3D軌道を表現すれば、視点や背景に左右されず手の動きそのものを比較できる」という点です。単眼動画から3D手先姿勢を復元し、手首の動きから胴体フレームを推定して軌道を正規化します。そして、動的時間伸縮法（DTW）による軌道一致度を教師信号として軽量エンコーダを訓練し、高速なベクトル近傍探索が可能な潜在運動空間を構築しました。\n\n検証では、10万本のWeb動画や別データセットからの動作検索実験において、既存のロボット・動画検索手法を圧倒する精度を達成しました。さらに、検索された動画から抽出した手の姿勢を報酬としてシミュレータ上の強化学習（PPO）に与えたところ、手首の自由な動きを伴う高難度な器用操作タスクにおいて成功率が大幅に向上しました。Web上の人間動画が、ロボット学習のための継続的かつ拡張可能な教師データ源になり得ることを実証した画期的な成果です。",
+ "contributions_ja": [
+  "Web上の雑多な人間動画から、カメラ視点や外見の違いを越えて手の3D動作軌道の一致度に基づき関連実演を検索する初のインターネット規模データエンジンRoboTokを構築した点",
+  "手首の動きのみから作業者の静的な胴体フレームを推定し、身体が見えていなくても手の3D軌道を自己中心座標系へ幾何学的に正規化する枠組みを提案した点",
+  "動的時間伸縮法（DTW）による軌道類似度を教師信号として軽量エンコーダに蒸留し、大規模動画コレクションに対して高速なベクトル検索と継続的なインデックス追加を可能にした点",
+  "検索されたWeb動画の実演を手先姿勢の追従報酬として組み込むことで、高難度な器用操作シミュレーションタスクにおいて方策の学習速度と成功率を大幅に向上させた点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜWeb動画から「手の動き」を検索する必要があるのか？",
+   "summary_ja": "ロボット学習における実機データ収集のボトルネックを解消するため、Web上の人間動画の活用が期待されています。しかし、Web動画は視点や外見が多様であり、見た目の類似度が必ずしも動作の類似度と一致しないという課題がありました。本論文では、作業者中心の3D手先軌道に基づく表現を学習することで、この検索課題を解決するデータエンジンRoboTokを提案します。",
+   "details_ja": "ロボット学習を実世界の多様なタスクや環境に適応させるには、多種多様な実演データが欠かせません。しかし、実機ロボットを遠隔操作してデータを集める手法はコストが非常に高く、実世界のロングテールな事象すべてをカバーするのは困難です。そこで、既存データから必要な実演を探し出す「検索」アプローチが注目されています。\n\n特にWeb上の人間動画は、専用に収集されたオフラインデータセットとは比較にならないほど膨大で、日々増え続けています。人間型ロボットや多指ハンドにとって、人間の実演動画は形態的にも極めて親和性が高い情報源です。しかし、Web動画をロボット学習に使うには大きな壁がありました。Web動画はカメラの画角や撮影環境、オクルージョン（遮蔽）がバラバラであり、何より「見た目の類似性や意味的な類似性が、必ずしも手先の操作動作の類似性を意味しない」という問題です。単に包丁を持っているシーン同士であっても、切っている最中の手の動きと置いている動作では全く異なります。\n\n本研究が提案するRoboTokは、この問題に対して「固定されたデータセットを作るのではなく、Web動画を継続的にインデックス化して検索するエンジン」というアプローチを取ります。その核心的な洞察は、器用な手の動きはカメラ座標系ではなく、作業者や操作対象を基準とした座標系で表現して初めて意味を持つという点です。手首の動きから作業者の胴体座標系を推定し、視点に依存しない手の3D軌道を抽出して潜在空間に埋め込むことで、Webスケールでの高速かつ高精度な動作検索を実現しました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Works",
+   "heading_ja": "ロボット学習データと実演検索の潮流",
+   "summary_ja": "大規模ロボットデータセットや人間動画を活用した従来研究を概観し、既存のデータ検索手法が抱える限界を整理しています。多くの先行手法は固定されたロボットデータ、2D画像上の動き、あるいは言語や見た目の意味情報に依存していましたが、RoboTokはWeb規模の人間動画から純粋な3D手先動作に基づいて検索する点で一線を画しています。",
+   "details_ja": "本章では、関連する先行研究を3つの系統に分類して整理しています。\n\n### 2.1 ロボット学習のための大規模実演データ\nOpen X-EmbodimentやDROID、BridgeData V2といった大規模データセットの登場により、汎用的なロボット基礎モデルの構築が進んでいます。また、MimicGenのように既存軌道を変換・増幅する手法も提案されています。しかし、これらは依然として専用のロボットインフラや手作業のパイプライン構築が必要であり、カバーできる作業の範囲には限界があります。RoboTokは、これらを補完する膨大かつ継続的に成長するデータ源としてWeb人間動画を開拓します。\n\n### 2.2 器用な操作学習のための人間動画活用\n人間と多指ハンドの形態的類似性に着目し、人間の作業動画から接触や動作表現を取り出してロボットを指導する研究（VideoDexやEgoMimic、CHORDなど）が数多く登場しています。また、HowTo100MやAction100Mのように、自然な人間活動を捉えた大規模Web動画も存在します。しかし、数百万本におよぶ雑多なクリップの中から「いま学習したいタスクに必要な動作」をどうやって見つけ出すかという発見（Discovery）の課題は未解決でした。RoboTokは、ラベルや外見に頼らず自己中心3D手先軌道を用いて検索することでこの課題に対処します。\n\n### 2.3 ロボット学習のための実演検索\n既存の検索手法には、状態行動ペアの一致や言語指示を用いたVLM（視覚言語モデル）による検索、オプティカルフローを用いた動作検索（FlowRetrieval）、基盤モデル特徴量のDTWマッチング（STRAP）、2Dの手先パス照合（HAND）などがあります。しかしこれらは、固定されたロボットデータセットに限定されていたり、画像空間の2D動作や見た目の意味に引きずられたりするという制約がありました。RoboTokは、クエリ動画から抽出した自己中心座標系での3D手先軌道を手がかりに、Web動画全体から直接動作を検索できる点が本質的に異なります。",
+   "figures": []
+  },
+  {
+   "heading": "3 Problem Formulation",
+   "heading_ja": "動作の近さをどう定義し、どうやってスケールさせるか？",
+   "summary_ja": "器用な操作クリップを検索するための定式化を行っています。手の21関節の3D軌道同士の類似度を動的時間伸縮法（DTW）によって定義し、これを教師信号として軽量な軌道埋め込みモデルを学習させることで、Web規模の高速なベクトル近傍探索へと落とし込みます。",
+   "details_ja": "ある器用なタスクを行っている人間のクエリ動画 $q$ と、Web動画の候補集合 $\\mathcal{D} = \\{x_1, \\ldots, x_N\\}$ が与えられたとき、操作動作が最も似ている上位 $K$ 個のクリップ $\\mathcal{R}_K(q; \\mathcal{D})$ を取り出すことが目的です。ここでの類似度は、背景や見た目ではなく「時間経過に伴う手の動かし方」で定義されなければなりません。\n\n作業実行速度の局所的な違い（素早く切るか、ゆっくり切るかなど）を吸収するため、本研究では正規化された3D手先軌道同士のアライメントに動的時間伸縮法（DTW: Dynamic Time Warping）を採用します。21関節の手先ポーズ軌道 $x_i, x_j$ に対し、有効なアライメントパス $\\pi$ におけるユークリッド距離の累積コストを最小化し、長さで正規化した負のコストを真の類似度 $s(q, i)$ と定義します。\n\n理想的な検索結果はこの類似度に基づく上位 $K$ 個ですが、Web規模の何万〜何百万もの候補クリップに対してクエリ時に毎回DTWを総当たり計算するのは計算量的に不可能です。そこで著者らは、DTWをオラクル（教師信号）として利用し、軌道空間から単位超球 $\\mathbb{S}^{d-1}$ への写像を行うエンコーダ $\\Gamma$ を学習させることにしました。内積類似度 $\\langle \\Gamma(x_i), \\Gamma(x_j) \\rangle$ がDTWの類似度順位を保存するように訓練することで、データベース側は事前にベクトル化しておき、推論時は高速な最近傍ベクトル探索（cosine類似度検索）で一瞬で完結させられるようにしています。",
+   "figures": []
+  },
+  {
+   "heading": "4 RoboTok: Internet-Scale Retrieval of Human Demonstrations",
+   "heading_ja": "Web動画のパイプラインと潜在運動空間の学習",
+   "summary_ja": "RoboTokの具体的なシステム構成を解説しています。Web動画からのクリップ選定、WiLoRとMoGe-2を用いた3D手先姿勢推定、手首から胴体フレームを推定する自己中心座標正規化、そしてDTWに基づく順位損失を用いた軽量エンコーダの学習手順を詳細に述べています。",
+   "details_ja": "RoboTokは大きく分けて「オフラインのWeb動画インデックス化」と「オンラインのクエリ検索」の2段階で動作します。全体のデータ処理とモデルアーキテクチャの流れは以下の通りです。\n\n### 4.1 訓練データ構築パイプライン\nWeb動画は多様性に富む一方、視点やオクルージョンが激しいため、頑健な前処理が必要です。\n- **クリップ選定**: Action100M動画コーパスから、長さ4〜8秒、カメラがほぼ静止（Lucas-Kanade法で判定）、手が映っており両手合わせて左右各1本以下に収まっているクリップを自動抽出しました。\n- **手の姿勢推定とメトリック深度復元**: 5 fpsでWiLoRを用いて手の3Dキーポイント（21関節）を検出し、フレーム間で同一の手を追跡します。弱透視投影の曖昧さを解消するため、深度推定モデルMoGe-2を用いてカメラからの実スケール（メートル単位）の3D座標に変換し、欠損はHaWoRで補完します。\n- **エゴセントリック（自己中心）座標系の獲得**: カメラ座標系のままだと視点が異なると比較できません。そこで、手首のフレーム列だけを入力として作業者の静的な胴体フレーム（胸部座標系）を予測する軽量モデルを学習させました。これによって、作業者の全身が画面に映っていなくても、手さえ見えていれば共通の身体中心座標系へ軌道を正規化できます。\n\n### 4.2 RoboTokのモデル構造と学習目標\nすでに座標系が正規化されているため、モデルに複雑な外見不変性を学習させる必要はありません。そのため、軌道エンコーダは各フレームの位置エンコーディングとクロスアテンションによるプーリングからなる意図的に軽量な設計とし、$\\\\ell_2$ 正規化された $d$ 次元埋め込みを出力します。\n- **バッチ構築の工夫**: 10万クリップの規模では、ランダム抽出したバッチ内にDTW的に類似した軌道が含まれる確率はほぼゼロです。そこでアンカーを中心に、オラクルの上位20位から正例2本、境界直外から境界負例1本をサンプリングするグループを作り、境界付近の識別能力を集中的に鍛えます。\n- **損失関数**: 検索品質を直接高めるため、上位近傍が境界負例より高いスコアを取るように促す集合損失 $\\mathcal{L}_{\\mathrm{set}}$ と、正例同士の相対的な並び順をDTWの順位に一致させる順位損失 $\\mathcal{L}_{\\mathrm{rank}}$ を組み合わせた複合損失で最適化します。\n- **推論**: 事前に全軌道をエンコードしてインデックスに保存しておくことで、クエリ時は1回のフォワードパスとベクトル探索だけで完了します。新しいWeb動画が追加された際も、再学習なしで単に追加エンコードするだけでインデックスを継続的に拡張できます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "Web動画から自己中心的な3D手の軌道を抽出するパイプラインです。クリップをフィルタリングしたのち、手のメトリック3Dポーズを推定し、手首の動きから作業者の胴体座標系を推定して身体中心の軌道へと正規化しています。",
+     "caption": "Figure 2: Internet videos are filtered to retain clips with visible hands and near-static cameras. Hand trajectories are extracted from each clip and reconstructed in metric 3D. To enable view-invariant motion comparison, trajectories are represented in an egocentric coordinate frame. We train a lightweight model to estimate a static torso frame directly from the observed hand wrist frames without requiring visibility of the human body.",
+     "image": "details/2609.03199/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "RoboTokの学習と推論の流れです。オフラインで各軌道を潜在運動空間に一度だけエンコードしてインデックス化しておき、オンライン推論時はクエリ動画を同様にエンコードしてコサイン類似度の最近傍探索によって瞬時に類似動作動画を取得します。",
+     "caption": "Figure 3: Every egocentric trajectory is encoded once into the RoboTok learned motion embedding space. The RoboTok encoder is trained using DTW-derived positives and hard negatives under a combined set and rank objective. At query time, a clip is encoded into the same space and its nearest neighbors are efficiently retrieved via cosine-similarity search.",
+     "image": "details/2609.03199/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Evaluating RoboTok: Retrieval Quality and Downstream Dexterous Manipulation Policies",
+   "heading_ja": "検索性能の圧倒的差とロボット強化学習での劇的な効果",
+   "summary_ja": "10万本のAction100Mおよび外部データセットAssemblyHandsを用いた検索精度評価と、シミュレーション環境VTDexManipを用いた強化学習ポリシーの性能評価を行いました。RoboTokは既存手法を大幅に上回る検索精度を示し、得られた実演でガイドされたロボット方策は難関タスクで飛躍的な成功率を達成しました。",
+   "details_ja": "評価は「検索品質の定量的・定性的評価」と「検索結果を用いた下流ロボット方策の学習」の2軸で行われました。\n\n### 5.1 検索精度の評価\n10,000クリップのテストセット（Action100M）と、センサ計測による真の3D手先アノテーションを持つ外部データセット「AssemblyHands」（831クリップ）を用いて評価しました。比較対象は、ランダム、FlowRetrieval（オプティカルフロー）、HAND（2D軌道）、STRAP（基盤モデル特徴のDTW）です。\n- **RoboTokコーパスでの結果**: DTWオラクルに対する上位20件の検索において、既存手法の最高値（STRAP）でもmAP@20 = 0.007、Recall@20 = 0.12にとどまり、ほぼ偶然レベルでした。これに対しRoboTokは mAP@20 = 0.353、Recall@20 = 0.996 を記録し、ほぼ全クエリで真の動作近傍を回収できました。平均DTWコストもオラクルの1.145 mに対して1.333 m（わずか16%増、ランダムは4.776 m）と極めて近傍を捉えています。\n- **AssemblyHandsでの汎化性能**: ドメインシフト下でも傾向は変わらず、RoboTokが mAP@5 = 0.261（STRAPは0.133）で全指標トップを獲得し、他データセットへも強固に汎化することが確認されました。\n\n### 5.2 下流ロボット方策への適用評価\n検索した動画が実際にロボットの学習に役立つかを、多指ハンドのシミュレーション環境「VTDexManip」で検証しました。先行研究の標準設定では性能が飽和していたため、手首の3D移動制限を撤廃し、密な報酬設計を削った「より現実的で探索が困難な設定」を新設しました。\n- **タスクと強化学習設定**: ボトルのキャップ回し（BottleCap Turning）、蛇口のネジ回し（Faucet Screwing）、レバーのスライド（Lever Sliding）の3タスクです。PPOアルゴリズムを用い、タスク報酬に加えて、検索された実演の手先姿勢集合に対する距離をベースとしたポテンシャル型報酬シェーピングを与えました。ロボットの行動ラベルや軌道そのものは与えず、姿勢のガイドのみとして機能させています。\n- **結果**: 難関タスクにおいて、RoboTokによる実演ガイドはベースラインを圧倒しました。未知オブジェクト（Seen/Unseen）に対して、BottleCap Turningでは77.3%（次点のHANDは59.5%）、Faucet Screwingでは44.8%（HANDは6.8%）、Lever Slidingでは79.3%（HANDは19.5%）と、他手法を最大約60ポイント突き放す大差をつけました。適切な動作が検索できているからこそ、強化学習の無駄な探索が劇的に削減されたことを実証しています。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "「ナイフで切る」クエリに対する各手法の検索結果トップ3の比較です。外見や背景に惑わされたベースラインと異なり、RoboTokは異なる人物・異なる食材・異なる視点であっても、包丁を往復させて切る正確な手先動作を抽出できています。",
+     "caption": "Figure 4: Given a query demonstration video of knife cutting, we show the corresponding top-3 retrieved videos from each baseline method compared with RoboTok. Next to each retrieved video, we display its hand trajectories along with the estimated human torso frame. RoboTok retrieves based on the egocentric representation of hand trajectories and retrieves more relevant demonstrations than the baselines according to manipulation behavior.",
+     "image": "details/2609.03199/F4.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "手首の自由な移動を許可し密な報酬を取り除いた、高難度なVTDexManipシミュレーションタスクの様子です。RoboTokが検索した人間実演にガイドされることで、PPOポリシーが自然で器用な手先ポーズを自律的に獲得していることが示されています。",
+     "caption": "Figure 6: The modified harder VTDexManip simulation-based robotic evaluation tasks. Visualized are successful, natural hand poses achieved by PPO guided by RoboTok retrieved demonstrations.",
+     "image": "details/2609.03199/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "RoboTokは、Web上の人間動画から器用な操作動作を検索・活用するためのスケーラブルなデータエンジンを確立しました。胴体基準の3D手先表現によって外見に惑わされない動作検索を可能にし、ロボット学習のデータ収集ボトルネックを打ち破る有力な道筋を示しました。",
+   "details_ja": "本研究では、インターネット上の動画から器用な操作動作を抽出し、ロボット学習に役立てるデータエンジン「RoboTok」を提案しました。作業者の胴体を中心とした3D手先軌道表現を学習することで、カメラ視点や外見、遮蔽を乗り越えて「動作そのものの類似性」に基づく検索をWebスケールで実現できることを示しました。\n\n実験では、既存の検索手法を大幅に凌駕する検索精度を達成しただけでなく、回収した動画実演がシミュレーション環境での器用なマニピュレーション学習を強力に加速・改善することを実証しました。あらかじめ作られた固定のロボットデータセットだけに頼るのではなく、日々Webに投稿される膨大な人間動画を自動的かつ継続的にロボットの学習リソースへと変換できる道を開いた意義は非常に大きいです。\n\n今後は、カメラが動くシーン（歩行中の三人称視点やエゴセントリック動画など）への対応を拡張し、ロボット学習におけるデータ収集の壁をさらに打ち破っていくことが期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「見た目の近さ」と「動作の近さ」は異なる：Web動画をロボット学習に使う際は、視覚的特徴量（VLMや画像特徴）で検索するよりも、幾何学的に正規化した3D手先軌道で検索する方が真に役立つ実演を回収できる。",
+  "手首から胴体を推定する巧みな正規化：作業者の全身が見えていなくても、手首の3D軌道から静的な胴体フレームを推定することで、多様なアングルで撮影された動画を単一の身体中心座標系に統合できる。",
+  "DTWの知識蒸留によるスケール化：計算負荷の高いDTWによる軌道アライメントをオラクルとし、ランキング損失で軽量エンコーダに蒸留することで、Web規模の高速ベクトル近傍探索と継続的インデックス追加を両立させた。",
+  "粗い人間動画でも強化学習の強力なガイドになる：ロボットの行動ラベルがない粗い人間の手先姿勢であっても、ポテンシャル型の報酬シェーピングとして与えるだけで、多指ハンドの困難な探索空間を大幅に狭められる。"
+ ],
+ "limitations_ja": [
+  "カメラが静止しているクリップに限定されている点（現状のパイプラインでは、カメラが激しく動くエゴセントリック動画やウェアラブルカメラの映像は除外されている）。",
+  "手の検出と深度推定の精度に依存している点（オクルージョンが著しい場合や、手のポーズ推定器・単眼深度推定器が破綻するような特殊な環境では正確な軌道が得られない可能性がある）。",
+  "手と物体の接触情報や相互作用そのものは明示的に考慮しておらず、あくまで手の関節軌道の一致にフォーカスしている点。"
+ ],
+ "keywords": [
+  "Dexterous Manipulation",
+  "Demonstration Retrieval",
+  "Internet-Scale Data Engine",
+  "Dynamic Time Warping (DTW)",
+  "Hand Pose Trajectory",
+  "Robot Learning"
+ ],
+ "id": "2609.03199",
+ "title": "RoboTok: An Internet-Scale Data Engine for Human Demonstration Retrieval and Dexterous Manipulation Learning",
+ "authors": [
+  "Howard Qian",
+  "Yiting Chen",
+  "Yunfei Xie",
+  "Kejia Ren",
+  "Podshara Chanrungmaneekul",
+  "Gaotian Wang",
+  "Bowen Wen",
+  "Chen Wei",
+  "Kaiyu Hang"
+ ],
+ "date": "2026-09-06",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "imitation-learning",
+  "dataset"
+ ],
+ "categories": [
+  "cs.CV",
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.03199",
+ "pdf_url": "https://arxiv.org/pdf/2609.03199",
+ "summary_ja": "クエリとなる人間の手操作動画に基づき、Web動画群から類似の手操作デモを自動検索してロボットの器用な操作方策の学習に利用するデータエンジンRoboTokを提案。手中心座標系で表現された3D軌道から運動潜在空間を学習することで、視点や背景の差異を越えてロバストに動作を照合・転移できる。",
+ "generated": "2026-09-06",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.03199"
+}
