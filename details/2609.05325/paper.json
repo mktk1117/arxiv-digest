@@ -1,0 +1,141 @@
+{
+ "title_ja": "FIRE-LIVWO: 耐故障性ミリ波レーダ強化による高ロバストLiDAR・慣性・視覚・車輪オドメトリ",
+ "tldr_ja": "地下炭鉱の濃煙による視覚喪失と長い直線トンネルによる幾何縮退を解決するため、LiDAR・カメラ・IMUに加えて4Dミリ波レーダと車輪オドメトリを統合し、可観測性のオンライン監視によってセンサ制約を動的に切り替える強靭なオドメトリシステムを提案しました。",
+ "hero_figure": {
+  "key": "F4",
+  "caption_ja": "地下炭鉱トンネルにおける各手法のマッピング結果の比較です。煙が立ち込めるトンネル1で視覚系が破綻し、構造変化のないトンネル3で幾何縮退による大きなドリフトが発生するなか、提案手法（FIRE-Full）のみが最後まで正確に走破できていることが分かります。",
+  "caption": "Fig. 4: Comparison of mapping results of different algorithms in underground coal-mine tunnels. (a) FIRE-Full, (b) FIRE-LIVR, (c) FIRE-LIVW, (d) FIRE-Base, (e) FAST-LIVO2, (f) R3LIVE, (g) GaRLIO, and (h) 4DRadarSLAM. In Tunnel1, FIRE-LIVW and FAST-LIVO2 fail due to smoke-induced visual degradation. In Tunnel3, FIRE-LIVR, FIRE-Base, R3LIVE, and GaRLIO suffer from severe geometric degeneration. 4DRadarSLAM exhibits significant drift along the $y$ - and $z$ -axes. Only FIRE-Full successfully reaches the end of the tunnel.",
+  "image": "details/2609.05325/F4.jpg"
+ },
+ "overview_ja": "地下炭鉱や災害現場のような極限環境で自律移動ロボットを走らせる際、最大の障壁となるのが「センサの同時縮退」です。火災や粉塵で視覚が真っ白になる「視覚縮退」、特徴のない長い直線の坑道で点群マッチングが滑ってしまう「幾何縮退」が複合的に発生すると、従来のLiDAR・カメラ・IMUを組み合わせたSLAM手法でも発散してしまいます。\n\nそこで著者らは、煙や粉塵を透過できる4Dミリ波レーダのドップラー速度と、外部環境に左右されない車輪オドメトリ（運動学拘束）を味方につけました。さらに、単にセンサを増やすだけでなく、大気散乱モデルに基づく「視覚可観測性スコア」と、ヘッセ行列の固有値解析に基づく「幾何可観測性スコア」をリアルタイムに計算する仕組みを考案しました。観測の信頼性を監視し、通常時は標準的なLiDAR・視覚・慣性融合で走りつつ、煙に入ればレーダを強めてカメラを落とし、直線通路に入れば車輪制約を強めるという動的な切り替えをIESKF（反復誤差状態カルマンフィルタ）の枠組みで実現しています。\n\n実環境の地下炭鉱トンネルを用いた走行実験では、ベースライン手法が煙での見失いや長い直線での位置ずれ（最大数10mのドリフトやクラッシュ）に苦しむ中、提案手法FIRE-Fullは平均自己位置推定誤差5.677mで安定して完走することを示しました。",
+ "contributions_ja": [
+  "4Dミリ波レーダの点群とドップラー速度、LiDAR、疎な直接法による視覚特徴を統一ボクセルマップ（VoxelMap）内で統合し、単一のIESKF更新で最適化する密結合オドメトリフレームワークを構築した点",
+  "直線トンネルなどの幾何縮退を打破するため、非ホロノミック拘束（NHC）とオンラインでのレバーアーム補償を取り入れた車輪オドメトリ拘束を密結合させた点",
+  "大気散乱モデル（暗黒画素先験情報）に基づく視覚可観測性と、ヘッセ行列の固有値解析に基づく幾何可観測性をオンラインで評価し、センサ融合モードを動的に切り替える縮退回避戦略を提案した点",
+  "過酷な地下炭鉱トンネルでの実機走行実験を行い、従来手法が次々と破綻する極限条件下で圧倒的なロバスト性と高精度（平均誤差5.677m）を実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "I INTRODUCTION",
+   "heading_ja": "地下炭鉱という極限環境：なぜ既存のSLAMは破綻するのか？",
+   "summary_ja": "地下炭鉱の坑道は、視界を奪う濃煙や粉塵と、特徴のない長い直線構造が重なる過酷な環境です。既存のLiDAR・カメラ・慣性センサ統合システムでは、視覚喪失と幾何的縮退が同時に起きると推定が破綻してしまうため、本研究では4Dミリ波レーダと車輪情報を適応的に組み合わせる新たなフレームワークを提案します。",
+   "details_ja": "地下炭鉱の坑道探査や災害時の人命救助ロボットには、高精度で長期的に破綻しないSLAMが求められます。しかし現場は、照明の不足、舞い上がる粉塵や濃煙、そしてどこまでも同じ景色が続く平坦な壁面という、センサにとって最悪の条件が揃っています。\n\nここで問題になるのが「複合的な縮退」です。\n- 視覚縮退：濃煙によって画像のコントラストが失われ、測光的一貫性（同じ場所は同じ明るさに見えるという前提）が崩壊します。\n- 幾何縮退：特徴のない真っ直ぐなトンネルでは、LiDARの点群をマッチングさせても進行方向の拘束が効かず、自己位置が滑るようにドリフトします。\n- 融合の硬直性：既存の縮退対策は、固定的な重み付けや単純なしきい値判定に頼っており、複数の縮退が入れ替わり立ち替わり現れる環境に適応できません。\n\n著者らはこの問題に対し、煙を透過する「4Dミリ波レーダ」のドップラー速度と、環境に依存しない「車輪オドメトリ」をIESKF（反復誤差状態カルマンフィルタ）の枠組みで密結合し、さらに縮退状態をリアルタイム検知して融合モードを切り替えるFIRE-LIVWOを提案しました。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "関連研究の流れ：マルチセンサ統合と縮退検出の現在地",
+   "summary_ja": "過酷環境向けSLAMは、多センサ統合による冗長性の確保と、信頼できないセンサ情報を切り離す縮退検出の2軸で進化してきました。本章では、LiDAR・視覚・慣性融合の系譜、ミリ波レーダや車輪の活用、そして従来の縮退対策が抱えていた限界を整理します。",
+   "details_ja": "地下環境での位置推定において、LiDARとIMUを密結合するLiDAR-Inertial Odometry（FAST-LIO2など）が基盤となってきました。さらに幾何構造が乏しい場所を補うため、カメラを追加したLiDAR-Visual-Inertial（LVI）システム（R3LIVEやFAST-LIVO2など）が開発されましたが、これらは濃煙下で視覚が真っ先に破綻するという弱点があります。\n\nそこで注目されているのが、粉塵透過性の高い4Dミリ波レーダです。4DRadarSLAMやGaRLIO、DR-LRIOのように、レーダの幾何情報やドップラー速度を活用する試みが増えています。また、トンネル走行では車輪エンコーダ（車輪オドメトリ）による自己受容感覚（外界に頼らない運動計測）が進行方向のドリフト抑制に極めて有効です。\n\nしかし、縮退検出と適応的融合の面では課題が残っていました。ヘッセ行列の固有値を見る手法や学習ベースの画像強調もありますが、長時間のセンサ喪失で推定が発散したり、完全な無照明下では機能しなかったりします。本研究は、これらすべてのモダリティの強みを活かし、信頼度に応じて綺麗に使い分ける仕組みを目指しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Preliminary",
+   "heading_ja": "数式で見る土台：状態定義と誤差状態カルマンフィルタ（IESKF）",
+   "summary_ja": "本研究の基礎となる18次元の状態ベクトルと、センサ観測残差を反復最適化するIESKFの枠組みを定義します。LiDAR、レーダ、カメラ、車輪の全残差を統一された最大事後確率（MAP）推定問題として定式化しています。",
+   "details_ja": "### 状態定義とセンサ同期\nロボットの位置推定のため、IMU座標系をボディ座標系として定義し、全センサ（LiDAR、カメラ、IMU、車輪、4Dミリ波レーダ）の時間同期と剛体キャリブレーションが行われていることを前提とします。推定対象となる状態ベクトル $\\mathbf{x} \\in \\mathbb{R}^{18}$ は、グローバル座標系におけるIMUの姿勢、位置、速度、ならびにジャイロと加速度のバイアスを含みます。\n\n### IESKFによる反復更新\nシステムは、IMUによる状態伝播で得られた事前分布に対し、各センサから得られる以下の残差を足し合わせたコスト関数を最小化します（ガウス・ニュートン法で反復解くため、反復カルマンフィルタと等価になります）：\n- レーダのドップラー速度残差 $\\mathbf{r}_{R_V}$\n- レーダの幾何（点対平面）残差 $\\mathbf{r}_{R_G}$\n- LiDARの幾何（点対平面）残差 $\\mathbf{r}_L$\n- カメラの測光残差 $\\mathbf{r}_C$\n- 車輪オドメトリの速度残差 $\\mathbf{r}_W$\n\nこのように、外界観測と自己受容観測のすべてを単一の統一最適化問題として解く準備を整えています。",
+   "figures": []
+  },
+  {
+   "heading": "IV System Overview",
+   "heading_ja": "システム全体像：3つのコアモジュールが連携するアーキテクチャ",
+   "summary_ja": "ロボットの6自由度ポーズ推定と地図作成を同時に行うFIRE-LIVWOの全体構成を解説します。システムは、レーダ強化型LVI制約、車両運動学制約、縮退検出＆適応モード切り替えの3大モジュールから成り立ちます。",
+   "details_ja": "FIRE-LIVWOのアーキテクチャは、極限環境で生じる異なるセンサの「得意・不得意」を完璧に補完し合うように設計されています。\n\n- (i) レーダ強化型LVI制約モジュール：ミリ波レーダの点群から外れ値を除去しつつドップラー速度制約を生成します。さらに、レーダ点とLiDAR点を共通の八分木ベースの「統一VoxelMap」に登録し、共通の点対平面残差と直接法による測光残差を構成します。\n- (ii) 車両運動学制約モジュール：車輪エンコーダの速度をLiDARのタイムスタンプに同期させ、横滑りしないという非ホロノミック拘束（NHC）と、旋回時の並進速度ずれを正すオンラインレバーアーム補償を適用して強固な運動拘束を作ります。\n- (iii) 縮退検出＆適応モード切り替えモジュール：大気散乱モデルによる視覚可観測性スコア $\\mathcal{O}_V$ と、幾何ヘッセ行列の固有値解析による幾何可観測性スコア $\\mathcal{O}_G$ をリアルタイムに算出し、IESKF内でどの残差を有効化するかを動的に切り替えます。",
+   "figures": []
+  },
+  {
+   "heading": "V Methodology",
+   "heading_ja": "コア技術の詳細：統一ボクセルマップ、運動学拘束、そして適応切り替え",
+   "summary_ja": "LiDARとレーダをシームレスに統合する幾何・測光残差の設計、車輪による運動拘束の定式化、そして大気散乱モデルとヘッセ行列解析を用いた2系統の縮退検出アルゴリズムの仕組みを詳しく解説します。",
+   "details_ja": "### 統一VoxelMapと特徴抽出\n著者らはルートサイズ0.5mのアダプティブ八分木ボクセルマップを採用しました。各リーフボクセルには平面パラメータと点群が保持されます。ここが巧みなのですが、LiDAR由来の点だけでなくミリ波レーダ由来の点も平面上にあれば視覚マップ点として採用し、 $8\\times 8$ の画像パッチを紐付けます。これにより、LiDARが煙で散乱しても、レーダ点を使って視覚アライメントを維持し続けることができます。\n\n### 幾何残差・ドップラー速度残差・測光残差の定式化\n- 幾何残差：LiDARとレーダの各点について、ボクセルマップ内の対応平面に対する点対平面（point-to-plane）残差を共通の形式で構築します。\n- ドップラー残差：レーダ特有の強みであるドップラー速度計測値を使い、自車速度と角速度から予測される視線方向速度との差分を拘束として組み込みます。これが濃煙下で速度や姿勢が発散するのを防ぐアンカーになります。\n- 疎な直接測光残差：マップ点を現在の画像に投影し、参照パッチとの輝度誤差を直接最適化します。\n\n### 車両運動学制約\n車輪オドメトリからの並進速度に対し、IMUとの相対位置関係（レバーアーム）による回転成分 $\\lfloor\\boldsymbol{\\omega}\\rfloor_\\times$ の影響を補正した上で、車体座標系の横滑りゼロ拘束（NHC）を含む速度残差 $\\mathbf{r}_W$ を構成します。これにより、直線のトンネルで外部特徴が消えても進行方向の距離を正確に刻み続けられます。\n\n### 縮退検出と適応的モード切り替え\nシステムは2つの独立した検出器を回します。\n1. 視覚縮退検出：濃煙による視界不良を古典的な大気散乱モデル $I(\\mathbf{u}) = J(\\mathbf{u})t(\\mathbf{u}) + A(1-t(\\mathbf{u}))$ で捉えます。暗黒画素先験（Dark Channel Prior）を用いて透過率 $\\hat{t}(\\mathbf{u})$ をリアルタイム推定し、その平均値を視覚可観測性スコア $\\mathcal{O}_V$ とします。これがしきい値 $\\mathcal{O}_V^{th}$ を下回ると（$\\mathcal{D}_V=1$）、視覚残差をオフ（または重み低下）にし、レーダのドップラー拘束を前面に出します。\n2. 幾何縮退検出：点対平面ICPの幾何ヘッセ行列 $\\mathbf{H}_G$ から位置・姿勢に関する部分ブロックを取り出し、固有値分解を行います。最大固有値に対する最小固有値の比率などから幾何可観測性スコア $\\mathcal{O}_G$ を計算します。特定方向（トンネルの進行方向など）の固有値が極端に落ち込んでしきい値を超えると（$\\mathcal{D}_G=1$）、車輪オドメトリ拘束を強化してモードを切り替えます。\n\n通常時の「LIVモード」から、煙環境の「LIVRモード」、幾何縮退の「LIVWモード」、そして両方が同時に起きる最悪環境の「LIVRWモード」へと、完全に自律的な切り替えを実現しています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "実験に使用した地下炭鉱の坑道環境とロボットシステムです。(a, b)はHusky A200移動ロボットとトータルステーションによる真値測定の様子、(c)は濃煙が充満するトンネル1、(d)は平坦なトンネル2、(e)は幾何特徴が極度に乏しく同一断面が続くトンネル3を示しています。",
+     "caption": "Fig. 3: Experimental environment in underground coal-mine tunnels. (a) Deployment of the Husky robot and the total station; (b) sensor configuration on the Husky platform, including LiDAR, camera, 4D mmWave radar, IMU, and wheel odometer; (c)–(e) environments, dimensions, and texture details of Tunnel1, Tunnel2, and Tunnel3, respectively; (f) locations exhibiting the most severe visual and geometric degradations (f1, f3).",
+     "image": "details/2609.05325/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Experiment",
+   "heading_ja": "実証実験：地下炭鉱の濃煙と長大トンネルで実力を試す",
+   "summary_ja": "Husky A200ロボットを用い、濃煙の立ち込める区間や特徴のない直線区間を含む実際の炭鉱坑道で評価を行いました。他手法が次々と発散・脱落する中、提案手法FIRE-Fullは平均誤差5.677mという圧倒的な精度で走破し、適応切り替えの挙動も完璧に機能していることが確認されました。",
+   "details_ja": "### 実験環境とセットアップ\n検証は、実際の地下炭鉱の3つのトンネルをつなげたルートで行われました（図 F3 参照）。\n- トンネル1：テクスチャはあるものの、高濃度の煙と粉塵が立ち込める（視覚縮退エリア）。\n- トンネル2：煙はないが特徴がやや乏しい平穏区間。\n- トンネル3：煙はないが、同じ断面形状が延々と続く極度の幾何縮退エリア。\n\nロボット（Husky A200）にはLivox AVIA LiDAR、Hikvisionカメラ、Oculii Eagle 4Dミリ波レーダ、車輪エンコーダが搭載され、すべてハードウェア同期されています。真値はトータルステーションで測定した20点の座標を用い、平均自己位置推定誤差（AvgErr）で比較しました。\n\n### 軌道精度とマッピングの比較\n結果は衝撃的でした（図 F4、図 F5、表 II）。\n- 視覚・LiDAR頼みのFAST-LIVO2やFIRE-LIVWは、トンネル1の煙に入った瞬間に視覚マッチングが狂い、即座に発散・クラッシュしました。\n- レーダを積まないFIRE-BaseやR3LIVEは、煙をなんとか抜けてもトンネル3の幾何縮退で滑り、それぞれ23.962m、31.596mの大きな誤差を出しました。\n- レーダSLAM（4DRadarSLAM）は煙でもクラッシュこそしませんが、点群の粗さからZ軸方向に15m以上浮き上がるなどしてAvgErrは45.453mに達しました。GaRLIOもトンネル3の幾何縮退に耐えきれず17.212mの誤差を残しました。\n- 対して提案手法のフル構成（FIRE-Full）は、煙をレーダで突破し、直線トンネルを車輪拘束で抑え込み、平均誤差わずか5.677mで完走しました。\n\n### 縮退検出と適応切り替えの挙動\n検出器の働きもグラフで明確に裏付けられています。\n- 幾何スコア $\\mathcal{O}_G$（図 F6）：特徴のあるトンネル1では35前後で推移しますが、トンネル3に入った途端に跳ね上がり、ピーク時で114.2を記録。最小固有値に対応する固有ベクトルがトンネルの軸方向を正確に指し示しており、システムは即座に車輪拘束（LIVWモード）を投入してドリフトを防止しました。\n- 視覚スコア $\\mathcal{O}_V$（図 F7）：トンネル1の入り口で0.88だったスコアは、煙の最深部（ $x=25$ m）で0.02まで急落。システムは視覚を遮断してレーダ優位のLIVRモードに切り替え、煙を抜けた $x=53$ m地点（スコア0.66）で再び視覚を復帰させました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "各手法の推定軌跡（X軸およびZ軸）の時系列変化です。煙領域（a1）でFAST-LIVO2等が発散し、幾何縮退領域（a2）で多くの手法がX軸方向に大きくずれる中、FIRE-Full（青線）だけがトータルステーションの真値点（赤星）にぴったり追従しています。",
+     "caption": "Fig. 5: Time evolution of the $x$ - and $z$ -axis trajectory components for different methods. (a) and (b) show the $x$ - and $z$ -axis components of FIRE-Full, FIRE-LIVR, FIRE-LIVW, FIRE-Base, FAST-LIVO2, R3LIVE, GaRLIO, and 4DRadarSLAM, respectively. (a1) and (a2) provide zoomed-in views of the $x$ -axis components, and (b1) shows a zoomed-in view of the $z$ -axis components.",
+     "image": "details/2609.05325/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "幾何可観測性スコア $\\mathcal{O}_G$ の推移と、ヘッセ行列の固有ベクトルの可視化です。特徴のないトンネル3に突入するとスコアが赤色のしきい値（40）を一気に超えて114.2に達し、進行方向への拘束が完全に失われていることを検知して車輪拘束を起動します。",
+     "caption": "Fig. 6: Geometric observability score $\\mathcal{O}_{G}$ and visualization of the eigenvectors of $\\mathbf{H}_{pp}$ (red arrows indicate eigen-directions, and their lengths represent eigenvalue magnitudes). (a) $\\mathcal{O}_{G}$ versus the robot $x$ -position; (b)–(f) eigenvectors at key locations: inside Tunnel1 ( $x=10,20$ m, $\\mathcal{O}_{G}=34.7,36.7$ ), the onset of geometric degradation ( $x=135$ m, $\\mathcal{O}_{G}=40$ ), the most severe geometric degradation ( $x=143$ m, $\\mathcal{O}_{G}=114.2$ ), and the end of Tunnel3 ( $x=276$ m, $\\mathcal{O}_{G}=9.2$ ). The red dashed line denotes the threshold $\\mathcal{O}_{G}^{th}=40$ .",
+     "image": "details/2609.05325/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "煙区間における視覚可観測性スコア $\\mathcal{O}_V$ の変化と車載カメラの様子です。煙が濃くなるにつれて透過率スコアが0.02まで急落し、しきい値（0.4）を下回った段階で視覚残差を切り離してレーダ優位へと移行、煙を抜けると再び視覚を再開しています。",
+     "caption": "Fig. 7: Visual observability score $\\mathcal{O}_{V}$ and system behavior in smoke scenarios. (a) $\\mathcal{O}_{V}$ versus the robot $x$ -position; (b,b1)–(f,f1) corresponding odometry behavior and in-situ photos: initial clear region ( $x=4$ m, $\\mathcal{O}_{V}=0.88$ ), entering the smoke region ( $x=10$ m, $\\mathcal{O}_{V}=0.66$ ), densest smoke region ( $x=25$ m, $\\mathcal{O}_{V}=0.02$ ), weakening smoke region ( $x=35$ m, $\\mathcal{O}_{V}=0.40$ ), and smoke-free region ( $x=53$ m, $\\mathcal{O}_{V}=0.66$ ). The red dashed line denotes the threshold $\\mathcal{O}_{V}^{th}=0.4$ .",
+     "image": "details/2609.05325/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VII Conclusion",
+   "heading_ja": "まとめ：あらゆる環境縮退に屈しないオドメトリへの道",
+   "summary_ja": "4Dミリ波レーダの透過性と車輪の幾何補完能力をIESKFで統合し、可観測性解析に基づく動的切り替えを実現したFIRE-LIVWOの成果をまとめます。極限の地下環境における長距離自律移動のロバスト性を大幅に引き上げました。",
+   "details_ja": "本論文では、地下炭鉱のような「濃煙・粉塵」と「幾何学的縮退」が同時に襲いかかる極限環境に向けたオドメトリシステム「FIRE-LIVWO」を提示しました。\n\n統一VoxelMapによるマルチモーダル幾何・測光モデリング、4Dミリ波レーダのドップラー速度拘束、NHCを考慮した車輪オドメトリ拘束を組み合わせることで、単一のセンサでは不可能な高い冗長性を獲得しました。さらに本手法の最大の強みは、センサをただ混ぜるのではなく、大気散乱モデルとヘッセ行列解析から「どのセンサが今死んでいるか」をリアルタイムで見極め、モードを賢く切り替える点にあります。\n\n実環境での徹底的な比較実験により、従来手法が全滅するような過酷なシナリオでも安定して低誤差（5.677m）を達成できることが証明されました。本コードはコミュニティの発展のためGitHubでオープンソース公開されています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「センサをたくさん積む」だけでなく、「どのセンサがいつ信用できなくなるか」を物理モデル（散乱モデルやヘッセ行列解析）に基づいて数値化し、動的に切り離す設計が極限環境SLAMでは不可欠であること",
+  "4Dミリ波レーダのドップラー速度拘束は、濃煙などでLiDARやカメラの幾何・測光アライメントが完全に失われた際、速度と姿勢の発散を食い止める極めて強力な防壁になること",
+  "直線トンネルなどの長大で自己相似的な環境では、外界センサが原理的に縮退するため、車輪オドメトリのような自己受容感覚（外界に頼らない運動計測）を適切にキャリブレーションして密結合することが決定打になること"
+ ],
+ "limitations_ja": [
+  "大気散乱モデルによる視覚縮退検出（暗黒画素先験）は煙や霧には効果的だが、照明が全くない完全な暗黒環境や、激しい明暗変動下での判別性能についてはさらなる検証が必要である点",
+  "車輪オドメトリ拘束はロボットが激しくスリップする泥濘地や瓦礫の乗り越え環境では誤差要因になり得る点（滑りの検出と遮断までは踏み込んでいない）",
+  "ミリ波レーダ自体の点群密度が低くノイズが多いため、LiDARが完全に脱落した状態でレーダ単体による高精度な3Dマッピングを維持するのは依然として難しい点"
+ ],
+ "keywords": [
+  "Multi-Modal SLAM",
+  "4D mmWave Radar",
+  "Degeneration Detection",
+  "Iterated Error-State Kalman Filter",
+  "Observability Analysis",
+  "Underground Robotics"
+ ],
+ "id": "2609.05325",
+ "title": "FIRE-LIVWO: Robust LiDAR-Inertial-Visual-Wheel Odometry via Failure-Immune mmWave Radar Enhancement",
+ "authors": [
+  "Kun Hu",
+  "Menggang Li",
+  "Kaidi Wu",
+  "Zhiwen Jin",
+  "Yingjie Zhao",
+  "Chaoquan Tang",
+  "Eryi Hu",
+  "Gongbo Zhou"
+ ],
+ "date": "2026-09-07",
+ "group": "general",
+ "tags": [
+  "perception",
+  "hardware",
+  "safety"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.05325",
+ "pdf_url": "https://arxiv.org/pdf/2609.05325",
+ "summary_ja": "濃煙や粉塵、幾何学的自己相似性によりセンサー縮退が発生しやすい地下鉱山環境向けにFIRE-LIVWOを提案。4Dミリ波レーダ、LiDAR、カメラ、車輪オドメトリを統合ボクセルマップと反復誤差状態カルマンフィルタ（IESKF）で密結合させ、極限縮退環境下でもドリフトを抑えた高精度自己位置推定を実現した。",
+ "generated": "2026-09-07",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.05325"
+}
