@@ -1,0 +1,127 @@
+{
+ "title_ja": "NavArena: 3Dガウシアンスプラッティング再構成からの目標指向型ナビゲーションベンチマーク自動構築",
+ "tldr_ja": "固定された3D Gaussian Splatting（3DGS）のシーンから、ボクセル化による占有格子地図とマルチビューセグメンテーションによる意味的ゴール候補を自動抽出することで、高品質な閉ループナビゲーション評価ベンチマーク「NavArena」を構築しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "NavArenaの全体パイプライン。固定された3DGSから自己中心視点レンダリング（視覚層）、占有格子地図（空間制約層）、物体インスタンス候補（意味層）を統合し、到達可能かつ衝突のないエピソード生成と統一的な閉ループ評価を実現します。",
+  "caption": "Fig. 1: NavArena construction pipeline. A frozen 3DGS model provides egocentric rendering, while separately inferred spatial and semantic layers define where the agent can move and which goals are valid. PointNav, ImageNav, and ObjectNav episodes are accepted only after reachability, collision, and goal-validity checks, then evaluated through the same closed-loop protocol.",
+  "image": "details/2609.04602/F1.jpg"
+ },
+ "overview_ja": "実世界を忠実に再現した3D Gaussian Splatting（3DGS）は、高速かつリアルな新規視点合成を可能にし、大量のデータセットが蓄積されつつあります。しかし、単なる外観の集合である3DGSには、ロボットがどこを通れるかという通行可能領域や衝突判定、到達可能なゴール、統一的な閉ループ評価環境が存在しないため、そのままではナビゲーションのベンチマークとして利用できませんでした。これまでは手作業でのメッシュ修正やシーンごとの意味最適化が必要で、大規模な展開のボトルネックになっていました。\n\nそこで著者らは、固定された3DGSアセットからナビゲーションに必要な空間・意味インターフェースを自動生成するフレームワーク「NavArena」を開発しました。見た目のレンダリングはフリーズした3DGSに任せつつ、ガウスの不透明度とロボットの高さ制約から占有コストマップを推定して空間層とし、さらにオープンボキャブラリ2Dマスクを3次元にリフティング・統合して物体ゴールを抽出する意味層を構築します。これにより、完全な物理シミュレータへの変換やシーンごとの追加学習を行わずに、PointNav、ImageNav、ObjectNavを統一して扱える環境を実現しました。\n\n2,000以上の多様なシーンに適用した結果、2,220万本もの到達可能かつ実行可能なエキスパート軌道の生成に成功しました。さらに、100シーンにおけるメッシュ基準（FCL）との比較で偽陰性ゼロを保ちつつ約8〜11倍高速な衝突判定を達成し、意味的ゴール精度も92.25%に達しました。既存のナビゲーションポリシーを用いたゼロショット閉ループ評価では、距離ベースの成功判定だけでは見落とされがちな姿勢のズレや停止（STOP）行動の失敗といった課題を明瞭に浮き彫りにできることを実証しました。",
+ "contributions_ja": [
+  "固定された3DGSモデルから、手作業のメッシュ修正やシーンごとの意味最適化を一切行わずに通行可能領域・衝突判定・意味的ゴール候補を自動抽出する手法を提案したこと。",
+  "PointNav、ImageNav、ObjectNavの3つのナビゲーションタスクを、統一したアクション・観測・終了判定・評価指標のもとで閉ループ評価できる共通パイプラインを確立したこと。",
+  "2,000以上の多様なシーンから2,220万本のエキスパート軌道を自動生成し、大規模な評価基盤としての拡張性と再現性を示したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "リアルな見た目だけでは走れない：3DGSをナビ環境にするためのミッシングリンク",
+   "summary_ja": "3DGSはフォトリアルな環境を高速に描画できますが、衝突判定や通行可能領域、正当なゴールが定義されていません。NavArenaは、完全な物理シミュレータを作ることなく、固定された3DGSから閉ループ評価に必要な空間・意味レイヤーを自動抽出するアプローチを提案します。",
+   "details_ja": "目標指向の視覚ナビゲーション（Goal-Oriented Visual Navigation）では、エージェントが自らの観測に基づいて行動し、移動によって新たな視点を受け取り、障害物との衝突を避けながら指定された地点や物体へ到達する「閉ループ評価」が必須です。これを正しく行うには、リアルな見た目だけでなく、通行可能領域、衝突フィードバック、到達可能なゴール、そして一貫した終了・成功条件が必要となります。\n\n近年、3D Gaussian Splatting（3DGS）によって高品質な視点合成が実用的な速度でレンダリング可能になり、大規模なシーンコレクションが集まりつつあります。しかし、これらは純粋な外観モデルであり、明示的な自由空間や衝突境界、検証済みのゴール座標は一切含まれていません。既存のパイプラインではメッシュの再構成やNavMeshの作成、シーンごとの意味場の最適化を試みていますが、雑多で大規模な3DGSアセットに対して自動で適用できる一般的な手法はありませんでした。\n\nそこで著者は、「固定された3DGSを完全な物理シミュレータに変換することなく、再現性のある閉ループ評価ベンチマークへと自動拡張できるか？」という問いを立てました。NavArenaは、フリーズした3DGSを観測レンダリング専用（視覚層）として残しつつ、ガウスの幾何統計から占有コストマップ（空間層）を、オープンボキャブラリセグメンテーションの逆投影からゴール候補（意味層）を抽出して統合します。これにより、メッシュの手動修復や追加学習なしに、PointNav、ImageNav、ObjectNavを単一のインターフェースで評価可能にしました。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "先行シミュレータや3DGS研究と何が違うのか",
+   "summary_ja": "既存のナビゲーションベンチマークは手入れされたメッシュや専用アノテーションを前提としており、3DGSの先行研究も描画統合や個別学習に留まっていました。NavArenaは固定された未調整の3DGS資産から自動で評価用ベンチマークを生成する点に特化しています。",
+   "details_ja": "### II-A Goal-Oriented Navigation Benchmarks and Simulators\n従来のナビゲーション評価プラットフォーム（Habitat、Gibson、AI2-THOR、ThreeDWorldなど）は、精緻にキュレーションされたメッシュやシミュレータ専用のアノテーション、手続き型生成アセットを前提としています。これらは厳密に制御された評価を可能にしますが、シミュレータ用に作られていない一般的な再構成モデルに対して適用するのは困難です。NavArenaは、シミュレータ用に調整されていない固定3DGSから直接ナビゲーション用インターフェースを導出する点で大きく異なります。\n\n### II-B 3DGS-Based Embodied Environments\n3DGSをロボティクスや具現化AI（Embodied AI）に応用する研究は増えています。例えば既存シミュレータへのガウスレンダリングの組み込みや、物理エンジン・ロボット学習バックエンドとの結合が試みられてきました。しかしこれらは、レンダリング機能の統合や個別の物理挙動シミュレーションが主目的であり、固定された任意の3DGSアセットを目標ナビゲーション用ベンチマークへ自動変換する枠組みではありませんでした。\n\n### II-C Semantic Grounding for Object Navigation\nObjectNav（物体ナビゲーション）では、視覚言語特徴をガウスに蒸留したり、シーンごとに意味場を最適化する手法が存在します。しかしこれらは計算コストが高く、大規模展開には不向きです。NavArenaでは、マルチビューのセグメンテーション結果を3次元にリフティング（持ち上げ）して統合するパラダイムを採用し、追加のシーン別学習を一切排除しました。さらに、高密度な意味理解ではなく「到達可能で衝突のないゴール候補を確実に残す」というベンチマーク構築目的に特化したフィルタリングを行います。",
+   "figures": []
+  },
+  {
+   "heading": "III Unified Scene Representation",
+   "heading_ja": "視覚・空間・意味を分離して統合する共通シーン表現",
+   "summary_ja": "NavArenaはシーンを完全な物理環境にするのではなく、観測レンダリング用の3DGS、衝突・通行判定用の占有コストマップ、そして物体ゴール候補の3層に分離して定義します。これにより水密なメッシュや剛体物理を必要とせずに頑健な評価が可能です。",
+   "details_ja": "NavArenaでは、変換された各シーンを完全な物理シミュレータとしてではなく、評価用のアセット $\\mathcal{S} = (\\mathcal{G}, \\mathcal{M}_{\\mathrm{occ}}, \\mathcal{I})$ として扱います。ここで各要素の役割は完全に分離されています。\n\n- $\\mathcal{G}$（視覚層）: フリーズされた描画用3DGSモデル。自己中心視点のRGBおよび深度画像のレンダリングを担当します。\n- $\\mathcal{M}_{\\mathrm{occ}}$（空間層）: 占有コストマップ。エージェントが移動可能かどうかの到達可能性や衝突判定のクエリを担当します。\n- $\\mathcal{I}$（意味層）: ラベル付けされた3D物体インスタンスの中心座標の集合。ObjectNavのゴール候補を提供します。\n\nこのように役割を分離することで、閉じたポリゴンメッシュ（水密メッシュ）や複雑な剛体物理エンジンを不要にし、再構成モデル特有の幾何学的破綻を回避しています。\n\nベンチマークインスタンスは $\\mathcal{B} = (\\mathcal{S}, \\mathcal{D}, \\Pi)$ として定義され、$\\mathcal{D}$ はエピソードや軌道、ゴールを含み、$\\Pi$ はアクション空間、終了条件、評価指標、閉ループプロトコルを定めます。共通の幾何座標系でこれらを統合することで、多様なシーンやタスクを単一の標準プロトコルで評価できるようになります。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "図 F1: NavArenaの構築パイプライン。左から、多様な3DGSソースから空間層と意味層を抽出し（1）、視覚・意味・空間の3層を共通座標で統合した表現を形成し（2）、到達可能判定を経てタスク生成と閉ループ評価を行います（3）。",
+     "caption": "Fig. 1: NavArena construction pipeline. A frozen 3DGS model provides egocentric rendering, while separately inferred spatial and semantic layers define where the agent can move and which goals are valid. PointNav, ImageNav, and ObjectNav episodes are accepted only after reachability, collision, and goal-validity checks, then evaluated through the same closed-loop protocol.",
+     "image": "details/2609.04602/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Navigation-Ready 3DGS Scene Construction",
+   "heading_ja": "ガウスの不透明度と2Dマスクからナビゲーション空間を自動生成する技術",
+   "summary_ja": "ガウスをボクセル化して地面整合を行い、ロボットの高さに応じた2D占有格子地図を推定します。また、SAM3によるマルチビューマスクを逆投影してボクセル投票とクラスタリングを行うことで、追加学習なしで物体ゴール中心を高精度に特定します。",
+   "details_ja": "### IV-A Overview\nフリーズされた3DGS $\\mathcal{G}$、カメラ姿勢、物体カテゴリ一覧を入力とし、座標系の正規化、高さ認識型占有推定、有効領域推定、意味的接地を行います。エージェントの姿勢 $q_t$ に対し、レンダリング関数はRGB-D観測 $(I_t, D_t)$ を返し、遷移関数は制御入力 $u_t$ による移動が衝突しないかを $\\mathcal{M}_{\\mathrm{occ}}$ を通して判定します。\n\n### IV-B Spatial Constraint Inference\n空間制約層の構築は以下のステップで行われます。\n- **3DGS Voxelization**: 各ガウスの不透明度とマハラノビス距離から、ボクセル $\\nu$ に対する寄与度 $\\rho_{i,\\nu}$ を計算し、独立な占有証拠として統合した実効不透明度 $A_{\\nu}$ を閾値 $\\tau_{\\mathrm{occ}}$ で2値化します。色や球面調和関数は無視し、形状情報のみを抽出します。\n- **Coordinate Normalization**: 占有ボクセルからRANSACを用いて主要な支持平面（床面）を検出し、その法線を重力軸に合わせ、床面を $z=0$ に剛体変換します。これにより異なるソースのシーンが同一の座標系に揃います。\n- **Occupancy Map Inference**: ロボット本体の高さ区間 $\\mathcal{H}_{\\mathrm{body}} = [h_{\\min}, h_{\\max}]$ に交差するボクセルが存在するセルを占有セルとして2次元平面に圧縮します。これによりロボットの体格に合わせたマップが得られます。\n- **Valid Region Estimation**: DBSCANで浮遊ノイズを除去した後、水平投影点群から $\\alpha$-shape 凹包を求めて再構成データが存在する支持マスク $M_{\\mathrm{sup}}$ を決定します。これとロボット半径 $r_{\\mathrm{agent}}$ の障害物膨張を組み合わせ、最終的なナビゲーションコストマップ $\\mathcal{M}_{\\mathrm{occ}}$ を導出します。データの無い領域は未知として除外されます。\n\n### IV-C Semantic Grounding for ObjectNav\n意味層は追加学習なし（Training-free）で構築されます。\n- **Frame-Level Semantic Extraction**: ガウスからレンダリングしたRGB-D画像とカテゴリ名をSAM3に入力し、2Dセマンティックマスクを取得します。ガウスの透過に起因する境界ノイズを抑えるためマスクを収縮（Erosion）させた後、カメラ幾何を用いて有効な深さを持つピクセルを3次元点群に逆投影します。\n- **Scene-Level Semantic Fusion**: フレームごとの点群をボクセルダウンサンプリングして結合し、粗いグリッド上で多数決（ボクセル投票）を行います。十分な視点支持がないボクセルやラベル競合のあるボクセルは破棄されます。確定したラベルをガウス中心に転写し、DBSCANでクラスタリングして各物体インスタンスの中心座標 $\\mathbf{x}^{\\mathrm{obj}}$ を算出します。ベンチマーク生成では偽陽性（誤ったゴール）を避けることが最優先されるため、精度重視の設計となっています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "図 F2: 追加学習を行わないObjectNav向けの意味的接地プロセス。各視点でのSAM3マスク収縮と逆投影から始まり、ボクセル投票によるマルチビュー統合、ガウスへのラベル転写、クラスタリングを経て物体中心を同定します。",
+     "caption": "Fig. 2: Training-free ObjectNav semantic grounding. Multi-view open-vocabulary masks are eroded, backprojected, fused by voxel voting, transferred to Gaussian primitives, and clustered into instance centers.",
+     "image": "details/2609.04602/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Task Generation and Closed-Loop Evaluation",
+   "heading_ja": "統一プロトコルによるタスク生成と閉ループ評価",
+   "summary_ja": "PointNav、ImageNav、ObjectNavの各タスクについて、到達可能性と安全性が検証されたエピソードとエキスパート軌道を自動生成します。オンライン評価では共通のアクション・衝突モデル・終了条件を適用し、公平な比較を可能にしています。",
+   "details_ja": "### V-A Task Definition\nエピソードは初期状態 $q_0 \\in \\mathrm{SE}(2)$、タスク固有のゴール $\\gamma_{\\mathrm{task}}$、エキスパート軌道 $\\tau^{\\star}$ で定義されます。3つのタスクはゴールの形式と成功判定のみが異なります。\n- **PointNav**: メトリックな目標平面座標 $\\mathbf{x}_{\\mathrm{goal}}$\n- **ImageNav**: 到達可能な目標姿勢でレンダリングされた参照画像\n- **ObjectNav**: 意味層で抽出された特定カテゴリの物体インスタンス\n\n### V-B Episode Generation\n有効領域から $q_0$ をサンプリングし、ゴールを設定します。距離・到達可能性・衝突制約を満たすペアのみが採択され、$\\mathcal{M}_{\\mathrm{occ}}$ 上で運動学的制約（クリアランスや旋回連続性）を満たすエキスパート軌道 $\\tau^{\\star}$ が合成されます。観測画像はオンラインで動的にレンダリングされるため、メタデータと軌道情報のみが軽量に保存されます。\n\n### V-C Closed-loop Evaluation Protocol\n評価時はエージェントのアクション $a_t$ を相対ウェイポイント $(\\Delta x, \\Delta y, \\Delta \\theta)$ に変換し、$\\mathcal{M}_{\\mathrm{occ}}$ で衝突を判定して姿勢を更新します。終了条件には2つのプロトコルを用意しています。\n- **Distance-based**: ゴール成功半径に入った瞬間に自動終了・成功とする方式。\n- **Explicit-stop**: 領域に入るだけでなく、領域内で明示的に $\\mathrm{STOP}$ アクションを発行しなければ成功とならず、領域外での $\\mathrm{STOP}$ は失敗となる厳格な方式。\n成功判定距離はすべて同一座標系内の平面ユークリッド距離で統一されています。\n\n### V-D Evaluation Metrics\n標準的な指標として、距離ベース成功率（Distance SR）、明示的停止による成功率（Stop SR）、経路長正規化成功率（SPL）、ナビゲーション誤差（NE）、衝突率（CR）、平均ステップ数（AvgSteps）を算出します。ImageNavでは向きの一致も判定するPose SRも計測されます。",
+   "figures": []
+  },
+  {
+   "heading": "VI Experiments",
+   "heading_ja": "2,000シーン・2,220万軌道での検証：速度、精度、そしてポリシーの診断能力",
+   "summary_ja": "空間クエリはFCL対比で約8〜11倍高速かつ偽陰性ゼロを達成し、意味中心精度は92.25%を記録しました。また、最新の基底モデルを含む各種ポリシーの閉ループ評価により、難易度上昇に伴う性能劣化や、停止・姿勢合わせにおける重大な弱点が明らかになりました。",
+   "details_ja": "### VI-A Experimental Setup\nInteriorGS（約1,000シーン）、SceneSplat++（約1,000シーン）、独自撮影の実環境（50シーン）の計2,000シーン以上を使用しました。PointNav（LoGoPlanner）、ImageNav（GNM、ViNT、NoMaD、NaviBridger）、ObjectNav（PoliFormer、Uni-NaVid、OmniNav）、マルチタスクモデル（NavDP、OmniVLA）を評価対象とし、各トラック共通の600エピソード（難易度 Easy 180 / Medium 240 / Hard 180）でテストを行いました。\n\n### VI-B Spatial and Semantic Validity\nメッシュが存在する100シーンにおいて、NavArenaのグリッドクエリを標準的な衝突判定ライブラリFCLと比較しました。\n- **空間層**: 解像度 $0.05\\,\\mathrm{m}$ の占有グリッドは、FCLに比べて状態チェックで7.91倍、動作チェックで10.72倍高速でした。動作チェックにおける衝突の見落とし（偽陰性: FN）は0%であり、安全性を完全に担保しています。解像度 $0.05\\,\\mathrm{m}$ は $0.025\\,\\mathrm{m}$ と同等の精度を保ちつつ、メモリ使用量を382.4 KiBから61.6 KiBへ大幅に圧縮できています。\n- **意味層**: 10シーンの手動アノテーションとの比較で、NavArenaの有効物体中心率は92.25%を達成し、既存ベースライン（SceneSplatの65.95%、FlashSplatの57.36%）を大きく引き離しました。これはマスク収縮と厳格なボクセル投票が誤検出防止に大きく貢献していることを示しています。\n\n### VI-C Dataset Scale\n2,000以上の多様なシーンから合計2,220万本（時間にして16万時間以上）のエキスパート軌道が自動生成されました。これにより、学習および評価用として前例のない規模の3DGSナビゲーションデータセットが完成しました。\n\n### VI-D Closed-loop Diagnostic Utility\n閉ループ評価により、各ポリシーの挙動特性が詳細に浮き彫りになりました。\n- **総合性能**: 単一タスクImageNavではNaviBridgerが最高性能（Distance SR: 0.508、CR: 0.040）を示し、ObjectNavではUni-NaVidがリード（Distance SR: 0.567、SPL: 0.354）しました。\n- **ホライズン伸長による劣化**: EasyからHardへタスクの距離が伸びるにつれ、全モデルで成功率が低下しました。特にImageNavモデルは成功率が72%〜91%も急落し、長期行動における知覚・局所制御エラーの累積が顕著に現れました。\n- **終了プロトコルへの感度（ここが重要）**: 距離ベースでは成功と判定されていたエピソードも、ImageNavの姿勢一致基準（Pose SR）を課すと成功率が約49.1%〜62.5%に目減りしました。さらに深刻なのはObjectNavで、明示的な停止を求めるStop SRを適用すると、評価した全ポリシーで成功率が0.05未満に崩壊しました。つまり、「近くまで行くこと」はできても「目標を認識してその場で正しく止まる」ことが現代のポリシーにとって極めて困難であるという、診断的価値の高い事実が実証されました。",
+   "figures": []
+  },
+  {
+   "heading": "VII Conclusion and Limitations",
+   "heading_ja": "まとめと今後の展望：静的環境から動的世界へ",
+   "summary_ja": "NavArenaは、固定された3DGSアセットからナビゲーションベンチマークを自動構築するスケーラブルな枠組みを確立しました。現時点では主に静的環境かつSE(2)平面移動に限定されており、元データの再構成品質に依存する点が今後の課題です。",
+   "details_ja": "NavArenaは、視覚（3DGS）、空間（占有マップ）、意味（リフティングされたインスタンス）の3層を分離・連携させることで、大規模な3DGSアセットから目標指向ナビゲーションベンチマークを全自動構築することに成功しました。これにより、閉ループ環境での成功率、衝突率、長期ステップでの劣化、停止行動の成否といった多角的な診断が可能になりました。\n\n一方で、著者らはいくつかの限界も認めています。\n- **移動モデル**: 現在は主に静的な屋内環境と平面上を移動する $\\mathrm{SE}(2)$ モビリティモデルに特化しており、段差の昇降や起伏に富んだ3次元移動には未対応です。\n- **入力品質への依存**: レンダリング品質や幾何精度は入力となる3DGSの出来栄えに左右されます。再構成が不完全なシーンでは占有マップの抜けや誤検出が生じるリスクがあります。\n- **ポリシー固有のアダプテーション**: 各種モデルの出力を統一ウェイポイントに変換しているため、絶対的な性能値はモデル本来の実機性能と若干乖離する可能性があります。\n今後は、動的な障害物が存在する環境や、より自由度の高い移動ロボットモデルへの拡張が期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "外観表現（3DGS）と物理・幾何制約（占有グリッド）を分離することで、水密メッシュ化や物理シミュレータへの完全変換を回避しつつ高速・高精度なナビ環境が作れる。",
+  "距離ベースの成功判定だけでなく、「正しい向きで到達したか（Pose SR）」や「その場で自律的に停止できたか（Stop SR）」を評価すると、既存モデルの重大なボトルネックが浮き彫りになる。",
+  "オープンボキャブラリ2Dマスクの収縮とボクセル投票を組み合わせることで、シーンごとの追加学習なしに92%以上の高精度で3D物体ゴールを特定できる。"
+ ],
+ "limitations_ja": [
+  "ロボットの動作モデルが平面移動（SE(2)）に制限されており、段差や複雑な3次元起伏のある環境には対応していない。",
+  "入力となる3DGS自体の再構成品質に依存しており、撮影時のアーティファクトや大きな欠損があるシーンでは空間・意味レイヤーに破綻が生じる。",
+  "評価対象ポリシーの固有アクションを共通のウェイポイント形式にマッピングして評価しているため、モデル本来の最高性能と完全には一致しない可能性がある。"
+ ],
+ "keywords": [
+  "3D Gaussian Splatting",
+  "Embodied AI",
+  "Visual Navigation",
+  "Benchmark Construction",
+  "Closed-Loop Evaluation",
+  "Semantic Grounding"
+ ],
+ "id": "2609.04602",
+ "title": "NavArena: Automated Construction of Goal-Oriented Navigation Benchmarks from 3D Gaussian Splatting Reconstructions",
+ "authors": [
+  "Junhui Wang",
+  "Wei Yang",
+  "Xinyao Li",
+  "Ningjing Fan",
+  "Yuehao Yin",
+  "Xuecheng Chen",
+  "Chao Gao"
+ ],
+ "date": "2026-09-07",
+ "group": "general",
+ "tags": [
+  "navigation",
+  "benchmark",
+  "simulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.04602",
+ "pdf_url": "https://arxiv.org/pdf/2609.04602",
+ "summary_ja": "固定された3Dガウシアンスプラッティング（3DGS）シーンから目標指向型視覚ナビゲーション評価環境を自動構築するNavArenaを提案。ガウス密度と高さ統計に基づく占有コストマップで通行可能性を判定し、開語彙マスクから抽出した意味的ゴール候補を組み合わせることで、写実的な閉ループ評価ベンチマークを自動生成する。",
+ "generated": "2026-09-07",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.04602"
+}
