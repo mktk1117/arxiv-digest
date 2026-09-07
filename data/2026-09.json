@@ -1,6 +1,290 @@
 {
  "entries": [
   {
+   "date": "2026-09-07",
+   "rank": 0,
+   "id": "2609.04817",
+   "group": "focus",
+   "title": "Strict Modes Everywhere - Bringing Order Into Dynamics of Mechanical Systems by a Potential Compatible With the Geodesic Flow",
+   "title_ja": "あらゆる場所に厳密モードを：測地流に適合するポテンシャルによる力学系の秩序化",
+   "summary_ja": "幾何学的な測地流に適合するポテンシャル場を設計し、機械システムの配位空間全体を厳密な非線形ノーマルモードで満たす理論的枠組みを提案。非線形弾性素子を活用してアクチュエータトルク消費を抑えつつ多様な周期軌道の効率的な駆動を可能にし、高効率な脚運動やダイナミック制御の基盤技術として貢献する。",
+   "authors": [
+    "Arne Sachtler",
+    "Alin Albu-Sch\\\"affer"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.04817",
+   "image": "figures/2026-09-07/2609.04817.jpg"
+  },
+  {
+   "date": "2026-09-07",
+   "rank": 1,
+   "id": "2609.05161",
+   "group": "focus",
+   "title": "APEX-RBD: Mixed-Precision Exploration Framework for Hardware-Efficient Robot Dynamics Accelerator Design",
+   "title_ja": "APEX-RBD: ハードウェア高効率なロボット動力学アクセラレータ設計のための混合精度探索フレームワーク",
+   "summary_ja": "実時間ロボット制御の中核である剛体動力学（RBD）計算を高速・低消費電力化するため、変数ごとの感度を考慮した混合精度量子化探索フレームワークAPEX-RBDを提案。エッジ機器上での全身制御（WBC）やMPC等の計算アクセラレータ最適設計を可能にし、高自由度ロボットの高速制御ループ実現に寄与する。",
+   "authors": [
+    "Xingyu Liu",
+    "Hanwei Fan",
+    "Chaofang Ma",
+    "Jiawei Liang",
+    "Guangyu Hu",
+    "Jiang Xu",
+    "Wei Zhang"
+   ],
+   "categories": [
+    "cs.AR",
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "hardware",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.05161",
+   "image": "figures/2026-09-07/2609.05161.jpg"
+  },
+  {
+   "date": "2026-09-07",
+   "rank": 2,
+   "id": "2609.04355",
+   "group": "focus",
+   "title": "VLA-Precision: Asymmetric Co-Bootstrapping for Efficient Real-World Online RL of Vision-Language-Action Models",
+   "title_ja": "VLA-Precision: Vision-Language-Actionモデルの高効率な実世界オンライン強化学習のための非対称コ・ブートストラップ",
+   "summary_ja": "VLAモデルの実機オンライン強化学習における価値関数の信頼性不足による方策ドリフトと、大モデルによる高レイテンシを克服するVLA-Precisionを提案。非対称コ・ブートストラップ（ACoB）とストリーミング実行構造により、実環境での高精度・反復的なタスク学習においてサンプル効率とスループットを大幅に向上させた。",
+   "authors": [
+    "Chenyu Su",
+    "Zhaolong Shen",
+    "Yuan Qian",
+    "Chen Qian",
+    "Rui Zhang",
+    "Feng Yan",
+    "Weixing Chen",
+    "Fei Zhang",
+    "Jiamin Wang",
+    "Shuang Cong",
+    "Weiwei Shang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.HC",
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "vision-language-action",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.04355",
+   "image": "figures/2026-09-07/2609.04355.jpg"
+  },
+  {
+   "date": "2026-09-07",
+   "rank": 3,
+   "id": "2609.05401",
+   "group": "focus",
+   "title": "Same Trajectory, Contradictory Rewards (ROBORMBENCH): Paraphrase Fragility in Vision Language Reward Models",
+   "title_ja": "同一軌道に対する矛盾した報酬：視覚言語報酬モデルにおける言い換えの脆弱性",
+   "summary_ja": "ロボット学習の報酬モデルとして用いられる視覚言語モデル（VLM）が、同一動作軌道であっても指示文の言い換えによって予測進捗度が大きく変動・逆転する脆弱性を指摘。2,390本の実機軌道と2万件超の言い換えを含むベンチマークROBORMBENCHを構築し、既存の商用・オープンモデルが言い換え不変性を欠く実態を定量的に明らかにした。",
+   "authors": [
+    "Wonje Jeung",
+    "Sangyeon Yoon",
+    "Hyesoo Hong",
+    "Yoonjun Cho",
+    "Dongjae Jeon",
+    "Bumjun Kim",
+    "Jean Oh",
+    "Youngjae Yu",
+    "Albert No"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CL"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "vision-language-action",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.05401",
+   "image": "figures/2026-09-07/2609.05401.jpg"
+  },
+  {
+   "date": "2026-09-07",
+   "rank": 4,
+   "id": "2609.05361",
+   "group": "focus",
+   "title": "Development of a Humanoid Robot Prototype for Multimodal Human-Robot Interaction",
+   "title_ja": "マルチモーダル人間・ロボット協調のためのヒューマノイドロボット試作機の開発",
+   "summary_ja": "人間とロボットの協調（HRI）向けに、12自由度の双腕と2自由度の頭部LCDディスプレイを備えたヒューマノイドロボットのプロトタイプを開発。オンボードJetson上で動作する骨格推定・LSTMジェスチャ認識や物体検出などのAI機能と独自制御基板を統合し、実時間インタラクション研究のための柔軟な実験基盤を提供する。",
+   "authors": [
+    "Thang Tran Viet",
+    "Thanh Nguyen Canh",
+    "Huy Uong Gia",
+    "Phuc Dinh Van",
+    "Son Tran Duc",
+    "Ngoc Minh Do",
+    "Xiem HoangVan"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "hardware",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.05361",
+   "image": "figures/2026-09-07/2609.05361.jpg"
+  },
+  {
+   "date": "2026-09-07",
+   "rank": 5,
+   "id": "2609.05266",
+   "group": "general",
+   "title": "TacPAC: Tactile Prediction and Real-Time Action Correction in World-Action Models for Contact-Rich Manipulation",
+   "title_ja": "TacPAC: 接触を伴うマニピュレーションに向けた世界行動モデルにおける触覚予測と実時間行動修正",
+   "summary_ja": "世界行動モデル（WAM）による行動計画と実行時の触覚フィードバックのタイミングのズレを解消するTacPACを提案。計画時に条件付けた接触予測キャッシュと触覚エキスパートを組み合わせ、接触リッチなマニピュレーション実行中に実時間で行動修正を行うことで、予測のみの従来法に比べ大幅な作業成功率向上を達成した。",
+   "authors": [
+    "Zipei Ma",
+    "Xiaofei Wei",
+    "Junzhe Jiang",
+    "Shunlin Lu",
+    "Li Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "world-model",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.05266",
+   "image": "figures/2026-09-07/2609.05266.jpg"
+  },
+  {
+   "date": "2026-09-07",
+   "rank": 6,
+   "id": "2609.04893",
+   "group": "general",
+   "title": "Reasoning Without Inference Cost: Latent Semantic Scaffolding for Robot VLA Policies",
+   "title_ja": "推論コストゼロの推論：ロボットVLA方策のための潜在意味スキャフォールディング",
+   "summary_ja": "VLA方策に推論遅延を追加することなく物理的推論能力を付与するLatent Semantic Scaffolding（LSS）を提案。模倣学習時に推論根拠テキストとの潜在表現アライメント補助損失を導入し、デプロイ時には投影ヘッドを破棄することで、推論時の計算コストゼロで長期的タスクにおける方策の頑健性を向上させた。",
+   "authors": [
+    "Andrew Ting Yan Li",
+    "Zhuo Li",
+    "Zhelin Yang",
+    "Zhipeng Dong",
+    "Quentin Rouxel",
+    "Fei Chen"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "imitation-learning",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.04893",
+   "image": "figures/2026-09-07/2609.04893.jpg"
+  },
+  {
+   "date": "2026-09-07",
+   "rank": 7,
+   "id": "2609.04602",
+   "group": "general",
+   "title": "NavArena: Automated Construction of Goal-Oriented Navigation Benchmarks from 3D Gaussian Splatting Reconstructions",
+   "title_ja": "NavArena: 3Dガウシアンスプラッティング再構成からの目標指向型ナビゲーションベンチマーク自動構築",
+   "summary_ja": "固定された3Dガウシアンスプラッティング（3DGS）シーンから目標指向型視覚ナビゲーション評価環境を自動構築するNavArenaを提案。ガウス密度と高さ統計に基づく占有コストマップで通行可能性を判定し、開語彙マスクから抽出した意味的ゴール候補を組み合わせることで、写実的な閉ループ評価ベンチマークを自動生成する。",
+   "authors": [
+    "Junhui Wang",
+    "Wei Yang",
+    "Xinyao Li",
+    "Ningjing Fan",
+    "Yuehao Yin",
+    "Xuecheng Chen",
+    "Chao Gao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "navigation",
+    "benchmark",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.04602",
+   "image": "figures/2026-09-07/2609.04602.jpg"
+  },
+  {
+   "date": "2026-09-07",
+   "rank": 8,
+   "id": "2609.04958",
+   "group": "general",
+   "title": "MINT: A Unified Model for World-Space Camera and Hand Motion Estimation from Scalable Egocentric Pipeline Supervision",
+   "title_ja": "MINT: スケーラブルな主観視点パイプライン教師あり学習によるワールド空間カメラ・手部動作統一推定モデル",
+   "summary_ja": "単眼の主観視点RGB動画から、カメラ軌道と両手の動作を共通のワールド座標系で一括推定する基底モデルMINTを提案。従来のように深度や手形状を多段階で分離推定するのではなく、単一の時空間動画表現から直接共同予測することで計算負荷を削減し、高精度な3D動作復元を実現した。",
+   "authors": [
+    "Zijie Zhu",
+    "Weiren Cai",
+    "Yizhou Wang",
+    "Zhenjie Yang",
+    "Yide Liu",
+    "Jiahao Chen",
+    "Guanqi He"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.RO"
+   ],
+   "tags": [
+    "perception",
+    "teleoperation",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.04958",
+   "image": "figures/2026-09-07/2609.04958.jpg"
+  },
+  {
+   "date": "2026-09-07",
+   "rank": 9,
+   "id": "2609.05325",
+   "group": "general",
+   "title": "FIRE-LIVWO: Robust LiDAR-Inertial-Visual-Wheel Odometry via Failure-Immune mmWave Radar Enhancement",
+   "title_ja": "FIRE-LIVWO: 耐故障性ミリ波レーダ強化による高ロバストLiDAR・慣性・視覚・車輪オドメトリ",
+   "summary_ja": "濃煙や粉塵、幾何学的自己相似性によりセンサー縮退が発生しやすい地下鉱山環境向けにFIRE-LIVWOを提案。4Dミリ波レーダ、LiDAR、カメラ、車輪オドメトリを統合ボクセルマップと反復誤差状態カルマンフィルタ（IESKF）で密結合させ、極限縮退環境下でもドリフトを抑えた高精度自己位置推定を実現した。",
+   "authors": [
+    "Kun Hu",
+    "Menggang Li",
+    "Kaidi Wu",
+    "Zhiwen Jin",
+    "Yingjie Zhao",
+    "Chaoquan Tang",
+    "Eryi Hu",
+    "Gongbo Zhou"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "perception",
+    "hardware",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.05325",
+   "image": "figures/2026-09-07/2609.05325.jpg"
+  },
+  {
    "date": "2026-09-06",
    "rank": 0,
    "id": "2609.03557",
