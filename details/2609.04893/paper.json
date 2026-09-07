@@ -1,0 +1,132 @@
+{
+ "title_ja": "推論コストゼロの推論：ロボットVLA方策のための潜在意味スキャフォールディング",
+ "tldr_ja": "動作の「なぜ（因果的理由）」を行動トークンに整列させる補助損失LSSを事前学習時のみに適用し、推論時にはその構造を破棄することで、計算コストを一切増やさずにVLAの汎化性能を大幅に向上させました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "Dense LSSの全体アーキテクチャです。事前学習時のみ小さな射影ヘッド（LSAHead）を介して行動トークンを物理推論テキストの埋め込みに整列させ、ロボットへの実機展開時（推論時）にはヘッドを完全に破棄して通常のVLAとして動かすため、推論オーバーヘッドがゼロになります。",
+  "caption": "Fig. 2 : Dense LSS architecture (Stage 2, training only). A frozen DINO+SigLIP encoder and a frozen T5-XXL command encoder condition the 2B diffusion-transformer backbone, which produces $K{=}16$ action tokens $Z_{t}\\in\\mathbb{R}^{2176}$ supervised by the flow-matching loss $L_{\\text{flow}}$ . In parallel, the LSAHead projection $g_{\\phi}$ maps each action token into T5 space and a cosine-distance loss aligns it to the reasoning embedding of its own manipulation phase, $e_{\\text{phase}(t)}$ (straddling tokens masked by $m_{t}$ ). The combined objective is $L_{\\text{total}}=L_{\\text{flow}}+\\lambda L_{\\text{LSS}}$ . …",
+  "image": "details/2609.04893/F2.jpg"
+ },
+ "overview_ja": "ロボットの視覚言語行動（VLA）モデルは模倣学習によって強力な操作スキルを獲得できますが、真似をするだけでは「どんな動作をすべきか（What）」は学べても、「なぜその動作をするのか（Why）」という物理的な因果関係までは捉えきれません。これに対し、言語による推論ステップ（Chain-of-Thought）や未来予測を挟む手法が提案されてきましたが、これらは推論時に毎回重い計算を行うため、制御周期が遅くなり長時間の作業ではコストが累積するという深刻な課題がありました。\n\nそこで著者らは、「推論の恩恵はモデルの内部表現を整えることにあるのだから、推論プロセス自体を実行時に生成する必要はなく、学習時に重みへ焼き付けて推論時には捨ててしまえばよいのではないか」と考えました。この着想を実現したのが「Latent Semantic Scaffolding（LSS）」です。LSSは、人間の作業動画を用いた事前学習フェーズにおいて、VLAが出力する行動トークン表現を、VLMが生成した物理推論テキストの意味ベクトルへと近づける補助損失を加えます。そして重要なのは、推論時にはこの整列用ヘッドを完全に破棄し、素のベースポリシーのまま動かす点です。\n\nさらに著者らは、エピソード全体をひとまとめにして整列させる（Pooled LSS）よりも、「接近」「把持」「回転」といった動作フェーズごとに行動トークンと推論理由を細粒度に整列させる（Dense LSS）ほうが、未知タスクへの転移性能が格段に高くなることを実験で実証しました。シミュレーション評価環境RoboTwin 2.0において、Dense LSSは学習タスクで90%の成功率を達成しただけでなく、事前学習で見ていない未知タスクへのゼロからの転移でも一貫して最高精度を記録しました。",
+ "contributions_ja": [
+  "推論時に追加の計算負荷を一切かけず、学習時のみの補助損失で物理推論の知識を行動表現に焼き付けるLSS（Latent Semantic Scaffolding）を提案したこと",
+  "エピソード全体の要約ではなく、動作フェーズごとに行動トークンを整列させる「Dense LSS」が未知タスクへの高い汎化性能をもたらすことを示したこと",
+  "表現プローブ分析により、Dense LSSがバックボーン内で動作フェーズごとの表現分離度を約2倍に高めているというメカニズムの裏付けを示したこと"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜロボットに「思考コスト」を払わせずに賢くできるのか",
+   "summary_ja": "従来のVLAは動作の因果関係を捉えられず、推論時に思考ステップを生成する手法は実行速度が大幅に低下します。本論文では、物理推論テキストへの表現整列を学習時のみに行い、推論時には完全に破棄するLSSを導入することで、推論コストゼロで高い汎化性能を実現します。",
+   "details_ja": "視覚と言語から直接ロボットの動作を生成するVLA（Vision-Language-Action）モデルは、大規模な実機や人間のデモデータから模倣学習を行うことで発展してきました。しかし、単に動作を再現するように訓練されたポリシーは「何をすべきか」を記憶するだけで、その裏にある物理的な「なぜそうするのか」という因果関係を本質的には理解していません。この因果関係や物理構造を注入するために、テキストの思考プロセス（Chain-of-Thought: CoT）を生成させたり、未来の画像フレームを予測させたりする研究が盛んに行われています。\n\nしかし、こうした既存手法には致命的な欠点があります。それは、制御ステップごとに思考トークンや未来予測を逐次生成しなければならず、推論時の計算コスト（Inference Cost）が跳ね上がることです。最近の研究では、未来状態を同時に予測するワールド行動モデルが、通常のフローベースVLAに比べて行動1チャンクあたり4.8倍から83倍も遅くなることが報告されています。長時間のタスクになればなるほど、ステップごとにこの「思考の税金」を払い続けることになり、高頻度なフィードバック制御が難しくなってしまいます。\n\nそこで著者らは根本的な問いを立てました。「推論の恩恵を得るために、本当に実行時の計算コストを払う必要があるのか？ 学習時にその恩恵だけを行動表現に焼き付け、推論時には捨ててしまえばよいのではないか？」というアイデアです。本研究では、人間の手本データを用いた事前学習時に、行動トークンの潜在表現を物理推論のテキスト埋め込みに近づける補助損失「LSS（Latent Semantic Scaffolding）」を導入しました。さらに、タスク全体をまとめて整列させるのではなく、動作フェーズごとに細粒度に整列させること（Dense LSS）が、未知タスクへの汎化において決定的な鍵となることを明らかにしました。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "テスト時の推論生成から、学習時の表現整列へのパラダイムシフト",
+   "summary_ja": "テスト時に思考トークンを逐次生成する既存のCoT手法とは異なり、本手法は画像生成における表現整列（REPA等）の着想を行動制御へと拡張しました。人間の事前学習データを用いつつ、物理推論テキストを教師として細粒度なアライメントを行う点が独自の位置づけです。",
+   "details_ja": "関連研究は大きく3つの系統に整理されます。\n\n### テスト時推論・予測モデルとの違い\nEmbodied Chain-of-Thought（ECoT）は、行動予測の直前にテキストでサブタスクや対象物のバウンディングボックスを出力させます。また、Visual CoTは未来のサブゴール画像を生成してから行動を決めます。これらは推論時に重い自己回帰生成を繰り返すため、実行時のボトルネックになります。本研究は、この推論計算を学習フェーズへと完全に前倒しし、実機配備時のオーバーヘッドをゼロに抑える点で根本的に異なります。\n\n### 学習信号としての表現整列\n画像生成の分野では、Diffusion Transformerの隠れ状態を事前学習済み視覚エンコーダの特徴量に整列させることで学習を大幅に加速する「REPA」という手法があります。LSSはこの軽量な射影ヘッドを介したコサイン類似度損失という枠組みを参考にしていますが、教師信号が「画像特徴」ではなく「因果推論テキスト」である点、そしてタスク全体ではなく「動作フェーズ単位」で整列させるという粒度（Granularity）に着目した点が大きく異なります。\n\n### 人間デモを活用したVLA事前学習\nロボットの実機データ収集コストを抑えるため、近年は一人称視点（エゴセントリック）の人間の作業動画でVLAを事前学習し、少量のロボットデータでファインチューニングするアプローチ（H-RDTなど）が主流になりつつあります。本論文はH-RDTをベースに採用し、その事前学習プロセスの中にLSSを組み込むことで、人間動作が持つ物理的な意味を効率よくポリシーへ浸透させています。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "LSSのアーキテクチャ：動作フェーズと推論理由を密に結びつける仕組み",
+   "summary_ja": "H-RDTをベースに、行動トークンを物理推論テキストのT5埋め込み空間へ写像するLSAHeadを導入しました。エピソード全体をまとめるPooled LSSに対し、動作フェーズごとにトークンを整列させるDense LSSを設計し、推論時には整列機構を丸ごと切り捨てます。",
+   "details_ja": "### 基本構成と3段階パイプライン\nベースモデルにはH-RDTを採用しています。DINO+SigLIPの視覚エンコーダ、タスク指示文をエンコードする固定されたT5-XXL、20億パラメータ（2B）のDiffusion Transformerバックボーン、そしてFlow Matchingに基づく行動ヘッドで構成されます。本手法では、(1) 人間デモによる事前学習、(2) LSSを適用した人間デモによる追加事前学習、(3) ロボットデータによるファインチューニング、という3ステージ構成をとります。\n\n### 推論テキストは「入力」ではなく「整列ターゲット」\nここが最も重要な設計判断です。GeminiなどのVLMによってオフラインで生成された物理推論テキスト（例：「ボトルが傾いて中身がこぼれそうなので、立て直す」）は、ポリシーへの入力文としては一切与えられません。推論テキストは固定されたT5-XXLで埋め込まれ、補助損失の「目標地点（ターゲット）」としてのみ使われます。つまり、推論時には推論テキストもそのエンコーダも一切存在しない状態で動作します。\n\n### Pooled LSS と Dense LSS の構造\nバックボーンが出力する $K=16$ 個の行動トークン $Z_{\\text{act}} = \\{z_1, \\dots, z_K\\} \\in \\mathbb{R}^{K \\times 2176}$ に対し、2層MLPからなる射影ヘッド「LSAHead」 $g_{\\phi}$ を適用します。\n- **Pooled LSS**: 16個の行動トークンを時間方向に平均プーリングしたベクトルと、エピソード全体の推論テキスト埋め込みとのコサイン距離を最小化します。\n- **Dense LSS**: 人間の動作を「接近（approach）」「把持（grip）」「回転（rotate）」「後退（withdraw）」などのフェーズに分割し、各フェーズに対応する1文の因果推論テキストを用意します。各行動トークンがカバーする時間フレームに基づき、対応するフェーズの推論埋め込み $e_{p}$ とトークンごとにコサイン距離を計算します。フェーズ境界をまたぐ約5%のトークンはマスクして損失から除外します（図 F3）。\n\n全体の損失関数は $L_{\\text{total}} = L_{\\text{flow}} + \\lambda L_{\\text{LSS}}$ となり、行動生成を邪魔しないよう $\\lambda = 0.1$ という控えめな重みが設定されています。学習完了後、LSAHeadは保存すらされず捨てられるため、実機推論時の計算グラフは元のVLAと完全に同一になります。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "Stage 2におけるDense LSSの全体図です。Flow Matchingの行動生成損失に加えて、LSAHeadを経由した各フェーズごとの推論テキスト埋め込みとのコサイン距離損失（$L_{\\text{LSS}}$）を重み $\\lambda=0.1$ で併用します。",
+     "caption": "Fig. 2 : Dense LSS architecture (Stage 2, training only). A frozen DINO+SigLIP encoder and a frozen T5-XXL command encoder condition the 2B diffusion-transformer backbone, which produces $K{=}16$ action tokens $Z_{t}\\in\\mathbb{R}^{2176}$ supervised by the flow-matching loss $L_{\\text{flow}}$ . In parallel, the LSAHead projection $g_{\\phi}$ maps each action token into T5 space and a cosine-distance loss aligns it to the reasoning embedding of its own manipulation phase, $e_{\\text{phase}(t)}$ (straddling tokens masked by $m_{t}$ ). The combined objective is $L_{\\text{total}}=L_{\\text{flow}}+\\lambda L_{\\text{LSS}}$ . …",
+     "image": "details/2609.04893/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "Dense LSSのトークン単位アライメントの詳細です。16個の各行動トークンを、それが属する動作フェーズ（把持や回転など）の推論テキスト埋め込みに1対1で整列させます。境界をまたぐトークンはマスク処理されます。",
+     "caption": "Fig. 3 : Dense LSS token-to-phase alignment. Each of the 16 action tokens $Z_{t}$ is assigned to the manipulation phase spanned by its frames (tokens straddling a boundary, e.g. the greyed slot, are masked by $m_{t}$ ); color indicates the assigned phase (orange = grip, green = rotate; two representative phases shown). The per-phase reasoning text is encoded by a frozen T5 and mean-pooled into a target $e_{\\text{phase}(t)}$ . The head $g_{\\phi}$ projects each token into T5 space and $L_{\\text{dense}}$ aligns it to the target of its own phase.",
+     "image": "details/2609.04893/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "実験結果：推論コストゼロで未知タスクへの転移性能が劇的に向上",
+   "summary_ja": "RoboTwin 2.0シミュレータ環境で評価を行いました。単に推論テキストを入力文として与えるよりも表現整列として使うほうが効果的であり、さらにDense LSSが学習タスク（90%）および未知タスクへの転移で圧倒的な最高性能を示しました。",
+   "details_ja": "### 実験設定とデータ収集\n評価には双腕14自由度ロボット環境「RoboTwin 2.0」を採用しました（図 F4下）。事前学習用データとして、Apple Vision Pro（手の48次元姿勢）とZEDステレオカメラ（三人称RGB映像）を同期させたリグを用い、人間によるボトルの向き調整タスク（adjust_bottle）のデモを500エピソード収集しました（図 F4上）。Stage 3のファインチューニングは、すべての比較対象で公平を期すため、50エピソード・22,000ステップの同一条件に揃えています。\n\n### アブレーション実験で分かったこと（表 I）\n同一タスク（adjust_bottle）での比較から、以下の重要な事実が判明しました。\n- **整列ターゲットの内容が重要**: 単なる指示文テキストに整列させた場合は成功率が58%に落ち込みましたが、物理推論テキストに整列させたPooled LSSは85%を達成しました。\n- **推論テキストを入力にするのは逆効果**: 推論テキストをポリシーの条件付け入力として与えると成功率は71%に低下し、LSSなしのベースライン（79%）すら下回りました。目的関数が与えられない場合、長い推論文は単なるノイズ（注意散漫）になってしまうことを示唆しています。\n- **密な整列の優位性**: フェーズごとに細かく整列させたDense LSSは最高の90%に達しました。\n\n### 未知タスクへの転移性能と整列粒度の関係（表 II）\n本論文の核心となるのが、事前学習で見ていない未知タスク（shake_bottle, move_can_potなど）への転移性能です。エピソード全体をプーリングしたPooled LSSは、学習タスクには適合するものの未知タスクではベースライン（R2: 45%）を下回る39%（shake_bottle）に沈み、過剰適合を起こしていました。一方、Dense LSSはshake_bottleで58%、move_can_potで27%など、すべての未知タスクで他手法を一貫して大きく引き離しました。\n\n### 内部表現のプローブ分析（図 F5）\nなぜDense LSSがここまで転移するのかを調べるため、バックボーン内の潜在状態が動作フェーズごとにどれだけ分離しているかをシルエットスコアで計測しました。その結果、Dense LSSはPooled LSSに比べて約2倍のフェーズ分離度を示しました。フェーズごとに因果理由を紐付けたことで、汎用的に使い回せる「動作の部品」がポリシーの内部表現として獲得されたと考えられます。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "データ収集と評価環境の様子です。上段はApple Vision ProとZEDカメラを用いて収集した人間の一人称・手先操作デモ（adjust_bottle）、下段はシミュレータRoboTwin 2.0での評価環境を示しています。",
+     "caption": "Fig. 4 : Human demonstration data (top) and simulation evaluation environment (bottom).",
+     "image": "details/2609.04893/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "バックボーン内部の行動トークン表現における、フェーズごとの分離度（シルエットスコア）の比較です。Dense LSSはPooled LSSに対して約2倍の分離度を示しており、動作フェーズごとの表現獲得が確認できます。",
+     "caption": "Fig. 5 : Per-phase separability of the LSS-induced representational change on adjust_bottle . Under the same small alignment budget ( $\\lambda{=}0.1$ ), Dense LSS yields ${\\sim}2\\times$ the silhouette of Pooled LSS; absolute values are small by design. Supporting evidence for phase-local shaping.",
+     "image": "details/2609.04893/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Limitations",
+   "heading_ja": "本手法の限界と今後の課題",
+   "summary_ja": "事前学習タスクが単一の卓上ボトル操作に限定されている点や、VLMによるフェーズ分割・推論テキスト生成の品質に依存する点が制約です。また、推論時に再計画を行えないため、実行時の柔軟性とのトレードオフが存在します。",
+   "details_ja": "本研究の成果は非常に魅力的ですが、著者らはいくつかの制限事項も率直に挙げています。\n\n- **事前学習ドメインの限定性**: 今回の事前学習タスクは卓上でのボトル操作という単一のドメインにとどまっており、より多様な物体カテゴリや複雑なスキルに対してどこまでスケールするかは今後の検証課題です。\n- **VLMによる自動アノテーションへの依存**: Dense LSSはフェーズ境界の正確さに依存します。今回はGeminiを用いて自動生成しており人手による厳密な品質管理を行っていないため、ノイズの多いセグメンテーションが混入した場合にアライメントが崩れるリスクがあります。\n- **実行時リプランニングの欠如**: 推論プロセスを重みの中に焼き付けて実行時の推論モジュールを破棄しているため、想定外のエラーが起きた際にその場で「考え直す」ような柔軟性はありません。実行時推論が持つ適応力と、計算コストゼロの効率性との間にはトレードオフが存在します。\n- **プローブ分析の絶対値の小ささ**: 内部表現の分離度分析で得られたシルエットスコアの絶対値は小さく、あくまで補助的な証拠にとどまる点にも留意が必要です。",
+   "figures": []
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "まとめ：推論能力を重みに焼き付ける新しいパラダイム",
+   "summary_ja": "LSSは、推論コストを一切増やさずにVLAへ物理推論の恩恵を与える新しい学習フレームワークです。動作フェーズに応じた細粒度なアライメントが未知タスクへの転移を可能にすることを実証しました。",
+   "details_ja": "本論文では、ロボットポリシーの行動トークン表現を物理推論テキストの埋め込みに整列させ、推論時にはその補助構造を完全に破棄する「Latent Semantic Scaffolding（LSS）」を提案しました。\n\n本研究がもたらした最大の知見は、「整列の粒度（Alignment Granularity）」が汎化性能の決定打になるということです。タスク全体を単一のベクトルに要約して整列させてしまうと特定のタスクに過剰適合してしまいますが、動作フェーズごとに因果的な理由を結びつける「Dense LSS」を採用することで、未知のタスクに対しても強固に転移する柔軟な内部表現を育むことができます。\n\n推論時に重い計算を回すことなく、賢い振る舞いだけを身につけさせるこのアプローチは、リソースが限られたロボット実機でのリアルタイム制御において非常に実用的な指針を示しています。今後はより多様な人間動作データへの拡張や実機ロボット環境での検証が期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "推論能力（Reasoning）の獲得は実行時のトークン生成だけでなく、学習時の補助損失（表現整列）として重みに焼き付けることでも達成できる",
+  "推論テキストをポリシーの入力プロンプトとして直接与えると、かえって注意が散漫になり性能を落とすことがある",
+  "動作と意味を整列させる際は、エピソード全体ではなく「動作フェーズ単位（接近・把持など）」の細粒度でアライメントすることが未知タスクへの汎化に不可欠である",
+  "学習時に用いた射影ヘッドや推論エンコーダは推論時に完全に破棄できるため、実機での制御周波数を一切落とさずに済む"
+ ],
+ "limitations_ja": [
+  "VLMによるフェーズ分割や理由生成の精度に依存しており、誤ったアノテーションが学習を阻害する可能性がある",
+  "推論時に思考プロセスを生成しないため、予期せぬ環境変化に対してオンラインで再計画する適応力には限界がある",
+  "検証が単一のボトル操作デモとシミュレータ環境（RoboTwin 2.0）中心であり、多様な物体や実機ロボットでの大規模検証は今後の課題である"
+ ],
+ "keywords": [
+  "Vision-Language-Action (VLA)",
+  "Latent Semantic Scaffolding (LSS)",
+  "Representation Alignment",
+  "Embodied Reasoning",
+  "Diffusion Transformer",
+  "Human Demonstration Pretraining"
+ ],
+ "id": "2609.04893",
+ "title": "Reasoning Without Inference Cost: Latent Semantic Scaffolding for Robot VLA Policies",
+ "authors": [
+  "Andrew Ting Yan Li",
+  "Zhuo Li",
+  "Zhelin Yang",
+  "Zhipeng Dong",
+  "Quentin Rouxel",
+  "Fei Chen"
+ ],
+ "date": "2026-09-07",
+ "group": "general",
+ "tags": [
+  "vision-language-action",
+  "imitation-learning",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.04893",
+ "pdf_url": "https://arxiv.org/pdf/2609.04893",
+ "summary_ja": "VLA方策に推論遅延を追加することなく物理的推論能力を付与するLatent Semantic Scaffolding（LSS）を提案。模倣学習時に推論根拠テキストとの潜在表現アライメント補助損失を導入し、デプロイ時には投影ヘッドを破棄することで、推論時の計算コストゼロで長期的タスクにおける方策の頑健性を向上させた。",
+ "generated": "2026-09-07",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.04893"
+}
