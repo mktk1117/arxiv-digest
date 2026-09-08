@@ -1,0 +1,131 @@
+{
+ "title_ja": "高耐障害な遠隔ロボット制御に向けた結合制御と無線ワールドモデル",
+ "tldr_ja": "ロボットの動きと無線通信環境の双方を潜在空間で予測する2つの結合型ワールドモデル（C-JEPAとW-JEPA）を構築し、通信が不安定な環境でも送信電力を抑えつつ粘り強く自律走行できることを示しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "提案された制御・無線結合型ワールドモデルの全体像です。エッジ側のサーバでロボットの行動・視覚を予測するC-JEPAと、電波状態や将来の送信電力を予測するW-JEPAが連携し、不要な通信を間引きながら遠隔制御を継続します。",
+  "caption": "Fig. 1 : Proposed communication-aware remote robotic control framework based on coupled C-JEPA and W-JEPA .",
+  "image": "details/2609.04851/F1.jpg"
+ },
+ "overview_ja": "工場や倉庫で遠隔からロボットを無線制御しようとすると、常に大きな壁にぶつかります。カメラなどのリッチな映像をアップリンクで送り続けると通信帯域を圧迫し、バッテリーも激しく消耗します。さらに現場では電波の遮断や干渉、パケットロスが日常茶飯事です。\n\nそこで著者らは「ロボットの動き」と「電波の振る舞い」を同時に先読みすれば、通信回数を劇的に減らせるのではないかと考えました。具体的には、自己教師あり学習アーキテクチャであるJEPA（Joint Embedding Predictive Architecture）をベースに、制御予測用のC-JEPAと無線予測用のW-JEPAを潜在空間で結合させたフレームワークを提案しています。ロボットが次にどこへ動き、そのとき電波状況が良いか悪いかを先回りして予測し、通信状態が良いタイミングを狙って間欠的に画像を送る仕組みです。\n\n検証のために、ロボット物理シミュレータのGazeboと、レイトレーシングで本格的な電波伝搬を再現できるSionnaをROSを介して完全に同期させた実験環境を構築しました。周波数変動や障害物によるマルチパス、アクセスポイントの切り替え（ハンドオーバー）、突発的な通信途絶や照明変化などの過酷な条件下で評価を行っています。\n\nその結果、従来の深層強化学習（DQN）やPID制御と比較して、ゴール到達時間を短縮しながらアップリンク送信エネルギーを約半分（4.74 J）に抑え、13回連続で通信が途絶えても破綻せずに自律走行を維持できる高い耐障害性を実証しました。",
+ "contributions_ja": [
+  "ロボット物理シミュレータ（Gazebo）と高精度電波レイトレーシング（Sionna）をROSで同期させた、通信と制御を同時検証できる実用的なシミュレーション基盤を構築したこと",
+  "視覚から制御を先読みするC-JEPAと、電波状態を先読みするW-JEPAを潜在空間で結合し、通信を間引きつつ遠隔制御する通信認識型フレームワークを開発したこと",
+  "軽量な強化学習環境（Gym）で事前学習したワールドモデルをGazebo環境へ効率的に適応させる転移学習手法を示したこと",
+  "CSI（伝搬路状態情報）からスペクトログラムやパーシステンス画像（PI）といった構造化RF表現を抽出し、電波予測精度を大幅に向上させたこと",
+  "照明変化や視野の汚れなどの視覚障害を潜在空間の予測ズレから即座に検知し、制御モデルを再学習せずに自己修復する適応的耐障害機構を提案したこと"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "通信が途切れる現場で、どうやってロボットを遠隔操作するか",
+   "summary_ja": "次世代の遠隔ロボット制御では、高次元なセンサデータを送り続けることによる通信負荷や電波の不安定さが大きな課題です。本論文では、制御と無線の両方を先読みするマルチモーダルなワールドモデルを提案し、過酷な電波環境でも安定動作するロボット制御の実現を目指します。",
+   "details_ja": "倉庫の自動化やプラント点検、災害対応など、ロボットを遠隔制御するニーズは急速に高まっています。しかし、カメラ画像などの大容量データをリアルタイムに基地局へ送信し続けると、通信帯域を圧迫し、ロボットの消費電力も跳ね上がってしまいます。さらに実際の工場や現場では、障害物による電波の遮蔽やマルチパス（反射波の干渉）、パケットロスが頻繁に発生します。\n\nこれに対処するため、近年注目されているのが「ワールドモデル（World Model：環境の動特性を予測する内部モデル）」です。しかし、従来のワールドモデルはロボットの物理的な動きばかりに着目しており、通信状態の良し悪しまで考慮したものはほとんどありませんでした。\n\nここがポイントなのですが、電波状況が悪いときに無理に画像を送ろうとすれば失敗し、エネルギーを無駄にします。逆に「次に電波が良くなる瞬間」や「画像を送らなくてもロボットが安全に動ける時間」を予測できれば、通信を賢く間引く（スケジューリングする）ことが可能になります。著者らは先行研究のアイデアを大きく発展させ、本格的なロボットシミュレータGazeboと電波伝搬シミュレータSionnaを結合し、現実的な妨害や外乱に耐えうる頑健なシステムを提案しました。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "ワールドモデル・通信制御統合・シミュレータの交差点",
+   "summary_ja": "画素の再構成を行わない潜在空間予測（JEPA）の発展、通信と制御を協調させる通信認識制御、そして高精度シミュレータの統合という3つの研究トレンドを整理し、本研究がそのギャップをどう埋めるかを述べています。",
+   "details_ja": "本研究は、主に3つの研究領域の交差点に位置づけられます。\n\n- ワールドモデルとJEPA：従来のワールドモデルは未来のカメラ画像をピクセル単位で再構成するものが主流でしたが、計算負荷が高く本質的でない背景ノイズに惑わされやすい欠点がありました。そこで近年登場したのが、潜在空間の埋め込みベクトルだけで未来を予測するJEPA（Joint Embedding Predictive Architecture）です。本研究はこのJEPAを制御と無線の両方に導入しています。\n- 通信認識型ロボット制御：従来は「与えられた通信路の上でいかに制御を安定させるか」が中心でしたが、最近では「制御器が通信リソースや送信タイミング自体を最適化する」研究が進んでいます。しかし、現実的なロボット環境で通信と制御の潜在ダイナミクスを同時にモデル化した例は極めて稀でした。\n- ロボットと無線の統合シミュレーション：ロボティクス分野ではGazeboが、無線通信分野ではレイトレーシングツールのSionnaがデファクトスタンダードとして使われていますが、これらを連動させて「ロボットの動きが電波伝搬をどう変え、電波の悪化がロボット制御にどう跳ね返るか」を厳密にシミュレーションした研究はこれまで見当たりませんでした。",
+   "figures": []
+  },
+  {
+   "heading": "III System Architecture, Methodology, and Implementation",
+   "heading_ja": "制御と無線を両輪で回す：結合型JEPAと適応アーキテクチャ",
+   "summary_ja": "視覚を司るC-JEPAと電波を司るW-JEPAの数理モデル、トポロジーを活用した電波表現、視覚外乱に対するオンライン適応機構、そしてGazeboとSionnaを繋ぐ実装パイプラインを詳しく解説します。",
+   "details_ja": "### III-A Joint C-JEPA and W-JEPA Learning\nシステム全体は、ロボット本体とアクセスポイント（AP）側の遠隔コントローラで構成されます。ロボットはカメラ画像 $\\boldsymbol{o}_t$ をアップリンクで送り、コントローラから制御指令 $a_t$ をダウンリンクで受け取ります。\n\nコントローラ側では2つのモデルが動きます。まず制御側の「C-JEPA」は、画像エンコーダ $\\mathcal{E}_{\\phi_c}^c$ と再帰型状態空間モデル（RSSM：確定的状態 $h_t$ と確率的状態 $z_t$ で記憶と不確実性を表現する機構）から構成されます。過去の動作と状態から未来の潜在状態を事前分布 $p_{\\phi_c}$ で先読みし、実際の画像から得た事後分布 $q_{\\phi_c}$ とのカルバック・ライブラー（KL）ダイバージェンスを最小化するように学習します。さらに報酬予測器 $\\mathcal{D}_r^c$ と終了予測器 $\\mathcal{D}_\\tau^c$ も同時に学習し、方策 $\\pi_{\\theta_c}$ が行動を出力します。\n\n一方、無線側の「W-JEPA」は、受信した無線観測量 $q_t$ をエンコーダ $\\mathcal{E}_{\\phi_w}^w$ で潜在表現 $c_t$ に変換します。そして無線予測器 $\\mathcal{P}_{\\phi_w}^w$ が、直前の無線状態 $c_{t-1}$ だけでなく、C-JEPAが予測したロボットの潜在状態 $(h_t, z_t)$ も入力に受け取って未来の電波状態 $\\hat{c}_t$ を予測します。「ロボットが次にどこへ向かうか」が電波の予測に直結するからです。この予測から将来の送信電力 $\\hat{p}_t$ を求め、電波が良いと予測されたときだけ二値スケジューリング変数 $\\rho_t=1$ として画像送信を要求し、悪ければ $\\rho_t=0$ で送信をスキップします。\n\n### III-B Structured RF Representations for W-JEPA\n電波の観測量として、生の伝搬路状態情報（Raw CSI：搬送波ごとの振幅と位相）をそのまま使うだけでなく、時間変化を捉えやすい2つの「構造化RF表現」を導入しました。1つは時間窓で区切って短時間フーリエ変換をかける「スペクトログラム画像 $q_t^s$」、もう1つはトポロジカルデータ解析（TDA）のパーシステントホモロジーを応用した「パーシステンス画像（PI）$q_t^p$」です。時間遅れ埋め込みで点群を作り、穴の発生と消滅を画像化することで、マルチパスの周期的な構造を強固に捉えられます。\n\n### III-C Adaptive Resilience Mechanism\n運用中に照明が赤く変わったり暗くなったりする「全体的な劣化」や、泥はね等でカメラが部分的に隠れる「局所的な遮蔽」が起きると、C-JEPAの予測潜在変数 $\\hat{z}$ と実際の観測潜在変数 $z$ の間にズレ $\\Delta_t$ が生じます。この乖離が閾値 $\\delta$ を超えたら異常と判定します。全体照明の変化に対しては、あらかじめ用意したHSV色変換パラメータ群からズレを最小化するものを即座に選択して適用します。局所的な遮蔽に対しては、軽量な変分オートエンコーダ（VAE）を過去の蓄積画像でオンライン適応させて欠損画像を復元します。ポリシー自体を再学習することなく、知覚の前処理側だけで瞬時に復帰するのがミソです。\n\n### III-D & III-E Sionna–Gazebo Integration & Experimental Setup\nシミュレーション環境では、Gazeboの3Dシーン（SDF形式）をBlender経由で電波素材特性（ITU勧告準拠）を付与し、Sionna用のMitsuba XML形式に変換して一致させています。Waveshare JetBotモデルの自己位置がROS経由でミリ秒単位でSionnaに渡され、その瞬間の電波伝搬レイトレーシングが高精度に計算されます。\n\n### III-F Transfer Learning and Domain Adaptation\nGazebo内で一から強化学習を行うと計算時間が膨大になるため、軽量な2D環境「Gym CarRacing」でC-JEPAを事前学習させた後、Gazeboの画像入力と報酬系に適応させる転移学習戦略を採用しました。離散的な5つの行動をJetBotの連続的な速度・角速度制御コマンドへとマッピングし、スムーズな走行を実現しています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "提案手法のブロック図です。ロボット側からの視覚情報をもとにC-JEPAがロボットの挙動と将来状態を予測し、その潜在表現 $(h_t, z_t)$ をW-JEPAに渡して無線チャネルと必要電力を先読みする連係プレイが描かれています。",
+     "caption": "Fig. 1 : Proposed communication-aware remote robotic control framework based on coupled C-JEPA and W-JEPA .",
+     "image": "details/2609.04851/F1.jpg"
+    },
+    {
+     "key": "F2",
+     "caption_ja": "W-JEPAに入力する3種類の無線表現です。生のCSI（左）に加え、STFTで時間周波数変換したスペクトログラム（中央）、位相空間のトポロジー的特徴を抽出したパーシステンス画像（右）を比較検討しています。",
+     "caption": "Fig. 2 : Structured RF representation generation from the wireless observation sequence $\\boldsymbol{G}_{t}$ . Three alternative input representations are considered for the W-JEPA : raw CSI $\\boldsymbol{g}_{t}$ , spectrogram images $\\boldsymbol{q}_{t}^{s}$ , and PIs $\\boldsymbol{q}_{t}^{p}$ .",
+     "image": "details/2609.04851/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "適応的耐障害機構が想定する2つの知覚劣化シナリオです。(a)は照明の明るさや色が変わる全体劣化、(b)は泥や障害物で視界の一部が覆われる局所遮蔽を示しています。",
+     "caption": "Fig. 3 : Perception degradation scenarios considered for adaptive resilience: (a) global perceptual degradation caused by illumination variations and (b) local perceptual degradation caused by partial visual occlusions.",
+     "image": "details/2609.04851/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "構築された実験環境です。(a) JetBotロボットの走行路と基地局、(b) Gazeboによる物理・視覚環境、(c) 同じ形状に電波反射・減衰パラメータを付与したSionnaのレイトレーシング空間がROSでリアルタイム同期しています。",
+     "caption": "Fig. 4 : Experimental setup of the proposed communication-aware robotic framework. (a) Overall communication-aware experimental environment with the robot, onboard RGB observations, and sensing uplink/control downlink communication. (b) Gazebo environment for robot simulation and visual perception. (c) Corresponding Sionna RT scene for physics-based wireless channel generation, synchronized through ROS .",
+     "image": "details/2609.04851/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Performance Evaluation",
+   "heading_ja": "実験結果：通信量を激減させつつ、過酷な電波障害を走り抜く",
+   "summary_ja": "通常の走行試験（E1）から電波環境の激変（E2〜E4）、表現形式の比較（E5）、連続通信途絶（E6）、視覚外乱（E7〜E8）まで8つのシナリオで検証しました。提案手法は通信エネルギーと遅延を大幅に削減しつつ、障害下でも飛び抜けた完走率を示しました。",
+   "details_ja": "### IV-A & IV-B 実験シナリオとベースライン\n検証シナリオはE1（基準環境）、E2（反射体・障害物の追加）、E3（アクセスポイントの切り替え/ハンドオーバー）、E4（搬送波周波数を2.14GHzから1.9GHz/2.6GHzへ変更）、E5（RF表現の比較）、E6（連続パケットロス耐性）、E7・E8（視覚外乱）の計8つです。比較対象として、同じ転移学習プロトコルを適用したDeep Q-Network（DQN）と、古典的なPID制御を用意しました。\n\n### IV-C 全体性能と頑健性\n基準シナリオ（E1）において、提案手法は周回時間57.1秒、累積平均報酬775.4を達成し、DQN（周回時間58.0秒、報酬753.8）やPID（77.3秒、716.1）を上回りました。特筆すべきは通信効率で、アップリンクの送信エネルギーはDQNが9.21 J、PIDが11.19 Jかかったのに対し、提案手法は必要なときだけ送信するため4.74 Jと半分以下に激減しました。アップリンク遅延も0.48 msと最小です。\n\n外乱に対する頑健性も圧倒的です。周波数の変更（E4）や反射体の追加（E2）に対しても周回時間はほぼ変動しませんでした。さらに強烈な外乱として走行中にアクセスポイントを強制的に切り替えるハンドオーバー（E3）を実施したところ、DQNの完走率は56.48%、PIDは58.99%まで落ち込んでクラッシュしたのに対し、提案手法は見事に完走率100%を維持しました。\n\n### IV-D 構造化RF表現の比較\nE5において、W-JEPAの入力形式を比較した結果、生のRaw CSIよりもスペクトログラムやパーシステンス画像（PI）を用いた方が、先の時間ステップ（予測ホライズン $H$）まで低い電力予測誤差を維持できることが判明しました。特にPIは最も誤差が小さくなりました。ただし、特徴量生成にかかる時間はRaw CSIが0 ms、スペクトログラムが0.58 ms、PIが13.56 msとなっており、「精度最優先ならPI、リアルタイム性と精度のバランスならスペクトログラム、計算リソース皆無ならRaw CSI」という明確なトレードオフが示されました。\n\n### IV-E 通信効率とパケットロス耐性\n提案手法のC-JEPA潜在埋め込みベクトル（400次元）は、Vision Transformer（ViT）ベースの手法で同等性能を出すのに必要なトークンサイズ（$128 \\times 196$）と比べて約62分の1のデータサイズで済みます。また、アップリンクの通信が連続して途絶えた場合（E6）、ViTベースの手法は約8ステップで制御が破綻したのに対し、提案手法は内部のワールドモデルが自律的に先読みを続けることで、約13ステップ（約0.45秒相当）連続で通信が途切れても安全に走行を継続できました。\n\n### IV-F 視覚外乱への適応性\n急な照明変化（E7）では適応なしだと制御不能に陥りますが、HSV変換のオンライン切り替えにより即座にリカバリーし、高い報酬を維持しました。泥はねなどの局所遮蔽（E8）でも、軽量VAEによるオンライン修復によって見事に走行を継続できることが確認されました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "無線環境のロバスト性評価シナリオです。(a)多数の障害物や反射体を配置して複雑なマルチパスを発生させた環境、(b)走行途中で通信先のアクセスポイントが物理的に切り替わるハンドオーバー環境を示しています。",
+     "caption": "Fig. 5 : Wireless evaluation scenarios employed to assess the robustness of the proposed communication-aware framework: (a) Additional scatterers are introduced into both the Gazebo and Sionna RT scenes to generate diverse multipath propagation conditions; and (b) The access-point handover is enforced to modify the geometry of the wireless environment.",
+     "image": "details/2609.04851/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion and Future Work",
+   "heading_ja": "まとめと今後の展望：実機検証とマルチロボットへの拡張",
+   "summary_ja": "制御と無線の結合型JEPAにより、遠隔ロボット制御の通信効率・頑健性・耐障害性が大幅に向上することが実証されました。今後は単一ロボットのシミュレーションから、複数ロボット協調や実機への展開、デジタルツインの構築を目指します。",
+   "details_ja": "本研究は、ロボットの運動ダイナミクスと無線伝搬の変動を潜在空間で結合して同時に先読みする、新しい通信認識型の遠隔制御フレームワークを提示しました。構造化RF表現による電波予測の高度化と、視覚外乱に対するポリシー再学習不要の適応機構により、通信リソースが極端に制限された不安定な現場でも高い制御性能を維持できることが示されました。単一GPU上で実時間動作可能な処理速度も確認されています。\n\n今後の課題として、現在は1台のロボットかつ固定の単一リンクに限定されているため、複数ロボットが同一帯域を取り合うマルチエージェント環境への拡張が挙げられます。また、現在はシミュレータ環境（Gazebo＋Sionna）での検証にとどまっているため、実機のJetBotと実際のプライベート5G/Wi-Fi環境を用いた「リアルワールドでの実証実験」や、物理空間と仮想空間を完全に同期させるデジタルツイン基盤への発展が期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「ロボットの動き」と「電波環境の変動」は密接に相関しているため、双方のワールドモデルを潜在空間で結合して予測することで、不要な通信を賢く間引くことができる",
+  "電波の生データ（CSI）をそのまま使うより、スペクトログラムやパーシステンス画像（PI）のような構造化表現に変換した方が、長期的な無線予測精度が格段に向上する",
+  "潜在空間における予測と実際のズレ（不整合）を監視することで、ポリシーの重みを更新することなく、知覚層の前処理（色変換やVAE補完）だけで外乱から即座に立ち直れる",
+  "GazeboとSionnaをROSで連動させるシミュレーション環境は、通信と制御が絡み合う次世代ロボティクス研究の強力な実験基盤になる"
+ ],
+ "limitations_ja": [
+  "検証がGazeboとSionnaによるシミュレータ上に限られており、実機のハードウェア特性や現実の複雑な電波干渉下での実証がまだ行われていない点",
+  "単一のロボットと単一のアクセスポイント間の通信のみを扱っており、複数ロボットが帯域を取り合う競合環境には未対応である点",
+  "パーシステンス画像（PI）などの高精度なRF表現は予測精度が高い反面、生成処理に約13.5 msを要するため、超高頻度な制御ループへの適用には計算コストの課題が残る点"
+ ],
+ "keywords": [
+  "World Models",
+  "Joint Embedding Predictive Architecture (JEPA)",
+  "Remote Robotic Control",
+  "Wireless Channel State Information (CSI)",
+  "Topological Data Analysis (TDA)",
+  "Gazebo-Sionna Simulation"
+ ],
+ "id": "2609.04851",
+ "title": "Coupled Control and Wireless World Models for Resilient Remote Robotic Control",
+ "authors": [
+  "H. P. Madushanka",
+  "Sumudu Samarakoon",
+  "Mehdi Bennis"
+ ],
+ "date": "2026-09-08",
+ "group": "focus",
+ "tags": [
+  "control",
+  "world-model",
+  "teleoperation"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.04851",
+ "pdf_url": "https://arxiv.org/pdf/2609.04851",
+ "summary_ja": "無線通信環境が不安定な遠隔制御において、通信負荷を抑制しつつ信頼性を維持する制御手法を提案。JEPA型ワールドモデルによりロボットの動力学と通信チャネル変化を視覚情報から結合予測し、外乱や帯域制限に頑健な遠隔制御を可能にした。",
+ "generated": "2026-09-08",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.04851"
+}
