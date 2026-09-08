@@ -1,6 +1,279 @@
 {
  "entries": [
   {
+   "date": "2026-09-08",
+   "rank": 0,
+   "id": "2609.05300",
+   "group": "focus",
+   "title": "Human-Human & Human-Robot Interaction Transformer (H2INT) for Robot Navigation in Dense and Uncertain Crowds",
+   "title_ja": "密集した不確実な群衆ナビゲーションに向けたH2INT強化学習フレームワーク",
+   "summary_ja": "密集した歩行者環境において、ロボットに対する歩行者の反応性のばらつきを考慮して安全にナビゲーションを行う強化学習手法H2INTを提案。歩行者ごとの反応度を明示的に入力せず潜在的に推論させ、相互作用の不確実性に対応した方策学習を実現した。",
+   "authors": [
+    "Ao Shen",
+    "Kaixi Chen",
+    "Shiwei Liu",
+    "Fang Deng",
+    "Chen Chen"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "navigation",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.05300",
+   "image": "figures/2026-09-08/2609.05300.jpg"
+  },
+  {
+   "date": "2026-09-08",
+   "rank": 1,
+   "id": "2609.05199",
+   "group": "focus",
+   "title": "Risk-Aware Optimal Control with Rulebooks",
+   "title_ja": "ルールブックを用いたリスク考慮型最適制御",
+   "summary_ja": "優先度付きの安全性要件と不確実性を含むセーフティクリティカル制御を、超過リスクに対する辞書式最適化問題として定式化。証明可能な最適性ギャップを漸次縮減するエニタイムフィルタリングおよび分枝限定法アルゴリズムを構築した。",
+   "authors": [
+    "Tichakorn Wongpiromsarn"
+   ],
+   "categories": [
+    "eess.SY",
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "safety",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.05199",
+   "image": null
+  },
+  {
+   "date": "2026-09-08",
+   "rank": 2,
+   "id": "2609.04911",
+   "group": "focus",
+   "title": "TourPhysics: Bringing Physics to World Models for Exploration and Manipulation from a Single Image",
+   "title_ja": "TourPhysics: 単一画像からの探索と操作に向けた物理統合型ワールドモデル",
+   "summary_ja": "単一画像と宣言的物理設定から長期的な探索・操作を可能にするワールドモデルを提案。動画生成モデルと確定論的物理シミュレーションの役割を分離して統合することで、長期間にわたり幾何的一貫性と物理挙動の正確性を両立させた。",
+   "authors": [
+    "Xin Zhang",
+    "Yabo Chen",
+    "Zixuan Duan",
+    "Haibin Huang",
+    "Chi Zhang",
+    "Feng Xu",
+    "Xuelong Li"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "simulation",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.04911",
+   "image": "figures/2026-09-08/2609.04911.jpg"
+  },
+  {
+   "date": "2026-09-08",
+   "rank": 3,
+   "id": "2609.05206",
+   "group": "focus",
+   "title": "Morphology and actuation as inductive biases in robotic hand manipulation",
+   "title_ja": "ロボットハンド操作における形態と駆動機構の誘導バイアス解析",
+   "summary_ja": "ロボットハンドの運動学と駆動機構が制御性に与える影響を、タスクヤコビアンや駆動行列の条件数を用いて解析する統一的枠組みを提案。異なる設計思想を持つ2つの多指ハンドを対象に、結合機構や幾何配置がもたらす誘導バイアスを定量評価した。",
+   "authors": [
+    "Zalán Tari",
+    "Eszter Birtalan",
+    "Péter Polcz",
+    "Miklós Koller"
+   ],
+   "categories": [
+    "cs.RO",
+    "eess.SY"
+   ],
+   "tags": [
+    "control",
+    "hardware",
+    "grasping"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.05206",
+   "image": "figures/2026-09-08/2609.05206.jpg"
+  },
+  {
+   "date": "2026-09-08",
+   "rank": 4,
+   "id": "2609.04851",
+   "group": "focus",
+   "title": "Coupled Control and Wireless World Models for Resilient Remote Robotic Control",
+   "title_ja": "高耐障害な遠隔ロボット制御に向けた結合制御と無線ワールドモデル",
+   "summary_ja": "無線通信環境が不安定な遠隔制御において、通信負荷を抑制しつつ信頼性を維持する制御手法を提案。JEPA型ワールドモデルによりロボットの動力学と通信チャネル変化を視覚情報から結合予測し、外乱や帯域制限に頑健な遠隔制御を可能にした。",
+   "authors": [
+    "H. P. Madushanka",
+    "Sumudu Samarakoon",
+    "Mehdi Bennis"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "control",
+    "world-model",
+    "teleoperation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.04851",
+   "image": "figures/2026-09-08/2609.04851.jpg"
+  },
+  {
+   "date": "2026-09-08",
+   "rank": 5,
+   "id": "2609.05282",
+   "group": "general",
+   "title": "Temporal Tactile Encoding and Compliance for Intent-Aware Robot-to-Human Bimanual Handover",
+   "title_ja": "時系列触覚符号化とコンプライアンス制御による意図認識ロボット・人間間手渡し",
+   "summary_ja": "人間への確実かつ安全な物体手渡しのため、VLAモデルとコンプライアンス制御を融合したシステムを提案。RGB画像、時系列触覚、固有感覚を用いて受取意図を判別し、受け渡し時の過剰な接触力を低減しつつ適切なタイミングで解放する。",
+   "authors": [
+    "Pasquale Marra",
+    "Stefano Berti",
+    "Gabriele Mario Caddeo",
+    "Lorenzo Natale"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "control",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.05282",
+   "image": "figures/2026-09-08/2609.05282.jpg"
+  },
+  {
+   "date": "2026-09-08",
+   "rank": 6,
+   "id": "2609.05178",
+   "group": "general",
+   "title": "LIBERO-RECOVER: Beyond Task Success Towards Failure Recovery in Robotic Manipulation Models",
+   "title_ja": "LIBERO-RECOVER: 操作モデルのタスク成功を超えた失敗復旧ベンチマーク",
+   "summary_ja": "理想的初期状態での成功だけでなく、把持ミスや予期せぬズレといった実環境での失敗から復旧できるかを評価する新ベンチマークを提案。最先端のVLAやWAMモデルが外乱や失敗状態からの自律的回復において脆弱であることを実証した。",
+   "authors": [
+    "Lin Liu",
+    "Zhicheng Bao",
+    "Lu Zhang",
+    "Ziying Song",
+    "Wu Yang",
+    "Shuai Tao",
+    "Wulong Liu",
+    "Huchuan Lu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "benchmark",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.05178",
+   "image": "figures/2026-09-08/2609.05178.jpg"
+  },
+  {
+   "date": "2026-09-08",
+   "rank": 7,
+   "id": "2609.04921",
+   "group": "general",
+   "title": "One Diffusion Model, Two Roles: Guided Trajectory Planning and Safety-Critical Scenario Generation in Closed-Loop Simulation",
+   "title_ja": "単一の拡散モデルによる軌道計画と閉ループ安全クリティカルシナリオ生成",
+   "summary_ja": "事前学習済み拡散モデルを、自動運転の自己運動計画器と安全性ストレステスト用シナリオ生成器の双方に活用する手法を提案。シーン文脈を捉える拡散Transformerと事後サンプリングDAPSEにより、閉ループ計画と過酷状況生成を単一モデルで実現した。",
+   "authors": [
+    "Arka Pal",
+    "Rajesh Kumar",
+    "Hannes Eriksson",
+    "Rémi Lacombe",
+    "Arvid Laveno Ling",
+    "Ankit Gupta",
+    "Maciej Wozniak"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.AI",
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "autonomous-driving",
+    "planning",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.04921",
+   "image": "figures/2026-09-08/2609.04921.jpg"
+  },
+  {
+   "date": "2026-09-08",
+   "rank": 8,
+   "id": "2609.05376",
+   "group": "general",
+   "title": "What Matters, When? Diagnosing and Improving Conditional Visual Grounding in Visuomotor Imitation Policies",
+   "title_ja": "視覚運動模倣方策における条件付き視覚グラウンディングの診断と改善",
+   "summary_ja": "模倣学習方策（ACT）が類似した障害物やトレイの存在下で失敗する現象を、操作フェーズ依存の条件付き視覚グラウンディング課題として分析。ピッキングとプレースの各段階で異なる視覚的感度特性を体系的に解明し、識別改善の指針を示した。",
+   "authors": [
+    "Vivek Chavan",
+    "Pengtao Xie",
+    "Yahuan Shi",
+    "Oliver Heimann",
+    "Kevin Haninger",
+    "Jörg Krüger"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "manipulation",
+    "imitation-learning",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.05376",
+   "image": "figures/2026-09-08/2609.05376.jpg"
+  },
+  {
+   "date": "2026-09-08",
+   "rank": 9,
+   "id": "2609.05416",
+   "group": "general",
+   "title": "WorldSculpt: Generating Compositional Worlds from Grounded Videos",
+   "title_ja": "WorldSculpt: 単一動画からの構成的3D環境生成",
+   "summary_ja": "多数の物体が遮蔽し合う密集シーンの動画から、個々の物体メッシュを共通座標系上に配置した構成的3D表現を生成する手法を提案。幾何復元と生成モデルを組み合わせ、ロボティクスシミュレーション等で直接扱える完全なメッシュ群を復元する。",
+   "authors": [
+    "Muyao Niu",
+    "Jixuan He",
+    "Ruihan Yu",
+    "Lian Fu",
+    "Yonghao Yu",
+    "Zheng-Hui Huang",
+    "Yifan Zhan",
+    "Fengbo Lan",
+    "Yongtao Ge",
+    "Yinqiang Zheng",
+    "Kaipeng Zhang",
+    "Zhixiang Wang"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "simulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.05416",
+   "image": "figures/2026-09-08/2609.05416.jpg"
+  },
+  {
    "date": "2026-09-07",
    "rank": 0,
    "id": "2609.04817",
