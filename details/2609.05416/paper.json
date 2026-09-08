@@ -1,0 +1,130 @@
+{
+ "title_ja": "WorldSculpt: 単一動画からの構成的3D環境生成",
+ "tldr_ja": "激しい遮蔽（オクルージョン）がある雑然としたシーンの動画から、何百個もの物体を個別に動かせる独立した3Dメッシュとして復元・生成する手法「WorldSculpt」を提案した論文です。単一物体の3D生成モデルに複数視点の統合機構を組み込むことで、シーン全体の学習を一切行うことなく、高品質かつ編集可能な構成的3D空間の構築を実現しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "WorldSculptの全体処理フローです。複数視点の映像と大まかな3Dバウンディングボックスから、物体ごとに「アンカー視点」を基準とした正準空間（正規化された基準座標系）を定義します。各視点の特徴量を3Dボクセルに逆投影して統合し、3D生成モデル（Pixal3D）に注入して個別メッシュを生成した後、元のワールド座標系へ再配置します。",
+  "caption": "Figure 2 : Overview of WorldSculpt. Given posed scene images, instance masks, and coarse 3D object localizations, the anchor-aligned canonicalization stage constructs a virtual canonical cube for each object and derives crop-aware projections from its input views. Per-view DINOv3 features are lifted into the canonical voxel volume and fused with a permutation-invariant aggregator. The resulting 3D condition, together with global tokens from the anchor view, drives the two geometry stages of a Pixal3D prior through zero-initialized injection layers and LoRA adaptation. The generated canonical meshes are finally placed into the scene using their canonical-to-world transformations.",
+  "image": "details/2609.05416/F2.jpg"
+ },
+ "overview_ja": "近年、1枚の画像やテキストから広大な3D空間をまるごと生成するワールドモデルが急速に進化しています。しかし、既存のモデルが生成するシーンは、空間全体が1つの塊（単一のメッシュや3Dガウシアンの集合）になっており、個々の椅子やコップといった物体が分離されていません。これでは、ロボットが「コップを掴んで動かす」ような物理シミュレーションを行ったり、AR/VR環境で特定の家具を再配置したりすることができません。下流タスクで本当に必要なのは、各物体が個別のメッシュとして独立して扱える「構成的（Compositional）な表現」です。\n\nそこで著者らは、「単一物体の高精度な3D生成モデルをうまく拡張すれば、シーン全体の学習をせずとも、何百もの物体が密集した複雑なシーンを丸ごと復元できるのではないか」と考えました。提案手法「WorldSculpt」では、既存の単一物体3D生成基盤モデル（Pixal3D）をベースに、複数視点の画像特徴を共通の3D空間に投影・統合する軽量なモジュールを追加しました。学習は単一物体の合成データのみで行い、シーン単位の学習データは一切使っていません。\n\n検証のために、Unreal Engine 5を用いて最大701個の物体が高密度に配置されたリアルな新ベンチマーク「UE-MeshyScene」を構築しました。実験の結果、物体の陰に隠れて一部しか見えない激しい遮蔽環境において、従来手法を大幅に上回る幾何精度と配置精度を達成しました。さらに、他のワールドモデル（Marble）が生成した単一の3D Gaussian Splatting空間を、個別の編集可能メッシュ群へと自動変換できる応用可能性まで実証しています。",
+ "contributions_ja": [
+  "動画や複数視点画像から、数十〜数百個の独立した物体メッシュで構成される編集可能な3Dシーンを直接生成するフレームワーク「WorldSculpt」を提案した点。",
+  "物体ごとに最適なアンカー視点を決めて正準空間を構築し、複数視点のDINOv3特徴を幾何学的に正しく持ち上げて統合する、順序不変なマルチビュー条件付け機構を考案した点。",
+  "シーンレベルの大規模な学習を行わず、単一物体に対するLoRA微調整とデータ拡張カリキュラムだけで、高密度な遮蔽シーンへゼロショット的に汎化できることを示した点。",
+  "複雑な遮蔽を伴う最大701個の物体と完全な正解メッシュ・アノテーションを備えた、フォトリアルな大規模評価ベンチマーク「UE-MeshyScene」を公開した点。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "「ひと塊の3D空間」から「個別に動かせる3D物体群」へ",
+   "summary_ja": "最新の3Dワールドモデルは高品質な空間を生成できますが、全体が融合した単一表現であるため個々の物体を操作できません。ロボティクスやシミュレーションには物体ごとに分離されたメッシュが必要ですが、複雑な遮蔽がある実シーンでの達成は困難でした。本論文は、強力な単一物体3D生成モデルに複数視点条件付けを導入し、シーン学習なしで何百もの物体を個別メッシュ化する新しい枠組みを提案します。",
+   "details_ja": "MarbleやHY-World 2.0などの生成ワールドモデルは、1枚の画像から探索可能な広大な3D環境を作り出せるようになりました。しかし、出力されるのは融合した単一メッシュやガウシアンの塊（著者はこれを「undifferentiated soup of surface geometry: 未分化な幾何形状のスープ」と呼んでいます）です。ここから椅子や花瓶だけを選んで物理シミュレータに渡すことはできません。ロボティクスやゲーム開発では、物体が個別のメッシュアセットとして分離されていることが必須条件となります。\n\n実世界の雑然としたシーン（clutter）から構成的な3D表現を作る試みは古くからありますが、極めて困難です。物体同士が重なり合って遮蔽（オクルージョン）が発生し、どのカメラ視点からも物体の一部しか見えないためです。\n\n既存の幾何学的再構成（NeRFや3DGSなど）は、見えている表面は正確に復元できますが、見えない隠れ領域は穴のまま残ってしまいます。一方で既存の3D生成AIは、単一物体を完全に生成することは得意ですが、ポーズ情報のない単一画像を入力とするものが多く、シーンの絶対座標系や複数視点の制約と整合させることが困難でした。\n\nここがブレイクスルーのポイントです。著者らは「複数視点から観察される手掛かりを、単一物体の正準空間（canonical frame: 物体中心の基準座標系）に持ち上げて統合すれば、シーン全体のデータで学習しなくても、強力な単一物体生成モデルの補完能力をそのまま活かせる」と直感しました。この着想を具現化したのがWorldSculptです。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "単一物体生成とシーン再構成のミッシングリンク",
+   "summary_ja": "画像からの3D生成、隠れた形状を補完するアモーダル再構成、シーン全体の生成手法など、関連する先行研究を網羅的に整理しています。個別の物体生成とシーン全体の統合的理解の間には依然として大きな隔たりがあり、本研究はそのギャップを埋める位置づけにあります。",
+   "details_ja": "関連研究は大きく5つの系統に分類されます。\n\n### 画像およびマルチビューからの3D生成\nLRMやInstantMeshなどのフィードフォワード型モデルや、Point-E、Shap-E、TRELLIS、Pixal3Dなどのネイティブ3D生成モデルが発展しています。これらはObjaverseのような単一物体のクリーンな3Dデータセットで学習されており、複雑な実シーンへ直接適用するのは容易ではありません。\n\n### アモーダル3D再構成（Amodal 3D Reconstruction）\nアモーダル再構成とは、物体の一部が遮蔽されて見えなくても、物体全体の完全な3D形状を推定・復元するタスクです。ロボティクスにおける物理的安定性を利用した補完や、2D画像空間での補完（pix2gestalt）、最近のAmodal3Rなどがありますが、複数視点間での厳密な3D整合性の保持には課題がありました。\n\n### 3Dデータセットの現状\nToys4kやGoogle Scanned Objectsなどは綺麗な単一物体メッシュを提供しますが背景がありません。実環境のCO3DやScanNetなどは物体が背景と融合していたり、点群やバウンディングボックスのみで完全な個別メッシュの正解データ（Ground Truth）が存在しないという問題がありました。\n\n### シーンレベル・構成的生成\nPartCrafter、MIDI、SceneGenなどは複数物体の配置と形状を同時に解こうとしますが、机の上に数個の物が載っている程度の単純なシーンに限定されていました。\n\n### 複数画像からの構造と運動推定（Structure from Motion）\nカメラ姿勢推定（DUSt3Rなど）やオープンワールド動画セグメンテーション（SAM 2/3など）、3Dバウンディングボックス推定技術が成熟してきており、WorldSculptはこれら上流タスクの出力を受け取る実用的なパイプラインとして設計されています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "複数視点の情報を正準ボクセルに集約し、個別メッシュを咲かせる",
+   "summary_ja": "シーン内の各物体に対して、最も視認性の高い視点をアンカーとした「正準キューブ」を設定し、各視点のDINOv3特徴を3Dボクセルへ逆投影します。IBRNet風のアグリゲータで視点数に依存せず特徴を統合し、凍結したPixal3DにLoRAを介して注入することで、隠れた部分を補完しながら正確な形状を生成します。",
+   "details_ja": "入力として、カメラ姿勢が既知の複数画像、物体ごとの2Dインスタンスマスク、大まかな3Dバウンディングボックスを受け取ります。出力は、各物体の個別メッシュと、それをワールド座標系へ配置する変換行列です。\n\n### 3.1 アンカー整合型正準化（Anchor-aligned object canonicalization）\n大まかな3Dバウンディングボックスは縦横比が不揃いで、向きもばらばらです。そこで、物体が最も大きく写っている視点を「アンカー視点（Anchor view）」として選び、アンカーカメラから見た正面向きを基準とする立方体領域（正準キューブ $\\mathcal{V}=[-0.5, 0.5]^3$）を定義します。箱の拡大縮小は等方的に行い、各視点で物体がはみ出さないようにスケールを自動調整します。各視点の画像をクロップ・リサイズした際に生じるカメラ内部パラメータの変化も数式（式6, 7）で厳密に追跡します。\n\n### 3.2 マルチビュー条件付けによる物体生成\n3D生成器にはPixal3D（TRELLIS.2ベースのFlow-Matchingモデル）を採用します。Pixal3Dの第1段階（粗い占有グリッド $64^3$ の生成）と第2段階（高解像度スパース構造の生成）を利用します。\n\n- 特徴のリフティング: クロップ画像を画像基盤モデルDINOv3に入力し、得られた2D特徴マップを、正準キューブ内の各ボクセル位置へと逆投影（サンプリング）します。\n- 視点の統合: 視点数が可変であっても順序に依存しないよう、IBRNetスタイルの軽量MLPを用いてボクセルごとに統合します。各視点特徴の平均と分散を計算し、注意度に応じた残差を加算します。この残差層の最終出力をゼロ初期化しておくことで、学習初期は完全な「単純平均」から安定してスタートします。\n- 条件の注入: 生成モデルPixal3Dの本体重みは完全に凍結し、アテンション層と射影層にのみLoRA（低ランク適応、ランク $r=32$）を適用して、3D条件特徴を注入します。\n\n### 3.3 学習とデータ拡張カリキュラム\n学習は単一物体の合成データセット（TexVerse）のみで行います。学習時にはアンカー視点をランダムに選び、入力視点数を1〜20視点の間で変化させます。さらに、実環境の遮蔽やノイズに耐えられるよう、4種類の劣化（オクルージョンマスクの付与、カメラ姿勢の微小摂動、セグメンテーション境界のノイズ、解像度の低下）を、学習の進捗（最初の3kステップ）に伴って徐々に強める「カリキュラム学習」を導入しています。\n\n### 3.4 推論とシーン全体の構成\n推論時は、物体ごとに独立してメッシュを生成します。生成されたメッシュは、正準化の際に求めた相似変換行列（回転・平行移動・スケール）を適用するだけで、シーン全体のワールド座標系へと綺麗に配置されます。物体同士の複雑な相互干渉の同時最適化は行わないため、何百個の物体があってもスケーラブルに並列処理が可能です。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "WorldSculptのアーキテクチャ詳細です。各視点の画像をDINOv3で特徴抽出し、正準ボクセルにリフティングしてIBRスタイルで集約します。凍結されたPixal3DのDiTブロックにゼロ初期化射影とLoRAを通じて統合特徴を注入し、生成された正準メッシュをワールド座標系へと戻します。",
+     "caption": "Figure 2 : Overview of WorldSculpt. Given posed scene images, instance masks, and coarse 3D object localizations, the anchor-aligned canonicalization stage constructs a virtual canonical cube for each object and derives crop-aware projections from its input views. Per-view DINOv3 features are lifted into the canonical voxel volume and fused with a permutation-invariant aggregator. The resulting 3D condition, together with global tokens from the anchor view, drives the two geometry stages of a Pixal3D prior through zero-initialized injection layers and LoRA adaptation. The generated canonical meshes are finally placed into the scene using their canonical-to-world transformations.",
+     "image": "details/2609.05416/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "700個超の密集シーンでも破綻しない圧倒的な復元力",
+   "summary_ja": "合成データ（Toys4k, Toys4k-Scene）、実世界データ（HouseCat6D）、そして新規構築した大規模UE-MeshySceneの3段階で評価しました。従来手法と比較して、特に遮蔽が激しく物体数が多い環境において、幾何形状の正確さと配置精度で大幅な性能向上を記録しました。",
+   "details_ja": "評価指標にはChamfer距離（CD-$\\ell_2$, CD-$\\ell_1$）、Earth Mover's Distance（EMD）、F-Scoreを用います。シーン評価では、個別のICP位置合わせを行わず、ワールド座標系に直接配置した状態で真値メッシュと比較する厳しいプロトコルを採用しています。\n\n### 新ベンチマーク「UE-MeshyScene」\nUnreal Engine 5.8で制作された6つの大規模環境（格納庫、廃墟、大聖堂、オフィス、学校、砂漠の街）から構成されます。1シーンあたり93〜701個、合計2,299個の物体が含まれ、解像度 $2560\\times1440$ で合計5,964視点のカメラ軌道映像、真値メッシュ、カメラ姿勢、マスク、深度が完備されています。\n\n### 主な実験結果\n- 単一物体（Toys4k）: 視点数を1から16へ増やすほど一貫して性能が向上しました。特に75%の面積が遮蔽された過酷な条件において、単一視点ベースラインが大きく破綻する中、提案手法は複数視点の統合によって極めて安定した精度を維持しました。\n- シーン評価（Toys4k-Scene, HouseCat6D）: SAM3D、SceneGen、SceneMaker、RecGen、ShapeRといった最新の構成的生成ベースラインと比較しました。提案手法は、実画像データセット（HouseCat6D）でも合成学習のドメインギャップを感じさせず、精密なフォークや靴の形状を高精度に復元しました。\n- 大規模シーン（UE-MeshyScene）: マルチビュー対応の強力なベースラインShapeRと比較した結果、平均値だけでなく中央値（CD med）においてもShapeRを圧倒しました。ShapeRが密集領域で形状を過度に平滑化したり配置を狂わせたりするのに対し、WorldSculptは重なり合った本や机・椅子を個別に美しく復元できています。\n\n### アブレーション研究と応用\n特徴統合モジュールを単純平均（Avg）にした場合との比較では、視点数が多く遮蔽が複雑になるほど、学習型IBRアグリゲータの優位性が明確になりました（UE-MeshySceneでCD-$\\ell_2$ が約12%改善、F-Scoreが0.944から0.951へ向上）。\nまた応用例として、ワールドモデルMarbleが生成した3D Gaussian Splatting空間から仮想カメラ軌道で画像をレンダリングし、SAM 3とDBSCANクラスタリングで物体枠を検出してWorldSculptに入力したところ、完全に分離された高品質な個別メッシュ群へ自動変換することに成功しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "新ベンチマーク「UE-MeshyScene」の全6環境の俯瞰図です。オフィスや日本の学校、大聖堂など、最大701個のオブジェクトが自然に配置されており、市販アセット由来の厳密な真値メッシュとアノテーションが提供されます。",
+     "caption": "Figure 3 : Visualization of the UE-MeshyScene dataset. Our benchmark contains six photorealistic environments spanning relatively orderly to extremely cluttered layouts, with up to $701$ objects per scene. Each environment is captured along an orbiting camera trajectory and provides exact per-object ground truth, enabling world-frame evaluation under complex mutual occlusion.",
+     "image": "details/2609.05416/F3.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "UE-MeshySceneでの定性比較です。多視点ベースラインのShapeR（中央）では密集した机や積み重なった本、壁際の彫像の形状が溶け合って潰れてしまっていますが、提案手法（Ours）は真値（GT）とほぼ同等に分離された個別メッシュを正確に再構成できています。",
+     "caption": "Figure 6 : Qualitative comparison on UE-MeshyScene. We compare per-object meshes generated in densely cluttered and heavily occluded scenes against the multi-view baseline ShapeR Siddiqui et al. (2026) . All predicted meshes are placed in the shared world frame and visualized using surface normals. Our method recovers more detailed and accurately placed geometry, including for small and severely occluded objects, while the baseline often produces over-smooth or misplaced shapes in highly cluttered regions. These qualitative differences are consistent with the quantitative results reported in Table 4 .",
+     "image": "details/2609.05416/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "生成ワールドモデルMarbleが出力した単一の3D Gaussian Splatting空間を、WorldSculptによって個別の家具メッシュ群へと変換した応用例です。追加学習なしで、ソファや椅子、テーブルが完全に独立した編集可能アセットに分解されています。",
+     "caption": "Figure 7 : Application to a Marble-generated 3DGS world. Given a generated 3DGS scene, we render a sequence of posed observations and apply WorldSculpt to convert the scene into a compositional representation of individual per-object meshes in a shared world frame.",
+     "image": "details/2609.05416/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "WorldSculptは、単一物体向けの3D生成事前学習モデルを複数視点観察に接地（grounding）させることで、シーン全体の学習なしに大規模な構成的3D世界を生成できることを証明しました。テクスチャ生成や動的シーンへの対応など、さらなる発展に向けた課題も明確に示されています。",
+   "details_ja": "本研究の核心は、「単一物体の生成事前学習」と「複数視点幾何の幾何学的接地」の美しい融合にあります。単一物体のデータセットだけでファインチューニングされたモデルが、何百もの物体が互いを隠し合う実世界規模の巨大シーンへとそのまま一般化できるという発見は、今後の3Dシーン理解・生成研究において極めてスケーラブルな道筋を示しています。\n\n実験では、物体数が増えて遮蔽が深刻になるほど、単純な幾何再構成や単一視点生成に対する提案手法のアドバンテージが拡大することが確認されました。\n\n今後の展望として、現在は幾何形状（ジオメトリ）のみにとどまっている生成プロセスをテクスチャやPBR（物理ベースレンダリング）マテリアルへと拡張することや、人間やロボットが物体を動かすような動的（Dynamic）シーンへの拡張が挙げられています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「シーン全体の学習」をしなくても、単一物体用の強力な3D生成モデルに複数視点の幾何的統合機構を付け足すだけで、大規模な構成的シーンへゼロショットでスケールできる。",
+  "物体ごとに最もよく見える視点をアンカーとした「正準立方体」を定義し、画像特徴を3DボクセルにリフティングしてIBRNet風に集約する設計が、遮蔽に対する高い頑健性を生む。",
+  "学習時にオクルージョンやカメラ誤差、マスクノイズを徐々に強める「カリキュラムデータ拡張」が、実シーンのノイズに対する耐性を飛躍的に高める。",
+  "最新の3Dガウシアン生成ワールドモデル（Marble等）の出力を、SAM 3等と組み合わせることで「物理シミュレーション可能な個別メッシュ群」へと後処理変換できる実用性を示した。"
+ ],
+ "limitations_ja": [
+  "上流のカメラ姿勢推定、2Dインスタンスセグメンテーションマスク、大まかな3Dバウンディングボックスの精度に依存しており、極端なマスク誤りやボックスのズレがあると形状が破綻する。",
+  "現在のモデルは幾何形状（メッシュ）の生成のみに特化しており、物体の色や質感（テクスチャやPBRマテリアル）の同時生成は未対応（今後の拡張課題とされている）。",
+  "静止シーンを前提としており、途中で人間やロボットが動かしたり変形したりする動的オブジェクトには対応していない。"
+ ],
+ "keywords": [
+  "Compositional 3D Generation",
+  "Amodal Reconstruction",
+  "Multi-view Conditioning",
+  "3D Foundation Models",
+  "Robotics Simulation Environments"
+ ],
+ "id": "2609.05416",
+ "title": "WorldSculpt: Generating Compositional Worlds from Grounded Videos",
+ "authors": [
+  "Muyao Niu",
+  "Jixuan He",
+  "Ruihan Yu",
+  "Lian Fu",
+  "Yonghao Yu",
+  "Zheng-Hui Huang",
+  "Yifan Zhan",
+  "Fengbo Lan",
+  "Yongtao Ge",
+  "Yinqiang Zheng",
+  "Kaipeng Zhang",
+  "Zhixiang Wang"
+ ],
+ "date": "2026-09-08",
+ "group": "general",
+ "tags": [
+  "simulation",
+  "perception"
+ ],
+ "categories": [
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.05416",
+ "pdf_url": "https://arxiv.org/pdf/2609.05416",
+ "summary_ja": "多数の物体が遮蔽し合う密集シーンの動画から、個々の物体メッシュを共通座標系上に配置した構成的3D表現を生成する手法を提案。幾何復元と生成モデルを組み合わせ、ロボティクスシミュレーション等で直接扱える完全なメッシュ群を復元する。",
+ "generated": "2026-09-08",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.05416"
+}
