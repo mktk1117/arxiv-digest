@@ -1,0 +1,135 @@
+{
+ "title_ja": "Ostrich: 微分可能動力学における硬い接触を大ステップで解くGPUシミュレータ",
+ "tldr_ja": "硬い接触や摩擦を含むロボットの動力学を、大きなタイムステップ（約0.1秒）かつ内部反復に依存しないメモリ量（1ステップあたりO(1)）で安定して解き、高精度な勾配をGPU上で超高速に計算できる微分可能シミュレータ「Ostrich」を提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "三角メッシュの起伏地形における車輪型ロボットの勾配ベース軌道最適化の様子（左）と、既存手法（MJX、Newton Semi-Implicit）との性能比較（右）です。Ostrichは50倍大きなタイムステップ（100 ms）で安定動作し、単一環境で1.82 iters/s、並列環境で最大348 world-it/sという桁違いのスループットと100%の最適化成功率を達成しています。",
+  "caption": "Fig. 1: Gradient-based trajectory optimization through mesh terrain with Ostrich. Left: a wheeled robot’s control spline is optimized to reach the target (pink area) across a triangle-mesh heightmap. Trajectories are colored by optimization iteration, from the initial guess (purple) to the converged solution (red) after $26$ iterations; each iteration backpropagates through the mesh-wheel contact forces (contact geometry held fixed within each step, § IV-D ) at $\\mathcal{O}(1)$ memory per timestep. …",
+  "image": "details/2609.08800/F1.jpg"
+ },
+ "overview_ja": "ロボットが地面や障害物と接触しながら動くとき、その接触力学を考慮して制御軌道や方策を勾配ベースで最適化したいという需要は非常に高まっています。しかし従来の微分可能物理シミュレータには大きな壁がありました。MJXなどの自動微分（AD）に基づくエンジンは、数値的な安定性を保つために接触をバネなどのソフトなモデルで緩和せざるを得ず、タイムステップをミリ秒以下に極端に小さくする必要がありました。その結果、長時間の軌道を最適化しようとすると計算グラフ（テープ）が膨大になり、GPUのメモリが即座に枯渇してしまいます。\n\nそこで著者らは、ダチョウのように大股（Large Strides）で時間を進められるGPUネイティブなシミュレータ「Ostrich」を開発しました。Ostrichは、硬い非貫通接触とクーロン摩擦、さらにはモータのPD制御までを連立させた非平滑Newton法で解きます。これにより、1ステップあたり約0.1秒（100 ms）という巨視的なタイムステップでもシミュレーションが破綻しません。さらに、収束した残差方程式に対して陰関数定理（IFT）を適用し、前進計算で求めたシューア補元（Schur complement）の線形作用素をそのまま再利用して随伴変数（Adjoint）を解くことで、ソルバーの内部反復回数に依存しない1ステップあたり $\\mathcal{O}(1)$ のメモリ消費で正確な勾配を逆伝播させます。\n\n実機の3輪ロボットがパレット障害物を乗り越える走行データ（14試行）を用いた同定実験では、MuJoCoと同等のsim-to-real精度を保ちながら、MuJoCoの50倍、Newton Semi-Implicitの200倍という巨大なタイムステップで動作することを確認しました。さらに、24 GBのGPU 1枚で8,192並列環境の勾配計算を同時に走らせ、約12,500面の複雑な三角メッシュ地形を10秒間にわたって走破する軌道最適化にも成功しています。",
+ "contributions_ja": [
+  "硬い非線形相補性接触（NCP）、クーロン摩擦、陰的モータ制御を統合した非平滑Newton法により、0.1秒級の大タイムステップでも無条件に安定する前進シミュレータを構築しました。",
+  "収束残差への陰関数定理の適用と前進シューア補元作用素の再利用により、ソルバーの内部反復に依存せず1ステップあたりO(1)のメモリで逆モード勾配を求めるGPU随伴法を導出しました。",
+  "実機パレット乗り越え実験において、MuJoCoと同等のsim-to-real精度を50倍大きいタイムステップで維持できることを実証しました。",
+  "単一GPU（RTX 3090 24GB）上で8,192並列環境の微分を達成し、チェックポイント付きMJX比で29倍の最適化スループットを実現しました。"
+ ],
+ "sections": [
+  {
+   "heading": "I INTRODUCTION",
+   "heading_ja": "接触を通じた勾配最適化に立ちはだかる「三重苦」をどう突破するか",
+   "summary_ja": "ロボットが地面と強く接触しながら長時間を走行するタスクでは、シミュレーション精度・勾配の信頼性・計算コストの3つのトレードオフが常に問題でした。Ostrichはこの課題を、大タイムステップで安定する非平滑Newton法と、前進計算の演算子を再利用する陰的随伴法によって根本から解決します。",
+   "details_ja": "ロボティクスにおいて、物理シミュレータを微分可能にして勾配ベースで軌道最適化や強化学習を行いたいという期待は長年持たれてきました。しかし、高摩擦な不整地を走る車輪型ロボットのように「硬くて持続的な接触」が存在する環境では、既存のエンジンはシミュレーション精度、勾配の信頼性、そして1反復あたりの計算コストという3つの間で厳しいトレードオフを迫られていました。\n\n従来の自動微分（AD）テープに基づくエンジン（MJXやNewton Semi-Implicitなど）は、接触を数値的に扱いやすくするために微小なタイムステップを必要とし、時間ステップ数 $T$ に比例してバックプロパゲーション用のメモリが線形に増大します。一方で単一剛体動力学（SRBD）などのサロゲート（代替）モデルはメモリを抑えられますが、タイヤのスリップや非ホロノミック拘束、メッシュ単位の摩擦形状といった幾何学的な詳細が抜け落ちてしまいます。また、硬い接触を扱える陰的微分の先行研究は、CPU実装にとどまっていたり、球や平面などの単純なプリミティブ形状しか扱えなかったりしました。\n\n本論文が提案する「Ostrich」は、これらの限界を打ち破るGPUアクセラレーション対応の剛体シミュレータです。後退オイラー法に基づく離散化の内部で、硬い非線形相補性問題（NCP）とクーロン摩擦を非平滑Newtonソルバーで直接解くことで、$h \\sim 10^{-1}\\,\\text{s}$（約100 ms）という巨視的なステップサイズでも極めて安定にシミュレーションが進みます。さらに、逆伝播では収束した残差に陰関数定理（IFT）を適用し、前進計算で構築したシューア補元（自由度を縮約した線形方程式系）をそのまま流用して1回の随伴方程式（Adjoint solve）を解くだけで勾配を求めます。これにより、ソルバーの内部ループをテープに記録する必要がなくなり、1ステップあたりの勾配計算メモリを $\\mathcal{O}(1)$ に抑えることに成功しました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "三角メッシュ地形を走破する軌道最適化の反復推移（左）と、主要な性能指標の比較（右）です。Ostrichは100 msという大きなタイムステップを活用し、単一環境でも並列環境でもMJXやNewton Semi-Implicitを圧倒するスループットと100%の成功率を示しています。",
+     "caption": "Fig. 1: Gradient-based trajectory optimization through mesh terrain with Ostrich. Left: a wheeled robot’s control spline is optimized to reach the target (pink area) across a triangle-mesh heightmap. Trajectories are colored by optimization iteration, from the initial guess (purple) to the converged solution (red) after $26$ iterations; each iteration backpropagates through the mesh-wheel contact forces (contact geometry held fixed within each step, § IV-D ) at $\\mathcal{O}(1)$ memory per timestep. …",
+     "image": "details/2609.08800/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II RELATED WORK",
+   "heading_ja": "既存の微分可能シミュレータは何を犠牲にしてきたのか",
+   "summary_ja": "先行研究は「接触精度」「勾配の信頼性」「反復コストとメモリ」のいずれかを犠牲にしてきました。Ostrichは、接触の平滑化やサロゲート近似に頼らず、ハードコンタクトの厳密さをGPU並列かつ低メモリで実現する独自の位置づけを確立しています。",
+   "details_ja": "既存の微分可能剛体シミュレータのアプローチを整理すると、何を犠牲にしているかによって大きく3つに分類できます。\n\n### II-A 接触精度とタイムステップの壁（自動微分系）\nMJX、Brax、NVIDIA Newton、Genesisといった近年のGPUネイティブなエンジンは、自動微分（AD）を前提としており、接触をペナルティバネや凸緩和などのソフトな拘束でモデル化しています。これらはADでの微分が容易ですが、数値的安定性を保つためにはタイムステップを非常に小さく（ミリ秒〜マイクロ秒単位に）しなければなりません。現実の硬い接触を再現しようとしてバネの剛性を上げると、シミュレーションが即座に破綻するか、sim-to-realギャップが拡大してしまいます。\n\n### II-B 勾配の信頼性と近似モデル（サロゲート系）\n硬く非平滑な接触を通じて誤差逆伝播法（BPTT）を行うと、勾配にバイアスが生じたり、ノイズに埋もれたり、符号が反転する（間違った方向に最適化が進む）問題が報告されています。これを回避するために時間軸を短く切り詰める手法（SHACやPODS）や、ダイナミクス自体を単一剛体モデル（SRBD）に置き換える手法もありますが、それでは不整地の微小な形状変化や局所的なスリップによるトラクション変化が無視されてしまいます。またランダム平滑化（Randomized smoothing）はノイズを注入して平均化しますが、計算コストが増大します。\n\n### II-C 計算コストとメモリ爆発（陰的微分系）\n前進計算の内部ループを記録するBPTTは、ステップ数と内部ループ回数の積に比例してメモリを消費します。これに対し、収束後の状態に対して陰関数定理（IFT）を使う陰的微分は、内部ループを記録しないため1ステップあたり $\\mathcal{O}(1)$ のメモリで勾配を求められます。しかし、NimbleやDojoといった厳密な相補性問題を扱うエンジンはCPU動作に限定されていたり、球や平面などの単純なプリミティブ形状しか扱えませんでした。TinyDiffSimなどのGPU並列手法もメッシュ衝突には対応していません。Ostrichは、Dojoのような厳密なハードコンタクト定式化の厳格さをGPUに持ち込み、任意の三角メッシュ衝突を扱えるようにした初めての実装です。",
+   "figures": []
+  },
+  {
+   "heading": "III THEORY",
+   "heading_ja": "大股で歩み、内部メモリを消費しない陰的Newton＆随伴法",
+   "summary_ja": "後退オイラー法と非平滑Newton法をベースに、接触・摩擦・モータ制御を連立させた強固な前進ソルバーを構築しました。逆伝播では前進計算のシューア補元作用素をそのまま再利用し、内部反復を記録しない1回の方程式求解だけで正確な随伴勾配を計算します。",
+   "details_ja": "Ostrichの理論的な中核は、大タイムステップでも発散しない前進積分器と、その演算子を巧みに再利用した効率的な逆伝播法にあります。\n\n### III-A 離散化運動方程式（最大座標系と後退オイラー）\n剛体の姿勢を位置とクォータニオン $\\mathbf{q}\\in\\mathbb{R}^{7n_b}$、速度を $\\mathbf{u}\\in\\mathbb{R}^{6n_b}$ とする最大座標系を採用しています。運動方程式は後退オイラー法（backward Euler）で離散化され、拘束ヤコビアン $\\mathbf{J}$ を次ステップの姿勢 $\\mathbf{q}^{+}$ で陰的に評価することで、硬い接触や高ゲインのモータでも無条件の安定性を保ちます。\n\n### III-B 接触・摩擦・制御の定式化（Fischer-Burmeisterと陰的サーボ）\nすべての物理的な相互作用を1本の巨大な残差方程式 $\\mathbf{r}(\\mathbf{s}^{+}, \\mathbf{s}^{-}, \\mathbf{a}, \\boldsymbol{\\theta}) = \\mathbf{0}$ として定式化します。接触の非貫通条件には、相補性条件 $a\\ge0, b\\ge0, ab=0$ を滑らかな等式に変換するFischer-Burmeister（FB）関数 $\\phi(a,b)=a+b-\\sqrt{a^2+b^2}$ を使用します。クーロン摩擦も同様に最大散逸原理からFB関数を用いて定式化し、摩擦円錐への射影ウェイト $W$ を導入することで、タイムステップの大きさに依存しない摩擦力（timestep-consistent friction）を実現しました。また、PDモータ制御を外部トルクとして明示的に与えると $h^2 k_p$ が慣性を超えた際に発散するため、モータの目標位置・速度も接触や摩擦と同時に解く「陰的サーボ拘束」として組み込んでいます。\n\n### III-C Newtonソルバーと最適反復バックトラッキング\nこの非線形方程式系を解く際、運動学的拘束から位置の増分 $\\Delta\\mathbf{q}$ を速度の増分 $h\\mathbf{G}\\Delta\\mathbf{u}$ で消去し、さらにシューア補元を用いて速度 $\\Delta\\mathbf{u}$ を消去することで、拘束力（ラグランジュ乗数）の増分 $\\Delta\\boldsymbol{\\lambda}$ だけに関する対称な線形方程式へと縮約します。これを前処理付き共役残差法（PCR）により行列フリー（メモリ上に巨大な行列を展開しない形）で解きます。大きなタイムステップでは反復がオーバーシュートすることがあるため、通常のラインサーチの代わりに、一定回数の反復の中から残差ノルムが最も小さかったイテレーションの状態を採用する「最良反復バックトラッキング（best-iterate backtracking）」を導入しました。\n\n### III-D 随伴変数法（Adjoint）による $\\mathcal{O}(1)$ 勾配計算\n目的関数 $\\mathcal{L}$ に対する勾配を計算する際、ソルバーの内部反復を記録して微分するのではなく、収束した残差に対して陰関数定理（IFT）を適用します。随伴変数 $\\mathbf{w}$ の方程式を導出すると、驚くべきことに前進計算で用いたシューア補元行列 $\\mathbf{A} = \\mathbf{J}\\tilde{\\mathbf{M}}^{-1}\\mathbf{J}^{\\top} + \\mathbf{C}$ と全く同一の演算子・前処理行列が現れます。つまり、逆伝播計算では新たな行列の組み立てを行う必要がなく、前進計算と同じPCRソルバーを1回走らせるだけで済みます。これにより、ソルバーの内部ループ回数に関わらず、1ステップあたりの勾配保存メモリが完全に $\\mathcal{O}(1)$ となります。CPU上での中心差分法との比較検証でも、最大相対誤差0.4%以下という極めて高い勾配精度が確認されています。",
+   "figures": []
+  },
+  {
+   "heading": "IV EXPERIMENTS",
+   "heading_ja": "実機検証から数千並列・メッシュ走破まで：Ostrichの実力を暴く",
+   "summary_ja": "重量106 kgの実機ロボットによるパレット乗り越え走行データで評価を行い、MuJoCoと同等の精度を50倍大きなタイムステップで達成しました。さらに、箱型障害物の制御最適化では既存手法が停滞する中で100%の成功率を記録し、8,192並列環境の勾配計算や三角メッシュ不整地の走破も実証しました。",
+   "details_ja": "実験には、重量106 kgの3輪多関節ロボット（円筒形車輪半径35 cm、ホイールベース75 cm）を使用し、高さ14.4 cmの木製パレットを乗り越える実機実験およびシミュレーションで評価を行いました。比較対象は、GPU微分可能な代表的ベースラインであるNVIDIA Newton Semi-Implicit（ペナルティ法）とMJX（凸緩和ソフト接触）です。\n\n### IV-A 実機パレット乗り越えとタイムステップの広さ\n実機で計測した14試行（速度0.12〜2.05 m/s、最大130度の旋回を含む）の走行データを用い、4試行で接触パラメータを同定し、残り10試行の未知データでシミュレーション精度を評価しました。位置とヨー角を統合した誤差指標において、Ostrichは0.208 m、Semi-Implicitは0.268 m、MuJoCoは0.315 mとなり、いずれも実機の乗り越え挙動を忠実に再現できました。ここで最も重要なのは「どのくらい大きなタイムステップ $h$ までこの精度を維持できるか」です。ステップサイズを広げていくスイープ実験を行ったところ、MuJoCoは接触が軟化して $h=2\\,\\text{ms}$ で精度が崩れ、Semi-Implicitはバネの安定限界により $0.5\\,\\text{ms}$ で発散しました。これに対しOstrichは、$h=100\\,\\text{ms}$（0.1秒）まで同等の精度プラトーを維持しました。実にMuJoCoの50倍、Semi-Implicitの200倍という大タイムステップ耐性です。\n\n### IV-B 勾配の信頼性と最適化スピード\nシミュレーション上でロボットを障害物越しに目標地点へ到達させる軌道最適化タスク（25試行のランダム初期値・目標）を実施しました。Ostrich（$h=100\\,\\text{ms}$）、MJX（$h=2\\,\\text{ms}$）、Semi-Implicit（$h=0.5\\,\\text{ms}$）でAdamオプティマイザを走らせた結果、Ostrichは25試行中25試行（100%）で成功（中央値位置誤差0.065 m）しました。一方、MJXは16%しか成功せず目標直前で停止できず、Semi-Implicitは長時間の勾配が非有限値（NaN等）となって8%の成功にとどまりました。計算時間においても、初期セットアップ後の1反復にかかる時間はOstrichが0.55秒で、MJX（116秒）より211倍、Semi-Implicit（2.6秒）より4.7倍高速でした。50反復の最適化全体にかかる時間はOstrichが29秒、MJXは1.6時間、Semi-Implicitは0.5時間であり、Ostrichの圧倒的な優位性が示されました。\n\n### IV-C GPU並列スケーリングとメモリ効率\n24 GBのRTX 3090 GPU 1枚で並列環境数を1から順次増やし、スループットとピークメモリを測定しました。ベースラインのMJXは通常のBPTTでは内部反復のテープ保存により8並列でメモリ不足（OOM）に陥るため、チェックポイント法が必須となります。これに対しOstrichは、大タイムステップによるステップ数の少なさ（MJXの50分の1）と、随伴法による $\\mathcal{O}(1)$ メモリのおかげで、チェックポイントなしでも8,192並列を達成し、ピークスループットは毎秒348ワールド反復を記録しました（チェックポイント付きMJXの最大値12に対して29倍）。チェックポイントを併用したOstrichでは、21.7 GBのメモリ消費で最大32,768並列までスケールします。\n\n### IV-D プリミティブを超えて：三角メッシュ地形の走破\n最後に、約12,500面からなる起伏のある三角メッシュ地形（24×24 m）において、車輪とメッシュの間に毎ステップ数百組の接触候補が発生する10秒間（$T=125, h=80\\,\\text{ms}$）の軌道最適化を行いました。50個のランダムな地形シードにおいて、最良RMSEの中央値は0.143 mを達成し、90%のシードで誤差0.5 m以下に収束しました。1反復あたりの所要時間はわずか1045 ms（1ステップあたり約8 ms）であり、プリミティブ形状に頼らない複雑な実環境ジオメトリに対しても、大股で高速に微分可能最適化を適用できることが証明されました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "実機ロボットによるパレット乗り越え実験（14試行）の様子とsim-to-real精度の比較です。中央のグラフの通り、ベースの浮き上がり（z方向）を含め、Ostrich、MuJoCo、Semi-Implicitの3者とも実機挙動を良好に再現できています。",
+     "caption": "Fig. 2: Sim-to-real on real pallet traversals (14 runs). Far left: scene render of the robot mid-climb on the obstacle. Left: top-down trajectory for a representative held-out run (selected as the run closest to Ostrich’s and MuJoCo’s median error), with the per-run fitted obstacle footprint in gray and the recorded base path dashed in black. Middle: base $z$ -elevation; all three engines reproduce the measured climb on this held-out run. Right: combined position-and-yaw error averaged over the ten held-out runs at each engine’s identified parameters.",
+     "image": "details/2609.08800/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "タイムステップ $h$ と追従誤差の関係です。MuJoCoは2 ms、Semi-Implicitは0.5 msを超えると急激に誤差が増大・発散するのに対し、Ostrichは0.1 s（100 ms）まで最小誤差プラトーを維持しており、約50倍大きなステップ幅で動作可能であることが分かります。",
+     "caption": "Fig. 3: Accuracy vs. timestep on four held-out runs of the § IV-A dataset. Each engine runs at its identified parameters over an $h$ grid. Brackets span each engine’s usable plateau, where error stays within $2{\\times}$ of its sweep minimum (the model-error floor); past the edge, integration error takes over. $\\times$ marks diverged runs, plotted at the ceiling. The arrow spans Ostrich’s ${\\sim}50{\\times}$ larger usable $h$ over MuJoCo ( ${\\sim}200{\\times}$ over Semi-Implicit).",
+     "image": "details/2609.08800/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "障害物回避タスクにおける最適化反復と実時間（壁時計時間）に対する損失関数の推移です。Ostrich（青）は約28秒で極めて低い損失（0.042）へ高速収束していますが、MJX（ピンク）は1.6時間かけても収束が遅く、Semi-Implicit（黄）は途中で停滞しています。",
+     "caption": "Fig. 4: Gradient reliability on the box-obstacle control-synthesis task (§ IV-B ; $25$ random trials, $50$ Adam iterations per engine). Median running-best loss against wall-clock (log $x$ ) with the interquartile band across trials. Ostrich converges to a median loss of $0.042$ in ${\\sim}28\\,\\text{s}$ of warm iterations ( $29\\,\\text{s}$ end to end); MJX reaches $0.28$ only after ${\\sim}1.6\\,\\text{h}$ ; Semi-Implicit stalls at $0.59$ . The $x$ -axis excludes each engine’s one-time setup (§ IV-B ).",
+     "image": "details/2609.08800/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "GPU並列ワールド数に対する最適化スループット（a）とピークメモリ消費量（b）です。Ostrichは8,192並列で348 world-it/sに達し、チェックポイント付きMJX（12 world-it/s）に比べて29倍のスループットを誇ります。",
+     "caption": "Fig. 5: Optimization throughput (a) and peak GPU memory (b) vs. number of worlds on the box-traversal scene of § IV-B (RTX 3090, $24\\,\\text{GB}$ ; NVML-polled). Solid: each engine’s operating configuration; dotted: the alternative (checkpointing for Ostrich, plain BPTT for MJX, which needs checkpointing to scale at all). $\\times$ : first failing batch size.",
+     "image": "details/2609.08800/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "12,500面の三角メッシュ地形における10秒間の走行軌道最適化結果です。左図のように初期推定（灰色）から反復を経て目標軌道（赤破線）へ正確に収束しており、50種類のランダム地形において中央値0.143 mの追従誤差を達成しました。",
+     "caption": "Fig. 6: Terrain traversal ( $10\\,\\text{s}$ horizon, $K{=}10$ knots, triangle mesh). Left: example seed with initial guess (gray), intermediate iteration (light blue), and best iterate (blue) converging toward the target (dashed red). Right: RMSE median and IQR over $50$ random terrains, $100$ iterations; dashed: running best of the median (the text reports the median over seeds of each seed’s best RMSE).",
+     "image": "details/2609.08800/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V CONCLUSION",
+   "heading_ja": "硬い接触を大股で跳び越える次世代微分可能シミュレータの展望",
+   "summary_ja": "Ostrichは、硬い接触・摩擦・制御を統合した非平滑Newton法と前進演算子を再利用する陰的随伴法によって、大タイムステップかつ低メモリなGPU微分可能シミュレーションを実現しました。長時間の軌道最適化や高スループットな方策学習の新たな基盤となる技術です。",
+   "details_ja": "本論文では、硬い接触、クーロン摩擦、モータ制御、多関節動力学を1つの非平滑Newton系で同時に解き、収束残差を陰関数定理によって微分するGPUシミュレータ「Ostrich」を提示しました。前進計算のシューア補元を随伴ソルバーでそのまま再利用するアーキテクチャにより、1ステップあたりの勾配計算メモリを定数（$\\mathcal{O}(1)$）に抑え、MuJoCoの50倍という巨視的なタイムステップでも高精度な実機一致性を達成しました。\n\nこれにより、従来の微分可能物理シミュレータが抱えていた「小さなタイムステップによるメモリ爆発」「接触平滑化によるsim-to-realギャップ」「長時間の勾配消失や爆発」という三重苦から解放され、複雑な三角メッシュ地形の走破や、単一GPU上での8,192並列ワールドを用いた超高速な軌道最適化への道が開かれました。\n\nもちろん、現時点での制限事項もあります。陰的Newtonソルバーは1ステップあたりの計算負荷が明示的積分器より重いため、極めて小さなタイムステップが許容される問題では速度の優位性が縮まります。また、非弾性衝突（反発係数 $e=0$）を前提としており、変形体（デフォーマブル）への対応は今後の課題です。さらに、持続的な接触を伴う車輪走行には極めて有効ですが、接触の発生や離脱（birth/death）が頻繁に生じるマニピュレーション把持などにおいて、アクティブセットの変化を跨いだ勾配流をどう厳密に扱うかはオープンな課題として残されています。著者らは今後、実ハードウェア上での微分可能モデル予測制御（differentiable MPC）や、大規模な並列強化学習への適用を視野に入れており、コードとロボットモデルの公開を予定しています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「硬い接触＝極小タイムステップ」という固定観念を破り、非平滑Newton法を用いれば0.1秒という大きなステップでも高精度かつ安定に接触シミュレーションが可能です。",
+  "前進計算で求めたシューア補元（Schur complement）を逆伝播の随伴ソルバーで再利用することで、行列の再構築なしにO(1)メモリでの高速微分が実現できます。",
+  "モータ制御を外力としてではなく「陰的サーボ拘束」として接触・摩擦と連立させて解くことが、大タイムステップでの制御安定化に不可欠です。",
+  "長時間の接触を伴うタスクにおいて、BPTTのテープ保存に頼らない陰的微分（IFT）のアプローチは、GPUメモリの圧迫を防ぎ数千並列の最適化を可能にする極めて現実的な選択肢です。"
+ ],
+ "limitations_ja": [
+  "1ステップあたりのソルバー計算量が明示的積分器よりも重いため、小さなタイムステップで十分な軽いタスクでは速度の優位性が小さくなります。",
+  "衝突は反発係数ゼロ（完全非弾性）として定式化されており、跳ね返りのある弾性衝突や柔軟体のシミュレーションは現時点でサポートされていません。",
+  "ステップ内では接触点のアクティブセットを固定して微分するため、車輪走行のような持続接触には強いものの、把持動作のように接触の生成・消失が目まぐるしく起こるタスクでの勾配計算には課題が残ります。"
+ ],
+ "keywords": [
+  "Differentiable Physics",
+  "Implicit Differentiation",
+  "Non-smooth Newton Method",
+  "Rigid-Body Simulation",
+  "Trajectory Optimization",
+  "Sim-to-Real"
+ ],
+ "id": "2609.08800",
+ "title": "Ostrich: Taking Large Strides Through Stiff Contact in Differentiable Dynamics",
+ "authors": [
+  "Ale\\v{s} Ku\\v{c}era",
+  "Karel Zimmermann"
+ ],
+ "date": "2026-09-09",
+ "group": "focus",
+ "tags": [
+  "simulation",
+  "control"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.GR",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.08800",
+ "pdf_url": "https://arxiv.org/pdf/2609.08800",
+ "summary_ja": "接触を伴う勾配ベース最適化のために、硬い接触と摩擦を非平滑ニュートン反復により約0.1秒という大きな時間刻みで解くGPU剛体シミュレータを提案。陰関数定理に基づく微分を用い、メモリ消費をステップ数に依存させず高精度・低計算コストな勾配計算を実現する。",
+ "generated": "2026-09-09",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.08800"
+}
