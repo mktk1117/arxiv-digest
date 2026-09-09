@@ -1,0 +1,151 @@
+{
+ "title_ja": "オフライン強化学習における拡散方策のためのノイズ空間方策勾配",
+ "tldr_ja": "拡散モデルを用いた方策の潜在ノイズ空間と、環境が受け取る行動空間の価値のズレを解消し、デノイズ過程の逆伝播なしに直接ノイズ空間で方策改善を行う手法「NSAC」を提案した論文です。D4RLやOGBenchといった標準ベンチマークにおいて、既存手法を上回る頑健で高い性能を実証しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "ノイズ空間における勾配の振る舞いを2次元トイモデルで比較した図です。左側の提案手法（NSPG）は、ノイズ潜在変数から生成されうる行動全体の期待価値を捉えるため、より報酬の高い領域（赤の×印）へと素直に誘導されています。一方、右側の単純なデコード勾配では、手前の局所解（黄の×印）に引きずられてしまっていることが分かります。",
+  "caption": "Figure 1 : Toy illustration of noisy-space gradients. We consider a two-dimensional multimodal action distribution with a high-density low-reward region and a lower-density high-reward region. NSPG follows the gradient of $Q_{\\mathrm{noisy}}$ , the expected clean-action value under the diffusion-induced distribution, which induces guidance toward the higher-reward region. In contrast, the decoded gradient differentiates $Q(s,\\hat{a}(x^{(k)}))$ after mapping each noisy latent to a single clean action. Arrows show the corresponding noisy-space gradient fields, and particle traces illustrate gradient-ascent rollouts across denoising steps.",
+  "image": "details/2609.06882/F1.jpg"
+ },
+ "overview_ja": "ロボット制御の世界で、複雑でマルチモーダル（複数の峰を持つ）な動作分布を表現できる「拡散モデル」を使った方策（拡散方策）が脚光を浴びています。しかし、これを追加の環境探索ができない「オフライン強化学習」と組み合わせようとすると、根本的な空間の食い違いに直面します。方策の生成プロセスはガウスノイズから徐々にノイズを取り除く「ノイズ潜在空間」で進むのに対し、行動の良さを評価するQ関数（行動価値関数）は環境に実際に送られる「クリーンな行動空間」でしか定義できないからです。\n\n従来の試みでは、デノイズ計算グラフ全体を通じて無理やり勾配を逆伝播させて計算が非常に重く不安定になったり、クリーンな行動用のQ関数に無理やりノイズまみれの潜在変数を入力して意味が破綻したりしていました。そこで著者らは、「あるノイズ潜在変数からデノイズした結果として得られる実行行動の期待リターン」として、意味論的に厳密な『ノイズ空間行動価値関数』を数学的に定義することを思いつきました。\n\nこの定式化から導かれた「ノイズ空間方策勾配（NSPG）」を使うと、長いデノイズ過程をさかのぼる逆伝播を一切行うことなく、クリーンな行動空間のQ関数の評価値だけでノイズ空間のパラメータを直接更新できるようになります。これを組み込んだ実践的アルゴリズム「NSAC」を構築し、標準的なD4RLベンチマークや、高次元画像入力を用いるOGBenchで評価を行いました。\n\nその結果、長時間の推論が必要な迷路（AntMaze）や複雑なロボットハンド操作（Adroit）、さらには視覚ベースのパズルタスクに至るまで、既存の拡散・フローベース手法を大きく引き離すスコアを達成し、高速かつ安定して学習できることを実証しました。",
+ "contributions_ja": [
+  "拡散方策のノイズ潜在空間と行動空間の価値関数との間にある根本的な表現の不一致を指摘し、潜在変数に対応する期待行動価値として意味論的に正当なノイズ空間価値関数を定義したこと。",
+  "長いデノイズ過程を通じた逆伝播を必要とせず、クリーンな行動の価値評価だけでノイズ空間を最適化できる「ノイズ空間方策勾配（NSPG）」を導出したこと。",
+  "保守的な行動空間Criticと組み合わせ、スコアマッチング形式の回帰問題として効率よく方策を更新できる実践的アルゴリズム「NSAC」を構築したこと。",
+  "D4RLベンチマークおよび画像入力タスクであるOGBenchにおいて、既存の拡散・フロー方策ベースの強力なベースラインを上回る性能を示したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ拡散モデルと強化学習は相性が悪かったのか？",
+   "summary_ja": "拡散モデルは表現力に優れますが、その最適化はノイズ潜在空間で行われる一方、強化学習の価値関数は環境で実行される行動空間で定義されるという空間の不一致がありました。既存手法はこのズレを強引に処理していたため計算が重かったり理論的整合性に欠けたりしていましたが、本研究ではノイズ潜在変数に期待行動価値を割り当てる新しい定式化でこの問題を解決します。",
+   "details_ja": "オフライン強化学習では、過去に収集された固定データセットのみから優れた方策を学習する必要があります。実世界のデータセットには複数の異なる操作方法や最適ではないデモが混ざり合っているため、マルチモーダルな行動分布を滑らかに表現できる拡散モデル方策が注目されてきました。\n\nしかし、ここには大きな構造的断絶があります。拡散モデルはノイズから純粋な行動へと何ステップもかけてデノイズする「潜在空間」でサンプリングを行います。一方で、強化学習の目的関数やQ関数（行動価値関数）は、環境に実際に印加されて状態遷移を引き起こす「クリーンな行動空間」にしか存在しません。最適化したい空間と価値が定義されている空間がズレているのです。\n\nこれまで提案されてきた手法は、この問題をうまく解決できていませんでした。例えば、拡散プロセス全体を通じて逆伝播を行う手法は、計算グラフが長大で不安定になり、多大な計算コストがかかります。また、生成途中のノイズ変数にそのまま行動用のQ関数を通してしまう手法もありますが、ノイズが乗った値はMDP（マルコフ決定過程）上の行動ではないため、数学的な意味を失ってしまいます。\n\nこのギャップを埋めるため、著者らは「ノイズ潜在変数 $x^{(k)}$ を条件づけたときに最終的に生成されるクリーンな行動の期待リターン」として、ノイズ空間価値関数 $Q_{\\text{noisy}}$ を定義しました。これにより、Critic（評価器）には常にクリーンな行動のみを入力しつつ、ノイズ空間における方策改善の勾配を厳密に導く道筋を拓きました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Preliminaries",
+   "heading_ja": "知っておくべき前提：オフラインRLと拡散方策",
+   "summary_ja": "本研究の基礎となるマルコフ決定過程（MDP）、オフラインRLにおける分布外行動の抑制、そして拡散モデルによる行動生成の基本メカニズムを整理しています。ノイズ潜在変数は行動空間と同じ次元を持ちますが、環境には直接作用しない点があらためて強調されます。",
+   "details_ja": "### オフライン強化学習の枠組み\n環境を状態空間 $\\mathcal{S}$、行動空間 $\\mathcal{A}$、状態遷移確率 $P$、報酬関数 $r$、割引率 $\\gamma$ からなるMDPとして定式化します。オフラインRLでは追加の環境探索を行えないため、既知のデータセット $\\mathcal{D}$ のサポート外（分布外）へ方策が外れてしまうと、Q値の過大評価が生じて破綻します。そのため、行動方策 $\\pi_\\beta$ から離れすぎないよう制約をかけるKL正則化付き方策改善などが用いられます。\n\n### 拡散方策（Diffusion Policy）の仕組み\n拡散方策では、行動 $a \\in \\mathcal{A}$ を直接ワンショットで出力するのではなく、標準正規分布などの事前分布 $p_T$ からサンプリングした潜在変数 $x^{(T)}$ を、状態 $s$ で条件づけられた逆拡散プロセスによって $T$ ステップかけて徐々にノイズ除去し、最終的な行動 $x^{(0)} = a$ を得ます。\n\nここで重要なのは、途中の $k > 0$ におけるノイズ潜在変数 $x^{(k)}$ です。これらは行動空間 $\\mathbb{R}^{d_a}$ と同じ次元を持っていますが、環境に直接適用されることは絶対にありません。環境の遷移や報酬を動かすのは、最終的に得られたクリーンな行動 $a$ だけです。",
+   "figures": []
+  },
+  {
+   "heading": "3 Noisy-Space Value Functions and Policy Optimization",
+   "heading_ja": "ノイズ空間方策勾配法（NSPG）の理論と導出",
+   "summary_ja": "ノイズ潜在変数に対してクリーンな行動の期待価値を紐づけるノイズ空間Q関数を定義し、これが環境の意味論と完全に一致することを証明しました。さらに、拡散カーネルを利用してデノイズ過程の逆伝播なしにノイズ空間の勾配を計算できる閉形式（NSPG）を導出しています。",
+   "details_ja": "### 3.1 ノイズ空間行動価値関数\nノイズ潜在変数 $x^{(k)}$ に対し、その潜在変数を起点として拡散方策 $\\pi_\\theta$ が生成するクリーンな行動 $a$ の期待行動価値として、ノイズ空間行動価値関数 $Q_{\\text{noisy}}^{\\pi_\\theta}(s, x^{(k)}, k)$ を定義します（定義3.1）。命題3.2では、この値が「状態 $s$ と潜在変数 $x^{(k)}$ から方策を動かして得られる割引累積リターンの期待値」と厳密に一致することを示しています。つまり、ノイズ空間上に勝手な仮想の報酬系を作るのではなく、環境の本来のリターンに忠実な目的関数になっています。\n\n### 3.2 ノイズ潜在変数の代理セマンティクス\n逆デノイズ過程だけでは行動と潜在変数の同時分布が自明ではないため、前進拡散過程 $q_k(x^{(k)} \\mid a)$ を介して行動と潜在変数を結びつける代理結合分布（定義3.3）を導入します。これにより、あるノイズ変数 $x^{(k)}$ に適合するクリーンな行動の条件付き分布 $\\tilde{p}_k(a \\mid s, x^{(k)})$ が明示的に定義できるようになります。\n\n### 3.3 ノイズ空間方策勾配（NSPG）\n上記の定式化から、ノイズ潜在変数 $x^{(k)}$ に対する $Q_{\\text{noisy}}$ の勾配（定理3.4）を導出しました。その結果、勾配は「前進拡散スコア $\\nabla_{x^{(k)}} \\log q_k(x^{(k)} \\mid a)$」に「ノイズ空間アドバンテージ $A_{\\text{noisy}} = Q(s, a) - Q_{\\text{noisy}}$」を掛け合わせた期待値として表されます。\n\nここが極めてエレガントなポイントです。長いデノイズ過程をさかのぼるBPTT（時間の逆伝播）を一切行うことなく、ステップ $k$ における局所的なスコア量とクリーン行動のQ値だけで勾配が計算できるのです。また、単一の予測行動に頼るナイーブな手法と異なり、複数の適合可能な行動候補の価値を総合的に考慮するため、マルチモーダルな分布でも高報酬なモードへと的確に誘導されます。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "2次元のマルチモーダル分布における勾配場の比較です。提案手法のNSPG（左）は期待値に基づいているため、密度の低い高報酬モード（赤の×）へと滑らかに向かう勾配が形成されていますが、単一行動予測に基づくナイーブな手法（右）では引き込み領域が分断され、局所最適に囚われやすくなっています。",
+     "caption": "Figure 1 : Toy illustration of noisy-space gradients. We consider a two-dimensional multimodal action distribution with a high-density low-reward region and a lower-density high-reward region. NSPG follows the gradient of $Q_{\\mathrm{noisy}}$ , the expected clean-action value under the diffusion-induced distribution, which induces guidance toward the higher-reward region. In contrast, the decoded gradient differentiates $Q(s,\\hat{a}(x^{(k)}))$ after mapping each noisy latent to a single clean action. Arrows show the corresponding noisy-space gradient fields, and particle traces illustrate gradient-ascent rollouts across denoising steps.",
+     "image": "details/2609.06882/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Learning Diffusion Policies with Noisy-Space Actor–Critic (NSAC)",
+   "heading_ja": "実践的アルゴリズム：NSACの実装",
+   "summary_ja": "NSPGの理論を実用的なアルゴリズム「NSAC」へと落とし込みました。Actorはノイズ空間におけるスコアマッチング形式の回帰損失で効率的に学習し、Criticはオフラインデータ上でアンサンブルを用いた保守的なQ学習を行います。",
+   "details_ja": "### 4.1 Actor：ノイズ空間方策改善\nKL制約付き方策反復の最適解をスコア関数の関係式へと変形し、ノイズ空間に拡張します。ノイズ除去スコアマッチングの式変形を用いることで、Actorの学習損失は次のような拡散モデル親和性の高い回帰形式に帰着されます：\n$\\mathcal{L}_{\\text{actor}}(\\theta) = \\mathbb{E} [\\| \\epsilon_\\theta(s, x^{(k)}, k) - \\epsilon - \\lambda \\sigma_k \\nabla_{x^{(k)}} Q_{\\text{noisy}}(s, x^{(k)}, k) \\|^2]$\nここで $\\lambda$ は価値ガイダンスの強さを調整するパラメータです。方策密度の直接計算が不可能な拡散モデルでも、通常の拡散モデルの学習コードにわずかな修正を加えるだけで最適化が可能です。\n\n### 4.2 Critic：悲観的な行動空間価値学習\nCritic（評価器）には、$H$ 個のQ関数からなるアンサンブル $Q_\\phi(s, a)$ を用います。オフラインRL特有の過大評価を防ぐため、アンサンブルの平均から分散を差し引く下側信頼界（LCB; Lower-Confidence Bound）ターゲットを用いたベルマン回帰で学習します。重要なのは、Criticはオフラインデータセットのクリーンな行動 $a \\in \\mathcal{A}$ に対してのみ評価され、ノイズ潜在変数が直接入力されることは絶対にないという点です。\n\n### 4.3 アルゴリズムのまとめ\nNSACは、(1) クリーン行動空間での悲観的Criticの更新、(2) モンテカルロ法によるノイズ空間勾配の推定とActorのスコア回帰更新、を交互に繰り返します。CriticとActorの役割分担が数学的にも実装的にも極めてクリーンに保たれています。",
+   "figures": []
+  },
+  {
+   "heading": "5 Prior Work",
+   "heading_ja": "オフラインRLと拡散・フロー方策の系譜",
+   "summary_ja": "先行研究を「オフラインRLの正則化・悲観的手法」と「拡散・フローモデルを用いた方策」に大別して整理しています。デノイズの逆伝播を避ける既存研究（DACなど）が抱えていた意味論的な不完全さを本研究がどう克服したのかを明確にしています。",
+   "details_ja": "### オフライン強化学習の発展\nオフラインRLでは、データ外への外挿誤差を抑えるアプローチが主流です。CQLやIQLのように価値関数側を悲観的に抑え込む手法や、TD3+BCのように方策の更新幅をデータセット近傍に制限する手法が開発されてきました。本研究は、これらの中で確立された信頼領域・KL正則化の思想をベースにしています。\n\n### 拡散・フローモデルを用いた強化学習\n拡散モデルを方策に使う研究は近年急速に増えています。初期のDiffuserやDiffusion Q-learningは、拡散モデルを行動サンプラーや軌道プランナーとして使い、RLの目的関数と直接結合していませんでした。\n\n一方で拡散モデル自体をRLで直接最適化する研究（SRDPなど）も登場しましたが、デノイズループ全体の逆伝播を伴うため計算負荷が膨大でした。ワンステップフローに限定して計算を簡略化するFQLのようなアプローチもありますが、マルチステップ生成が持つ豊かな表現力を犠牲にしてしまいます。本研究に最も近いDACは、逆伝播を避けつつスコア改善を行いますが、クリーン行動用のQ関数にノイズ変数を直接代入してしまうという根本的な意味論の破綻を抱えていました。NSACは、高い表現力を維持したまま、理論的整合性と計算効率を両立させた位置づけになります。",
+   "figures": []
+  },
+  {
+   "heading": "6 Experiments",
+   "heading_ja": "実験結果：D4RLと画像タスクOGBenchでの検証",
+   "summary_ja": "D4RLの連続制御・迷路・ハンド操作タスクと、高次元画像入力のOGBenchで評価しました。NSACは特に報酬がスパースで長期推論が必要なAntMazeにおいてDACを50%以上上回る大幅な改善を達成し、画像タスクでも最高スコアを記録しました。",
+   "details_ja": "### 主要な実験結果（D4RL）\nロコモーション（HalfCheetah, Hopper, Walker2d）、AntMaze、Adroit（Pen）の各環境で検証しました。\n- **ロコモーション**：HalfCheetahのmediumおよびmedium-replayタスクにおいて、既存手法に対して約10%の性能向上を達成しました。\n- **AntMaze**：スパース報酬かつ不完全なデータが多く難関とされる迷路タスクで圧倒的な強さを示しました。特にAntMaze-large-playおよびlarge-diverseでは、最も近いベースラインであるDACに対して50%以上の相対的な性能向上を記録しました。クリーンな行動に基づいた価値ガイダンスが長期推論に極めて有効であることが裏付けられています。\n- **Adroit**：高次元のペンスピニングタスク（Pen-Cloned-v1）でも全ベースライン中最上位の性能をマークしました。\n\n### 視覚入力タスク（OGBench）の結果\n高次元画像から直接方策を学習するOGBenchの4タスク（Cubeや4x4 Puzzleなど）において、総合スコアが既存最高ベースラインの253.2から271.5へと大幅に向上しました。表現学習とマルチモーダル方策改善が同時に求められる視覚ベースRLでも、ノイズ空間価値の定式化が強力に機能することが証明されました。\n\n### アブレーション（切り分け実験）\n- **ガイダンス強度 $\\lambda$**：$\\lambda \\in \\{1, 3, 10\\}$ の中間的な値で最も高い性能を示しました。強すぎるとオフラインデータの支持集合から逸脱して過大評価の罠に陥り、弱すぎると単なる行動模倣に留まるため、適度なバランスが重要です。\n- **モンテカルロサンプル数**：期待値推定に使う行動サンプル数は、わずか2〜4個で十分な性能に達し、サンプル数を増やしても頭打ちになることが分かりました。これにより、計算コストを抑えた高速な学習が可能です。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "ガイダンス強度 $\\lambda$ を変えたときの学習曲線の比較です。極端に強いガイダンス（赤線: 30）を与えると、オフラインデータのサポートから外れて性能が低下しますが、適度な強度（1〜10）では非常に安定して高いリターンを維持できています。",
+     "caption": "Figure 2 : Effect of guidance strength on learning dynamics across different tasks. NSAC is robust across a range of guidance strengths, but overly aggressive guidance can degrade performance.",
+     "image": "details/2609.06882/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "ノイズ空間期待値の推定に用いるモンテカルロサンプル数の影響を示した図です。サンプル数を2から16まで変化させても学習ダイナミクスに大きな差はなく、わずか2〜4サンプルという低計算コストで十分に安定した最適化が行えることが分かります。",
+     "caption": "Figure 3 : Effect of the number of Monte Carlo samples used to approximate the noisy-space expectation on learning dynamics. NSAC remains stable with few samples, indicating that the noisy-space expectation can be estimated efficiently.",
+     "image": "details/2609.06882/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "7 Discussion and Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "ノイズ空間行動価値関数とNSPGを提案し、デノイズループの逆伝播を行うことなく、表現力豊かな拡散方策を安定して学習できる枠組みを確立しました。今後はオンラインRLやオフラインからの継続学習（Offline-to-Online）への拡張が期待されます。",
+   "details_ja": "本研究では、拡散方策をオフライン強化学習に適用する際の最大の難所であった「潜在ノイズ空間と行動価値空間の断絶」を、ノイズ空間行動価値関数 $Q_{\\text{noisy}}$ の導入によって理論的・アルゴリズム的に解消しました。\n\nCriticにはクリーンな実行行動のみを入力して過大評価を抑えつつ、Actorはスコアマッチング形式の回帰で高速かつ安定にノイズ空間上で方策を改善できます。ベンチマーク実験でも、スパース報酬やマルチモーダル性が顕著な設定で特に目覚ましい成果を収めました。\n\n著者らは、このNSPGのアプローチがオフラインRLに留まらず、オンラインRLや、実機ロボットで極めて重要となる「オフライン事前学習からのオンライン追加適応（Offline-to-Online）」など、より幅広い生成モデルベースの方策学習へと自然に拡張可能であると述べています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：実装の詳細・計算速度・ハイパーパラメータ感度",
+   "summary_ja": "JAX/Flaxによる効率的な実装の詳細、Criticの悲観度パラメータやアンサンブル数に対する感度分析、および従来手法（DAC）との計算速度比較をまとめています。わずか2サンプルの設定ではDACよりも約10%高速に動作します。",
+   "details_ja": "### 計算コストと実行時間\n同じネットワーク構造・ハードウェア（NVIDIA L40 GPU）を用いて先行手法DACとの実行時間を比較したところ、NSACでモンテカルロサンプル数を2とした場合、1更新あたり3.2ミリ秒で動作し、DACに対して約10%高速（相対時間0.9倍）でした。サンプル数を4に増やしても3.4ミリ秒（相対時間0.98倍）と同等の速度を維持しています。デノイズ過程の逆伝播を完全に排除しているため、計算オーバーヘッドが極めて小さいことが確認できます。\n\n### 悲観度係数 $\\rho$ とアンサンブル数 $H$\nCriticのLCBペナルティを制御する悲観度係数 $\\rho$ は、0.3〜1.5の広い範囲で頑健に機能し、神経質なチューニングを必要としません。また、Criticアンサンブルのサイズ $H$ についても、デフォルトの10程度で性能が飽和しており、極端に大きなアンサンブルを用意しなくても十分な悲観的評価が得られることが示されています。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "Criticの悲観度係数 $\\rho$ に関するアブレーション結果です。悲観性を全く入れない場合（$\\rho=0$）や弱すぎる場合は過大評価により性能が崩壊しますが、ある程度以上の値（1.0〜1.5）を設定すれば非常に頑健に高い報酬を達成しています。",
+     "caption": "Figure 6 : Ablation on the pessimism coefficient $\\rho$ across three representative environments. Curves report normalized return as a function of training steps for different values of $\\rho$ .",
+     "image": "details/2609.06882/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "Criticのアンサンブル数に関する感度分析です。アンサンブル数を2から20まで変化させた際、10個程度で性能が頭打ちになることが示されており、巨大なアンサンブルを用いずとも計算量を抑えて十分な効果が得られることが分かります。",
+     "caption": "Figure 7 : Ablation on critic ensemble size across two representative environments. Curves report normalized return for different ensemble sizes.",
+     "image": "details/2609.06882/F7.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "拡散方策の潜在変数空間を最適化する際は、ノイズ変数に直接Q関数を適用するのではなく、「その潜在変数から生成されるクリーン行動の期待価値」として定式化するのが理論的にも実践的にも正解である。",
+  "ノイズ空間方策勾配（NSPG）を用いれば、計算コストが重く不安定なデノイズ過程を通じた逆伝播（BPTT）を完全に回避し、スコアマッチング形式の回帰でActorを更新できる。",
+  "期待値推定のためのモンテカルロサンプル数は2〜4個で十分であり、従来の拡散Actor-Critic手法と同等以上の計算速度で動作する。",
+  "マルチモーダルな行動分布やスパース報酬を含む難関タスク（AntMazeやOGBench画像タスク）において、既存のフロー・拡散ベース手法を大きく上回る性能を発揮する。"
+ ],
+ "limitations_ja": [
+  "検証がシミュレーション環境（D4RL、OGBench）に限定されており、実機ロボットにおけるレイテンシやデノイズ推論速度の影響は検証されていない。",
+  "オフライン強化学習に特化した検証となっており、環境とのインタラクションを伴うオンライン強化学習やOffline-to-Online設定での挙動は今後の課題とされている。",
+  "モンテカルロ推定自体は少数サンプルで済むものの、Criticアンサンブル（標準で10個）を保持する必要があるため、メモリ使用量の面では依然として軽量モデルより要求が大きい。"
+ ],
+ "keywords": [
+  "Offline Reinforcement Learning",
+  "Diffusion Policy",
+  "Policy Gradient",
+  "Actor-Critic",
+  "Score Matching"
+ ],
+ "id": "2609.06882",
+ "title": "Noisy-Space Policy Gradient for Diffusion Policies in Offline Reinforcement Learning",
+ "authors": [
+  "Mahmoud Selim",
+  "Cristina Cipriani",
+  "Karl H. Johansson"
+ ],
+ "date": "2026-09-09",
+ "group": "general",
+ "tags": [
+  "reinforcement-learning",
+  "control"
+ ],
+ "categories": [
+  "cs.LG",
+  "cs.AI",
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.06882",
+ "pdf_url": "https://arxiv.org/pdf/2609.06882",
+ "summary_ja": "拡散モデルを用いた連続制御方策を強化学習で最適化するため、ノイズ空間Q関数および方策勾配法（NSPG）を提案。逆拡散プロセスのノイズ付き潜在変数に対してクリーンな行動空間の価値推定値のみを用いて直接最適化を行い、理論保証付きの改善を実現する。",
+ "generated": "2026-09-09",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.06882"
+}
