@@ -1,0 +1,139 @@
+{
+ "title_ja": "位相に着目せよ: 脚ロボット移動における実効ランクと表現の健全性",
+ "tldr_ja": "強化学習による脚ロボット制御において、方策ヤコビアンの有効ランクを歩行位相（遊脚・立脚）ごとに分解して評価することで内部表現の健全性を診断できることを示し、実機 Spot で関節の微小振動を約3分の1に抑える滑らかな Sim-to-Real 転移を実現しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "本研究の検証環境の全体像です。シミュレーション環境（IsaacLab）上で2種の四足ロボットと1種の人型ロボット（H1）を用いた大規模な訓練と解析を行い、実機の Boston Dynamics 社製 Spot へ zero-shot 転移させています。",
+  "caption": "Figure 1: Background: locomotion rollouts for the three simulated embodiments studied here, two quadrupeds and a humanoid. Center: real deployment on a Boston Dynamics Spot, walking on flat terrain. Website: https://felipe-tommaselli.github.io/MindThePhase/",
+  "image": "details/2609.06958/F1.jpg"
+ },
+ "overview_ja": "深層強化学習（RL）は四足歩行や人型ロボットの高度な移動スキルを劇的に進化させました。しかし、PPO（近接方策最適化）のような方策オン型アルゴリズムの目的関数は非定常であり、学習が進むにつれてニューラルネットワークの表現能力（可塑性）が失われやすいという難点があります。現場では報酬曲線の推移だけを頼りに調整することが多く、学習時のシグナルから「実機で滑らかに動くかどうか」を事前に見抜くことは困難でした。\n\nそこで著者らは、方策ネットワークの入力から出力への感度を表す「方策ヤコビアンの有効ランク（effective rank）」を表現の健全性（Representation Health）を測る指標として導入しました。ここでの最大の発見は、ロボットの動作全体で平均したグローバルなランクを見るのではなく、歩行の「位相（フェーズ）」、つまり足を浮かせている遊脚期（swing）と地面を捉えている立脚期（stance）に分けて評価する必要があるという点です。\n\n実験の結果、Layer Normalization と残差接続を備えた最新の SimBa 型ネットワークは、従来の素朴な多層パーセプトロン（MLP）と異なり、立脚期に比べて遊脚期に約2次元分多い有効ランクを自然と割り当てていることが判明しました。この構造的特徴を活かした設計指針を適用することで、シミュレーションだけでなく実機の Boston Dynamics 社製 Spot においても、関節の不要なガタつき（ジッター）を約3分の1に低減し、高精度で滑らかな歩行転移を達成できることを実証しました。",
+ "contributions_ja": [
+  "歩行位相（遊脚・立脚）に条件付けた方策ヤコビアンの有効ランクという、学習時に内部表現の健全性を評価できる新しい診断アプローチを提案した点",
+  "Layer Normalization と残差接続を持つモデル（SimBa）が、素朴な MLP には見られない「遊脚期に約2次元多くランクを配分する」という固有の帰納バイアスを持つことを明らかにした点",
+  "有効ランクは単に最大化すべき指標ではなく、過学習に伴う内部表現の破綻（ランクのインフレと位相差の消失）を検出する健全性モニターとして機能することを示した点",
+  "得られた知見に基づく学習レシピにより、実機 Spot で関節ジッターを約3分の1（高周波成分比率を3.28%から0.64%へ）に激減させ、滑らかな Sim-to-Real 転移を実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ報酬曲線だけでは実機の挙動が分からないのか？",
+   "summary_ja": "深層強化学習による脚移動制御は急速に進歩していますが、学習時の報酬曲線だけでは実機配備時のガタつきや滑らかさを予測できません。本章では、方策ヤコビアンの有効ランクを歩行位相ごとに分解して測ることで、表現の健全性と実機での滑らかさを結びつける新しい視点を提示します。",
+   "details_ja": "大規模な並列シミュレータと PPO を組み合わせることで、四足ロボットや人型ロボットがパルクールなどのアクロバティックな動作を獲得できるようになりました。しかし、その学習過程は極めて不安定です。PPO の非定常な更新によってネットワークの可塑性（新しいタスクに適応する能力）が徐々に削られ、カリキュラム学習の段階が進むにつれて破滅的忘却が起きやすくなります。\n\nこれに対処するため、現場では経験的に浅い MLP が好まれてきましたが、ネットワーク内部でどのような特徴表現が学習されているのかはブラックボックスのままでした。Layer Normalization や残差接続を組み込んだ近代的なアーキテクチャ（SimBa など）の導入によって学習の安定性や漸近性能は向上したものの、その表現がなぜ実機での良好な振る舞いにつながるのかというメカニズムは解明されていません。\n\n本研究では、方策の入出力感度を表す「方策ヤコビアン」の有効ランクに着目しました。ヤコビアンは観測値の微小変化がアクションに与える影響を表すため、ロボット制御におけるアクションの滑らかさと本質的に直結しています。さらに、古典的な脚移動力学の原則に基づき、有効ランクを歩行の「遊脚期（swing）」と「立脚期（stance）」に分離して解析しました。その結果、サイクル全体で平均してしまうと見失われてしまう、ネットワーク構造特有の重要な表現パターンが浮かび上がってきました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Works",
+   "heading_ja": "脚移動 RL・表現の崩壊・古典的歩行理論の交差点",
+   "summary_ja": "脚ロボットの深層強化学習における実機転移の課題、強化学習特有の表現ランク崩壊、そして古典的な歩行位相理論という3つの文脈を整理し、本研究がこれらをいかに統合したかを説明します。",
+   "details_ja": "脚ロボットの深層強化学習では、報酬のみで学習した方策が高周波のアクション変動（ジッター）を起こし、実機のアクチュエータを痛めてしまう問題が以前から知られていました。従来はこの対策として、アクションの変化率に対するペナルティ報酬を泥臭くチューニングしたり、方策ネットワークにリプシッツ連続性の制約やヤコビアンペナルティを課す手法が提案されてきました。\n\n### PPO と表現の非定常性\n強化学習の理論研究では、方策更新に伴う非定常性によって特徴表現行列のランクが低下し、可塑性が失われる現象（rank deficiency）が指摘されています。PPO のクリッピング処理は方策分布の極端な変化を抑えるものの、内部表現のドリフトまでは防げません。SimBa などの正規化ブロックを備えたアーキテクチャはこれらを防ぐために考案されましたが、ロボット制御に与える影響の解明は不十分でした。\n\n### 古典的歩行指標との融合\nロボティクスにおいて、歩行は古くから遊脚期と立脚期の幾何学的・時間的な分離として定式化されてきました（Raibert の原理など）。本研究は、現代の深層学習における有効ランク解析にこの古典的な「歩行位相」の視点を持ち込むことで、ブラックボックスだった方策の挙動を解き明かします。",
+   "figures": []
+  },
+  {
+   "heading": "3 Background",
+   "heading_ja": "ネットワークの健康診断：有効ランクと歩行パターンの数理",
+   "summary_ja": "本研究で用いる強化学習の設定、有効ランクの定義、そして入力から出力への感度を測る「方策ヤコビアン有効ランク」の計算方法を解説します。また、歩行位相との結びつきについて数理的な背景を整理します。",
+   "details_ja": "### 3.1 強化学習のセットアップ\n環境をマルコフ決定過程としてモデル化し、PPO-Clip アルゴリズムを用いて方策ネットワーク $\\pi_{\\theta}$ と価値ネットワーク $\\hat{v}_{w}$ を最適化します。GAE（Generalized Advantage Estimator）により利得を推定し、KL ダイバージェンスに応じて学習率を適応的に制御する標準的なパイプライン（RSL-RL）を採用しています。\n\n### 3.2 有効ランク（Effective Rank）の定義\n行列の特異値分布の広がりを測るため、エントロピー有効ランク（$\\operatorname{erank}$）を用います。特異値を $\\sigma_{i}$ としたとき、数値的に極小な成分を除去して正規化分布 $p_{i} = \\sigma_{i} / \\sum_{j}\\sigma_{j}$ を作り、そのシャノンエントロピーから次のように計算します：\n$$\\operatorname{erank}(A) = \\exp\\left(-\\sum_{i} p_{i} \\ln p_{i}\\right)$$\nスペクトルが均一ならランクは高くなり、特定の特異値に偏っていれば 1 に近づきます。\n\n本研究では、最終層手前の特徴量を測る「特徴ランク（Feature rank）」や重み行列自体の「重みランク（Weight rank）」に加え、入出力感度を測る「方策ヤコビアン有効ランク（$r_{\\mathrm{Jac}}$）」を重視します。観測 $x_{i}$ に対する deterministic な方策平均のアクション $\\pi_{\\theta}(x_{i})$ の勾配 $J_{\\theta}(x_{i}) = \\partial\\pi_{\\theta}(x_{i})/\\partial x_{i}$ を求め、バッチ平均 $\\bar{J}_{\\theta}$ の有効ランクを算出します。さらに、歩行位相（遊脚または立脚）のインデックス集合 $\\mathcal{I}_{p}$ ごとに平均した $\\bar{J}_{\\theta,p}$ から、位相条件付きランク $\\operatorname{erank}(\\bar{J}_{\\theta,p})$ を求めます。\n\n### 3.3 歩行パターンと感度の直感\nトロット歩行では、4本の脚が少数の協調パターンで動きます。健全に学習した方策であれば、稼働自由度に応じた適度な次元数の感度を持ち、足を地面から離して自由に振る遊脚期と、荷重を支える立脚期とで感度の次元数が切り替わるはずです。この切り替わりが起きているかを診断指標とします。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "本研究で解析対象とする3つのランク指標の概念図です。重み行列 $W_{\\ell}$ の重みランク、最終層手前の表現 $F_{\\theta}(X)$ の特徴ランク、そして局所的な入出力感度を測る方策ヤコビアン $J_{\\theta}(x_{i})$ の有効ランクをそれぞれ追跡します。",
+     "caption": "Figure 2: Overview of the rank objects studied here, namely the actor weight matrices $W_{\\ell}$ , the penultimate feature representation $F_{\\theta}(X)$ , and the policy Jacobian $J_{\\theta}(x_{i})$ measuring local input-output sensitivity.",
+     "image": "details/2609.06958/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "実験結果：遊脚期に現れる「2次元の差」と実機での劇的な滑らかさ",
+   "summary_ja": "シミュレーションと実機 Spot での実験を通じて、SimBa 構造が遊脚期に立脚期より約2次元多い有効ランクを割り当てていることを発見しました。この特徴を持つ方策は実機でも関節ジッターが約3分の1になり、滑らかな制御を実現できます。また、過学習によってランクが異常上昇し位相差が崩壊する現象も確認しました。",
+   "details_ja": "実験には IsaacLab 上の RSL-RL を用い、標準的な MLP と Pre-LN 残差接続を備えた SimBa 変種を比較しました。また、実機の Boston Dynamics 社製 Spot、さらに検証として ANYmal-D（四足）および Unitree H1（19自由度の人型ロボット）を用いました。\n\n### 位相条件付けが生む「遊脚優位」の分離\n学習後のヤコビアン有効ランクを調べると、SimBa 型アーキテクチャは一貫して立脚期よりも遊脚期に対して約2次元分多い有効ランクを割り当てていました（$\\Delta_{\\phi} = \\operatorname{erank}(J_{\\mathrm{swing}}) - \\operatorname{erank}(J_{\\mathrm{stance}}) \\approx +2.14$）。対照的に、素朴な MLP ではこの差が存在せず、むしろわずかに負の値（$-0.31$）を示しました。\n重要なのは、歩行周期全体で平均したグローバルなヤコビアン有効ランクを見ると、SimBa が 9.3、MLP が 9.2 とほぼ同じ数値になり、この決定的な構造差が完全に隠蔽されてしまう点です。位相ごとに条件付けることで初めて、アーキテクチャが持つ本質的な帰納バイアスが可視化されました。\n\n### 実機 Spot への転移と驚異的な滑らかさ\nこの内部表現の健全性は、実機での動作クオリティと強く連動していました。シミュレーション内だけでなく実機 Spot 上でも、SimBa ポリシーは MLP に比べて関節制御のジッター（高周波成分比率 HFR）を約3分の1（MLP-XXL の 3.28% に対し SimBa-XXL は 0.64%）へと激減させました。さらに重心速度追従の RMSE も 0.176 m/s から 0.066 m/s へと 62.7% 改善し、足のバタつき（チャタリング）のない極めて滑らかな歩行を達成しました。\n\n### 「ランクは高ければ良い」わけではない：過学習の罠\nPPO の更新エポック数を故意に倍増させて過学習（表現の崩壊）を引き起こす実験を行ったところ、非常に興味深い挙動が観察されました。過学習した SimBa では特徴ランクが +66% も異常膨張（インフレ）し、ヤコビアンランクも上限まで飽和してしまいます。その結果、正常な学習で確認された「遊脚優位の位相差（$\\Delta_{\\phi}$）」はほぼゼロへと潰れてしまいました。このときタスク報酬やシミュレーション内の追従スコアはほとんど悪化せず、見かけ上は騙されてしまいます。つまり、有効ランクは単に最大化すべき目的関数ではなく、内部表現の健康状態を見守る「診断モニター」として扱うべきであることが実証されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "歩行位相ごとに分解したヤコビアン有効ランクの比較です。(a) SimBa はすべての設定で遊脚期が立脚期を上回る正の位相差（$\\Delta_{\\phi} \\approx +2.14$）を示しますが、MLP はゼロ以下です。(b) 全体平均（global）で見ると両者とも約9.2〜9.3と大差なく、位相条件付けが不可欠であることが分かります。",
+     "caption": "Figure 3: Phase-conditioned Jacobian rank separates the architecture families. (a) Phase gap $\\Delta_{\\phi}=\\mathrm{erank}(J_{\\mathrm{swing}})-\\mathrm{erank}(J_{\\mathrm{stance}})$ on flat terrain. Every SimBa configuration is swing-dominant, and every MLP is not. (b) Pooled swing, stance, and global (dashed) Jacobian erank per family. The global values are nearly equal ( $9.3$ vs $9.2$ ), masking the split that phase conditioning exposes.",
+     "image": "details/2609.06958/F3.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実機 Spot および他ロボットへの転移結果です。(a) 関節制御ジッター（HFR %）と (b) 速度追従 RMSE において、SimBa はシミュレーション（薄色）から実機（濃色）へ安定して転移し、MLP の激しい性能劣化とガタつきを抑え込んでいます。(c) ANYmal-D や H1（人型）でも同様の低ジッター傾向が確認できます。",
+     "caption": "Figure 6: Sim-to-Real Transfer and Cross-Robot Generalization. (a) Spot joint control jitter % and (b) center-of-mass linear velocity tracking RMSE (m/s) in simulation (faded, ghost bars) and physical hardware deployment (solid bars) across MLP and SimBa architectures. (c) Simulation-only cross-robot control jitter across Boston Dynamics Spot (12-DoF), Anymal-D (12-DoF), and H1 (19-DoF biped). In physical hardware deployment, classical MLPs suffer severe velocity-tracking degradation and chattering, while SimBa maintains robust, low-jitter real-world transfer and generalizes consistently across quadrupeds and bipeds.",
+     "image": "details/2609.06958/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "過学習による内部表現の破綻プロセスです。(a) 過学習によって特徴ランクが異常膨張（+66%）します。(b) その結果、健全な学習の証であった位相差 $\\Delta_{\\phi}$ がゼロへと崩壊します。(c) しかし通常の歩行報酬（Gait Reward）はこの崩壊を検知できず、報酬だけを見ていては過学習を見落とす危険性を示しています。",
+     "caption": "Figure 7: Representation collapse under over-training (healthy baseline desaturated, over-trained saturated). (a) Inflation: feature space erank (left axis) and functional Jacobian erank (right axis) inflate under over-training. SimBa feature rank explodes (+66%) while functional rank saturates. (b) Erasure: the specialized phase split $\\Delta\\phi$ collapses directly to the zero line for SimBa, while MLP remains flat near zero. (c) Blind reward: standard gait reward is insensitive to this representation collapse, with the Big SimBa config even showing a deceptive reward increase.",
+     "image": "details/2609.06958/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Limitations",
+   "heading_ja": "本研究が認める限界と今後の課題",
+   "summary_ja": "平坦地での盲目歩行を中心とした検証に絞られている点や、Transformer などの多様なモデル構造、Actor-Critic の非対称分離構成についての網羅的な検証が今後の課題として挙げられています。",
+   "details_ja": "著者らは実機 Spot を用いた検証を行っているものの、いくつかの限界を率直に認めています。\n\n- 実験環境の主軸を平坦地の盲目歩行（blind locomotion）に絞って設定したため、不整地歩行や高度な知覚（カメラ・LiDAR）を統合した環境でこの位相差シグナルがどのように変化するかは完全には解明されていません。\n- ネットワーク構造として SimBa と MLP の比較が中心であり、RNN（LSTM）や Transformer、あるいは多様な正規化手法の組み合わせまでは検証が及んでいません。\n- 現場でトレンドとなりつつある Actor と Critic のトランク（特徴抽出部）の完全な分離や非対称な容量設計が、ヤコビアン有効ランクにどう影響するかについても今後の探求課題とされています。",
+   "figures": []
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめ：内部表現の健全性からロボット制御を見つめ直す",
+   "summary_ja": "歩行位相に条件付けた方策ヤコビアン有効ランクが、強化学習ポリシの健全性を測る強力な診断ツールとなることを示しました。この指標は実機転移時の滑らかさと密接に相関しており、メカニスティックな解析手法がロボット学習の信頼性向上に寄与することを結論づけています。",
+   "details_ja": "本論文は、脚ロボットの PPO 学習において、方策ヤコビアンの有効ランクを歩行位相（遊脚・立脚）に条件付けて評価するアプローチを確立しました。位相平均を global に取ってしまうと見えなくなるアーキテクチャの構造的差異（SimBa が獲得する約2次元の遊脚優位性）を浮き彫りにし、それが実機での約3倍に及ぶ関節ジッター低減と直結していることを示しました。\n\nさらに、過学習によってランクがインフレし位相構造が消失する現象を通じて、有効ランクは「最大化すべきスコア」ではなく「健全性を監視するモニター」であるという重要な教訓を提示しました。報酬の数値だけに一喜一憂する従来のロボット強化学習から一歩進み、内部表現のメカニズムを理解して制御の質を担保する新しい研究の方向性を切り拓いています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：SimBa の実装詳細と実機 Spot 実装レシピ",
+   "summary_ja": "ネットワークの深さに応じた残差スケーリングなどのモデル実装の詳細、および Spot 実機での接触状態推定や推論セットアップについてまとめています。",
+   "details_ja": "### SimBa の実装工夫（Appendix A.1）\nSimBa ブロックでは、深さ $N$ に応じて勾配の爆発を防ぐため、残差接続の寄与に $\\alpha = 1/\\sqrt{N}$ というスケーリング係数を導入しています（元の SimBa は $\\alpha=1$）。また、入力観測量のスケール差を吸収するため、実行時の移動統計量を用いた経験的正則化（empirical normalization）を併用しています。\n\n### 実機 Spot での配備環境（Appendix C.1）\n実機 Spot では足先にバイナリの物理接触センサがありません。そこで、膝関節のトルク $\\tau_{\\text{knee}}$ が脚ヤコビアンを介して鉛直抗力 $F_{z}$ に直接比例する物理的性質を利用し、膝トルクの閾値処理によって高精度な接触推定（遊脚・立脚判定）を行っています。推論は外部 PC（Intel i7）上の ONNX Runtime で 50 Hz（レイテンシ 2〜5 ms）にて実行され、gRPC 経由で Spot SDK と通信しています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "歩行ポリシのヤコビアン有効ランクは、全体の平均値ではなく「遊脚」と「立脚」に分けて見なければ本質的な構造を見落とす。",
+  "LayerNorm と残差接続（SimBa）は、自由度の高い遊脚期に約2次元多くランクを配分する優れた帰納バイアスを持ち、これが実機での低ジッター動作につながる。",
+  "有効ランクは最大化を狙う目的関数ではなく、過学習や表現の縮退を見抜くための「診断シグナル」として使うのが正しい。",
+  "報酬曲線が順調に伸びていても内部表現が崩壊している（位相差が消える）ケースがあり、Sim-to-Real 転移失敗の事前検知に役立つ。"
+ ],
+ "limitations_ja": [
+  "平坦地での盲目歩行が中心であり、知覚（Vision/LiDAR）を伴う不整地歩行における一般化は今後の検証が必要である点。",
+  "比較対象が SimBa と MLP に限られており、Transformer や RNN などの系列モデルでの振る舞いは未検証である点。",
+  "有効ランクの位相差と実機の滑らかさの間に強い相関（共起関係）は示されているものの、因果関係を直接証明する厳密な数理モデルまでは構築されていない点。"
+ ],
+ "keywords": [
+  "Legged Locomotion",
+  "Effective Rank",
+  "Representation Health",
+  "Sim-to-Real Transfer",
+  "Policy Jacobian",
+  "Proximal Policy Optimization"
+ ],
+ "id": "2609.06958",
+ "title": "Mind the Phase: Effective Rank and Representation Health in Legged Locomotion",
+ "authors": [
+  "Felipe Tommaselli",
+  "Thiago H. Segreto",
+  "Juliano D. Negri",
+  "Ricardo V. Godoy",
+  "Marcelo Becker"
+ ],
+ "date": "2026-09-09",
+ "group": "focus",
+ "tags": [
+  "locomotion",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.06958",
+ "pdf_url": "https://arxiv.org/pdf/2609.06958",
+ "summary_ja": "脚ロボット移動制御の強化学習方策において、方策ヤコビアンの実効ランクを分析する手法を提示。大域的なランク評価では隠れる構造が歩行位相（ゲートフェーズ）ごとの条件付けにより露わになり、実機挙動と訓練時の潜在表現の健全性を結びつける指標を提供する。",
+ "generated": "2026-09-09",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.06958"
+}
