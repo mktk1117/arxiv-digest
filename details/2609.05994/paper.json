@@ -1,0 +1,130 @@
+{
+ "title_ja": "GLoRI: グローバル・ローカル参照相互作用によるヒューマノイドLoco-Manipulation向け閉ループ全身追従",
+ "tldr_ja": "ローカルな姿勢誘導とワールド座標系の大域フィードバックをCross-Attentionで融合する全身追従フレームワーク「GLoRI」を提案し、ヒューマノイドが累積誤差なく狙った位置で物体を掴んで運ぶ移動マニピュレーションを実機で実証しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "局所参照のみだと姿勢は保たれてもワールド座標での位置がズレて把持に失敗しますが、大域参照とフィードバックを明示的に相互作用させることで、動作構造を壊さずに位置決め誤差を閉ループ補正できることを示しています。",
+  "caption": "Fig. 1: (a) The local pose reference specifies how the motion should be performed but not where it should be placed. (b) Local-only tracking can preserve plausible motion while accumulating global root and hand errors, leading to a missed grasp. (c) Global-local reference interaction enables closed-loop correction of world-frame errors, recovering accurate placement while preserving the local motion.",
+  "image": "details/2609.05994/F1.jpg"
+ },
+ "overview_ja": "ヒューマノイドが歩きながら物体を操作する「移動マニピュレーション（Loco-Manipulation）」では、手先や胴体が目標位置から数センチ狂うだけで把持に失敗してしまいます。従来の模倣学習コントローラは、座標の平行移動不変性を活かすためにロボット基準のローカル座標で目標姿勢を与える設計が主流でした。しかし、これでは「どんな姿勢をとるか」は分かっても「ワールド座標のどこに手を伸ばすか」が制約されず、歩行に伴う足元のわずかなズレが蓄積して目的の物体に手が届かなくなってしまいます。一方で、テレオペレーション用にグローバル座標を取り入れた研究もありますが、自律動作時に大域的な補正情報と局所的な協調動作のパターンをどう調和させるかという問題は未解決でした。\n\nそこで著者らは、大域と局所の参照情報を綺麗に調和させる閉ループ追従コントローラ「GLoRI」を開発しました。頭部と両手というわずか3つの疎なキーポイントとルート軌道だけを入力とし、GLoRI-Net内部の「Global-Local Cross Attention（GLCA）」によって、局所的な動作のまとまりを崩すことなく大域的な位置ズレを補正します。\n\n検証では、未知動作の追従誤差（g-MPJPE）を先行研究CLOTの11.84 cmから6.44 cmへと45.6%も大幅削減し、完遂率100%を達成しました。さらに、Isaac Gymで学習した方策をファインチューニングなしでそのままMuJoCoへゼロショット転移できる頑健性を示し、実機Unitree G1でもポータブルなVIVEトラッカーによるルート自己位置フィードバックのみで、箱運びやバッグ・枕のピックアップ動作に成功しています。",
+ "contributions_ja": [
+  "頭部・両手・ルートという疎なキーポイント参照のみで正確な全身物理インタラクションを可能にする閉ループ追従フレームワーク「GLoRI」を提案した点",
+  "局所的な動作事前分布をクエリ、大域的な目標と位置誤差をキー・バリューとして注入し、協調動作を崩さず大域位置を補正する「Global-Local Cross Attention (GLCA)」を開発した点",
+  "シミュレータ間転移（Isaac GymからMuJoCoへ）をゼロショットで成功させ、さらに実機Unitree G1上で外部モーションキャプチャ不要の自律移動マニピュレーションを実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "II Introduction",
+   "heading_ja": "なぜヒューマノイドは「歩きながら掴む」のが苦手なのか？",
+   "summary_ja": "移動マニピュレーションでは数センチの位置ズレが即座に失敗につながるため、協調動作の維持とワールド座標での絶対位置決めが不可欠です。しかし、従来のローカル座標表現では大域誤差が蓄積し、テレオペ向けのグローバル手法も自律動作では人間による手動補正が得られないという課題がありました。",
+   "details_ja": "ヒューマノイドが工場や家庭で人間の手助けをするためには、環境中を移動しながら物体を扱う「移動マニピュレーション」が欠かせません。単なる歩行や身振り手振りと違って、物理的なインタラクションは空間精度に極めてシビアです。ルート（骨盤付近の基準部位）や手先がわずかにズレただけで、物体を掴み損ねてしまいます。\n\n近年の深層強化学習による動作模倣は、全身の関節を統一的に協調制御できるよう進化してきました。しかし、既存コントローラには自律移動マニピュレーションを阻む2つの壁があります。\n\n- ローカル座標への依存：目標姿勢をロボット基準のローカル座標で与えると、環境変化に頑健になる反面、「ワールド座標のどこで動作するか」が拘束されません。歩行による微小なスリップが蓄積し、いざ掴もうとした時に手が空を切ってしまいます。\n- 自律制御での補正メカニズムの欠如：近年のテレオペ向けコントローラは大域位置を取り入れ始めていますが、これらは操縦者が画面を見ながらリアルタイムに修正してくれる前提です。視覚言語行動（VLA）モデルなどが自律的に目標を生成する環境では、人間による補正がないため、大域追従そのものの精度が極めて重要になります。\n\nGLoRIは、こうした課題を解決するために「疎な参照点（頭・両手・ルート軌道）」を入力としつつ、大域と局所の相互作用をネットワーク内で明示的にモデル化することで、全身の自然な協調運動とミリ単位・センチ単位の精密な配置を同時に実現しています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "(a) 局所参照は姿勢の形だけを指定し、(b) 局所追従のみでは歩行の累積誤差で把持に失敗します。(c) GLoRIの大域・局所相互作用により、大域的な位置ズレを閉ループで修正しつつ正しい把持を実現できる仕組みを図解しています。",
+     "caption": "Fig. 1: (a) The local pose reference specifies how the motion should be performed but not where it should be placed. (b) Local-only tracking can preserve plausible motion while accumulating global root and hand errors, leading to a missed grasp. (c) Global-local reference interaction enables closed-loop correction of world-frame errors, recovering accurate placement while preserving the local motion.",
+     "image": "details/2609.05994/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "III Related Work",
+   "heading_ja": "学習ベース全身制御と大域フィードバックの進化",
+   "summary_ja": "全身制御はモデルベース制御から強化学習による動作模倣へと移行し、近年はテレオペレーションでの遠隔操作へと発展してきました。しかし、既存のグローバルフィードバック手法は特徴量を単純に連結するに留まっており、動作構造の維持と位置補正の調和が不十分でした。",
+   "details_ja": "ヒューマノイドの全身制御技術は、主に以下の3つの系譜で発展してきました。\n\n### 学習ベースの全身制御\n古典的な逆運動学（IK）やモデル予測制御（MPC）から、近年の物理シミュレーションを用いた強化学習（RL）による動作模倣へとシフトしました。大規模なモーションキャプチャデータセットを活用することで、多様な人間動作を再現できるようになりましたが、その多くはロボット基準のローカル座標で参照軌道を与えており、ワールド座標系での厳密な位置決めには踏み込んでいませんでした。\n\n### 移動マニピュレーションに向けた全身制御\n遠隔操作（テレオペレーション）を通じて、歩行と上半身操作を同時に行う研究が盛んに行われています。TWIST2のようにVRデバイスを用いて全身を操作する枠組みも登場しましたが、依然として相対座標を中心としており、精密な相互作用に必要な絶対配置の拘束が不足していました。\n\n### 閉ループ大域全身制御の登場\n長時間の移動によるドリフトを防ぐため、CLONEやCLOT、ScaleBFMといった手法が大域フィードバックを取り入れ始めました。しかし、これらの先行手法はローカル特徴量とグローバル観測量を単に並べてMLPに入力する構成が多く、「局所的な運動パターンをどう維持し、大域的な誤差でどう修正するか」を構造的に解釈していません。GLoRIは、この両者の相互作用をアテンション機構で明示的に切り分けた点で一線を画しています。",
+   "figures": []
+  },
+  {
+   "heading": "IV GLoRI: Closed-Loop Whole-Body Tracking with Global-Local Reference Interaction",
+   "heading_ja": "GLoRIの心臓部：局所運動を大域目標で研ぎ澄ます「GLCA」",
+   "summary_ja": "GLoRIは頭部・両手・ルートという疎な参照情報を局所運動と大域情報に分解して扱います。中核となるGLoRI-Netは、局所トークンをクエリ、大域トークンをキー・バリューとするCross-Attention（GLCA）により、協調動作を保ちながら位置ズレを閉ループで修正します。",
+   "details_ja": "GLoRIの設計は「高レベルのAIモデルと接続しやすい疎なインターフェース」と「高精度な閉ループ補正」を両立するように作られています。\n\n### 問題設定と入出力（Task Formulation & Observation Design）\nロボットは29自由度のUnitree G1を想定し、方針（Policy）は名目立ち姿勢からの関節残差目標を出力してPD制御器で駆動します。参照目標として受け取るのは、全身の関節角ではなく、将来 $H=20$ フレーム分の「頭部・左手・右手」の3つのキーポイント姿勢とルート軌道だけです。観測量は以下のように明確な役割分担がなされています。\n\n- 局所参照（Local Reference）：参照ルート座標系で表した頭部と両手の姿勢（18次元）。ロボットが「どう動くべきか」という動作の協調パターンを表現します。\n- 大域運動参照（Global Motion Reference）：ワールド座標でのキーポイント目標、現在のルートから見た相対目標、そして現在値とのワールド座標差分（追従誤差）。「どこに手を置くべきか」と「今どれだけズレているか」を教えます。\n- 大域ルート参照（Global Root Reference）：ワールド座標での目標ルート位置・姿勢、速度、および現在のルート位置誤差（72次元）。全体の並進・旋回を牽引します。\n\n### ネットワーク構造：GLoRI-Net\nローカル特徴とグローバル特徴を単純に連結（Concatenate）すると、ネットワークは動作の形を保つべきか位置を補正すべきかで迷ってしまいます。そこで導入されたのが「Global-Local Cross Attention（GLCA）」です。\n\n局所運動トークンをQuery（問い合わせ）、大域運動トークンをKeyおよびValueとしてアテンションを計算します。なぜこの向きかというと、局所的な動作のまとまりを「土台」として維持しつつ、残差接続を介して大域的な位置決め誤差の補正情報だけを上乗せするためです。ルート情報はローカル座標の基準そのものでありローカル側の対比が存在しないため、GLCAからは除外して独立したエンコーダで処理し、後からアテンション出力と結合して時間方向の畳み込み層で集約します。\n\n### 報酬設計とPPO学習\n学習にはPPOを用い、関節・キーポイント・ルートの位置・速度追従報酬と、滑らかな動作を促す正則化項を組み合わせています。方針への入力は3つのキーポイントだけですが、学習時の補助報酬としては密な全身データを用いて安定した身体運動を誘導しています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "GLoRI-Netの全体アーキテクチャ。局所運動特徴をQuery、大域運動特徴をKey/ValueとしてGLCAに入力し、補正された特徴量をルート特徴と結合して時間集約する構造が視覚的に示されています。",
+     "caption": "Fig. 3: Overview of GLoRI-Net. Global-Local Reference Interaction Encoder applies GLCA to refine the local motion prior with global reference cues, independently encodes the root feature, and temporally aggregates their fused representation. A Proprioceptive Encoder and Action Decoder then combine the reference feature with the current robot state to predict joint targets.",
+     "image": "details/2609.05994/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Experiment",
+   "heading_ja": "実験結果：未知の動作も100%完遂、そのまま実機と別シミュレータへ",
+   "summary_ja": "未知のHuMoToデータセットにおいて、GLoRIは追従誤差6.44 cm・完遂率100%を達成し、先行研究を圧倒しました。Isaac GymからMuJoCoへの追加学習なしの転移や、VIVEトラッカーを用いた実機Unitree G1での自律移動マニピュレーションでも高い成功率を記録しています。",
+   "details_ja": "シミュレーション評価および実機Unitree G1での物理検証を通じて、GLoRIの追従精度と汎用性を徹底的に検証しています。\n\n### シミュレーションでの追従精度と比較\n学習に含まれていない未知の動作データセット（HuMoTo）を用いた比較実験では、以下の顕著な結果が得られました。\n\n- ローカル追従のみのTWIST2は、ルートを合わせた局所誤差（RA-MPJPE）こそ良好なものの、ワールド座標誤差（g-MPJPE）が大きく開いてタスク失敗が多発しました。\n- 全身の密なグローバル追従を行うCLOT（g-MPJPE: 11.84 cm）やScaleBFM（同: 9.38 cm）に対し、疎な3点入力しか受け取らないGLoRIはg-MPJPE 6.44 cmと誤差を45.6%削減し、完遂率100%をマークしました。\n- アブレーション実験では、GLCAを単純な連結（Direct Fusion）に置き換えるとg-MPJPEが4.47 cmから5.39 cmへと悪化し、提案した相互作用メカニズムの有効性が裏付けられました。\n\n### Sim-to-Sim転移（Isaac Gym → MuJoCo）\n学習を行ったIsaac Gymから、接触ダイナミクスが異なるMuJoCo環境へファインチューニングなしで方針を直接移植しました。既知動作で96.97%、未知動作でも93.9%の完遂率（g-MPJPE: 7.53 cm）を維持し、物理シミュレータの差異をものともしないロバスト性を示しました。\n\n### 実機Unitree G1での自律マニピュレーション\n実機実験では、外部の大規模なモーションキャプチャシステム（OptiTrack等）の代わりに、市販のポータブルなVIVE Tracker 3.0を腰部にマウントしてルート位置姿勢のフィードバックを取得しました。事前に記録した動作シーケンスをオフライン参照とし、人間のオンライン介入なしで3種類のタスクを各3試行実施しました。\n\n- 段ボール箱の運搬（Carry Box）：3回中2回成功\n- カバンのピックアップ（Pick Bag）：3回中2回成功\n- 枕のピックアップ（Pick Pillow）：3回中3回成功（100%）\n\n合計9試行中7回成功という高いパフォーマンスを達成し、疎なキーポイント参照とポータブルな自己位置推定だけで、複雑な移動マニピュレーションが現実世界で十分に成立することを実証しました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "シミュレーションでの歩行、椅子運び、拾い上げ動作の追従結果。赤がロボットの実際の位置、緑がワールド目標、青がローカル参照を表しており、赤と緑がぴったり重なって正確に追従できていることが分かります。",
+     "caption": "Fig. 4: Qualitative simulation results on representative (a) walking, (b) chair carrying, and (c) picking motions. The red, green, and blue points denote the executed keypoints, world-frame reference keypoints, and local reference keypoints, respectively. Although the policy input contains only three keypoint poses, nine whole-body keypoints are visualized for clarity.",
+     "image": "details/2609.05994/F4.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実機Unitree G1の腰部に取り付けられた3DプリントアダプタとポータブルなVIVE Tracker 3.0。大がかりなモックアップ施設を必要とせず、簡便にルート自己位置フィードバックを実現しています。",
+     "caption": "Fig. 6: Portable global localization setup for real-world deployment.",
+     "image": "details/2609.05994/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "実機における(a)箱運び、(b)バッグ拾い、(c)枕拾いの連続写真。遠隔操作によるリアルタイム介入なしで、所定の目標に対して安定して歩行・かがみ込み・把持を行っています。",
+     "caption": "Fig. 7: Representative real-world executions of (a) Carry Box, (b) Pick Bag and (c) Pick Pillow.",
+     "image": "details/2609.05994/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "まとめと今後の展望：高レベルAIモデルとの統合へ",
+   "summary_ja": "GLoRIは大域目標と局所運動の相互作用を解くことで、ヒューマノイドの高精度な移動マニピュレーションを実現しました。今後は視覚運動ポリシーやVLAモデルと直接接続し、完全自律的なタスク遂行システムへの統合を目指します。",
+   "details_ja": "本研究では、ヒューマノイドロボットが大域的な世界の中で正確に動作し、かつ人間のように滑らかな全身協調を維持するための枠組み「GLoRI」を確立しました。GLoRI-Netの中核であるGLCAは、局所動作の構造を壊すことなく大域誤差を効果的に補正できることを証明しました。\n\n著者らは今後の展望として、本手法のインターフェースが「頭部・両手・ルート」という疎なキーポイントで構成されている利点を活かし、Open-Vocabularyな指示を理解するVLAモデルや、一人称視点カメラから動作を生成するVisuomotorポリシーとのエンド・ツー・エンドな統合を挙げています。知能モデルが生み出した動作目標を、現実の物理世界で確実に実行する強固な下位コントローラとして、GLoRIは重要なマイルストーンを打ち立てました。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「姿勢の形（How）」を保つローカル参照をQueryにし、「どこに置くか（Where）」を示すグローバル参照をKey/ValueにするCross-Attention構造（GLCA）が、動作破綻を防ぎつつ位置ズレを消すベストプラクティスである",
+  "全身の密な関節軌道を与えなくても、頭・両手・ルートの3点＋軌道という疎なキーポイントだけで高精度な全身移動マニピュレーションが可能である",
+  "高価な光学式モーションキャプチャ室を使わなくても、VIVEトラッカーのようなポータブルなルート位置姿勢フィードバックがあれば実機での閉ループ制御が実用的に機能する"
+ ],
+ "limitations_ja": [
+  "実機検証ではオフラインで用意した軌道を追従させており、視覚センサなどからリアルタイムに目標を生成する動的な閉ループ環境適応までは示されていない点",
+  "ルートの大域位置推定に依然として外部のVIVEトラッカーとベースステーションを必要としており、真の意味でのオンボード自己完結型（VIOやSLAMのみ）には至っていない点",
+  "実機でのタスク評価が合計9試行（成功7回）とパイロット検証の規模に留まっており、物体把持失敗時のリカバリ動作までは組み込まれていない点"
+ ],
+ "keywords": [
+  "Humanoid Loco-Manipulation",
+  "Whole-Body Control",
+  "Closed-Loop Tracking",
+  "Cross-Attention",
+  "Reinforcement Learning"
+ ],
+ "id": "2609.05994",
+ "title": "GLoRI: Closed-Loop Whole-Body Tracking with Global-Local Reference Interaction for Humanoid Loco-Manipulation",
+ "authors": [
+  "Qingyao Xu",
+  "Sheng Yin",
+  "Zibo Zhou",
+  "Ya Zhang",
+  "Siheng Chen",
+  "Yue Hu"
+ ],
+ "date": "2026-09-09",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "control",
+  "locomotion"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.05994",
+ "pdf_url": "https://arxiv.org/pdf/2609.05994",
+ "summary_ja": "ヒューマノイドの移動マニピュレーションにおいて、ローカル参照の動作構造維持とグローバル座標系での累積誤差低減を両立する閉ループ全身コントローラを提案。GLoRI-Netが交差アテンションを用いて大域的補正と局所動作ガイダンスを融合し、高精度な追従を実現する。",
+ "generated": "2026-09-09",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.05994"
+}
