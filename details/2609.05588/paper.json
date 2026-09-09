@@ -1,0 +1,193 @@
+{
+ "title_ja": "GE-Act 2.0: ロボット操作に向けたWorld-Action Modelの事前学習とスケーリング",
+ "tldr_ja": "生成コンポーネントをゼロから操作データで事前学習し、1ステップの未来予測と行動適合型学習（KASO）を組み合わせることで、タスク特化の追加学習なし（ゼロショットOOD）で100タスクをこなすロボット制御を実現しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "GE-Act 2.0の全体システム構成です。まず制御指向オートエンコーダ（CoAE）が観測画像を極限まで圧縮し、1ステップの視覚プランナー（SVP）が指示に応じた未来の視覚状態を一発で予測します。最後に逆ダイナミクスモデル（IDM）が予測された未来画像からロボットの実行動作（アクションチャンク）を生成します。",
+  "caption": "Figure 1: GE-Act 2.0 system architecture. The SVP grounds the instruction in the current observation and fully denoises multi-view future visual latents in a single flow-generator pass; the IDM combines current and predicted latents with proprioception to produce dense and sparse action sequences.",
+  "image": "details/2609.05588/F1.jpg"
+ },
+ "overview_ja": "ロボットが賢く動くためには、指示と画像から直接モータを動かすだけでなく、「自分の行動によって世界がどう変化するか」という物理の予測（ワールドモデル）を取り入れるのが有望だと注目されています。しかし従来のワールド・アクションモデル（WAM）は、一般的な動画生成モデルをそのまま流用し、動作生成モデルと無理につなぎ合わせる形が主流でした。そのため、操作データに特化してゼロからモデル全体を事前学習したり、データをスケールさせたりする方法はほとんど解明されていませんでした。\n\nそこで著者らは「GE-Act 2.0」を提案しました。まず、ロボット制御に必要な特徴を残しながら画像を極小サイズに圧縮する「CoAE」を開発。次に、拡散モデルのような多ステップ生成ではなく、わずか1回の前向き計算で未来の完了状態を予測できる「SVP」を導入しました。これにより、未来の予測器と、予測画像から動作を導く逆ダイナミクスモデル（IDM）を別々のデータで事前学習した後に、エンドツーエンドで協調学習（co-training）できるようになりました。さらに、同じ指示でもやり方が複数あるときに生じる「指示・動画・動作の食い違い（Validity Gap）」を解消するため、記録された動作と整合する未来予測だけを選択して学習する「KASO」を考案しました。\n\n検証では、評価用のタスクやロボットに合わせた追加学習（SFT）を一切行わない「完全なゼロショットかつ未知環境（OOD）」という極めて厳しい条件を採用しました。100種類の要素タスク（20スキル群）で評価したところ、協調学習データを300時間から30,000時間へスケールさせることで、主要ロボットでの成功率が17.1%から44.1%へと大幅に向上しました。さらに、全データの2%未満しか含まれていなかった別機種のロボットでも成功率が13.4%から31.1%へと伸び、モデルが汎用的な物理と制御の知識を獲得していることが実証されました。",
+ "contributions_ja": [
+  "操作データに特化し、すべての生成・動作コンポーネントをスクラッチから事前学習・スケーリング可能なワールド・アクションモデル「GE-Act 2.0」を構築した点。",
+  "制御情報を失わずにトークン数を1/16に圧縮するCoAEと、微分可能な1ステップで未来画像を予測するSVPにより、予測器と逆ダイナミクス（IDM）の個別事前学習および結合を可能にした点。",
+  "マルチモーダルな操作タスクで発生する予測画像と教師動作の不整合（Validity Gap）を特定し、行動空間で互換性を判定して選択学習する「KASO」を提案した点。",
+  "タスクごとの微調整なし（ゼロショットOOD）で100タスク・2機体の実機評価を行い、3万時間のデータ規模まで性能が向上し続けること、および少数データ機体への転移を示した点。"
+ ],
+ "sections": [
+  {
+   "heading": "Introduction",
+   "heading_ja": "なぜ既存の動画生成モデルをロボットに流用するだけでは足りないのか？",
+   "summary_ja": "従来のロボット制御モデル（VLA）は行動を直接予測するため物理ダイナミクスを明示的に捉えられず、既存のワールド・アクションモデルも既製の動画生成器に頼り切っていました。GE-Act 2.0は、操作データからゼロから事前学習を行い、スケーリング可能な2段階アーキテクチャを提案しています。",
+   "details_ja": "近年、画像・言語・行動を直接結びつけるVLA（Vision-Language-Action）モデルが注目されていますが、これらは観測からモータ指令を直接出力するため、ロボットが環境とどう相互作用するかという「物理的な変化」を明示的に学習していません。そこで、未来の情景変化を予測してから行動を決定するワールド・アクションモデル（WAM）が新たなパラダイムとして登場しました。WAMには、行動ラベルのない大量の動画から物理法則を学べることや、成功・失敗に関わらない多様なロボット軌道から動作生成を学べるという大きな利点があります。\n\nしかし、既存研究の多くはWeb上の自然動画で事前学習された汎用動画生成モデルをそのまま持ってきて、後付けで行動モデルと結合させています。これでは「ロボット操作に最適化された表現空間をどう作るか」「動画予測と逆ダイナミクス（未来状態から行動を逆算するモデル）をどう別々に事前学習して接続するか」という根本的なシステム設計の問いに答えられません。\n\nGE-Act 2.0はこの課題に対し、3つの設計でアプローチします。第1に、制御に必要な情報を保持しつつ極限まで圧縮する「CoAE」、第2に、微分可能な1回の計算で未来画像を生成しモジュール間の効率的な接続を可能にする「SVP」、そして第3に、未来の選択肢が複数ある場合に生じる教師データの食い違いを防ぐ選択的最適化手法「KASO」です。さらに本研究では、評価タスクに対する追加学習（SFT）を行わず、事前学習モデルそのものが持つゼロショット汎化性能を徹底的に評価します。",
+   "figures": []
+  },
+  {
+   "heading": "Related Work",
+   "heading_ja": "汎用ポリシー、動画生成、そしてワールドモデルの交差点",
+   "summary_ja": "本研究は、汎用ロボット制御ポリシー、制御指向の視覚表現、高速な1ステップ動画生成、およびワールドモデルと行動モデルの結合手法という4つの系統の上に位置づけられます。先行研究が抱えていた計算コストや監視の不整合といったボトルネックを解消しています。",
+   "details_ja": "### 汎用ポリシーとワールド・アクションモデルの結合方式\n近年のロボット学習では、言語指示に従う汎用ポリシーの大規模化が進んでいます。WAMにおける画像予測と行動生成のインターフェースには、未来画像を生成してから別モデルで行動を推定する「2段階型」、共通のバックボーンで動画と行動を同時に予測する「統合型」、そして動画生成モデルの内部特徴量から行動を取り出す「特徴結合型」があります。GE-Act 2.0は明示的な2段階型を採用していますが、従来の2段階型と異なり、生成器と行動モデルを別々のデータで事前学習した後にエンドツーエンドで協調学習できる構造を実現しています。\n\n### 制御のための表現学習と高速動画生成\n既存のWAMが流用している動画オートエンコーダは、見た目の再構成忠実度を重視して設計されており、空間的な圧縮率が低いため制御ループ内で重いトークン負荷を生みます。本研究のCoAEは、強力な事前学習済みビジョンモデル（DINOv3やV-JEPAなど）とのマルチティーチャー蒸留を行い、制御に必要な意味情報を保ったまま大幅な圧縮を達成します。また、従来の拡散ベースの動画生成器は複数ステップのノイズ除去が必要で、行動誤差を生成器に逆伝搬するコストが膨大でした。SVPは最新のMeanFlow理論をロボット予測に拡張し、わずか1ステップでの未来予測を可能にしています。\n\n### 行動空間におけるマルチモーダリティの扱い\n指示や現在状態が同じでも、右から掴むか左から掴むかといった「行動の多様性（マルチモーダリティ）」が存在します。これまでのモデルでは、生成された未来画像と記録された動作ラベルの食い違い（Validity Gap）が無視され、結果として行動モードが平均化されてしまう問題がありました。KASOは行動空間での整合性評価によってこの問題を直接解決します。",
+   "figures": []
+  },
+  {
+   "heading": "GE-Act 2.0",
+   "heading_ja": "超圧縮・1ステップ未来予測・行動適合選択によるシステム設計",
+   "summary_ja": "GE-Act 2.0は、制御指向オートエンコーダ（CoAE）、1ステップ視覚プランナー（SVP）、逆ダイナミクスモデル（IDM）で構成されます。同一指示に対する多様な動作による学習の破綻（Validity Gap）を、能動的なIDMで候補を選別するKASOによって防ぎます。",
+   "details_ja": "### 3.2 制御指向オートエンコーダ（CoAE）\n従来の動画VAEは空間方向に8倍または16倍程度のダウンサンプリングですが、CoAEは空間方向に64倍という極限の圧縮を行います。入力フレーム（$256 \\times 384$）はわずか $4 \\times 6 = 24$ 個のトークンに圧縮されます。ピクセル再構成損失（L1、LPIPS、GAN損失）に加え、Qwen3.5のSigLIP 2、V-JEPA 2.1、DINOv3という3つの視覚モデルの特徴量にアライメントさせるマルチティーチャー学習を導入しました。これにより、トークン数を1/16に削減しながら、凍結表現からの動作復元誤差（MAE）を非圧縮のDINOv3に迫る0.01673に抑え、指示グラウンディング精度でも97.95%という最高精度を達成しました。\n\n### 3.3 1ステップ視覚プランナー（SVP）\nSVPは現在の観測画像と指示から、未来の視覚状態を一発（1ステップ）で生成する世界モデルです。言語指示は凍結されたVLM（Qwen3.5-2B）で現在の頭部カメラ画像と統合され、シーンに即したテキスト特徴として生成DiTブロックに渡されます。時間構造としては、直近のアクション実行区間を密に（dense $N_d=4$ フレーム）、それ以降のタスク完了までを疎に（sparse $N_s=2$ フレーム）予測するマルチスケール設計を採用しました。生成アルゴリズムにはMeanFlow理論を多視点条件付き生成に拡張したConditional MeanFlowを用い、1回の順伝播（$r=0, t=1$）でノイズから完了状態の未来潜在変数を微分可能な形で生成します。\n\n### 3.4 行動モデルとの接続とKASO（Validity Gapの解消）\nIDMは、現在と未来の視覚潜在変数およびプロプリオセプション（関節角度情報など）から行動系列を出力するFlow Matchingモデルです。ここで問題となるのが「Validity Gap」です。同じ状況でも物体を左から掴むか右から掴むかなど複数の解（アウトカムモード）があり、SVPが左から掴む未来を生成したのに、教師データとして記録されていた動作が右から掴むものだった場合、IDMには矛盾した監督信号が与えられ、学習が平均値（ゼロ）に崩壊してしまいます。\n\nこれを防ぐのが「KASO」です。SVPから $N$ 個（実装では4個）の未来予測候補をサンプリングし、学習中のIDMを使って「記録された動作と最も矛盾しない候補」を行動空間のエネルギースコアに基づいて1つだけ選択します。その適合した候補についてのみ生成器を通したエンドツーエンドの勾配を流すことで、動画の多様性とシャープな二峰性の動作分布の両方を保つことに成功しました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "トイシステムにおけるValidity Gapの影響と各学習手法の比較です。正解（Ground Truth）は4つの動画モードと2つの行動モード（±1付近）を持ちますが、単純なエンドツーエンド学習（E2E）や事前学習損失を残した手法（E2E+PT）では矛盾した監督により行動密度が中央値（0）に崩壊しています。KASOだけが動画と行動のマルチモーダルな分布を両方とも正確に復元できています。",
+     "caption": "Figure 5: Video samples projected onto the $z_{1}$ – $z_{2}$ plane (top, with ground-truth contours overlaid) and induced action densities (bottom) learned by each strategy on the toy system. The displayed run uses seed 0 and single-sample evaluation for every learned strategy; seed-to-seed variation is discussed in Appendix B.7 . Ground truth contains four video modes and two action modes; in the displayed run, Decoupled Pretraining preserves the four video modes but yields a diffuse action density; End-to-End Co-training collapses both the video and action distributions; with the deterministic IDM, E2E + Pretraining Losses preserves the video modes but collapses the action density to the m …",
+     "image": "details/2609.05588/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Training Data and Mixture Composition",
+   "heading_ja": "3段階の学習ステージに応じた合計10万時間超のデータ設計",
+   "summary_ja": "GE-Act 2.0は、SVP事前学習（3.9万時間）、IDM事前学習（3.2万時間）、そしてKASOによる協調学習（3.0万時間）という3段階のデータパイプラインを持っています。実機ロボット、自己中心視点動画、人間操作動画など多岐にわたるデータを活用しています。",
+   "details_ja": "GE-Act 2.0の大きな強みは、コンポーネントごとに最適なデータソースを使い分けられる点にあります。\n\n- **SVPの事前学習（39,000時間）**: 指示と動画のペアデータを使用します。ロボットの行動ラベルがついていない大量の人間操作動画や自己中心視点（egocentric）動画をフルに活用でき、物理的な世界変化のルールを効率的に学習します。\n- **IDMの事前学習（32,000時間）**: 行動ラベルがついたロボット軌道データを使用します。ここでは言語指示やタスクの成否ラベルが不要なため、遠隔操作の失敗軌道や自律走行ロールアウトなどの「捨てるしかなかったデータ」を大量に流し込んで、状態遷移から行動を逆算する能力を鍛えます。\n- **協調学習（30,000時間）**: 指示・動画・行動がすべて揃ったデータセットを用いて、KASOによりSVPとIDMをエンドツーエンドで協調学習させます。\n\n協調学習データの中核を担うのは「G1-OP」というロボットのデータ（50%以上）ですが、別機種である「G2-90D」のデータはわずか2%未満しか含まれていません。この極端なデータ比率が、クロス機体転移能力の検証に用いられます。",
+   "figures": []
+  },
+  {
+   "heading": "Evaluating Zero-Shot OOD Manipulation at Scale",
+   "heading_ja": "100タスク・実機ゼロショットOOD評価で見る圧倒的スケーリング効果",
+   "summary_ja": "評価環境や物体が訓練時と全く異なるゼロショットOOD条件下で、100の要素タスクを評価しました。データ規模を300時間から3万時間へ増やすと成功率が大幅に向上し、データが極少（2%未満）の機体でも高い転移性能を示しました。また、指示への忠実性や指示変更への即応性も確認されました。",
+   "details_ja": "### 5.1 & 5.2 ゼロショットOOD評価とデータスケーリング則\n本研究では、評価タスクに対する追加の模倣学習（SFT）を一切排除し、背景、照明、物体インスタンスが未見の環境（OOD）で事前学習済みモデルを直接評価しています。評価スイートは「掴む」「置く」「拭く」「注ぐ」「挿入」「布の変形操作」など20のスキル群にわたる全100タスクで構成されます。\n\n協調学習データを300h、1,200h、5,000h、30,000hと拡大するにつれ、主要機体「G1-OP」の全タスク平均成功率（SR）は 17.1% → 22.6% → 27.3% → 44.1% と一貫して向上しました（+27.0ポイント）。20スキル群中19群で向上が見られ、一度も成功しなかったタスクが次々とクリアできるようになりました。驚くべきは、全データの2%未満しか存在しなかった「G2-90D」でも、成功率が 13.4% から 31.1% へと17.7ポイントも上昇したことです。G2-90D専用データが2時間未満しかないスキルでもゼロから成功を収める例が多発し、共通の大規模コーパスから物理操作の知識が強力に転移していることが証明されました。\n\n### 5.2.2 スキル特化データ量との強い相関\nスキルごとの成功率は、そのスキルの難易度だけでなく「事前学習データに含まれるそのスキルの時間数」と極めて強い相関を示しました（Pearson $r=0.80$, Spearman $\\rho=0.85$）。例えば、類似した動作である「拭く（Wipe）」は824時間のデータがあり成功率76.7%に達したのに対し、「掃く（Sweep）」は64時間しかなく3.3%にとどまりました。ロングテールなスキルのデータを増やすことがゼロショット汎化の鍵であることが浮き彫りになりました。\n\n### 5.3 複雑な指示グラウンディングと行動の競合耐性\nPick/Placeタスクにおいて物体の属性（識別、色、サイズ、形状、位置、順序）を細かく指示する実験では、物体名・色・位置・形状に関して90%以上の指示追従スコアを達成しました。一方、サイズ（65〜82%）や「左から2番目」といった順序（13〜26%）は学習データ内の出現頻度の低さに比例して苦戦しました。\nさらに、ロボットが物体Aを掴みかけている最中に指示を物体Bへ切り替える「行動の競合テスト」を実施したところ、モデルは過去の動作の慣性に引きずられることなく軌道を修正し、新たな指示の物体を把持し直す高い柔軟性を示しました。「靴箱の中にコップを入れる」といった常識に反する指示（意味的競合）でも、日常のバイアスに負けず明確な指示を優先して実行できることが確認されました。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "G1-OPにおける100の要素タスクでのデータスケーリング結果です。300時間から30,000時間へスケールするにつれ、モザイク状の成功率マップが明るくなり（成功タスクが増加）、20スキル群中19群で大幅な性能向上が確認できます。",
+     "caption": "Figure 8: G1-OP zero-shot OOD scaling across 100 atomic tasks and four data volumes. Top: the 100 tasks as one mosaic per training-data scale, with tile intensity denoting per-task SR. Middle: representative zero-shot OOD rollouts of the 30,000-hour model. Bottom: per-task SR at every scale, grouped by skill; colors follow the skill-group legend.",
+     "image": "details/2609.05588/F8.jpg"
+    },
+    {
+     "key": "F10",
+     "caption_ja": "訓練データ全体の2%未満しかデータが存在しないG2-90DロボットでのゼロショットOOD成功事例です。ペンのピック、缶のスタック、スポンジでの拭き取りなど、データが極めて少ないにもかかわらず多様なスキル群が成立しています。",
+     "caption": "Figure 10: Representative successful zero-shot OOD rollouts on G2-90D across skill groups, each shown as three frames spanning the start, mid-execution, and outcome of the trial. Skill labels are colored by skill group, matching the palette of Figure 8 .",
+     "image": "details/2609.05588/F10.jpg"
+    },
+    {
+     "key": "F12",
+     "caption_ja": "詳細な指示グラウンディングを評価するための5つの実験セットアップです。物体識別、色、サイズ、形状、位置・順序の各軸について、視覚的に複数の選択肢が存在する中で指示通りの対象を選べるかを検証しています。",
+     "caption": "Figure 12: Controlled scenes for fine-grained instruction following, ordered as introduced in the text: object identity, color, size, shape, and position & order. Position and order share one setup, evaluated in a horizontal layout (left/right and ordinal references) and a vertical layout (near/far). Top row: Pick scenes; bottom row: Place scenes.",
+     "image": "details/2609.05588/F12.jpg"
+    },
+    {
+     "key": "F14",
+     "caption_ja": "指示競合のストレステストです。(a) 緑のカップを掴みかけた瞬間に青、さらにオレンジへと指示を変更しても、ロボットは軌道を修正して最終対象を把持。(b) 把持直前での左右のアーム切り替えにも即応。(c)「靴箱にコップを入れる」という奇妙な指示でも、視覚バイアスに惑わされず指示通りに配置できています。",
+     "caption": "Figure 14: Instruction-conflict stress tests. Each panel shows the active instruction, frames from one rollout, and the outcome; red rules mark where the instruction changed. (a) Target switch: the commanded cup changes from green to blue, then to orange, while the gripper is already at the previous target; the robot redirects each time and grasps the final target. (b) Arm switch: the command moves from the right arm on the green cup to the left arm on the orange cup, and the left arm completes it. (c) Semantic conflict: the robot places a cup into a shoebox, following the explicit object–destination relation over the conventional scene association. …",
+     "image": "details/2609.05588/F14.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Conclusion",
+   "heading_ja": "操作特化型事前学習が切り拓くスケーラブルなロボット知能",
+   "summary_ja": "GE-Act 2.0は、制御指向の視覚空間、1ステップ予測、KASOを統合することで、ゼロから事前学習されたワールド・アクションモデルの有効性とスケーリング則を実証しました。100の実機タスクと2つの機体において顕著なゼロショットOOD汎化を達成しています。",
+   "details_ja": "本研究は、動画生成と行動予測を別々に切り離して事前学習し、その後エンドツーエンドで協調学習させるGE-Act 2.0の有効性を実証しました。CoAEによるコンパクトで制御に特化した潜在空間、SVPによる高速かつ微分可能な未来予測、そしてKASOによるモード不整合の解消という3つの柱が噛み合うことで、従来困難だった大規模な事前学習とデータスケーリングが可能になりました。\n\n100個の実機マニピュレーションタスクにおける広範な実験により、データ量を増やすことでほぼすべてのスキル群が底上げされること、少数データのロボットへも知識が転移すること、そして視覚・行動の強い慣性に逆らって言語指示を優先できる柔軟な制御能力が確認されました。これにより、ワールド・アクションモデルが汎用的なロボット操作基盤モデルとして極めて有力な選択肢であることが示されました。",
+   "figures": []
+  },
+  {
+   "heading": "Limitations and Outlook",
+   "heading_ja": "自己中心視点動画のスケールとSystem 2的推論への展望",
+   "summary_ja": "現状では自己中心視点動画の活用規模が限定的であることや、高レベルの長期推論（System 2）を持たず直感的な制御（System 1）に特化している点が限界として挙げられています。これらを組み合わせた閉ループ推論が今後の重要な方向性です。",
+   "details_ja": "著者らは今後の課題として主に2点を挙げています。\n\n第1に、自己中心視点（egocentric）の人間の手元操作動画の活用です。SVPの事前学習パイプラインは行動ラベルのない動画を大量に扱える構造になっていますが、本研究ではまだそのポテンシャルをフルに使い切るほどの規模では検証できていません。多種多様な人間動画を取り込むことで、さらに広範な物理理解を獲得できると期待されます。\n\n第2に、認知アーキテクチャとしての役割分担です。GE-Act 2.0は、観測と言語指示から低レベルの操作を直接紡ぎ出す「System 1（直感的・反射的制御）」に特化しています。しかし、現実世界のオープンエンドな環境で複雑な長時間タスクを完遂するには、自己誤り訂正、タスク分解、長期計画などを担う「System 2（熟慮的推論）」の存在が不可欠です。スケーラブルなワールド・アクションモデルとSystem 2の推論基盤を閉ループで統合することが、真の汎用身体性AIに向けた次のステップとなります。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "シミュレーションベンチマークでの頑健性検証と実装の詳細",
+   "summary_ja": "付録では、RoboTwin、GenieSim-Instruction、LIBERO-Plusといったシミュレーション環境でのOOD耐性検証と、各モデルコンポーネントのハイパーパラメータや学習レシピの詳細が報告されています。",
+   "details_ja": "### シミュレーションによるOOD耐性の検証\n実機評価を補完するため、3つの標準的シミュレータでイン・ディストリビューション（ID）の微調整後に未知の摂動（OOD）環境での性能をテストしました。\n- **RoboTwin Clean-to-Random**: クリーンな環境で学習後、背景や照明、乱雑さなどをランダム化したHard環境で評価したところ、GE-Act 2.0は60.52%の成功率を達成し、ベースライン（$\\pi_{0.5}$の47.90%など）を12ポイント以上引き離してトップとなりました。\n- **GenieSim-Instruction**: 未見のテクスチャや配置における指示追従ベンチマークで、平均スコア0.770を獲得し、ACoT-VLAや$\\pi_{0.5}$を上回る最高性能を記録しました。\n- **LIBERO-Plus**: 視点や外乱を含む7つの摂動軸すべてにおいて高い頑健性を維持しました。\n\n### ハイパーパラメータと学習仕様\nすべてのモデルはbf16混合精度、DeepSpeed ZeRO-2、AdamWオプティマイザで学習されています。制御周期は30Hzで、IDMは直近52フレーム（約1.73秒間）の高密度なアクションチャンクを出力し、ロボットは推論ごとに最初の30ステップを実行して次の予測へと繋ぎます。KASOにおける候補数 $N=4$、プローブ時のノイズレベル $t_p=0.95$ とし、高ノイズ領域で評価することで視覚条件による行動差分を敏感に検出する工夫が施されています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "動画生成と行動予測を別々に事前学習するなら、1ステップで微分可能な予測器（SVP）を採用することで、計算量を爆発させずにエンドツーエンドの協調学習が可能になる。",
+  "同じ状況から複数の行動があり得るマルチモーダルなタスクでは、生成画像と教師動作の食い違い（Validity Gap）を意識し、行動空間での整合性で候補を選別する学習（KASO）が有効である。",
+  "下流タスクへのSFTを一切行わなくても、3万時間規模の事前学習によって100種類もの要素スキルにおいてゼロショットOOD成功率が向上し続ける。",
+  "事前学習コーパス全体を拡大すれば、データが2%未満しか含まれていないロボット機体にも強力な操作能力のゼロショット転移が起こる。"
+ ],
+ "limitations_ja": [
+  "大量に存在するWeb上の人間手元動画（自己中心視点動画）の活用規模がまだ限定的であり、動画データのスケール限界が検証しきれていない点。",
+  "低レベル制御（System 1）に特化しているため、複数ステップにわたるタスク分解や長期的な計画・自己訂正を行うSystem 2機能が単体では備わっていない点。",
+  "指示グラウンディングにおいて、色や位置に比べて「順序（何番目）」や「サイズ比較」の認識精度が低く、事前学習データにおける言語表現の偏りに引きずられやすい点。"
+ ],
+ "keywords": [
+  "World-Action Models",
+  "Robotic Manipulation",
+  "Zero-Shot OOD Generalization",
+  "One-Step Visual Planning",
+  "Flow Matching",
+  "Cross-Embodiment Transfer"
+ ],
+ "id": "2609.05588",
+ "title": "GE-Act 2.0: Pretraining and Scaling a World-Action Model for Robotic Manipulation",
+ "authors": [
+  "AgiBot Research Team",
+  "Renhang Liu",
+  "Wenzhi Zhao",
+  "Zhuo Yang",
+  "Liliang Chen",
+  "Pengfei Zhou",
+  "Shengcong Chen",
+  "Guanghui Ren",
+  "Youlun Peng",
+  "Rongjun Jin",
+  "Nan Wang",
+  "Sukai Wang",
+  "Xindong He",
+  "Jinyuan Feng",
+  "Ziyu Xiong",
+  "Linqing Zhong",
+  "Yifei Wei",
+  "Feng Han",
+  "Long Zhang",
+  "Da Huang",
+  "Nanshu Zhao",
+  "Chenghao Yin",
+  "Mo Wu",
+  "Zhaodong Yan",
+  "Kongtao Hu",
+  "Yuxiang Yan",
+  "Aogelijiang Niyazi",
+  "Yu Fang",
+  "Jia Zeng",
+  "Lizhu Meng",
+  "Daizhen Lv",
+  "Haoyu Cao",
+  "Zhiwen Hou",
+  "Lianjin Ye",
+  "Yuehan Niu",
+  "Zhikai Cai",
+  "Xuan Hu",
+  "Hui Min",
+  "Xiongfeng Cai",
+  "Yue Liao",
+  "Jing Wu",
+  "Soujanya Poria",
+  "Ye Li",
+  "Sanping Zhou",
+  "Maoqing Yao"
+ ],
+ "date": "2026-09-09",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "world-model",
+  "control"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.05588",
+ "pdf_url": "https://arxiv.org/pdf/2609.05588",
+ "summary_ja": "操作タスクに特化してゼロから学習するWorld-Action Modelを提案。制御志向オートエンコーダ、1ステップで将来状態を生成する視覚プランナー、逆動力学モデルを組み合わせ、映像のみのデータと行動ラベル付きデータの双方から効率的に操作方策を学習・スケーリングする。",
+ "generated": "2026-09-09",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.05588"
+}
