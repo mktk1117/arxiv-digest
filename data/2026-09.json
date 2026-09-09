@@ -1,6 +1,322 @@
 {
  "entries": [
   {
+   "date": "2026-09-09",
+   "rank": 0,
+   "id": "2609.05994",
+   "group": "focus",
+   "title": "GLoRI: Closed-Loop Whole-Body Tracking with Global-Local Reference Interaction for Humanoid Loco-Manipulation",
+   "title_ja": "GLoRI: グローバル・ローカル参照相互作用によるヒューマノイドLoco-Manipulation向け閉ループ全身追従",
+   "summary_ja": "ヒューマノイドの移動マニピュレーションにおいて、ローカル参照の動作構造維持とグローバル座標系での累積誤差低減を両立する閉ループ全身コントローラを提案。GLoRI-Netが交差アテンションを用いて大域的補正と局所動作ガイダンスを融合し、高精度な追従を実現する。",
+   "authors": [
+    "Qingyao Xu",
+    "Sheng Yin",
+    "Zibo Zhou",
+    "Ya Zhang",
+    "Siheng Chen",
+    "Yue Hu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "locomotion"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.05994",
+   "image": "figures/2026-09-09/2609.05994.jpg"
+  },
+  {
+   "date": "2026-09-09",
+   "rank": 1,
+   "id": "2609.06718",
+   "group": "focus",
+   "title": "SkillX: Unified Multi-Skill Policy Learning for Humanoid Soccer",
+   "title_ja": "SkillX: ヒューマノイドサッカーのための統一型マルチスキル方策学習",
+   "summary_ja": "バランス制御、移動、物体操作、スキル切り替えを単一の方策で調和させるヒューマノイドサッカー向け強化学習フレームワークを提案。スキル固有の敵対的運動事前分布やCritic、物体認識型時間調整を導入し、複数の基本スキルを滑らかに統合・実行可能にした。",
+   "authors": [
+    "Zhangchen Ye",
+    "Enxuan Ruan",
+    "Yifei Bao",
+    "Runhan Huang",
+    "Jiankun Yang",
+    "Jiakang Jin",
+    "Yixiao Huo",
+    "Pengyuan Wang",
+    "Yinan Han",
+    "Huaxing Huang",
+    "Wenhao Cui",
+    "Yiming Li",
+    "Xiaoyu Tian"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "reinforcement-learning",
+    "locomotion",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.06718",
+   "image": "figures/2026-09-09/2609.06718.jpg"
+  },
+  {
+   "date": "2026-09-09",
+   "rank": 2,
+   "id": "2609.07096",
+   "group": "focus",
+   "title": "RoboDreamer: Anticipatory Humanoid Locomotion with Predictive State-Space Models",
+   "title_ja": "RoboDreamer: 予測型状態空間モデルによるヒューマノイド歩行の先回り制御",
+   "summary_ja": "不完全なセンシング下で安定したヒューマノイド歩行を実現するTeacher-Student型フレームワーク。Mambaバックボーンと時系列マスキングを用い、過去の履歴から欠落した観測を補完・先読みすることで、推論時の暗黙的閉ループ行動修正およびチャンキングを可能にした。",
+   "authors": [
+    "Zhe Li",
+    "Yangyang Wei",
+    "Xichen Yuan",
+    "Zhenzhe Zhang",
+    "Weihao Yuan",
+    "Shanghang Zhang",
+    "Jianfei Yang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.07096",
+   "image": "figures/2026-09-09/2609.07096.jpg"
+  },
+  {
+   "date": "2026-09-09",
+   "rank": 3,
+   "id": "2609.08800",
+   "group": "focus",
+   "title": "Ostrich: Taking Large Strides Through Stiff Contact in Differentiable Dynamics",
+   "title_ja": "Ostrich: 微分可能動力学における硬い接触を大ステップで解くGPUシミュレータ",
+   "summary_ja": "接触を伴う勾配ベース最適化のために、硬い接触と摩擦を非平滑ニュートン反復により約0.1秒という大きな時間刻みで解くGPU剛体シミュレータを提案。陰関数定理に基づく微分を用い、メモリ消費をステップ数に依存させず高精度・低計算コストな勾配計算を実現する。",
+   "authors": [
+    "Ale\\v{s} Ku\\v{c}era",
+    "Karel Zimmermann"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.GR",
+    "cs.LG"
+   ],
+   "tags": [
+    "simulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.08800",
+   "image": "figures/2026-09-09/2609.08800.jpg"
+  },
+  {
+   "date": "2026-09-09",
+   "rank": 4,
+   "id": "2609.06958",
+   "group": "focus",
+   "title": "Mind the Phase: Effective Rank and Representation Health in Legged Locomotion",
+   "title_ja": "位相に着目せよ: 脚ロボット移動における実効ランクと表現の健全性",
+   "summary_ja": "脚ロボット移動制御の強化学習方策において、方策ヤコビアンの実効ランクを分析する手法を提示。大域的なランク評価では隠れる構造が歩行位相（ゲートフェーズ）ごとの条件付けにより露わになり、実機挙動と訓練時の潜在表現の健全性を結びつける指標を提供する。",
+   "authors": [
+    "Felipe Tommaselli",
+    "Thiago H. Segreto",
+    "Juliano D. Negri",
+    "Ricardo V. Godoy",
+    "Marcelo Becker"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "locomotion",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.06958",
+   "image": "figures/2026-09-09/2609.06958.jpg"
+  },
+  {
+   "date": "2026-09-09",
+   "rank": 5,
+   "id": "2609.05588",
+   "group": "general",
+   "title": "GE-Act 2.0: Pretraining and Scaling a World-Action Model for Robotic Manipulation",
+   "title_ja": "GE-Act 2.0: ロボット操作に向けたWorld-Action Modelの事前学習とスケーリング",
+   "summary_ja": "操作タスクに特化してゼロから学習するWorld-Action Modelを提案。制御志向オートエンコーダ、1ステップで将来状態を生成する視覚プランナー、逆動力学モデルを組み合わせ、映像のみのデータと行動ラベル付きデータの双方から効率的に操作方策を学習・スケーリングする。",
+   "authors": [
+    "AgiBot Research Team",
+    "Renhang Liu",
+    "Wenzhi Zhao",
+    "Zhuo Yang",
+    "Liliang Chen",
+    "Pengfei Zhou",
+    "Shengcong Chen",
+    "Guanghui Ren",
+    "Youlun Peng",
+    "Rongjun Jin",
+    "Nan Wang",
+    "Sukai Wang",
+    "Xindong He",
+    "Jinyuan Feng",
+    "Ziyu Xiong",
+    "Linqing Zhong",
+    "Yifei Wei",
+    "Feng Han",
+    "Long Zhang",
+    "Da Huang",
+    "Nanshu Zhao",
+    "Chenghao Yin",
+    "Mo Wu",
+    "Zhaodong Yan",
+    "Kongtao Hu",
+    "Yuxiang Yan",
+    "Aogelijiang Niyazi",
+    "Yu Fang",
+    "Jia Zeng",
+    "Lizhu Meng",
+    "Daizhen Lv",
+    "Haoyu Cao",
+    "Zhiwen Hou",
+    "Lianjin Ye",
+    "Yuehan Niu",
+    "Zhikai Cai",
+    "Xuan Hu",
+    "Hui Min",
+    "Xiongfeng Cai",
+    "Yue Liao",
+    "Jing Wu",
+    "Soujanya Poria",
+    "Ye Li",
+    "Sanping Zhou",
+    "Maoqing Yao"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "manipulation",
+    "world-model",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.05588",
+   "image": "figures/2026-09-09/2609.05588.jpg"
+  },
+  {
+   "date": "2026-09-09",
+   "rank": 6,
+   "id": "2609.05461",
+   "group": "general",
+   "title": "ARC-Bench: Closed-Loop Replanning Masks Broken Action Ranking in Frozen JEPA World Models",
+   "title_ja": "ARC-Bench: 閉ループ再計画が覆い隠す凍結JEPAワールドモデルの行動順位付け破綻",
+   "summary_ja": "報酬なし潜在空間ワールドモデルにおいて、「潜在距離が近い候補ほど真のコストが低い」という前提を検証するベンチマークARC-Benchを提案。公開されたJEPAモデルを精査し、距離による行動ランキングが構造的に破綻している実態を明らかにした。",
+   "authors": [
+    "Zhengshu Zhang",
+    "Zhiyuan Li"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "benchmark",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.05461",
+   "image": "figures/2026-09-09/2609.05461.jpg"
+  },
+  {
+   "date": "2026-09-09",
+   "rank": 7,
+   "id": "2609.06882",
+   "group": "general",
+   "title": "Noisy-Space Policy Gradient for Diffusion Policies in Offline Reinforcement Learning",
+   "title_ja": "オフライン強化学習における拡散方策のためのノイズ空間方策勾配",
+   "summary_ja": "拡散モデルを用いた連続制御方策を強化学習で最適化するため、ノイズ空間Q関数および方策勾配法（NSPG）を提案。逆拡散プロセスのノイズ付き潜在変数に対してクリーンな行動空間の価値推定値のみを用いて直接最適化を行い、理論保証付きの改善を実現する。",
+   "authors": [
+    "Mahmoud Selim",
+    "Cristina Cipriani",
+    "Karl H. Johansson"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.06882",
+   "image": "figures/2026-09-09/2609.06882.jpg"
+  },
+  {
+   "date": "2026-09-09",
+   "rank": 8,
+   "id": "2609.07747",
+   "group": "general",
+   "title": "Dex-X: Learning Visual-Tactile Dexterous Manipulation From Human Videos with Simulated Interaction",
+   "title_ja": "Dex-X: シミュレーション相互作用を介した人間動画からの視覚触覚器用操作学習",
+   "summary_ja": "人間の単眼動画から実機へ展開可能な視覚触覚器用操作方策を学ぶフレームワーク。シミュレーションを手・物体の接触力学補完エンジンとして活用し、動画からは得られない触覚情報をシミュレータ内で再現・付与することでロボット実機データ収集なしの学習を達成した。",
+   "authors": [
+    "Ruoqu Chen",
+    "Feixiang Ruan",
+    "Liu Cao",
+    "Zihao Wang",
+    "Botian Xu",
+    "Shiqin Tong",
+    "Jiajun Liu",
+    "Mingzhi Pei",
+    "Chenyu Zhang",
+    "Wanli Xing",
+    "Kaifeng Zhang",
+    "Mengdi Xu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "simulation",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.07747",
+   "image": "figures/2026-09-09/2609.07747.jpg"
+  },
+  {
+   "date": "2026-09-09",
+   "rank": 9,
+   "id": "2609.07534",
+   "group": "general",
+   "title": "Zero-Shot Sim-to-Real Contact-Rich Assembly via Proprioception-Anchored Cross-Modal Pretraining",
+   "title_ja": "PACE: 固有受容感覚アンカーによる接触リッチ組立のゼロショットSim-to-Real転移",
+   "summary_ja": "サブミリ精度の接触リッチな嵌合タスクにおいて、シミュレーションと実機間で一貫性の高い固有受容感覚をアンカーとして視覚および力覚表現を整合させるPACEを提案。ドメイン間ギャップを抑え、RL方策のゼロショットSim-to-Real転移を実現する。",
+   "authors": [
+    "Yuhan Wang",
+    "Yurou Chen",
+    "Hongye Jiang",
+    "Wenzhao Lian"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "manipulation",
+    "sim-to-real",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.07534",
+   "image": "figures/2026-09-09/2609.07534.jpg"
+  },
+  {
    "date": "2026-09-08",
    "rank": 0,
    "id": "2609.05300",
