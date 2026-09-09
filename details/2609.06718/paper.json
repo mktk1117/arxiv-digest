@@ -1,0 +1,138 @@
+{
+ "title_ja": "SkillX: ヒューマノイドサッカーのための統一型マルチスキル方策学習",
+ "tldr_ja": "ヒューマノイドロボットがトラップ、ドリブル、シュートといった異なる全身スキルを単一のポリシーで滑らかに切り替えながら遂行できる強化学習フレームワーク「SkillX」を提案し、シミュレーションと実機（Noetix E1）の両方で高いタスク成功率を実証しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "SkillXの全体像です。(A) トラップ、ドリブル、シュートなどの原子的な運動スキルを学習し、(B) モーションキャプチャだけでなく頭部搭載カメラ（オンボードビジョン）環境でも実機Noetix E1への安定したSim-to-Real展開を実現しています。(C) これらを組み合わせることで、ボール追従から複数経由地のドリブル、シュートへと至る長時間の複合タスクをスムーズに遂行できます。",
+  "caption": "Figure 1: Our framework SkillX enables a humanoid robot to execute diverse soccer skills and compose them into long-horizon behaviors. (A) The robot learns atomic skills such as trapping, dribbling, shooting, and additional soccer skills. (B) The learned policy achieves robust sim-to-real deployment on the Noetix E1 robot using both the motion-capture system and onboard vision. (C) The robot composes atomic skills and performs long-horizon multi-skill tasks .",
+  "image": "details/2609.06718/F1.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットによるサッカーは、全身のバランス維持、俊敏な移動、高速に動くボールとの繊細なインタラクション、そして状況に応じたスキルの切り替えを同時に求められる、強化学習にとって極めて過酷なベンチマークです。これまでの研究では、特定の単一動作（ドリブルだけ、シュートだけなど）を個別に学習させたり、多段階のパイプラインで組み合わせたりする手法が主流でした。しかしこれでは、システムが複雑化するだけでなく、実機デプロイ時に単一のポリシーとして動的にスキルを遷移させることが困難でした。\n\nそこで著者らは、単一のコマンド条件付きポリシーでありながら、複数の運動スキルを干渉なく統合学習できる強化学習フレームワーク「SkillX」を開発しました。ポイントは「デプロイするActorは1つのシンプルな構造に保ちつつ、学習時の教師信号だけをスキルごとに分離する」という設計思想です。具体的には、動作スタイルを整える識別器（AMP）と価値を予測するCriticをスキルごとに個別に用意し、さらにボールの速度など直接観測できない隠れ状態をTransformerベースの時系列エンコーダで推定させました。\n\nNVIDIA Isaac Labを用いたシミュレーション環境と、25自由度の等身大ヒューマノイド「Noetix E1」の実機で検証を行ったところ、難度の高い「トラップ→3連続経由地ドリブル→シュート」という長時間タスクにおいて、従来手法（AMP）が27.4%しか成功しなかったのに対し、SkillXは81.7%という圧倒的な成功率を達成しました。実機でもモーションキャプチャ環境で72.5%の平均成功率を記録し、頭部カメラを用いた自律制御でもドリブルからシュートへの連携動作に成功しています。",
+ "contributions_ja": [
+  "単一のコマンド条件付きポリシーで複数の原子的スキルを実行・遷移できる、ヒューマノイドサッカー向け統合強化学習フレームワーク「SkillX」を提案したこと",
+  "動作スタイルの干渉を防ぐ「スキル別Adversarial Motion Prior」と、目標ごとの価値推定の衝突を防ぐ「スキル別Critic」を導入したこと",
+  "時系列観測からロボットやボールの未観測速度を推定し、部分観測性を緩和するTransformerベースの「物体認識型時系列エンコーダ」を構築したこと",
+  "シミュレーション環境での長時間複合タスクに加え、実機ヒューマノイド（Noetix E1）において外部MoCapおよびオンボードカメラ視覚の双方で高精度なSim-to-Real展開を実証したこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "サッカーを1つのポリシーで遊び尽くすには何が足りないのか？",
+   "summary_ja": "ヒューマノイドロボットによるサッカーは全身協調と物体操作、動的なスキル切り替えが絡み合う極めて難しいタスクです。単一ポリシーで複数スキルを同時に学ばせようとすると、動作スタイルの干渉、価値推定の不一致、ボール状態の部分観測性という3つの壁に直面します。著者らはこれらを学習側の工夫で解決する統合フレームワーク「SkillX」を提案しました。",
+   "details_ja": "近年、モーション追従を用いたヒューマノイドの歩行や全身動作生成は目覚ましい進歩を遂げています。テニスや卓球、サッカーなどボールを扱うスポーツへの応用も進んでいますが、その多くは「ドリブルだけ」のように単一タスクに特化しているか、複数の学習段階を組み合わせる多段パイプラインに依存していました。これでは、刻一刻と状況が変わる実際のサッカーの試合で、1つのポリシーを使って滑らかにスキルを切り替えることはできません。\n\n単一のポリシーに複数の対球スキルを詰め込もうとすると、主に次の3つの困難が生じます。\n- **動作スタイルの異質性（Motion-Style Heterogeneity）**: トラップ、ドリブル、シュートでは関節の動かし方や足とボールの接触パターンが全く異なります。これらを素朴に同時に学習させると、勾配が干渉し合って不自然な動きや遷移の失敗を招きます。\n- **スキル依存のタスク目標（Skill-Dependent Task Objectives）**: 同じ物理状態（ロボットとボールの相対位置など）であっても、「今ドリブル中なのか」「今シュートを打つ局面なのか」によって将来得られる期待リターンは大きく異なります。1つのCriticでこれらを無理やり推定しようとすると、価値関数の表現が崩れて方策の最適化が不安定になります。\n- **観測の不完全さ（Partial Observability）**: ボールの正確な速度や微細な接触イベントは、ロボットの搭載センサや履歴から直接きれいに得るのが難しく、ノイズや遅延が不可避です。\n\nSkillXは、実行時には単一のActorネットワークを使いつつ、学習時にはスキルごとに分離した識別器（AMP）とCriticをあてがい、さらにTransformerを用いた時系列エンコーダで隠れ状態を推定することで、これらの課題をスマートに突破します。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "既存のマルチタスク歩行制御やスポーツロボティクスとの違い",
+   "summary_ja": "マルチタスク強化学習では階層型方策やMixture-of-Experts（MoE）がよく使われますが、多段学習の手間やエキスパートの専門化の偏りといった課題がありました。一方、球技を扱うロボティクス研究の多くは単一スキルにとどまっていました。SkillXはエンドツーエンドの学習性を保ちながら、デプロイ時には単一モデルとして機能するシンプルな構成を実現しています。",
+   "details_ja": "### 移動ロボティクスにおけるマルチタスク強化学習\n多様な運動スキルを単一のポリシーにまとめ上げる手法としては、主に「階層型アプローチ」「潜在空間での分離」「Mixture-of-Experts (MoE)」の3系統が存在します。\n階層型手法は、あらかじめ個別に学習させた低レベルスキルを高レベルのポリシーが切り替える構成をとりますが、学習パイプラインが複雑になり、エンドツーエンドでの最適化が効きにくいという欠点があります。潜在空間分離手法は共有された潜在空間で動作を整理しようとしますが、スタイル同士が絡み合って分離しきれない問題が残ります。またMoEはゲート機構でネットワークを切り替えますが、特定のエキスパートばかりが使われる偏りや学習の不安定さに悩まされがちです。\nSkillXは、デプロイするActor自体は単一の構造にしつつ、学習時の報酬生成と価値推定だけをスキルごとに分離することで、MoEのようなルーティングの複雑さを持ち込まずにスタイルの干渉を防いでいます。\n\n### ヒューマノイドによる球技・物体インタラクション\n卓球のストロークやサッカーのシュートなど、ヒューマノイドによる球技制御の研究は盛んに行われていますが、その大半は単一のスキルに絞った検証でした。複数のスキルを持たせる場合でも、蒸留（Distillation）を用いた多段階の学習パイプラインを組む必要があり、膨大な調整コストがかかっていました。SkillXは、部分観測下での動的な物体追従と複数スキルの統合を同時に扱い、単一の学習ループ内で高品質なスキル遷移を獲得できる点に新規性があります。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "SkillXのコア技術：訓練時は分けて賢く学び、実行時は1つで動かす",
+   "summary_ja": "SkillXは、単一のActorに対し、スキル別の敵対的動作生成器（AMP Discriminator）、スキル別のCritic、そして物体認識型時系列エンコーダを組み合わせた強化学習フレームワークです。さらにスキルの線形補間（Command Blending）や適応型サンプリング、カリキュラム学習を導入し、滑らかなスキル遷移と高い学習効率を実現しています。",
+   "details_ja": "### 3.1 問題設定\nマルチスキルサッカー制御をマルコフ決定過程（MDP）として定式化し、PPO（Proximal Policy Optimization）で学習します。時刻 $t$ における観測 $\\mathbf{o}_t$ は、自己受容感覚 $\\mathbf{p}_t$、スキルコマンド $\\mathbf{c}_t$、外部物体情報 $\\mathbf{o}^{\\mathrm{ext}}_t$（ロボット基準のボールとゴールの水平相対位置）から構成され、過去 $K=5$ ステップ分の履歴を入力します。コマンド $\\mathbf{c}_t \\in [0, 1]^{N_{\\mathrm{skill}}}$ は通常ワンホット表現ですが、スキル切り替え時には線形補間して滑らかな遷移（ソフト遷移）を促します。\n\n### 3.2 スキル別Adversarial Motion Priors（AMP）\n単一の識別器で全スキルのスタイルを判定しようとすると、要求される動きの違いから判定が曖昧になってしまいます。そこでスキルごとに独立した識別器 $\\{D_i\\}_{i=1}^{N_{\\mathrm{skill}}}$ を用意しました。各 $D_i$ は該当するスキルの人間参照モーションと方策の生成モーションを識別します。ソフト遷移中には、コマンド重みに応じてスタイル報酬を次式のように線形合成（Command Blending）してActorに与えます：\n$r^{\\mathrm{style}}_t = \\sum_i c_{t, i} r^{\\mathrm{style}}_{i}(\\boldsymbol{\\tau}^{\\pi}_t)$\nなお、スキル切り替え境界をまたぐ軌道セグメントはどの単一スキルの純粋なサンプルでもないため、識別器の更新からは除外する工夫を施しています。\n\n### 3.3 スキル別CriticによるマルチCritic PPO\n同じロボット・ボール位置であっても、ドリブルとシュートでは将来の期待リターンが異なります。1つのCriticに全てを背負わせると価値推定が干渉し、Advantage推定が歪んでしまいます。そこで、共通の特徴抽出器の先頭にスキルごとのValue Headを配置した $\\{V_i\\}_{i=1}^{N_{\\mathrm{skill}}}$ を導入しました。コマンドベクトル $\\mathbf{c}_t$ に基づいて $\\bar{V}(t) = \\sum_i c_{t, i} V_i$ としてブレンドされた価値関数を用いてAdvantageを正確に計算します。\n\n### 3.4 物体認識型時系列エンコーダ（Object-Aware Temporal Encoder）\n観測履歴 $\\mathbf{o}_{t-K+1:t}$ を因果的自己注意機構（Causal Temporal Self-Attention）を持つTransformerで処理し、潜在特徴 $\\mathbf{z}_h$ を抽出します。学習時には2つの補助損失をかけます。1つは時間シフトに対して潜在表現の整合性を保つBarlow Twins損失 $\\mathcal{L}_{\\mathrm{bt}}$、もう1つはシミュレータの特権情報であるロボット基底速度とボール速度を予測する推定損失 $\\mathcal{L}_{\\mathrm{est}}$ です。このボール速度予測タスクがあるおかげで、エンコーダは単なる姿勢変化だけでなくボールの運動を捉えた特徴量をActorへ渡せるようになります。\n\n### 3.5 学習を加速する工夫\n学習を安定化させるため、直近の失敗率が高いスキルを集中的に選ぶ「適応型コマンドサンプリング」、単一スキルの継続時間を徐々に短くして頻繁な切り替えに慣れさせる「コマンド継続時間カリキュラム」、ボールの質量や摩擦係数を揺らす「物体ドメインランダム化」を組み合わせています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "SkillXのシステム全体図です。観測履歴をTransformerエンコーダに入力して特徴量を抽出し、単一のActor MLPが関節目標位置を出力します。学習時には、(A) スキルごとのAMP識別器と、(B) スキルごとのCritic Headが機能し、切り替え時にはコマンドの線形補間によって滑らかな報酬と価値を計算します。",
+     "caption": "Figure 2: Overview of SkillX. The policy receives a history of robot proprioception, object states, and skill commands, and outputs joint-position targets. (A) Skill-Specific Adversarial Motion Priors compare policy rollouts with reference motions and provide style rewards for heterogeneous skills. (B) Skill-Specific Critics estimate skill-dependent values; during soft skill transitions, the command vector interpolates both rewards and values for PPO updates. (C) Object-Aware Temporal Encoder aggregates observation histories with temporal self-attention and provides compact history features for the actor.",
+     "image": "details/2609.06718/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "シミュレーションと実機で検証：複合タスクで従来法を圧倒",
+   "summary_ja": "NVIDIA Isaac Labと実機ヒューマノイド（Noetix E1）を用いて性能を評価しました。トラップから3連続ドリブル、シュートを繋ぐ難関タスクにおいて、SkillXはシミュレーションで81.7%（従来法AMPは27.4%）、実機でもMoCap下で平均72.5%の成功率を叩き出し、頭部カメラを用いたオンボード視覚でも安定動作を確認しました。",
+   "details_ja": "### 4.1 実装と実験セットアップ\nロボットには25自由度のNoetix E1を採用し、制御周期50 Hz（シミュレータは200 Hz）で動作させます。人間のサッカー動作データをモーションキャプチャで収集し、PHCを用いてロボットの関節空間へリターゲットしました。実機検証では、外部MoCap環境と、ロボット頭部のZED2iカメラ＋YOLOv8によるオンボード視覚環境の2種類を用意しました。\n\n### 4.2 シミュレーション評価\n単一の原子的スキルに加え、難度の異なる2つの複合タスクで評価しました。\n- **Medium（ドリブル→シュート）**: SkillXは成功率88.0%を達成し、最良のベースラインであるMoE-Encoder AMP（67.2%）を大きく引き離しました。\n- **Hard（トラップ→3経由地ドリブル→シュート）**: SkillXは81.7%の高い成功率を維持しました。一方、標準的なAMPは27.4%、Conditional AMPは22.8%、MoE-Encoder AMPでも45.6%にとどまりました。ベースラインは個々のサブステージをある程度こなせても、遷移時の誤差蓄積によって途中でボールを見失ったり転倒したりする傾向が見られました。\n\n### 4.3 アブレーション研究\n各コンポーネントを取り除いた検証（Table II）から、次の重要な事実が分かりました。\n- **スキル別AMPとCriticの除去**: スキル別Criticを省くとHardタスクの成功率が大きく低下し、長時間のスキル遷移において価値推定の分離が極めて重要であることが示されました。\n- **時系列エンコーダの構造**: 履歴を単に結合して全結合層に入れるだけ（Raw Stacked History）では成功率がMediumで49.0%、Hardで20.0%まで激減しました。また、補助損失であるボール速度予測を抜くだけでもHardの成功率が大きく落ちており、時系列構造と物体速度の自己推定の双方が不可欠であることが分かります。\n- **カリキュラム学習**: コマンド継続時間カリキュラムを省くと、Hardタスクの成功率は81.7%から30.4%へと崩壊しました。スキルの切り替え頻度を徐々に上げる訓練が、長時間のスキル構成を成功させる鍵です。\n\n### 4.4 実機実験（Noetix E1）\nMoCap環境下で4つのタスク（ドリブル、シュート、2段階方向転換ドリブル、ドリブル→シュート）を各10試行テストしました。単一スキルにおいてAMPベースラインが各1/10回の成功にとどまったのに対し、SkillXはいずれも8/10回（80%）成功しました。さらに複合タスクでもSkillXは70%と60%の成功率を収めたのに対し、AMPは0%でした。\n\n### 4.5 オンボードビジョン展開と汎用スキルの獲得\n外部MoCapを使わず、頭部ZED2iカメラのVIO（自己位置推定）とYOLOv8（ボール検出）のみを用いた環境でも、ドリブルからシュートへの一連のタスクを実機で遂行できることを実証しました。また、ボール操作を排して全身の動作模倣に適用した実験でも、敬礼、片足立ち、ディフェンス動作、ランニングシュートなどの多様なスキルを単一ポリシーで滑らかに遷移できることを確認しています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "シミュレーションにおける難関複合タスク（Hardタスク）の実行の様子です。飛来するボールをトラップした後、3つのフラッグ（Waypoint）をS字状にドリブルで通過し、最後にゴールへ向けて正確にシュートを放つまでを単一のポリシーで完遂しています。",
+     "caption": "Table III: Real-World Performance. Success rates over 10 hardware trials per task under the MoCap system.",
+     "image": "details/2609.06718/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "実機Noetix E1ロボットによるモーションキャプチャ環境でのロールアウトです。上段はドリブルからゴールへのシュート、下段は方向転換を伴うドリブルを行っており、転倒することなくダイナミックにボールをコントロールしています。",
+     "caption": "Figure 4: Real-World Rollouts on the Noetix E1 humanoid robot under the MoCap system.",
+     "image": "details/2609.06718/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "外部MoCapを使わず、頭部搭載カメラ（オンボードビジョン）のみで実行した実機ドリブル→シュートの様子です。検出の遅延やノイズが存在する現実的な視覚フィードバック環境でも、安定してボールをとらえてゴールへ蹴り込んでいます。",
+     "caption": "Figure 5: Onboard vision deployment of our policy on the dribble-then-shoot composite task.",
+     "image": "details/2609.06718/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "サッカー以外の多様な全身スキルを単一ポリシーで切り替える様子です。(1) キック、(2) 敬礼、(3) バックキック、(4) 片足立ち、(5-6) 左右のディフェンスステップ、(7) 助走シュートへと、途切れず滑らかにポーズを移行させています。",
+     "caption": "Figure 6: Smooth Skill Transitions within One Policy. A single command-conditioned policy executes and transitions among diverse whole-body skills, including (1) kick , (2) salute , (3) back kick , (4) single-leg stand , (5-6) left/right defending motions , and (7) run-to-shoot .",
+     "image": "details/2609.06718/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめ：特権的な訓練分離と単一デプロイが生む強力な全身制御",
+   "summary_ja": "SkillXは、単一のActorで複数スキルを動かすシンプルさを保ちながら、学習時における識別器・Criticの分離と時系列エンコーダによって干渉と部分観測性の問題を解決しました。シミュレーションおよび実機での検証により、ヒューマノイドによる高度な長時間の物体操作スキル連携が可能であることが示されました。",
+   "details_ja": "本論文では、ヒューマノイドロボットによるマルチスキルサッカーのための統合強化学習フレームワーク「SkillX」を提案しました。\nデプロイ時には単一のコマンド条件付きポリシーとして動作させつつ、訓練段階で「スキル固有のAMP識別器」「スキル固有のCritic」「物体認識型時系列エンコーダ」を活用することで、動作スタイルの干渉、価値推定の衝突、そしてセンシングの部分観測性という根本的な課題を綺麗に切り分けました。\nシミュレーションでの厳密な比較およびNoetix E1実機を用いた検証により、原子的なスキルから長時間の複合スキルまで、極めて高い成功率とロバストなSim-to-Real転移が実証されました。訓練時の教師信号をスキルごとに特化させ、実行時の表現を単一にまとめるというSkillXの設計思想は、サッカーにとどまらず、将来のより広範な動的・接触リッチな全身マニピュレーション制御全般に対して強力な道筋を示すものです。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「訓練時はスキルごとにDiscriminatorとCritic Headを分離し、実行時は単一のActorで動かす」という非対称な設計が、スタイルの干渉とマルチタスク価値推定の歪みを劇的に抑える。",
+  "過去フレームの観測履歴を渡すだけでなく、Transformerエンコーダに自己教師あり学習（Barlow Twins）と特権情報（ボール・ロボット速度）の自己推定タスクを課すことが、接触リッチな部分観測環境での安定性に直結する。",
+  "スキル間の切り替え頻度を学習初期から徐々に高める「コマンド継続時間カリキュラム」が、長時間のスキル構成タスクを成功させる上で決定的な役割を果たす。"
+ ],
+ "limitations_ja": [
+  "スキルを切り替えるタイミングや選択自体は外部のステートマシンや手動コマンドに依存しており、自律的な戦術判断やハイレベルな行動計画は含まれていない点。",
+  "単一ロボットによるタスクに焦点を当てており、味方との協調や相手ディフェンダーからの激しい外乱・接触を伴うマルチエージェント環境への拡張は未検証である点。"
+ ],
+ "keywords": [
+  "Humanoid Robotics",
+  "Reinforcement Learning",
+  "Adversarial Motion Priors",
+  "Multi-Skill Learning",
+  "Sim-to-Real",
+  "Dynamic Object Manipulation"
+ ],
+ "id": "2609.06718",
+ "title": "SkillX: Unified Multi-Skill Policy Learning for Humanoid Soccer",
+ "authors": [
+  "Zhangchen Ye",
+  "Enxuan Ruan",
+  "Yifei Bao",
+  "Runhan Huang",
+  "Jiankun Yang",
+  "Jiakang Jin",
+  "Yixiao Huo",
+  "Pengyuan Wang",
+  "Yinan Han",
+  "Huaxing Huang",
+  "Wenhao Cui",
+  "Yiming Li",
+  "Xiaoyu Tian"
+ ],
+ "date": "2026-09-09",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "reinforcement-learning",
+  "locomotion",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.06718",
+ "pdf_url": "https://arxiv.org/pdf/2609.06718",
+ "summary_ja": "バランス制御、移動、物体操作、スキル切り替えを単一の方策で調和させるヒューマノイドサッカー向け強化学習フレームワークを提案。スキル固有の敵対的運動事前分布やCritic、物体認識型時間調整を導入し、複数の基本スキルを滑らかに統合・実行可能にした。",
+ "generated": "2026-09-09",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.06718"
+}
