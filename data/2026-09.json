@@ -1,6 +1,285 @@
 {
  "entries": [
   {
+   "date": "2026-09-10",
+   "rank": 0,
+   "id": "2609.09918",
+   "group": "focus",
+   "title": "ViBe: Visual Behavior Adaptation for Perceptive Humanoid Whole-Body Control",
+   "title_ja": "ViBe: 視覚認識型ヒューマノイド全身制御のための視覚行動適応",
+   "summary_ja": "外乱適応や外界認識が不足しがちなモーション追従型ヒューマノイド全身制御（WBC）に対し、事前学習済み視覚エンコーダとマルチクエリエクストラクタを用いて外界フィードバックを事後統合する手法を提案。教師生徒蒸留に頼らずLoRAを通じて視覚情報を追従器入力へ直接接合し、実機ヒューマノイドによる視覚適応歩行を効率的に実現する。",
+   "authors": [
+    "Lokesh Krishna",
+    "Sarvesh Venkatesan",
+    "An Zhang",
+    "Quan Nguyen"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "locomotion",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.09918",
+   "image": "figures/2026-09-10/2609.09918.jpg"
+  },
+  {
+   "date": "2026-09-10",
+   "rank": 1,
+   "id": "2609.10286",
+   "group": "focus",
+   "title": "Learning Terrain-Adaptive Humanoid Locomotion on Granular Terrain",
+   "title_ja": "粒状地盤における地形適応型ヒューマノイド歩行の学習",
+   "summary_ja": "砂などの粒状地盤における足部と地盤の相互作用を解くため、三次元抵抗力理論（3D RFT）に基づく物理準拠の接触モデルを開発し、高速な強化学習シミュレータ環境を構築。ヒューマノイドが砂地での沈み込みや滑りに適応するロバストな歩行方策の学習を可能にし、従来の過度な単純化モデルに比べ高精度なシミュレーションを実現した。",
+   "authors": [
+    "Junnosuke Kamohara",
+    "Feiyang Wu",
+    "Andy Ningan Zong",
+    "Daniel I. Goldman",
+    "Yashwanth Nakka",
+    "Seth Hutchinson",
+    "Ye Zhao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.10286",
+   "image": "figures/2026-09-10/2609.10286.jpg"
+  },
+  {
+   "date": "2026-09-10",
+   "rank": 2,
+   "id": "2609.09492",
+   "group": "focus",
+   "title": "Actuator Dynamics Curricula for Narrow-Viability Tasks in Legged Robot Learning",
+   "title_ja": "脚ロボット学習における狭い生存性タスクのためのアクチュエータダイナミクスカリキュラム",
+   "summary_ja": "多くの探索軌道が即座に破綻して勾配が得られない狭生存領域タスクに対し、関節剛性を高く初期化しエピソード長に応じて同定値へ徐々にアニールするカリキュラム手法を提案。臨界減衰下での固有振動数向上によりマルコフ決定プロセスの生存核が拡大することを理論・実証の両面から示し、従来RLで失敗する脚ロボット課題の収束性を大幅に改善した。",
+   "authors": [
+    "Kousheek Chakraborty",
+    "Chandan K. Rajendra",
+    "Ayham Alharbat",
+    "Abeje Y. Mersha"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.09492",
+   "image": "figures/2026-09-10/2609.09492.jpg"
+  },
+  {
+   "date": "2026-09-10",
+   "rank": 3,
+   "id": "2609.10283",
+   "group": "focus",
+   "title": "SwingBot: Learning Whole-Body Brachiation for Humanoid Robots",
+   "title_ja": "SwingBot: ヒューマノイドロボットによる全身ブラキエーションの学習",
+   "summary_ja": "高自由度ヒューマノイドが受動フックを用いて頭上の雲梯を移動する全身ブラキエーション（腕渡り）制御を強化学習で実現するフレームワーク。長時間の「離し・スイング・把持」動作を全身運動量と協調させ、フック接触状態などの観測ノイズに頑健な方策を構造化された学習パイプラインによって獲得することに成功した。",
+   "authors": [
+    "Yujie Xiong",
+    "Peng Zhai",
+    "Taixian Hou",
+    "Quancheng Qian",
+    "Cunwang Liu",
+    "Kangmai Hu",
+    "Long Yang",
+    "Zhiyan Dong",
+    "Lihua Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.10283",
+   "image": "figures/2026-09-10/2609.10283.jpg"
+  },
+  {
+   "date": "2026-09-10",
+   "rank": 4,
+   "id": "2609.09821",
+   "group": "focus",
+   "title": "InstantMimic: A High Performance System for Learning Physics-based Skills in Seconds",
+   "title_ja": "InstantMimic: 数秒で物理ベーススキルを学習する高性能システム",
+   "summary_ja": "物理ベースのキャラクタおよびロボット制御における強化学習パイプラインを抜本的に高速化するシステム。物理ソルバ外のGPUカーネル断片化やCPUメモリボトルネックを排除するエンドツーエンド設計によりハードウェア利用効率を最大化し、従来数時間から数日要していたアジャイルかつ自然な運動スキルの学習を数秒オーダーで完了させる。",
+   "authors": [
+    "Ikjun Choi",
+    "Geonho Leem",
+    "Jungdam Won"
+   ],
+   "categories": [
+    "cs.GR",
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "simulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.09821",
+   "image": "figures/2026-09-10/2609.09821.jpg"
+  },
+  {
+   "date": "2026-09-10",
+   "rank": 5,
+   "id": "2609.10137",
+   "group": "general",
+   "title": "Assembling Two Parts in One Hand",
+   "title_ja": "単一の多指ハンドによる2部品のインハンド組み立て",
+   "summary_ja": "第2の腕や固定具を用いず、単一の多指器用ハンドのみで2つの剛体部品を嵌合・組み立てするインハンドマニピュレーションを強化学習で実現。目的相対姿勢を指針とし、機能的な補助報酬と人間参照姿勢への正則化、ドメインランダム化を組み合わせることで、ペンのキャップ嵌めのような高度な指間協調動作を実機へ展開可能にした。",
+   "authors": [
+    "Liuao Pei",
+    "Tianyue Wu",
+    "Hui Zhang",
+    "Ping Luo",
+    "Jie Song"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "grasping",
+    "reinforcement-learning",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.10137",
+   "image": "figures/2026-09-10/2609.10137.jpg"
+  },
+  {
+   "date": "2026-09-10",
+   "rank": 6,
+   "id": "2609.09612",
+   "group": "general",
+   "title": "MuJoCable: Reduced-Order Surface-Routed Cable Transmission for Tendon-Driven Robots",
+   "title_ja": "MuJoCable: 腱駆動ロボットのための低次元表面ルーティングケーブル伝達シミュレータ",
+   "summary_ja": "従来の剛体シミュレータでは困難だった非円形接触面上のケーブル経路、片側張力、セグメント摩擦を統合的に解くMuJoCo向けプラグインを開発。メッシュ表面にわたる順序付き経路を最適化しCapstan摩擦則を解くことで、腱駆動ロボットの挙動を高精度かつ高速にシミュレート可能にした。",
+   "authors": [
+    "Yi Zhang",
+    "Qi Shao",
+    "Yicong Lin",
+    "Muyuan Ma",
+    "Tao Sun",
+    "Yue Xie"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CE"
+   ],
+   "tags": [
+    "simulation",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.09612",
+   "image": "figures/2026-09-10/2609.09612.jpg"
+  },
+  {
+   "date": "2026-09-10",
+   "rank": 7,
+   "id": "2609.09630",
+   "group": "general",
+   "title": "JEPA Policy: Diffusion-Free Imitation Learning via Paired Action and Future Representation Prediction",
+   "title_ja": "JEPA Policy: 行動と未来表現のペア予測による拡散モデル不要の模倣学習",
+   "summary_ja": "重い計算負荷を要する拡散モデルに依存せず、行動チャンクと観測される未来特徴表現をペアの学習ターゲットとするJEPAベースの模倣学習手法。共有トランスフォーマー内で行動と未来表現トークンを相互作用させて洗練することで、シミュレーション9タスクにおいて従来手法を上回る成功率を達成した。",
+   "authors": [
+    "Jie Xu",
+    "Kangjin Yu",
+    "Ziyi Jin",
+    "Junjie Gao",
+    "Liqing Chen",
+    "Yixian Li",
+    "Shuai Tian",
+    "Zhongpu Xia"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "imitation-learning",
+    "manipulation",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.09630",
+   "image": "figures/2026-09-10/2609.09630.jpg"
+  },
+  {
+   "date": "2026-09-10",
+   "rank": 8,
+   "id": "2609.09380",
+   "group": "general",
+   "title": "AccelMPC: High-Rate, Low-Power FPGA-Accelerated Model Predictive Control for Tiny Drones",
+   "title_ja": "AccelMPC: 小型ドローン向けの高速・低消費電力FPGA加速型モデル予測制御",
+   "summary_ja": "計算資源が厳しく制限される超小型ドローン向けに、アルゴリズム、数値表現、ハードウェアマッピングを協調設計したFPGA実装のモデル予測制御（MPC）システム。FPGA加速型ADMMソルバを採用することで、高速な制御レートと極めて低い消費電力を両立し、機敏な飛行制御をエッジで実現した。",
+   "authors": [
+    "Andrea Grillo",
+    "Brian Plancher"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "drone",
+    "control",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.09380",
+   "image": "figures/2026-09-10/2609.09380.jpg"
+  },
+  {
+   "date": "2026-09-10",
+   "rank": 9,
+   "id": "2609.09250",
+   "group": "general",
+   "title": "No Free Checker: A Survey of Verifiers for Robot Policies",
+   "title_ja": "ただ飯の検査器はない: ロボット方策向け検証器のサーベイ",
+   "summary_ja": "VLAなどのロボット方策の評価や報酬学習に用いられる約150件の検証器（成功検出器、安全性フィルタ等）を調査。判定コストや即時性を表す「可用性」と、スコアが真のタスク達成度を反映しているかを表す「信用性」のトレードオフ軸で体系的に分類・比較し、今後の設計指針を提示している。",
+   "authors": [
+    "Yang Wan",
+    "Xihang Yue",
+    "Zhirui Liu",
+    "Ziyuan Chu",
+    "Shuxun Wang",
+    "Yuhan Chen",
+    "Xiaonan Jiang",
+    "Xukun Zhu",
+    "Yubo Dong",
+    "Linchao Zhu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV",
+    "cs.LG",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "benchmark",
+    "safety",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.09250",
+   "image": "figures/2026-09-10/2609.09250.jpg"
+  },
+  {
    "date": "2026-09-09",
    "rank": 0,
    "id": "2609.05994",
