@@ -1,0 +1,135 @@
+{
+ "title_ja": "JEPA Policy: 行動と未来表現のペア予測による拡散モデル不要の模倣学習",
+ "tldr_ja": "ロボットのアクション系列とそれがもたらす未来の潜在表現を同一のTransformerで同時に2ステップ予測することで、拡散モデルを使わずに低遅延・高精度な模倣学習を実現した研究です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "模倣学習と予測学習の各パラダイムの比較です。(a) Diffusion Policyは反復的なデノイジングが必要で遅く、未来状態の制約がありません。(b) 素のJEPAは表現崩壊のリスクがあり、(c) ACT-JEPAは行動と未来の予測ブランチが分かれています。(d) 本手法（JEPA Policy）は行動と未来表現のトークンを1つのTransformerで共有し、2ステップで高速推論しながら表現崩壊も防ぎます。",
+  "caption": "Fig. 1: Schematic comparison of design paradigms (architecture only, not a performance comparison). Red numbers mark a limitation of each prior design; the four boxes below show how JEPA Policy addresses them. Flames mark encoders trained by gradient descent. All encoders are trained from scratch because this study uses no pretrained or frozen visual backbone. “//” marks the stop-gradient.",
+  "image": "details/2609.09630/F1.jpg"
+ },
+ "overview_ja": "ロボットの模倣学習（エキスパートの手本を真似る学習）において、近年の主流はDiffusion Policy（拡散モデルを用いた方策）ですが、推論時に多数のネットワーク呼び出しが必要でレイテンシ（処理遅延）が大きいという課題がありました。一方で、わずか2回のフォワード計算で高精度な制御を行うMIP（Minimal Iterative Policy）のような手法も登場していますが、これら標準的な行動クローニングは「その行動をとった結果、どんな未来状態になるか」を一切考慮していません。\n\nそこで著者らは、「エキスパートの手本データには、行動系列だけでなく、その行動の後に実際に起きた未来の観測もペアとして含まれている」という点に着目しました。この未来の観測画像をピクセル単位で再構築するのではなく、特徴量空間（潜在表現）で予測するJEPA（Joint-Embedding Predictive Architecture）の考え方を導入し、行動トークンと未来表現トークンを単一のTransformer内で密に相互作用させる枠組み「JEPA Policy」を提案しました。\n\nシミュレーション環境（LIBERO、robomimic、MimicGen）の計9タスクと、実機ロボットを用いた5タスク（計630エピソード）で検証を行った結果、JEPA Policyは行動のみを予測するMIPベースラインを一貫して上回り、100ステップのDiffusion Policyと比べても33倍高速（13.2 ms）かつ高い成功率を達成しました。さらに、エキスパート行動の予測損失そのものが表現崩壊を防ぐアンカーとして機能し、推論時には予測した未来と実際の未来のズレが失敗検出に使えることも示されています。",
+ "contributions_ja": [
+  "エキスパート行動系列とその結果得られる未来の潜在表現をペアとして同時に学習する、拡散モデル不要（diffusion-free）の新しい模倣学習フレームワーク「JEPA Policy」を提案したこと。",
+  "行動トークンと未来表現トークンを単一のTransformer内で共有し、相互のアテンションを通じて未来予測が行動生成表現を直接整調するアーキテクチャを設計したこと。",
+  "行動予測タスク自体が表現崩壊（representation collapse）に対する制約として機能するため、EMAターゲットエンコーダや明示的な分散正則化を用いずにゼロからのエンドツーエンド学習を可能にしたこと。",
+  "推論時に予測した未来表現と実際に生じた未来観測の表現との誤差を比較することで、展開時のタスク失敗をモニタリングできる診断シグナルを構築したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜ行動クローニングに「未来予測」が必要なのか？",
+   "summary_ja": "従来の行動クローニングは行動ラベルの予測に終始し、その行動がもたらす未来の結果を考慮していませんでした。本研究では、拡散モデルのような重いサンプリングを避けつつ、行動と未来の潜在表現を1つのTransformerで2ステップ予測するJEPA Policyを提案しています。",
+   "details_ja": "ロボット操作におけるエキスパートの行動は、単なる数値のラベルではありません。「物体を目標位置へ押す」「把持のために接近する」といったように、特定の未来状態を達成するために選択されています。つまり、デモンストレーションの軌跡には「行動系列」と「その結果生じた未来の観測」という、互いに強く結びついたペア情報が含まれているのです。\n\nしかし、従来の行動クローニング（Behavior Cloning: BC）はこの未来観測を捨てて行動ラベルのみを学習してきました。また、行動のマルチモーダル性を扱うために広く使われているDiffusion Policyは、何十回ものネットワーク呼び出し（デノイジング）を繰り返すため、推論遅延が大きく実機制御のボトルネックになります。最近の研究（MIP）では、実は反復的な決定論的計算（2ステップの予測）とノイズ注入だけで、拡散モデルと同等の制御性能が出せることが分かってきました。\n\nそこで著者らは、「MIPの2ステップ計算プロセスを拡張し、行動と未来の潜在表現をペアで同時予測できないか？」と考えました。未来の画像をそのまま生成しようとすると背景や光の反射など制御に無関係な低レベルの質感まで再現する必要が生じますが、特徴量空間（潜在空間）での予測（JEPAスタイル）にすれば制御に必要な本質情報だけに絞ることができます。\n\nこうして誕生したのが「JEPA Policy」です。現在の観測から、行動系列と未来の観測表現を単一のTransformer内で同時に予測します。行動と未来のトークンが全アテンション層で相互作用するため、未来の予測目標が行動生成表現を直接洗練させます。さらに、行動予測の損失が表現崩壊を防ぐタスク駆動の制約となるため、従来のJEPAで必須だったEMA（指数移動平均）ターゲットエンコーダや複雑な正則化も不要になっています。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "拡散モデル、JEPA、世界モデルとの違いと立ち位置",
+   "summary_ja": "模倣学習、拡散モデル、自己教師あり表現学習（JEPA）、世界モデルなどの先行研究を整理し、本手法が「追加の事前学習や重いサンプリングを必要とせず、単一Transformerでの密な結合によって性能を向上させている点」の独自性を明確にしています。",
+   "details_ja": "本研究の立ち位置を理解するために、関連する4つの系統の研究と比較しています。\n\n### 模倣学習と拡散モデル\n現在の視覚運動模倣学習では、連続した行動チャンク（行動のひとかたまり）を予測するのが標準的です。Diffusion Policyは行動分布を拡散モデルで捉えることで高い成功率を収めましたが、推論コストが課題です。MIPなどの研究により、性能向上には複数回のフォワード計算とノイズ学習が本質であり、必ずしもフルな確率分布モデリングが必須ではないことが示唆されています。本手法はこの知見に基づき、2パスの推論予算内で未来表現の学習を組み込みます。\n\n### 予測型表現学習（JEPA）との違い\nピクセル再構成を避け、潜在空間で未来や隠れた視点の表現を予測する手法（I-JEPAなど）は表現崩壊（全ての入力を同じ定数ベクトルに出力してしまう現象）が最大の敵です。先行手法（ACT-JEPAなど）では、行動予測と未来予測のブランチを完全に分離し、EMAターゲットエンコーダを使って崩壊を防いでいました。しかしこれでは行動と未来の相互作用が弱くなります。JEPA Policyは同一スタック内で両者を相互作用させ、ターゲット側をstop-gradientするだけで、行動損失そのものを崩壊防止の楔として機能させます。\n\n### 世界モデルとの違い\nDreamerなどの世界モデルは、行動を入力として未来状態を予測し、プランニングや強化学習のシミュレータとして用います。一方、JEPA Policyは個別のダイナミクスモデルを作ってロールアウトしたりプランニングを行ったりするわけではなく、あくまで方針（ポリシー）の表現を強化するための教師信号として未来表現を利用しています。\n\n### 実行時の失敗モニタリング\n事後的に方策の失敗を検知する手法は各種提案されていますが、多くは別のモデル（VLMやアンサンブルなど）を必要とします。JEPA Policyの未来予測は方策自身に組み込まれているため、追加のモデルなしに実行時の不整合を検知できる副産物となります。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "JEPA Policyの設計：2ステップで行動と未来を同時に研ぎ澄ます",
+   "summary_ja": "現在の観測から行動チャンクと未来の観測表現を単一のTransformerで同時に2段階予測（MIPスタイル）します。将来の表現ターゲットには勾配を流さず（stop-gradient）、行動予測損失と未来表現の予測損失をバランスよく最適化します。",
+   "details_ja": "JEPA Policyの具体的な構成とアルゴリズムについて見ていきましょう。\n\n### III-A & III-B 全体構造と共有Transformer\n入力は現在の観測 $o_t$（画像および手先・関節などの自己受容感覚 $\\mathbf{s}_t$）です。これをエンコーダ $E$ で特徴抽出し、条件付けメモリ $\\mathbf{M}$ を作ります。\nTransformerの入力系列には、$H$ 個のアクショントークン $\\mathbf{q}_a$ と、1個の未来表現トークン $\\mathbf{q}_z$ を並べます。これらはマスクなしの自己注意（Bidirectional Self-Attention）層を通過するため、行動トークンは未来トークンの情報をすべての層で直接参照できます。最後に、行動予測ヘッド $h_a$ と未来表現予測ヘッド $h_z$ から、行動系列 $\\hat{\\mathbf{a}}_{t:t+H}$ と未来の画像潜在表現 $\\hat{\\mathbf{z}}_{t+k}$ を出力します。\n\n### III-C 損失関数とバランス設計\n学習の目的関数は、行動損失 $\\mathcal{L}_{\\mathrm{act}}$（L1ノルム）と未来表現損失 $\\mathcal{L}_{\\mathrm{future}}$ の重み付き和です。\n未来表現の目標値 $\\mathbf{z}_{t+k} = E_{\\mathrm{rgb}}(o_{t+k})$ は、実際に軌跡の $k$ ステップ後に観測された画像を同一の画像エンコーダに通して作りますが、ここには stop-gradient（$\\mathrm{sg}$）を適用します。つまり未来のエンコーダ側には勾配を流さず、現在の観測から未来を予測するパスのみを更新します。\nまた、未来損失にはターゲット正規化MSE（NMSE）を用い、損失の重み $\\lambda_z$ はミニバッチごとに行動損失との比率がおよそ $\\rho = 0.10$ になるよう適応的に調整されます。\n\n### III-D MIPスタイルの2ステップ推論\n拡散モデルのような長いループを避けるため、2ステップの粗予測から洗練（coarse-to-refined）の仕組みを採用しています。\n- **第1ステップ（粗予測）**: 入力トークンをゼロベクトルとしてフォワード計算し、大まかな行動 $\\hat{\\mathbf{a}}^{(0)}$ と未来表現 $\\hat{\\mathbf{z}}^{(0)}$ を得ます。\n- **第2ステップ（洗練）**: 第1ステップの予測結果を入力として再度フォワード計算を行い、最終的な行動 $\\hat{\\mathbf{a}}^{(1)}$ と未来表現 $\\hat{\\mathbf{z}}^{(1)}$ を出力します（学習時は正解ラベルにノイズを加えたものを入力してデノイジングを学習）。\n推論時はこの2回の順伝播だけで完了するため、極めて高速です。\n\n### III-F 展開時の未来一貫性診断（Future-Consistency Diagnostic）\nロボットが行動を実行すると、実際に $k$ ステップ後の観測画像 $o_{t+k}^{\\mathrm{real}}$ が手に入ります。これをエンコーダに通して得た実際の表現と、事前に予測していた $\\hat{\\mathbf{z}}^{(1)}_{t+k}$ との二乗誤差 $e_{\\mathrm{fc}}$ を計算します。方策がエキスパートの分布から外れたり、予期せぬ接触やスリップが起きたりするとこの誤差が跳ね上がるため、タスクの失敗検知や人間の介入トリガーとして役立ちます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "JEPA Policyの全体アーキテクチャです。共通の観測エンコーダから得た特徴量のもと、行動トークンと未来トークンが2ステップの共有Transformerに入力され、行動チャンクと未来の潜在表現を同時に予測します。",
+     "caption": "Fig. 2: Overall architecture of JEPA Policy. A shared encoder processes both observations. $\\mathbf{z}_{t}$ and $\\mathbf{z}_{t+k}$ are the outputs of its image path at the two times. The conditioning vector $\\mathbf{c}_{t}$ fuses $\\mathbf{z}_{t}$ with low-dimensional inputs (Sec. III-B ); the fusion is omitted from the diagram. Action tokens $\\mathbf{q}_{a}$ and future-representation tokens $\\mathbf{q}_{z}$ enter one Transformer $T_{\\theta}$ and interact in every self-attention layer. Separate heads produce the action sequence $\\hat{\\mathbf{a}}_{t:t+H}$ and future observation representation $\\hat{\\mathbf{z}}_{t+k}$ . …",
+     "image": "details/2609.09630/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "MIPスタイルの2ステップ予測プロセスの詳細です。ステップ1でゼロ入力から粗い予測を行い、ステップ2でその出力を受けて高精度に洗練します。学習時はステップ2に入力ノイズを加えることで、拡散モデルを使わずにロバストな洗練能力を獲得します。",
+     "caption": "Fig. 3: Coarse-to-refined MIP-style training for joint action and future observation representation prediction. The first step maps a zero input (time $0$ ) to a coarse prediction, and the second refines it (time $\\tau$ ). The diagram shows inference, where the second step receives the first-step output. During training, it instead receives the noised expert target from Sec. III-D . Both steps are supervised, with residuals scaled by $\\tfrac{1}{\\tau}$ and $\\tfrac{1}{1-\\tau}$ . The method uses no diffusion-style iterative sampling.",
+     "image": "details/2609.09630/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "実験結果：拡散モデル超えの成功率と33倍の高速化、アブレーションによる検証",
+   "summary_ja": "シミュレーション9タスクと実機5タスクで評価しました。JEPA PolicyはMIPを一貫して上回り、Diffusion Policyをも凌駕する成功率をわずか13.2 msのレイテンシで達成しました。さらに詳細なアブレーションにより、単一スタックでの共有構造が性能向上の鍵であることを突き止めています。",
+   "details_ja": "実験はシミュレーション（LIBERO、robomimic、MimicGenの計9タスク）および実機マニピュレーション（5タスク、計630試行）で徹底的に行われました。\n\n### IV-A & IV-C 主要な結果と推論速度\nシミュレーション9タスクの平均成功率において、JEPA PolicyはベースラインのMIP（行動のみ予測）の $77.4\\%$ から $+5.6$ ポイント向上して $83.0\\%$ を達成しました。特に高精度な接触が求められる「Tool Hang」（$65.8\\% \\rightarrow 75.0\\%$）や「Coffee Preparation」（$57.5\\% \\rightarrow 77.5\\%$）で顕著な伸びを見せています。\nまた、100ステップのDiffusion Policy（平均 $75.1\\%$）に対しても全タスクで上回りました。推論レイテンシを専用アクセラレータ上で測定すると、Diffusion Policyが $439.5$ ms（約2.3 Hz）かかるのに対し、JEPA Policyはわずか $13.2$ ms（76 Hz動作可能）で、約33倍の高速化を実証しています。MIPに対する遅延増加もわずか $0.29$ ms（$+2.2\\%$）に留まりました。\n\n### IV-D & IV-E なぜ効くのか？（ブランチ分離型との比較と勾配解析）\n「単に未来予測の損失を追加したから性能が上がっただけではないか？」という疑問に答えるため、著者らは以下の構成を比較しました。\n- **Dual-independent**: ACT-JEPAのように行動予測と未来予測のデコーダを完全に独立させた構成（平均 $76.3\\%$）\n- **Dual-cross**: 独立した2つのブランチ間で層ごとにクロスアテンションを行う構成（平均 $77.6\\%$）\n- **JEPA Policy（提案手法）**: 単一のTransformerスタックでトークンを共有する構成（平均 $83.0\\%$）\n\nブランチを分けるとパラメータ数を増やしてもMIP（$77.4\\%$）と変わらない結果となりました。勾配解析を行うと、共有スタック構造では未来損失の勾配が行動生成パラメータにしっかり届いている（勾配ノルム比で約1〜3%）のに対し、ブランチ分離型ではほとんど伝わりません。アブレーション実験（Table VI）でも、未来損失からの逆伝播ルートを遮断すると性能向上が完全に消失することが確認され、「同一スタック内で行動と未来表現が相互作用すること」が不可欠であると証明されました。\n\n### IV-F ハイパーパラメータ感度\n未来損失の比率 $\\rho$（0.05〜0.20）と予測ホライズン $k$（2〜6ステップ、実時間で0.1〜0.3秒先）を振った実験では、幅広い範囲でベースラインを上回り頑健でした。特に $k=4\\sim 6$（約0.2〜0.3秒先）が良好で、短すぎると現在の観測と変わらず意味のある正則化にならないことが示されています。\n\n### IV-I 表現崩壊の検証\n行動予測損失をゼロ（$\\lambda_a = 0$）にして未来予測だけで学習させると、有効ランクが激減し表現空間が崩壊（cosine類似度が0.9超）しました。しかし、行動損失を併用する通常のJEPA Policyでは有効ランクが健全に保たれており、EMAや外部の正則化がなくても「行動を正確に予測する要求」自体が強力な崩壊防止装置として機能することが定量的に示されました。\n\n### IV-J & IV-K 失敗診断と実機検証\n5,200エピソードに及ぶロールアウト監査の結果、タスク初期5ステップの未来予測誤差 $e_{\\mathrm{fc}}$ が大きいエピソードほど最終的に失敗する確率が有意に高いことが判明しました。また実機ロボット（5タスク、630エピソード）でも、シミュレーションと同様にJEPA PolicyがMIPやDiffusion Policyを上回る順位を維持しました。",
+   "figures": [
+    {
+     "key": "F9",
+     "caption_ja": "未来損失の比率 $\\rho$ と予測ホライズン $k$ に対する感度分析です。ベースラインに対する改善幅を示しており、$\\rho \\in [0.10, 0.20]$、ホライズン $k=4\\sim 6$（0.2〜0.3秒先）において一貫して安定した高い性能向上が得られています。",
+     "caption": "Fig. 9: Hyperparameter sensitivity as gain over the baseline (three-seed means, in points): future-loss ratio $\\rho$ (left) and future horizon $k$ (right); blue is better than the baseline, orange worse. No configuration is materially worse than the baseline; $\\rho\\in[0.1,0.2]$ and $k\\in\\{4,6\\}$ are uniformly strong choices.",
+     "image": "details/2609.09630/F9.jpg"
+    },
+    {
+     "key": "F12",
+     "caption_ja": "実機ロボット実験での5つのタスク（Cabinet, Cup Stack, Cup Upright, Plate Grape, Pen Insert）の様子です。左下のCabinetタスクでは、JEPA Policyが戸棚の扉を閉めるのに成功している一方、Diffusion Policy（DP-16）は扉が開いたまま失敗している様子が比較されています。",
+     "caption": "Fig. 12: Representative task and outcome frames from successful JEPA Policy episodes on the five real-robot tasks. The Cabinet task frame uses the left-wrist camera to show the kiwi grasp; the remaining frames use the base camera. The Cabinet outcome cell additionally contrasts the JEPA Policy success (door closed) with a DP-16 terminal failure (door left open). Policies receive all views resized to $128\\times 128$ .",
+     "image": "details/2609.09630/F12.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Discussion",
+   "heading_ja": "考察と限界：何が達成され、何が今後の課題か",
+   "summary_ja": "本研究の成果と限界を客観的に議論しています。単一スタックによる未来表現予測の有効性が確認された一方で、実機実験の規模やマルチモーダルな未来予測への対応など、今後の課題も整理されています。",
+   "details_ja": "実験全体を通じて、同一スタック内で未来の潜在表現を同時予測することが、計算負荷をほとんど増やさずに模倣学習の方策を強化する極めて実用的な手段であることが示されました。\n\n一方で、論文では以下の限界や留意点も率直に挙げられています。\n- **タスク依存のゲイン幅**: 9タスク中、特にTool Hangのようにミリ単位の精度が要求されるタスクで大幅な差がついた一方、もともと成功率が高いタスクでは差がわずかでした。\n- **実機実験の規模**: 実機検証は5タスク・630エピソードで実施されましたが、単一のロボット・環境・操作者によるものであり、より多様な実世界環境での検証が必要です。\n- **決定論的予測の限界**: 未来の表現予測は決定論的な回帰で行われているため、同じ観測から複数のまったく異なる未来結果が生じ得る極端なマルチモーダル状況では平均化してしまう可能性があります。\n- **失敗診断の汎用性**: 未来一貫性誤差による失敗検知は同一タスク内での相対的なリスク評価には有効ですが、タスク間で共通の絶対的閾値を設定できるわけではありません。",
+   "figures": []
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "まとめ：低遅延かつ高精度なロボット模倣学習の新たなスタンダードへ",
+   "summary_ja": "JEPA Policyは、行動と未来表現のペア予測を単一Transformerの2ステップ推論で実現し、拡散モデルを使わずに高い成功率と低遅延を両立させました。タスク駆動型の表現崩壊防止や実行時診断など、多くの実践的メリットを持つフレームワークです。",
+   "details_ja": "本研究が提示した「JEPA Policy」は、模倣学習における未来予測の組み込み方を大きく前進させました。\n\n従来の拡散モデルによる多重ループサンプリングに頼ることなく、MIPに基づくわずか2パスの決定論的フォワード計算で、シミュレーション9タスクおよび実機5タスクにおいて最先端の性能を達成しました。未来観測を潜在表現として行動と密に結びつけることで、視覚表現が制御にとってより意味のある構造へと自己組織化されます。さらに、副産物として得られる未来一貫性誤差は、ロボットの安全性モニタリングや遠隔介入トリガーへの応用が期待されます。\n\n今後は、蒸留型や1ステップ型の高速行動生成手法との直接比較や、真にマルチモーダルな未来分岐を扱えるアーキテクチャへの拡張が期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「行動」だけでなく「その行動がもたらす未来の潜在表現」をペアで予測させることで、模倣学習ポリシーの性能が大きく底上げされる。",
+  "未来予測は別ブランチで行うのではなく、単一のTransformerスタック内で行動トークンと同じアテンション層を共有させることが決定的に重要。",
+  "行動予測タスク自体がアンカーとなるため、JEPAで厄介だったEMAターゲットエンコーダや分散正則化なしでも潜在表現の崩壊（collapse）を防げる。",
+  "推論レイテンシは13.2 ms（約76 Hz）と極めて低く、Diffusion Policy（439.5 ms）に対して実機展開時の大きなアドバンテージとなる。"
+ ],
+ "limitations_ja": [
+  "未来表現の予測が決定論的であるため、1つの観測から大きく異なる複数の未来が生じ得る高度にマルチモーダルな状況では目標が平均化される恐れがある。",
+  "未来一貫性誤差による失敗診断シグナルはタスクごとにキャリブレーションが必要であり、全タスクで共通の絶対安全閾値を設けることはできない。",
+  "実機検証は単一のロボットアーム・実験室環境（630試行）に限られており、大規模な実環境汎化性能については追加検証が必要。"
+ ],
+ "keywords": [
+  "Imitation Learning",
+  "JEPA",
+  "Diffusion-Free Policy",
+  "Visuomotor Control",
+  "Representation Learning",
+  "Minimal Iterative Policy"
+ ],
+ "id": "2609.09630",
+ "title": "JEPA Policy: Diffusion-Free Imitation Learning via Paired Action and Future Representation Prediction",
+ "authors": [
+  "Jie Xu",
+  "Kangjin Yu",
+  "Ziyi Jin",
+  "Junjie Gao",
+  "Liqing Chen",
+  "Yixian Li",
+  "Shuai Tian",
+  "Zhongpu Xia"
+ ],
+ "date": "2026-09-10",
+ "group": "general",
+ "tags": [
+  "imitation-learning",
+  "manipulation",
+  "world-model"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.09630",
+ "pdf_url": "https://arxiv.org/pdf/2609.09630",
+ "summary_ja": "重い計算負荷を要する拡散モデルに依存せず、行動チャンクと観測される未来特徴表現をペアの学習ターゲットとするJEPAベースの模倣学習手法。共有トランスフォーマー内で行動と未来表現トークンを相互作用させて洗練することで、シミュレーション9タスクにおいて従来手法を上回る成功率を達成した。",
+ "generated": "2026-09-10",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.09630"
+}
