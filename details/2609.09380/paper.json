@@ -1,0 +1,131 @@
+{
+ "title_ja": "AccelMPC: 小型ドローン向けの高速・低消費電力FPGA加速型モデル予測制御",
+ "tldr_ja": "アルゴリズムからFPGA回路、超軽量基板までを協調設計することで、35 gの極小ドローン上に1 kHzで動作する制約付きモデル予測制御（MPC）を完全オンボード実装し、動的障害物回避を実現しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "搭載されたFPGAによる1 kHzの完全オンボードMPCを用いた動的障害物回避実験の様子です。人が運ぶ障害物の接近をリアルタイムに検知し、制約境界を逐次更新することで、公称軌道を崩しながらも安全に回避して復帰しています。",
+  "caption": "Fig. 1: 1 kHz onboard dynamic obstacle avoidance. From left to right: (a) nominal trajectory before interaction, (b) the quadrotor approaches a moving obstacle, and (c) the quadrotor adapts its trajectory online to safely avoid the obstacle.",
+  "image": "details/2609.09380/F1.jpg"
+ },
+ "overview_ja": "手のひらサイズの超小型ドローン（マイクロエアビークル）は、狭小空間の点検や捜索救助などで強い期待を集めています。しかし、車体が小さく不安定なため、ミリ秒単位（キロヘルツ帯）の超高速フィードバック制御が不可欠です。システムダイナミクスと物理的制約を陽に考慮できるモデル予測制御（MPC）は非常に魅力的ですが、限られたマイコンの計算資源では、制約が有効になった際に最適化問題を解ききれず、制御レートを落とさざるを得ないという根本的な壁がありました。\n\nそこで著者らは、アルゴリズム・数値表現・ハードウェアマッピング・実機実装を垂直統合する「ハードウェア・アルゴリズム協調設計」というアプローチを思いつきました。具体的には、最適化手法であるADMM（交差方向乗数法）の線形方程式の解法を、パイプライン処理しやすい帯行列のコレスキー分解へと再設計。さらに32ビット固定小数点化や除算・乗算のシフト置換を徹底し、重量わずか6 gのFPGA拡張基板を自作して35 gのCrazyflieドローンに搭載しました。\n\n実機実験とベンチマークの結果、最先端の組み込みマイコン向けMPC（TinyMPC）と比較して最大15.6倍の高速化と195.4倍のエネルギー遅延積（EDP）改善を達成しました。実機飛行でも、人が動かす障害物を1 kHzの制御ループ内でリアルタイムに回避できることを実証しています。\n\nつまり本研究は、徹底した協調設計を行えば、極めて計算資源の乏しいエッジロボットでも本格的な制約付き最適化制御をリアルタイムに回せることを示した画期的な成果です。",
+ "contributions_ja": [
+  "ADMMの線形方程式をストリーミング処理可能な帯行列コレスキー分解へと再設計し、FPGA上で効率的にパイプライン化できる解法を構築したこと。",
+  "重量わずか6 gのカスタムFPGA拡張ボードを設計・製作し、高帯域SPI通信で市販超小型ドローンCrazyflieへの完全オンボード統合を実現したこと。",
+  "省電力性に優れたfull_sparseと、2万変数規模まで拡張可能なstagedという2つの相補的なFPGA実装方式を提案・比較したこと。",
+  "最先端マイコン比で最大15.6倍の高速化を達成し、35 gのドローン実機で1 kHzの制約付きオンボードMPCによる動的障害物回避を実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜ極小ドローンにFPGAが必要なのか？",
+   "summary_ja": "超小型ドローンの機敏な飛行には1 kHzオーダーの高速な状態フィードバックが不可欠ですが、搭載マイコンの処理能力では制約付きMPCを解ききれません。本論文では、アルゴリズムとFPGAハードウェアを一体で協調設計することでこの壁を破り、35 gのドローン上で完全オンボードの1 kHz MPCを実現しました。",
+   "details_ja": "手のひらサイズの超小型ドローンは、狭い配管の点検や崩壊現場の探査などへの応用が期待されています。しかし、機体が極めて軽くて小さいためダイナミクスが非常に速く不安定であり、安定して自律飛行させるには1 kHz近い超高レートのフィードバック制御が求められます。\n\n安全飛行のために入力制限や障害物との衝突制約を直接扱える手法としてモデル予測制御（MPC）がありますが、従来のマイコン（MCU）では計算が追いつきません。近年登場したキャッシュ型MPCソルバー「TinyMPC」でも、制約がアクティブになると最適化手法であるADMMの反復回数がかさみ、1 kHz周期内では1〜2回しか反復を回せないため、制御レートを大幅に落とさざるを得ませんでした。また、GPUや高性能CPUを積むと重さと消費電力がオーバーしてしまいます。\n\nそこで本研究「AccelMPC」が着目したのが、低消費電力で確定的（デターミニスティック）な並列計算が可能なFPGAです。アルゴリズム、数値表現、FPGA回路、そしてドローンに載せる専用基板までをまるごと垂直統合して協調設計することで、35 gの極小クアッドローター「Crazyflie」上で、1 kHzの完全オンボード制約付きMPCを実現しました。マイコン実装と比較して最大15.6倍の高速化と195.4倍のエネルギー遅延積（EDP）の改善を達成しています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "人が箱（障害物）を動かす環境下で、搭載されたFPGAが1 kHzで軌道をリアルタイムに再最適化して障害物を避ける様子です。 nominal（公称）軌道から滑らかに逸脱し、安全マージンを保って飛行しています。",
+     "caption": "Fig. 1: 1 kHz onboard dynamic obstacle avoidance. From left to right: (a) nominal trajectory before interaction, (b) the quadrotor approaches a moving obstacle, and (c) the quadrotor adapts its trajectory online to safely avoid the obstacle.",
+     "image": "details/2609.09380/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Background",
+   "heading_ja": "線形MPCとADMMの定式化",
+   "summary_ja": "離散化された線形MPC問題を状態と入力を交互に並べたスパースな二次計画問題（QP）として定式化します。これをADMM（交差方向乗数法）で解くことで、主問題更新を構造化された線形方程式の解法へ、双対問題更新を単純なクリッピング（射影）操作へと帰着させます。",
+   "details_ja": "### II-A Linear MPC Formulation\n本研究では、予測ホライズン $H$ の線形MPCを扱います。状態 $x_k \\in \\mathbb{R}^n$ と制御入力 $u_k \\in \\mathbb{R}^m$ に対し、二次形式のコスト関数とダイナミクスの等式制約、およびポリヘドラルな入力・状態制約を定義します。ここでの工夫は、状態と入力を時間ステップごとに交互に並べたベクトル $w$ を作ることです。こうすると各タイムステップ間の結合が局所的になり、大規模な制約行列 $M$ がブロック帯行列（対角線付近にのみ値を持つ疎行列）になります。行列 $P$ や $M$ はオフラインで固定され、障害物位置などの境界ベクトル $l, u$ のみが実行時に動的更新されます。\n\n### II-B ADMM for Solving the Linear MPC QP\nこの二次計画問題（QP）を解くために、凸最適化で広く使われるADMMを適用します。不等式制約 $l \\le Mw \\le u$ に対して補助変数 $y$ を導入し、$Mw - y = 0$ という等式制約付きの問題へと変形します。拡張ラグランジュ関数を構築することで、ADMMは以下の3ステップの繰り返しになります。\n- 1. $w$ の更新：線形方程式 $(P + \\rho M^\\top M) w = \\text{RHS}$ を解く。\n- 2. $y$ の更新：ボックス制約 $[l, u]$ への単純な射影（値のクリッピング）。\n- 3. 双対変数 $s$ の更新：残差を用いた単純な加減算。\n特に計算負荷の大部分を占めるのがステップ1の線形方程式の求解ですが、この方程式の係数行列が綺麗な帯行列構造を持っていることが、ハードウェアアクセラレーションへの大きな足がかりとなります。",
+   "figures": []
+  },
+  {
+   "heading": "III Related Work",
+   "heading_ja": "エッジMPCの限界とFPGA応用の現在地",
+   "summary_ja": "マイコン向けにはTinyMPCなどのキャッシュ型MPCが存在しますが、制約がアクティブになると反復数が足りなくなります。一方、従来のFPGAによるMPC研究はオフライン計算（Explicit MPC）やシミュレーション止まりで、超小型ドローンに搭載して閉ループ飛行させた例はありませんでした。",
+   "details_ja": "### III-A Embedded and Edge MPC Solvers\nロボティクス向けのエッジMPCソルバーとしては、CVXGENのようなコード生成系、OSQPのような汎用ファーストオーダー法、HPIPMやacadosといった構造最適化ソルバー、さらにはGPUを活用した超並列MPCなどが提案されてきました。しかし、Crazyflieのような30 g級の極小機体では、GPUどころか数ワットを消費するエッジCPUすら搭載できません。最近ではTinyMPCがリッカチ方程式の事前計算（キャッシング）を利用してマイコン上での実時間MPCを切り拓きましたが、障害物制約などが有効になってADMMの反復回数が増加すると、1 kHzどころか数百Hzの維持すら困難になるという限界がありました。\n\n### III-B FPGA-Based Linear MPC\nFPGAを用いたMPCの高速化も以前から研究されていますが、事前に制御則を領域分割して記憶しておく明示的MPC（Explicit MPC）であったり、消費電力が大きく巨大な評価ボードを用いたHIL（Hardware-in-the-Loop）シミュレーションや電力電子機器向けが中心でした。ドローンにFPGAを載せた先行例もニューラルネットワークによる推論にとどまり、「オンライン最適化を解くFPGAソルバーを超小型ドローンに積んで実際に自律飛行させた」研究はこれまで存在しませんでした。",
+   "figures": []
+  },
+  {
+   "heading": "IV Hardware-Algorithm Codesign",
+   "heading_ja": "アルゴリズムから基板まで：徹底した垂直統合",
+   "summary_ja": "FPGAのパイプライン処理に適合させるため、線形方程式を帯行列コレスキー分解で解くアルゴリズムを構築し、32ビット固定小数点で実装しました。さらに、重さわずか6 gのFPGAドーターボードを新規設計し、ドローンマイコンとの高速SPI通信を実現しています。",
+   "details_ja": "### IV-A Algorithm and Numerical Co-Design\nマイコン向けのTinyMPCはリッカチ方程式の後退・前進計算を用いますが、これは行列単位のループ依存性があり、FPGAのパイプライン化には不向きです。またGPUのように逆行列を丸ごと事前保持する手法は、組み込みFPGAのオンチップメモリ容量を超えてしまいます。\nそこで本研究では、係数行列 $P + \\rho M^\\top M$ の帯行列構造に着目し、そのコレスキー因子（帯幅 $h$）を事前計算しておく方式を採用しました。帯幅 $h$ はホライズン長に依存せず局所的な結合のみで決まるため、前進代入と後退代入がスカラ単位のストリーミング処理（スライディングウィンドウ型シフトレジスタ）として実装でき、計算量は変数数に対して線形 $\\mathcal{O}(N_{\\text{var}})$ にスケールします。\nさらに数値表現には32ビット固定小数点を採用しました。単精度浮動小数点と比較しても位置RMSEで約 $10^{-6}$ m 以下の差しか生じないことを確認しています。ペナルティ係数 $\\rho$ を2のべき乗に限定することで乗除算をビットシフトに置き換え、対角成分の逆数を保持しておくことでオンラインの除算器を完全に排除しました。\n\n### IV-B FPGA Datapath and Complementary Mappings\n制約処理の表現方法に関して、2つの相補的なアーキテクチャを実装しました。\n- **full_sparse**: 展開された疎行列演算子をオンチップメモリに保持する方式。実行時の再計算が不要で、解あたり最小のエネルギー消費を達成しますが、ホライズンが長くなるとメモリを圧迫します。\n- **staged**: ステージ単位のシステム行列のみを保持し、実行時に演算子を再生成する方式。メモリ消費が非常に少なく、同一FPGA上でホライズン $H=1350$（約2万変数）までスケール可能です。\n\n### IV-C Custom PCB Design and Integration\n市販のFPGA拡張デッキはリソース不足かI2C通信（低速）だったため、重量6 gの4層カスタム基板「Crazyflie_FPGA_Deck」を新造しました。AMD Artix-7 100T FPGAを搭載し、高効率PMICと100 MHzクロック、自律起動用SPIフラッシュを備えています。Crazyflieのマイコンとは高速SPIで直結し、状態推定値や動的制約境界を低遅延でFPGAに転送して制御入力を受け取ります。推定や安全ロジックはマイコンに残し、最適化計算のみをFPGAに丸投げするクリーンな機能分担を実現しました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "線形方程式の係数行列（左）と、それをコレスキー分解した下三角行列（右）のスパーシティパターンです。帯行列構造が完全に保たれており、スカラ単位のウィンドウ処理によってストリーミング代入が可能になります。",
+     "caption": "Fig. 2: Left: coefficient matrix of the $w$ -update. Right: corresponding Cholesky factor. The banded sparsity structure is preserved, enabling streaming forward and backward substitution with complexity scaling linearly in the number of optimization variables.",
+     "image": "details/2609.09380/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "開発された4層カスタムPCB（左）と、それを35 gのCrazyflie 2.1に搭載した様子（右）です。重量わずか6 gの基板上にAMD Artix-7 100T FPGAを実装し、機体の飛行性能を損なわずにオンボード接続できます。",
+     "caption": "Fig. 3: The 4 $\\times$ $3\\text{\\,}\\mathrm{cm}$ four-layer PCB hosts an AMD Artix-7 100T FPGA and mounts directly on the Crazyflie through the standard expansion interface. Left: fabricated FPGA board. Right: fully integrated onboard the tiny quadrotor.",
+     "image": "details/2609.09380/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Experimental Evaluation",
+   "heading_ja": "実機フライトと驚異のベンチマーク結果",
+   "summary_ja": "マイコン（TinyMPC）との比較で最大15.6倍の高速化と195.4倍のエネルギー遅延積改善を確認しました。実機飛行実験では、1 kHzのループ内で制約付きMPCを解き、仮想的な境界壁の遵守や、人間が持ち運ぶ段ボール箱（動的障害物）のオンライン回避に成功しました。",
+   "details_ja": "### V-A Methodology\n評価は3段階で行いました。(1) Crazyflie搭載マイコン（STM32F405, 168 MHz）上のTinyMPCとFPGA実装のベンチマーク比較、(2) full_sparseとstagedのトレードオフ評価、(3) モーションキャプチャ環境下でのCrazyflie Brushless 2.1実機による1 kHz閉ループ飛行です。\n\n### V-B Solver Benchmarks\nホライズン $H=10\\sim 80$ で比較した結果、1ステップ・1反復あたりの計算時間はTinyMPCの中央値52.3 $\\mu$sに対し、full_sparseは3.69 $\\mu$s、stagedは3.33 $\\mu$sと圧倒的でした。最大で15.6倍高速化され、解あたりの消費エネルギーは5.8〜14.0倍削減、エネルギー遅延積（EDP）は79.1〜195.4倍向上しました。1 kHz（1 ms）周期内で実行可能な最大ADMM反復数を見ると、マイコンは通信オーバーヘッドを含めずともホライズンが伸びると1反復すら回せなくなりますが、FPGAはSPI通信オーバーヘッド（100 $\\mu$s）を含めても十分な反復回数を確保でき、1 kHzの制約付きMPCが現実的なものとなりました。\n\n### V-C FPGA Architecture Tradeoffs and Scalability\nfull_sparseは短いホライズンで最も低消費電力ですが、BRAMやLUTRAMの制限により $H=90$ 付近でリソースが限界に達します。一方、stagedはメモリを劇的に節約できるため、$H=1350$（最適化変数21,612個、制約24,312個）という大規模問題でも同一FPGAで10反復を44.9 ms（秒間22回）で解くことができ、ドローン以外の一般的なロボット制御・プランニングにも適用可能なスケーラビリティを示しました。\n\n### V-D Onboard Flight Experiments\n- **制約なし8の字追従**: TinyMPC（$H=15$, 2反復, 500 Hz）とFPGA（$H=20$, 28反復, 500 Hz）を比較し、同等以上の良好な追従性能を確認しました。\n- **静的制約付き追従**: 正方形の境界内に飛行エリアを制限し、その境界を飛び出す星型軌道を参照値として入力しました。TinyMPCでは反復不足で解が破綻しますが、FPGA（$H=27$, 9反復, 1 kHz）は1 kHz周期内で厳密に境界を守りながら内側を追従飛行しました。\n- **動的障害物回避**: 2人の人間が動かす段ボール箱の位置を120 Hzで機体に送信しました。障害物を半空間の制約として定式化し、境界ベクトル $l, u$ のみを実行時に書き換えることで、FPGA回路を再構成することなく1 kHzでオンライン回避を継続し、通過後に公称軌道へと自動復帰させました。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "1 kHzのオンボード制約付きMPCによる星型軌道の追従実験結果です。点線の矩形領域（ボックス制約）を飛び出すオレンジの参照軌道が与えられていますが、ドローン（青線）は制約境界の内側をきれいに保ちながら飛行しています。",
+     "caption": "Fig. 8: Hardware demonstration of constrained trajectory tracking at 1 kHz. Box constraints on $x$ and $y$ are enforced fully onboard by the FPGA-accelerated MPC controller ( $H=27,k=9$ ). The trajectory remains within the admissible region despite a constraint-violating reference.",
+     "image": "details/2609.09380/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Conclusion and Future Work",
+   "heading_ja": "今後の展望：より過酷な環境とアグレッシブな飛行へ",
+   "summary_ja": "AccelMPCはFPGAとアルゴリズムの協調設計により、超小型ドローンでの1 kHz制約付きMPCを実現しました。今後は完全3次元空間での障害物回避やドローンレースのような極限飛行への拡張、さらには固定小数点精度の理論的な自動解析ツールの導入を目指します。",
+   "details_ja": "本研究では、オープンソースのFPGA加速線形MPCコントローラとカスタムPCBを組み合わせた「AccelMPC」を提案しました。従来の組み込みマイコン実装に対して最大15.6倍の高速化と195.4倍のEDP改善を達成し、35 gの極小クアッドローターで1 kHzの制約付き軌道追従・動的障害物回避ができることを証明しました。また、2万変数を超える大規模最適化問題にも同一アーキテクチャで対応可能であることを示しました。\n\n今後の課題として、複雑な3次元障害物が密集する環境でのオンライン再計画や、アクチュエータ限界を攻めるドローンレースのようなアグレッシブな飛行領域への拡張が挙げられています。このような状況では幾何学的・力学的な制約がより複雑になるため、本システムの高速計算能力がさらに真価を発揮するはずです。また、RoboPrecのような自動精度解析ツールを導入して固定小数点化による制約違反や制御性能への影響を理論的に保証し、さらなるビット幅削減による省リソース・省電力化を追究していく予定です。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "リッカチ方程式などの「マイコンで速いアルゴリズム」が、必ずしも並列パイプライン化を前提とする「FPGAで速いアルゴリズム」とは一致しないため、ハードウェアに合わせた再設計が決定打になる。",
+  "帯行列のコレスキー分解をストリーミング処理し、除算・乗算をシフトや事前逆数化で排除することで、FPGAの演算性能を限界まで引き出せる。",
+  "演算子を展開して低電力化する方式（full_sparse）と、動的生成してメモリを節約する方式（staged）を使い分けることで、エッジ制御から大規模プランニングまで柔軟に対応できる。",
+  "制約の法線方向を固定し、境界オフセット（$l, u$）のみを実行時更新する定式化にすれば、FPGAの事前キャッシュ構造を壊さずに動的障害物回避が可能になる。"
+ ],
+ "limitations_ja": [
+  "動的障害物回避において、障害物を半空間（固定法線の平面）で近似しているため、全方向からの複雑な3次元障害物に対しては制約の表現力に限界がある。",
+  "モデルが線形MPCに限定されており、機体が大きく傾くようなアグレッシブな非線形領域の飛行ダイナミクスを陽に扱うにはさらなる拡張が必要である。",
+  "障害物位置などのセンシング情報自体は外部のモーションキャプチャ（120 Hz）に依存しており、真の完全自律には搭載カメラ等によるオンボード自己位置・障害物推定との統合が残されている。"
+ ],
+ "keywords": [
+  "Model Predictive Control (MPC)",
+  "FPGA Acceleration",
+  "Hardware-Algorithm Co-Design",
+  "Alternating Direction Method of Multipliers (ADMM)",
+  "Micro Aerial Vehicles (MAV)"
+ ],
+ "id": "2609.09380",
+ "title": "AccelMPC: High-Rate, Low-Power FPGA-Accelerated Model Predictive Control for Tiny Drones",
+ "authors": [
+  "Andrea Grillo",
+  "Brian Plancher"
+ ],
+ "date": "2026-09-10",
+ "group": "general",
+ "tags": [
+  "drone",
+  "control",
+  "hardware"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.SY",
+  "eess.SY"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.09380",
+ "pdf_url": "https://arxiv.org/pdf/2609.09380",
+ "summary_ja": "計算資源が厳しく制限される超小型ドローン向けに、アルゴリズム、数値表現、ハードウェアマッピングを協調設計したFPGA実装のモデル予測制御（MPC）システム。FPGA加速型ADMMソルバを採用することで、高速な制御レートと極めて低い消費電力を両立し、機敏な飛行制御をエッジで実現した。",
+ "generated": "2026-09-10",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.09380"
+}
