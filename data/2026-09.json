@@ -1,6 +1,290 @@
 {
  "entries": [
   {
+   "date": "2026-09-11",
+   "rank": 0,
+   "id": "2609.11553",
+   "group": "focus",
+   "title": "CAP: Continuously Adaptive Perception-Blind Humanoid Locomotion via Learned Denoising",
+   "title_ja": "CAP: 学習型ノイズ除去による知覚欠損に頑健なヒューマノイド適応歩行制御",
+   "summary_ja": "実環境での深度センサ破損や遮蔽に対応するため、知覚あり歩行とブラインド歩行を統合する制御手法CAPを提案。部分的に破損した深度入力を復元するワールドモデルエンコーダをデノイザとして単一ステージで学習し、センサ劣化時でもポリシーの切り替えなしに連続的かつ適応的に不整地や障害物環境を踏破可能にした。",
+   "authors": [
+    "Hongjin Chen",
+    "Zijun Xu",
+    "Shihao Ma",
+    "Yi Zhao",
+    "Xilai Liu",
+    "Ke Ma",
+    "Wei Zhang",
+    "Chunyang Xie",
+    "Pengfei Li",
+    "Jieru Zhao",
+    "Wenchao Ding"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "humanoid",
+    "control",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.11553",
+   "image": "figures/2026-09-11/2609.11553.jpg"
+  },
+  {
+   "date": "2026-09-11",
+   "rank": 1,
+   "id": "2609.11733",
+   "group": "focus",
+   "title": "Reflex-Informed Neuromuscular Reinforcement Learning for Muscle-Driven Locomotion",
+   "title_ja": "筋駆動歩行のための反射誘導型神経筋強化学習",
+   "summary_ja": "生理学的妥当性と外乱適応性を両立する筋骨格歩行制御フレームワークを提案。位相依存型の反射コントローラを基礎機構とし、強化学習ポリシーが股関節スイング等の反射ゲインや閾値を調整する4つの残差パラメータを出力することで、筋力低下や外乱に対しても安定した生体類似歩行を実現する。",
+   "authors": [
+    "Jian Zhou",
+    "Xingyu Zhang",
+    "Rui Ma",
+    "Yu Cao",
+    "Shane Xie",
+    "Zhi-qiang Zhang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.GR",
+    "cs.LG"
+   ],
+   "tags": [
+    "locomotion",
+    "reinforcement-learning",
+    "control",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.11733",
+   "image": "figures/2026-09-11/2609.11733.jpg"
+  },
+  {
+   "date": "2026-09-11",
+   "rank": 2,
+   "id": "2609.11357",
+   "group": "focus",
+   "title": "Morphology-Aware Human Motion Retargeting for Wheeled-Humanoid Loco-Manipulation",
+   "title_ja": "車輪型ヒューマノイドの移動マニピュレーションに向けた形態適応型人体運動リターゲティング",
+   "summary_ja": "車輪型ベースと多関節上半身を持つヒューマノイド（Galaxea R1 Pro）向けに、SMPLX人体運動データを全身移動マニピュレーション動作へ変換する学習パイプラインを構築。下半身動作を車輪移動と胴体姿勢へ再配分し、物理シミュレーション環境で腕の操作性を損なわずに連動した全身協調動作を生成する。",
+   "authors": [
+    "Chenbo Xia",
+    "Chao Ye"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.11357",
+   "image": null
+  },
+  {
+   "date": "2026-09-11",
+   "rank": 3,
+   "id": "2609.11270",
+   "group": "focus",
+   "title": "Beyond Noise Steering: Dual-Latent Space Reinforcement Learning for Generative Robot Policy",
+   "title_ja": "デュアル潜在空間強化学習による生成ロボットポリシーの表現制御",
+   "summary_ja": "事前学習済み生成ポリシーに対し、従来の初期ノイズ誘導だけでなく内部表現の変調を可能にする強化学習手法DLSRLを提案。方策ネットワークが初期ノイズ用と行動表現用の2つの潜在変数を予測して凍結生成モデルを誘導することで、表現の崩壊を防ぎながら効率的かつ高精度なタスク適応を達成する。",
+   "authors": [
+    "Pengfei Zhang",
+    "Teng Sun",
+    "Xianchao Xiu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.11270",
+   "image": "figures/2026-09-11/2609.11270.jpg"
+  },
+  {
+   "date": "2026-09-11",
+   "rank": 4,
+   "id": "2609.11059",
+   "group": "focus",
+   "title": "Gait-Dependent Effects on Quadruped Locomotion for Load-Carrying using Passive Mechanism",
+   "title_ja": "受動機構を用いた四脚ロボットの荷物運搬における歩容依存影響の解析",
+   "summary_ja": "四脚ロボットが受動アーム機構で積載物を運搬する際のインピーダンス特性と歩容の結合ダイナミクスをシミュレーション上で解析。クロール歩容下では不足減衰設定が関節振動を増大させZMPマージンを低下させることを明示し、運搬安定性に適した剛性・減衰パラメータ選定の指針を示した。",
+   "authors": [
+    "Giovanni B. Dessy",
+    "Claudio Semini",
+    "Victor Barasuol"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "control",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.11059",
+   "image": "figures/2026-09-11/2609.11059.jpg"
+  },
+  {
+   "date": "2026-09-11",
+   "rank": 5,
+   "id": "2609.11753",
+   "group": "general",
+   "title": "SEED-UMI: Sharing the Exoskeleton between human and robot for onE-to-one Dexterous demonstration",
+   "title_ja": "SEED-UMI: 人とロボットが同一外骨格を共有する高忠実度巧緻デモンストレーション",
+   "summary_ja": "器用なハンド操作の模倣学習において、人とロボットが完全に同一の外骨格デバイスを装着するデータ収集基盤を提案。エンコーダ値や手首カメラの視点を直接共有することで実施形態間の幾何・運動学的ギャップを解消し、接触リッチな作業データをリターゲティング誤差なしに直接方策学習へ適用可能にした。",
+   "authors": [
+    "Tengbo Yu",
+    "Jiahao Wu",
+    "Daohan Li",
+    "Bingxu Chen",
+    "Hao Liu",
+    "Xiaojian Ma",
+    "Hangxin Liu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "teleoperation",
+    "imitation-learning",
+    "grasping",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.11753",
+   "image": "figures/2026-09-11/2609.11753.jpg"
+  },
+  {
+   "date": "2026-09-11",
+   "rank": 6,
+   "id": "2609.10915",
+   "group": "general",
+   "title": "IMLE-VLA: Fast Single-Step Action Generation for Vision-Language-Action Policies",
+   "title_ja": "IMLE-VLA: VLAポリシーのための単一ステップ高速行動生成",
+   "summary_ja": "反復的な拡散サンプリング（10ステップ等）に依存するVLAのアクションヘッドを、条件付き暗黙的最大尤度推定（cIMLE）に基づく単一ステップ生成器へと置換。マルチモーダルな行動分布の表現力を維持したまま推論ボトルネックを解消し、ロボットの円滑な動作とタスク遂行時間の短縮を実現した。",
+   "authors": [
+    "Kian Hosseinkhani (Simon Fraser University)",
+    "Qinhe Peng (University of Pennsylvania)",
+    "George Shramko (Simon Fraser University)",
+    "Mehran Aghabozorgi (Simon Fraser University)",
+    "Jianing Qian (University of Pennsylvania)",
+    "Tristan Engst (Simon Fraser University)",
+    "Alireza Moazeni (Simon Fraser University)",
+    "Dinesh Jayaraman (University of Pennsylvania)",
+    "Ke Li (Simon Fraser University",
+    "Canada CIFAR AI Chair)"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.10915",
+   "image": "figures/2026-09-11/2609.10915.jpg"
+  },
+  {
+   "date": "2026-09-11",
+   "rank": 7,
+   "id": "2609.11697",
+   "group": "general",
+   "title": "ActSafeGuard: Differentiable and Training-Aligned Constraint Enforcement for Flow-Matching Policies",
+   "title_ja": "ActSafeGuard: フローマッチング方策に向けた微分可能かつ訓練整合的な制約充足レイヤー",
+   "summary_ja": "ロボット用フローマッチング方策において、推論時のみの修正や事後ペナルティに起因する訓練と実行の不整合を解決するActSafeGuardを提案。厳密なハード制約を微分可能なレイヤーとして方策学習ループ内に直接統合し、推論時の安全性を保証しつつ学習効率を向上させる。",
+   "authors": [
+    "Jianming Ma",
+    "Rongjun Jin",
+    "Xiaxi Si",
+    "Yang Zhang",
+    "Yiheng Li",
+    "Yue Gao"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "safety",
+    "control",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.11697",
+   "image": "figures/2026-09-11/2609.11697.jpg"
+  },
+  {
+   "date": "2026-09-11",
+   "rank": 8,
+   "id": "2609.11445",
+   "group": "general",
+   "title": "FARM: Reading Failure Signals from the Internal Predictive States of a Frozen Robotic World Model",
+   "title_ja": "FARM: 凍結ロボットワールドモデルの内部予測状態からの失敗兆候読み出し",
+   "summary_ja": "事前学習済みワールドモデル（VLA-JEPA）の内部潜在状態から、タスク失敗の兆候を直接デコードする軽量監視層FARMを提案。わずか約3.4万パラメータのヘッドを凍結状態の上に追加するだけで、7タスク評価でAUROC 85.68%を達成し、高精度なオンライン失敗監視を実現する。",
+   "authors": [
+    "Haoran Pei",
+    "Mingrui Luo",
+    "Senbao Wang",
+    "Haoran Lv",
+    "Jie Guo",
+    "Sheng Zhong",
+    "Ruixi Ci"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "safety",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.11445",
+   "image": "figures/2026-09-11/2609.11445.jpg"
+  },
+  {
+   "date": "2026-09-11",
+   "rank": 9,
+   "id": "2609.10895",
+   "group": "general",
+   "title": "ReactHuman: A Physics-Grounded Benchmark for Human-Like Reactive Decision-Making in Embodied Multimodal LLMs",
+   "title_ja": "ReactHuman: Embodied MLLMにおける人間的即時反応意思決定の物理ベンチマーク",
+   "summary_ja": "滑り落ちる皿のキャッチや落下物の回避など、突発的な物理的危険に対するMLLMの即時反応能力をシミュレーション環境で評価するベンチマークReactHumanを提案。従来の受動的動画QAとは異なり、知覚から安全重視の物理的行動生成までを直接テストする基盤を提供する。",
+   "authors": [
+    "Yizhan Li",
+    "Jianxin You",
+    "Mengyang Xiong",
+    "Yinhuan Chen",
+    "Zicheng Zhao",
+    "Dekun Wu",
+    "Dongqing Zhang",
+    "Bang Liu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "benchmark",
+    "safety",
+    "llm-agent",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.10895",
+   "image": null
+  },
+  {
    "date": "2026-09-10",
    "rank": 0,
    "id": "2609.09918",
