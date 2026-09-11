@@ -1,0 +1,104 @@
+{
+ "title_ja": "デュアル潜在空間強化学習による生成ロボットポリシーの表現制御",
+ "tldr_ja": "事前学習済みの生成型ロボットポリシーを凍結したまま、初期ノイズだけでなく中間特徴量への注入も同時に強化学習で最適化する「DLSRL」を提案し、オンライン適応の速度と精度を大幅に向上させました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "既存のDSRLと提案手法DLSRLの比較。(a)のDSRLが初期ノイズ $\\mathbf{z}_t$ のみを誘導するのに対し、(b)のDLSRLは初期ノイズ $\\mathbf{z}_t$ と中間表現用の潜在変数 $\\mathbf{u}_t$ を同時に出力し、アダプターを介して生成器の行動トークンの隠れ層に注入することで、より直接的できめ細やかな行動制御を実現しています。",
+  "caption": "Fig. 1: Comparison of our DLSRL and existing DSRL, where (a) DSRL learns an observation-conditioned initial-noise latent variable $\\mathbf{z}_{t}$ to steer action generation. (b) DLSRL produces the initial-noise latent variable $\\mathbf{z}_{t}$ and an action-representation latent variable $\\mathbf{u}_{t}$ , and the adapter feature mapper $\\mathcal{A}_{\\omega}$ transforms $\\mathbf{u}_{t}$ into an adapter feature $\\mathbf{f}_{t}$ that modulates the intermediate action-token hidden states.",
+  "image": "details/2609.11270/F1.jpg"
+ },
+ "overview_ja": "Diffusion Policy（拡散ポリシー）やFlow-matching（フローマッチング）を用いた生成型のロボットポリシーは、人間のデモから多様で滑らかな行動を生成できるため、近年大きな注目を集めています。しかし、環境の変化や新しいタスクに適応させようとする際、巨大なモデル全体をオンライン強化学習（RL）でファインチューニングするのは計算コストが重すぎます。\n\nそこで注目されているのが、事前学習済みモデル本体を完全に凍結（フリーズ）したまま、行動生成の初期値となるノイズ空間をRLで誘導する「DSRL」のようなアプローチです。ただ、ここに大きな落とし穴がありました。初期ノイズをいくら工夫しても、生成プロセスの途中にある中間表現までは直接コントロールできません。そのため、接触位置の微小なズレや微妙な力加減といった、局所的で精密な修正がうまく効かないという限界があったのです。\n\nこの課題を解決するために著者らが提案したのが「DLSRL（Dual-Latent Space Reinforcement Learning）」です。発想はとてもスマートで、「大まかな振る舞いを決める初期ノイズ」と「生成途中の特徴量を調整する中間表現」の2つの潜在変数を同時にRLで学習してしまおう、という二重制御アプローチをとっています。\n\nシミュレーション環境（RoboMimicおよびLIBERO）で実験したところ、DLSRLは初期ノイズのみを誘導する従来手法に比べて適応スピードが劇的に加速し、より少ない試行回数で高いタスク成功率を達成できることが分かりました。",
+ "contributions_ja": [
+  "事前学習済みの生成器を凍結したまま、初期ノイズと行動中間表現の両方を同時に強化学習で最適化する「二重潜在空間強化学習（DLSRL）」を提案した。",
+  "中間表現の潜在変数を軽量アダプター経由で行動トークンの隠れ層に残差接続として直接注入する、モデル構造を壊さないモジュレーション機構を開発した。",
+  "行動空間Criticの推定値を潜在空間Criticへ蒸留する学習アルゴリズムにより、生成ステップを逆伝播することなく効率的にActorを最適化可能にした。",
+  "Diffusion Policy（RoboMimic）とFlow-matchingベースのVLAモデル $\\pi_0$（LIBERO）の双方で、オンライン適応の大幅な高速化と高いタスク達成効率を実証した。"
+ ],
+ "sections": [
+  {
+   "heading": "I INTRODUCTION",
+   "heading_ja": "なぜ初期ノイズの操作だけでは足りないのか？",
+   "summary_ja": "生成型ポリシーは強力ですが、下流タスクへのオンライン適応には課題があります。既存の外部誘導手法は初期ノイズの操作や生成後の残差付加にとどまっており、生成途中の表現を直接制御する仕組みが欠けていました。",
+   "details_ja": "視覚・言語・行動を統合したVLA（Vision-Language-Action）モデルやDiffusion Policyは、大規模なデータから行動の事前知識（Action Prior）を獲得できます。これらはノイズから行動系列を一括生成することで、マルチモーダルで滑らかなロボット操作を実現しています。\n\nしかし、学習時と異なる環境で動かす場合、閉ループ制御の過程で小さな誤差が蓄積し、タスク失敗に繋がります。数十億パラメータを持つ巨大モデルをオンラインでフルファインチューニングするのは計算上困難ですし、限られたデモデータでのLoRA等のオフライン適応だけでは動的な誤差に対処しきれません。\n\nそこでベースポリシーを凍結したまま強化学習で外側から誘導する手法が研究されてきました。代表例がDSRLです。DSRLは観測に応じた「初期ノイズ」を学習して生成器に渡すことで、モデル本体を更新せずに行動のモードを切り替えます。また、生成された行動に直接オフセットを加えるResidual RLのようなアプローチもあります。\n\nここがポイントなのですが、これまでの手法は行動生成の「最初（初期ノイズ）」か「最後（出力行動）」しか触っていませんでした。初期ノイズを変えても、その後の生成ステップで表現がどう変化するかまでは間接的にしか操れません。画像生成の分野（ControlNetなど）では中間層への特徴量注入が成功していますが、これをロボットのオンライン強化学習フィードバックと組み合わせた手法はありませんでした。\n\nそこで本論文では、初期ノイズの制御と行動トークンの中間隠れ層の変調を同時に行う「DLSRL」を提案しています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "DSRLとDLSRLの構成の違い。(a)の既存手法DSRLは初期ノイズ $\\mathbf{z}_t$ だけを最適化して生成器を誘導しますが、(b)のDLSRLは初期ノイズ $\\mathbf{z}_t$ に加えて中間表現用の潜在変数 $\\mathbf{u}_t$ を同時に出力し、アダプターを介して行動トークンの隠れ層に直接注入します。",
+     "caption": "Fig. 1: Comparison of our DLSRL and existing DSRL, where (a) DSRL learns an observation-conditioned initial-noise latent variable $\\mathbf{z}_{t}$ to steer action generation. (b) DLSRL produces the initial-noise latent variable $\\mathbf{z}_{t}$ and an action-representation latent variable $\\mathbf{u}_{t}$ , and the adapter feature mapper $\\mathcal{A}_{\\omega}$ transforms $\\mathbf{u}_{t}$ into an adapter feature $\\mathbf{f}_{t}$ that modulates the intermediate action-token hidden states.",
+     "image": "details/2609.11270/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II RELATED WORK",
+   "heading_ja": "生成型ポリシーと適応手法の現在地",
+   "summary_ja": "ロボット向け生成ポリシー、強化学習による外部誘導手法、そして画像生成で発展した中間層アダプターという3つの研究潮流を整理し、DLSRLがどこに位置づけられるかを明確にしています。",
+   "details_ja": "関連研究は大きく3つのカテゴリに分かれます。\n\n### II-A 生成型ロボットポリシー\nロボットのマルチモーダルな振る舞いをモデル化するため、デノイジングプロセスを用いるDiffusion Policyや、確率的な輸送過程を学習するFlow-matchingが広く使われています。最近ではRDT-1Bや $\\pi_0$ のように、大規模な基盤モデルの行動ヘッドとしてこれらの生成モデルを統合するVLAアーキテクチャが主流になりつつあります。本論文の手法は、これら拡散モデルとフローマッチングモデルの双方にそのまま適用できる汎用性を持っています。\n\n### II-B オンラインポリシー誘導\n凍結された生成モデルをオンラインで適応させる手法としては、ダイナミクスモデルで軌道を補正するDynaGuideや、観測に応じた初期ノイズを強化学習するDSRL、人の介入操作からノイズ空間を逆算するUniSteerなどがあります。また、最終的な出力行動に補正値を足し合わせるResidual RLもあります。しかしこれらは生成プロセスの境界部分（始点または終点）で介入しているに過ぎず、ネットワーク内部で行動トークンがどう形成されるかには直接関与していません。\n\n### II-C 中間表現アダプター\nモデルの大部分を凍結して少数のパラメータだけを調整する手法として、画像生成分野ではControlNetやT2I-Adapterが有名です。これらは外部条件を中間層に注入して画像を制御します。しかし、これらは事前に用意された条件画像などを用いたオフライン学習を前提としています。DLSRLは、この「中間層への注入」という発想をロボットのオンライン強化学習へと拡張し、環境からの報酬シグナルで低次元の潜在変数を直接学習させる点に新規性があります。",
+   "figures": []
+  },
+  {
+   "heading": "III PROPOSED METHOD",
+   "heading_ja": "二重の潜在空間で生成プロセスを巧みに操る仕組み",
+   "summary_ja": "DLSRLの全体構成とアルゴリズムを解説しています。Actorが初期ノイズと中間表現用の2つの潜在変数を出力し、アダプターを介して行動トークンに残差注入します。価値蒸留（Value Distillation）を用いることで、生成器のパラメータに勾配を流すことなく安定して学習できます。",
+   "details_ja": "手法のコアとなる数式とメカニズムを見ていきましょう。\n\n### III-A 問題設定\nロボット操作をマルコフ決定プロセス（MDP）として定式化します。時刻 $t$ において観測 $o_t$（画像、関節状態、指示文など）を受け取り、ポリシーは長さ $H$ の行動チャンク $\\mathbf{a}_t \\in \\mathbb{R}^{H \\times d_a}$ を生成します。ベースとなる生成ポリシー $G_\\phi$ はオフラインデモで事前学習されており、そのパラメータ $\\phi$ は完全に凍結します。目標は、モデル本体をいじらずにオンライン強化学習で累積報酬を最大化する軽量な制御モジュールを学習することです。\n\n### III-B 二重潜在空間Actor（Dual-Latent Actor）\n従来のノイズ誘導では、現在の観測から初期ノイズ $\\mathbf{z}_t$ だけを出力していました。DLSRLではActorネットワーク $\\pi_\\theta$ を拡張し、観測 $o_t$ から初期ノイズ潜在変数 $\\mathbf{z}_t$ と中間表現潜在変数 $\\mathbf{u}_t$ の両方を同時に出力します：\n$$(\\mathbf{z}_t, \\mathbf{u}_t) \\sim \\pi_\\theta(\\cdot \\mid o_t)$$\nそして、軽量なアダプター特徴マッパー $\\mathcal{A}_\\omega$ を通して $\\mathbf{u}_t$ をアダプター特徴量 $\\mathbf{f}_t$ に変換します（$\\mathbf{f}_t = \\mathcal{A}_\\omega(\\mathbf{u}_t)$）。\nつまり、$\\mathbf{z}_t$ で大まかな行動モードを選び、$\\mathbf{f}_t$ で生成途中の表現をきめ細かくチューニングする、という役割分担です。\n\n### III-C 行動トークン隠れ層へのモジュレーション\nベースポリシー内のTransformerブロックに追加の学習可能層を挟むことはしません。特定のTransformerブロック $l$ において、出力された行動トークンの隠れ状態 $\\mathbf{H}_{t,k}^{(l)}$ に対し、スケーリングしたアダプター特徴量を残差接続（加算）するだけです：\n$$\\widetilde{\\mathbf{H}}_{t,k}^{(l)} = \\mathbf{H}_{t,k}^{(l)} + \\lambda_{\\mathrm{inj}} \\mathbf{f}_t$$\nここで $\\lambda_{\\mathrm{inj}}$ は注入強度を表すハイパーパラメータです。注目すべきは、この注入を「行動トークン」の位置にのみ適用し、画像や言語のトークンには一切触れない点です。また、すべての生成更新ステップ（拡散のノイズ除去やフローマッチングの積分ステップ）で同一の $\\mathbf{f}_t$ を共有するため、極めて軽量に動作します。\n\n### III-D 二重潜在空間ポリシーの最適化（価値蒸留）\nデノイジングプロセスを通してエンドツーエンドで勾配を逆伝播させるのは計算コストが莫大になります。そこで、先行研究DSRLのアイデアを発展させた「価値蒸留」を採用しています。\nまず、環境とのオンラインインタラクションデータを用いて、行動空間Critic $Q^{\\mathrm{act}}_\\psi(o_t, \\mathbf{a}_t)$ を通常のTD学習で訓練します。次に、その価値推定値を潜在空間Critic $Q^{\\mathrm{lat}}_\\nu(o_t, \\mathbf{z}_t, \\mathbf{f}_t)$ に蒸留します：\n$$\\mathcal{L}_Q(\\nu) = \\mathbb{E} \\left[ \\left( Q^{\\mathrm{lat}}_\\nu(o_t, \\hat{\\mathbf{z}}_t, \\hat{\\mathbf{f}}_t) - \\operatorname{sg}\\left[ Q^{\\mathrm{act}}_\\psi(o_t, \\hat{\\mathbf{a}}_t) \\right] \\right)^2 \\right]$$\nここで $\\operatorname{sg}[\\cdot]$ は勾配停止です。この蒸留により、潜在空間Criticは生成プロセスを介さずに $\\mathbf{z}_t$ と $\\mathbf{f}_t$ の良し悪しを直接評価できるようになります。\n最後に、Actor $\\pi_\\theta$ とアダプター $\\mathcal{A}_\\omega$ は、潜在空間Criticの出力を最大化するようにエントロピー正則化付きの目的関数で更新されます。デプロイ時には両方のCriticを捨て、Actorとアダプターマッパーだけを使えば良いため、推論も非常に高速です。",
+   "figures": []
+  },
+  {
+   "heading": "IV Numerical Experiments",
+   "heading_ja": "実験で検証：適応速度と表現制御の効果はどう現れたか",
+   "summary_ja": "RoboMimicとLIBEROの環境で、Diffusion PolicyおよびFlow-matchingベースの $\\pi_0$ を用いて評価を行いました。DLSRLは従来手法に比べて初期〜中期の適応速度が圧倒的に速く、タスク完了までのステップ数も短縮できることを示しました。",
+   "details_ja": "提案手法の有効性を検証するため、複数のタスクと生成アーキテクチャで実験を行っています。\n\n### IV-A オンライン適応速度の向上（RoboMimic）\nRoboMimicの3つのタスク（Lift, Can, Square）において、4層のTransformerブロック（隠れ次元128、チャンク長4）を持つ事前学習済みDiffusion Policyを凍結して適応させました。ベースラインとして、Base Policy（未適応）、JSRL、DPPO（ポリシー勾配による直接更新）、DSRL（初期ノイズのみ誘導）と比較しています。\n結果、すべてのタスクでDLSRLが初期から中期にかけて最も急激な性能向上を示しました。特に高い精度が求められるCanタスクでは、DSRLが最終的に約90%の成功率にとどまったのに対し、DLSRLは終盤に約99%の成功率に達しました。比較的簡単なLiftタスクではDSRLも最終的に追いつきますが、DLSRLははるかに早い段階で飽和レベルに到達しています。DPPOは適応速度が遅く、JSRLは安定した向上を示せませんでした。\n\n### IV-B フローマッチング型VLAモデル（$\\pi_0$）への適用（LIBERO）\nLIBEROの6つのタスク（Stove-On, CreamCheese-to-Tray, WineBottle-to-Rackなど）において、大規模VLAモデル $\\pi_0$ のバックボーンと行動生成部を凍結して評価しました。\nここでもDLSRLは、初期ノイズ誘導のみを行うDSRLに対して明確な優位性を示しました。より少ない試行回数で高い成功率に到達するだけでなく、タスク完了までの平均エピソード長（TABLE I）を6つのタスクすべてで短縮することに成功しました。これは、無駄のない効率的なマニピュレーション軌道が生成できていることを意味します。\n\n### IV-C アブレーション研究：なぜ表現制御が効くのか？\n- **中間表現制御単体の効果（DLSRL-Rep）**：初期ノイズの学習を無効化し、中間表現のモジュレーションのみを学習させたところ、Canタスクの成功率はベースポリシーの約27%から約52%へと着実に向上しました。これにより、中間表現の調整だけでも十分な改善能力があり、ノイズ誘導と組み合わせることで相乗効果が生まれることが証明されました。\n- **注入強度 $\\lambda_{\\mathrm{inj}}$ の影響**：$\\lambda_{\\mathrm{inj}} \\in \\{0, 0.03, 0.06, 0.09\\}$ で比較したところ、値が大きければ良いというわけではないことが分かりました。$\\lambda_{\\mathrm{inj}}=0.09$ は初期の立ち上がりが最速ですが後半に乱高下し、$\\lambda_{\\mathrm{inj}}=0.03$ は安定しているものの向上が緩やかでした。バランスが良いのは $\\lambda_{\\mathrm{inj}}=0.06$ で、安定して最終的に100%の成功率を達成しました。事前学習された表現を壊しすぎない「適度な注入」が鍵となります。",
+   "figures": []
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "凍結された生成型ポリシーに対する二重潜在空間強化学習（DLSRL）の有効性が確認されました。今後は実機環境での検証や、どの層・どのステップに注入すべきかといった構造的探求が期待されます。",
+   "details_ja": "本論文では、事前学習済みの生成型ロボットポリシーを凍結したまま、オンライン環境に素早く適応させるための新しいフレームワーク「DLSRL」を提案しました。\n従来の初期ノイズ誘導に加え、Transformerの行動トークン隠れ層に対する軽量なアダプター注入を同時に強化学習することで、大局的な行動選択と局所的な軌道修正の両立を可能にしました。RoboMimicおよびLIBEROにおける実験では、適応速度の大幅な加速と高いタスク効率が確認されています。\n\n今後の展望として著者らは、シミュレーションにとどまらない実実機ロボット環境での検証を挙げています。また、今回は単一の強度で特定層に共通のアダプターを注入していましたが、どの層に注入するのが最適か、ステップごとに異なる特徴量を注入すべきかなど、より詳細なモジュレーション設計の探索が今後の面白い研究テーマになりそうです。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "巨大な生成型ポリシーを凍結したまま適応させるには、「初期ノイズの制御（大まかな挙動選択）」と「中間表現の制御（局所的な軌道修正）」を組み合わせるのが非常に効果的。",
+  "行動トークンのみにアダプター特徴量を残差注入することで、ベースモデルの構造や重みを一切変更せずに強化学習のインターフェースを追加できる。",
+  "行動空間Criticから潜在空間Criticへの価値蒸留を活用すれば、多段階のデノイジング過程を通じた高コストな逆伝播を行わずにActorを最適化できる。",
+  "中間層への注入強度（$\\lambda_{\\mathrm{inj}}$）にはスイートスポットが存在し、強すぎると学習が不安定になるため注意が必要。"
+ ],
+ "limitations_ja": [
+  "検証がRoboMimicやLIBEROなどのシミュレータ環境のみで行われており、実機ロボット特有のセンサノイズやダイナミクス環境での有効性はまだ実証されていない。",
+  "アダプター特徴量をどのTransformer層に注入すべきか、全ステップ共通で良いかなどの詳細なハイパーパラメータ探索がまだ限定的である。",
+  "注入強度 $\\lambda_{\\mathrm{inj}}$ の値によって学習の安定性と収束速度が敏感に変化するため、タスクに応じた調整が必要になる。"
+ ],
+ "keywords": [
+  "Generative Robot Policy",
+  "Diffusion Policy",
+  "Flow Matching",
+  "Reinforcement Learning",
+  "Dual-Latent Space",
+  "Parameter-Efficient Adaptation"
+ ],
+ "id": "2609.11270",
+ "title": "Beyond Noise Steering: Dual-Latent Space Reinforcement Learning for Generative Robot Policy",
+ "authors": [
+  "Pengfei Zhang",
+  "Teng Sun",
+  "Xianchao Xiu"
+ ],
+ "date": "2026-09-11",
+ "group": "focus",
+ "tags": [
+  "reinforcement-learning",
+  "control",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.11270",
+ "pdf_url": "https://arxiv.org/pdf/2609.11270",
+ "summary_ja": "事前学習済み生成ポリシーに対し、従来の初期ノイズ誘導だけでなく内部表現の変調を可能にする強化学習手法DLSRLを提案。方策ネットワークが初期ノイズ用と行動表現用の2つの潜在変数を予測して凍結生成モデルを誘導することで、表現の崩壊を防ぎながら効率的かつ高精度なタスク適応を達成する。",
+ "generated": "2026-09-11",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.11270"
+}
