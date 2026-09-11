@@ -1,0 +1,161 @@
+{
+ "title_ja": "車輪型ヒューマノイドの移動マニピュレーションに向けた形態適応型人体運動リターゲティング",
+ "tldr_ja": "脚のない車輪型ヒューマノイド（Galaxea R1 Pro）に対し、人間の下半身動作を平面台車と直列胴体関節に巧みに再配分することで、しゃがみや移動を伴う多様な動作を物理シミュレーション上で追従可能にしました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "提案手法を用いて21種類の動作（A〜U）を車輪型ロボットGalaxea R1 Proにリターゲティングした様子です。緑色の骨格（脚式ロボットG1への適用結果）と比較しても、脚が存在しないR1 Proが台車移動や胴体の折り曲げを駆使して人間の意図した全身姿勢を忠実に再現できていることが分かります。",
+  "caption": "Figure 2: Representative center-frame snapshots for the fixed A–U GMR baseline set, arranged in six rows and four columns (U occupies the first cell of the last row). Each cell shows the IK-only R1 Pro result and the green G1 result from the original GMR code at the same reference frame; the 21 motions correspond directly to Table 3 . Red dots in C, G, H, and K mark smooth squat-mode entry.",
+  "image": "details/2609.11357/F2.jpg"
+ },
+ "overview_ja": "近年、人間のモーションキャプチャデータからヒューマノイドロボットの動作を生成するリターゲティング技術が注目を集めています。しかし、先行研究の多くはUnitree G1などの2脚ヒューマノイドを対象としており、脚関節を持たない「車輪型ヒューマノイド」にはそのまま適用できませんでした。例えば、Galaxea R1 Proのようなロボットは、3輪オムニベースの上に4自由度の直列胴体と2本の7自由度アームが載った構造をしています。そのため、人間のように膝を曲げてしゃがむことができず、従来のフレームワーク（GMRなど）を直接適用すると、脚の踏み出し動作を台車に無理に写そうとして激しく転倒してしまいます。\n\nそこで著者らは、人間の下半身の動きを「平面台車の並進・旋回」と「4自由度胴体の折り曲げ」へと適応的に再配分するエンドツーエンドのパイプラインを開発しました。立位での歩行時は骨盤を基準に台車を動かしつつ腕を振る一方、しゃがみ動作では膝の高さ変化を検出し、シグモイド関数で滑らかに胴体を折りたたむモードへと遷移させます。さらに、腕の幾何構造を崩さないための肩基準の階層スケーリングや、事前に転倒リスクの高い動作を弾くFeasibilityフィルタリングを導入しました。\n\n物理シミュレーション（Isaac Lab）での追従には、21次元のコンパクトな行動空間（仮想台車3次元＋上半身18次元）を持つPPO強化学習ポリシーと、3輪の操舵・駆動指令へと変換するベースデコーダを採用しました。検証の結果、大規模データセットから抽出した多様な動作において、16試行中15試行で転倒せず安定して追従できることを確認し、車輪型ヒューマノイドにおける大規模データ駆動型全身制御の実現性を示しました。",
+ "contributions_ja": [
+  "人間の体型差を標準化しつつ車輪台車の非可観測な絶対高さを取り除く、正規化前処理を提案したこと",
+  "骨盤から肩までの構造的差異を吸収する肩基準の階層スケーリングと、膝高さに基づく滑らかな胴体代替機構を開発したこと",
+  "転倒回復が不可能な車輪型ロボットのために、COM/ZMP等を用いた厳格なFeasibilityフィルタリングを構築したこと",
+  "ポリシーに直接6つの車輪関節を出力させず、仮想平面台車指令をデコーダで変換することで学習を安定化させたこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "脚のないヒューマノイドに、どうやって人間の動きを教えるか？",
+   "summary_ja": "脚式ヒューマノイド向けのリターゲティング手法は車輪型には直接使えません。脚関節を持たないGalaxea R1 Proに対し、下半身の動作を台車と胴体に再配分する設計思想とパイプラインの全体像を提示しています。",
+   "details_ja": "人間の動作データセット（AMASSなど）は、ヒューマノイドの全身制御にとって非常に価値の高いリソースです。最近の研究では、モーションキャプチャや単眼カメラから得た人体姿勢をIK（逆運動学）や強化学習（RL）でロボットに追従させる技術が進展しています。しかし、その多くは2脚ロボットを前提としています。\n\n本研究が対象とする「Galaxea R1 Pro」は、平面上を移動する3輪ベース、4自由度の直列胴体、そして2本の7自由度アームを持ちますが、膝や足首といった脚の関節が一切ありません。つまり、人間がしゃがむ動作をそのまま関節角度としてコピーすることが不可能です。ロボットは「台車の水平移動」「胴体の折り曲げ」「上半身の姿勢」をうまく組み合わせて、手先作業の幾何関係を保ちながら動作を代替しなければなりません。\n\nここで2つの大きな課題が生じます。1つ目は、人間の骨盤から肩までのリンク構造とロボットの構造が全く異なるため、単純に全体をスケーリングすると手先位置が破綻することです。2つ目は、通常の全身IKの出力には車輪の操舵角や回転速度が含まれておらず、平面軌道から車輪指令を不連続性なく生成する必要があることです。\n\n著者らは以下の設計指針を立てました。\n- 4自由度しかない胴体関節を貴重なリソースと見なし、立位では背骨の追従に使い、しゃがみ時は下半身の折りたたみ代替に再配分する。\n- 急速に動く足先ではなく骨盤を台車のアンカーとし、並進とヨー回転の安定性を確保する。\n- 作業性に直結する肩から先の腕リンクは直接的な幾何関係を保持する。\n- しゃがみの判定には膝の高さ特徴を用い、シグモイド関数で連続的に切り替えることで動作の不連続を防ぐ。\n- 通常歩行では脚の振り出しを無視して台車移動と腕振りのみを再現し、しゃがみ時は重心低下と全身の見栄えを最優先する非対称な対応付けを行う。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "先行研究との違い：遠隔操作ではなく、大規模データセットからの自動変換",
+   "summary_ja": "人体表現SMPL-Xや全身リターゲティングGMR、強化学習追従BeyondMimicなどの先行研究を概観しています。本研究は、オンライン遠隔操作ではなく事前収録データからの大規模リターゲティングを車輪型で行う点に新規性があります。",
+   "details_ja": "### 人体動作表現とリターゲティング\n人体モデルには、関節姿勢や体型パラメータを持つSMPL-Xや、それを統一形式で集積したAMASSデータセットが広く用いられています。GMR（General Motion Retargeting）は様々なロボット形態に対応できるMuJoCo/MinkベースのIKフレームワークとして有名ですが、車輪型に対して脚の動きを直接割り当てると破綻してしまいます。\n\n### 車輪型ヒューマノイドと全身制御\nTWISTやH2O、ExBody2など、脚式ヒューマノイドでの動作追従の研究は盛んです。一方で車輪型ヒューマノイドの全身制御研究の多くは、人間のオペレーターによる「リアルタイム遠隔操作」に焦点を当てています。これに対し本研究は、あらかじめ記録された大規模な人体動作データセットから、オフラインで実行可能な参照軌道を大量生成し、強化学習ポリシーで物理追従させる完全なパイプラインを構築する点で一線を画しています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Problem Formulation & 4 System Overview",
+   "heading_ja": "問題設定とシステム構成：5つのインターフェースで繋ぐ",
+   "summary_ja": "入力となる人体動作からロボットの物理実行に至るまでの定式化と、システム全体の5段階のインターフェース契約を定義しています。幾何的な参照データと実行用の車輪指令を明確に分離することがポイントです。",
+   "details_ja": "人間の動作系列はSMPL-Xの各関節位置・回転として与えられます。ロボットの目標状態は、台車の平面位置・向き $(x, y, \\psi)$、胴体・腕の18関節 $\\boldsymbol{q}^{\\mathrm{body}}$、そして3つの車輪の操舵・回転変数を表す $\\boldsymbol{q}^{\\mathrm{wheel}}$ で構成されます。IKの段階では車輪変数は解かず、後段のベースデコーダで生成します。\n\nシステムは明確なデータ契約を持つ5つの段階で構成されています。\n- 標準化されたSMPL-Xフレーム（30 Hz）\n- 平面台車ポーズと18関節値を持つ生のリターゲティング結果（PKLファイル）\n- 順運動学（FK）から得られる全身状態を含む参照軌道（NPZファイル）\n- 仮想台車3次元＋上半身18次元からなる21次元のポリシー行動\n- Isaac Labでの物理シミュレーション実行と評価ログ",
+   "figures": []
+  },
+  {
+   "heading": "5 Canonical Human Motion and Planar-Base Preprocessing",
+   "heading_ja": "前処理の工夫：体型のばらつきを消し、台車の高さを固定する",
+   "summary_ja": "データセットごとに異なる人間の体型パラメータを標準体型に統一し、さらに車輪型ベースには存在しない「上下動」を原点補正によって排除する前処理手法を解説しています。",
+   "details_ja": "### 標準体型（Canonical Body Shape）への統一\nAMASSなどに含まれる被験者の体型パラメータ $\\boldsymbol{\\beta}$ はバラバラです。体型のばらつきとロボットとの形態差を同時に固定スケールで吸収することは不可能です。そこで、あらかじめ定めた単一の参照体型 $\\boldsymbol{\\beta}_{\\mathrm{can}}$ に置き換え、順運動学を再計算します。これにより、被験者の体格差に左右されない安定した入力系列を得ることができます。\n\n### 30Hzリサンプリングと平面原点化\nR1 Proの台車は上下に移動できません。そのため、人体データに含まれる骨盤の絶対的な高さ変化は台車にとって観測不能です。そこで、初期フレームにおける骨盤の水平位置を基準として差し引く「平面センタリング」を行います。これにより、台車の基準高さとロボットの半ヒューマノイド形態の整合性を保ち、安定した台車軌道を生成します。",
+   "figures": []
+  },
+  {
+   "heading": "6 Morphology-Aware Retargeting",
+   "heading_ja": "形態適応型リターゲティング：胴体の長さを考慮した肩基準のスケーリング",
+   "summary_ja": "ロボット特有の細長い胴体構造に対応するため、タスク分割型の微分IKと、肩を基準とした局所スケーリングを導入しています。これにより、手先が届かなくなる幾何学的破綻を防ぎます。",
+   "details_ja": "### タスク分割型微分IK\nR1 ProのIK設定には2つのタスクテーブルが用意されています。台車には絶対位置タスクを割り当てますが、胴体や腕のリンクには主に姿勢（回転）タスクを割り当てます。これは、人間とロボットでリンク長が異なるため、無理に絶対位置を合わせようとすると到達不能な解に陥るためです。Minkソルバーを用い、関節制限や速度制限を課しながら反復計算を行います。\n\n### 肩基準の階層型アームスケーリング\n通常のリターゲティングでは骨盤を基準として全身を一括スケーリングします。しかしR1 Proは長い胴体の上に腕が配置されているため、骨盤基準で拡大縮小すると、肘や手首の目標位置が胴体の高さに引っ張られて大きく歪んでしまいます。そこで本手法では、腕のキネマティクスチェーンにおいて肩をローカルな親フレームとして定義し、肩から肘、肘から手首へと局所的にスケーリングを行います。これにより、作業に必要な腕の相対的な幾何関係を綺麗に保つことができます。",
+   "figures": []
+  },
+  {
+   "heading": "7 Continuous Torso Substitution for Bending and Squatting",
+   "heading_ja": "膝がないなら胴体で曲げる：滑らかなしゃがみ代替機構",
+   "summary_ja": "直列4関節の胴体を活用して人間のしゃがみ動作を代行させる仕組みです。膝の高さから屈曲度合いを判定し、シグモイド関数とEMAフィルタを用いて滑らかに胴体 override と腕の再IKを実行します。",
+   "details_ja": "### 下半身折りたたみ信号の抽出\nロボットには膝や足首がありません。そこで、左右の膝の平均高さから「どれくらい下半身が沈み込んでいるか」を表すスカラー特徴量 $h^{\\mathrm{sym}}_{t}$ を計算します。これは角度の直接推定ではなく、ロボットが姿勢を低くすべき度合いを示すシグナルとして機能します。\n\n### シグモイドゲートによる滑らかな遷移\n歩行モードとしゃがみモードをハードに切り替えると、関節指令に激しい不連続が生じます。そこで、シグモイド関数と指数移動平均（EMA）フィルタを通して連続的な活性化度合い $\\rho_{t} \\in [0, 1]$ を算出します。これにより、通常歩行中に誤ってしゃがみ判定がチラつくのを防ぎます。\n\n### 胴体の上書きと腕の再IK\n$\\rho_{t}$ に応じて、胴体の4関節を目標の屈曲姿勢へとブレンドします。そして極めて重要なのが、胴体を曲げた状態の順運動学を更新した上で、「腕関節のみのIK（再IK）」を実行することです。この順番を踏むことで、胴体を曲げたせいで腕が取り残されたり、通常の背骨追従タスクによって胴体が無理やり引き戻されたりするのを防ぎます。",
+   "figures": []
+  },
+  {
+   "heading": "8 Feasibility Filtering and Motion Contracts",
+   "heading_ja": "転んだら自力で起き上がれない：厳格なフィージビリティ選別",
+   "summary_ja": "脚式と違って転倒からの復帰ができない車輪型ロボットのため、重心（COM）やZMP、自己衝突をチェックする厳格な多段階フィルタを構築し、物理的に実行不可能な動作を事前に排除します。",
+   "details_ja": "車輪型のR1 Proは、一度バランスを崩して倒れると自力で立ち上がることができません（自己復元性がない）。そのため、強化学習の訓練段階に転倒必至の無理な動作を持ち込むと、ポリシーが無駄な補償動作ばかりを学習してしまいます。\n\nそこで、リターゲティング後の全動作に対して以下の階層的フィルタリングを実施します。\n- 重心（COM）安定性：投影された重心がロボットの支持多角形内に収まっているか\n- ZMP（ゼロモーメントポイント）安定性：動的なZMPが支持多角形内にあるか\n- 自己衝突および地面貫通チェック：MuJoCoを用いたジオメトリ干渉の検出\n- オプションのMuJoCoダイナミクスロールアウトによる最終確認\n\n1フレームでも許容範囲を逸脱した危険なシーケンスは学習セットから除外され、物理的に成立するクリーンな動作プールのみを後段へ渡します。",
+   "figures": []
+  },
+  {
+   "heading": "9 Planning Layer and Three-Wheel Base Decoder & 10 Physics-Based Tracking with PPO",
+   "heading_ja": "ベースデコーダと強化学習：車輪を直接操るな、平面指令を学ばせろ",
+   "summary_ja": "ポリシーには仮想的な平面台車指令（3次元）と上半身（18次元）の計21次元を出力させ、下流のベースデコーダが3輪の操舵・駆動角に変換します。段階的な接地報酬とともにPPOで物理追従を学習させます。",
+   "details_ja": "### 参照ツイスト計画と3輪キネマティクス逆変換\nリターゲティングされた台車ポーズからフィードフォワード速度（ツイスト）を計算し、位置・姿勢のフィードバックと合成します。そして各車輪の位置に応じた操舵角 $\\phi_{i}$ と車輪回転速度 $\\dot{\\varphi}_{i}$ を幾何学的に求めます。この際、180度反対を向いて逆回転する等価表現 $(\\phi_{i}+\\pi, -\\dot{\\varphi}_{i})$ のうち、直前の角度に近い方を自動選択することで、車輪が不自然に半回転するジャンプを防ぎます。\n\n### 速度ヒステリシスと制約\n停止間際に特異点に入り乱れるのを防ぐため、速度にしきい値を設けたヒステリシス制御を導入し、微小速度での不要な操舵を抑制します。また、加速度やステアリング角速度にも物理的上下限を課します。\n\n### PPOによる追従学習\n強化学習（Isaac Lab）のエージェントの行動空間はわずか21次元です。車輪の操舵・駆動角をポリシーに直接出力させると、車輪同士の指令が衝突して台車がロックし転倒してしまいます。そのため、ポリシーは台車の並進・旋回指令だけを考え、車輪の分配は確定的なデコーダに任せます。報酬系には、手先作業に重要な上半身関節を重視する重み付けと、学習初期（1500イテレーション）で車輪の離地を強く罰する2段階の接地カリキュラムを導入しています。",
+   "figures": []
+  },
+  {
+   "heading": "11 Experiments",
+   "heading_ja": "実験結果：16動作中15動作で安定走行、アブレーションが示す設計の必然性",
+   "summary_ja": "1.6万件の動作選別結果、肩基準スケーリングの優位性、Isaac Labでの物理追従（16中15成功）、車輪直接制御での転倒など、各コンポーネントの有効性を多角的な実験で証明しています。",
+   "details_ja": "### データセット選別とGMRベースライン\nAMASSの10個のサブセットからなる16,268シーケンスを選別したところ、すべてのチェックを通過したのは6,636件（40.8%）でした。最も多い除外理由は動的安定性の破綻（ZMP違反）で48.6%を占めました。通過した動作から選ばれた21種類の評価セット（A〜U）において、幾何学的なIK誤差を測定し、良好な姿勢再現度を確認しました。\n\n### アブレーション実験による検証\n- **肩基準スケーリングの比較**: 骨盤一括スケーリング（従来型）と比較した結果、肩基準を用いることで肘や手首の追従誤差が大幅に削減されることを確認しました。\n- **物理PPOロールアウト**: 腕作業・並進・旋回・しゃがみを含む代表的な16動作を実行させたところ、15動作で転倒することなく完走しました。唯一の失敗例は、参照動作中の急峻なトルク変動に起因するものでした。\n- **プランナー安定化層の有無**: 操舵の等価角度選択やヒステリシスを外すと、車輪の接地が不安定になりベースが大きく傾く様子が確認されました。\n- **車輪直接制御との比較**: ポリシーに6つの車輪・操舵変数を直接予測させた場合、各輪の整合性が取れずに台車がスタックし、最終的に派手に転倒することが実証されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "肩基準の階層スケーリング（赤）と従来の骨盤一括スケーリング（青）の誤差比率です。青いバーが1を大きく超えていることから、骨盤基準では肘や手首の追従誤差（cmおよび度）が著しく悪化することが分かります。",
+     "caption": "Figure 3: Relative-error comparison of shoulder-rooted hierarchical arm scaling and the uniform-pelvis-root ablation on the fixed A–U set. Red bars denote the baseline and are fixed to one; blue bars show the ablation-to-baseline error ratio. Labels report the underlying position values in cm or rotation values in degrees.",
+     "image": "details/2609.11357/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "体型パラメータが極端な被験者データ（B1〜B5）に対する標準体型正規化の効果です。正の値（青）は正規化によって誤差が減ったことを示しており、特に末端リンクにおいて体型正規化が有効に働いていることが確認できます。",
+     "caption": "Figure 4: Per-motion beta-outlier diagnostic on B1–B5. Each cell reports $100(E_{\\mathrm{no\\text{-}norm}}-E_{\\mathrm{canonical}})/E_{\\mathrm{no\\text{-}norm}}$ for a pelvis-relative mean error; positive values indicate lower error after canonical-shape normalization.",
+     "image": "details/2609.11357/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "Isaac Labにおける16種類の代表動作のPPO追従結果です（左がA〜H、右がI〜P）。腕の操作、並進、旋回、しゃがみ動作のほとんどにおいて、転倒することなく滑らかに追従できています（16試行中15試行成功）。",
+     "caption": "Figure 5: Qualitative PPO replay for 16 representative retargeted motions. The left panel contains A–H and the right panel I–P; each row is one motion and each panel has eleven equally spaced temporal samples $t_{1}$ – $t_{11}$ . The panels are the two halves of a 22-column by 8-row layout; only the PPO replay is shown. The selected motions are a fixed subset of the screened A–U pool and emphasize arm manipulation, base translation and turning, and torso bending/squatting. Each reference was first retargeted, then tracked by PPO through the planning layer and PD controller. The figure provides qualitative evidence for the complete PPO–planner–PD execution path.",
+     "image": "details/2609.11357/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "旋回歩行動作（D）におけるプランナー安定化層のアブレーションです。上段の提案手法では3輪がしっかり接地して滑らかに旋回していますが、下段の安定化層なしでは車輪が浮き上がり台車が大きく傾いています。",
+     "caption": "Figure 6: Qualitative ablation of the combined Section 9.3 planner stability measures and the staged wheel-contact curriculum on motion D from Appendix 6 . The upper row is the complete stability layer and the lower row removes the ablated measures; each row contains twelve equally spaced times. The comparison highlights three-wheel ground contact, turning-induced tilt, and planar $x$ – $y$ –yaw tracking.",
+     "image": "details/2609.11357/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "ベース行動インターフェースの比較です。上段の仮想台車指令デコード方式が直進を維持できるのに対し、下段の6車輪直接学習方式では車輪指令の干渉によりバランスを崩し、転倒してしまっています。",
+     "caption": "Figure 7: Direct wheel–steer action ablation on motion D with base yaw fixed to zero. The upper row uses planar $(x,y,\\psi)$ PPO actions followed by planner decoding; the lower row directly tracks six steering and rolling variables. Both rows contain twelve equally spaced frames and show only the right camera view. Direct wheel–steer tracking causes mutually conflicting wheel commands and a subsequent fall.",
+     "image": "details/2609.11357/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "12 Limitations & 13 Conclusion",
+   "heading_ja": "まとめと今後の課題：実機検証とさらなるデータ拡張へ",
+   "summary_ja": "車輪型ヒューマノイド向けリターゲティングの枠組みを確立した成果を総括しつつ、転倒からの自己復元ができない点や実機実験が未実施であるといった制限事項と今後の展望を述べています。",
+   "details_ja": "本研究は、脚関節を持たない車輪型ヒューマノイドGalaxea R1 Proに対して、大規模な人体動作データを実行可能な全身移動マニピュレーションへと変換する包括的なパイプラインを提案しました。形態適応型の胴体代替機構や肩基準スケーリング、Feasibilityフィルタリング、そして仮想台車デコーダを組み合わせることで、シミュレーション内での安定した動作追従を実現しました。\n\n一方で、以下のような課題や限界も挙げられています。\n- 胴体による代行はあくまでタスクレベルの近似であり、生体力学的に脚の動きを再現しているわけではないこと。\n- 車輪の摩擦やスリップを完全には補償しきれない領域があること。\n- 自力で起き上がれないロボットであるため、激しい加減速を含む動作はデータ選別段階で弾く必要があること。\n- 現時点の評価はIsaac Labシミュレータ上のみであり、実機での検証が今後の課題であること。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "脚のない車輪型ロボットでは、脚の軌道を真似るのではなく「移動は台車、高さ変化は胴体」と割り切って再配分することが極めて重要。",
+  "強化学習ポリシーに直接車輪の操舵・回転を出力させず、仮想的な平面速度をキネマティクスデコーダで分配する構成が学習の安定性に不可欠。",
+  "自己復元（転倒からの起き上がり）ができないロボットをデータ駆動で動かす際は、物理的に不可能な動作を事前に落とすFeasibilityフィルタが必須要件となる。"
+ ],
+ "limitations_ja": [
+  "シミュレーション（Isaac Lab）のみの検証にとどまっており、実機での走行・マニピュレーション実験が含まれていない点。",
+  "重心が支持基底面から大きく外れるような動的で激しい人間動作（ジャンプや急激な方向転換など）は選別段階で除外されてしまう点。",
+  "車輪の滑り（スリップ）が激しい環境下でのダイナミクス補償までは保証されていない点。"
+ ],
+ "keywords": [
+  "Humanoid Motion Retargeting",
+  "Wheeled Humanoids",
+  "Mobile Manipulation",
+  "Reinforcement Learning",
+  "Feasibility Filtering"
+ ],
+ "id": "2609.11357",
+ "title": "Morphology-Aware Human Motion Retargeting for Wheeled-Humanoid Loco-Manipulation",
+ "authors": [
+  "Chenbo Xia",
+  "Chao Ye"
+ ],
+ "date": "2026-09-11",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "locomotion",
+  "manipulation",
+  "simulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.11357",
+ "pdf_url": "https://arxiv.org/pdf/2609.11357",
+ "summary_ja": "車輪型ベースと多関節上半身を持つヒューマノイド（Galaxea R1 Pro）向けに、SMPLX人体運動データを全身移動マニピュレーション動作へ変換する学習パイプラインを構築。下半身動作を車輪移動と胴体姿勢へ再配分し、物理シミュレーション環境で腕の操作性を損なわずに連動した全身協調動作を生成する。",
+ "generated": "2026-09-11",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.11357"
+}
