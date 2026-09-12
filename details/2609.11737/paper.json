@@ -1,0 +1,132 @@
+{
+ "title_ja": "ORCH：組織論の原則に基づくEmbodied AIの集合知の実現",
+ "tldr_ja": "並行処理と順序依存という人間組織の協調原理を組み込み、最大50台の異種ロボットチームをタスクに応じて階層組織化するフレームワーク「ORCH」を提案しました。山火事対応ミッションにおいて従来手法を有意に上回るタスク達成率と実行効率を達成し、集団の性能は単なるモデル規模ではなく組織構造の設計に強く依存することを示しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "ORCHの全体アーキテクチャです。(A) タスク記述と利用可能なロボット群から、人間またはLLM（+Critic）が階層組織を構築します。(B) ボトムアップの報告とトップダウンの指示を毎ステップ双方向で行う閉ループ実行ループを回します。(C) 並行作業を担う水平マネージャー（Pooled）と、(D) 前後関係のある作業をフェーズ管理する垂直マネージャー（Sequential）を組み合わせ、(E) 複雑な山火事環境で異種ロボットの大規模な連携を実現します。",
+  "caption": "Figure 1 : Method Overall . (A) The team hierarchy was designed based on the task descriptions and available worker agents, either by a human expert or an LLM with a critic agent. (B) During execution, the manager generates the plan for its worker agents; the worker agents execute the plan and provide feedback for the manager to update the plan. (C) Pooled interdependency refers to a group of agents working concurrently and independently to achieve a goal. For instance, 3 firefighters each cut specific target trees (yellow color) to achieve the goal of cutting a group of target trees. (D) Sequential interdependency refers to a group of agents working sequentially to achieve a goal. …",
+  "image": "details/2609.11737/F1.jpg"
+ },
+ "overview_ja": "複数のロボットやAIエージェントに複雑な実世界のタスクを任せるとき、これまでは全員がフラットに通信し合うか、単一の親マネージャーが全員に指示を出すような「固定された組織構造」が一般的でした。しかし、チームが50台規模に巨大化し、ドローン、ヘリコプター、消防隊員、ブルドーザーといった多様なロボットが混ざると、このやり方は破綻します。単一マネージャーの文脈長や認知負荷がパンクする一方で、全員同士の通信はノイズと通信遅延で溢れてしまうからです。\n\nそこで著者らは、「人間の組織論（Organization Theory）」にヒントを得ました。人間社会では、手分けして並行して進められる作業（プール型相互依存性）と、前の工程が終わらないと次に進めない作業（直列型相互依存性）を明確に区別して役割分担を決めています。この発想を取り入れ、タスクと戦力に合わせて柔軟に組織図を構築するフレームワーク「ORCH」を開発しました。並行作業を束ねる「水平マネージャー」と、時間的なフェーズ進行を統制する「垂直マネージャー」を再帰的に組み合わせることで、状況に応じた「チーム・オブ・チームズ」を自動的あるいは専門家によって編成します。\n\n検証には、動的に延焼する過酷な山火事シミュレータ「CREW-Wildfire」を大幅拡張した25種類のミッションを用い、8種類の最先端LLMを用いて最大50台のエージェントチームを評価しました。その結果、ORCHは既存の代表的なマルチエージェント協調手法4種を一貫して圧倒し、スコアと実行効率を劇的に向上させました。さらに驚くべきことに、チーム全体の知能は単なるLLMのパラメータ規模ではなく、適切な組織構造の設計によって大きく左右されることが明らかになりました。",
+ "contributions_ja": [
+  "人間組織論の相互依存性理論（プール型・直列型）をエンボディドAIに工学的に適用し、並行作業と順序依存作業を統合管理するフレームワークORCHを確立したこと",
+  "タスクとロボットの能力に応じて組織図を動的に構築し、毎ステップの双方向通信（ボトムアップ進捗報告とトップダウン計画修正）で動的環境に適応する閉ループ実行機構を実現したこと",
+  "25種類の山火事対応ミッション、最大50台の異種ロボット、8種類の最新LLMを用いた大規模評価を通じて、従来手法に対する大幅なスコア・効率改善を実証したこと",
+  "マルチエージェント集団の協調性能がLLMのモデルサイズに単調増加しないことを示し、「組織設計」が集団知能における独立かつ本質的な変数であることを明らかにしたこと"
+ ],
+ "sections": [
+  {
+   "heading": "Introduction",
+   "heading_ja": "個の知能から集団の知能へ：なぜ「組織の形」が重要なのか",
+   "summary_ja": "ロボットやAIエージェントがいくら優秀でも、チームの組織構造がタスクに合っていなければ集団としての能力は発揮できません。人間組織の知見である「相互依存性の管理」をエンボディドAIに導入することで、タスクに応じた階層組織を組むORCHの着想に至った背景を述べています。",
+   "details_ja": "近年の大規模言語モデル（LLM）や強化学習の進展により、個々のエージェントが高度な推論や長期行動をとれるようになってきました。しかし、複数のエージェントを集めてチームを作ろうとすると、急激に難易度が上がります。エージェントが増えるほど、誰が誰と通信し、誰が何を担当し、どのようにタイミングを合わせるかという「調整コスト」が爆発するためです。\n\n従来のマルチエージェント研究の多くは、全員で対等に対話する分散型や、1台の司令塔が全員に指示を出す集中型など、あらかじめ決めた「固定の組織構造」を使っていました。しかし、独立したエリアを探索するだけのタスクと、「ドローンが火元を特定し、ヘリが水を補給して隊員を空輸し、地上部隊が防火帯を作る」といった厳格な前後関係があるタスクとでは、必要なコミュニケーションの形が根本的に異なります。\n\n人間社会では、ジェームズ・トンプソンらが提唱した組織論に見られるように、作業の依存関係を以下の2つに大別して組織を作ります。\n- プール型相互依存性（Pooled Interdependence）：メンバーが独立して共通の目的に貢献し、並行して進められる関係（例：複数機による分散探索や障害物撤去）\n- 直列型相互依存性（Sequential Interdependence）：ある作業の成果が次の作業の前提条件となる関係（例：火元発見後の消火部隊展開）\n\nここが本論文の核心です。タスクの依存関係に合わせて「組織のトポロジー（形）」そのものを動的に設計すれば、大規模で異種混成なロボット集団でも高い知能を発揮できるのではないか、という問いから本研究がスタートしました。",
+   "figures": []
+  },
+  {
+   "heading": "The challenge of organizing embodied artificial collectives & A testbed for organizational intelligence",
+   "heading_ja": "",
+   "summary_ja": "大規模かつ長期的な実世界タスクにおける協調の難しさを整理し、検証環境として拡張した山火事シミュレータ「CREW-Wildfire」の概要を紹介しています。火災の動的な延焼や通信途絶、要救助者の突発的な発見など、柔軟な組織適応が試される25のミッションを設計しました。",
+   "details_ja": "### エージェント集団の組織化が直面する壁\nフラットな全員通信型組織では、ノード数の二乗で通信量が増えてglobalな意思決定が破綻します。一方で単一マネージャー組織では、ロボットが増えるにつれてマネージャーLLMのコンテキスト長と意思決定負荷が溢れ、動的な計画変更に対応できなくなります。つまり、局所の状況を集約しつつ大域目標を扱いやすい小目標へ分解する「多層的な組織」が不可欠です。\n\n### 過酷なテストベッド：拡張版CREW-Wildfire\n組織構造の有効性を検証するため、著者らは山火事対応シミュレータ「CREW-Wildfire」を大幅に拡張しました。この環境には以下の特徴があります。\n- セル・オートマトンによるリアルな延焼シミュレーション：地形の勾配、風向・風速、植生、土壌水分量によって火の広がり方が刻一刻と変化します。初期の偵察情報があっという間に陳腐化するため、静的な計画倒れを防ぐ動的な適応力が求められます。\n- 4種類の異種エージェント：偵察特化の「ドローン」、長距離移動と隊員・水輸送を担う「ヘリコプター」、草木伐採に特化した「ブルドーザー」、伐採・救助・消火をこなす万能な「消防隊員」が参加します。\n- 25種類の多様なミッション：エージェント3台の単純な伐採作業から、50台の大部隊が連携する統合ミッションまで網羅。途中でドローンが故障したり、新たな要救助者が発見されたり、突如火災が急拡大したりといった予期せぬイベントも組み込まれています。",
+   "figures": []
+  },
+  {
+   "heading": "Method",
+   "heading_ja": "ORCHのアーキテクチャ：2種類のマネージャーと双方向閉ループ通信",
+   "summary_ja": "ORCHの核となる設計を解説しています。並行作業を統制する「水平マネージャー」と順序依存を管理する「垂直マネージャー」を木構造状に組み合わせ、毎ステップでボトムアップの報告とトップダウンの指示をやり取りする通信プロトコルを提案しました。",
+   "details_ja": "### タスク特化型の階層構造をどう作るか\nORCHは、タスク記述 $T$ と利用可能なロボット群 $W$、その能力 $C$ を受け取り、木構造の組織階層 $G$ を生成します（数式：$G = H(T, W, C)$）。葉ノードが実際のロボット、中間ノードがマネージャーとなります。生成方法は「人間の専門家による設計」と「LLMによる自動生成（Critic付き）」の2通りに対応しています。自動生成では、まずLLMが組織案を出し、別のCriticモデルが「余分な階層がないか」「能力と役割が一致しているか」を検証して反復修正します。\n\n### 水平マネージャーと垂直マネージャーのハイブリッド編成\n組織論に基づき、役割の異なる2つのマネージャーを再帰的に組み合わせます。\n- 水平マネージャー（Pooled Interdependence）：作業が並行して進められる場合を担当します。配下のエージェント群 $\\mathcal{C}$ に対し、重複を避けながらタスク $t_i$ を割り振ります（数式：$\\mathcal{T}_h = f_h(M, P, R)$、ここで $M$ は目標、$P$ は推定進捗、$R$ は配下からの報告）。\n- 垂直マネージャー（Sequential Interdependence）：順序関係のある作業を担当します。ミッションを時間的なフェーズ列 $\\Phi = \\{\\phi_1, \\dots, \\phi_K\\}$ に分解し、現在のフェーズ $\\phi_k$ に必要な作業だけをアクティブにして配下に割り当てます（数式：$\\mathcal{T}_v^{(k)} = f_v(\\phi_k, M, P_m, P_p, R)$）。完了条件が満たされたら次のフェーズへ進みます。\n\nこれらを組み合わせることで、「垂直マネージャーが大まかなフェーズ（偵察→輸送→消火）を切り替え、各フェーズ内で水平マネージャーが並行作業（エリアごとの一斉探索など）を回す」という柔軟な多層構造（チーム・オブ・チームズ）が実現します。\n\n### 双方向の階層通信プロトコル\n環境の1ステップごとに、以下の2フェーズを交互に実行します。\n- ボトムアップ報告フェーズ：末端の作業ロボットが観測結果から「完了状況、進捗率、緊急連絡事項」を構造化レポートとして親マネージャーに上げます。マネージャーはこれらを集約して上位へ伝達します。\n- トップダウン計画フェーズ：ルートマネージャーから下位へ決定事項が下ります。配下のエージェントは指示が自分の能力で実行可能かフィードバックを返し、無理がある場合はマネージャーが修正します。合意されたタスクを作業ロボットが物理アクションに変換して同時実行します。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "ORCHの全体概要図です。(A)の階層生成、(B)の双方向実行ループ、(C)の水平マネージャーによる並行分散探索、(D)の垂直マネージャーによる段階的消火手順、そして(E)それらが融合した50台規模の山火事消火オペレーションの流れが示されています。",
+     "caption": "Figure 1 : Method Overall . (A) The team hierarchy was designed based on the task descriptions and available worker agents, either by a human expert or an LLM with a critic agent. (B) During execution, the manager generates the plan for its worker agents; the worker agents execute the plan and provide feedback for the manager to update the plan. (C) Pooled interdependency refers to a group of agents working concurrently and independently to achieve a goal. For instance, 3 firefighters each cut specific target trees (yellow color) to achieve the goal of cutting a group of target trees. (D) Sequential interdependency refers to a group of agents working sequentially to achieve a goal. …",
+     "image": "details/2609.11737/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Results",
+   "heading_ja": "実験結果：組織化がもたらす圧倒的な性能向上とモデル規模の逆転現象",
+   "summary_ja": "25のミッションと8つのLLMを用いた評価で、ORCHは既存手法4種を一貫して凌駕しました。また、人間の専門家による設計が最も優れること、Criticの有無が組織品質を左右すること、そしてLLMの単体サイズが集団の性能を直接決めるわけではないことが示されました。",
+   "details_ja": "### 既存手法を圧倒する協調性能\n比較対象として、動的リーダー選出を行うCAMON、モジュール型認知構造をもつCOELA、集中・分散ハイブリッドのHMAS-2、プロンプトで組織構造を規定するEmbodiedの4つの代表手法を選定しました。\n結果は劇的でした。4つの既存手法の平均と比較して、人間の専門家が設計したORCHは最終スコアを63.97%、実行効率（進捗曲線のAUC）を74.29%向上させました。LLMが自動生成した組織でも、それぞれ43.63%、52.53%の向上を達成しています（図 F2 A）。さらに、全タスク・全LLM・全シードの組み合わせにおける勝率ランキングでも、人間設計のORCHが32.6%、自動生成ORCHが26.2%で1位を獲得し、既存手法を大きく突き放しました（図 F2 B）。二元配置分散分析（ANOVA）の結果、アルゴリズムの違いによる主効果は極めて有意（$p < 0.01$）であり、手法とLLMモデルの交互作用は非有意（$p = 0.62$）でした。つまり、ORCHの優位性は特定のモデルとの相性ではなく、組織構造そのものの強みによるものです。\n\n### モデルサイズが集団性能を決めるわけではない\n8種類のLLM（ChatGPT-5.4、Gemma-4-it、Qwen-3.6、DeepSeek-V4-Proなど）をバックボーンにして比較したところ、非常に興味深い現象が確認されました。コーディングや数学ベンチマークでトップクラスの超巨大モデル（ChatGPT-5.4やDeepSeek-V4-Pro）よりも、中規模モデルであるGemma-4-itやQwen-3.6をエージェントにしたORCHのほうが、全体として高い集団性能を示したのです（図 F3）。集団協調においては、単体推論能力の高さ以上に「与えられた役割を愚直に守る」「簡潔で的確な状況報告を上げる」「上流からの指示を作業行動へ堅実に変換する」といった能力が重要であることを示唆しています。\n\n### 大規模タスク（50エージェント）での挙動とアブレーション\n最難関の「Scale Level Complex」（25人の消防隊員、10機のドローン、10機のヘリ、5台のブルドーザー）では、垂直マネージャーが「1. 探索 → 2. 火元監視・ルート確保 → 3. 給水・部隊配置 → 4. 防火帯構築・消火」の4フェーズを管理し、配下の水平マネージャーが各部隊の並行作業を制御することで見事な連携を達成しました。\n\n組織生成におけるアブレーション解析（図 F4 A, Bおよび図 F5）では以下のことが判明しました。\n- 人間設計の組織が最も浅くバランスが良い（平均木深さ1.20、統制スパン分散1.48）。\n- CriticなしのLLM生成組織は、不要な中間管理職や階層を無駄に増やしてしまい（平均木深さ1.56、マネージャー数2.08）、通信遅延と判断の混乱を招いて性能が落ちる。\n- 通信ログの失敗分析（図 F4 C）を行うと、ベースライン手法は「末端ワーカーの実行失敗（51.2〜64.5%）」が主因でしたが、ORCHではそれが13.1〜20.7%まで激減しました。適切な階層管理によって、末端ワーカーに無理のない具体的な仕事が降りてきている証拠です。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "全25タスク・8種類のLLMを横断した性能比較です。(A)の進捗推移グラフとレーダーチャートにおいて、人間設計およびLLM生成のORCHがスコア・効率・トークン効率でベースラインを圧倒していることが分かります。(B)の勝率や(C)のANOVA分析でも一貫した優位性が示されています。",
+     "caption": "Figure 2 : Normalized Aggregated Performance on 25 CREW-Wildfire Tasks, Ranking Analysis, and ANOVA Test Results . The detailed normalization process can be found in Section S3 – S4 in Supplementary Text. (A) ORCH with human-expert-designed and LLM-generated team hierarchies both significantly outperform the other four baselines in terms of output token usage, final score, and efficiency, and they rank top-3 in terms of exploration, input token usage, and the number of API calls. (B) ORCH has the highest proportion of first-place rankings across all the LLM-task-seed combinations for both final score and efficiency metric. …",
+     "image": "details/2609.11737/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "使用したLLMごとの集団性能比較です。人間設計階層(A)・LLM生成階層(B)の双方で、Gemma-4-itやQwen-3.6といった中規模モデルが、超大規模モデルを上回る集団パフォーマンスを発揮する逆転現象が見られます。",
+     "caption": "Figure 3 : Normalized Aggregated Performance on 25 CREW-Wildfire Tasks by Language Models . The detailed normalization process can be found in Section S3 – S4 in the Supplementary Text. (A) Aggregated LLM performance on the 25 CREW-Wildfire tasks with ORCH with human-expert-designed team hierarchies. (B) Aggregated LLM performance on the 25 CREW-Wildfire tasks with ORCH with LLM-generated team hierarchies. Surprisingly, the middle-sized models perform better than large-sized models with ORCH under both organizational designs.",
+     "image": "details/2609.11737/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "組織構造の分析とアブレーション結果です。(A) Criticの有無による性能差、(B) 木構造の深さや統制スパンのばらつき比較、(C) 通信履歴から分類した失敗要因を示しています。ORCHは末端ワーカーの実行失敗を大幅に抑制しています。",
+     "caption": "Figure 4 : Ablation study on Organization Design, Team Hierarchy Analysis, and Failure Reasons Analysis through Chat History . (A) ORCH consistently outperformed prior baselines across human-designed and LLM-generated team hierarchies, including those generated without critic supervision. (B) We analyzed the team hierarchies generated by different methods. The results show that human-designed hierarchies exhibit the most balanced team structures, followed by LLM-generated hierarchies with critic supervision, while hierarchies generated without critic supervision are less balanced. (C) We classified the failure modes of different algorithms into five categories. …",
+     "image": "details/2609.11737/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "大規模タスク（エージェント50台）における組織図生成の比較です。人間専門家は役割に応じた極めて合理的なチームを構成するのに対し、CriticなしのLLMは階層を無駄に複雑化させてしまいます。Criticが介在することで組織がコンパクトに洗練されます。",
+     "caption": "Figure 5 : Team Hierarchy Generation for Scale_Level_Complex Task with Human Expert and DeepSeek-V4-Pro . We observed that the human expert designed the most reasonable team hierarchy, where each sub-team specialized in a certain aspect of the task. When using an LLM to generate the team hierarchy, without the supervision of a critic agent, the generated team hierarchy tends to be overcomplicated. With the feedback of the critic agent, the LLM can generate a more reasonable and balanced organization.",
+     "image": "details/2609.11737/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Discussions",
+   "heading_ja": "まとめと展望：人工集団知能の新たなフロンティア",
+   "summary_ja": "本研究の成果を総括し、エンボディドAIにおける「組織設計」の重要性を強調しています。また、現時点での限界としてタスク実行中の組織再編や他の相互依存形式への対応を挙げ、今後の研究の方向性を提示しています。",
+   "details_ja": "本論文が示した最も大きなメッセージは、「個々のエージェントを賢くすることだけが集団知能の向上策ではない。メンバーをどう組織化するかが決定的な変数である」ということです。人間組織の古典理論であるプール型・直列型の相互依存性を組み込むことで、最大50台もの異種ロボットが環境の急変に対応しながら協調動作できるようになりました。\n\n一方で、著者らはいくつかの限界と今後の課題も率直に述べています。\n- 組織図の動的再編：現在のORCHでは、初期化時に構築した組織の骨格（木構造）自体は固定されており、ミッション進行中に組織図そのものを組み替える（リストラや新規部署立ち上げのような）処理は含まれていません。\n- より複雑な依存関係への対応：今回はプール型と直列型に絞っていますが、人間組織にはお互いが密にすり合わせ続ける「相互的依存（Reciprocal Interdependence）」も存在し、これらを扱う新たなマネージャー型の開発が必要です。\n- 人間とLLMの組織設計スキルの差：LLMによる組織生成はCriticを入れることで実用レベルに達したものの、依然として人間の専門家が組んだ組織のほうがコンパクトで高性能でした。LLMがより高度な組織設計能力を自律的に獲得するための研究が求められます。\n\nロボットチームがより大規模・長期化していく未来において、「組織設計論」はモデルアーキテクチャやプランニングアルゴリズムと同等以上に重要な学問分野になっていくはずです。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "ロボットの台数や種類の増加に伴う調整コストの爆発は、並行作業（水平）と順序作業（垂直）を分離した階層型組織によって劇的に緩和できる",
+  "大規模エージェント集団の協調性能は、LLMのパラメータ規模よりも、役割遵守や簡潔な報告といった集団適性と組織設計の巧拙に強く左右される",
+  "LLMにチーム組織図を自動生成させる際は、不要な中間層の肥大化を防ぐ「Critic（批評）エージェント」による制約と反復修正が不可欠である",
+  "エンボディドAIにおけるマルチエージェント研究は、「個の賢さ」の追求から「組織構造の最適化」へと新たなパラダイムシフトを迎えつつある"
+ ],
+ "limitations_ja": [
+  "組織の階層構造（木構造）はタスク開始前に固定され、実行中に組織図そのものを動的に組み替える（リスケーリングや再編）機構は未実装である",
+  "相互依存性のモデル化がプール型と直列型の2種類に限定されており、メンバー間でリアルタイムな双方向調整が必要な「相互的依存関係」への対応は今後の課題である",
+  "LLM単体による組織生成は人間の専門家設計に比べると依然として冗長になりやすく、人間レベルの組織化能力にはギャップが残されている",
+  "評価が山火事シミュレータ環境（CREW-Wildfire）に限定されており、実機ロボットへの適用や他のドメインでの汎化性は追加検証が必要である"
+ ],
+ "keywords": [
+  "Embodied AI",
+  "Multi-Agent Systems",
+  "Collective Intelligence",
+  "Organization Theory",
+  "Hierarchical Coordination",
+  "Large Language Models"
+ ],
+ "id": "2609.11737",
+ "title": "ORCH: Organizational Principles Enable Collective Intelligence in Embodied AI",
+ "authors": [
+  "Zhengran Ji",
+  "Jonathan Hyun",
+  "Boyuan Chen"
+ ],
+ "date": "2026-09-12",
+ "group": "general",
+ "tags": [
+  "multi-robot",
+  "planning"
+ ],
+ "categories": [
+  "cs.MA",
+  "cs.AI",
+  "cs.LG",
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.11737",
+ "pdf_url": "https://arxiv.org/pdf/2609.11737",
+ "summary_ja": "実世界の身体性タスクを遂行する大規模な異種エージェント集団に対し、人間の組織理論の原則を適用した協調フレームワークORCHを提案。並行作業と逐次依存関係を組み合わせた動的な階層組織を構築し、固定構造のマルチエージェントを上回る協調性能を達成する。",
+ "generated": "2026-09-12",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.11737"
+}
