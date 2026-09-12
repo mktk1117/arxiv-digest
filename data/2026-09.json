@@ -1,6 +1,133 @@
 {
  "entries": [
   {
+   "date": "2026-09-12",
+   "rank": 0,
+   "id": "2609.11014",
+   "group": "focus",
+   "title": "Topological Necessities: Mechanism-Invariant Strategic Subgoals for Cross-Embodiment Goal-Conditioned Control",
+   "title_ja": "トポロジカルな必然性：機構非依存な戦略的サブゴールによるクロスエンボディメント・ゴール条件付き制御",
+   "summary_ja": "長時間のゴール条件付き強化学習において、エージェント機構に依存しない戦略的サブゴールを抽出する手法を提案。オフライン軌道から不可避な通過領域とルート選択をホモロジーによりトポロジカルに同定し、異なるロボット機構間でも汎用的に利用可能な高レベル制御を実現する。",
+   "authors": [
+    "Hao Shi",
+    "Xi Li"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.11014",
+   "image": "figures/2026-09-12/2609.11014.jpg"
+  },
+  {
+   "date": "2026-09-12",
+   "rank": 1,
+   "id": "2609.10873",
+   "group": "focus",
+   "title": "When Validation Stops Learning: Auditing Update Admission for Continual Embodied Agents",
+   "title_ja": "検証が学習を止めるとき：継続的Embodiedエージェントのための更新承認監査",
+   "summary_ja": "継続学習を行うEmbodiedエージェントにおいて、評価ゲートが有害な方策更新を拒絶する一方で有用な学習まで阻害する課題を指摘。対の二項検定を用いて過去タスクの挙動を保証しつつ学習機会を保持する更新監査法を提案し、押し出し診断タスクで有効性を示した。",
+   "authors": [
+    "Qinzhen Ma",
+    "Ruihai Wu"
+   ],
+   "categories": [
+    "cs.AI"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.10873",
+   "image": "figures/2026-09-12/2609.10873.jpg"
+  },
+  {
+   "date": "2026-09-12",
+   "rank": 2,
+   "id": "2609.11308",
+   "group": "general",
+   "title": "2AM: Grounding Agent-Side Memory as Guidance for Steerable Action Models in Long-Horizon Manipulation",
+   "title_ja": "2AM：長時間マニピュレーションにおけるステアラブルなアクションモデルの誘導としてのエージェント側メモリ接地",
+   "summary_ja": "長時間マニピュレーションにおいて、タスク記憶をマルチモーダルエージェントに集約し、ステートレスなRGBベースのAction Modelに指示を与える枠組み2AMを提案。ポリシー側に過剰なツールを持たせず言語誘導の帯域を広げることで、堅牢な実行を実現する。",
+   "authors": [
+    "Yutong Hu",
+    "Fengjiao Chen",
+    "Xuezhi Cao",
+    "Renaud Detry"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "manipulation",
+    "control",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.11308",
+   "image": "figures/2026-09-12/2609.11308.jpg"
+  },
+  {
+   "date": "2026-09-12",
+   "rank": 3,
+   "id": "2609.11737",
+   "group": "general",
+   "title": "ORCH: Organizational Principles Enable Collective Intelligence in Embodied AI",
+   "title_ja": "ORCH：組織論の原則に基づくEmbodied AIの集合知の実現",
+   "summary_ja": "実世界の身体性タスクを遂行する大規模な異種エージェント集団に対し、人間の組織理論の原則を適用した協調フレームワークORCHを提案。並行作業と逐次依存関係を組み合わせた動的な階層組織を構築し、固定構造のマルチエージェントを上回る協調性能を達成する。",
+   "authors": [
+    "Zhengran Ji",
+    "Jonathan Hyun",
+    "Boyuan Chen"
+   ],
+   "categories": [
+    "cs.MA",
+    "cs.AI",
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "multi-robot",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.11737",
+   "image": "figures/2026-09-12/2609.11737.jpg"
+  },
+  {
+   "date": "2026-09-12",
+   "rank": 4,
+   "id": "2609.11172",
+   "group": "general",
+   "title": "Beyond Visual Quality: Evaluating Physical Consistency under Ego-Motion with EgoGenEval",
+   "title_ja": "視覚的品質を超えて：EgoGenEvalによる自己運動下での物理的一貫性の評価",
+   "summary_ja": "自己運動下における視覚生成モデルの物理的一貫性を幾何学的に評価するベンチマークEgoGenEvalを提案。1,400事例・2,360視点からなり、カメラ運動接地とシーン状態維持の2指標により、空間推論やプランニングに不可欠な物理整合性を測定する。",
+   "authors": [
+    "Yilin Long",
+    "Chenming Zhu",
+    "Zitang Gou",
+    "Jingli Lin",
+    "Tai Wang"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.AI"
+   ],
+   "tags": [
+    "benchmark",
+    "perception",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.11172",
+   "image": "figures/2026-09-12/2609.11172.jpg"
+  },
+  {
    "date": "2026-09-11",
    "rank": 0,
    "id": "2609.11553",
