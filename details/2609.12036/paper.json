@@ -1,0 +1,136 @@
+{
+ "title_ja": "Pelican-Sim 1.0：具象知能のための汎用ワールドモデルシミュレータ",
+ "tldr_ja": "統一した28次元数値アクションとURDF描画スケルトン動画を組み合わせ、多様なロボットや環境に対応する動画生成ワールドモデル「Pelican-Sim 1.0」を構築しました。実機・シミュレーションの約100万軌道で学習し、高精度な未来予測だけでなくデータ拡張や方策評価、強化学習による方策改善まで幅広く機能することを示しています。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "Pelican-Sim 1.0の全体像。約100万本のマルチソース軌道で学習されたモデルが、初期画像・28次元アクション・URDF骨格動画から未来を予測し、データ生成、方策評価、行動選択、方策改善の4つの下流タスクで優れた性能を発揮します。",
+  "caption": "Figure 1: Overview of Pelican-Sim 1.0. Top: Trained on approximately one million real-world and simulated trajectories, Pelican-Sim 1.0 predicts future observations from an initial RGB image, unified 28-dimensional action values, and camera-aligned action videos using a Video DiT with sparse MoE layers. Four downstream applications are illustrated: data generation for policy training, policy evaluation and ranking, action selection, and policy improvement. A fine-tuned VLM evaluator supplies success estimates, candidate scores, and rewards for the latter three applications, respectively; policy improvement uses closed-loop imagined interaction. …",
+  "image": "details/2609.12036/F1.jpg"
+ },
+ "overview_ja": "ロボットが実際に行動を起こす前に「こう動いたら世界はどう変わるか」を予測するワールドモデルは、安全な方策評価やシミュレーション学習において非常に注目されています。しかし、腕の本数や自由度、グリッパーの形状が異なる多様なロボット（ヘテロな身体性）をひとつのモデルで扱おうとすると、大きな壁にぶつかります。従来の数値アクションだけでは画像上の幾何学的な動きが伝わりにくく、逆にカメラ画像上のマスクや骨格だけでは手先や指の精密な状態値が抜け落ちてしまうためです。\n\nそこで著者らは、数値アクションと視覚的アクションを完全に同期させて併用するアプローチを思いつきました。左右のアームやハンドを網羅する28次元の共通レイアウトを定めつつ、ロボットのURDF（ロボットの関節やリンク構造を記述した仕様ファイル）とカメラキャリブレーションを用いて骨格動画をレンダリングし、両方をVideo Diffusion Transformer（DiT）に交互に注入します。さらに、多様なダイナミクスを吸収するために疎なMoE（Mixture-of-Experts）層を導入し、4ステップで高速生成できる因果蒸留モデルも開発しました。\n\n実世界とシミュレータから集めた約100万本の軌道で学習し、AgiBotWorld BetaやRoboTwinなどの複数ベンチマークで既存の強力なベースラインを大幅に上回る動画生成精度を達成しました。さらに下流タスクとして、生成データによる方策学習（成功率70%から93%へ向上）、VLM（視覚言語モデル）と連携した方策ランキング評価（相関係数0.994）、実機を動かさない閉ループ強化学習による方策改善まで実証し、汎用シミュレータとしての実用性を鮮やかに示しました。",
+ "contributions_ja": [
+  "単腕・双腕、平行グリッパー・多指ハンドを包括する28次元の統一数値アクションと、URDFから生成する骨格動画を同期させてDiTに交互注入するデュアルブランチ構造を提案しました。",
+  "多様なロボットのダイナミクスを効率的に捉えるため、共有エキスパートとルーティングエキスパートを併用する疎なMoE層をバックボーンに統合しました。",
+  "因果的適応と少数ステップ蒸留により、品質を保ちながら従来の35ステップ拡散モデル比で5.67倍高速な4ステップ自己回帰シミュレータを実現しました。",
+  "データ拡張、方策評価・ランキング、行動選択、閉ループ方策改善の4つの下流タスクで有効性を実証し、未知の環境や物体、ロボットに対する汎化性能も確認しました。"
+ ],
+ "sections": [
+  {
+   "heading": "1. Introduction",
+   "heading_ja": "ロボットの身体性を超えて未来を想像するシミュレータへの挑戦",
+   "summary_ja": "異なるロボット間で共通して使える行動条件付きワールドモデルの実現を目指し、Pelican-Sim 1.0の動機と全体コンセプトを述べています。精密な数値情報と画像空間での幾何学的案内を両立するデュアル表現の重要性を提起しています。",
+   "details_ja": "行動を入力として未来の視覚観測を予測するワールドモデルは、実機を危険に晒すことなく方策の検証や訓練を行うための「学習されたシミュレータ」として期待されています。しかし、これを様々なロボット（単腕、双腕、多指ハンドなど）に横断して適用しようとすると、関節角などの数値指令をどう解釈し、画像上の動きへと対応づけるかが極めて難しい問題になります。\n\n既存の数値アクション条件付け手法では、関節やグリッパーの正確な状態を保持できるものの、画像空間における具体的な移動経路のガイダンスが不足します。一方で、マスクや骨格動画などの視覚的アクション条件付けは画像上の動きを直接示せますが、射影によって元の関節角や指先の精密な値が一意に定まらなくなるという欠点があります。つまり、どちらか一方だけでは不十分なのです。\n\nこの課題を解決するため、Pelican-Sim 1.0では「28次元の統一数値アクション」と、ロボットのURDFおよびカメラパラメータから描画される「骨格アクション動画」を同期させてひとつのVideo DiTに組み込む設計を採用しました。さらに、ヘテロなデータセットの動力学の違いを吸収する疎なMoE層と、下流タスクで必須となる高速ロールアウトのための因果蒸留を導入しています。これにより、動画予測の画質向上だけでなく、方策学習や閉ループ改善までカバーする汎用シミュレータの土台を築いています。",
+   "figures": []
+  },
+  {
+   "heading": "2. Related Work",
+   "heading_ja": "先行研究の系譜：ワールドモデル、身体性の横断、そしてMoE",
+   "summary_ja": "行動条件付き動画生成ワールドモデル、身体性を跨ぐクロスエンボディメント学習、拡散トランスフォーマーと疎なMoEの3つの分野における関連研究を整理しています。本研究がそれらの強みをいかに統合したかを位置づけています。",
+   "details_ja": "### ワールドモデルと動画生成\nロボティクスにおけるワールドモデルは、潜在空間でダイナミクスを解くPlaNetや、対話的シミュレータを目指すUniSim、実機ロールアウトを生成するIRASimなど数多く研究されてきました。しかし、多種多様なロボット形態を包括しつつ、下流の学習や意思決定まで一貫して支援できる枠組みは未だ限られていました。\n\n### 視覚アクションインターフェースと身体性の統合\nOpen X-Embodimentのように複数ロボットのデータを集約する試みや、骨格・マスクを描画して画像生成を誘導するVAPやOSCARなどのアプローチが登場しています。最近ではEnerVerse-ACのように数値と視覚を混ぜる試みもありますが、Pelican-Sim 1.0はこれらをより体系化し、完全同期した28次元フォーマットとカメラ幾何に基づくURDF骨格動画を交互に注入する点で一線を画しています。\n\n### 拡散トランスフォーマー（DiT）と疎なMoE\n生成モデルのバックボーンとしてDiTが標準化しつつある中、計算量を抑えつつモデル容量を拡大する手法として疎なMoE（Mixture-of-Experts）が注目されています。本研究では、トークンごとにエキスパートを選択するMoE層をDiTに組み込み、異なるロボットや環境からなる混載データセットのモデリング能力を大幅に引き上げています。",
+   "figures": []
+  },
+  {
+   "heading": "3. Method",
+   "heading_ja": "数値と視覚の融合：Pelican-Sim 1.0のアーキテクチャと高速化",
+   "summary_ja": "28次元の統一アクションとURDF描画動画の定義、それらをVideo DiTの異なる層へ交互に注入する仕組み、疎なMoEの構造、そして推論を5.67倍高速化する因果蒸留プロセスを詳しく解説しています。",
+   "details_ja": "### 3.1 & 3.2 相補的なアクション表現の設計\nロボットの関節構成に左右されないよう、各フレームのアクションを左半身14次元・右半身14次元の合計28次元に統一しました。片腕ロボットやグリッパー非搭載の場合は未使用スロットをゼロ埋めします。一方、数値だけでは画像上の動きが分からないため、URDFを用いた順運動学（FK）で各リンクの3次元位置を求め、カメラの内部・外部パラメータを用いて画像平面へ透視投影します。こうして得られたアーム骨格と、把持状態（開・遷移・閉）に応じて色分けしたグリッパーからなる「アクション動画」を生成します。\n\n### 3.3 デュアルブランチ注入と疎なMoE層\nベースモデルにはCosmos-Predict 2.5の28層Video DiTを採用しています。奇数番目のブロック（第1, 3, ..., 27層）では、直前フレームからの変位をエンコードした数値アクション特徴を用いて特徴量をAdaLN変調（スケールとシフト）します。偶数番目のブロック（第0, 2, ..., 26層）では、別系統のContext Blocksで処理された骨格動画の潜在特徴を、残差として足し合わせます。この「交互注入」により、深層表現のなかで幾何ガイダンスと正確な状態値が自然に融合されます。また、各ブロックのFFNは1つの共有エキスパートと8つのルーティングエキスパート（トップ2を選択）からなる疎なMoE層に置き換えられており、トークンごとの特徴に応じて最適なエキスパートが動的に選ばれます。\n\n### 3.4 因果蒸留によるロールアウトの高速化\n標準の双方向拡散モデルによる35ステップサンプリングは、大量の未来予測を必要とする方策改善などには重すぎます。そこで、時間方向のアテンションをブロック因果アテンションに置き換えてKVキャッシュを使えるようにし、フローマッチングによる蒸留を行ってわずか4ステップで高品質な潜在チャンクを自己回帰生成できる学生モデルを構築しました。これにより推論速度が5.67倍向上し、実用的な速度での閉ループシミュレーションが可能になりました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "URDFベースのアクション動画描画パイプライン。統一アクション数値をURDFの関節角に変換し、順運動学で各リンクの3D位置を計算後、RGBカメラの外部・内部パラメータで画像平面に投影して色分けした骨格動画を作成します。",
+     "caption": "Figure 4: URDF-based action-video rendering. (a) The frame-aligned configuration sequence is mapped to robot-specific URDF joint configurations, converted into 3D link poses through forward kinematics, projected using the paired RGB camera calibration, and rasterized as a synchronized skeleton action video. (b) Gripper links are color-coded to indicate open, transitional, and closed states.",
+     "image": "details/2609.12036/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4. Experiments",
+   "heading_ja": "圧倒的な予測精度から、データ拡張・評価・方策改善までの実証",
+   "summary_ja": "約100万軌道で学習したモデルの動画予測性能、アブレーションによる設計の妥当性、そしてデータ生成、方策ランキング、行動選択、強化学習による方策改善という4つの下流タスクの実験結果を詳細に示しています。",
+   "details_ja": "### 4.1〜4.3 予測精度のベンチマーク比較\n実機データ（AgiBotWorld Beta、RoboMINDなど）とシミュレーションデータ（RoboTwin、LIBEROなど）のテスト分割において、IRASimやCtrl-Worldなどの強豪ベースラインと比較しました。Pelican-Sim 1.0は評価したすべての動画品質指標でトップを獲得し、PSNRではAgiBotWorld Betaで+4.636 dB、RoboTwinで+10.343 dBという圧倒的な差をつけました。また、FVD（動画の知覚的品質指標）もRoboTwinで従来の最良値26.600から4.980へと大幅に削減しています。\n\n### 4.4 アブレーション実験から見えたこと\n- **実データ＋シミュレーションの混載学習とMoE**: 実データのみの学習にシミュレーションデータを加えるとFVDが3.030改善し、さらに疎なMoEを導入することで追加で6.530改善しました。\n- **相補的アクション条件付け**: アクション動画単体に対して数値アクションを併用することで、PSNRが約0.75〜1.0 dB向上しました。視覚骨格だけに頼るよりも、数値情報を同時に渡す重要性が証明されています。\n- **注入アーキテクチャ**: すべての層で両方を注入する手法と比べても、奇数・偶数層で分ける交互注入は同等以上の性能を少ないパラメータ追加で達成できることが分かりました。\n\n### 4.5〜4.8 下流タスクでの驚くべき成果\n- **データ生成**: タスクあたりわずか50本のデモに対し、画像編集とPelican-Sim 1.0で生成した500本の軌道を加えてVLA（Vision-Language-Action）方策を学習させたところ、成功率が70%から93%へと急上昇しました。\n- **方策評価・ランキング**: 微調整したVLM評価器と組み合わせることで、シミュレータ上の実際の方策ランキングをピアソン相関係数0.994、スピアマン順位相関1.0という完全な一致度で予測できました。\n- **行動選択 & 方策改善**: 複数候補から最善の行動を選ぶBest-of-N選択で成功率が43.2%から63.8%へ向上し、さらにシミュレータを一切使わずPelican-Sim内の閉ループ想像ロールアウトとGRPO強化学習を用いた方策改善により、方策の初期成功率を20.3%相対的に向上させることに成功しました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "実世界およびシミュレータ（AgiBotWorld Beta、LIBERO、ManiSkill）における予測ロールアウトの例。上が予測（Pred）、中段がアクション動画（AC）、下が真値（GT）です。把持や液体注ぎなどの複雑な相互作用を高精度に捉えています。",
+     "caption": "Figure 5: Multi-source rollouts (Part I). AgiBotWorld Beta, LIBERO, and ManiSkill. Rows: prediction (Pred), action video (AC), and ground truth (GT); time advances left to right.",
+     "image": "details/2609.12036/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "RealSource World、RoboCasa、RoboMIND、RoboTwinにおけるロールアウト結果。多様な背景や照明、食器の片付けや布での清掃といった多彩な作業において、時間的一貫性を保った予測が行われています。",
+     "caption": "Figure 6: Multi-source rollouts (Part II). RealSource World, RoboCasa, RoboMIND, and RoboTwin. Rows: Pred (prediction), AC (action video), GT (ground truth); time runs left to right.",
+     "image": "details/2609.12036/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "軌道のOOD（分布外）汎化実験。同一タスクの通常軌道（順方向）と逆再生軌道（逆方向）の両方を与えた場合でも、アクション動画に忠実に追従して正しい物理挙動を予測できています。",
+     "caption": "Figure 7: Trajectory OOD. Forward and reversed action-conditioned rollouts across four real-world and simulated benchmarks.",
+     "image": "details/2609.12036/F7.jpg"
+    },
+    {
+     "key": "F9",
+     "caption_ja": "ロボット身体性のOOD汎化実験。元のPandaアームで収集されたブロック積みタスクを、学習に含まれていないSawyer、IIWA、UR5eの各アームにリターゲットして与えても、破綻なく適切な外見と動作を再現しています。",
+     "caption": "Figure 9: Robot-embodiment OOD. Block-stacking rollouts retargeted from Panda to held-out Sawyer, IIWA, and UR5e embodiments.",
+     "image": "details/2609.12036/F9.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5. Conclusion and Future Work",
+   "heading_ja": "まとめと今後の展望：真の汎用シミュレータに向けて",
+   "summary_ja": "Pelican-Sim 1.0の成果を総括し、身体性や環境を横断するワールドモデルの基盤としての価値を再確認しています。今後のデータ拡充やさらなる推論効率化、分布外汎化の厳密な評価指標確立といった課題を提示しています。",
+   "details_ja": "Pelican-Sim 1.0は、28次元の統一アクション空間とURDF骨格動画を交互に注入する設計、そして疎なMoEアーキテクチャによって、ヘテロなロボットデータを束ねる汎用ワールドモデルの可能性を実証しました。単なる動画生成の綺麗さを競うだけでなく、データ拡張や方策評価、強化学習ループにおける環境としての実用性を証明した点が大きな前進です。\n\n今後の展望として、著者らは以下の3つの課題を挙げています。\n- さらなる身体性、より複雑な物体接触、劣悪なセンシング条件、長時間の作業シーケンスを含む学習データの拡大。\n- 因果蒸留モデルにおける長期ダイナミクスの安定性向上と、適応的計算によるさらなる推論レイテンシの削減。\n- 単なる同一ソース内のテストにとどまらず、タスク、身体性、環境、視点が未知である状況下での汎化性能を厳密に測定・保証する評価プロトコルの確立。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "ロボットのワールドモデルでは、関節角などの精密な「数値情報」と、URDF骨格による画像空間での「幾何学的ガイダンス」の両方を組み合わせることが極めて重要です。",
+  "多様なロボットや環境の混載データを扱う場合、疎なMoE構造を導入することでモダリティ間の衝突を防ぎ、表現容量を効率的にスケールさせることができます。",
+  "4ステップの因果蒸留モデルとVLM評価器を組み合わせることで、シミュレータや実機環境なしでも方策の評価や強化学習による改善が現実的な計算時間で回せるようになります。"
+ ],
+ "limitations_ja": [
+  "URDFの記述ファイルや正確なカメラ外部・内部キャリブレーションパラメータが事前に揃っていることが前提条件となっています。",
+  "因果蒸留による4ステップ生成は高速ですが、極めて長時間のロールアウトにおける累積誤差や微細な物理接触の再現性にはまだ改善の余地があります。",
+  "EWMBenchの一部の個別指標（RoboMINDにおけるnDTWや一部の一貫性スコアなど）では、特定のベースラインに対して優位性を示しきれていない項目が存在します。"
+ ],
+ "keywords": [
+  "World Model",
+  "Embodied AI",
+  "Cross-Embodiment",
+  "Diffusion Transformer",
+  "Sparse Mixture-of-Experts",
+  "Action-Conditioned Video Generation"
+ ],
+ "id": "2609.12036",
+ "title": "Pelican-Sim 1.0: A General World Model Simulator for Embodied Intelligence",
+ "authors": [
+  "Shilong Zou",
+  "Shilin Zhang",
+  "Yingji Zhang",
+  "Yuhang Huang",
+  "Yi Zhang",
+  "Zeyuan Ding",
+  "Han Dong",
+  "Junwei Liao",
+  "Yong Dai",
+  "Jian Tang",
+  "Xiaozhu Ju"
+ ],
+ "date": "2026-09-14",
+ "group": "focus",
+ "tags": [
+  "simulation",
+  "world-model"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.12036",
+ "pdf_url": "https://arxiv.org/pdf/2609.12036",
+ "summary_ja": "視覚コンテキストとロボット行動から将来の観測を予測する具象知能向け汎用ワールドモデルシミュレータを提案。主流のロボット形態を網羅する28次元の統一行動空間と、URDFやカメラ描画を介して画素と行動を接続するAction-visual injectionを導入。ベースライン対比でPSNRが+0.904向上し、異種デバイス間での高精度な視覚予測を実現した。",
+ "generated": "2026-09-14",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.12036"
+}
