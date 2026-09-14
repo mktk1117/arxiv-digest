@@ -1,0 +1,112 @@
+{
+ "title_ja": "ソフトロボットのための空気圧ニューロンによる律動運動ネットワーク",
+ "tldr_ja": "低沸点液体の相変化と機械式スイッチを統合した「空圧ニューロン（Pneu-ron）」を開発し、マイコンや外部ポンプを一切使わずに、配線と物理現象だけで自律的な進行波振動と蠕動運動を実現しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "生物の蠕動運動から着想を得たPneu-ronの全体アーキテクチャ。ミミズの体節運動（A）をLeaky Integrate-and-Fireモデルに対応させ（B）、低沸点液体を封入した柔軟モジュール（C）を興奮・抑制ループで結合することで（D）、分散的かつ自律的な律動パターンと移動動作（E, F）を生み出します。",
+  "caption": "Figure 1 : From biological peristalsis to soft excitable rings. (A) Contraction-relaxation of a single segment of a worm; (B) Pressure curve of Pneu-ron during activation following the inflate-and-fire template; (C) Single Pneu-ron module; (D) 3-segment CPG built upon excitatory-inhibitory connections; (E) Simulated actuation state of 3-segment CPG using inflate-and-fire template over 1.5 times of its period (T); (F) Connected Pneu-ron ring for locomotion.",
+  "image": "details/2609.12258/F1.jpg"
+ },
+ "overview_ja": "ソフトロボットの大きな魅力は柔軟性や環境適応力ですが、従来のシステムの多くは外部のエアコンプレッサーや分厚い集中制御基板、配線束に縛られており、「真に自律的で柔らかいロボット」の実現には依然として大きな壁がありました。生物のように中枢のコンピュータに頼らず、身体全体の局所的な相互作用だけで協調したリズム運動を生み出すことはできないでしょうか。\n\nそこで著者らは、神経回路の基本モデルであるLeaky Integrate-and-Fire（LIF：漏れ付き積分発火）モデルに着想を得て、エネルギー変換・論理回路・アクチュエータの3つを一体化した「Pneu-ron（Pneumatic neuron）」を開発しました。各モジュールは低沸点液体（LBF）とヒーター、そして膨張によって切り替わる機械式座屈スイッチで構成されています。ヒーターを熱すると液体が気化してパウチが膨らみ（積分）、一定の変形に達するとスイッチが入って隣のモジュールを駆動しつつ前のモジュールを遮断します（発火と抑制）。\n\n著者らは力学系の分岐理論を用いて、自律振動を持続させるために必要な最小配線構造（興奮・抑制・自己保持）と幾何・熱パラメータの動作境界を導出しました。そして実機モジュールを環状に繋ぐことで、一定のDC電圧を印加するだけで自律的な位相差振動が発生し、異方性摩擦脚を取り付けることでミミズのような蠕動前進ができることを実証しました。さらに、ロボットを真っ二つに切断しても両方の断片が自律的に再振動する耐障害性や、重荷重・環境温度の変化に対して計算なしに物理挙動だけで適応するロバスト性を示しています。",
+ "contributions_ja": [
+  "低沸点液体の相変化と内蔵座屈スイッチを組み合わせ、ポンプやマイコンなしで発火・抑制を行う自己完結型ソフトアクチュエータ「Pneu-ron」を開発した点",
+  "持続的な進行波振動を生み出す最小の信号伝達構造（前方向の興奮、後方向の抑制、局所自己保持）を特定し、パラメータ空間における無次元分岐図を確立した点",
+  "モジュール環を物理的に切断してトポロジーを変化させても、各サブリングが自律的に振動を再開できる極めて高い耐障害性とモジュール性を示した点",
+  "環境温度や外力負荷の変化に対して、ソフトウェアによる補正なしに物質レベルの熱力学・力学応答だけで周期を適応させ、自律的な蠕動移動を実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Results",
+   "heading_ja": "自律振動のメカニズム解明からソフトロボットの実機実証まで",
+   "summary_ja": "持続的な自律振動を生み出すための最小論理構成をシミュレーションで導き、それを単一のPneu-ronモジュールとして実装しました。さらにリング状に連結することで進行波発火や自律的な蠕動移動を確認し、切断に対する耐性や外力・温度変化への柔軟な適応力を実証しました。",
+   "details_ja": "### 1.1 持続的なネットワーク振動に必要な最小信号構造\n生物の歩行や蠕動運動をつかさどるCPG（中枢パターン生成器）を模し、各モジュールを1次遅れのRC要素（圧力がヒーターで上昇し、放熱で下降するLIFユニット）としてモデル化しました。解析の結果、単にモジュール間で前向きの「興奮（Excitation）」を送るだけでは、オープンチェーンでは信号が途絶え、リング状に閉じると全モジュールがON状態に陥る「飽和」が発生することが分かりました。直前のモジュールを切る「抑制（Inhibition）」を加えると飽和は防げますが、減衰しすぎて波が消滅してしまいます。そこで、自身の興奮閾値を超えた際に状態を維持する「自己保持（Self-latching）」を追加することで、初めて安定した進行波振動が得られることを突き止めました。このとき、常時隣接する2つのモジュールだけが発熱する「2-hot」状態が進行波の最小単位となります。\n\n### 1.2 再生条件と消去条件が定義する振動境界\nネットワークが持続的に振動できる領域は、消滅を防ぐ「再生条件（Regeneration condition: $G = t_{\\mathrm{e}} / t_{\\mathrm{r}} > 1$）」と飽和を防ぐ「消去条件（Clearance condition: $R = (N-1)t_{\\mathrm{r}} / t_{\\mathrm{i}} > 1$）」の2つの不等式で厳密に境界づけられます。ここで $t_{\\mathrm{e}}$ は励振時間、$t_{\\mathrm{r}}$ は立ち上がり時間、$t_{\\mathrm{i}}$ は抑制閾値以上の時間、$N$ はリングのモジュール数です。これらを閾値や熱時定数の空間でプロットすると有界なくさび状の分岐図が得られ、リングのサイズ $N$ が大きくなるほど安定振動領域が広がるスケーラビリティも明らかになりました。\n\n### 1.3〜1.4 Pneu-ronの機構設計と単体特性\nこの3経路（興奮・抑制・ラッチ）を1つの部品で実現するため、低沸点液体（Opteon SF33、沸点 $34\\,^{\\circ}\\mathrm{C}$）を封入したTPUパウチの内側に、折り紙工学に基づく2段階座屈ビームスイッチを組み込みました。パウチが膨らむと圧縮力でまず常時閉（NC）接点が離れ（抑制閾値 $th_{i}$）、さらに膨らむと常時開（NO）接点が接触します（興奮閾値 $th_{e}$）。このNO接点の並列配線によって電気的な自己保持を実現しています。単体評価では、9 V駆動時に最大4 mmの収縮ストロークと約0.5 Nの収縮力、スイッチを押す垂直方向には約4 Nの拡張力を記録しました。\n\n### 1.5〜1.6 リング構成による振動とネットワーク再構成\nPneu-ronを3つ結合したリングを構築したところ、外部制御なしで理論通りの「2-hot」手渡しによる持続的な熱・圧力振動が確認されました。さらに6モジュールのリングを動作中にハサミのように真っ二つに切り離し、3モジュールのサブリング2つに再構成する実験を実施しました。外部からプログラムを書き換えることなく、手動で片方に一度きっかけを与えるだけで、両方のリングが独立した振動運動を再開することに成功しました。\n\n### 1.7〜1.8 機械的・熱的摂動への物理的適応\n4モジュールリングに自重（24 g）の20.8倍に相当する500 gの重りを載せる実験を行いました。モジュールは押し潰されてスイッチが入りやすくなるため立ち上がり時間は約40%短縮（約25秒から約15秒）した一方、冷えて戻るのに時間がかかるため、システム全体の周期は破壊されることなく約34%延長（632秒から848秒）し、物理的負荷に対して自律的にリズムを遅くする適応性を示しました。また $-20\\,^{\\circ}\\mathrm{C}$ の極冷環境では波の消滅、$60\\,^{\\circ}\\mathrm{C}$ のホットプレート上では周囲熱による飽和など、分岐図の理論予測と完全に一致する振る舞いが確認されました。\n\n### 1.9 蠕動移動ロボットの実証\n3モジュールのリング下面に異方性摩擦を生むL字型の脚爪を取り付け、床の上に置きました。リング内を巡る膨張・収縮波が「膨らんで地面を捉える脚」と「縮んで滑る脚」の位相差を生み出し、外部クロックなしで1サイクルあたり0.0231体長（95分で25 mm）の前進移動を達成しました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "持続的な振動を生み出す3つの信号経路の検証。興奮のみ（C）、興奮＋抑制（D）、興奮＋ラッチ（E）では減衰や飽和を起こしますが、興奮・抑制・ラッチの3つをすべて備えた場合（F）にのみ、安定した進行波振動（2-hot状態）が持続します。",
+     "caption": "Figure 2 : Three signaling pathways required for stable oscillation. (A) Open-chain configuration with no electrical connection from $\\mathrm{M}_{3}$ to $\\mathrm{M}_{1}$ ; (B) Ring architecture where the last module feeds back to the first, allowing returning waves; (C–F) Representative dynamical behaviors for different combinations of excitatory, inhibitory, and latching interactions. White background with black text means this signal pathway is on, while dark background means this channel is off, where “T” denotes the period of oscillation. Sub-column (Chain) stands for chain configuration and (Ring) is ring configuration.",
+     "image": "details/2609.12258/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "5次元パラメータ空間の2パラメータ分岐図。（A）閾値調整と（B）加熱・冷却時定数に対する安定振動領域（ハッチング部分）を示しており、境界を越えると消滅（Extinction）や飽和（Saturation）に転落することが視覚化されています。",
+     "caption": "Figure 3 : Two-parameter bifurcation diagrams showing two representative cross-sections of the five-dimensional parameter space. (A) Threshold-adjustment diagram. Insets (A1) and (A3) are per-module traces of two simulated failures (extinction); (A2) is the reference normal oscillation. (B) Environmental analysis based on heating and cooling time constants. Insets (B1)–(B3) show saturation, normal oscillation, and extinction. $R$ is shown as the map color and used as the primary parameter.",
+     "image": "details/2609.12258/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "単一Pneu-ronモジュールの構造と作動メカニズム。パウチ内部の液体が気化して膨らむことで座屈スイッチが押し込まれ、NC接点の開放（抑制）からNO接点の接触（興奮および自己ラッチ）へと段階的に切り替わります。",
+     "caption": "Figure 4 : Detailed design of a single Pneu-ron module. (A), (B) Physical prototype. (C) Exploded rendering of a single module with the pouch motor unfolded to highlight internal design. (D) Mechanical compression sequence of the two-part buckling switch. (E) Thermal activation sequence of the actuator with cross-section, along with the switch configuration at the bottom. (F) Equivalent logic representation showing excitatory ( $E_{i}$ ), inhibitory ( $I_{i}$ ), and self-latch ( $S_{i}$ ) pathways, as well as the ground ( $G$ ) and power supply ( $V$ ). $\\mathrm{M}_{i}$ stands for the $i$ -th module in the system.",
+     "image": "details/2609.12258/F4.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "6モジュールリングの切断・再構成実験。稼働中のリングを真っ二つに分割して2つの3モジュールリングに再配線した際、パラメータを一切調整し直すことなく、双方が独立した進行波振動を自律的に維持しました。",
+     "caption": "Figure 7 : Reconfiguration experiments. (A) 6-segment topology; (B) Separation of 6-segment in the middle; (C) Reconnection generates two rings; Inside each panel, all sub-panels of (1)s are photos while (2)s are thermal images.",
+     "image": "details/2609.12258/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "機械的・熱的摂動に対する応答挙動。（A）自重の約21倍の重荷を載せても停止せず周期を遅くして振動を継続する様子、（B）1モジュールを物理拘束した際の伝導ブロックと強制冷却による回復、（C）高温ホットプレート上での静的アーチ形成による飽和を示しています。",
+     "caption": "Figure 8 : Emerging behavior under shifted environmental parameters. (A) Weight loading experiment; (1) is the unloaded condition while two 500 g weights are applied in (2). Thermal images in (3) indicate continuing wave propagation. (B) Conduction block sequence; (1-3) overview of the experiments, (4-6) corresponding thermal images. (C) Hot-plate experiments. (1-3) are the time sequence.",
+     "image": "details/2609.12258/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Discussion",
+   "heading_ja": "「計算」から「形態・物理現象」によるロボット制御へ",
+   "summary_ja": "Pneu-ronはマイコンや圧力ポンプに依存せず、素材自身の熱力学と局所回路だけで運動生成と環境適応を行える新しい自律分散ソフトロボットの設計論を提示しました。材料の熱的限界などの実用上の課題はあるものの、極限環境探査やソフトペースメーカーへの応用が期待されます。",
+   "details_ja": "### 形態制御（Morphological Computation）の具現化\n従来のロボティクスでは、センサで環境を測り、中央のマイコンが軌道計算をしてアクチュエータへ指令を出すのが標準でした。しかしPneu-ronでは、アクチュエータ自体が「論理ゲート」であり「クロック」であり「筋肉」でもあります。重りを載せれば物理的にスイッチの入りやすさと戻りにくさが変わり、その結果として歩行周期が勝手に遅くなるという振る舞いは、一切のデジタル計算を介さない真の形態制御（身体性による計算）と言えます。\n\n### 損傷への圧倒的な強さと応用展開\nPneumatic（空圧）ロボットの最大の弱点は、エアチューブやパウチが1箇所でも破裂・切断されるとシステム全体が圧力を失って停止することでした。Pneu-ronは各モジュールが独立した相変化流体を持つため、チューブ配管が存在しません。そのため、体を真っ二つに切断されても「2体の独立した小型ロボット」として機能し続けるという、従来の空圧ロボットでは考えられない耐障害性を獲得しています。この自己完結性は、外部から配管を引っ張ることが困難な地中点検、深海、宇宙探査用ローバーなどの用途に極めて有望です。\n\n### 今後の課題と材料選定トレードオフ\n実用化に向けた最大のボトルネックは動作速度です。現状では1サイクルに約15分を要しています。これはパウチ材料に熱に弱い熱可塑性ポリウレタン（TPU）を採用しているため、ヒーターの温度を上げられないことに起因します。初期検討で試したシリコーンパウチは耐熱性があるものの、低沸点液体が分子拡散で徐々に透過・揮発してしまう欠点がありました。今後は、気密性と耐熱性を高次元で両立する新素材の開発や、より高効率な放熱構造の設計が求められます。",
+   "figures": []
+  },
+  {
+   "heading": "3 Materials and Methods",
+   "heading_ja": "モジュールの試作方法、力学計測、および摂動実験プロトコル",
+   "summary_ja": "低沸点液体を封入したTPUパウチとレーザー加工による3D座屈スイッチの製作手順を詳述しています。また単体の圧力・推力計測系、1次遅れRCモデルを用いた分岐シミュレーション、および荷重・極低温・加熱プレートを用いた摂動実験の手法をまとめています。",
+   "details_ja": "### 3.1 パウチアクチュエータと機械式スイッチの設計・製作\nPneu-ronは、熱を圧力に変えるパウチ部と、圧力を電気信号へ変換する座屈スイッチ部の2つから構成されます。パウチはTPUフィルムを用い、内部に低沸点液体（Opteon SF33、沸点 $34\\,^{\\circ}\\mathrm{C}$）と、抵抗値 $125\\,\\Omega/\\mathrm{m}$ のシリコーン被覆ヒーター（長さ30 cm）を封入しました。中央に配置される座屈ビームスイッチは、レーザーカットした樹脂シートを五角形状に折り曲げた3D構造で、導電用の銅テープを貼り付けて製作されています。この立体形状の座屈挙動によって、パウチの膨張時にNC接点が外れたあとにNO接点が閉じるという、確実な時間差（ガードウィンドウ）が機構的に保証されます。\n\n### 3.2 単体モジュールの特性評価系\n単一モジュールの挙動を評価するため、パウチ内に微細チューブを介してAdafruit製圧力センサ（MPRLS）を接続し、完全な加熱・冷却サイクルにおける圧力過渡応答を計測しました。力学出力の計測には6軸力覚センサ（ATI Delta IP68）を用い、印加電圧（3.0 V〜9.0 V）に対する収縮力・拡張力および変位を評価しました。また、側面に配置した反射マーカーの位置変化をモーションキャプチャシステム（OptiTrack）でトラッキングし、変位とストロークを精密に測定しています。\n\n### 3.3 ネットワークシミュレーションの手法\n実機の挙動はヒステリシスを伴う2次系ですが、分岐現象の本質を抽出するため、各モジュールを固定閾値（$th_{i}, th_{e}$）を持つ1次遅れRC回路としてモデル化しました。パラメータ空間（$th_{e}, th_{i}, \\tau_{\\mathrm{on}}, \\tau_{\\mathrm{off}}, N$）において、外部トリガーに対する信号伝播の成否をシミュレーションし、2パラメータ断面の分岐図を作成しました。\n\n### 3.4〜3.6 摂動実験・再構成・移動ロボット実験プロトコル\n機械的摂動実験では、4モジュールリングの $\\mathrm{M}_{1}$ と $\\mathrm{M}_{3}$ に各500 gの真鍮製分銅を載置した際の周期変化を測定したほか、$\\mathrm{M}_{2}$ をクランプで機械的に強制ON状態にして伝導ブロックを誘発し、ファンによる強制空冷で復帰させる手順を確立しました。熱摂動では $-20\\,^{\\circ}\\mathrm{C}$ の冷凍庫投入や $60\\,^{\\circ}\\mathrm{C}$ のホットプレート加熱を検証しました。移動実験では、3モジュールのリング下面に3Dプリント製のL字脚と高摩擦テープ（3M TB641）をヒンジ結合し、アクリル板上にて9.0 V印加で6サイクル（約95分間）稼働させ、LUMIX G9カメラによる微速度撮影（1 fps）で変位を解析しました。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "アクチュエータ自身に「興奮・抑制・自己保持」の3つの論理を組み込むことで、集中制御マイコンなしでも安定した協調律動運動が創発する",
+  "低沸点液体の相変化を利用した自己完結型モジュールにより、ポンプやエアチューブ配管を全廃でき、身体を切断されても動き続ける究極の耐障害性が得られる",
+  "物理的な負荷や温度変化といった外乱が、アルゴリズムではなく「材料や流体の物理特性」によって直接リズム変調へと変換されるため、極めてシンプルな適応制御が実現できる"
+ ],
+ "limitations_ja": [
+  "相変化に伴う加熱と受動放熱を利用しているため、1周期に約15分を要し、ロボットの移動速度が極めて遅い",
+  "パウチ材料に用いているTPUの耐熱限界により加熱温度が制限され、かといってシリコーンを用いると作動流体が透過・蒸発してしまうという材料トレードオフが存在する",
+  "周囲温度が作動流体の沸点（$34\\,^{\\circ}\\mathrm{C}$）を超えると、外部入力がなくても勝手に全モジュールが膨張・飽和してしまい自律動作が破綻する"
+ ],
+ "keywords": [
+  "Soft Robotics",
+  "Phase Change Actuators",
+  "Morphological Computation",
+  "Central Pattern Generator (CPG)",
+  "Integrate-and-Fire Model"
+ ],
+ "id": "2609.12258",
+ "title": "Pneumatic neurons for soft robots enable inflate-and-fire networks for rhythmic motion",
+ "authors": [
+  "Dongting Li",
+  "Michael Tolley",
+  "Nick Gravish"
+ ],
+ "date": "2026-09-14",
+ "group": "general",
+ "tags": [
+  "hardware",
+  "control",
+  "locomotion"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.12258",
+ "pdf_url": "https://arxiv.org/pdf/2609.12258",
+ "summary_ja": "生体神経回路のリーキー・インテグレート・アンド・ファイアモデルに着想を得て、集中型の電子制御装置なしで律動運動を自律生成する空気圧ニューロン（Pneu-ron）を開発。低沸点流体、ヒーター、機械式スイッチを一体化し、局所的な自己発振と相互結合によって自律的に協調歩行などの周期的運動を実現するハードウェアを提案した。",
+ "generated": "2026-09-14",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.12258"
+}
