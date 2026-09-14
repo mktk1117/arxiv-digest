@@ -1,6 +1,275 @@
 {
  "entries": [
   {
+   "date": "2026-09-14",
+   "rank": 0,
+   "id": "2609.12347",
+   "group": "focus",
+   "title": "DWMP: Leveraging Dual World Models for Humanoid Obstacle Traversal",
+   "title_ja": "デュアルワールドモデルを活用したヒューマノイドの障害物走破",
+   "summary_ja": "雑然とした障害物環境をヒューマノイドが走破するためのDWMP（Dual World Model Policy）を提案。低次元な固有受容感覚にはKoopman作用素に基づく動力学ワールドモデルを用い、高次元な主観視覚情報には別のモデルを適用して相補的な潜在表現を獲得することで、複雑な動特性と視覚入力を効果的に統合して歩行行動を学習する。",
+   "authors": [
+    "Rongjun Jin",
+    "Jianming Ma",
+    "Yue Gao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.12347",
+   "image": "figures/2026-09-14/2609.12347.jpg"
+  },
+  {
+   "date": "2026-09-14",
+   "rank": 1,
+   "id": "2609.12036",
+   "group": "focus",
+   "title": "Pelican-Sim 1.0: A General World Model Simulator for Embodied Intelligence",
+   "title_ja": "Pelican-Sim 1.0：具象知能のための汎用ワールドモデルシミュレータ",
+   "summary_ja": "視覚コンテキストとロボット行動から将来の観測を予測する具象知能向け汎用ワールドモデルシミュレータを提案。主流のロボット形態を網羅する28次元の統一行動空間と、URDFやカメラ描画を介して画素と行動を接続するAction-visual injectionを導入。ベースライン対比でPSNRが+0.904向上し、異種デバイス間での高精度な視覚予測を実現した。",
+   "authors": [
+    "Shilong Zou",
+    "Shilin Zhang",
+    "Yingji Zhang",
+    "Yuhang Huang",
+    "Yi Zhang",
+    "Zeyuan Ding",
+    "Han Dong",
+    "Junwei Liao",
+    "Yong Dai",
+    "Jian Tang",
+    "Xiaozhu Ju"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "simulation",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.12036",
+   "image": "figures/2026-09-14/2609.12036.jpg"
+  },
+  {
+   "date": "2026-09-14",
+   "rank": 2,
+   "id": "2609.12749",
+   "group": "focus",
+   "title": "SCQ: Stabilizing Conservative Q-Learning with Sigmoid-Bounded Entropy",
+   "title_ja": "SCQ：シグモイド有界エントロピーによるConservative Q-Learningの安定化",
+   "summary_ja": "ロボットのオフライン・ツー・オンライン強化学習において、標準的な対数エントロピー項が負値化して方策更新を不安定にする問題に対処するSCQを提案。エントロピー項を常に正値となるシグモイド関数で有界化し、保守的Q正則化とリターンに基づく下限較正を維持することで、実機ロボット学習における価値推定と方策最適化の安定性を大幅に向上させた。",
+   "authors": [
+    "Xiefeng Wu",
+    "Shu Zhang",
+    "Zhaojie Chu",
+    "Mingyu Hu"
+   ],
+   "categories": [
+    "cs.AI"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.12749",
+   "image": "figures/2026-09-14/2609.12749.jpg"
+  },
+  {
+   "date": "2026-09-14",
+   "rank": 3,
+   "id": "2609.12758",
+   "group": "focus",
+   "title": "Curriculum-Based Adversarial Heterogeneous Agent Reinforcement Learning for Autonomous Quad-Copter Landing in Maritime Settings",
+   "title_ja": "海洋環境下におけるドローンの自律着陸に向けたカリキュラム敵対的異種エージェント強化学習",
+   "summary_ja": "風の乱流や甲板揺動がある海洋環境下で、船舶搭載アームによるクアッドローター捕獲を学習する手法を提案。NVIDIA Isaac Lab上で異種エージェントPPO（HAPPO）を用い、カリキュラム学習と敵対的風外乱エージェントを組み合わせたHARL-ACにより、ドメインランダム化単独を上回る堅牢な協調制御方策をシミュレーション上で獲得した。",
+   "authors": [
+    "Allan Minh-Tam Nguyen",
+    "Sree Showrya Kotala",
+    "Stefan Banioi-Crijman",
+    "Kurt Driessens",
+    "Rico M\\\"ockel"
+   ],
+   "categories": [
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "simulation",
+    "drone",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.12758",
+   "image": null
+  },
+  {
+   "date": "2026-09-14",
+   "rank": 4,
+   "id": "2609.12400",
+   "group": "focus",
+   "title": "Decentralized Evolution of Hexapod Gaits with Independent Leg Controllers",
+   "title_ja": "独立した脚コントローラによる6脚ロボット歩行の分散型進化",
+   "summary_ja": "6脚ロボットの歩行動作を、中央集中型の協調制御を用いず、各脚のコントローラを分散型進化的アルゴリズムによって個別に最適化する手法を提案。WebotsシミュレータとMantisロボットを用いた検証により、脚間の局所的な相互作用から適応的で安定した歩行運動が創発することを確認し、協調共進化法と比較して探索の複雑性低減と有効性を実証した。",
+   "authors": [
+    "Gary B. Parker",
+    "John Asaro",
+    "Jim O'Connor"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "control",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.12400",
+   "image": "figures/2026-09-14/2609.12400.jpg"
+  },
+  {
+   "date": "2026-09-14",
+   "rank": 5,
+   "id": "2609.12549",
+   "group": "general",
+   "title": "STAR: Sparse Tactile Representation Learning in Vision-Tactile-Language-Action Models for Dexterous Manipulation",
+   "title_ja": "STAR：巧緻マニピュレーションのための視覚・触覚・言語・行動モデルにおけるスパース触覚表現学習",
+   "summary_ja": "多指による双腕巧緻マニピュレーション向けに、200時間・10,576軌跡におよぶ同期された視覚・触覚・言語データセットを構築。さらにスパースな触覚信号から効率的に空間・時間・接触表現を抽出してマルチモーダル行動方策を学習するVTLAモデルSTARを提案し、多指協調制御を要する65種類のタスクで有効性を実証した。",
+   "authors": [
+    "Xiangcheng Liu",
+    "Tianhao Wu",
+    "Le Zheng",
+    "Yidong Wang",
+    "Bowen Jiang",
+    "Mingjie Pan",
+    "Xinlin Ren",
+    "Yi Liu",
+    "Jianlan Luo"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "dataset",
+    "vision-language-action",
+    "teleoperation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.12549",
+   "image": "figures/2026-09-14/2609.12549.jpg"
+  },
+  {
+   "date": "2026-09-14",
+   "rank": 6,
+   "id": "2609.12498",
+   "group": "general",
+   "title": "ArtManip: Category-Level Articulated In-Hand Manipulation",
+   "title_ja": "ArtManip：カテゴリレベルでの多関節物体のインハンド・マニピュレーション",
+   "summary_ja": "多指ハンドにより未知の関節構造物体の内部自由度を制御しつつ安定把持を維持する、初のカテゴリレベル・インハンドマニピュレーション手法ArtManipを提案。初期把持や対象インスタンスの多様性に適応可能であり、実機を含む広範な実験により未知物体に対する頑健な内部自由度操作と把握の維持を両立した。",
+   "authors": [
+    "Yang Yang",
+    "Tengyu Liu",
+    "Puhao Li",
+    "Zeyuan Chen",
+    "Yuyang Li",
+    "Xingwan Wang",
+    "Yingying Wu",
+    "Zhaopeng Cui",
+    "Siyuan Huang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "grasping",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.12498",
+   "image": "figures/2026-09-14/2609.12498.jpg"
+  },
+  {
+   "date": "2026-09-14",
+   "rank": 7,
+   "id": "2609.12316",
+   "group": "general",
+   "title": "DATAFARM: Distribution-Aligned Task and Motion Planning for Fine-Tuning Vision-Language-Action Models",
+   "title_ja": "DATAFARM：VLAモデル微調整のための分布整合型タスク・モーションプランニング",
+   "summary_ja": "TAMP（タスク・モーションプランニング）で自動生成した軌跡が、事前学習済みVLAモデルのデータ分布と乖離しているために微調整効果が薄い課題に着目。VLAの事前学習分布と整合するようにプランナー生成軌跡を誘導するDATAFARMを提案し、ロボット基盤モデルへの効率的かつ有効なデータ供給と性能向上を実証した。",
+   "authors": [
+    "Samrat Sahoo",
+    "Yixuan Huang",
+    "Tom Silver"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "planning",
+    "vision-language-action",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.12316",
+   "image": "figures/2026-09-14/2609.12316.jpg"
+  },
+  {
+   "date": "2026-09-14",
+   "rank": 8,
+   "id": "2609.12258",
+   "group": "general",
+   "title": "Pneumatic neurons for soft robots enable inflate-and-fire networks for rhythmic motion",
+   "title_ja": "ソフトロボットのための空気圧ニューロンによる律動運動ネットワーク",
+   "summary_ja": "生体神経回路のリーキー・インテグレート・アンド・ファイアモデルに着想を得て、集中型の電子制御装置なしで律動運動を自律生成する空気圧ニューロン（Pneu-ron）を開発。低沸点流体、ヒーター、機械式スイッチを一体化し、局所的な自己発振と相互結合によって自律的に協調歩行などの周期的運動を実現するハードウェアを提案した。",
+   "authors": [
+    "Dongting Li",
+    "Michael Tolley",
+    "Nick Gravish"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "control",
+    "locomotion"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.12258",
+   "image": "figures/2026-09-14/2609.12258.jpg"
+  },
+  {
+   "date": "2026-09-14",
+   "rank": 9,
+   "id": "2609.12831",
+   "group": "general",
+   "title": "VertexCBF: Improving Neural Control Barrier Functions via Vertex-Restricted Control Search",
+   "title_ja": "VertexCBF：頂点制限制御探索によるニューラル制御バリア関数の改善",
+   "summary_ja": "制御アフィン系かつ凸多面体の制御入力制約を活用し、スケーラブルかつ説明可能なニューラル制御バリア関数（NCBF）を学習するVertexCBFを提案。定常ハミルトン・ヤコビ価値関数を物理情報付きニューラルネットワークで近似し、極値点の探索を有界化することで、過度に保守的にならない安全集合を系統的に学習し安全制御を可能にした。",
+   "authors": [
+    "Bojan Deraji\\'c",
+    "Sebastian Bernhard",
+    "Wolfgang H\\\"onig"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "control",
+    "safety",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.12831",
+   "image": "figures/2026-09-14/2609.12831.jpg"
+  },
+  {
    "date": "2026-09-12",
    "rank": 0,
    "id": "2609.11014",
