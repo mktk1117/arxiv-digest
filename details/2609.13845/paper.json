@@ -1,0 +1,125 @@
+{
+ "title_ja": "LePlanner: ワールドモデルのための反復型償却コントローラ",
+ "tldr_ja": "凍結した潜在世界モデル上で、重いオンライン探索（CEM等）を行う代わりに、学習済みの反復リファインメントを行うことで、計算量を2000分の1以下に削減しつつ同等以上のゴール到達性能を達成したプランナ「LePlanner」の提案です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "LePlannerの全体構成です。凍結されたJEPA型予測器（青）による潜在ロールアウト結果をコンシークエンス・エンコーダが受け取り、リファインメント・トランスフォーマが行動プランを反復修正します。学習時は「到達して留まる」損失（Arrival and Hold Loss）で最適化されます。",
+  "caption": "Figure 1: LePlanner architecture. The frozen JEPA predictor (blue) rolls out imagined latents $\\bar{x}_{1},\\bar{x}_{2},\\ldots$ from context $(E(s_{i})+b_{i})$ , where $E(s_{i})$ is the latent embedding of state $s_{i}$ and $b_{i}$ is the executed action. $Y^{(k)}$ denotes the action plan at refinement step $k$ , produced by the Refinement Transformer and decoded into real-environment action states by the action head $h_{\\theta}$ .",
+  "image": "details/2609.13845/F1.jpg"
+ },
+ "overview_ja": "画像から環境のダイナミクスを学ぶ「世界モデル」は、頭の中で行動の結果をシミュレーションして計画（プランニング）できる強力な枠組みです。しかし、従来の計画法には大きなジレンマがありました。CEMなどのオンライン探索手法は精度が高いものの、1回の判断に数百〜数千回ものシミュレーションを回すためレイテンシが極めて大きく、実機ロボットでのリアルタイム制御には不向きです。一方、行動クローニングのように1回の順伝播で行動を出す手法は高速ですが、接触が多い複雑なタスクでは性能が大幅に低下してしまいます。\n\nそこで著者らは、両者の良いところを組み合わせた「LePlanner」を考案しました。事前に自己教師あり学習で学習・凍結された潜在世界モデル（LeWM）に対し、固定ステップ数のニューラルネットワークによる反復修正（アモータイズド・リファインメント）で最適な行動列を導き出します。さらに、従来のプランナをMPC（後退ホライズン制御）で動かした際に「ゴール到達を毎回次のホライズンの終端へと先送りにしてしまう」という深刻な病理（先延ばし問題）を発見し、データの時間オフセットで到達してその場に留まることを促す「arrival-and-hold」損失を導入してこれを解決しました。\n\n検証実験では、PushT、Reacher、TwoRooms、OGBench Cubeというナビゲーションから接触リッチなマニピュレーションを含む4環境で評価を行いました。その結果、LePlannerは従来のテスト時探索手法（CEM）と同等以上の成功率を達成しながら、予測器の呼び出し回数を2250分の1に激減させ、実時間でも3〜49倍の圧倒的な高速化を実現できることを実証しました。",
+ "contributions_ja": [
+  "凍結したJEPA型潜在世界モデルに対し、微分可能なロールアウトを通じて行動計画を反復修正する軽量なアモータイズド・コントローラLePlannerを提案したこと。",
+  "後退ホライズン制御で発生する「ホライズンリセットによる先延ばし問題」を理論・実験の両面で特定し、適切なタイミングでの到達と維持を促す「arrival-and-hold」損失によって解決したこと。",
+  "オフライン行動のガウス混合分布制約により、エキスパート行動の単純な模倣（BC）に頼ることなく、世界モデルの誤差領域を避けた有効な軌道を生成可能にしたこと。",
+  "4つのベンチマーク環境で、重いオンライン探索手法（CEM）を上回る成功率を達成しつつ、予測器のクエリ回数を数千分の一、レイテンシを大幅に削減できることを示したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "世界モデルによる計画のジレンマと「先延ばし問題」",
+   "summary_ja": "世界モデルを用いた視覚制御には、計算負荷の重いテスト時探索と、接触タスクに弱いクローニング手法という二者択一の課題がありました。さらに、標準的な終端コストをMPCで使うとゴール到達を永遠に先送りする現象が生じるため、本研究では反復型アモータイズド制御器LePlannerを提案します。",
+   "details_ja": "視覚的な観測から直接動作を学習するアプローチとして、世界モデルは極めて有望です。特にJEPA（Joint Embedding Predictive Architecture：ピクセルそのものではなく抽象特徴空間で未来を予測する構造）は、高次元な画像観測をコンパクトに扱える利点を持っています。\n\nしかし、学習済み世界モデルの中でどうやって行動を計画するかという点には、常にトレードオフが存在していました。CEM（Cross-Entropy Method）などの探索ベース手法は高精度ですが、1回の意思決定ごとに膨大な最適化ループを回すため計算負荷と遅延が無視できません。一方、目標条件付き行動クローニング（GC-IDMなど）は1回のフォワードパスで済むものの、接触が多くマルチモーダルな動作分布を持つタスクでは破綻しやすい欠点があります。\n\nさらに著者らは、従来のモデル予測制御（MPC）で広く使われてきた「計画ホライズンの終端でゴールに近づく」という終端目的関数に、致命的な欠陥があることを突き止めました。MPCでは計画した行動の最初の一部だけを実行してすぐに再計画（リプラン）を行います。すると、終端の締め切りが毎回未来へとリセットされるため、ロボットは「ゴールに向かって近づく姿勢は見せるが、いつまで経ってもゴールに到着しない」という行動に陥ります。著者らはこれを「ホライズンリセットによる先延ばし（horizon-reset procrastination）」と名付けました。\n\nこの課題を克服するため、著者らは凍結された世界モデル（LeWorldModel: LeWM）の中で行動プランを反復修正して生成する「LePlanner」を提案します。訓練データの時間オフセットに合わせてゴール到達と保持を促す新しい目的関数を導入することで、先延ばしを防ぎ、超高速かつ高精度な制御を実現しました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "探索か模倣か、それとも反復的推論か",
+   "summary_ja": "世界モデルの制御手法は、オンライン探索、行動クローニング、モデルベースポリシー学習に大別されます。LePlannerは、微分可能な潜在ロールアウトによる反復修正（アモータイズド推論）を取り入れ、各手法の弱点を補いながら橋渡しをする位置づけにあります。",
+   "details_ja": "世界モデルを用いたアプローチはこれまで大きく3つの系統で発展してきました。\n\n- 潜在世界モデルとテスト時探索：PlaNetやPETS、CEM、MPPIといった手法は、ダイナミクスモデルを通して多数の候補軌道をサンプリングし、評価・選択を繰り返します。近年ではDINO特徴などを用いた滑らかな潜在空間での計画も進んでいますが、オンラインでの計算コストが極めて高いという根本的な課題は残ったままでした。\n- 目標条件付き行動クローニング：GCBCやGC-IDMのように、現在の状態・ゴール・ホライズンから直接行動を出力する方策を教師あり学習するアプローチです。推論は単一のフォワードパスで完了するため超高速ですが、デモデータの分布に強く依存し、接触が複雑な環境では精度が著しく低下します。\n- 世界モデルの「想像」内で学習する方策：DreamerやTD-MPC2のように、世界モデルの潜在ロールアウト内でActor-Criticなどを学習する手法です。強力ですが方策とダイナミクスが密結合しており、環境ごとに膨大な学習計算が必要になります。\n\nLePlannerはこれらを橋渡しする「反復的アモータイズド推論（Iterative Amortized Inference）」の系譜に属します。テスト時に重い最適化を回すのではなく、あらかじめ固定回数（$K$回）のリファインメントを行うニューラルネットワークを学習しておきます。Universal Planning Networks（UPN）等と異なり、LePlannerは世界モデルを完全に凍結したまま制御器のみを学習するため、視覚表現やダイナミクスに悪影響を与えることなく効率的な制御系を構築できます。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method: LePlanner",
+   "heading_ja": "反復リファインメントと「到達して留まる」損失",
+   "summary_ja": "LePlannerは、凍結された世界モデルに勾配を流しながら、Transformerを用いて行動トークンを反復修正します。学習データの時間差に基づく「arrival-and-hold」損失と、行動が実データ分布から外れるのを防ぐGMM制約によって、安定した計画を生成します。",
+   "details_ja": "### 3.1 問題設定\nオフラインの軌道データから事前に学習・凍結されたLeWorldModel（画像エンコーダ $E$ と潜在予測器 $P$）を利用します。環境の生行動は $f=5$ ステップずつ束ねた行動ブロック $b_j$ として扱います。制御器は、過去 $N=3$ フレームの観測履歴 $C_t$ とゴール画像 $z_G = E(o_G)$ を受け取り、未来 $H=5$ ブロックの行動計画 $b_{1:H}$ を出力します。予測器 $P$ は凍結されていますが、制御器を訓練するために勾配は逆伝播させます。\n\n### 3.2 LePlannerのアーキテクチャ\n計画は行動そのものではなく、各未来ブロックに対応する潜在トークン $y_j$（Plan Token）として保持されます。初期提案 $Y^{(0)}$ を生成した後、行動ヘッド $h_\\theta$（$\\tanh$関数で正規化行動空間の境界を厳密に保証）を通して行動に変換し、予測器 $P$ で潜在ロールアウト $\\hat{z}_{1:H}$ を展開します。続いて、予測された状態とゴールの差分などをコンシークエンス・エンコーダ $F_\\theta$ でまとめ、全結合アテンションを持つリファインメント・トランスフォーマ $G_\\theta$ が修正量 $\\Delta Y$ を予測して計画を更新します。この修正ステップを固定回数（$K=3$）繰り返します。\n\n### 3.3 到達・保持目的関数（Arrival-and-hold objective）\n学習時は、同一エピソード内の未来フレームをゴールとしてサンプリングします。このとき、現在からゴールまでの真の時間オフセットを $q \\in \\{1, \\ldots, H\\}$ とします。従来の固定終端損失では常に $H$ ステップ目の距離 $d_H$ のみを評価していましたが、LePlannerでは次式で最適化します：\n$$\\mathcal{L}_{\\mathrm{arr\\text{-}hold}} = d_q + \\frac{\\lambda_h}{H-q} \\sum_{j=q+1}^{H} d_j$$\nつまり、「サンプリングされた本来のステップ $q$ でゴールに到達し（arrival）、その後ホライズン終了までその場に留まり続ける（hold）」ことを要求します。重要なのは、$q$ は訓練時の損失計算にのみ使われ、推論時の制御器には一切与えられない点です。\n\n### 3.4 深層教師あり学習と 3.5 行動サポート制約\n計画の初期提案 $Y^{(0)}$ および各修正ステップ $Y^{(k)}$ のすべてに対して直接損失を計算し、学習を安定させます。また、世界モデルの「未学習領域での幻覚」を行動が突かないよう、オフラインデータであらかじめ訓練した16成分の条件付きガウス混合モデル（GMM）を用いて、データの95パーセンタイルから外れた行動に対してのみペナルティ $\\mathcal{L}_{\\mathrm{sup}}$ を課すガードレールを設けています。\n\n### 3.6 後退ホライズン実行（Receding-horizon execution）\n推論時は勾配計算を行わず、学習済みネットワークを $K$ 回走らせるだけで最終プランを出力します。本研究の基本設定では、1ブロック実行するごとに観測を更新して再計画を行うMPC形式で動作します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "LePlannerの推論・更新サイクルです。観測履歴とゴールから行動計画 $b^k_{1:H}$ を展開し、凍結予測器 $P$ でロールアウトした結果を $F_\\theta$ と $G_\\theta$ で処理して計画トークンを修正します。これを $K$ 回繰り返した後に最初の行動ブロックを実行します。",
+     "caption": "Figure 2: The LePlanner architecture. From a 3-frame observation history and a goal image $o_{G}$ , the frozen encoder $E$ produces context tokens $C_{t}$ and goal latent $z_{G}$ . Plan tokens $Y^{k}$ are decoded by the action head $h_{\\theta}$ into an action plan $b^{k}_{1:H}$ , which the frozen predictor $P$ rolls out into imagined latents $\\tilde{z}^{k}_{1:H}$ . The consequence encoder $F_{\\theta}$ attends jointly over $Y^{k}$ , the rollout $\\tilde{z}^{k}$ , the rollout-to-goal residual $\\tilde{z}^{k}-z_{G}$ , and the predicted distance-to-goal $d^{k}$ with contexts and goal to produce consequence tokens $R^{k}$ . …",
+     "image": "details/2609.13845/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Results",
+   "heading_ja": "圧倒的な高速化と安定したタスク達成",
+   "summary_ja": "4つのベンチマーク環境において、LePlannerはオンライン探索手法（CEM）と同等以上のゴール到達成功率（92〜100%）を達成しました。さらに、予測器の呼び出し回数を2250分の1に抑え、実時間で最大49倍の高速化を実証しています。",
+   "details_ja": "### 4.1 ゴール到達の成功率\n評価環境には、ナビゲーションタスクのTwoRooms、関節位置制御のReacher、そして接触リッチなPushTおよびOGBench Cubeの4つを用いました。LePlannerはTwoRoomsで100%、PushTで94%（最良シードでは98%）、Reacherで100%、Cubeで92%という極めて高い成功率を記録しました。\n特筆すべきは、再計画を行う頻度（1ブロックごとに再計画する $m=1$ から、全計画を実行し切る $m=5$ まで）を変えても性能がほぼ横ばい（PushTで $94\\% \\rightarrow 88\\%$、Cubeで $82\\% \\rightarrow 92\\%$）で安定している点です。対照的にCEMでは、PushTにおいて $m=1$ だと $34\\%$ まで落ち込み、$m=5$ で $90\\%$ になるなど、再計画頻度に対して挙動が大きく乱れました。\n\n### 4.2 意思決定の計算コスト\nLePlannerの真価は計算コストにあります。ハードウェア非依存の理論値として、1回の計画あたりに必要な世界モデルの潜在遷移計算回数は、LePlannerが $(K+1) \\times H = 4 \\times 5 = 20$ 回であるのに対し、CEMは $300 \\text{個体} \\times 30 \\text{反復} \\times 5 \\text{ホライズン} = 45{,}000$ 回を要します。実に2250倍の削減です。同一GPU上で測定した実時間（エピソードあたりの壁時計時間）でも、LePlannerはCEMに対して3倍から49倍高速に動作しました。\n\n### 4.3 前提条件の比較と 4.4 メカニズムの検証\n行動クローニング系（GC-IDMなど）はエキスパートの行動を直接回帰するため性能がデモに縛られ、推論時に残りステップ数の指定が必要ですが、LePlannerはデモ行動を模倣ターゲットとせず、推論時に入力も不要です。\nまた、なぜ従来の終端損失が失敗したのかを検証したところ、従来の損失ではゴールが1ステップ先にあっても5ステップ目（終端）で到達しようとするため、毎ステップ再計画すると永遠にゴールに辿り着かないことが判明しました。これに対しarrival-and-hold損失では、ゴールが近い場合は即座に到達してその場をキープするプロファイルが自然に獲得されていることが確認されました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "計画ホライズンに沿ったゴールとの予測距離プロファイルです。左の従来損失では、ゴールが1ブロック先（$q=1$）であっても5ブロック目で最小値をとる先延ばしが発生しています。右の提案損失（arrival-and-hold）では、真のオフセット $q$ の位置で正確に最小値をとり、その後も距離を維持していることが分かります。",
+     "caption": "Figure 5: Held-out imagined distance across the plan, split by the sample’s own goal offset $q$ ; the open triangle marks each curve’s minimum. Left: under the original objective every curve bottoms out at block $5$ , even the one whose goal is a single block away. Right: under arrival-and-hold the minimum tracks $q$ , and for $q{=}1$ the curve rises afterwards, which is the signature of arriving and staying.",
+     "image": "details/2609.13845/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Discussion",
+   "heading_ja": "オンライン探索から学習済みリファインメントへの転換",
+   "summary_ja": "LePlannerは、世界モデルを用いた計画において「探索の推論能力」を「学習された反復修正」へと焼き直すことに成功しました。一方で、オフライン世界モデル自体の精度やデータカバレッジに依存する制約も存在します。",
+   "details_ja": "本研究の最大の成果は、十分正則化された潜在空間であれば、テスト時のオンライン探索が見つけ出す複雑な軌道構造を、固定回数の学習されたリファインメント・ポリシーへと効率よく集約（アモータイズ）できることを示した点です。\n\n特に強調すべき点は、LePlannerが行動クローニングではないということです。オフラインデータから学ぶのは「どこがゴールか（Hindsight Goal）」と「どの行動領域が安全か（GMMサポート）」だけであり、行動の生成自体は世界モデルの微分を通してゴール到達損失を直接最小化することで行われます。このため、データセット内のエキスパート行動とは全く異なるアプローチであっても、タスクをより良く解く柔軟な軌道を生成できます。\n\n一方で、いくつかの限界も存在します。第1に、凍結された世界モデル自体の精度に強く依存するため、極端に長いホライズンではシミュレーション誤差が蓄積する可能性があります。第2に、オフラインデータのカバー範囲が狭い場合、有効な計画を見つけられないリスクがあります。また、実験が4つのシミュレーション環境にとどまっているため、今後はより長時間のタスク、確率的環境、実機ロボットへの適用や、不確実性を考慮した適応的リファインメントの導入が期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：閉ループの安定性診断と潜在空間の可視化",
+   "summary_ja": "付録では、「先延ばし問題」の力学系的な不動点解析、リファインメント回数の収束特性、および潜在表現をピクセル空間に復元して世界モデルの想像内容を可視化した検証結果について詳解されています。",
+   "details_ja": "### 先延ばし問題の力学系解析（Appendix C）\n再計画ごとのゴール距離の変化を線形写像 $D_{n+1} = c D_n + b$ としてフィッティングすると、閉ループの到達限界は不動点 $D^* = b / (1 - c)$ に収束します。従来の終端損失ではこの不動点がタスク成功半径の外側に位置していたため、いくらステップ数を増やしても失敗し続けていました。arrival-and-hold損失はこの収束率 $c$ と下限 $b$ の両方を大幅に改善し、成功半径の内側に安定して引き込むことが確認されました。\n\n### リファインメント深度の収束特性（Appendix C.4）\nリファインメントを重ねるごとに終端距離は劇的に低下し（1回から4回で約3.9倍改善）、学習されたステップサイズも $[0.550, 0.451, 0.312]$ と徐々に小さくなって収束します。ただし、訓練時の反復回数 $K=3$ を超えて推論時に反復させ続けると（$k=6$ 以降）、コストが再び増加に転じることも判明しました。これはネットワークが訓練された深さにおいて最適化されており、無制限に反復を増やせば良いわけではないことを示しています。\n\n### 潜在計画の画像可視化（Appendix D）\n制御器が192次元の潜在空間で何を考えているかを検証するため、潜在ベクトルから画像を再構成する診断用デコーダを構築しました。TwoRoomsでは壁の不連続性による予測ズレを頻繁な再計画がカバーしている様子や、PushTにおいて1回のリファインメントでT字ブロックのゴール姿勢へのアライメントが劇的に改善する様子が、視覚的にもはっきりと確認されました。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "(a) 再計画ごとの閉ループ収束特性。提案手法は不動点 $D^*$ を成功半径の内側へと引き下げます。(b) 推論時のリファインメント回数と予測コストの推移。訓練時の深さ $K=3$ 付近までは急速に収束しますが、過剰な反復（$k \\ge 6$）ではかえってドリフトが発生することが分かります。",
+     "caption": "Figure 7: (a): The fitted closed loop under replan-every-block. Each replan removes a fraction $1-c$ of the remaining distance but adds a constant floor $b$ , so the loop converges to $D^{*}=b/(1-c)$ . Curves are evaluated from the measured $(c,b)$ , not fitted by eye. The fixed point is a latent distance; its association with the $20$ -pixel tolerance is inferred from the success rates that accompany it, not from a measured latent-to-pixel conversion. (b): refinement at eval time. Predicted cost improves through k=5 then worsens from k=6, while the plan keeps changing by $\\approx 0.041$ per iteration and never settles — the recurrent update is not contractive outside its trained depth.",
+     "image": "details/2609.13845/F7.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "MPCで終端損失のみを用いると、頻繁な再計画時に「ゴール到達を毎回未来へ先送りする」病理（procrastination）が生じるため、時間オフセットを考慮した損失設計が不可欠である。",
+  "オンライン探索（CEM）の重い最適化ループは、凍結世界モデルに対する固定回数の学習済みTransformerリファインメントによって、性能を落とさずに置き換え可能である。",
+  "モデルベース制御においてオフラインデータを活用する際、行動を直接模倣（BC）しなくても、行動分布のサポート領域（GMM等）を制約として与えるだけで安全かつ高性能な最適化ができる。"
+ ],
+ "limitations_ja": [
+  "凍結された世界モデル自体の表現力と予測精度に依存するため、ダイナミクス予測が破綻するような未知の状況や極端な長期ホライズンでは性能低下のリスクがある。",
+  "リファインメントの反復回数が学習時のステップ数（$K=3$）に過適合しており、推論時に入力難易度に応じて反復回数を柔軟に増減させることができない。",
+  "検証がシミュレータ環境（4タスク）に限定されており、センサノイズや外乱が大きい実機ロボット環境での堅牢性は今後の検証課題である。"
+ ],
+ "keywords": [
+  "World Models",
+  "Model Predictive Control",
+  "Amortized Inference",
+  "JEPA",
+  "Iterative Refinement"
+ ],
+ "id": "2609.13845",
+ "title": "LePlanner: An Iterative Amortized Controller For World Models",
+ "authors": [
+  "Saksham Bansal",
+  "Om Naphade",
+  "Chayan Aggarwal",
+  "Vrishin M"
+ ],
+ "date": "2026-09-15",
+ "group": "general",
+ "tags": [
+  "world-model",
+  "planning",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.13845",
+ "pdf_url": "https://arxiv.org/pdf/2609.13845",
+ "summary_ja": "結合埋め込み予測型ワールドモデルにおける計算コストの高い軌道最適化（CEMやMPPI）と接触多峰性に弱い単一パス方策の課題を解決する手法。潜在行動系列を反復的に生成・洗練する償却コントローラLePlannerを導入し、高速な推論と高精度なプランニングを両立した。",
+ "generated": "2026-09-15",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.13845"
+}
