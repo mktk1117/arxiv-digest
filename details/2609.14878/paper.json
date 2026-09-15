@@ -1,0 +1,124 @@
+{
+ "title_ja": "巧緻マニピュレーションのためのMPC足場かけを用いた実機強化学習",
+ "tldr_ja": "人の手本や介入を一切使わず、サンプリングベースMPCを一時的な「足場」として活用することで、16自由度の多指ハンドによる連続物体回転タスクをわずか7分の実機オンライン強化学習で習得させました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "提案フレームワークの全体像です。MPCで収集した少量の軌道データから事前学習を行い、オンライン強化学習ではMPCの介入度合いを徐々に下げながら、最終的にMPC単体より5倍以上高速なポリシーを実機のみで獲得します。",
+  "caption": "Fig. 1 : Overview of our framework. Stage 1 (Offline MPC Data Collection): Trajectories are collected via MPC. Stage 2 (Pretraining): The collected demonstrations pretrain the actor using behavior cloning with standard deviation initialization and the critic via Soft-SARSA. Stage 3 (Online SAC with Mixed Replay and MPC-Policy Scheduling): The actor-critic network is fine-tuned with SAC using a mixed replay buffer combining offline demonstrations and online transitions. An MPC-policy scheduling mechanism dynamically alternates control between the learned policy and MPC for guided exploration.",
+  "image": "details/2609.14878/F1.jpg"
+ },
+ "overview_ja": "多指ロボットハンドで物体を器用に操る技術は魅力的ですが、実機でゼロから強化学習（RL）を行おうとすると、初期段階での失敗（物体の落下）が頻発し、人が何度も拾い直すリセット負担が深刻な問題になります。シミュレータからの転移（Sim-to-Real）や人間の遠隔操作デモを利用する手法もありますが、接触ダイナミクスのズレや人間用操作装置のコストがネックでした。\n\nそこで著者らは、「モデル予測制御（MPC）を学習の足場（Scaffolding）として一時的に使えば、人間の助けなしに実機だけで効率的に学べるのではないか？」と考えました。MPCは最適解ではないものの、物体を落とさずに目標方向へ動かす確実なガイドになります。提案手法では、実機MPCで集めたわずか20本の軌道（約12分相当）でActorとCriticを事前学習し、実機オンライン学習中もMPCによる誘導を織り交ぜながら、徐々に学習済みポリシーへ制御を移行させていきます。\n\n16自由度のAllegro Handを使った実験では、わずか7分のオンラインRLで100%の成功率を達成しました。さらに学習が進むと、元のMPCの5倍以上の回転速度（秒間55度以上）に達し、なんと1000回転（約110分間）一度も物体を落とさずに回し続ける驚異的な耐久性と安定性を示しました。異なる形状への適応や、目標角度を指定する精密な姿勢制御にもそのまま適用可能であることが実証されています。",
+ "contributions_ja": [
+  "人のデモや人間による介入を一切使わず、サンプリングベースMPCを「足場」として実機強化学習を安全・高速に進める新しいフレームワークを提案した点",
+  "事前学習・リプレイバッファ保持・オンライン誘導というMPCの3つの役割が相補的に働き、物体の落下回数を劇的に減らすことをアブレーションで解明した点",
+  "実機わずか数分のオンライン学習で、指導役であるMPCの5倍以上の速度を達成し、1000回転・110分以上ノーミスという高い信頼性を実証した点",
+  "未知の形状（サイズの異なる六角柱や円柱）への素早い追加適応や、目標角度へ向けた高精度な姿勢変更タスクへの汎用性を示した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "多指ハンドの実機強化学習、なぜ進まないのか？",
+   "summary_ja": "多指ハンドの制御は高次元かつ接触が複雑なため、実機強化学習の初期探索では物体落下が多発し、人間のリセット作業が大きな負担となります。本論文では、人間のデモや遠隔操作に頼る代わりに、サンプリングベースMPCを一時的な「足場」として導入し、安全かつ超高速に実機学習を回すアプローチを提案します。",
+   "details_ja": "多指ハンドによる物体操作は、指先と物体の接触が頻繁に入れ替わる contact-rich なタスクの代表格です。これを実機の強化学習（RL）で解こうとすると、学習初期のポリシーはまともに物体を保持できず、数秒で床に落としてしまいます。実世界での失敗は、人間がいちいち物体を拾って初期位置に戻す「物理リセット」のコストに直結するため、学習効率が著しく悪化してしまいます。\n\n従来はこの問題を回避するため、人間の遠隔操作デモを利用したり（HIL-SERLなど）、物理シミュレータで大量に学習させたポリシーを実機に持ち込む（Sim-to-Real）アプローチが主流でした。しかし、多指ハンドの遠隔操作には大がかりな専用インターフェースが必要で人の負担が重く、シミュレータでは接触面の摩擦や微細な形状のズレを完璧に再現することが困難です。\n\nそこで注目したのが、モデル予測制御（MPC）との融合です。MPCは完全な最適解を出せなくても、タスクを前進させつつ物体を落とさない「そこそこ筋の良い行動」を生成できます。著者の問いは極めてシンプルです。「サンプリングベースMPCを最終的なコントローラとして使うのではなく、初期探索の『足場（スキャフォールディング）』として使い捨てにすれば、人間の手助けなしで実機RLを高速化できるのではないか？」という点です。\n\n本手法は、MPCの軌道を(1)事前学習、(2)リプレイバッファの保持、(3)オンライン中の探索誘導、の3段階で活用します。結果として、わずか7分のオンライン学習で成功率100%に達し、学習中の落下回数を平均3回程度に抑え込むことに成功しました。",
+   "figures": []
+  },
+  {
+   "heading": "II Method",
+   "heading_ja": "MPCを「足場」にして強化学習を加速する3段階フレームワーク",
+   "summary_ja": "提案手法は、(1) 実機MPCによるオフラインデータ収集、(2) ActorとCriticの事前学習、(3) MPC誘導を徐々に減らすオンラインSAC、の3ステップで構成されます。同一の関節位置指令インターフェースを共有することで、計画器から学習済みポリシーへのシームレスな移行を実現しています。",
+   "details_ja": "提案フレームワークの全体像と各ステージの仕組みを解説します。\n\n### II-A 全体構成とMPCコントローラ\nシステムは、サンプリングベースMPCをオフポリシー強化学習（Soft Actor-Critic: SAC）の足場として組み込んでいます。MPC側はMuJoCoで構築したデジタルツインを実機のセンサ情報と同期させ、クロスエントロピー法（CEM）を用いて関節の運動プリミティブと残差サンプリングを最適化します。MPCもSACもまったく同じ16関節の位置指令インターフェース（10 Hz）を共有して動作するため、どちらが動かしたデータであっても同じリプレイバッファに保存して学習に利用できます。\n\n### II-B オフラインMPCデータの収集と事前学習\n実機上でMPCを動かし、目的の回転を完遂した軌道を20本収集します（約12分間）。このデータを使って、オンライン学習の前にActorとCriticを初期化します。\n- **Actorの事前学習**: 単純な行動クローニング（BC）ではなく、確率的ポリシーの標準偏差（std）ヘッドの最終層重みをゼロ、バイアスを固定値に設定することで、探索に必要な正規化されたランダム性を保ちます。また、エピソードリターンに応じたSoftmax重み付けサンプリングと、目標行動のイプシロンクリッピングを行い、質の高い行動を重点的に学習させます。\n- **Criticの事前学習**: 10個のターゲットCriticアンサンブルを用いたSoft-SARSA目的関数で学習します。ここで凍結したBC Actorのエントロピー項を取り入れることで、後続のオンラインSACと数学的・構造的な一貫性を担保しています。\n\n### II-C & II-D 混合リプレイとMPCスケジューリング\nオンライン学習中、ミニバッチの30%を固定のオフラインMPCバッファから、残りの70%を新規に実機で集めたオンラインバッファからサンプリングします。MPCは手本としては優秀ですが最適ではないため、比率を低めに抑えてポリシー自身がMPCを超える改善を促します。\n\nさらに、オンライン探索ではMPCによる誘導確率を徐々に引き下げます。初期実行確率 $p_0=0.5$ からスタートし、6000ステップ（実時間で約10分）かけてポリシーの実行確率を直線的に1.0まで引き上げます。急激な切り替えによる指のバタつきを防ぐため、コントローラの選択は40ステップ（4秒間）のチャンク単位で行われる点も実用上の重要な工夫です。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "図F1: 提案フレームワークの3つのステージ。(1) 実機MPCによるデータ収集、(2) BCとSoft-SARSAによる事前学習、(3) 混合バッファと段階的スケジュールを用いたオンラインSAC学習の流れを示しています。",
+     "caption": "Fig. 1 : Overview of our framework. Stage 1 (Offline MPC Data Collection): Trajectories are collected via MPC. Stage 2 (Pretraining): The collected demonstrations pretrain the actor using behavior cloning with standard deviation initialization and the critic via Soft-SARSA. Stage 3 (Online SAC with Mixed Replay and MPC-Policy Scheduling): The actor-critic network is fine-tuned with SAC using a mixed replay buffer combining offline demonstrations and online transitions. An MPC-policy scheduling mechanism dynamically alternates control between the learned policy and MPC for guided exploration.",
+     "image": "details/2609.14878/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "III Experiments and Results",
+   "heading_ja": "わずか7分で習得、1000周落とさず回し続ける驚異の安定性",
+   "summary_ja": "16自由度のAllegro Handを用いた実機検証を行いました。提案手法はわずか7分のオンライン学習で回転タスクを習得し、MPCの5倍以上の回転速度を達成しました。さらに1000回転（110分以上）連続ノーミスという驚異的な信頼性を示し、新形状への適応や目標姿勢変更タスクでも高い汎用性を発揮しました。",
+   "details_ja": "### III-A & III-B 実験設定とアブレーション結果\nハードウェアにはFranka FR3アームに取り付けた16自由度のAllegro Handを使用し、OptiTrackで物体の位置姿勢を取得します。主タスクは対辺45 mmの六角柱の連続回転です。\n\nアブレーション実験（図F3）では、MPCリプレイの保持（R）、事前学習（P）、オンライン誘導（G）の3要素を検証しました。\n- **Full method (R+P+G)**: オンライン開始からわずか7.4分で5回連続の評価試行すべてに成功（100%）。学習中の物体落下は3試行の平均でわずか3回でした。\n- **事前学習なし (No Pretrain: R+G)**: 成功まで約16分かかり、落下は平均17回に増加。事前学習が立ち上がりを大幅に早め、リセットを劇的に減らすことが分かります。\n- **オンライン誘導なし (No Guidance: R+P)**: 成功まで25.8分を要し、試行ごとのバラツキも増大しました。\n- **RL単体 (RL Only)**: 45分回しても一度も成功せず、181回も落下しました。MPCの足場がなければ実機学習が実質不可能であることを示しています。\n\n### III-B 2 長時間連続評価とMPC超えのスピード\n学習完了後のポリシーを、直接MPCを実行した場合や、1500万ステップのドメインランダム化で鍛えたSim-to-Real PPOポリシーと比較しました（図F4a）。\n- 直接MPC: 落下はゼロですが、回転速度は $9.9^{\\circ}/\\mathrm{s}$ と低速でした。\n- Sim-to-Real PPO: シミュレーションでは100%成功したものの、実機では28回中8回失敗（成功率71%）、速度は $31.5^{\\circ}/\\mathrm{s}$ にとどまりました。\n- 提案手法: 20回全成功で、速度は $55.3^{\\circ}/\\mathrm{s}$ に達しました。指導役であるMPCの5倍以上のハイスピードです。\nさらに驚くべきは長期信頼性です。1000回連続の回転テスト（約110分間の連続稼働）を実施したところ、一度も物体を落とすことなく完走しました（図F4b）。\n\n### III-C & III-D 形状適応と目標姿勢変更タスク\n別の物体形状（35 mm六角柱、55 mm円柱）に対しても、オフラインデータの再収集や事前学習をやり直すことなく、オンラインMPC誘導を伴う追加学習だけで即座に適応しました（図F6）。回転速度は適応前に比べて45%〜84%も向上しています。\nまた、連続回転だけでなく、指定された目標角度（$\\pm 20^{\\circ}$）へ傾ける「目標姿勢変更タスク（Goal-Conditioned Reorientation）」でも検証しました（図F7）。45分の実機学習で、最終到達誤差はわずか数度まで縮まり、103回中100回成功（成功率97.1%、落下ゼロ）という高精度な制御を達成しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "図F3: 連続回転タスクにおけるアブレーション結果。提案手法（青線）はわずか7分強で成功率100%に達し、学習中の落下回数（右図）も圧倒的に少なく抑えられています。",
+     "caption": "Fig. 3 : Ablation results for continuous in-hand rotation. For the Full method, No Pretrain, Guidance Only, and No Guidance conditions, solid lines show the mean across three independent training runs and shaded regions indicate $\\pm$ one standard deviation. Replay Only and RL Only are shown as single runs; because these conditions exhibited high object-drop rates, consecutive repeat testing was avoided to limit hardware risk.",
+     "image": "details/2609.14878/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "図F4: (a) 各手法の回転速度比較。提案手法（緑）はMPC（橙）の5倍以上、Sim2Real（青）よりも大幅に高速です。(b) 1000回転連続テストの結果。110分以上にわたり落下ゼロを達成しています。",
+     "caption": "Fig. 4 : Extended evaluation of the learned continuous-rotation policy. (a) Rotation speed for the sim-to-real PPO, direct MPC execution, and our learned policy. (b) Rotation speed over 1000 consecutive rotations using our policy.",
+     "image": "details/2609.14878/F4.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "図F6: 未知の幾何形状（55 mm円柱、35 mm六角柱）への適応結果。(a) 適応学習により回転速度が大幅に向上し、(b) 100回連続回転でも一度も落とさず動作を継続しました。",
+     "caption": "Fig. 6 : Evaluation before and after real-world adaptation to new object geometries.",
+     "image": "details/2609.14878/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "図F7: 目標姿勢変更タスクの結果。(a) 実機オンライン学習に伴い到達誤差が数度以内へ急減。(b) 103回の評価試行中100回で目標姿勢を正確に捉えました。",
+     "caption": "Fig. 7 : Goal-conditioned reorientation results. (a) Mean absolute final reaching error during real-world online learning. (b) Reaching speed of the final policy over 103 evaluation trials.",
+     "image": "details/2609.14878/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "サンプリングベースMPCを学習の「足場」として機能させることで、人手による介入やデモを一切必要としない、極めて効率的で頑健な実機強化学習フレームワークを実現しました。モデルベース制御の信頼性と強化学習の最適化能力を融合させた実用的なアプローチです。",
+   "details_ja": "本研究は、多指ハンドによる高難度な接触操作において、サンプリングベースMPCを「恒久的なコントローラ」ではなく「一時的な学習の足場」として活用する実機強化学習の枠組みを示しました。\n\nMPCリプレイの保持、事前学習、オンライン誘導という3つの相補的な役割により、人間によるリセット作業を最小限（数回程度）に抑えつつ、わずか十数分の物理接触で熟練した動作を獲得できます。さらに、得られたポリシーは教師役であるMPCの性能限界に縛られることなく、その5倍以上のスピードで物体を高速かつ安定して操ることができます。\n\n人間のティーチング環境を用意するのが難しい複雑なロボットシステムにおいて、粗いモデルベース制御器を足場にして実機自身に洗練させるという本パラダイムは、今後の実機ロボット学習における極めて強力な指針となりそうです。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "MPCは最終的な制御器として使うと計算負荷やモデル化誤差で低速になりがちだが、RLの「初期探索の足場」として割り切れば、超高速かつ安定なポリシーを実機のみで育てられる。",
+  "事前学習（P）、過去ログの保持（R）、オンライン介入（G）の3要素はそれぞれ役割が異なり、特に事前学習とオンライン誘導の組み合わせがリセット回数（落下）激減の鍵になる。",
+  "人のデモ（テレオペ）が困難な16自由度多指ハンドでも、簡易な物理モデルのMPCさえ組めれば、自律的に実機強化学習を完結させることが可能である。"
+ ],
+ "limitations_ja": [
+  "MPCを動作させるためのデジタルツイン同期に高精度な外部モーションキャプチャ（OptiTrack）を利用しており、カメラ画像のみ（Vision-based）での完全自律化は今後の課題である点。",
+  "対象物のおおまかな幾何形状や質量特性などの粗いモデル情報が事前に必要であり、全くの未知物体に対して即座にゼロから適用できるわけではない点。",
+  "MPCのサンプリング探索を支えるモーションプリミティブやコスト関数の設計が、タスクごとに一定程度求められる点。"
+ ],
+ "keywords": [
+  "Dexterous Manipulation",
+  "Reinforcement Learning",
+  "Model Predictive Control",
+  "Real-World Learning",
+  "Soft Actor-Critic",
+  "Allegro Hand"
+ ],
+ "id": "2609.14878",
+ "title": "Real-World Reinforcement Learning with MPC Scaffolding for Dexterous Manipulation",
+ "authors": [
+  "Emek Bar{\\i}\\c{s} K\\\"u\\c{c}\\\"uktabak",
+  "Karankumar Patel",
+  "Zhaodong Yang",
+  "Jinda Cui",
+  "Kazuhiro Sasabuchi",
+  "Jun Takamatsu"
+ ],
+ "date": "2026-09-15",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "reinforcement-learning",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.14878",
+ "pdf_url": "https://arxiv.org/pdf/2609.14878",
+ "summary_ja": "実機強化学習において初期探索の非効率性と失敗を防ぐため、サンプリング型MPCを足場として活用する手法を提案。人間のデモを用いずMPC軌道で事前学習を行い、オンライン学習中もMPCが断続的に探索を誘導することで、安全かつ高効率な多指ハンド操作方策の獲得を実現した。",
+ "generated": "2026-09-15",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.14878"
+}
