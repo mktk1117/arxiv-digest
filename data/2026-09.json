@@ -1,6 +1,289 @@
 {
  "entries": [
   {
+   "date": "2026-09-15",
+   "rank": 0,
+   "id": "2609.15213",
+   "group": "focus",
+   "title": "X-WBC: A Cross-Embodiment Foundation Model for Humanoid Whole-Body Control",
+   "title_ja": "X-WBC: ヒューマノイド全身制御のためのクロスエンボディメント基盤モデル",
+   "summary_ja": "複数ロボット間で動作経験を共有する全身制御（WBC）基盤モデルX-WBCを提案。共通の人体動作セマンティクスとロボット固有の物理実行を分離し、Causal Transformerで時系列構造を学習した上で軽量なロボット別モジュールにより各機体へ適応する。",
+   "authors": [
+    "Juntong Zhang",
+    "Chun Gu",
+    "Li Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.15213",
+   "image": "figures/2026-09-15/2609.15213.jpg"
+  },
+  {
+   "date": "2026-09-15",
+   "rank": 1,
+   "id": "2609.13289",
+   "group": "focus",
+   "title": "Extending the Speed Limit of Quadrupedal Locomotion via Refined Actuator Modeling and Adaptive Command Scheduling",
+   "title_ja": "精緻なアクチュエータモデリングと適応的指令スケジューリングによる四足歩行の限界速度拡張",
+   "summary_ja": "四足歩行ロボットの高速移動におけるsim-to-realギャップを解消するフレームワークを提案。高速域での電圧結合や磁気飽和を明示的に捉えるアクチュエータモデルを構築し、適応的指令スケジューリングと組み合わせることで、アクチュエータ限界付近でも安定した実機走行を達成した。",
+   "authors": [
+    "Yucheng Tao",
+    "Shaowen Cheng",
+    "Guorong Lan",
+    "Yanyan Yuan",
+    "Yongbin Jin",
+    "Hongtao Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "sim-to-real",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.13289",
+   "image": "figures/2026-09-15/2609.13289.jpg"
+  },
+  {
+   "date": "2026-09-15",
+   "rank": 2,
+   "id": "2609.15770",
+   "group": "focus",
+   "title": "JEPLO: Joint-Embedding Predictive Learning for LiDAR-Based Legged Locomotion",
+   "title_ja": "JEPLO: LiDARベース脚ロボット歩行のための結合埋め込み予測学習",
+   "summary_ja": "LiDARを用いた明示的地図生成を行わない脚ロボット知覚歩行フレームワークJEPLOを提案。固有受容感覚とLiDARスキャンから地形表現を予測学習するPE-JEPAワールドモデルを導入し、教師・生徒型強化学習パイプラインによりシミュレーション内で頑健な歩行方策を獲得する。",
+   "authors": [
+    "Qihao Yuan",
+    "Yixuan Qiu",
+    "Ziyu Cao",
+    "Ming Cao",
+    "Kailai Li"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "reinforcement-learning",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.15770",
+   "image": "figures/2026-09-15/2609.15770.jpg"
+  },
+  {
+   "date": "2026-09-15",
+   "rank": 3,
+   "id": "2609.15988",
+   "group": "focus",
+   "title": "ResSafe: Learning Safety Filtering with Residual Reinforcement Learning for Humanoids",
+   "title_ja": "ResSafe: ヒューマノイドのための残差強化学習による安全性フィルタリング学習",
+   "summary_ja": "外乱や接触変化に敏感なヒューマノイド制御に対し、残差強化学習を用いた暗黙的セーフティフィルタResSafeを提案。タスク性能を担う名目方策と、安全補正のみを担う残差方策を分離して学習することで、追従性能を損なわずに転倒などの危険動作を抑制する。",
+   "authors": [
+    "Gechen Qu",
+    "Tong Zhang",
+    "Bike Zhang",
+    "Yen-Jen Wang",
+    "Koushil Sreenath",
+    "Claire Tomlin",
+    "Jason Jangho Choi"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.15988",
+   "image": "figures/2026-09-15/2609.15988.jpg"
+  },
+  {
+   "date": "2026-09-15",
+   "rank": 4,
+   "id": "2609.13243",
+   "group": "focus",
+   "title": "GzDRL: Reproducible and Scalable Deep Reinforcement Learning with Gazebo",
+   "title_ja": "GzDRL: Gazeboを用いた再現可能かつスケーラブルな深層強化学習基盤",
+   "summary_ja": "従来のミドルウェアを介したGazebo統合の非決定論性や低スループットを解消する単一プロセスRL基盤を提案。エージェントのアクションと物理演算ステップを直接同期させる機構により、決定論的で高速な並列データ収集を実現し、ベンチマークで最高水準のスループットを実証した。",
+   "authors": [
+    "Amal Dev Haridevan",
+    "Junjie Kang",
+    "Jinjun Shan"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "simulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.13243",
+   "image": "figures/2026-09-15/2609.13243.jpg"
+  },
+  {
+   "date": "2026-09-15",
+   "rank": 5,
+   "id": "2609.14878",
+   "group": "general",
+   "title": "Real-World Reinforcement Learning with MPC Scaffolding for Dexterous Manipulation",
+   "title_ja": "巧緻マニピュレーションのためのMPC足場かけを用いた実機強化学習",
+   "summary_ja": "実機強化学習において初期探索の非効率性と失敗を防ぐため、サンプリング型MPCを足場として活用する手法を提案。人間のデモを用いずMPC軌道で事前学習を行い、オンライン学習中もMPCが断続的に探索を誘導することで、安全かつ高効率な多指ハンド操作方策の獲得を実現した。",
+   "authors": [
+    "Emek Bar{\\i}\\c{s} K\\\"u\\c{c}\\\"uktabak",
+    "Karankumar Patel",
+    "Zhaodong Yang",
+    "Jinda Cui",
+    "Kazuhiro Sasabuchi",
+    "Jun Takamatsu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.14878",
+   "image": "figures/2026-09-15/2609.14878.jpg"
+  },
+  {
+   "date": "2026-09-15",
+   "rank": 6,
+   "id": "2609.15162",
+   "group": "general",
+   "title": "LieSpline-DP: Lie-Group B-Spline Diffusion Policy for Smooth Robot Manipulation",
+   "title_ja": "LieSpline-DP: 滑らかなロボットマニピュレーションのためのリー群Bスプライン拡散方策",
+   "summary_ja": "拡散方策（Diffusion Policy）の軌道不連続性を解消するため、エンドエフェクタ軌道をSE(3)上で直接生成する手法を提案。連続するチャンク間で境界制御点を共有することで軌道全体のC^2連続性を厳密に保証し、実機マニピュレーションにおいて滑らかで振動のない動作を実現した。",
+   "authors": [
+    "Erxuan Xie",
+    "Bang Liu",
+    "Pingyun Nie",
+    "Xingkai Liu",
+    "Zhuang Fu",
+    "Bo Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "imitation-learning",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.15162",
+   "image": "figures/2026-09-15/2609.15162.jpg"
+  },
+  {
+   "date": "2026-09-15",
+   "rank": 7,
+   "id": "2609.13231",
+   "group": "general",
+   "title": "ShieldVLA: Feasibility-Aware Safety Alignment for Vision-Language-Action Models",
+   "title_ja": "ShieldVLA: 視覚・言語・行動モデルのための実現可能性を考慮した安全性アライメント",
+   "summary_ja": "従来のソフトペナルティによる制約違反や過度な保守性を防ぐため、ハミルトン・ヤコビ（HJ）到達可能性理論に基づくVLA微調整枠組みShieldVLAを提案。ステップごとの密な安全注釈がない視覚環境でもHJ到達可能価値をモデルフリーに近似学習し、安全な動作生成を保証する。",
+   "authors": [
+    "Manan Tayal",
+    "Akshay Nambi"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "vision-language-action",
+    "safety",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.13231",
+   "image": "figures/2026-09-15/2609.13231.jpg"
+  },
+  {
+   "date": "2026-09-15",
+   "rank": 8,
+   "id": "2609.15726",
+   "group": "general",
+   "title": "Bench2Dex: Benchmarking Visuo-Tactile Bimanual Dexterous Manipulation Across Dexterous Hands",
+   "title_ja": "Bench2Dex: 多様なロボットハンドを跨ぐ視触覚・両手巧緻マニピュレーションのベンチマーク",
+   "summary_ja": "構造やセンサ配置が異なる12種類の多指ハンドを対象とした、両手視触覚マニピュレーションのシミュレーションベンチマーク。接触力学を共通の触覚インターフェースに変換することで、多様なハンド構造間での視触覚方策の性能差や汎化性を同一条件下で体系的に評価可能にした。",
+   "authors": [
+    "Zhenjie Yang",
+    "Yideng Zhang",
+    "Dongjie Zhang",
+    "Chenyu Jiang",
+    "Xianshuai Liu",
+    "Yufeng Li",
+    "Zuhao Ge",
+    "Xingyu Jiao",
+    "Zheng Zhang",
+    "Kaiyu He",
+    "He Wang",
+    "Yuwen Zhong",
+    "Yi Deng",
+    "Muyun Jiang",
+    "Xianliang Huang",
+    "Haisheng Su",
+    "Donghang Zhang",
+    "Jian Zhang",
+    "Xue Yang",
+    "Hongyang Li",
+    "Zuxuan Wu",
+    "Yu-Gang Jiang",
+    "Xiaosong Jia",
+    "Junchi Yan"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "benchmark",
+    "manipulation",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.15726",
+   "image": "figures/2026-09-15/2609.15726.jpg"
+  },
+  {
+   "date": "2026-09-15",
+   "rank": 9,
+   "id": "2609.13845",
+   "group": "general",
+   "title": "LePlanner: An Iterative Amortized Controller For World Models",
+   "title_ja": "LePlanner: ワールドモデルのための反復型償却コントローラ",
+   "summary_ja": "結合埋め込み予測型ワールドモデルにおける計算コストの高い軌道最適化（CEMやMPPI）と接触多峰性に弱い単一パス方策の課題を解決する手法。潜在行動系列を反復的に生成・洗練する償却コントローラLePlannerを導入し、高速な推論と高精度なプランニングを両立した。",
+   "authors": [
+    "Saksham Bansal",
+    "Om Naphade",
+    "Chayan Aggarwal",
+    "Vrishin M"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "world-model",
+    "planning",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.13845",
+   "image": "figures/2026-09-15/2609.13845.jpg"
+  },
+  {
    "date": "2026-09-14",
    "rank": 0,
    "id": "2609.12347",
