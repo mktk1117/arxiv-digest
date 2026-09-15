@@ -1,0 +1,131 @@
+{
+ "title_ja": "GzDRL: Gazeboを用いた再現可能かつスケーラブルな深層強化学習基盤",
+ "tldr_ja": "Gazeboと深層強化学習をROSなどのミドルウェアを介さず単一プロセスで直結することで、通信遅延による非決定性を排除し、毎秒7.8万ステップ以上の圧倒的なCPUスループットと完全な実験再現性を実現しました。",
+ "hero_figure": {
+  "key": "F3",
+  "caption_ja": "GzDRLの全体アーキテクチャ。EnvPool着想のスケジューラがワーカースレッドへアクションを配分し、各環境のDRLServerがGazeboコアと直接ECSベースで通信します。ミドルウェアを排除した同期実行とゼロコピーでのNumPy配列共有が高速化と再現性の鍵です。",
+  "caption": "Fig. 3: GzDRL system architecture (top). An EnvPool-derived scheduler dispatches environment-indexed actions to $N_{T}$ threads, which write an observation block after $N_{B}$ completions. Each environment contains a DRLServer to interface with Gazebo for performing resets and executing actions. Internal execution pipeline from action processing to observation generation (bottom). The processing scripts can be provided by the user.",
+  "image": "details/2609.13243/F3.jpg"
+ },
+ "overview_ja": "ロボティクス分野において、Gazeboは高精度な物理演算や実機準拠のモデル、充実したセンサ群を持つデファクトスタンダードのシミュレータです。しかし、Gazebo上で深層強化学習（DRL）を行おうとすると、従来はROSやGazebo Transportなどのミドルウェア経由で状態と行動をやり取りするのが一般的でした。この設計では、通信の直列化やスケジューリングのばらつきによって「古い観測情報に対して新しい行動が適用される」というタイミングのズレが生じます。その結果、マルコフ性が崩れて学習が不安定になり、同じ乱数シードを用いても結果が一致しない再現性の欠如に悩まされていました。また、プロセス間通信のオーバーヘッドが並列実行のスループットを厳しく制限していました。\n\nそこで著者らは、ミドルウェアを一切介さず、単一プロセス内でGazeboのシミュレーションコアと直接同期する新しいRLフレームワーク「GzDRL」を提案しました。Gazeboの内部設計であるEntity Component System（ECS）に直結して制御入力を適用し、物理演算ステップを完全に制御する仕組みを構築しています。さらに、C++ベースのバッチ処理エンジン（EnvPool）の思想を取り入れ、部分バッチ処理とゼロコピーによる高速な状態受け渡しを実現しました。\n\n検証実験では、ROS 2ベースの従来統合と比較して通信遅延をほぼゼロに抑え、複数回試行で物理軌道が完全に一致することを確認しました。さらに、乱数シードを固定した強化学習の学習曲線が完全に一致する実験レベルの再現性を示しています。実行速度の面でも、ワークステーションのCPU上で毎秒78,600環境ステップを達成し、既存のGPU並列シミュレータに匹敵または凌駕する性能を叩き出しました。最後に、シミュレーション単体で学習した方針を実機のクアッドロータへ直接ゼロショット転移し、安定した飛行を実現しています。",
+ "contributions_ja": [
+  "ミドルウェアを使わずにGazeboのECSと直接やり取りし、物理ステップと方策の実行を決定論的に完全同期させるステッピング機構を提案した点",
+  "EnvPoolの設計をGazebo向けに拡張し、C++スレッドプールによる部分バッチ実行とPythonへのゼロコピー配列共有を実現した点",
+  "同一シードでの方策チェックポイントの完全一致（ハッシュ一致）を含む、状態遷移と学習の厳密な再現性を定量的に実証した点",
+  "ワークステーションCPU上で最大7.86万ステップ/秒の最高スループットを達成し、GPUシミュレータに対抗しうる並列性能を示した点",
+  "シミュレーション内でドメインランダム化を行って訓練した方策を、追加の微調整なしで実機クアッドロータ（QDrone2）にゼロショット配備して高精度な追従を示した点"
+ ],
+ "sections": [
+  {
+   "heading": "II Related Work",
+   "heading_ja": "物理の正確さと学習速度のトレードオフ：先行研究との違い",
+   "summary_ja": "ロボティクス向けRLシミュレータは、物理の忠実度、スケーラビリティ、実機親和性の間でトレードオフが存在してきました。GzDRLはGazeboの信頼性をそのまま保ちながら、GPU型シミュレータに迫る並列スループットと厳密な再現性を両立させた点に新規性があります。",
+   "details_ja": "ロボット強化学習向けのシミュレータ環境は、これまでいくつかのアプローチに分かれて発展してきました。\n\n- **Gazebo・ROS系**: RotorSなどは高精度なマルチロータのダイナミクスとROS親和性を提供しましたが、ミドルウェア依存のため並列化とスケーラビリティに限界がありました。Gym-IgnitionはIgnition GazeboをRLプロセス内に組み込みましたが、効率的なバッチベクトル化や状態遷移・学習の再現性評価までは踏み込んでいませんでした。\n- **ゲームエンジン系**: Flightmare（Unityベース）やAirSim（Unreal Engineベース）は、リッチな描画と高速な描画ベースの環境を提供しますが、ロボット工学標準のツールチェーンとの親和性や決定論的な物理挙動に課題が残ります。\n- **GPU並列シミュレータ**: Isaac GymベースのAerial Gymや、Omniverse Isaac SimベースのOmniDronesは、数千台規模の並行シミュレーションをGPU上で一括実行することで圧倒的な速度を誇ります。しかし、NVIDIA製ハードウェアへの強い依存や、既存のROSモデル資産との互換性の低さという制約があります。\n\nこれらに対し、GzDRLはGazeboのモデル定義（SDF）や物理エンジン（DARTなど）の資産を100%生かしつつ、C++層での直接統合によって決定論的挙動とGPUシミュレータに匹敵するスループットを両立させた点が決定的に異なります。",
+   "figures": []
+  },
+  {
+   "heading": "III GzDRL Platform",
+   "heading_ja": "高精度な運動モデルと、階層を選べる柔軟な制御インターフェース",
+   "summary_ja": "GzDRLはUAVの6自由度剛体ダイナミクスとアクチュエータ遅れを高精度にシミュレートします。さらに、最下層のモータ回転数から最上層の速度指令まで、研究目的に応じて自由に方策の介入階層を切り替えられる制御スタックを備えています。",
+   "details_ja": "GzDRLは、マルチロータの精密な動力学シミュレーションと、研究者が使いやすい柔軟な制御インターフェースをプラットフォームとして提供しています。\n\n### マルチロータのダイナミクスモデリング\n機体は質量 $m$、慣性テンソル $\\mathbf{J}$ を持つ6自由度（DoF）の剛体としてモデル化されています。状態ベクトルは位置、速度、姿勢クォータニオン、機体系角速度を含む13次元 $\\mathbf{x} = [\\mathbf{p}_W, \\mathbf{v}_W, \\mathbf{q}, \\boldsymbol{\\omega}_B]^T \\in \\mathbb{R}^{13}$ です。ロータやモータの応答遅れを現実的に再現するため、時定数 $t_c$ を用いた1次遅れ系のアクチュエータダイナミクスを導入しています。\n\n### 多様な制御アブストラクション\n強化学習の方策がどのレベルの制御指令を出力するかは、アルゴリズムの学習難度や実機適用の成否に直結します。GzDRLでは以下の階層化された制御モードを用意しています：\n- **RPMモード / 単一ロータ推力（SRT）モード**: 最も低レベルな「Snap」レベルの制御で、各モータの回転数や推力を方策が直接指令します。完全なエンドツーエンド学習向けです。\n- **機体推力・トルク（CTBT）モード**: 機体の重心に加える総推力と3軸トルクを指定します。\n- **総推力・機体系角速度（CTBR）モード**: 総推力と目標角速度を方策が出力し、内部のPDコントローラが角速度追従を受け持つ「Jerk」レベルの制御です。\n- **速度・運動学モード / ハイレベル誘導**: 目標速度や位置軌道を方策が出力し、組み込みコントローラ（幾何学的制御やNMPCなど）が追従する「Velocity」レベルの制御です。\n\nこれにより、制御工学的な低レベル制御の学習から、ハイレベルな自律ナビゲーションまで、単一のプラットフォーム上で同一の評価が可能です。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "GzDRLがサポートする制御階層。最上位の運動学的な速度指令から、CTBR（総推力・角速度）、最下位のRPMや各ロータ推力（SRT）まで、方策の出力レベルを柔軟に選択できます。",
+     "caption": "Fig. 2: Various control hierarchies supported by GzDRL",
+     "image": "details/2609.13243/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Execution Architecture",
+   "heading_ja": "なぜ速く、ブレないのか：単一プロセス化とバッチベクトル化の仕組み",
+   "summary_ja": "ミドルウェアを廃止した「DRLServer」がGazeboの物理ステップと方策の同期を厳密に管理します。EnvPoolを拡張した「GazeboPool」により、C++スレッド間での動的なタスク処理とゼロコピーでのNumPy受け渡しを実現し、並列効率を極限まで高めています。",
+   "details_ja": "GzDRLの心臓部となる実行アーキテクチャは、決定論的な同期と並列スループットの最大化を目的に設計されています。\n\n### 体系的な環境ステッピング機構\n従来のROS統合では、ノード間のトピック通信が非同期で行われるため、方策が行動を決めてからシミュレータに反映されるまでの物理ステップ数が揺らいでいました。GzDRLでは、各環境インスタンスを管理する「DRLServer」がGazeboのC++ APIである `Server::Run` を直接呼び出します。方策の行動 $\\mathbf{a}_t$ を受け取ると、指定した物理反復回数 $K$ 回だけ厳密に物理演算を進め、その直後の `PostUpdate` イベント内でカスタムシステム（`DRLHelperSystem`）が状態量を抽出します。これにより、行動と観測の間に余分なステップ遅延が挟まる余地を完全に排除しています。\n\n### リセットとドメインランダム化の効率化\nエピソード終了時のリセットやモデルパラメータ（質量、慣性など）のランダム化において、ワールド全体を再構築・再パースすると膨大な時間がかかります。GzDRLではキャッシュされたSDF（Simulation Description Format）モデルのパラメータをメモリ上で直接書き換え、該当エンティティのみをリスポーン（再生成）することで、オーバーヘッドを最小限に抑えています。\n\n### GazeboPoolによるC++バッチベクトル化\n並列データ収集には2つのパスを用意しています。1つはPythonのGIL（大域的インタプリタロック）を解放してスレッド並列化する「AsyncDRLServerPool」、もう1つがEnvPoolのアーキテクチャを導入した「GazeboPool」です。GazeboPoolでは、$N_E$ 個の環境インスタンスに対し、$N_T$ 個のC++ワーカースレッドが動的に行動キューからタスクを取り出して物理ステップを進めます。そして、$N_B$ 個の環境がステップを完了した時点で即座にバッチとしてまとめ、C++が確保した共有メモリからPython側へコピーなし（zero-copy）のNumPyビューとしてデータを返却します。これにより、環境ごとの計算時間のばらつきによるスレッドの待ち時間を大幅に削減しています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "実行アーキテクチャの詳細。上位のPython方策からアクションキューを経由してワーカースレッドに配分され、各DRLServerがGazeboの物理更新を $K$ 回駆動します。完了した観測はゼロコピーで即座にPythonへ返されます。",
+     "caption": "Fig. 3: GzDRL system architecture (top). An EnvPool-derived scheduler dispatches environment-indexed actions to $N_{T}$ threads, which write an observation block after $N_{B}$ completions. Each environment contains a DRLServer to interface with Gazebo for performing resets and executing actions. Internal execution pipeline from action processing to observation generation (bottom). The processing scripts can be provided by the user.",
+     "image": "details/2609.13243/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Experiments",
+   "heading_ja": "実験で証明された圧倒的スループットと完全な再現性、そして実機転移",
+   "summary_ja": "ROS 2ベースの既存環境やGPUベースの最新環境と比較検証を行いました。同期遅延のゼロ化と同一シードでの完全な学習曲線一致を達成したほか、CPU上で毎秒7.86万ステップのスループットを記録し、実機クアッドロータへのゼロショット飛行にも成功しました。",
+   "details_ja": "実験はワークステーション（AMD Threadripper 3960X、RTX A6000）とノートPC（Ryzen 9 7940HS、RTX 4060）の2つの環境で実施されました。\n\n### 状態遷移の同期と再現性の検証\nROS 2-Gazebo統合とGzDRLを同一タスク・初期状態で比較しました。ROS 2ではトピック通信の遅延により行動適用までに1〜2ステップ以上の揺らぎが生じ、100回の試行で位置誤差（RMSE）が時間とともに累積発散しました。対してGzDRLは行動が常に直後の物理ステップで適用され、100試行の軌道が完全に一致（誤差ゼロ）しました。\n\n### 学習再現性の検証\nPPOを用いてホバリングタスクを独立したプロセスで5回学習させました。同じ乱数シードを与えた場合、GzDRLの5回の学習曲線は完全に重なり、チェックポイントごとのパラメータハッシュ値も100%一致しました（分散ゼロ）。シードを変えた場合には期待通り7.05%の変動係数が現れ、実験環境として完全な決定論性が担保されていることが示されました。\n\n### スケーラビリティとスループット\n並行環境数 $N_E$ を変化させたスループット評価において、ワークステーション上でGzDRL（GazeboPool）は最大 $78.6 \\times 10^3$ steps/s に達しました。これはPyBullet-Drones（22.0k）、OmniDrones（21.2k）、Aerial Gym（21.0k）の約3.6倍高速であり、従来のROS 2-Gazebo（2.6k）と比較して30倍という圧倒的な差です。ノートPC上でも43.4k steps/sを記録し、GPUアクセラレーションを用いたAerial Gym（44.6k）と同等のスループットをCPU主導で叩き出しました。\n\n### マルチエージェント拡張性\n1環境あたりの機体数 $N_A$ を増やした実験では、機体数が2〜10機程度の中小規模であればGzDRLが最高スループットを維持しました（$N_A=2$ で35.5k steps/s）。ただし、$N_A=20$ のような高密度衝突計算を含む極端な設定では、GPU並列に特化したAerial Gym（5.5k steps/s）がGzDRL（3.2k steps/s）を逆転し、タスク負荷に応じたCPUとGPUの優劣の境界が明らかになりました。\n\n### ドメインランダム化と実機配備（Sim-to-Real）\n質量や慣性、時定数を $\\pm 10\\%$ ランダム化して学習した倒立振子クアッドロータタスクでは、テスト時の報酬が439.89から642.97へと大幅に向上しました。さらに、GzDRL上でシミュレーション学習させた軌道追従ポリシーを、実機のQuanser QDrone2（Jetson Xavier NX搭載）にそのまま書き込んで飛行させました。OptiTrackによる計測のもと、9種類の未学習参照軌道に対して平均位置誤差 $20.2 \\pm 3.4$ cm、高さ誤差 $2.9 \\pm 0.4$ cm という高精度なゼロショット追従を達成しました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "100試行における遷移同期メトリクスの比較。(a)行動から物理更新までのレイテンシ、(b)適用時の観測の古さ、(c)観測から行動適用までに挟まる物理ステップ数。GzDRL（青）は最小限の決定論的ステップを維持しますが、ROS 2（橙）は大きくばらついています。",
+     "caption": "Fig. 4: Transition synchronization metrics over 100 trials: (a) Latency between action and physics update; (b) Observation delay; (c) Intervening physics steps. GzDRL achieves deterministic, minimal-latency transitions, while ROS 2 incurs variable delays.",
+     "image": "details/2609.13243/F4.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "ホバリングタスクにおける学習の再現性。左の同一シード（Same seed）では5回の独立した学習実行の曲線が完全に一致しています。右の異なるシード（Different seeds）では通常通りのばらつきが見られます。",
+     "caption": "Fig. 6: Training reproducibility on the GzDRL hover task. Five independent runs with the same RL seed (left) produce coincident learning curves, while five different seeds (right) yield substantial dispersion. Each checkpoint is evaluated on the same fixed episode set; shaded region denotes $\\pm 1$ standard deviation.",
+     "image": "details/2609.13243/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "環境並列数に対するスループットとCPU/GPU使用率。上段がワークステーション、下段がノートPC。GazeboPool（青の実線）はCPUをフル活用して単調増加し、他のCPU/GPUベースの手法を大きく上回るスループットを示しています。",
+     "caption": "Fig. 7: Backend scalability on workstation (top) and laptop (bottom): (a) environment throughput, (b) CPU utilization, (c) GPU utilization. Markers indicate trial means; error bars show 95% confidence intervals.",
+     "image": "details/2609.13243/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "まとめ：Gazeboがロボット強化学習の主役へと返り咲く",
+   "summary_ja": "GzDRLは、Gazeboの物理的信頼性と大規模RLに必要な速度・再現性を高次元で融合させました。ミドルウェアの足かせを外すことで、ロボット工学の標準ツールを用いた信頼性の高い強化学習研究が身近になります。",
+   "details_ja": "本論文では、長年ロボット強化学習の研究者を悩ませてきた「Gazeboの遅さと非決定性」を根本的なアーキテクチャ刷新によって解決した「GzDRL」を発表しました。\n\nミドルウェアを廃止した単一プロセス同期機構と、EnvPoolに学んだ高度なC++バッチ処理パイプラインの導入により、GzDRLはCPU環境でありながらGPUネイティブなシミュレータに匹敵・凌駕する驚異的なデータ収集効率を実現しました。何より、同じコードとシードであれば誰でも全く同じ学習結果を再現できる決定論性を確立したことは、学術研究の健全な発展にとって極めて大きな前進です。\n\nさらに、実機クアッドロータへのゼロショット展開が実証されたことで、Gazeboが単なる制御シミュレータにとどまらず、実世界に直結する強化学習の第一線の実験基盤として十分に通用することが証明されました。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "強化学習とシミュレータの通信にROSなどのミドルウェアを使うと、不可避な非同期遅延によってマルコフ性が崩れ、実験の再現性が失われる",
+  "シミュレータを単一プロセスに組み込み、C++でECSと物理ステップを同期制御することで、CPU上でも毎秒7万ステップ以上の超高速データ収集が可能になる",
+  "部分バッチ処理とゼロコピー（NumPy直接参照）を組み合わせることで、Python-C++間のデータ受け渡しオーバーヘッドを極小化できる",
+  "高価なGPUクラスタを導入しなくても、手元のノートPCやワークステーションのマルチコアCPUをフル活用すれば実用的なRL訓練が十分に行える"
+ ],
+ "limitations_ja": [
+  "カメラ画像などのレンダリングを伴う高次元センサ観測を行う場合、Gazeboの描画パイプラインに依存するため、本論文で示したような決定論的遷移の保証や超高速スループットが低下する可能性がある",
+  "1環境あたり20機を超えるような超大規模なマルチエージェント設定では、物理シミュレーションをGPU上で丸ごと一括並列化するIsaac Gym等の専用シミュレータに対してスループットで劣る",
+  "現時点の検証対象がマルチロータ（UAV）のタスクに偏っており、複雑な接触リッチなタスク（多関節マニピュレータや歩行ロボットなど）での挙動やスループット特性は今後の検証が必要"
+ ],
+ "keywords": [
+  "Reinforcement Learning",
+  "Gazebo",
+  "Reproducibility",
+  "Scalability",
+  "Sim-to-Real Transfer",
+  "Multirotor Dynamics"
+ ],
+ "id": "2609.13243",
+ "title": "GzDRL: Reproducible and Scalable Deep Reinforcement Learning with Gazebo",
+ "authors": [
+  "Amal Dev Haridevan",
+  "Junjie Kang",
+  "Jinjun Shan"
+ ],
+ "date": "2026-09-15",
+ "group": "focus",
+ "tags": [
+  "simulation",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.13243",
+ "pdf_url": "https://arxiv.org/pdf/2609.13243",
+ "summary_ja": "従来のミドルウェアを介したGazebo統合の非決定論性や低スループットを解消する単一プロセスRL基盤を提案。エージェントのアクションと物理演算ステップを直接同期させる機構により、決定論的で高速な並列データ収集を実現し、ベンチマークで最高水準のスループットを実証した。",
+ "generated": "2026-09-15",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.13243"
+}
