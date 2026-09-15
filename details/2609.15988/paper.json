@@ -1,0 +1,148 @@
+{
+ "title_ja": "ResSafe: ヒューマノイドのための残差強化学習による安全性フィルタリング学習",
+ "tldr_ja": "ヒューマノイド制御において「運動性能」と「安全性」の学習を切り離し、固定した参照ポリシーの上に残差強化学習で安全修正を加えることで、高い追従性能を維持しながら転倒率を大幅に低減できることを示しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "ResSafeの全体コンセプトです。(a) 性能・安全性・ロバスト性のトレードオフを、学習を分離することでより良いパレート超曲面に押し上げます。(b) 参照ポリシーの出力に残差ポリシーの安全修正を足し合わせる安全フィルタ構造を採り、(c) 生存時間最大化と修正量最小化の報酬によってオフライン学習を行います。",
+  "caption": "Figure 2: ResSafe Overview. (a) By decoupling the learning of performance and safety, we aim to achieve a better performance–safety Pareto frontier. (b) To achieve this, we propose a residual RL-based architecture in which the residual RL policy learns a safety correction, resembling the structure of safety filters [ 3 , 25 ] . (c) We train the residual RL safety filtering policy primarily through a maximum-survival-time reachability formulation. To improve generalization across various reference actions, we expose the residual RL policy during training to varying levels of reference motion difficulty, reference policy safety, and domain randomization.",
+  "image": "details/2609.15988/F2.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットを強化学習（RL）で制御する際、最も頭を悩ませるのが「俊敏に動かすこと」と「転倒を防ぐ安全性・ロバスト性」のバランスです。従来の単一ポリシーによる学習では、転倒ペナルティやドメインランダム化を強めると、どうしても動作の追従精度が犠牲になってしまうというパレート限界（トレードオフ）に直面していました。\n\nそこで著者らは、人間の運動知能に着目しました。人間が新しいスポーツを覚えるとき、バランス維持や転倒回避といった反射的な安全動作をゼロから学び直すことはありません。この着想から、タスク性能を担う「参照ポリシー」と、危険を回避する「残差ポリシー」の学習を完全に分離するフレームワーク「ResSafe」を考案しました。あらかじめタスクに特化して学習させた参照ポリシーを固定し、その出力に対して制御理論の安全フィルタ（最小ノルム修正）のように振る舞う残差ポリシーを強化学習させます。\n\n検証では、29自由度を持つヒューマノイド「Unitree G1」を用い、手足に未知の重りを付けた状態での過酷な片足立ちなどの極限バランスタスクを実施しました。シミュレーションと実機実験の双方において、従来の単一ポリシー学習や既存の安全フィルタ手法と比べ、追従誤差の悪化を最小限に抑えつつ転倒率を劇的に低減できることを実証しました。",
+ "contributions_ja": [
+  "運動性能を担う参照ポリシーと安全修正を担う残差ポリシーを分離し、ヒューマノイド制御における性能・安全性・頑健性のパレートフロンティアを向上させる枠組み「ResSafe」を提案したこと",
+  "残差強化学習が制御理論における「最小ノルム安全フィルタ」の振る舞いをオンライン最適化なしで暗黙的に近似できることを定式化し示したこと",
+  "1万種類の大規模なバランスタスクと複数の参照ポリシーチェックポイントを用いて学習させることで、未知の動作や異なる参照ポリシーに対しても高い汎化性能を持つ安全フィルタを実現したこと",
+  "29自由度の等身大ヒューマノイド実機（Unitree G1）において、四肢に未知の重りを付加した過酷な外乱環境下でも転倒を防ぐゼロショットのSim-to-Real転移を実証したこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "性能と安全性を分ける：人間の反射神経に学ぶヒューマノイド制御",
+   "summary_ja": "強化学習によるヒューマノイド制御では、運動性能と安全性の両立がトレードオフになりがちです。本章では、人間のように「基本動作」と「転倒防止の反射」を切り離すことで、このトレードオフを劇的に改善する残差強化学習アプローチの動機と全体像を述べています。",
+   "details_ja": "ヒューマノイドの制御において強化学習（RL）を適用する場合、運動追従の俊敏さ（性能）と、外乱に耐えて倒れないこと（安全性・頑健性）は本質的に競合するマルチタスク最適化になります。図 F2(a) に示すように、従来の単一ポリシー学習では、転倒ペナルティを重くしたり過剰なドメインランダム化を施したりすると、どうしても動作追従のキレが失われ、局所解に陥ってパレートフロンティアが劣化してしまう問題がありました。制約付きマルコフ決定過程（CMDP）に基づくラグランジュ法を用いても、両者が結合している限りこの根本的な妥協からは逃れられません。\n\nここで著者らがヒントにしたのが、人間の運動学習です。私たちがスキーやスケートなどの新しいスポーツを習うとき、バランスを保つ反射運動をゼロから再学習しているわけではありません。すでに身体に染み付いた反射的な安定化能力が土台として働き、その上で新しい動作を獲得しています。この発想に基づき、ヒューマノイドでも「タスク性能」と「安全性」の学習を切り離そうというのが本研究の出発点です。\n\n具体的には「ResSafe」と名付けたフレームワークを提案しています。まずタスク性能だけを追求した参照ポリシー（名目ポリシー）を学習させて重みを固定します。次に、その参照アクションを観測しながら、危険時だけ修正を加える「残差ポリシー」を追加で学習させます（図 F2(b)）。この分離によって、報酬関数の繊細な重み調整に悩殺されることなく、安全かつ高性能な制御器を構築できる道筋を示しました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "提案手法 ResSafe の概念図。(a) 性能と安全性を分離することで、単一ポリシーよりも優れたパレートフロンティアを獲得します。(b) 参照ポリシーのアクションに学習済みの残差修正を加算する構成。(c) 多彩な動作難易度・参照ポリシー・外乱を網羅してオフライン学習を行います。",
+     "caption": "Figure 2: ResSafe Overview. (a) By decoupling the learning of performance and safety, we aim to achieve a better performance–safety Pareto frontier. (b) To achieve this, we propose a residual RL-based architecture in which the residual RL policy learns a safety correction, resembling the structure of safety filters [ 3 , 25 ] . (c) We train the residual RL safety filtering policy primarily through a maximum-survival-time reachability formulation. To improve generalization across various reference actions, we expose the residual RL policy during training to varying levels of reference motion difficulty, reference policy safety, and domain randomization.",
+     "image": "details/2609.15988/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Works",
+   "heading_ja": "安全制御理論と強化学習、そして残差アプローチの交差点",
+   "summary_ja": "古典的な安全制御理論（CBFやHJ到達可能性）と安全強化学習の強み・課題を整理しています。ヒューマノイドのような超高次元かつ不連続接触を伴うシステムにおいて、なぜ残差強化学習が有効な解となるのかを位置づけています。",
+   "details_ja": "ヒューマノイドの安全制御を考える上で、関連する研究領域は大きく4つに大別されます。\n\n- 安全制御理論と安全フィルタ：\n制御バリア関数（CBF: Control Barrier Function）やハミルトン・ヤコビ（HJ）到達可能性解析は、状態が安全集合にとどまることを数学的に保証する強力な枠組みです。しかし、厳密な動力学モデルを必要とする上、状態次元の増加に伴い計算爆発（次元の呪い）を起こすため、50次元を超えるような全身自由度を持つヒューマノイドにそのまま適用するのは極めて困難でした。\n\n- 安全強化学習（Safe RL）：\nCMDPに基づく手法では累積コストとして安全性を扱いますが、転倒や瞬間的な衝突のような「その瞬間にアウトになる制約」を捉えにくいという弱点があります。一方、HJ理論やCBFを強化学習に組み込むアプローチもありますが、これらは時間方向の最小値（min-over-time）を扱う特殊なベルマン方程式を解く必要があり、PPOなどの一般的なRLアルゴリズムを直接流用しにくい難点がありました。\n\n- ヒューマノイドの極限バランス：\n従来の歩行や衝突回避の研究では、単純化された線形倒立振子モデル（LIPM）等に基づくCBFが主流でした。近年の深層RLにより全身を使ったアクロバティックなバランス動作が可能になってきましたが、安全性は依然として手作業で調整された複雑な報酬関数に依存していました。\n\n- 残差強化学習（Residual RL）：\n既存の基底コントローラにRLで残差修正を加える手法は、マニピュレーションやドローン制御で成果を上げています。本研究はこの残差RLの仕組みを、安全制御理論における「安全フィルタ（必要なときだけ最小限の介入を行う機構）」のデータ駆動型実装として再解釈した点が画期的です。",
+   "figures": []
+  },
+  {
+   "heading": "3 Background & Problem Formulation",
+   "heading_ja": "安全フィルタリングの数学的定式化とトイ問題での検証",
+   "summary_ja": "制約付き最適制御問題を「参照ポリシー」と「最小ノルム安全フィルタ」へ分離する理論的背景を解説します。また、アフィン制御系向けの分離超平面手法の限界と、残差RLへと拡張する理由をカートポール問題を通して示します。",
+   "details_ja": "まず、動的システムの安全制御問題を数学的に定式化します。状態を $x$、制御入力を $u$、安全集合を $\\mathcal{C} = \\{x \\mid c(x) \\ge 0\\}$ としたとき、タスクの累積コストを最小化しつつ常に $x(t) \\in \\mathcal{C}$ を満たす制御を目指します。\n\n制御理論では、最大制御不変集合 $\\mathcal{S}$ とその内部で安全を維持できる最大安全入力集合 $\\mathcal{U}_{\\mathrm{safe}}^*(x)$ を定義することで、この問題を「参照ポリシー $\\pi_{\\mathrm{ref}}$ の生成」と「安全フィルタ $\\pi_{\\mathrm{safe}}$ による修正」という2段階の構造に近似できます。安全フィルタは、参照アクション $u$ が安全集合に含まれていれば何もし烈、外れそうなときだけ最も近い安全なアクションへと修正する「最小ノルム問題」として解かれます:\n$$\\pi_{\\mathrm{safe}}(x, u) = \\arg\\min_{u' \\in \\mathcal{U}_{\\mathrm{safe}}(x)} \\|u' - u\\|_2^2$$\n\n### 分離超平面（Discriminating Hyperplane: DH）とその限界\n剛体ロボットのような制御アフィン系では、安全入力集合は半空間 $a(x)^\\top u \\ge b(x)$ として表せます。この超平面パラメータ $(a(x), b(x))$ を強化学習で学習する手法（DH）が先行研究で提案されています。カートポールを用いた実験（図 F3）では、カートの位置を $p=0.6$ に持っていこうとする危険な参照ポリシーに対し、学習されたDHフィルタが $p \\le 0.5$ の安全制約を守るよう見事に介入できています。\n\nしかし、DH手法は「安全入力の境界（超平面）」を学習した上で凸二次計画問題を解くような構造を持つため、ヒューマノイドのように次元が極めて高く、接触の切り替わりによって入力集合が非凸や不連続になり得る複雑なシステムでは汎化が困難になります。そこで著者らは、制約境界を当てるのではなく、修正アクション $\\Delta\\pi_{\\mathrm{safe}}(x, u)$ そのものを残差RLで直接学習する方針を選びました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "カートポールでの検証。(a) 参照ポリシーは目標位置 $p=0.6$ を目指して安全制約 $p \\le 0.5$ を突破してしまいます。(b) 安全フィルタ介入後の軌道。(c) 分離超平面（DH）と提案する残差RLの制御入力。残差RLは最小ノルム解をよく近似しつつ、適度な保守性（ロバストマージン）を獲得しています。",
+     "caption": "Figure 3: Cart-Pole Running Example. (a) Reference policy is trained for a task positioning the cart position to $p=0.6$ , and violates the safety constraint, $p\\leq 0.5$ . (b) Learned safety filters can successfully prevent the state from safety violations. (c) $\\pi_{\\mathrm{safe}}$ under the learned min-norm discriminating hyperplane safety filter (blue) and residual RL (proposed method, brown).",
+     "image": "details/2609.15988/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Learning Safety Filtering with Residual Reinforcement Learning",
+   "heading_ja": "残差RLで安全フィルタを作る：定式化とヒューマノイドへの適用",
+   "summary_ja": "到達可能性問題を「生存時間最大化」に置き換えることで、標準的なPPOアルゴリズムで解ける報酬設計を導入しました。高次元なヒューマノイド（Unitree G1）で破綻なく学習させるための非対称Actor-Criticや外乱カリキュラムを詳述しています。",
+   "details_ja": "### 4.1 残差RLによる安全フィルタリングの定式化\nヒューマノイドのような確率的で不確実性の高い系では、安全集合内に留まる確率（安全性割合）を最大化する「確率的到達可能性問題」として捉えるのが自然です。これはタスク終了または制約違反までの生存時間 $T_{\\mathrm{surv}}$ を最大化する問題に帰着できます。ここでの大きな工夫は、HJ理論のような時間方向の最小化（min-over-time）ではなく、ステップごとの報酬の総和（sum-over-reward）として $\\sum_{t=0}^{T_{\\mathrm{surv}}} \\mathbf{1}$（いわゆる生息ボーナス: alive bonus）と定式化した点です。これにより、特殊なソルバーを使わず、標準的なPPOアルゴリズムをそのまま利用できます。\n\n残差ポリシー $\\Delta\\pi_{\\mathrm{safe}}^\\theta(s_t, \\pi_{\\mathrm{ref}}(s_t))$ の学習報酬は次のように極めてシンプルに設計されます:\n$$\\max_\\theta \\mathbb{E} \\left[ \\sum_{t=0}^T \\mathbf{1}(s_t \\in \\mathcal{C}) - \\lambda \\|\\Delta\\pi_{\\mathrm{safe}}^\\theta(o_t, a_t)\\|_2^2 \\right]$$\n第1項で「転倒せずに生き残ること」を促し、第2項で「参照アクションからの修正量を最小に抑えること（最小ノルムフィルタの再現）」を要求します。カートポールの結果（図 F3(c)）が示す通り、この残差RLは安全境界に対してわずかに保守的なマージンを持つフィルタとして機能します。\n\n### 4.2 ヒューマノイドのバランス制御への実装\n対象ロボット Unitree G1 は、状態次元 $n=58$、入力次元 $m=29$ という高次元系です。この規模で効果的な安全フィルタを学習させるため、以下の3つの工夫を導入しました。\n\n- 1万通りの多様な参照モーション：\n特定の動作にオーバーフィットしないよう、先行研究の手法を用いて生成した10,000種類もの多様なバランス動作データセットで学習させました。\n\n- 非対称Actor-Critic（Asymmetric Actor-Critic）：\n実機で動くActorネットワークには、自己受容感覚（関節角度・角速度、IMU情報）と参照ポリシーのアクションのみを入力します。一方、シミュレーション内でのみ使われるCriticネットワークには、身体の真値状態などの特権情報を与えて学習を安定化させました。\n\n- 外乱カリキュラムとマルチチェックポイント学習：\nロボットの様々な部位にランダムな重り（ペイロード）を取り付け、さらにランダムな押し出し外乱（Push）を加えることで、転倒寸前の限界状態を能動的に探索させました。また、単一の参照ポリシーだけでなく、学習途中の異なる複数のチェックポイントのアクションを入力として見せることで、未知の制御入力に対しても頑健に修正できる汎化性能を獲得させました。",
+   "figures": []
+  },
+  {
+   "heading": "5 Experimental Results",
+   "heading_ja": "シミュレーションと実機で実証された圧倒的な転倒防止性能",
+   "summary_ja": "シミュレーションおよび実機 Unitree G1 上で、未知のペイロード外乱に対するバランス維持能力を評価しました。単一ポリシーや既存フィルタと比べ、ResSafeは追従精度を保ったまま転倒率を大幅に引き下げられることを示しました。",
+   "details_ja": "### 5.1 実験設定とベースライン\nUnitree G1（29自由度）を用い、シミュレータ IsaacGym および実機で評価を行いました。比較対象は以下の3つです:\n1. Baseline: ペイロードのドメインランダム化なしで学習した標準的な参照ポリシー\n2. Baseline*: ペイロードのドメインランダム化を直接組み込んで単一ポリシーとして学習させたもの\n3. DH: 分離超平面法によって学習された安全フィルタベースライン\n評価指標には、ロボットベース座標系での関節位置追従誤差 $E_{\\mathrm{pos}\\text{-}l}$ と、転倒率（Fall Rate）を用いました。\n\n### 5.2 シミュレーション結果\n- 性能と頑健性のトレードオフ：\nBaseline は外乱がない状態では良好に動作しますが、未知のペイロードが加わると転倒率が跳ね上がります。一方、Baseline* は転倒こそ防げるものの、過剰な安全マージンを取るため追従誤差が大きく悪化しました。これに対し ResSafe は、名目ポリシーに近い高い追従精度をキープしたまま、最も低い転倒率を達成しました。\n\n- 性能と安全性のトレードオフ：\n単一ポリシーで安全コストの重みを増やしていく実験では、重みを大きくしすぎると追従性能が激しく崩壊し、かといって安全性が比例して向上するわけではない不安定さが見られました。性能と安全性を明示的に分離する ResSafe の優位性が裏付けられました。\n\n- 未知の参照ポリシーへの汎化性：\n図 F4(a) の通り、単一のチェックポイントだけで学習した残差ポリシーは、分布外（OOD）の参照ポリシーに対して転倒率が30%台まで急増します。しかし、複数のチェックポイントに晒して学習させたマルチチェックポイント版 ResSafe（図 F4(b)）は、未知の参照ポリシーに対しても転倒率を7.0%〜17.7%に抑え込み、DHベースライン（15.1%〜25.7%）を大きく凌駕しました。\n\n### 5.3 実機実験（Hardware Results）\nシミュレーションで学習したポリシーを、そのまま実機の Unitree G1 にゼロショット転移させました。ロボットの手足にダンベルなどの重りを取り付けた状態で、片足立ちや複雑なポーズ維持をテストしました（図 F1）。Baseline は激しい外乱に耐えきれず転倒（図 F1(e)）しましたが、ResSafe を適用したロボットは、手足の予期せぬ負荷に対して即座に安全修正を加えて見事にバランスを保ち続けました（図 F1(a)-(d)）。また、重りがない平常時においても Baseline* のように動きが硬くならず、高精度なポーズ追従を維持できることが確認されました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "異なる参照ポリシーに対する汎化性の比較。(a) 単一の参照ポリシーだけで学習した場合、未知のチェックポイント（OOD-1, OOD-2）で転倒率が急上昇します。(b) 複数チェックポイントで学習させた提案手法（紫色）は、未知の参照ポリシーに対しても低い転倒率を維持し、DH手法（緑色）よりも明らかに優れています。",
+     "caption": "Figure 4: Generalization across different reference policies. (a) Both the residual policy and the hyperplane policy are trained on a single reference-policy checkpoint. When they are applied to out-of-distribution reference-policy checkpoints, the fall rate increases sharply. (b) Our method and the hyperplane policy are trained with half of the checkpoints in the dataset, which leads to a smaller safety degradation when evaluated with unseen checkpoints.",
+     "image": "details/2609.15988/F4.jpg"
+    },
+    {
+     "key": "F1",
+     "caption_ja": "実機 Unitree G1 による過酷なバランスタスク。(a)-(d) 腕や脚に重りを取り付けられた状態でも、ResSafe により安定して片足立ちやバランスポーズを維持。(e) 安全フィルタのないベースラインポリシーでは外乱に耐えられず転倒してしまいます。",
+     "caption": "Figure 1: Humanoid balance tasks under various payloads. We introduce ResSafe, a performance-safety decoupling framework based on residual reinforcement learning which learns safety filtering. (a)-(d) Successful experiments of balance motions under our policy. (e) Failure case of the baseline policy. See more details in Section 5.3 and Table 3 .",
+     "image": "details/2609.15988/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめ：安全機構を「再利用可能なモジュール」にする第一歩",
+   "summary_ja": "ResSafe は運動性能と安全性の学習を分離し、残差強化学習によって最小ノルム安全フィルタを効果的に学習できることを示しました。この成果は、ヒューマノイドにおいて安全機能を独立した汎用モジュールとして使い回すための重要な足がかりとなります。",
+   "details_ja": "本研究では、ヒューマノイドロボットの安全制御における長年の課題であった「性能と安全性のトレードオフ」を打破するため、両者を切り離して学習するフレームワーク ResSafe を提案しました。\n\n残差強化学習を用いることで、複雑なモデル同定やオンラインの凸最適化ソルバーに頼ることなく、制御理論の安全フィルタ（最小ノルム修正）と同等の機能をニューラルネットワークとして獲得できることを示しました。さらに、1万種類の多様な動作と複数の参照ポリシーチェックポイントを組み合わせた訓練パイプラインにより、未知の動作や新しいコントローラに対しても適用できる高い汎用性を獲得しています。\n\nこれまでのように「タスクごとに報酬関数をこねくり回してゼロから安全性を学習し直す」アプローチから脱却し、一度学習した安全フィルタを様々な上位タスクコントローラに対して外付けのプロテクターとして再利用できる可能性を切り拓いた点が、本論文の最も大きな意義です。",
+   "figures": []
+  },
+  {
+   "heading": "7 Limitations",
+   "heading_ja": "限界と今後の課題：ハードな理論保証と視覚情報の統合へ",
+   "summary_ja": "データ駆動型アプローチであるため古典的CBFのような厳密な数学的保証がない点や、残差RLがやや保守的になりやすい理由の理論的解明、外界センシング（視覚）の統合などが今後の課題として挙げられています。",
+   "details_ja": "著者らは率直に以下の限界とオープンクエスチョンを認めています。\n\n- ハードな安全保証の欠如：\n古典的な安全フィルタ理論とは異なり、すべてをデータから学習しているため、「絶対に制約を破らない」という数学的・形式的な安全保証（Safety Certificate）は提供されません。\n\n- 理論的な保守性の謎：\n残差RLで学習した安全フィルタは、理論的な最小ノルム解（DHなど）に比べて常にやや保守的な（安全側に倒した）修正を出力する傾向があります。これが頑健性に寄与している面もありますが、なぜこの保守性が自然に生じるのかについての理論的解明は未解決のままです。\n\n- Sim-to-Real ギャップの陽な補償：\n今回は標準的なシステム同定とドメインランダム化のみに依存しており、Sim-to-Real転移のための専用モジュールを組み込んでいるわけではないため、環境によってはギャップが残る可能性があります。\n\n- 視覚など外界認識（Exteroception）の欠落：\n現在の安全フィルタは関節角やIMUなどの自己受容感覚（Proprioception）のみに頼る「盲目（Blind）」な制御器です。しかし人間がバランスを取る際は、視覚によって足場の環境や周囲の障害物を認識しています。カメラ画像などの知覚情報を取り入れ、環境アフォーダンスを活用した安全制御へと拡張することが重要な今後の研究課題です。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：報酬設計・ネットワーク構造・ドメインランダム化の詳細",
+   "summary_ja": "残差ポリシーの具体的な報酬関数、非対称Actor-Criticの入出力状態空間、PPOのハイパーパラメータ、および訓練時の外乱カリキュラムの設定について詳細にまとめています。",
+   "details_ja": "### 報酬設計（Appendix A.1）\n残差RLの報酬は、追従タスクの報酬とは完全に切り離されており、以下の4成分で構成されます:\n- 生存ボーナス（Alive Bonus）: 制約を満たしている間、毎ステップ $+1.0$\n- 修正量ペナルティ（Action Norm）: $-\\lambda \\|\\Delta a\\|_2^2$（重み $0.05$）により不要な介入を抑止\n- ベース速度安定化（Base Velocity）: 水平方向の過度なドリフトを防ぐ項（重み $0.2$）\n- アクション平滑化ペナルティ（Smoothness）: 制御入力の急変を防ぐ項（重み $0.01$）\n\n### 状態空間と非対称Actor-Critic（Appendix A.2）\n- Actor の入力（観測 $o_t$）: 参照ポリシーのアクション（29次元）、関節位置・速度、前回の残差アクション、IMU（ベースのクォータニオンと角速度）。実機で直接取得可能な情報のみに絞られています。\n- Critic の入力（特権情報を含む状態 $s_t$）: 上記に加え、ベースの線形速度やロボット各リンクの真の姿勢・速度情報を含みます。\n\n### ドメインランダム化と訓練設定（Appendix A.3, A.4）\nシミュレータ IsaacGym 上で、PPOを用いて学習が行われました。学習時には摩擦係数や関節ダンピングのランダム化に加え、ロボットの四肢や胴体にランダムな質量（ペイロード）を付加し、さらに一定確率でランダムな方向への外力インパルス（Push）を段階的に強めるカリキュラム学習を採用しています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "タスク性能（追従）と安全性（転倒防止）の強化学習を分離することで、単一ポリシー学習で生じるパレート限界を突破できる",
+  "生存時間最大化（生息ボーナス）と修正ノルムペナルティを組み合わせるだけで、標準的なPPOを用いて制御理論の安全フィルタと同等な機構を残差RLとして学習できる",
+  "多様な動作データセットと複数の参照ポリシーチェックポイントに晒して残差RLを鍛えることで、未知の動作や異なる上位コントローラにも外付けできる汎用的な安全モジュールが作れる"
+ ],
+ "limitations_ja": [
+  "学習ベースの暗黙的フィルタであるため、従来の制御バリア関数（CBF）のような数学的に厳密な安全保証は存在しない",
+  "残差RLが理論上の最小ノルム解よりも保守的な修正を出力する傾向があるが、その理論的背景は未解明である",
+  "自己受容感覚（プロプリオセプション）のみを用いたブラインド制御であり、段差や障害物に対応するための視覚情報が統合されていない"
+ ],
+ "keywords": [
+  "Humanoid Control",
+  "Residual Reinforcement Learning",
+  "Safety Filter",
+  "Safe Reinforcement Learning",
+  "Control Barrier Functions"
+ ],
+ "id": "2609.15988",
+ "title": "ResSafe: Learning Safety Filtering with Residual Reinforcement Learning for Humanoids",
+ "authors": [
+  "Gechen Qu",
+  "Tong Zhang",
+  "Bike Zhang",
+  "Yen-Jen Wang",
+  "Koushil Sreenath",
+  "Claire Tomlin",
+  "Jason Jangho Choi"
+ ],
+ "date": "2026-09-15",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "control",
+  "reinforcement-learning",
+  "safety"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.15988",
+ "pdf_url": "https://arxiv.org/pdf/2609.15988",
+ "summary_ja": "外乱や接触変化に敏感なヒューマノイド制御に対し、残差強化学習を用いた暗黙的セーフティフィルタResSafeを提案。タスク性能を担う名目方策と、安全補正のみを担う残差方策を分離して学習することで、追従性能を損なわずに転倒などの危険動作を抑制する。",
+ "generated": "2026-09-15",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.15988"
+}
