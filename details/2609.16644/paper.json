@@ -1,0 +1,125 @@
+{
+ "title_ja": "WholeBodyWAM: 事前学習済み世界行動モデルの事前分布をWBCグラウンディングによりヒューマノイドの全身協調へ汎化",
+ "tldr_ja": "卓上操作などで事前学習された世界・行動モデル（WAM）の知識を活かし、腕の可操作度に応じた全身協調と統一コントローラ表現（UWBC）を導入することで、ゼロからの学習なしに高精度なヒューマノイド移動マニピュレーションを実現した研究です。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "WholeBodyWAMの全体アーキテクチャです。左側では共有Diffusion Transformer（DiT）が将来の視覚ダイナミクス、マニピュレーション動作、UWBCコマンドを同時に生成し、右側では腕の可操作度低下を検知して全身協調を強める協調認識自己注意機構（CASA）が組み込まれています。",
+  "caption": "Fig. 2: Model Architecture. Left: A shared Diffusion Transformer jointly generates future visual dynamics, manipulation actions, and UWBC commands from a structured token sequence conditioned on visual history and task context. Right: CASA adaptively strengthens manipulation-to-UWBC attention based on reductions in task-directional arm manipulability, allowing manipulation intent to guide whole-body coordination.",
+  "image": "details/2609.16644/F2.jpg"
+ },
+ "overview_ja": "ロボットが将来のカメラ映像と行動を同時に予測する「世界・行動モデル（World Action Model: WAM）」は、汎用的なロボット操作を実現する有望株として注目を集めています。しかし、これまでのWAM研究の多くは卓上のロボットアームに閉じており、二足歩行ヒューマノイドが移動しながら作業する「移動マニピュレーション（loco-manipulation）」への適用は進んでいませんでした。ヒューマノイドでは、腕の作業と全身移動の協調が極めて複雑なうえ、全身制御器（WBC）ごとに指令の意味がバラバラで、全身動作の学習データも圧倒的に不足しているためです。\n\nそこで著者らは、「事前学習済みWAMがすでに持つ豊かな手の操作知識を壊さず、コントローラに接地した全身協調ルールだけを構造的に追加すればよいのではないか」という着眼点を得ました。提案された「WholeBodyWAM」は、既存のWAM骨格を保ったまま全身制御コマンドを別ストリームとして同時生成し、さらに様々なWBCの違いを吸収する共通インターフェース「UWBC」と、腕の届きにくさに応じて全身の動きを促す注意機構「CASA」を導入しています。\n\nシミュレータ（SIMPLE）および実機（Unitree G1）で検証したところ、シミュレーションでは91.9%の全体成功率を達成し、既存のWAMやVLA（Vision-Language-Action）モデルを大きく上回りました。さらに、3種類の異なるWBCを切り替えても性能低下の分散が約70%抑えられ、実機の未知環境（OOD）でも目標が遠ければ自発的に一歩踏み出して取り直すといった適応動作が確認されました。全身動作をゼロから学習し直すことなく、腕の操作知識を全身知能へと拡張できる道筋を示した点が大きな成果です。",
+ "contributions_ja": [
+  "事前学習済みWAMの操作知識を保持しつつ、全身制御を両立させる世界・行動モデル「WholeBodyWAM」の提案",
+  "物理的意味を統一した共通スロットとコントローラ固有スロットを分離し、異なる全身制御器（WBC）へ容易に適応できる統一インターフェース「UWBC」の構築",
+  "腕の作業方向における可操作度の低下を検知し、腕から全身制御への情報伝達を適応的に強化する協調認識自己注意機構「CASA」の開発",
+  "シミュレーション6タスクおよび実機8タスクにおいて、既存のWAM/VLAモデルを凌駕するタスク成功率、WBC間移植性、未知環境への汎化性能の実証"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "ヒューマノイドの全身協調を、ゼロから学習せずにどう解くか",
+   "summary_ja": "ヒューマノイドの移動マニピュレーションは、全身協調の難しさ、制御器（WBC）の仕様の不揃いさ、全身データの希少性という3つの壁に直面しています。本研究は、卓上操作で培った事前学習済みWAMの知識を活かし、構造化されたWBCへの接地と協調機構によってこの課題を解決します。",
+   "details_ja": "将来の視覚変化とロボットの行動を同時に学習するWAMは、ロボット操作の一般化に向けて高い成果を挙げてきました。しかし、二足歩行ヒューマノイドが全身を使って行う移動マニピュレーションへの応用は、ほとんど未開拓のままでした。\n\nその理由は大きく3つあります。第一に「全身協調の複雑さ」です。物体を手先で触るだけでなく、いつ・どのように体や足を連動させるかを判断しなければなりません。第二に「制御器（WBC: Whole-Body Controller）の不揃いさ」です。世の中のWBCは、あるものは関節角度を要求し、別のものは重心速度や足の接地状態を要求するなど、指令の物理的意味がバラバラです。第三に「ヒューマノイドデータの不足」です。アーム単体のデータは豊富ですが、ヒューマノイドの全身デモデータは非常に高コストで希少です。\n\nこれまでのアプローチには、既存モデルの行動次元を無理やり広げて微調整する手法や、全身をゼロから単一モデルで学習する手法がありました。しかし前者は制御器の意味を暗黙的にしか学べず動作が破綻しやすく、後者は膨大な全身データが必要で特定コントローラに縛られてしまいます。\n\nそこで著者らは、事前学習済みモデルの手先操作の知識（Prior）を活かしつつ、コントローラへの接地（Grounding）と協調（Coordination）を外付けで整える「WholeBodyWAM」を着想しました。操作腕のストリームと全身制御のストリームを分離した構造化表現、統一WBCインターフェース（UWBC）、そして腕の動かしやすさに応じて全身をアシストする注意機構（CASA）の3本柱で構成されています。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "世界モデルとヒューマノイド全身制御の交差点",
+   "summary_ja": "動画拡散モデルを基盤とする世界・行動モデル（WAM）と、強化学習や模倣学習に基づくヒューマノイド全身制御の先行研究を整理しています。本研究は、両者のギャップを埋めるため、コントローラの差分を吸収する共有セマンティクスと協調機構を導入した点で独自性を持ちます。",
+   "details_ja": "### II-A World Action Models（世界・行動モデル）\n動画予測と行動生成を一体化したモデルとして、DreamZeroやCosmos Policy、推論時に将来映像トークンを省くFast-WAMなどが提案されてきました。最近ではヒューマノイドへの拡張として、二腕操作に適用したDiT4DiTや、全身の運動潜在空間を予測するMotionWAM、$\\omega$-0などが登場しています。しかしこれらは、行動空間を単純に広げているか、ヒューマノイド専用にゼロから再学習しているかのどちらかでした。WholeBodyWAMは、事前学習済みWAMが持つ操作知識を維持しつつ、限られたヒューマノイドデータからコントローラ接地と協調だけを効率的に学ぶアプローチをとっています。\n\n### II-B Humanoid Loco-Manipulation（ヒューマノイド移動マニピュレーション）\n低レイヤの全身モータ制御では、OmniH2OやHOVER、HugWBCなど、外部指令を高精度に追従するロバストなWBCが確立されてきました。これらを土台として、WholeBodyVLAや$\\Psi_0$、HEX、OpenHLMといった視覚言語行動（VLA）モデルが、高次の自律動作を学習しています。しかし、既存手法の多くは特定のWBCの仕様に合わせて行動表現を固定していました。WholeBodyWAMは「UWBC」を通じて複数WBCにまたがる共通セマンティクスを学習するため、異なるコントローラ間でも再利用可能な接地表現を獲得できる点が大きく異なります。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "WholeBodyWAMの構造：分離・統一・そして協調",
+   "summary_ja": "事前学習済みDiTを拡張し、将来映像・腕操作・全身制御の3ストリームを同時に生成する枠組みを構築しました。様々なWBCを統一する「UWBC」スロット設計と、作業方向の可操作度に応じて注意の重みを動的に変える「CASA」が中核技術です。",
+   "details_ja": "### III-A 問題設定（Problem Formulation）\nヒューマノイドの移動マニピュレーションを、視覚履歴 $\\mathbf{o}_{0:t}$、現在のロボット状態 $\\mathbf{s}_{t}$、言語指示 $\\ell$ からなる文脈 $\\mathbf{c}_t$ のもとで、将来の視覚ダイナミクス $\\mathbf{v}$、腕操作アクション $\\mathbf{m}$、そしてUWBC全身コマンド $\\mathbf{u}$ を同時予測する問題として定式化します。\n\n### III-B モデル構造（Model Architecture）\nモデルはDreamZeroの動画Diffusion Transformer（DiT）をベースにしています。事前学習済みT5による言語特徴量、Wan動画VAEによる視覚特徴量、軽量なロボット状態エンコーダからの入力を受け取ります。予測対象は「視覚 $\\mathbf{v}$」「操作 $\\mathbf{m}$」「全身制御 $\\mathbf{u}$」の3つの型付きトークンストリームに分けられ、共有DiTブロックで同時にノイズ除去（Flow Matching）されます。損失関数は各ストリームの予測誤差をバランス係数 $\\lambda_k$ で重み付けしたものです。\n\n### III-C 統一WBCインターフェース（UWBC）\nコントローラごとに異なる指令形式をフラットに並べると、モデルが特定のコントローラに過学習してしまいます。そこでUWBCでは、コントローラ間で共通する物理的意味を持つスロット（46次元）と、固有機能のための残差スロット（10次元）に明確に分離しました。共通スロットには、ベース速度や体幹姿勢などのタスク空間指令（16次元）と、下半身・腰の目標関節角度および角速度（15次元ずつ、計30次元）が含まれます。下流のWBCに応じ、対応するスロットのみをアクティブ化し、未定義のスロットはマスクして扱います。\n\n### III-D 協調認識自己注意機構（CASA: Coordination-Aware Self-Attention）\n腕だけで届く作業なら全身を動かす必要はありませんが、腕が限界まで伸び切るような状況では体や足を連動させる必要があります。CASAはこれを数理的に制御する仕組みです。まず直近の手先速度からタスクの進行方向単位ベクトル $\\hat{\\mathbf{d}}_{a,t}$ を推定し、関節制限を考慮した減衰可操作度行列を用いて作業方向の可操作度 $c_{a,t}$ を計算します。事前に作成したボクセルマップの最大値 $c^{\\mathrm{ref}}_{a,t}$ と比較して可操作度の低下率を求め、左右の腕のうち低下が大きい方をもとに協調ゲート $g_t \\in [0, 1]$ を決定します。この $g_t$ を使って、DiT内の自己注意において「UWBCのクエリが操作キーを参照する重み」を適応的に底上げ（Logit Biasを付加）します。これにより、腕に余裕がない時だけ全身への指示伝達が強く発動します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "WholeBodyWAMの全体設計です。左図は将来映像・腕操作・UWBCコマンドを並列処理する共有DiT構造、右図は手先タスク方向の可操作度からゲート値 $g_t$ を算出し、操作からUWBCへのアテンションバイアスを注入するCASAの処理フローを示しています。",
+     "caption": "Fig. 2: Model Architecture. Left: A shared Diffusion Transformer jointly generates future visual dynamics, manipulation actions, and UWBC commands from a structured token sequence conditioned on visual history and task context. Right: CASA adaptively strengthens manipulation-to-UWBC attention based on reductions in task-directional arm manipulability, allowing manipulation intent to guide whole-body coordination.",
+     "image": "details/2609.16644/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "実機とシミュレータで検証：圧倒的なタスク成功率と未知環境への適応力",
+   "summary_ja": "Unitree G1実機とSIMPLEシミュレータで包括的な評価を行いました。シミュレーション全体成功率91.9%を記録し、WBC切り替え時の性能分散を大幅に低減したほか、実機の未知環境（OOD）でも目標位置のずれに自律的に身体を寄せてリカバリーする創発的な協調動作を確認しました。",
+   "details_ja": "### IV-A 実験設定\n14Bパラメータの事前学習済みWAMを初期値とし、VR機器（PICO 4 Ultra）を用いて収集した15Kエピソードの全身デモデータをG1ヒューマノイドにリターゲティングしてLoRA（rank=4）で追加学習しました。実機はUnitree G1（手先はBrainCo Revo 2ハンド）を使用し、頭部および両手首のRealSenseカメラ3台で撮影しています。評価指標にはタスク成功率（TSR）、途中の達成段階を測るタスク進捗度（TP）、WBC間の性能ばらつきを示すクロスWBC分散（pp$^2$）を採用しました。\n\n### IV-B シミュレーション評価\nSIMPLEベンチマークの6タスクにおいて、WholeBodyWAMは平均TSR 91.9%を達成しました。同じ追加学習データを与えたDreamZero-PT（73.6%）やCosmos-3（86.3%）、ヒューマノイドVLAの$\\Psi_0$（82.2%）を大きく引き離しています。特に、机の間を移動して拾うタスク（PickBetweenTables）など、全身協調が強く要求されるタスクでCosmos-3に対し10ポイント以上の大差をつけました。さらにSONIC、AMO、GEARという3つの異なるWBCで評価したところ、平均TSR 89.2%・分散10.5 pp$^2$を達成し、Cosmos-3（80.2% / 35.0 pp$^2$）と比較してコントローラ間のばらつきを約70%も抑える頑健さを示しました。\n\n### IV-C 実機評価\n実機G1を用いた8種類のタスクにおいて、訓練分布内（ID）で81.3%（DreamZeroは57.5%）、物体の配置や指示文を変えた未知環境（OOD）でも68.8%（DreamZeroは40.0%）と高い成功率を維持しました。特にタオル掛けの位置を10cm遠ざけたOOD実験では、最初の手先リーチングが空振りした後、ロボットが一歩前に踏み出して体幹をひねり、見事にタオルをつかみ直すというリカバリー動作が観察されました。このリカバリー動作は学習デモには含まれておらず、操作知識と全身協調が結びついたことで創発した行動と解釈できます。\n\n### IV-D アブレーション研究\n各コンポーネントを外した検証（表II）により、CASAを外すと平均TSRが86.9%（-5.0ポイント）、UWBCを排して直接SONICコマンドを予測させると84.7%（-7.2ポイント）、ストリームを分離せず単一ベクトルにしたモノリシック構成では80.8%（-11.1ポイント）まで低下することが確認されました。操作と全身制御を構造的に分離し、物理意味を統一したうえで可操作度に応じて協調させることが不可欠であると裏付けられています。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "3種類のWBC（SONIC, AMO, GEAR）に対するタスク成功率（TSR）とコントローラ間の性能分散です。WholeBodyWAMは最も高い平均成功率（89.2%）と最も低い分散（10.5 pp$^2$）を達成し、コントローラの仕様差に対して極めて頑健であることが分かります。",
+     "caption": "Fig. 4: Cross-WBC evaluation. Mean TSR and population variance across SONIC, AMO, and GEAR WBC, with separate fine-tuning for each controller. WholeBodyWAM achieves the highest mean TSR (89.2%) and lowest variance (10.5 pp 2 ).",
+     "image": "details/2609.16644/F4.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実機Unitree G1で実施された8つの実環境タスクの実行風景です。手先主体の操作（水やりや拭き掃除）から、長距離移動やしゃがみ込みを伴う高度な全身協調（カゴ運び、箱の運搬、ドア開け通過など）まで、多彩なタスクをこなしています。",
+     "caption": "Fig. 6: Real-world qualitative results. We show WholeBodyWAM performing eight real-world tasks spanning manipulation-dominant and coordination-intensive behaviors. Task instructions appear above each sequence, with frames ordered from left to right. Lower-left labels identify task stages associated with Task Progress (TP) in Fig. 7 .",
+     "image": "details/2609.16644/F6.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "未知の配置（OOD）における全身協調の創発的リカバリーの様子です。タオルが10cm遠くにあって一度掴み損ねた後、自発的に前進して上体をひねることでリーチを伸ばし、2度目の試行で把持に成功しています。",
+     "caption": "Fig. 8: Whole-body coordination generalization. Under a 10 cm displacement of the towel support, WholeBodyWAM recovers from a failed grasp through forward repositioning and body rotation.",
+     "image": "details/2609.16644/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめ：腕の知能を足腰へ、構造的につなぐ重要性",
+   "summary_ja": "WholeBodyWAMは、事前学習済みWAMの操作知識を活かしつつ、UWBCとCASAという構造化された枠組みによってヒューマノイドの全身移動マニピュレーションを実現しました。全身知能をゼロから学習し直すのではなく、既存の腕知能を制御器に接地して拡張していくという、スケーラブルなヒューマノイド開発の方向性を示しています。",
+   "details_ja": "本論文では、ヒューマノイドの移動マニピュレーションに向けたWBC接地型の世界・行動モデル「WholeBodyWAM」を提案しました。事前学習された視覚と操作の事前分布をそのまま保持しつつ、UWBCによって多様な全身制御器のセマンティクスを共通化し、CASAによって腕の作業状況に応じた全身協調を可能にしました。\n\nシミュレーションおよび実機実験により、既存ベースラインを凌駕するタスク性能、未知環境への高い汎化性、そしてコントローラ間の高い移植性が実証されました。データスケーリングの検証からも、構造的な再利用によって少ないタスク固有データからでも効率的に学習できることが確認されています。\n\nこの研究が示す最も重要な示唆は、「ヒューマノイドの全身知能を獲得するために、必ずしも全身動作をゼロから莫大なデータで再学習する必要はない」ということです。卓上操作などで蓄積された膨大な世界・行動の事前知識を、適切なインターフェースと物理に基づく協調機構で低レイヤ制御器につなぎ込むことこそが、スケーラブルなヒューマノイド知能の実現に向けた堅実な近道であると言えます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "卓上操作等で事前学習された世界・行動モデル（WAM）の重みを壊さず、全身制御用の出力ストリームを構造的に分離・追加することで、ヒューマノイド移動マニピュレーションへ効率的に適応できる",
+  "異なるWBCの指令体系は「共通の物理的意味を持つスロット（46次元）」と「固有の残差スロット（10次元）」に分離・統一（UWBC）することで、コントローラ変更に対する頑健性が大幅に向上する",
+  "「手先タスク方向の可操作度」という古典的なロボティクス指標をアテンションのバイアスゲート（CASA）として組み込むことで、腕の可動限界に応じた自発的な全身協調やリカバリー動作を誘発できる"
+ ],
+ "limitations_ja": [
+  "下流のWBCごとにUWBCスロットへのマッピングやマスキング設定を手作業で定義・登録する必要がある点",
+  "タスク進行方向の推定が直近の手先位置の差分ベクトルに依存しているため、手先が停止している状態や急激な方向転換が連続する局面では協調ゲートの精度が不安定になる可能性がある点",
+  "シミュレーションでのデータ収集およびファインチューニングには依然として15K規模の全身テレオペレーション・デモデータを要しており、完全なゼロショット適応ではない点"
+ ],
+ "keywords": [
+  "World Action Model",
+  "Humanoid Loco-Manipulation",
+  "Whole-Body Control",
+  "Unified WBC Interface",
+  "Diffusion Transformer"
+ ],
+ "id": "2609.16644",
+ "title": "WholeBodyWAM: Generalizing Pre-trained World-Action Priors to Humanoid Loco-Manipulation via WBC-Grounded Coordination",
+ "authors": [
+  "Zhuo Li",
+  "Yiming Yao",
+  "Jim Tan",
+  "Mengjie Jing",
+  "Zhipeng Dong",
+  "Fei Chen"
+ ],
+ "date": "2026-09-16",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "locomotion",
+  "manipulation",
+  "world-model"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.16644",
+ "pdf_url": "https://arxiv.org/pdf/2609.16644",
+ "summary_ja": "ヒューマノイドのロコマニピュレーションに向け、将来の視覚ダイナミクス、操作動作、全身制御（WBC）意図を同時予測するWholeBodyWAMを提案。事前学習済み視覚-行動の事前分布を維持しつつ異種WBCセマンティクスを接地させ、全身挙動を協調させることで未知タスクへの汎化を実現した。",
+ "generated": "2026-09-16",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.16644"
+}
