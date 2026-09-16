@@ -1,6 +1,333 @@
 {
  "entries": [
   {
+   "date": "2026-09-16",
+   "rank": 0,
+   "id": "2609.16405",
+   "group": "focus",
+   "title": "Collision-Aware Humanoid Whole-Body Control under Imperfect Tracking Targets",
+   "title_ja": "不完全な目標追従下におけるヒューマノイドの衝突を考慮した全身制御",
+   "summary_ja": "認識や遠隔操作の誤差で目標軌道が幾何学的に危険な場合でも、転倒を防ぎつつ衝突を回避するヒューマノイド向け全身制御層RECALを提案。点群による環境・機体表現とクロスアテンションを用い、浮遊基地やエンドエフェクタの追従と外部環境・把持物体の衝突回避を動的に調停する。",
+   "authors": [
+    "Mohitvishnu S. Gadde",
+    "Ashish Malik",
+    "Pranay Dugar",
+    "Aayam Kumar Shrestha",
+    "Alan Fern"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.16405",
+   "image": "figures/2026-09-16/2609.16405.jpg"
+  },
+  {
+   "date": "2026-09-16",
+   "rank": 1,
+   "id": "2609.16644",
+   "group": "focus",
+   "title": "WholeBodyWAM: Generalizing Pre-trained World-Action Priors to Humanoid Loco-Manipulation via WBC-Grounded Coordination",
+   "title_ja": "WholeBodyWAM: 事前学習済み世界行動モデルの事前分布をWBCグラウンディングによりヒューマノイドの全身協調へ汎化",
+   "summary_ja": "ヒューマノイドのロコマニピュレーションに向け、将来の視覚ダイナミクス、操作動作、全身制御（WBC）意図を同時予測するWholeBodyWAMを提案。事前学習済み視覚-行動の事前分布を維持しつつ異種WBCセマンティクスを接地させ、全身挙動を協調させることで未知タスクへの汎化を実現した。",
+   "authors": [
+    "Zhuo Li",
+    "Yiming Yao",
+    "Jim Tan",
+    "Mengjie Jing",
+    "Zhipeng Dong",
+    "Fei Chen"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.16644",
+   "image": "figures/2026-09-16/2609.16644.jpg"
+  },
+  {
+   "date": "2026-09-16",
+   "rank": 2,
+   "id": "2609.16683",
+   "group": "focus",
+   "title": "Weave: Learning Whole-Body Dexterous Loco-Manipulation from Human-Object Interactions",
+   "title_ja": "Weave: 人間と物体の相互作用からの全身器用ロコマニピュレーション学習",
+   "summary_ja": "人間の動作データからヒューマノイドの全身バランス、移動、器用な接触を協調制御するフレームワークWeaveを提案。接触を考慮したリターゲティングと接近動作補完により実行可能な参照動作を生成し、異なる身体構造やダイナミクス下でも物体との安定した相互作用を学習可能にする。",
+   "authors": [
+    "Liu Cao",
+    "Xingze Wu",
+    "Jingzhi Cui",
+    "Botian Xu",
+    "Mingzhi Pei",
+    "Ruoqu Chen",
+    "Mengdi Xu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.16683",
+   "image": "figures/2026-09-16/2609.16683.jpg"
+  },
+  {
+   "date": "2026-09-16",
+   "rank": 3,
+   "id": "2609.17405",
+   "group": "focus",
+   "title": "Optimized Wrench Polytope Analysis for Real-Time Stability Control of Legged Robots in Complex Multi-Contact Configurations",
+   "title_ja": "複雑な多点接触構成における脚ロボットの実時間安定性制御のためのレンチポリトープ最適化解析",
+   "summary_ja": "斜面や足場などの難所を踏破する脚ロボット向けに、任意の多点接触下で最大レンチポリトープを評価する高速化アルゴリズムを提案。制御周期49Hz内で各関節トルクを計算可能にし、通常制御ループ内での姿勢制御・安定性維持をシミュレーションおよび実機で実証した。",
+   "authors": [
+    "Friedrich Graaf",
+    "Elias Birkefeld",
+    "Christian Eichmann",
+    "Elias Hofele",
+    "Tristan Schnell",
+    "Georg Heppner",
+    "Arne Roennau",
+    "R\\\"udiger Dillmann"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "control",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.17405",
+   "image": "figures/2026-09-16/2609.17405.jpg"
+  },
+  {
+   "date": "2026-09-16",
+   "rank": 4,
+   "id": "2609.16443",
+   "group": "focus",
+   "title": "The Neverwhere Visual Parkour Benchmark Suite",
+   "title_ja": "The Neverwhere Visual Parkour ベンチマークスイート",
+   "summary_ja": "視覚に基づく移動制御（Visual Locomotion）の実環境評価ギャップを埋めるため、60以上の都市内外環境を3D Gaussian Splattingで再構成した閉ループ評価基盤を提案。超写実的なシミュレーション環境を提供し、再現性の高いパルクール走行評価を可能にする。",
+   "authors": [
+    "Ziyu Chen",
+    "Henghui Bao",
+    "Haoran Chang",
+    "Alan Yu",
+    "Ran Choi",
+    "Kai McClennen",
+    "Gio Huh",
+    "Kevin Yang",
+    "Ri-Zhao Qiu",
+    "Yajvan Ravan",
+    "John J. Leonard",
+    "Xiaolong Wang",
+    "Phillip Isola",
+    "Ge Yang",
+    "Yue Wang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "locomotion",
+    "simulation",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.16443",
+   "image": "figures/2026-09-16/2609.16443.jpg"
+  },
+  {
+   "date": "2026-09-16",
+   "rank": 5,
+   "id": "2609.16745",
+   "group": "general",
+   "title": "The Latent That Never Was: A Forensic Re-run of the CVAE Ablation in Action Chunking Transformer",
+   "title_ja": "存在しなかった潜在変数: Action Chunking TransformerにおけるCVAEアブレーションの徹底的再検証",
+   "summary_ja": "模倣学習の標準手法ACTにおいて「CVAEエンコーダ除去で成功率が35%から2%に激減する」と報告された知見を、原著コードで追試検証。元論文のような性能低下は再現されず、訓練長や評価チェックポイントの選定が結果に大きく影響することを明らかにした。",
+   "authors": [
+    "Bo Kang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "imitation-learning",
+    "manipulation",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.16745",
+   "image": "figures/2026-09-16/2609.16745.jpg"
+  },
+  {
+   "date": "2026-09-16",
+   "rank": 6,
+   "id": "2609.16074",
+   "group": "general",
+   "title": "World-Action Models for Robot Learning and Control: A Survey",
+   "title_ja": "ロボットの学習と制御に向けた世界行動モデル（WAM）のサーベイ",
+   "summary_ja": "未来の環境変化予測と実行可能な行動生成を同時に行う世界行動モデル（WAM）の体系的サーベイ。モデルベース強化学習、動画生成、VLAモデルとの相違点を整理し、潜在変数設計、目的関数、実機制御への応用上の課題と今後の展望を総括している。",
+   "authors": [
+    "Zuxing Lu",
+    "Hongjia Zhai",
+    "Guanzhi Wang",
+    "Huajian Zeng",
+    "Jiaqi Yang",
+    "Jingyu Liu",
+    "Lei Cheng",
+    "Yuantai Zhang",
+    "Yuheng Qiu",
+    "Zezhou Cheng",
+    "Ivan Laptev",
+    "Danfei Xu",
+    "Benjamin Riviere",
+    "Giuseppe Loianno",
+    "Eric Xing",
+    "Xingxing Zuo"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "world-model",
+    "control",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.16074",
+   "image": "figures/2026-09-16/2609.16074.jpg"
+  },
+  {
+   "date": "2026-09-16",
+   "rank": 7,
+   "id": "2609.16705",
+   "group": "general",
+   "title": "The Robot Data Factory",
+   "title_ja": "The Robot Data Factory: 身体性AIのための継続的経験生成インフラ",
+   "summary_ja": "身体性AIの進展には単なるデータ蓄積ではなく知覚-行動-結果のループを保った「経験」が必要であるとし、異種ロボットと環境で経験を継続的に生成・検証・再利用するインフラRDFを提唱。再現可能な実験と実機展開をつなぐ基盤手法を提供する。",
+   "authors": [
+    "Sami Haddadin",
+    "Ivan Laptev",
+    "Ian Reid",
+    "Dezhen Song",
+    "Cesare Stefanini",
+    "Abdalla Swikir",
+    "Xingxing Zuo",
+    "Lyes Saad Saoud",
+    "Mahmoud Hamandi",
+    "Mohamed Heshmat",
+    "Oualid Doukhi",
+    "Abdeldjallil Naceri",
+    "Attique Bashar",
+    "Abdelrahim Mohamed",
+    "Teodor Tomic",
+    "Yue Peng",
+    "Samuel Schneider",
+    "Cheng-Chung Lee",
+    "Janine Guo",
+    "Qinghao Zhang",
+    "Kim Jeffery"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "dataset",
+    "benchmark",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.16705",
+   "image": null
+  },
+  {
+   "date": "2026-09-16",
+   "rank": 8,
+   "id": "2609.17210",
+   "group": "general",
+   "title": "FluxVLA Engine: A One-Stop VLA Engineering Platform for Embodied Intelligence",
+   "title_ja": "FluxVLA Engine: 身体性知能のための統合型VLAエンジニアリング基盤",
+   "summary_ja": "断片化していたデータ形式、訓練、推論ランタイム、ロボット固有のインターフェースを統合するオープン基盤FluxVLA Engineを提案。VLA、世界行動モデル、オフラインRLなどを設定駆動型の統一ワークフローで管理し、研究から実機展開までの再現性を高める。",
+   "authors": [
+    "Yinhao Li",
+    "Weixin Mao",
+    "Zihan Lan",
+    "Jikun Rong",
+    "Qirui Hu",
+    "Yiming Zhang",
+    "Weipeng Deng",
+    "Bowen Shen",
+    "Minzhao Zhu",
+    "Yiming Mao",
+    "Yan Yang",
+    "Chenguang Cui",
+    "Hongyuan Chen",
+    "Xu Huang",
+    "Zheyi Zhao",
+    "Pinxi Shen",
+    "Bozhen He",
+    "Zhen Fu",
+    "Yifan Wang",
+    "Zexin Zhang",
+    "Ang Gao",
+    "Haoyu Chen",
+    "Chengqi Shi",
+    "Hua Chen"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "vision-language-action",
+    "world-model",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.17210",
+   "image": "figures/2026-09-16/2609.17210.jpg"
+  },
+  {
+   "date": "2026-09-16",
+   "rank": 9,
+   "id": "2609.17524",
+   "group": "general",
+   "title": "Modality-Autoregressive World-Action Models",
+   "title_ja": "モダリティ自己回帰型世界行動モデル（ModAR）",
+   "summary_ja": "従来のRGB画像予測だけでなく深度や視覚特徴などの異種モダリティを順次自己回帰的にデノイズ予測してから行動を生成する世界行動モデルModARを提案。幾何・意味・運動情報を効率的に捉え、モダリティ予測順序やデータ混合が方策性能に与える影響を系統的に評価した。",
+   "authors": [
+    "Adam Hung",
+    "Bardienus P. Duisterhof",
+    "Deva Ramanan",
+    "Jeffrey Ichnowski"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "imitation-learning",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.17524",
+   "image": "figures/2026-09-16/2609.17524.jpg"
+  },
+  {
    "date": "2026-09-15",
    "rank": 0,
    "id": "2609.15213",
