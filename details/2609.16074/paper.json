@@ -1,0 +1,157 @@
+{
+ "title_ja": "ロボットの学習と制御に向けた世界行動モデル（WAM）のサーベイ",
+ "tldr_ja": "未来の環境変化を予測する「世界モデル」とロボットを動かす「行動生成」を融合させた新パラダイム「World-Action Models（WAM）」について、設計分類から応用、未解決課題までをロボティクス視点で体系的に整理したサーベイ論文です。",
+ "hero_figure": {
+  "key": "F3",
+  "caption_ja": "WAMの基本構成モジュールを示す分類図です。言語指示を受け取る言語エンコーダ、観測を圧縮する視覚エンコーダ、環境のダイナミクスを担う予測バックボーン、そして未来の予測を行動指令へ変換するアクションデコーダの4要素から成り立っています。",
+  "caption": "Fig. 3: Component-level taxonomy for World-Action Models. The architecture can be viewed through four functional modules: a language interface that provides task conditioning, a visual encoder that defines the predictive state, a predictive backbone that carries dynamics, and an action decoder that converts predicted futures into executable controls.",
+  "image": "details/2609.16074/F3.jpg"
+ },
+ "overview_ja": "近年のロボティクス分野では、カメラ画像と自然言語の指示から直接ロボットの関節指令などを出力する Vision-Language-Action（VLA）モデルが大きな注目を集めています。しかし、多くのVLAモデルは「現在の画像を見てすぐ動く」反射的な方策（ポリシー）にとどまっており、自分の取った行動が数秒後に周囲へどのような物理的影響を及ぼすかを明示的に予測していません。そのため、接触を伴う作業や長時間の複雑なタスクでは、後から取り返しのつかない手詰まりに陥りやすいという根本的な課題がありました。\n\nそこで急速に発展しているのが「World-Action Models（WAM）」と呼ばれるアプローチです。これは、未来の動画や潜在状態を予測する世界モデル（World Model）の能力と、実行可能な行動を出力する方策を一体化させた枠組みです。ロボットが「こう動いたら世界はどう変わるか」を頭の中でシミュレーションしながら行動を決定できるようになります。\n\n本論文は、モデルベース強化学習、動画生成モデル、潜在行動学習、VLAという4つの研究系統をWAMという共通のレンズで捉え直した包括的なサーベイです。入出力表現や予測パラダイム、ネットワーク構造、学習パイプライン、データスケーリングを体系的に分類しています。さらに、マニピュレーション、ナビゲーション、自動運転での活用例や評価ベンチマークを網羅し、実時間制御や3D幾何一貫性といった未解決の課題を明らかにしています。",
+ "contributions_ja": [
+  "世界モデルの予測能力とロボットの行動生成を統合する「World-Action Models（WAM）」の概念とスコープを定義し、従来のVLAやモデルベース強化学習との違いを明確化しました。",
+  "モデル構成要素、遷移モデリング手法、ネットワーク構造、学習パイプライン、データスケーリング則にわたる包括的な分類体系（タクソソミー）を構築しました。",
+  "マニピュレーション、自律移動ナビゲーション、自動運転におけるWAMの活用形態を整理し、予測が表現学習・先読み計画・合成データ生成・方策最適化のどこで役立っているかを横断比較しました。",
+  "オープンループ予測とクローズドループ制御の両面から評価データセットと指標を整理し、リアルタイム推論や行動アライメントなどの未解決課題を体系化しました。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "反射的なロボットから「未来を想像して動く」ロボットへ",
+   "summary_ja": "従来のVLAモデルは強力ですが、現在の観測から直接行動を出力する反射的な構造のため、長期タスクや接触作業に弱点を抱えています。この課題を克服するため、未来予測と制御を結合したWAMが脚光を浴びています。",
+   "details_ja": "オープンな環境で自律動作するロボットは、部分的な観測情報や物理的な制約、環境の動的変化に対処しなければなりません。従来の古典的ロボティクスでは、知覚・状態推定・計画・低レベル制御を個別のモジュールに分けるパイプラインが主流でした。この構成はデバッグがしやすい利点がある一方で、実世界の多様な物体や環境変化に弱く、モジュール間で誤差が累積しやすい問題がありました。\n\n近年の基盤モデルの台頭により、画像と指示文から直接ロボットの行動を出力する Vision-Language-Action（VLA）モデル（例: RT-1、RT-2、OpenVLA）が登場し、汎用的な動作獲得に道を開きました。しかし、既存のVLAは現在の状態から次の行動を反射的に決めるものが大半です。「候補となる行動を取ったら環境がどう変わるか」という未来予測を明示的に行っていないため、長期的なタスクや手元の物体が隠れるような遮蔽環境、接触リッチな作業で失敗しやすくなります。\n\n一方で、モデルベース強化学習（MBRL）や動画生成モデルを基点とする「世界モデル」は、環境の遷移をシミュレーションできます。しかし、世界モデル単体では予測した未来がロボットにとって実行可能かどうかが担保されず、推論コストも高いという問題がありました。そこで登場したのが、未来予測と行動生成を直接結びつける World-Action Models（WAM）です。本サーベイは、散在していた関連研究を整理し、WAMの設計空間と評価基準を包括的に提示することを目的としています。",
+   "figures": []
+  },
+  {
+   "heading": "II Background: From World Models to World-Action Models",
+   "heading_ja": "4つの源流が合流して生まれたWAMの基本原理",
+   "summary_ja": "WAMは、世界モデル（MBRL）、動画生成モデル、潜在行動学習、そしてVLAの4つの研究系譜が統合されたものです。数学的定式化としては、未来の観測と行動を「同時予測」するか、未来を描いてから行動を逆推定する「逆動力学」の2系統に整理されます。",
+   "details_ja": "ロボットと環境のやりとりは、部分観測マルコフ決定過程（POMDP）として定式化できます。エージェントは観測系列 $\\mathbf{o}_{<t}$ と言語指示 $\\ell$ を受け取り、行動 $\\mathbf{a}_{t:t+H}$ を出力します。\n\n### II-B 4つの基礎研究スレッド\nWAMの背後には、図 F2 に示す4つの源流が存在します。\n- **世界モデルとモデルベース強化学習（MBRL）**: PlaNetやDreamerのように、潜在状態空間 $\\mathcal{Z}$ 上で遷移関数 $f_{\\textit{WM}}$ を学習し、頭の中（潜在空間）でのシミュレーションを通じて方策を最適化します。\n- **動画生成モデル（VGM）**: WanやCosmosなどの大規模動画拡散モデルであり、過去フレームと言語から未来の高解像度ビジュアルを生成する強力な視覚事前分布を提供します。\n- **潜在行動事前学習（LAPA）**: アクションラベルのない大量のWeb動画から、前後のフレーム変化を通じて潜在行動空間 $\\mathcal{U}$ を自己教師あり学習し、後段のポリシー学習へ転移させます。\n- **Vision-Language-Action（VLA）モデル**: 自己回帰モデルやフローマッチング（$\\pi_0$ など）を用い、観測と言語から行動チャンク（連続した行動系列）を一気に生成します。\n\n### II-C WAMへの統合と2つの生成経路\nWAMはこれらを統合し、未来の観測軌道 $\\mathbf{o}_{t:t+H}$ と行動チャンク $\\mathbf{a}_{t:t+H}$ を結びつけます。具体的には主に2つのアプローチが取られます。\n1. **同時予測（Joint Prediction）**: 現在の観測と言語指示から、未来の観測と行動を1つのプロセスで同時に予測します（$p(\\mathbf{o}_{t:t+H}, \\mathbf{a}_{t:t+H} \\mid \\mathbf{o}_{<t}, \\ell)$）。\n2. **逆動力学モデル（Inverse Dynamics Model: IDM）**: まず未来の視覚的計画を予測し、その状態変化から逆動力学を用いて行動を逆算する「計画してから動く（Plan-then-act）」アプローチです（$p(\\mathbf{o}_{t:t+H} \\mid \\mathbf{o}_{<t}, \\ell)$ のあとに $p(\\mathbf{a}_{t:t+H} \\mid \\mathbf{o}_{<t}, \\mathbf{o}_{t:t+H})$）。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "WAMを構成する4つの基礎研究スレッドの概念図です。(a) 現在の状態と行動から次状態を予測する世界モデル、(b) 視覚履歴から未来画像を予測する動画生成モデル、(c) 連続フレームから潜在行動を学習するLAPA、(d) 観測と言語から直接行動を生成するVLAが融合してWAMが形成されています。",
+     "caption": "Fig. 2: Conceptual overview of four foundational threads behind WAMs: (a) world models learn latent dynamics by predicting the next state from current state and action; (b) video generative models predict future visual observations conditioned on visual history and language instruction; (c) latent action pretraining infers latent actions from consecutive frames and uses them to model latent transitions; and (d) VLAs generate future action sequences directly from state and language instructions. (The third-row illustrations are adapted from the corresponding papers cited in each thread.)",
+     "image": "details/2609.16074/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "III Architecture Design & Model Taxonomy",
+   "heading_ja": "WAMの設計図：構造、遷移パラダイム、学習手順、データ戦略",
+   "summary_ja": "WAMのアーキテクチャは、構成モジュール、遷移モデリング、結合構造、学習パイプライン、データスケーリングの5軸で整理できます。エンドツーエンドかデュアルシステムか、事前学習からどう実機適応させるかが設計の鍵です。",
+   "details_ja": "本章ではWAMの設計空間を多角的に分解しています。\n\n### III-A モデル構成要素\n図 F3 の通り、WAMは大きく4つの要素で構成されます。指示文を扱う「言語エンコーダ」（CLIP、T5、LLM）、観測を圧縮する「視覚エンコーダ」（2D/動画VAE、DINOやSigLIP等の表現エンコーダ、点群やBEV等の3Dエンコーダ）、ダイナミクスを司る「予測バックボーン」（スクラッチ学習のTransformer、またはWanやCosmosなどの事前学習済み動画生成モデル）、そして出力層となる「アクションデコーダ」（離散化トークナイザ、潜在行動モデル、拡散/フローマッチングヘッド）です。\n\n### III-B 遷移モデリングのパラダイム\n図 F4 のように、推論の流れは「同時予測」と「逆動力学（IDM）」に分かれます。同時予測（GR-1、WorldVLA、Cosmos Policyなど）は未来予測を行動表現の補助学習信号としても使い、単一の目的関数で学習できます。一方のIDM（Seer、DreamZero、LingBot-VAなど）は「未来を想像してから動く」ため直感的ですが、動画生成の計算負荷が推論レイテンシに直結しやすいトレードオフがあります。\n\n### III-C アーキテクチャ構造\n情報の統合形式は図 F5 の通り、主に2系統です。\n- **エンドツーエンド型**: 単一のバックボーンですべてのモダリティトークンを同時に処理します。表現学習が統一される反面、異種モダリティ間のアライメント難易度が高くなります。\n- **デュアルシステム型**: 動画予測モジュールと行動決定モジュールを分離し、Mixture of Transformers（MoT）やクロスアテンションで結合します。計算負荷の切り離しや適応が容易になります。\n\n### III-D 学習パイプライン\n図 F6 に示す2段階の学習が標準的です。事前学習段階では、Web規模の動画から時空間表現を獲得し、潜在行動学習や動画-行動アライメントを行います。後段のポストトレーニングでは、実機デモを用いたLoRA等によるファインチューニング、外観変化を加えるデータ拡張、そして世界モデル内で方策を鍛える「モデルベース強化学習」が実行されます。例えばDreamZeroでは、わずか約30分の実機データで強力なクロスエンボディメント転移を達成しています。\n\n### III-E データモダリティとスケーリングピラミッド\n図 F7 のように、学習データはピラミッド構造を成しています。底辺にはWeb動画（大規模だが行動ラベルなし）、中層には人間の自己中心視点デモ（運動意図はあるがロボット固有の制御値はない）、頂点には希少で精密な実機ロボット軌道（Open X-Embodimentなど）が位置します。これらをバランスよく混合することが成功の要です。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "遷移モデリングの2大パラダイムです。(a) 観測と言語から未来画像と行動を同時に出力する「同時予測」と、(b) 世界モデルで未来予測動画を生成してから逆動力学（IDM）で行動を推定する「逆動力学モデル」の違いを示しています。",
+     "caption": "Fig. 4: Transition Modeling Paradigms. Joint prediction couples future observation and action generation within a shared process, whereas the inverse dynamics paradigm factorizes this transition by first imagining future states and then inferring executable actions.",
+     "image": "details/2609.16074/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "WAMアーキテクチャの分類です。単一のバックボーンで全モダリティを処理するエンドツーエンド型 (a, b) と、動画エキスパートと行動エキスパートを分離してMoTやクロスアテンションで結ぶデュアルシステム型 (c, d) が、同時予測・IDMの各遷移パラダイムと組み合わされます。",
+     "caption": "Fig. 5: Taxonomy of WAM Architectures. Existing models can be categorized along two orthogonal axes: architectural design and transition modeling paradigm. Structurally, end-to-end models (a, b) process all modalities within a unified backbone, whereas dual systems (c, d) explicitly separate visual and action experts. In terms of transition modeling, joint prediction approaches (a, c) generate future observations and actions simultaneously, while inverse dynamics approaches (b, d) follow a factorized, predict-then-act sequential generation.",
+     "image": "details/2609.16074/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "WAMの標準的な2段階学習パイプラインです。(a) 大規模Web動画と行動データによる事前学習（時空間表現、行動表現、動画-行動アライメント）、(b) 少量データによるファインチューニング、データ拡張、世界モデルを用いた強化学習からなるポストトレーニングを示しています。",
+     "caption": "Fig. 6: Policy training pipeline for WAMs. (a) Pre-training leverages internet-scale video data to learn spatiotemporal and action representations and align video with actions; (b) post-training adapts the pretrained model through policy fine-tuning, data augmentation, and reinforcement learning. Images adapted from [ fast , lapa , dreamzero ] .",
+     "image": "details/2609.16074/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "データのモダリティとスケーリングピラミッドです。(a) 言語、マルチビュー動画、3D幾何、接触・音響、自己受容感覚の各モダリティが果たす役割、(b) 大規模Web動画（世界ダイナミクス）から実機軌道（行動グラウンディング）に至る階層関係を表しています。",
+     "caption": "Fig. 7: Data modality and scaling structure for World-Action Models. The left panel illustrates how different sensing modalities expose complementary action-relevant state variables, while the right panel shows a data-pyramid view in which large action-free video corpora provide broad world priors and smaller embodied trajectories provide action grounding.",
+     "image": "details/2609.16074/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Applications",
+   "heading_ja": "実世界タスクでの活躍：マニピュレーション、ナビゲーション、自動運転",
+   "summary_ja": "WAMの役割は領域ごとに異なります。接触が重要なマニピュレーションでは物理シミュレーションや内部表現の強化、ナビゲーションでは長期的先読み、自動運転では安全性評価やシナリオ生成に予測が活用されています。",
+   "details_ja": "WAMがどのような形で制御に貢献しているかを3つの領域で比較しています。\n\n### IV-A ロボットマニピュレーション\n物体操作はWAMの主戦場です。見た目がきれいなだけでなく、接触や遮蔽、物理的変形を正しく捉えた予測が求められます。\n- **動画-行動統合モデル**: GR-1/GR-2、UWM、DreamZero、Cosmos Policyなどは、動画事前学習で培った表現力を行動生成に直結させています。\n- **構造化状態モデル**: RGB画像だけでは接触力が分かりにくいため、3Dガウシアン（ManiGaussian++）、粒子モデル（ParticleFormer）、点群（PointWorld）、あるいは触覚・音響を統合したモデル（VT-WM、Audio-WM）が提案されています。\n- **頭の中での方策最適化（WM-RL）**: World4RLやWorld-VLA-Loopのように、学習した世界モデルを「頭の中のシミュレータ」として使い、実機を壊さずに強化学習でポリシーを洗練させる試みが進んでいます。\n\n### IV-B 自律移動ナビゲーション\n移動タスクはマニピュレーションほど接触に敏感ではありませんが、部分観測下での長期的な空間推論が求められます。\n- **先読み計画（Look-Ahead Planning）**: PathdreamerやDreamWalkerのように、数歩先のパノラマ画像やセマンティック地図を予測し、経路選択（ウェイポイント決定）をガイドします。\n- **潜在空間での計画**: ピクセル画像を毎回生成するのではなく、コンパクトな潜在状態の遷移のみを予測して実時間で指令値を決定するアプローチ（InternVLA-N1、WMPなど）も有効です。\n\n### IV-C 自動運転\n自動運転では、リアルタイム性と安全性の制約が極めて厳格です。\n- **動画・占有格子予測**: GAIA-1/2やDriveDreamerによる走行シナリオの合成に加え、OccWorldのように3D空間の占有格子（Occupancy Grid）を予測することで、自由空間や障害物の動的変化を捉えます。\n- **End-to-Endエージェント**: ADriver-IやDriveLaWのように、予測と運転操作（ステアリングや加減速）を統合したモデルが開発されています。また、DreamerADのように危険場面を世界モデル内でシミュレーションして安全方策を学習する手法も注目されています。",
+   "figures": []
+  },
+  {
+   "heading": "V Datasets, Benchmarks, and Evaluation Metrics",
+   "heading_ja": "正しく測るためのベンチマークと評価指標",
+   "summary_ja": "WAMの評価には「予測自体の品質」と「制御タスクの達成度」の両輪が必要です。タスク成功率だけでなく、軌道追従性、画像の忠実度、3D幾何整合性、レイテンシを多角的に評価する重要性が示されています。",
+   "details_ja": "WAMの評価には、事前学習用データセット、タスク評価ベンチマーク、シミュレータ環境が複雑に絡み合っています。\n\n### V-A 評価指標ファミリー\n論文では指標を大きく分類しています。\n- **タスク達成指標**: 成功率（Success Rate: SR）、経路完走率、運転スコアなど。最終目的ですが、予測の良さによるものか方策の模倣性能によるものかが分離しにくい側面があります。\n- **軌道・幾何指標**: 平均変位誤差（ADE/FDE）、経路長に対する成功率（SPL）、絶対軌道誤差（ATE）など。計画の正確さを測るのに適しています。\n- **動画生成指標**: FID、FVD、PSNR、SSIM、LPIPSなど。見た目の美しさを測れますが、制御に本当に使える物理的妥当性を反映しているとは限りません。\n- **安全性・リアルタイム指標**: レイテンシ、衝突率、乗り心地指標など。実機配備において決定的な要素です。\n\n### V-B 代表的なデータセットと環境\n- **ロボット実機デモ**: Open X-Embodiment（OXE）、DROID、BridgeData V2、AgiBot-Worldなど。行動が正しく紐付いた教師データです。\n- **人間動画コーパス**: Ego4D、EgoDex、Something-Something v2、HowTo100Mなど。行動ラベルはありませんが、広範な物理世界のダイナミクスを学ぶのに使われます。\n- **操作シミュレータ**: LIBERO、CALVIN、MetaWorld、RoboCasa、ManiSkillなど。長期タスクやマルチタスク環境でのクローズドループ評価に必須です。\n- **自動運転・移動環境**: nuScenes、Waymo、CARLA、NAVSIM、Matterport3D、Habitatなど。オープンループの予測精度とクローズドループの運転性能が明確に切り分けられて評価されます。",
+   "figures": []
+  },
+  {
+   "heading": "VI Open Challenges and Future Directions",
+   "heading_ja": "実用化へ向けた4大ボトルネックと将来の展望",
+   "summary_ja": "WAMの社会実装には、運動意図と行動のアライメント、世界予測と行動決定の分離、3D・マルチビューの一貫性、そして推論レイテンシの短縮という4つの高い壁が存在します。",
+   "details_ja": "WAMを真に実用的なロボット知能とするために、乗り越えるべき重要な課題が整理されています。\n\n### VI-A 運動意図の理解と行動アライメント\nWeb動画から「何が起きるべきか（運動意図）」を学ぶことと、特定ロボットで「どう動くべきか（行動）」を一致させることにはギャップがあります。事前学習済みの広範な視覚事前分布を壊さずに、少量のロボットデータで制御へとグラウンディング（接地）させる手法（パラメータ凍結や残差ヘッドなど）が求められています。\n\n### VI-B 世界モデルと行動決定の分離（Factorization）\n強化学習の観点から見れば、環境の物理変化をシミュレーションすることと、報酬を最大化する行動を選ぶことは本質的に異なる目的を持ちます。これらを1つの巨大モデルで無理に同時に解かせると、方策にとって都合の良い「楽観的な幻覚」を世界モデルが生成してしまうリスクがあります。両者の学習目的を分離し、世界モデルの客観性を保つ工夫が必要です。\n\n### VI-C 空間およびマルチビューの一貫性\n既存の2D動画生成バックボーンは、カメラの視点が変わったときの3D幾何一貫性や物体の永続性（隠れた物体が消えないこと）を保つのが苦手です。3Dガウシアンスプラッティングや点群、Occupancyグリッドといった明示的な3D表現を生成バックボーンとどう統合するかがホットトピックです。\n\n### VI-D 長期記憶とニューラルシミュレータ\n長い作業では過去のインタラクション履歴を保持する必要がありますが、コンテキスト長を伸ばすだけでは計算量が爆発します。重要なイベントだけを記憶するアーキテクチャや外部エージェント機構が必要です。また、世界モデルをシミュレータとして用いた閉ループ方策学習（強化学習）では、予測の誤差が累積して学習が崩壊する「モデルバイアス」の制御が課題です。\n\n### VI-E 推論レイテンシと実時間制御\nロボット制御には数十Hz以上のフィードバック周期が求められますが、多段階の拡散サンプリングや重い自己回帰生成は大きな遅延を生みます。Consistency ModelsやRectified Flowといった数ステップでの高速生成技術、さらにはKVキャッシュの再利用や枝刈り・量子化などのシステム最適化が不可欠です。",
+   "figures": []
+  },
+  {
+   "heading": "VII Conclusion",
+   "heading_ja": "まとめ：予測と行動が織りなす次世代ロボット知能",
+   "summary_ja": "WAMは、従来の反射的VLAの限界を打ち破り、未来を予測しながら行動する信頼性の高い身体知能を実現するための重要なパラダイムシフトです。",
+   "details_ja": "World-Action Models（WAM）は、予測的な世界モデリングと実行可能なロボット制御のギャップを埋める存在です。単に画像を見て行動を反射的に出すだけのVLAを超え、自らの行動がもたらす結果を予測し、その予測を拠り所にしながら判断を下す枠組みを提供します。\n\n真に実用的なWAMを構築するためには、ロボットの動作に根ざした行動グラウンディング、空間的・時間的な一貫性の維持、不確実性の考慮、閉ループでの自己改善、そしてリアルタイムでの推論速度が不可欠です。マルチモーダル基盤モデル、3D幾何表現、ニューラルシミュレーション、強化学習、実機フィードバックが緊密に統合されることで、より堅牢でスケーラブルなロボット知能の実現が期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "VLAの「反射的な行動生成」に対し、WAMは「未来予測と行動の統合」により長期タスクや接触作業の破綻を防ぐパラダイムシフトである。",
+  "遷移モデリングには「未来観測と行動の同時予測」と「未来を想像してから行動を導く逆動力学（IDM）」の2系統があり、それぞれ計算効率とモジュール性にトレードオフがある。",
+  "Web動画（行動なし）の広範なダイナミクス事前分布と、実機デモ（行動あり）によるグラウンディングをどう繋ぐかがモデル性能を決定づける。",
+  "実用化への最大のボトルネックは推論遅延（レイテンシ）であり、Few-step生成手法やシステム最適化による実時間性の確保が急務である。"
+ ],
+ "limitations_ja": [
+  "画像ベースの評価指標（FIDやFVDなど）が高くても、生成された未来が物理的に妥当であるとは限らず、実機制御の成功に直結しない乖離がある。",
+  "動画生成バックボーンが持つ視点の幾何的一貫性や物体の永続性の欠如が、そのまま制御の破綻につながりやすい。",
+  "現状のWAMの多くは推論計算量が膨大であり、高周波（数十Hz〜数百Hz）な低レベル制御ループへの直接統合は依然として極めて困難である。"
+ ],
+ "keywords": [
+  "World-Action Models",
+  "World Models",
+  "Vision-Language-Action Models",
+  "Embodied AI",
+  "Model-based Reinforcement Learning",
+  "Video Generation"
+ ],
+ "id": "2609.16074",
+ "title": "World-Action Models for Robot Learning and Control: A Survey",
+ "authors": [
+  "Zuxing Lu",
+  "Hongjia Zhai",
+  "Guanzhi Wang",
+  "Huajian Zeng",
+  "Jiaqi Yang",
+  "Jingyu Liu",
+  "Lei Cheng",
+  "Yuantai Zhang",
+  "Yuheng Qiu",
+  "Zezhou Cheng",
+  "Ivan Laptev",
+  "Danfei Xu",
+  "Benjamin Riviere",
+  "Giuseppe Loianno",
+  "Eric Xing",
+  "Xingxing Zuo"
+ ],
+ "date": "2026-09-16",
+ "group": "general",
+ "tags": [
+  "world-model",
+  "control",
+  "perception"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.16074",
+ "pdf_url": "https://arxiv.org/pdf/2609.16074",
+ "summary_ja": "未来の環境変化予測と実行可能な行動生成を同時に行う世界行動モデル（WAM）の体系的サーベイ。モデルベース強化学習、動画生成、VLAモデルとの相違点を整理し、潜在変数設計、目的関数、実機制御への応用上の課題と今後の展望を総括している。",
+ "generated": "2026-09-16",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.16074"
+}
