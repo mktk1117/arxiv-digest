@@ -1,0 +1,165 @@
+{
+ "title_ja": "The Neverwhere Visual Parkour ベンチマークスイート",
+ "tldr_ja": "スマホ等の動画から高精度な物理メッシュと美麗な3D Gaussian Splatting環境を自動構築するツールチェーンを開発し、四足歩行ロボットの視覚パルクール向けに60以上の実世界環境からなる評価ベンチマーク「Neverwhere」を構築しました。実機とシミュレーションの挙動一致性を確認するとともに、3DGS環境のみで完結する学習の過学習リスクや限界を明らかにしています。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "Neverwhereベンチマークの全体像。60以上の都市・屋内・屋外環境を高精度な3D Gaussian Splattingと衝突メッシュで再現し、閉ループシミュレーションによる自動継続テストを実現しています。",
+  "caption": "Fig. 1: The Neverwhere Benchmark Suite. We offer over sixty high-quality Gaussians-based physical environments, and the Neverwhere graphics toolchain for producing accurate scene collision mesh and visual representations. Our aim is to promote reproducible robotics evaluation via fully automated, continuous testing in closed-loop environments. RGB Images are rendered from 3D Gaussians.",
+  "image": "details/2609.16443/F1.jpg"
+ },
+ "overview_ja": "近年、四足歩行ロボットの視覚運動制御（Visuomotor Policy）は目覚ましい進化を遂げていますが、屋外の段差や階段といった複雑な実世界環境における性能を、実機デプロイ前に安全かつスケーラブルに評価する手段が不足していました。従来のメッシュベースの手動シミュレータでは現実の雑多なテクスチャや形状を再現しきれず、一方で実機でのテストはコストもリスクも高すぎるという課題があったのです。\n\nそこで著者らは、最新の3D表現である3D Gaussian Splatting（3DGS）と物理シミュレータ（MuJoCo）を融合させた「Neverwhere」を開発しました。手持ちカメラなどの非キャリブレーション動画から、正確な衝突判定用メッシュと高精度な外観モデルを半自動生成するツールチェーンを構築し、大学キャンパス等から収集した60以上の多様なパルクールシーンを提供しています。\n\n実機（Unitree Go1）との並行評価を行ったところ、シミュレーション上の成功・失敗パターンが実機挙動と良好に相関すること（Sim-to-Realの一致性）が示されました。さらに、この環境を用いて閉ループでの模倣学習（DAgger/ACT）を検証した結果、3DGS単一シーンでの過学習や、タスク間での汎化ギャップが浮き彫りとなり、本環境が「学習用」以上に「客観的な評価ベンチマーク」として極めて有用であることが実証されました。",
+ "contributions_ja": [
+  "非キャリブレーション画像群から高精度な衝突メッシュと3DGS外観を統合生成するオープンソースのパイプラインを構築した点",
+  "屋内外の階段・ギャップ・スロープ・障害物など、60以上の実世界シーンを含む四足歩行ロボット向け視覚パルクール評価ベンチマークを提供した点",
+  "MuJoCoと3DGSを組み合わせ、RGB・深度・点群など多様な観測モダリティを閉ループでリアルタイム提供するシステムを実装した点",
+  "実機と同一環境のシミュレーション比較によりSim-to-Realの一致性を示し、3DGS環境での閉ループ学習における過学習や汎化の課題を定量的に明らかにした点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "オープンワールドへ飛び出すロボットのための「リアルな試験場」",
+   "summary_ja": "データ駆動型アプローチにより視覚運動ポリシーが高性能化する一方、実世界評価や手動作成シミュレーションだけではスケーラブルな性能検証が困難になっています。本研究では、3DGSを活用して実世界の複雑さを再現した60以上の環境群「Neverwhere」と、その構築ツールチェーンを提案します。",
+   "details_ja": "ロボティクスにおいて、知覚と行動が密接に結びついたタスク（特に脚式ロボットの視覚移動）の評価は極めて困難です。実世界の複雑さは従来のCADメッシュでは表現しきれず、かといって実環境で毎回テストするのは現実的ではありません。\n\nそこで本研究が提案するのが、60以上のフォトリアルな実世界シーンからなるベンチマーク「Neverwhere」です。階段、減速帯、カーペット敷きの研究室、植生のある屋外など、多様な都市構造を網羅しています。\n\n実環境からロボット用シミュレーション環境を構築するにあたり、3つの大きな壁がありました。\n- 実世界の雑多さを従来の3Dメッシュ単体で表現しきれないこと\n- 四足歩行ロボットの目線は人間の手持ちカメラと視点が大きく異なり、3DGSが過学習して描画崩れを起こしやすいこと\n- 手持ち動画から正確な衝突判定メッシュ（コリジョンメッシュ）を復元するのが難しいこと\n\n著者らは、古典的な多眼ステレオ（MVS: Multi-View Stereo）の幾何情報を3DGSの正則化や初期化に組み込むことで、正確な幾何形状と頑健な視点描画を両立するパイプラインを完成させました。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "従来のCAD環境・生成AIアプローチとの決定的な違い",
+   "summary_ja": "IsaacSimやManiSkill3などの物理エンジンは進化していますが、アセット不足が依然として課題です。Neverwhereは手動CADや生成モデルによる多様性重視のアプローチとは異なり、3DGSを用いた「フォトリアリズムと確実な衝突幾何」に特化することで、ノイズのない決定論的な評価基準を提供します。",
+   "details_ja": "ロボット学習のための環境作成には、これまで主に2つの流れがありました。\n\n1つ目は高品質なCADアセットを手作業で作るアプローチです。例えばBiGymは関節構造を持つ食洗機の精密なメッシュを提供し、RoboCasaは14の手動設計キッチンを提供しています。しかし、これらは膨大なモデリングコストがかかり、実世界の乱雑さを網羅するには限界があります。\n\n2つ目は生成AI（動画生成モデルや拡散モデル）を用いて学習データの多様性を増やす手法です。CosmosやVeoなどが挙げられますが、これらは学習時の多様性確保には優れているものの、ばらつき（エントロピー）が大きく、再現性が求められるベンチマークテストには不向きです。\n\nNeverwhereはこのどちらとも一線を画します。Neural Scene Representationである3D Gaussian Splattingを採用してアセット作成コストを劇的に下げつつ、LiDARや深度センサを使わずにMVSから高精度な衝突幾何を取得します。評価ベンチマークには「ランダムな多様性」よりも「決定論的で手応えのある課題セット」が重要であるという設計思想に基づき、テスト時の信号対雑音比（Signal-over-noise）を最優先しています。",
+   "figures": []
+  },
+  {
+   "heading": "III From Photons to Physical Twins",
+   "heading_ja": "動画から物理ツインへ：幾何主導の3DGSツールチェーン",
+   "summary_ja": "手持ち動画からシミュレーション可能な物理デジタルツインを自動構築するパイプラインを提案しています。MVSから得られる深度情報とメッシュを3DGSの初期化と幾何正則化に利用することで、ロボット特有の低視点でも破綻しない描画と精密な衝突判定を両立しました。",
+   "details_ja": "撮影した非キャリブレーション画像群 $\\mathcal{I}=\\{\\mathbf{I}_{i}\\}_{i=1}^{N}$ から、MuJoCoで動く物理環境を作るための処理フローは次のようになっています。\n\n### パイプラインの数式と構成\nまずカメラ姿勢推定モジュール $\\Theta$（COLMAP）でカメラ姿勢 $\\mathcal{P}$ を求め、続いてメッシュ再構成モジュール $\\Phi$（OpenMVS）で幾何メッシュ $\\mathcal{M}$ を復元します。その後、3DGSモジュール $\\Psi$ で外観を学習します。\n通常の3DGSは学習した視点に過学習しがちで、四足歩行ロボットの低い目線（手持ちカメラとは大きく外れた視点）から見ると描画が大きく崩れてしまいます。そこで本手法では、OpenMVSのパッチマッチング過程で得られる深度マップ $\\mathbf{D}$ と信頼度マップ $\\mathbf{C}$ を取り出し、これを幾何正則化損失として3DGSの最適化に組み込みました。追加の深度センサを一切使わずに、幾何的に整合したガウシアンを最適化できるのが強みです。\n\n### 幾何ガイドによる初期化とメッシュ精度\nガウシアンの初期化にも工夫があります。従来の疎なSfM点群から始めるのではなく、OpenMVSで再構成したテクスチャ付きメッシュ $\\mathcal{M}$ からサンプリングした点群を使用します。これにより、表面に綺麗に沿ったガウシアンが配置されます。\nまた、スマホアプリ（Polycam等）で生成したメッシュはエッジが丸まりやすく足先が引っかかる原因になりますが、本ツールのOpenMVSベースのメッシュは非常にシャープなエッジを保持しており、精密な接触計算に耐えうる品質を達成しています。\n\n### 座標整合とアセット評価\nスケールと重力方向（Z軸上向き）を合わせるため、WebベースのUIツールを用意しており、2分未満の人間による操作（回転調整と2点間実測距離の入力）で実世界スケールへの変換とタスク用ウェイポイントの設定が完了します。7シーンでの定量評価（PSNR/SSIM/LPIPS）でも、幾何ガイドを加えた提案手法が一貫して描画品質を向上させることが確認されました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "Neverwhereツールチェーンの全体工程。(1)撮影動画から(2)SfMでカメラ推定、(3)MVSで幾何メッシュ復元、(4)メッシュから点群サンプリングして(5)3DGSを幾何正則化付きで学習、(6)スケール・姿勢の整合、(7)ウェイポイント付与までを流れるように実行します。",
+     "caption": "Fig. 2: Neverwhere Toolchain. The toolchain takes (1) multi-view images as input and follows a sequential process: (2) A Structure-from-Motion modules is applied to obtain camera calibrations, (3) An optimization-based MVS module is used to estimate the scene geometry, (4) Points are sampled from the textured meshes, which are then used as initializations for (5) training 3D Gaussians to model the scene. Once the scene modeling is complete, human input is required for (6) reorienting the mesh to align with scene conventions and (7) labeling waypoints for visual parkour policies.",
+     "image": "details/2609.16443/F2.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "提案手法の幾何改善効果。疎なSfM点群（左）に比べ提案手法（中）は構造が密に復元されており、スマホアプリ（Polycam）の丸まったメッシュに対して提案メッシュ（右）は障害物のシャープな角を正確に捉えています。",
+     "caption": "Fig. 5: Quantitative comparison of integrated 3DGS models. Scene quality of Splatfacto and Splatfacto-MCMC integrated within our framework, showing that our training strategies benefit the integrated scene modeling methods. P/S/L denote PSNR, SSIM, and LPIPS, respectively.",
+     "image": "details/2609.16443/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV The Neverwhere Benchmark Suite",
+   "heading_ja": "4つのパルクール課題とマルチモーダル・レンダーラッパー",
+   "summary_ja": "四足歩行ロボット向けにハードル、ギャップ、スロープ、階段の4タスクを設計し、到達ウェイポイント数で成功率を定量評価します。また、RGBだけでなく深度、点群、セマンティクスなどを高速に提供するレンダーラッパーを備えています。",
+   "details_ja": "Neverwhereは2つの大学キャンパスから収集された60以上のシーンで構成され、MuJoCo物理エンジン上で動作します。ロボットにはUnitree Go1を想定し、アクション空間は各脚3関節（股関節回旋、股関節屈伸、膝屈伸）の計12自由度の目標関節位置です。\n\n### IV-A 評価タスクの設計\n運動性能の汎化性を測るため、難易度順に4つのタスクを設けています。\n- **ハードル（Hurdles）**: 一定の高さの障害物や石のベンチを跳び越える課題。\n- **ギャップ（Gaps）**: 離れた足場同士の間隙を飛び越える課題。\n- **スロープ（Ramps）**: 互い違いに配置された傾斜板を安定して歩行する課題。\n- **階段（Stairs）**: 材質や段差の異なる実世界の階段を昇る課題。\n各シーンには黄色のコーンで基準ルート（ウェイポイント）が配置されており、到達できたウェイポイントの割合を「成功率（Success Rate）」として記録します。\n\n### IV-B 多彩な観測モダリティを支えるラッパー\nロボットの視覚ポリシー開発を支えるため、高速なレンダリングラッパー群を提供しています。3DGSによるフォトリアルなRGB描画はもちろん、MuJoCoのZバッファから変換したMiDaS形式の逆深度マップ、LiDAR点群、高さマップ（Heightmap）、セマンティックマスクなどをサポートしています。さらに、シーン中に目標物（視覚コーン）を合成する機能も備えており、ゴール誘導の手がかりとしてポリシーに与えることが可能です。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "提供される観測モダリティの例。3DGSによるRGB画像、衝突幾何、MiDaS形式の深度マップ、LiDAR点群投影など、多様な入力をポリシーに合わせてシミュレータからリアルタイムに取得できます。",
+     "caption": "Fig. 6: Rendering Wrappers. We designed a rendering pipeline that provides diverse wrappers for multi-modal observations, including but not limited to: color images from Gaussian splats, depth maps, heightmaps, and LiDAR projections, to support a wide range of visual based policies.",
+     "image": "details/2609.16443/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Sim-to-Real Consistency of Neverwhere",
+   "heading_ja": "シミュレーション評価は実機性能をどこまで信用できるか？",
+   "summary_ja": "既存の視覚ポリシー（LucidSim）を用いて、実環境と1:1で再現したNeverwhere環境で並行評価を実施しました。ハードルタスクでは実機とほぼ同等の成功率を達成し、階段タスクでも難易度の相対関係が一致することから、本環境が信頼性の高い実機代替テストベッドであることが確認されました。",
+   "details_ja": "シミュレータで高い成功率が出ても、実機で動かなければ意味がありません。そこで著者らは、先行研究のLucidSimポリシーを用い、実環境と寸分違わず再現したNeverwhere環境を構築して1シーンあたり10回の走行試験を並行して行いました。\n\n結果は非常に興味深いものとなりました。\n- **ハードル（平地と障害物）**: シミュレーションと実機でほぼ同等の完了率を記録しました。これは視覚的ドメインギャップが極めて小さく抑えられていることを意味します。\n- **階段タスク**: 実機に比べてNeverwhereシミュレーションの方がやや高い成功率を示す傾向が見られました。これは、実世界の階段における足先の微小な滑りや段差の変形など、シミュレータでは単純化されている接触摩擦や物理挙動の複雑さが実機側に存在するためと考えられます。\n\n絶対的な数値に若干の開きはあるものの、どのシーンで転倒しやすく、どの幾何配置で失敗するかという「アクションおよび失敗のパターン」はシミュレーションと実機で驚くほど一致していました。つまり、実機デプロイ前にポリシーの弱点を発見するためのプロキシとして、Neverwhereが十分に機能することが実証されました。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "実機とシミュレーションの並行評価（ハードルと階段）。同一のポリシーを走らせた際の移動軌跡や失敗パターンが極めて高く一致しており、実機デプロイ前の検証環境としての有用性が裏付けられています。",
+     "caption": "Fig. 8: Visualization of sim-to-real parallel evaluation. By examining a visual policy’s behavior and its action/failure patterns in the Neverwhere simulation environments, we can obtain early indications of its real-world performance.",
+     "image": "details/2609.16443/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Closed-loop training on Neverwhere",
+   "heading_ja": "3DGS環境でポリシーを学習させると何が起きるのか？",
+   "summary_ja": "特権教師を用いたDAggerおよびACTアーキテクチャにより、Neverwhere環境内での閉ループ学習を検証しました。単一シーンでの学習は即座に過学習し、複数シーンで学習しても未知シーンへの汎化には大きなドロップが見られたことから、3DGSは「学習」よりも「評価」に真価があることが示唆されました。",
+   "details_ja": "Neverwhereは基本的に「評価用」として設計されていますが、著者らは「もしこの3DGS環境をそのまま閉ループ学習（強化学習や模倣学習）に使ったらどうなるか？」という疑問に答える実験を行いました。\n\n### 学習設定\nスキャンデータから得た高さマップ（ScanDots）を見る特権教師ポリシーを作成し、それをAction Chunking Transformer（ACT）構造の生徒ポリシー（RGBまたは深度入力）へDAggerを用いて4反復・各1,000軌跡で蒸留学習しました。\n\n### 単一シーン学習と過学習の罠\n1つのシーンだけで学習させた場合、学習した環境では完璧に動くものの、同タスクの別シーンに持っていくと性能が急落しました。同じ屋外環境同士など視覚的特徴が近いシーン間でのみわずかに汎化する傾向が見られ、視覚情報への過学習が顕著でした。\n\n### 複数シーン学習とモダリティの比較\n各タスクのシーンを70%（学習用）と30%（評価用）に分割し、ドメインランダマイゼーションを適用して学習させました。ギャップタスクでは未知環境でも性能低下が約10%に留まりましたが、難関の階段タスクでは訓練成功率約95%に対し、未知環境では約40%と約50%もの大幅な性能低下が発生しました。\nまた、RGBと深度入力を比較したところ、閉ループ環境では深度ポリシーの方が学習難度が高い（訓練セットの伸びが鈍い）という意外な結果も得られました。さらに、目標を示す「視覚コーン」を画像内にレンダリングして与えると、ポリシーが着目すべき目標が明確になり、汎化性能が劇的に改善することも判明しました。",
+   "figures": [
+    {
+     "key": "F9",
+     "caption_ja": "複数シーンでの閉ループ学習曲線。(A)階段タスクでは学習環境（青）と未知評価環境（赤点線）で約50%の大きな汎化ギャップが生じます。(B)〜(D)ギャップタスクにおいて、視覚コーンを追加した(D)が最も高い学習効率と未知環境性能を達成しています。",
+     "caption": "Fig. 9: Results on Multi-Scene Closed-Loop Training. We split each task’s scenes into 70% for training and 30% for evaluation. For each scene, we perform 50 rollouts and report the average success rate over all rollouts in the train and evaluation sets. See the project page for more closed-loop training results.",
+     "image": "details/2609.16443/F9.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VII Conclusion",
+   "heading_ja": "今後のロボット評価基盤に向けて",
+   "summary_ja": "Neverwhereは、視覚ロボット制御のためのスケーラブルで高精度な実世界デジタルツイン評価環境を提供します。現在は手動アライメントに1分程度の作業が必要ですが、今後は自動化を進め、脚式歩行のみならずマニピュレーションなど多様なロボティクス分野への展開が期待されます。",
+   "details_ja": "ロボットポリシーの表現力が高まる一方で、その正当な評価手法がボトルネックとなっていた現状に対し、Neverwhereは再現可能で信頼性の高い評価基盤を提示しました。\n\n本研究は脚式移動ロボットを題材としましたが、動画から接触対応のデジタルツインを構築し、マルチモーダルな視覚観測を返すパイプライン自体は、車輪移動ロボットやマニピュレーションなど他のロボット分野にも容易に拡張可能です。\n\n現状の限界として、生成されたメッシュのスケールやZ軸（重力方向）の向きは自動決定されないため、初期設定にわずかな手作業を要する点が挙げられています。著者らは今後、学習ベースの自動姿勢整合技術を取り入れることで、さらなる完全自動化を目指すとしています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：1分で終わるシーン調整と追加アブレーション",
+   "summary_ja": "Vuerを用いたWebベースのアノテーションUIにより、約1分でスケール調整・重力軸合わせ・タスク設定が完了するワークフローを解説しています。また、全タスク混合学習や観測情報の有無に関する追加実験も紹介されています。",
+   "details_ja": "### アノテーションワークフローの詳細\n非キャリブレーション動画から生成されたモデルはスケールと座標軸がランダムです。これをシミュレータに組み込むため、著者らは3D可視化プラットフォーム「Vuer」を用いたUIツールを構築しました。\n- メッシュを読み込み、Z軸上向きになるよう回転（約20秒）\n- メッシュ上の2点をクリックし、実世界の既知距離を入力して自動スケーリング（約10秒）\n- メッシュの外枠を自動クリップ（手作業不要）\n- ロボットが辿るべきウェイポイント（コーン）を配置（約15秒）\n- 保存ボタンを押してMuJoCo用XMLを出力\n全体で1分程度で完了するため、新しい環境を次々とシミュレータへ投入できます。\n\n### 追加実験：タスク混合学習と観測アブレーション\n全タスクの全シーンを統合してACTポリシーを学習させた場合、訓練セットでは約85%の成功率に達したものの、評価セットでは約30%の性能低下が見られました。このことから、単に数十のシーンを集めるだけでは真に汎用的な視覚ポリシーの学習には足りず、評価用としては十分でも学習用にはさらなる大規模データが必要であることが示されています。\nまた、方向情報（ウェイポイントへの角度）を観測から除外した場合、性能はやや低下するものの視覚コーンを頼りにある程度走行を継続できることが確認されました。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "3DGSをロボットシミュレータに組み込む際は、単純な3DGS単体ではなくMVS由来の幾何情報（深度・メッシュ）で正則化・初期化することが、低視点レンダリングと衝突判定の両立に不可欠である",
+  "シミュレータ内での失敗パターンは実機の失敗パターンと強く相関するため、1:1の3DGSデジタルツインはデプロイ前の「安全な破壊的テスト環境」として極めて有用である",
+  "数十シーン程度の3DGS環境で閉ループ学習を行うと視覚過学習を起こしやすいため、現時点では「学習用環境」と割り切るよりも「決定論的で客観的なベンチマーク評価用」として使うのが最も効果的である"
+ ],
+ "limitations_ja": [
+  "パイプラインはほぼ自動化されているものの、重力方向の決定やスケール調整、ウェイポイント配置にシーンあたり約1〜2分の手動UI操作が必要である",
+  "階段の細かな摩擦や足先の滑りといった微細な接触物理パラメータは実機と完全には一致しておらず、難関タスクではシミュレーションの方が成功率が高く出る傾向がある",
+  "静的な環境の再現に特化しており、動的な障害物や草木の風による揺れ、踏み込みによる地面の変形などはシミュレーションできない"
+ ],
+ "keywords": [
+  "3D Gaussian Splatting",
+  "Visual Parkour",
+  "Quadruped Locomotion",
+  "Sim-to-Real",
+  "Benchmarking",
+  "MuJoCo"
+ ],
+ "id": "2609.16443",
+ "title": "The Neverwhere Visual Parkour Benchmark Suite",
+ "authors": [
+  "Ziyu Chen",
+  "Henghui Bao",
+  "Haoran Chang",
+  "Alan Yu",
+  "Ran Choi",
+  "Kai McClennen",
+  "Gio Huh",
+  "Kevin Yang",
+  "Ri-Zhao Qiu",
+  "Yajvan Ravan",
+  "John J. Leonard",
+  "Xiaolong Wang",
+  "Phillip Isola",
+  "Ge Yang",
+  "Yue Wang"
+ ],
+ "date": "2026-09-16",
+ "group": "focus",
+ "tags": [
+  "locomotion",
+  "simulation",
+  "benchmark"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.16443",
+ "pdf_url": "https://arxiv.org/pdf/2609.16443",
+ "summary_ja": "視覚に基づく移動制御（Visual Locomotion）の実環境評価ギャップを埋めるため、60以上の都市内外環境を3D Gaussian Splattingで再構成した閉ループ評価基盤を提案。超写実的なシミュレーション環境を提供し、再現性の高いパルクール走行評価を可能にする。",
+ "generated": "2026-09-16",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.16443"
+}
