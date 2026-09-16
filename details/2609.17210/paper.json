@@ -1,0 +1,152 @@
+{
+ "title_ja": "FluxVLA Engine: 身体性知能のための統合型VLAエンジニアリング基盤",
+ "tldr_ja": "乱立するVLAや世界モデル、オフライン強化学習手法を単一の設定ファイルで統一し、データ処理から分散学習、シミュレーション評価、実機への高速な非同期デプロイまでを再現可能につなぐ統合エンジニアリング基盤を提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "FluxVLAの全体アーキテクチャと代表的なシミュレーション結果です。画像・言語・固有受容感覚の入力パイプラインから、モジュール構成可能なVLA/世界モデル、学習エンジン、推論・実機デプロイ機構（RTCや軌道後処理を含む）までが単一の基盤として結合されています。",
+  "caption": "Figure 1: Overview of the FluxVLA engineering platform. Visual, language, and proprioceptive inputs enter a configurable data pipeline before reaching either an integrated VLM backbone or a custom composition of language, vision, and projector modules. Replaceable action heads connect these representations to robot actions. The training engine manages distributed strategies, optimization, scheduling, and checkpointing, while the inference engine connects evaluation, simulation, physical-robot runners, accelerated kernels, RTC, and trajectory post-processing to heterogeneous embodiments. Right: average closed-loop success for eight policies evaluated on LIBERO and RoboCasa GR-1. …",
+  "image": "details/2609.17210/F1.jpg"
+ },
+ "overview_ja": "ロボットを動かす基底モデルとして、視覚言語行動（VLA）モデルや世界行動モデル（WAM）、オフライン強化学習が大きな注目を集めています。しかし、いざ新しいアルゴリズムを実際のロボットで動かそうとすると、研究者は膨大な「泥臭いエンジニアリング」に直面します。データ形式の違い、座標系や正規化の不一致、モデルごとに異なる訓練コード、そして実機特有の通信遅延や制御周期の壁など、研究コードと動くロボットシステムの間には深い溝が存在していました。\n\nそこで著者らは、新たなモデル構造を提案するのではなく、不揃いなコンポーネントを標準化された契約（インターフェース）で束ねる設定駆動型プラットフォーム「FluxVLA Engine」を開発しました。データ取り込みから分散訓練、シミュレーション評価、そして実機での低遅延推論・軌道後処理までを1本の再現可能なパイプラインに統合しています。\n\n検証では、LIBEROおよびRoboCasaベンチマークにおいて多様なモデル（GR00T、π₀、π₀.₅、DiT4DiTなど）を共通パイプラインで評価し、DiT4DiTで最大98.65%（LIBERO）のタスク成功率を確認しました。さらにTritonやCUDA Graphによる推論最適化で最大9.64倍の高速化を達成し、ALOHAやOliなどの実機ロボットでもスムーズな連続制御を実現しています。\n\nつまり本論文は、再現性と実機配備のボトルネックを解消し、ロボット基底モデル研究を「動くシステム」へと昇華させるための強固な共通基盤を提示したものです。",
+ "contributions_ja": [
+  "単一の設定ファイルによってデータ処理・モデル構築・分散訓練・評価・実機デプロイを完結させる、統一された設定駆動型ワークフローを確立しました。",
+  "レジストリ機構により、VLA・WAM・オフライン強化学習の各コンポーネントを疎結合に保ち、高い拡張性と再現性を両立するモジュール型システム境界を定義しました。",
+  "Real-Time Chunking（RTC）とミリ秒級の軌道後処理（MPC/Ruckig）、GPU推論最適化を組み合わせ、実機環境で低遅延かつ滑らかな連続制御を可能にする実機配備ランタイムを実現しました。",
+  "自己完結型の実行アーティファクトと決定論的制御により、訓練・シミュレーション評価・実機配備の間でモデルや前処理の暗黙的な不一致を排除する再現性パイプラインを構築しました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜVLAには「統合エンジニアリング基盤」が必要なのか",
+   "summary_ja": "VLAや世界行動モデルの発展によりロボット方策の可能性は広がったものの、研究コードから実機システムへの移行にはデータ形式や通信、推論遅延などの深い溝が存在します。FluxVLAは新たな方策モデルを競うのではなく、データ準備から実機配備までのサイクルを標準化された契約で閉じるオープンなプラットフォームを提供します。",
+   "details_ja": "### 1.1 動機と課題設定\nロボット学習の世界では、マルチモーダル入力を行動に変換するVLAモデル、将来の視覚ダイナミクスを予測する世界行動モデル（WAM）、過去のログデータから学習するオフライン強化学習など、強力な手法が次々と登場しています。しかし、研究用のチェックポイントが存在することと、それが物理ロボット上で安定して動作することはまったくの別問題です。\n\n最初の溝は配備前に生じます。モデルやベンチマークごとに、座標系、観測履歴の持たせ方、正規化の計算方法、行動予測ホライズンなどがバラバラです。そのため、新しいモデルを試すたびに専用のアダプターを一から書き直すことになり、性能向上がアルゴリズムによるものなのか周辺コードの差異によるものなのかさえ分からなくなってしまいます。\n\nさらに厳しいのが実機配備の溝です。VLAで一般的なアクションチャンキング（数ステップ分の行動をまとめて予測する手法）では、推論ループがロボットの制御周期より遅いため、チャンクの継ぎ目で動作がカクついたり、古い観測に基づいた危険な指令を送ってしまったりします。リモートGPU推論を行えばシリアライズや通信遅延も加わります。これらを訓練後のアドホックな処理ではなく、学習システムの中核として設計する必要があります。\n\n### 1.2 スコープ\nFluxVLAは、データ準備、モデル構築、分散訓練、シミュレーション評価、推論最適化、軌道後処理、実機配備までを網羅する設定駆動型のシステム基盤です。既存のアルゴリズム自体の新規性を主張するのではなく、それらを結合する再利用可能なインフラとインターフェースを対象としています。\n\n### 1.3 本論文の貢献\nFluxVLAは「統合性」「モジュール性」「配備容易性」「再現性」の4原則に基づき、単一の設定で多種多様な身体性知能モデルを学習・評価・デプロイできる統一基盤を提供します。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "FluxVLAの全体構成です。左端のマルチモーダル観測が設定可能なデータパイプラインを通り、レジストリから組み立てられたVLA/WAMモデルに入力されます。右端のように、同一の基盤からシミュレーション評価と多様な実機配備へとシームレスにつながります。",
+     "caption": "Figure 1: Overview of the FluxVLA engineering platform. Visual, language, and proprioceptive inputs enter a configurable data pipeline before reaching either an integrated VLM backbone or a custom composition of language, vision, and projector modules. Replaceable action heads connect these representations to robot actions. The training engine manages distributed strategies, optimization, scheduling, and checkpointing, while the inference engine connects evaluation, simulation, physical-robot runners, accelerated kernels, RTC, and trajectory post-processing to heterogeneous embodiments. Right: average closed-loop success for eight policies evaluated on LIBERO and RoboCasa GR-1. …",
+     "image": "details/2609.17210/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "基盤モデルの乱立と、ツールボックスの歴史から学ぶもの",
+   "summary_ja": "画像認識のMMDetectionのように、ロボティクスにも統一されたツールボックスが求められていますが、既存ライブラリは前処理や実機配備の厳密な一貫性までは保証できていません。VLAやWAM、オフライン強化学習の多様なパラダイムを整理し、本研究が「設定から実機までの完全な実行パス」を統合単位とする位置づけを明らかにします。",
+   "details_ja": "### 2.1 モデル開発のためのエンジニアリング基盤\nコンピュータビジョン分野では、MMDetectionがレジストリ機構と宣言的設定によって多数の検出器を標準化し、研究を加速させました。ロボティクス分野でもrobomimic、LeRobot、StarVLAといった優れたライブラリが登場しています。しかし、共有APIを提供するだけでは、前処理、重みの復元、サービング、実機実行にわたる厳密な意味論の一致までは担保できません。FluxVLAは、設定ファイルから物理デバイス実行までの「完全に解決された実行パス全体」を1つの統合単位として扱います。\n\n### 2.2 身体性方策のアーキテクチャ\n現代のロボット方策は、単一の抽象化に押し込められないほど多様化しています。\n- 離散・自己回帰型: OpenVLAのように行動を離散トークン化して次トークン予測を行う手法や、FASTのように周波数領域変換で圧縮する手法。\n- 連続チャンク・生成型: ACT、Diffusion Policy、π₀やπ₀.₅のようにFlow-Matchingを行動エキスパートとして組み合わせる手法、GR00T N1のように拡散トランスフォーマーを用いる手法。\n- 世界行動モデル（WAM）: DreamZeroやDiT4DiT、Fast-WAMのように将来の動画像と行動を同時または協調してモデル化する手法。\nこれらは潜在空間の結合方法も推論ループも異なるため、「なんでも継承できる基底クラス」ではなく、明示的で型安全なデータ契約が必要です。\n\n### 2.3 オフライン学習と報酬誘導型改善\nCQLやIQLなどのオフライン強化学習、DAggerのような人間介入手法、さらに進捗推定やサンプル重み付けを用いるARMなどの手法は、単なる損失関数の差し替えにとどまりません。データセット側に介入メタデータや重みを保持し、訓練ループと整合させる必要があります。\n\n### 2.4 ロボットデータと評価ベンチマーク\nRLDSやOpen X-Embodiment、LeRobot形式の登場によりデータ共有は進みましたが、カメラの並び順や制御周波数、座標系などのセマンティクス変換を明示的にバージョン管理する必要があります。シミュレーションベンチマーク（LIBEROやRoboCasa）の評価条件の固定も不可欠です。\n\n### 2.5 推論と物理配備\n実機では、計算遅延を補償するReal-Time Chunking（RTC）や、モデル出力の物理的実行可能性を担保する軌道後処理、CUDA Graph等による推論加速が不可欠です。これらを後付けのパッチではなく第一級のコンポーネントとして統合します。",
+   "figures": []
+  },
+  {
+   "heading": "3 System Design and Overview",
+   "heading_ja": "設定ファイルがすべてを駆動する: 破綻しないシステム設計",
+   "summary_ja": "FluxVLAはデータ、モデル、実行、サービング、オペレーターの5層を明確に分離し、Pythonの階層的設定ファイルとレジストリで結びつけます。学習時の前処理や正規化統計量を自己完結型アーティファクトとして保存することで、閉ループシミュレーションや実機推論におけるセマンティクスのズレを根本から防ぎます。",
+   "details_ja": "### 3.1 全体設計\nFluxVLAは「統一性」「モジュール性」「配備容易性」「再現性」を軸に設計されています。型キー付きのレジストリ機構を採用し、ランチャーコードにモデルごとの条件分岐を書くことなく、設定ファイルから宣言的にコンポーネントをインスタンス化します。\nシステムは以下の5つの明確な責任境界に分割されています:\n- データ層: エピソードから標準サンプル辞書への変換\n- モデル層: サンプル辞書から損失または行動チャンクの算出\n- 実行層: 分散学習、最適化、評価ループ、推論状態の管理\n- サービング層: リモートGPUとロボット間の通信とシリアライズ\n- オペレーター層: ハードウェアSDKやシミュレータとの直接対話\n訓練完了後には、モデル重み、解決済み設定、前処理メタデータをまとめた「自己完結型推論アーティファクト」を出力するため、元の事前学習設定への依存による配備ミスが起きません。\n\n### 3.2 データパイプライン\n生データはまずLeRobot互換のParquet形式に変換されます。低次元信号はParquet、カメラ画像は動画ファイルとして保持されます。ParquetDataset内で、設定によって指定された変換パイプライン（トークナイズ、正規化、画像変形など）が順次適用され、モデルが要求する標準辞書が生成されます。重要なのは、推論時も同じ変換リストを再利用し、学習時に保存された正規化統計量を使って逆変換を行う点です。これにより「学習と推論でスケールが違う」というロボティクスあるあるを完全に防ぎます。\n\n### 3.3 モデルアーキテクチャ\n基底クラス`BaseVLA`は、視覚バックボーン、言語バックボーン、統合型VLM、射影層、行動ヘッドのスロットを定義しています。LLaVAスタイルにモジュールを組み合わせることも、π₀のように密結合した行動エキスパートをそのままラップすることも可能です。\n離散自己回帰モデル（OpenVLA等）では行動トークンのクロスエントロピー損失を用い、連続Flow-Matchingモデル（π₀等）では補間されたノイズと目標速度とのMSE損失を用います。世界行動モデル（DreamZero、DiT4DiT等）では動画像予測と行動予測のマルチタスク学習に対応します。これら全く異なる数学的構造を持つモデルが、統一された`predict_action`インターフェースの背後にカプセル化されます。\n\n### 3.4 シミュレーション評価\n訓練済みチェックポイントから評価環境を完全に再構築し、閉ループ評価を行います。評価器はLIBEROおよびRoboCasa（29自由度のGR-1ヒューマノイド卓上タスク）をサポートしています。モデルが予測した$H$ステップの行動チャンクから、設定された接頭辞$K$ステップ（$1 \\le K \\le H$）のみを実行して次の観測を得るというサイクルを繰り返すことで、予測ホライズンと反応性のトレードオフを柔軟に検証できます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "FluxVLAの設定駆動型データパイプラインです。LeRobot互換のParquetと動画データから時間整合サンプリングを行い、設定された一連の変換（マッピング、プロンプト化、画像処理、正規化）を経てモデル用バッチを生成します。",
+     "caption": "Figure 2: Configuration-driven data processing in FluxVLA . Heterogeneous trajectories are converted to one LeRobot-compatible Parquet representation containing indexed signals, video assets, schemas, tasks, and statistics. The training configuration places an ordered, freely composable transform list inside ParquetDataset ; this list performs input mapping, prompting, image processing, normalization, padding, and any model-specific preparation before collation. Inference mirrors this organization with an online observation adapter and another configuration-defined transform list built from the same registry and semantic keys. Run-local statistics are reused to denormalize predicted actions.",
+     "image": "details/2609.17210/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "モデル構築の構成図です。単一の設定ファイルからレジストリ経由でモジュールが組み立てられます。視覚・言語・行動ヘッドを自由に差し替える構成と、π₀や世界モデルのような密結合構成の双方が同じインターフェースで共存します。",
+     "caption": "Figure 3: Configuration-driven model composition in FluxVLA . An executable model specification selects a top-level policy wrapper and its trainability choices. The registry-driven model graph can assemble an integrated or decomposed multimodal backbone with a registered action head, while native wrappers preserve tightly coupled autoregressive, action-expert, temporal, and world–action architectures. The figure deliberately excludes the runner/engine and deployment lifecycle.",
+     "image": "details/2609.17210/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "閉ループシミュレーション評価のワークフローです。チェックポイントと統計量を読み込み、オンラインデータ変換を施して行動チャンクを予測します。LIBEROやRoboCasaの環境固有マッピングを通じ、分散並列で再現性高く評価されます。",
+     "caption": "Figure 4: Closed-loop simulation evaluation in FluxVLA . A registered evaluator reconstructs the policy and evaluation setup from the selected checkpoint and run-local artifacts. For each episode, benchmark observations pass through the configured online transform pipeline, the VLA predicts an $H$ -step action chunk, and the first $K$ actions are inverse-normalized and sent either directly to LIBERO or through the 29-D embodiment mapping for RoboCasa GR-1 Tabletop. Benchmark-defined reset, observation, and action semantics remain confined to the evaluator. …",
+     "image": "details/2609.17210/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Extensibility through Stable Contracts",
+   "heading_ja": "安定した契約（Contract）がもたらす高い拡張性",
+   "summary_ja": "システムを拡張する際、コードベース全体を書き換える必要はありません。FluxVLAは「構築規則」「データ構造」「ライフサイクル所有権」「明示的な拡張点」の4つの契約を定義しており、新しいデータセット、モデル、実機ロボットを追加するための明確な手順（レシピ）を提供します。",
+   "details_ja": "### 4.1 抽象化の階層と拡張の境界\nFluxVLAにおける階層関係は、実験の所有権構造に基づいています。ランチャーがデータセットとランナーを構築し、ランナーがモデルを所有し、モデルが各サブモジュールを所有します。実機推論では、ランナーが時間管理と推論を所有し、ハードウェア通信をオペレーターに委譲します。\n拡張の境界には2種類あります:\n- 水平方向の境界: 同一ファミリー内での差し替え（例: ある画像変換を別の変換にする、評価器を差し替える）。セマンティクスが変わらなければ設定ファイルの変更だけで済みます。\n- 垂直方向の境界: 既存のモジュールを束ねる新しい所有者の追加（例: 新しいバックボーンと行動ヘッドを結合する新VLAクラスの実装）。これには子供同士の相互作用を定義する最小限のPythonコードが必要です。\n\n### 4.2〜4.5 各層の契約\n- 構築契約: レジストリにより宣言的にモジュールを生成。無効な設定は構築時に検知されます。\n- データ契約: 辞書ベースの境界により、モデルは生のストレージ形式を意識せず、要求するモーダリティと表現のみを受け取ります。\n- モデル契約: 訓練時はバッチを受け取り損失を返し、推論時は行動を返すという極小の入出力境界を守ることで、内部構造の自由度を保ちます。\n- 実行・配備契約: ランナーが推論やRTCの状態遷移を管理し、オペレーターがセンサー取得とコマンド送信という物理I/Oに専念します。\n\n### 4.6 拡張レシピ\n新しいコンポーネントの追加は、以下の定型手順で行えます:\n- データセットの追加: ソースをParquet形式に変換し、必要なキーを生成する変換リストと正規化統計量を定義し、コレーターを設定します。訓練ループの変更は不要です。\n- モデルの追加: `BaseVLA`を継承し、`forward`（損失計算）、`predict_action`、分散学習用のFSDPラッピングポリシーを実装してレジストリに登録します。\n- ロボットの追加: カメラや状態を同期してコマンドを送信するオペレーターを実装し、観測ウィンドウの組み立てと行動実行を行うロボット固有のランナーを接続します。",
+   "figures": []
+  },
+  {
+   "heading": "5 Experimental Evaluation",
+   "heading_ja": "シミュレーションから実機まで: 統合基盤の実力を検証する",
+   "summary_ja": "LIBEROおよびRoboCasaシミュレータにおいて14種類もの方策統合を検証し、DiT4DiTで最大98.65%の成功率を記録しました。さらに推論最適化により最大9.64倍の高速化を達成し、ALOHAおよびOli実機ロボットでの連続制御やオフライン方策改善（ARM研究）が共通基盤上で実証されました。",
+   "details_ja": "### 5.1〜5.2 評価軸とプロトコル\n評価は「閉ループでの有効性」「実行効率」「実機配備能力」の3軸で行われました。シミュレーションではLIBERO（Spatial, Object, Goal, Longの4スイート）とRoboCasa GR-1（29自由度）を用い、推論速度は同一ハードウェア・精度下で測定しています。実機ではALOHA（5タスク）とOli（3タスク）を用いました。\n\n### 5.3 シミュレーション結果\nLIBEROでは14種類の統合が評価されました（Table 7）。平均成功率はAPIベースのGPT-6による37.50%からDiT4DiTの98.65%まで幅広く、11の統合で95%を超える高水準を達成しました。最難関のLongスイートではCosmos3-Nanoが98.0%を記録しています。\nRoboCasa GR-1（Table 8）では、8つのモデル構成で評価が行われ、SmolVLAの8.75%からDiT4DiTの57.25%までの成功率が確認されました。大規模データで訓練されたπ₀は51.00%、π₀.₅は51.42%、FastWAMは49.92%を記録しており、多様なモデルが共通の評価パイプラインで動作することが実証されました。\n\n### 5.4 推論の高速化と数値的一致\nTritonカーネル融合やCUDA Graph適用による最適化実装を検証しました（Table 9）。8つの測定ケースにおいて、ベースライン比で2.31倍から9.64倍の高速化が確認されました。例えばA100環境では、GR00Tが5.96Hzから32.6Hzへ、π₀.₅が2.2Hzから21.2Hzへと劇的に向上しています。RTX 5090ではGR00T（Training-time RTC）が47.6Hzに達し、エッジデバイスのJetson AGX OrinでもGR00Tが7.4Hz、π₀.₅が4.4Hzで動作しました。さらに、高速化されたGR00Tヘッドの出力コサイン類似度は0.99999を超えており、計算精度を損なわずに高速化できていることが確認されました（Table 10）。\n\n### 5.5 軌道後処理のレイテンシ\n12自由度・50ステップの合成軌道に対し、関節MPCとRuckig（ジャーク制限フィルタ）のホスト側レイテンシを測定しました（Table 11）。Intel Xeon環境において、MPCが0.771ms、Ruckigが0.184ms（約4.19倍高速）というミリ秒以下のオーバーヘッドで動作し、非同期チャンク実行時のスムーズな軌道接続に十分実用的であることが示されました。\n\n### 5.6 実機ロボットでの評価結果\nALOHA実機（Table 12）では、布の折りたたみ2タスクとPick-and-Place 3タスク（計110試行）を実施しました。GR00T N1.5が全体で32.73%（36/110）、π₀.₅が63.64%（70/110）の成功率を収め、共通基盤から物理実機が安定して駆動できることを示しました。また、移動マニピュレータOli（Table 13）でも箱の運搬やオモチャの回収などの複数ステージタスクを完遂しています。さらに外部のARM研究（Table 14）との連携では、タオル折りタスクにおいて通常の行動クローニング（62.1%）から報酬誘導型重み付け（AW-BC）により99.4%へと成功率を引き上げることに成功しています。",
+   "figures": []
+  },
+  {
+   "heading": "6 Conclusion and Outlook",
+   "heading_ja": "身体性知能の未来へ: 自律改善ループのエコシステム構想",
+   "summary_ja": "FluxVLAは、モデルの乱立による工学的摩擦を解消し、再現可能な学習・配備ループを確立しました。今後はデータ検証（FluxMimir）、シミュレーション生成（FluxBisim）、人間介入収集（FluxDAgger）、統一評価（FluxThemis）、コンパイル配備（FluxHermes）の各サブシステムと連携し、自己進化する身体性AIエコシステムを目指します。",
+   "details_ja": "### 6.1 結論\n身体性知能の研究はもはや単一のアーキテクチャでは語れません。VLA、世界モデル、オフライン強化学習といった多様なパラダイムが共存しています。FluxVLAは、これらに共通するエンジニアリングのボトルネック（データ変換、分散学習、評価の再現性、非同期実機推論）を解消するための基盤を提供しました。多様なモデル群のシミュレーション成功率、大幅な推論加速、そしてALOHAやOliでの実機制御を通じて、その実用性が証明されました。\n\n### 6.2 展望: 統合エコシステムの構築へ\nFluxVLAの次のステップは、単なる学習フレームワークを超え、身体性知能全体のライフサイクルを支えるエコシステムの中心となることです。以下の役割分担を持つサブシステム群との連携が構想されています（Table 15）:\n- FluxMimir: 不揃いな実機ログを検証・バージョン管理し、学習用データセットとしてリリースするデータ工学基盤\n- FluxBisim: 大規模なシミュレーションタスクとデモデータを自動生成する環境\n- FluxDAgger: 実機配備時の失敗や人間の介入操作（テイクオーバー）を記録し、学習ループへ戻す対話型改善基盤\n- FluxThemis: シミュレーションと実機にまたがり、ハードウェアに依存しない公平な評価を提供する評価オーケストレーター\n- FluxHermes: モデルの量子化やハードウェア特化コンパイルを行い、検証済みアーティファクトを出力する配備基盤\n\n### 6.3 統一された未来のライフサイクル\nシミュレータ（Bisim）と実機介入（DAgger）から集まったデータがMimirで検証され、FluxVLAで訓練され、Hermesで高速化され、Themisで評価され、再び介入データが回収される――この閉じた自己進化サイクルを確立することが、次世代のロボット知能開発の鍵となります。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "ロボット基底モデルの真の壁はモデル設計だけでなく、前処理・正規化・通信・非同期制御といった「学習と実機配備の間のセマンティクスの乖離」にあります。",
+  "データセット、モデル、実行環境、実機通信の境界を「契約（Contract）」として厳密に定義することで、アルゴリズムの多様性を損なわずにインフラを共通化できます。",
+  "推論の高速化（Triton/CUDA Graph）とリアルタイムチャンキング（RTC）、軌道後処理（Ruckig/MPC）を組み合わせることで、大きなVLAでも実機で滑らかに動かせます。",
+  "チェックポイントだけでなく、正規化統計量と解決済み設定を束ねた自己完結型アーティファクトを出力する運用が、再現性とデプロイミスの防止に極めて有効です。"
+ ],
+ "limitations_ja": [
+  "本論文で示されたシミュレーションベンチマークの結果は、モデルごとに訓練データ量や初期化、ハイパーパラメータが異なっており、アルゴリズム同士の厳密な性能比較（公平なアブレーション）ではありません。",
+  "推論高速化に関する数値測定では、ウォームアップ回数や同期ポイント、画像前処理が測定区間に含まれているかなどの詳細が一部ドキュメントで統一されておらず、ハードウェア間の厳密な比較には再検証が必要です。",
+  "モデル非依存の汎用コンパイラが存在するわけではなく、現時点のCUDA GraphやTritonカーネルによる大幅な加速はGR00Tやπ₀.₅といった特定のモデル実装に依存しています。"
+ ],
+ "keywords": [
+  "Vision-Language-Action (VLA)",
+  "Embodied Intelligence",
+  "Real-Time Chunking (RTC)",
+  "Robot Learning Infrastructure",
+  "World-Action Models (WAM)",
+  "Trajectory Post-Processing"
+ ],
+ "id": "2609.17210",
+ "title": "FluxVLA Engine: A One-Stop VLA Engineering Platform for Embodied Intelligence",
+ "authors": [
+  "Yinhao Li",
+  "Weixin Mao",
+  "Zihan Lan",
+  "Jikun Rong",
+  "Qirui Hu",
+  "Yiming Zhang",
+  "Weipeng Deng",
+  "Bowen Shen",
+  "Minzhao Zhu",
+  "Yiming Mao",
+  "Yan Yang",
+  "Chenguang Cui",
+  "Hongyuan Chen",
+  "Xu Huang",
+  "Zheyi Zhao",
+  "Pinxi Shen",
+  "Bozhen He",
+  "Zhen Fu",
+  "Yifan Wang",
+  "Zexin Zhang",
+  "Ang Gao",
+  "Haoyu Chen",
+  "Chengqi Shi",
+  "Hua Chen"
+ ],
+ "date": "2026-09-16",
+ "group": "general",
+ "tags": [
+  "vision-language-action",
+  "world-model",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.17210",
+ "pdf_url": "https://arxiv.org/pdf/2609.17210",
+ "summary_ja": "断片化していたデータ形式、訓練、推論ランタイム、ロボット固有のインターフェースを統合するオープン基盤FluxVLA Engineを提案。VLA、世界行動モデル、オフラインRLなどを設定駆動型の統一ワークフローで管理し、研究から実機展開までの再現性を高める。",
+ "generated": "2026-09-16",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.17210"
+}
