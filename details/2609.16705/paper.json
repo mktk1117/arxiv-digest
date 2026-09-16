@@ -1,0 +1,157 @@
+{
+ "title_ja": "The Robot Data Factory: 身体性AIのための継続的経験生成インフラ",
+ "tldr_ja": "単なる静的なデータセット集めを脱却し、多様な物理環境とロボットをつないで「検証されたロボット経験」を継続的に生成・評価・改善する科学的インフラ「Robot Data Factory」を提案・実証した論文です。",
+ "hero_figure": {
+  "key": "F5",
+  "caption_ja": "Robot Data Factory（RDF）の運用全体像です。家庭・環境・エネルギーという3つの実世界チャンバーとエージェント型ロボットネットワークを連携させ、「展開（Deploy）→ 計測（Measure）→ 学習（Learn）→ 反復（Repeat）」の閉ループを継続的に回す構造を示しています。",
+  "caption": "Figure 5: Operational architecture of the proposed Robot Data Factory . The figure describes how the infrastructure organizes physical training grounds, agentic robot networks, robot agents, missions, tasks and skills, and execution episodes into a continuous Deploy, Measure, Learn, and Repeat cycle. During deployment, robots execute missions across representative environments, including Home for domestic service, Environment for marine and outdoor operations, and Energy for infrastructure monitoring and maintenance. …",
+  "image": "details/2609.16705/F5.jpg"
+ },
+ "overview_ja": "近年、画像や言語の分野ではインターネット規模の巨大データを用いた基盤モデルが大成功を収めています。しかし、物理世界で行動する「フィジカルAI（Physical AI）」では同じアプローチが通用しません。ロボットは物理法則に従い、環境に働きかけてその結果から学ぶ必要があるため、受動的に集めた静的データセットだけでは限界があるのです。しかも、既存のロボット研究は研究室ごとにプラットフォームや評価基準がバラバラで、真の意味での再現性や身体性をまたぐ汎化（クロスエンボディメント学習）の検証が極めて困難でした。\n\nそこで著者らは、ロボットの経験を「実験の副産物」から「継続的に工学設計・検証される第一級の科学資源」へと引き上げるインフラ構想「Robot Data Factory（RDF）」を打ち出しました。RDFは単なるデータ保管庫ではなく、標準化されたミッション定義のもとでマルチモーダルな相互作用データを取得し、外部真値で厳密に検証し、ベンチマークとモデル学習へ還元する自律型サイバーフィジカル・エコシステムです。\n\n本論文では、MBZUAIに実際に構築された3つの物理環境（家庭、海洋・環境、エネルギー設備）とロボット群をつなぎ、PTP（高精度時刻同期）や階層型ダッシュボードを備えた運用システムを稼働させました。さらに、データ生成・モデル更新・実機展開を回し続けるための計算・ストレージのスケーリング則まで定式化し、継続的学習インフラとしての実現可能性を具体的に示しています。",
+ "contributions_ja": [
+  "ロボット経験を「Mission → Task → Skill → Episode → Dataset → Benchmark → Capability」として構造化するミッション駆動型フレームワークを確立したこと",
+  "安全性やデータ品質のゲート関数、および物理的難易度の乗数を組み込んだ、再現性の高い評価指標（Pitstop Leaderboard）を定式化したこと",
+  "家庭・環境・エネルギーの3つの物理チャンバーとエージェント型ロボットネットワークを実際に統合・稼働させ、リアルタイム運用ダッシュボードを実証したこと",
+  "実機推論とデータ収集、モデル学習が連動する閉ループ環境における計算量とストレージ需要のスケーリング則を定量的にモデル化したこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ今「ロボット経験の工場」が必要なのか？",
+   "summary_ja": "物理世界で動くAIには、単なるデータ量ではなく、知覚・行動・結果が同期して検証された「ロボット経験」が不可欠です。本章では、ロボットの能力進化に伴う計算・データ要件の爆発を整理し、RDFが掲げる4つの基本原則と開発ロードマップを提示しています。",
+   "details_ja": "### フィジカルAIが直面する壁\nデジタル空間のAIと異なり、ロボットは物理法則に縛られ、自らの行動が次の知覚を変化させる環境の中で知識を獲得します。モデル規模を拡大するだけでは不十分で、物理的に接地（グラウンディング）された高品質な経験が継続的に求められます。\n\n### 「ロボット経験」という科学資源\nここで言う「ロボット経験」とは、単なる生ログではありません。特定の身体性（Embodiment）、環境、タスク、そして測定可能な物理的結果が紐づいた「知覚・行動・結果のループ」そのものです。この経験の質が不十分だと、いくらモデルを大きくしても学習性能に天井が来てしまいます。\n\n### RDFを支える4つの原則\nRDFは次の4つの原則に基づいて設計されています。\n- ミッション駆動（Mission-driven）：明確な目標と評価基準を持つ再現可能なミッションとしてデータを収集します。\n- 生成ループ（Generation loop）：固定された静的データセットではなく、モデル向上と難易度更新が連動する閉ループを回します。\n- マルチチャンバー（Multi-chamber）：家庭、海洋、インフラなど、異なる物理特性を持つ複数の環境を横断してスキル転移を測ります。\n- 能力中心（Capability-centric）：集めたデータ量ではなく、ロボットが獲得した「身体特有の能力（Capability）」の伸びで進捗を評価します。\n\n現在はPhase 1として3つのチャンバーと運用ダッシュボードがMBZUAIで実際に稼働しており、将来的には世界中の研究室が参加する分散型（Federated）ファクトリーを目指しています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "データの品質と収集ループが方策改善に与える影響の概念図です。物理的に接地された高品質な経験を注入し続けることで性能が持続的に向上する一方、質の低いデータでは早期に性能の頭打ちが生じる仮説を示しています。",
+     "caption": "Figure 3: Experience quality and continued data collection influence iterative policy improvement for the same robot and mission. Richer, physically grounded experience can support continued improvement, whereas limited coverage or observation fidelity can constrain learning. The trajectories are schematic and do not represent experimental results.",
+     "image": "details/2609.16705/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Landscape",
+   "heading_ja": "静的データセットの時代から「生きたインフラ」へ",
+   "summary_ja": "ロボット学習のデータ基盤は、初期の小規模ベンチマークからOpen X-Embodimentなどの大規模基盤データセットへと進化してきました。しかし、評価と収集が分断された現状を克服するには、多様な身体性と物理的再現性を包括する統合インフラへの移行が不可欠です。",
+   "details_ja": "### データインフラの進化史\nロボットデータ基盤の歴史は大きく3つの時代に分けられます。\n- 静的データセット時代（2018〜2021年）：ALFREDやRLBenchなど、単一環境・固定タスクが主流でした。\n- 基盤データセット時代（2022〜2026年）：Open X-Embodiment、DROID、BridgeData V2など、多様なロボット形態とマルチモーダルな実機実演を束ねる大規模化が進みました。\n- RDFおよび世界モデル時代（今後）：継続的なデータ生成、物理的接地、シミュレーションと実世界の双方向連携を備えた統合インフラが求められます。\n\n### 身体性の多様性とプロセスの適合性\nロボットは車輪型、マニピュレータ、四足歩行、ヒューマノイド、水中艇など多種多様です。先行研究の「Tree of Robots」が指摘するように、ロボットは形態だけでなく「その物理プロセスに適しているか（力の制御、接触安定性、安全性など）」で評価される必要があります。\n\n### 現状の決定的なギャップ\nシミュレータ（RoboCasaなど）や安価な物理ベンチマーク（VLA-REPLICAなど）の試みは進んでいますが、依然として「データ収集」「実機評価」「モデル学習」が個別の成果物としてバラバラに存在しています。この分断を解消し、再現可能な物理評価とデータ収集を一体化させる仕組みこそがRDFの狙いです。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "ロボットデータインフラの変遷図です。静的データセット時代、基盤データセット時代を経て、継続的な生成と世界モデル・フィジカルAIを支えるRDF時代への進化の道筋を描いています。",
+     "caption": "Figure 8: Evolution of robotic data infrastructures from the Static Dataset Era (2018–2021), through the Foundation Dataset Era (2022–2026), toward the Robot Data Factory Era and the subsequent World Models and Physical AI Era. The innermost layer represents early robotic datasets characterized by fixed tasks, fixed environments, limited embodiments, offline collection, and benchmark-centric learning. The middle layer highlights large-scale foundation datasets and cross-embodiment learning resources, including Open X-Embodiment, DROID, AgiBot World, and RoboMM, which introduced broader embodiment diversity, multimodal sensing, and larger-scale demonstrations. …",
+     "image": "details/2609.16705/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "3 Concept and Methodology",
+   "heading_ja": "経験を体系化するアーキテクチャと方法論",
+   "summary_ja": "RDFでは、行動の最小単位から科学的データセットに至る明確な階層構造を定義しています。また、異なる物理環境を対比させるマルチチャンバー構造や、ロボットをネットワークノードとして扱うエージェント型設計により、環境や身体性を超えたスキルの転移性を計測可能にしています。",
+   "details_ja": "### 経験の階層構造\nRDFはロボット経験を次のように厳密に構造化しています。\n$$\\mathrm{Mission} \\rightarrow \\mathrm{Task} \\rightarrow \\mathrm{Skill} \\rightarrow \\mathrm{Episode} \\rightarrow \\mathrm{Dataset} \\rightarrow \\mathrm{Benchmark} \\rightarrow \\mathrm{Capability}$$\nミッションは達成目標を定義し、タスク（実行単位）と再利用可能なスキル（接近、把持、整列など）に分解されます。これらを試行した1回分がエピソードとなり、検証を経てデータセット化され、ベンチマークを通じてロボットの具体的な「能力（Capability）」として認定されます。\n\n### マルチチャンバーという「転移行列」\n単一の環境でデータを集めると、特定の感覚入力に過剰適合してしまいます。RDFでは家庭（Home）、海洋・屋外（Environment）、エネルギー設備（Energy）という物理特性の異なる3つのチャンバーを用意しました。例えば、同じアーム付き四足歩行ロボットを屋外の傾斜面とプラントの巡回通路の双方で走らせることで、「身体性を固定して環境要因だけを変えたときの影響」を分離して測定できます。\n\n### エージェント型ロボットネットワークと人間の基準\nロボットやモーションキャプチャ、各種センサはすべて「ロボットエージェントノード」としてネットワーク上で抽象化されます。また、人間のエキスパート操作を「ゴールドスタンダード（基準点）」として記録しますが、これは完全自律モデルが模倣すべき唯一の絶対解ではなく、安全で実行可能な軌道の参照値として活用されます。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "ロボット経験の閉ループ生成フローです。ロボットの行動が環境に影響を与え、生じたマルチモーダルな変化（画像、力覚、点群、触覚など）を同期・検証して学習ループへと還元するサイクルを示しています。",
+     "caption": "Figure 4: Closed-loop generation of robot experience. Physical AI emerges through continuous interaction between robot and environment, where every action produces new multimodal experience that is validated, stored, and reused for learning. Concept and scientific content by the authors; graphical realization developed iteratively with assistance from OpenAI ChatGPT.",
+     "image": "details/2609.16705/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 The Robot Data Factory",
+   "heading_ja": "ハード・通信・パイプラインの実装仕様",
+   "summary_ja": "ミリ秒単位のモーター制御から秒単位の推論までを包含するシステム全体を支えるため、有線・Wi-Fi・5Gを組み合わせた通信網と高精度時刻同期（PTP）を配備しました。厳密なデータバリデーション、三層ストレージ、そして総合評価指標を備えたリーダーボードの実装詳細を解説します。",
+   "details_ja": "### 多層化されたフィジカルAIシステム\nロボットのスタックは、数kHzで回る低遅延な関節・モーター制御から、100Hz前後の予測制御、秒オーダーの言語・行動計画（VLAなど）まで幅広い層で構成されています。これらを漏れなく同期して記録することがデータ収集の核心です。\n\n### ネットワークと高精度同期\n基幹系には有線イーサネットと光ファイバーバックボーンを採用し、移動ロボットには高速Wi-Fiおよびプライベート5Gを活用しています。異種センサ間のサンプリング周波数のズレを克服するため、Precision Time Protocol（PTP）による絶対時刻同期を導入し、マイクロ秒単位の時間整合性を保証しています。\n\n### 実稼働する3つの物理チャンバー\n- Home Chamber：キッチン、リビングなどを備え、配膳やテーブルセッティング、双腕協調マニピュレーションを対象とします。\n- Environment Chamber：水槽や植生スロープを備え、ROV（遠隔操作無人探査機）の水中ドッキングや泥濘地での移動を検証します。\n- Energy Chamber：ポンプ、配管、太陽光パネルを模したプラント環境で、四足歩行ロボットによる計器読み取りや異常検知を行います。各チャンバーには対となる3Dデジタルツインも構築されています。\n\n### ユビキタスデータパイプラインと記録フォーマット\n1回のエピソードは $E = (I, C, R, O, A, G_T, M_d, Y)$ という構造化レコードとして保存されます。ここで $I$ は指示、$C$ は環境設定、$R$ はロボット状態、$O$ は観測、$A$ は行動、$G_T$ は外部真値（モーションキャプチャ等）、$M_d$ はメタデータ、$Y$ は評価スコアです。学習タプル $(o_t, a_t, o_{t+1}, m_t, y_t)$ や、未来の予測地平 $H$ ステップ分を含む行動系列 $a_{t:t+H-1}$ に変換され、即座にモデル学習に投入できます。\n\n### Pitstop Leaderboardのスコア設計\n単にタスクを成功させただけでなく、安全性やデータの整合性を担保するため、ミッションスコア $S_{\\mathrm{mission}}^{(m)}$ は次のように設計されています。\n$$S_{\\mathrm{mission}}^{(m)} = G_{\\mathrm{safety}}^{(m)} \\cdot G_{\\mathrm{data}}^{(m)} \\cdot \\sum_{k \\in \\mathcal{K}_{m}} w_{k}^{(m)} S_{k}^{(m)}$$\nここで $G_{\\mathrm{safety}}$ と $G_{\\mathrm{data}}$ は、安全基準違反やデータ欠損・同期ズレがあった場合にスコア全体をゼロや減点にするゲート関数です。さらに、環境や身体性の難易度を反映する乗数 $D^{(m)}$ を掛け合わせることで、過酷な条件下での成功を正当に評価します。",
+   "figures": [
+    {
+     "key": "F11",
+     "caption_ja": "現代のフィジカルAIシステムにおける階層構造です。上位の推論・長期計画（GPUクラスタ）から、中位の全身協調制御、最下位のkHz駆動モーター制御まで、通信帯域・遅延・計算負荷が劇的に異なる各層をいかに同期して記録するかが示されています。",
+     "caption": "Figure 11: Layered architecture of a modern physical AI system. Reasoning and planning run off-board on large-GPU compute at low rates; on-robot control loops close at kilohertz rates across heterogeneous embodiments; and a continuous data-production loop (bottom) collects, validates, structures, and redeploys the resulting multimodal robot experience. Bandwidth increases while latency and compute decrease down the stack. Concept and scientific content by the authors; graphical realization developed iteratively with assistance from OpenAI ChatGPT.",
+     "image": "details/2609.16705/F11.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Global Co-Creation of the Agentic Robot Network",
+   "heading_ja": "一研究室を超えて世界と協調する枠組み",
+   "summary_ja": "RDFの真の目的は、単一の研究機関に閉じた施設ではなく、世界中の研究室が接続できる分散型（Federated）プラットフォームとなることです。本章では、データ公開方針、産業応用への橋渡し、および国際標準化に向けたロードマップを説明します。",
+   "details_ja": "### データセットとベンチマークの段階的公開\nRDFでは、単にデータ量を誇るのではなく、厳密な外部真値（Ground Truth）とタイムスタンプ同期、明確なタスク分解が付与された高品質なデータセットから順次リリースします。また、リーダーボードは自律動作、遠隔操作、共有制御などのトラックに明確に分けられ、どの要素が性能に寄与したかを診断できるように配慮されています。\n\n### 産業展開への橋渡し\n産業界において重要なのは「デモが1回成功すること」ではなく「何度でも安全に再現できること」です。RDFのMission-Controlは、ロボットの健全性やセンサの脱落をリアルタイムで監視し、失敗の原因がアルゴリズムにあるのかハードウェア・通信インフラにあるのかを切り分けられるため、産業グレードの信頼性評価に直結します。\n\n### グローバル・スケーラビリティとガバナンス\n将来のフィジカルAIに必要な多様な身体性と物理環境を、1つの研究室で網羅することは不可能です。そのためRDFでは、外部の研究所が共通のノード仕様やデータスキーマ、評価スクリプトを採用して独自のチャンバーを接続できる「分散型RDF（Federated RDF）」を提案しています。共通のプロトコルに従って各拠点がローカルな経験を提供し合うことで、世界規模のデータエコシステムを構築します。",
+   "figures": []
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめ：ロボット経験を持続可能な科学インフラへ",
+   "summary_ja": "RDFは、ロボット経験を受動的な実験の副産物から、体系的に設計・検証・再利用される主たる科学資源へと昇華させました。タスク成否だけでなく安全性やデータ品質を統合したこのインフラは、スケーラブルなフィジカルAI実現に向けた強固な基盤となります。",
+   "details_ja": "本論文の核心は、これまで個別に扱われてきた「ミッション定義」「物理環境（チャンバー）」「データパイプライン」「ベンチマーク評価」を緊密に結合した点にあります。この統合により、生成されたデータセットは単一の実験に閉じず、世界モデル、VLAモデル、模倣学習などの多様なモデル群で再利用可能になります。\n\n現在、主要な基盤システムと3つのチャンバーが立ち上がり、運用体制が整いました。今後の課題は、実ミッションを本格的に運用して得られた大規模データを公開し、外部研究機関とのフェデレーションを加速させることです。ロボット経験を継続的に生み出すこの「工場」が、真に汎化能力を持つフィジカルAIの礎になることが期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：運用ダッシュボード・計算量解析・ミッション詳細",
+   "summary_ja": "現場でのオペレーションを支える3つのウェブダッシュボード、闭ループ学習を支えるための計算資源・ストレージのスケーリング則、そして各チャンバーにおけるミッションの具体的なステップ構成がまとめられています。",
+   "details_ja": "### 運用を支える3つのダッシュボード（Appendix C）\n現場のオペレータや研究者がシステムを監視・操作するため、以下の3つの連動ダッシュボードが配備されています。\n- Robot Nodes Dashboard：全ロボットの接続状態、トピックの配信状況、3D空間上の配置を俯瞰し、収集前のストリーム欠損を防ぎます。\n- Data Pipeline Dashboard：ミッションのセッション記録からバリデーション、バージョン管理されたデータセットの出力まで、データライフサイクル全体を追跡します。\n- Fleet Networking Dashboard：ネットワーク遅延、スループット、各ロボットの時刻同期状態をリアルタイムで監視します。\n\n### 閉ループ運用のための計算・ストレージモデル（Appendix B）\n実機推論とデータ収集、モデル学習が連動するRDFでは、ストレージ容量と計算性能の整合性が極めて重要です。本論文では、取得データの生レート $\\dot{S}$ から、保存形式への圧縮変換、モデル入力へのトークン化、そして更新周期 $T_{\\mathrm{update}}$ 内に学習を完了させるために必要な計算量 $C$ [FLOP] とスループット $F$ [FLOP/s] の関係を数式化し、長期連続運用に耐えるシステムサイジングの手順を確立しました。\n\n### ミッションストーリーボード（Appendix A）\n各チャンバーのミッションは5段階の明確なステップとして定義されています。例えばHomeチャンバーの配膳ミッションでは、カウンターへの接近、食器の把持、ダイニングへの移動、各席への正確な配置、完了状態の目視確認というフェーズに分けられ、各段階に成功基準（SC）と重要業績評価指標（KPI）が設定されています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "ロボット学習のボトルネックは単なるデータ量ではなく、知覚・行動・結果が高精度に同期・検証された「ロボット経験」の質と再現性にある",
+  "タスクの成否（バイナリ値）だけでなく、安全性違反やセンサ欠損を評価に組み込む「ゲート関数」付きの評価設計が、信頼性の高いデータ生成に必須である",
+  "異なる物理現象（家庭内の摩擦・接触、海洋の流体・視程低下、プラントの長距離移動）を包括するマルチチャンバー構成が、真のクロスエンボディメント学習を可能にする",
+  "ロボットをネットワーク上のエージェントノードとして規格化し、世界中の研究室が共通プロトコルで接続するフェデレーション構想は、今後のロボティクスデータ収集の重要な指針となる"
+ ],
+ "limitations_ja": [
+  "本論文はシステム構成、方法論、初期インフラの確立が中心であり、RDFを通じて学習されたモデルの大規模な性能向上やクロスエンボディメント転移の広範な実証データは今後の研究課題とされている",
+  "現時点で稼働しているのは3つの物理チャンバー（MBZUAI内）であり、外部研究室を巻き込んだフェデレーション運用におけるネットワーク遅延やハードウェア差分の吸収には課題が残る",
+  "高精度時刻同期（PTP）やモーションキャプチャ、5G設備などの高価なインフラを前提としており、小規模な研究室が完全に同等のノードを構築・維持するハードルは依然として高い"
+ ],
+ "keywords": [
+  "Physical AI",
+  "Robot Experience",
+  "Data-Centric Robotics",
+  "Embodied AI",
+  "Benchmarking",
+  "Cross-Embodiment Learning"
+ ],
+ "id": "2609.16705",
+ "title": "The Robot Data Factory",
+ "authors": [
+  "Sami Haddadin",
+  "Ivan Laptev",
+  "Ian Reid",
+  "Dezhen Song",
+  "Cesare Stefanini",
+  "Abdalla Swikir",
+  "Xingxing Zuo",
+  "Lyes Saad Saoud",
+  "Mahmoud Hamandi",
+  "Mohamed Heshmat",
+  "Oualid Doukhi",
+  "Abdeldjallil Naceri",
+  "Attique Bashar",
+  "Abdelrahim Mohamed",
+  "Teodor Tomic",
+  "Yue Peng",
+  "Samuel Schneider",
+  "Cheng-Chung Lee",
+  "Janine Guo",
+  "Qinghao Zhang",
+  "Kim Jeffery"
+ ],
+ "date": "2026-09-16",
+ "group": "general",
+ "tags": [
+  "dataset",
+  "benchmark",
+  "simulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.16705",
+ "pdf_url": "https://arxiv.org/pdf/2609.16705",
+ "summary_ja": "身体性AIの進展には単なるデータ蓄積ではなく知覚-行動-結果のループを保った「経験」が必要であるとし、異種ロボットと環境で経験を継続的に生成・検証・再利用するインフラRDFを提唱。再現可能な実験と実機展開をつなぐ基盤手法を提供する。",
+ "generated": "2026-09-16",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.16705"
+}
