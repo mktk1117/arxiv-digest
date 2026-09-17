@@ -1,6 +1,292 @@
 {
  "entries": [
   {
+   "date": "2026-09-17",
+   "rank": 0,
+   "id": "2609.18930",
+   "group": "focus",
+   "title": "Learning Holistic Whole-Body Loco-Manipulation with a Bipedal Mobile Manipulator",
+   "title_ja": "二脚マニピュレータにおける統合的全身ロコマニピュレーションの強化学習",
+   "summary_ja": "二脚ロボットの作業域拡張に向け、6自由度の手先目標のみから移動とアーム動作を協調させる全身制御器を強化学習で訓練。明示的なベース速度や歩容指令を用いずに、リーチング、姿勢適応、足踏みを自律的に連携させる。",
+   "authors": [
+    "Zhongyu Chen",
+    "Yuxuan Nai",
+    "Qian Chen",
+    "Yidong Zhu",
+    "Chen Jing",
+    "Qihan Wang",
+    "Xudong Li",
+    "Zhizhan Li",
+    "Leixin Chang",
+    "Liangjing Yang",
+    "Hua Chen"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.18930",
+   "image": "figures/2026-09-17/2609.18930.jpg"
+  },
+  {
+   "date": "2026-09-17",
+   "rank": 1,
+   "id": "2609.18732",
+   "group": "focus",
+   "title": "PASSAGE: Scaling Scene-Aligned Motion Learning for Perceptive Humanoid Traversal in Cluttered Environments",
+   "title_ja": "PASSAGE: 雑多な環境でのヒューマノイド走破に向けた知覚連動型運動学習",
+   "summary_ja": "障害物を跨ぎ・潜り抜ける知覚連動型の全身移動フレームワークを提案。VRと慣性式MoCapで収集した100時間の人間動作に基づき、フロー・マッチングによる局所参照生成とトラッカーを連動させて実機での走破を実現した。",
+   "authors": [
+    "Yuxuan Ma",
+    "Zicheng Zeng",
+    "Chunlin Peng",
+    "Zhoujian Li",
+    "Zetong Zhao",
+    "Zhikai Zhang",
+    "Yunrui Lian",
+    "Han Xue",
+    "Sikai Liang",
+    "Weiyi Zhu",
+    "Mulin Chen",
+    "Chenghuai Lin",
+    "Jiayu Zeng",
+    "Yanwei An",
+    "Songan Zhang",
+    "Jiayuan Gu",
+    "Jilong Wang",
+    "Jingbo Wang",
+    "He Wang",
+    "Li Yi"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "perception",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.18732",
+   "image": "figures/2026-09-17/2609.18732.jpg"
+  },
+  {
+   "date": "2026-09-17",
+   "rank": 2,
+   "id": "2609.18869",
+   "group": "focus",
+   "title": "KINO: A Keyframe Interface for VLM Planning and Whole-Body Control in Humanoid Loco-Manipulation",
+   "title_ja": "KINO: ヒューマノイドのロコマニにおけるVLM計画と全身制御のキーフレーム連携",
+   "summary_ja": "VLMによる高レベル計画とRLによる全身制御の中間に運動キーフレームを介在させる階層型フレームワークを提案。VLMが選択したキーフレームを環境に適応・リターゲットさせ、接触を伴う全身動作を安定して実行する。",
+   "authors": [
+    "Sitong Chen",
+    "Fatemeh Zargarbashi",
+    "Jin Cheng",
+    "Tianxu An",
+    "Stelian Coros"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.18869",
+   "image": "figures/2026-09-17/2609.18869.jpg"
+  },
+  {
+   "date": "2026-09-17",
+   "rank": 3,
+   "id": "2609.17946",
+   "group": "focus",
+   "title": "Feedback-Modulated Harmonic Policies for Quadruped Locomotion",
+   "title_ja": "四足歩行のためのフィードバック変調高調波方策",
+   "summary_ja": "関節指令を直接出力する従来手法に対し、関節軌道をコマンド条件付きフーリエ級数として表現し、状態フィードバックでオンライン調整する方策を提案。周期構造を明示化し、シミュレーション下で歩行の追従性と適応性を高めた。",
+   "authors": [
+    "Yixuan Jia",
+    "Steven Roche",
+    "Jonathan P. How"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.17946",
+   "image": "figures/2026-09-17/2609.17946.jpg"
+  },
+  {
+   "date": "2026-09-17",
+   "rank": 4,
+   "id": "2609.17832",
+   "group": "focus",
+   "title": "Adaptive-MHE : A Sampling-Based Adaptive MPC for Legged Loco-Manipulation via Moving Horizon Estimation",
+   "title_ja": "Adaptive-MHE: 移動水平線推定を用いた脚ロボットのロコマニ向けサンプリング型適応MPC",
+   "summary_ja": "物体や床面の未知パラメータによるsim-to-realギャップを低減するため、並列ロールアウトを活用したサンプリング型システム同定と移動水平線推定（MHE）を統合。接触が豊富な脚マニピュレーションの適応制御を実現した。",
+   "authors": [
+    "Hossein Keshavarz",
+    "Alejandro Ramirez-Serrano",
+    "Majid Khadiv"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "manipulation",
+    "control",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.17832",
+   "image": "figures/2026-09-17/2609.17832.jpg"
+  },
+  {
+   "date": "2026-09-17",
+   "rank": 5,
+   "id": "2609.19080",
+   "group": "general",
+   "title": "ElastiQP: An Always-Feasible QP Solver for Constrained Robot Control",
+   "title_ja": "ElastiQP: 制約付きロボット制御のための常に実行可能なQPソルバー",
+   "summary_ja": "制約数増大に伴うQPの求解不能（infeasible）を防ぐため、等式制約を維持しつつ不等式制約を正確なl1ペナルティで緩和する双対能動集合ソルバーを提案。スラック変数を解析的に処理し問題サイズを一定に保ちながら実時間性を担保。",
+   "authors": [
+    "Daniel Morton",
+    "Jon Arrizabalaga",
+    "Zachary Manchester",
+    "Marco Pavone"
+   ],
+   "categories": [
+    "cs.RO",
+    "math.OC"
+   ],
+   "tags": [
+    "control",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.19080",
+   "image": "figures/2026-09-17/2609.19080.jpg"
+  },
+  {
+   "date": "2026-09-17",
+   "rank": 6,
+   "id": "2609.18685",
+   "group": "general",
+   "title": "WeaveRL: Weaving Reconstruction into Scene-Aware Fabrics for Perceptive Reinforcement Learning",
+   "title_ja": "WeaveRL: 知覚的強化学習のための幾何学的ファブリックとオンライン再構成の統合",
+   "summary_ja": "数千の並列シミュレーション環境において、GPU上で動的にサーフェルベースの3D幾何再構成を行いながら衝突回避コントローラ上で方策を学習する基盤を提案。手動の静的形状に依存しない幾何対応型の知覚RLを可能にした。",
+   "authors": [
+    "Remo Steiner",
+    "Vikram Ramasamy",
+    "David Tingdahl",
+    "Sam Mady",
+    "Karl Van Wyk",
+    "Nathan Ratliff",
+    "David Recasens Lafuente",
+    "Soha Pouya",
+    "Tuur Stuyck",
+    "Alex Millane"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "simulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.18685",
+   "image": "figures/2026-09-17/2609.18685.jpg"
+  },
+  {
+   "date": "2026-09-17",
+   "rank": 7,
+   "id": "2609.17745",
+   "group": "general",
+   "title": "REVERSAL-BENCH: A Reversibility Axis and Reset Oracle for Measuring the Reset-Free RL Cliff",
+   "title_ja": "REVERSAL-BENCH: リセット不能な強化学習の限界を測定するベンチマーク",
+   "summary_ja": "実世界の物体操作で生じる不可逆事象（落下や液体の零れ）に着目し、環境の可逆性を連続パラメータで制御できる新ベンチマークを提案。8種類の操作設定とリセット判定オラクルを用い、自律的RL方策の頑健性を定量評価する。",
+   "authors": [
+    "Riyaaz Shaik",
+    "Chandru Venkataraman"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "manipulation",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.17745",
+   "image": "figures/2026-09-17/2609.17745.jpg"
+  },
+  {
+   "date": "2026-09-17",
+   "rank": 8,
+   "id": "2609.18207",
+   "group": "general",
+   "title": "Reinforcement Learning for Real-Time Vision-Language-Action Policies",
+   "title_ja": "リアルタイムVision-Language-Action方策のための強化学習",
+   "summary_ja": "大規模なVLAモデルに起因する推論遅延と観測の陳腐化に対処するため、非同期実行下での強化学習ファインチューニング手法を提案。模倣学習の限界を超え、計算遅延が存在する実時間環境下でも高信頼な閉ループ制御を実現する。",
+   "authors": [
+    "Perry Dong",
+    "Kuo-Han Hung",
+    "Dorsa Sadigh",
+    "Chelsea Finn"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "vision-language-action",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.18207",
+   "image": "figures/2026-09-17/2609.18207.jpg"
+  },
+  {
+   "date": "2026-09-17",
+   "rank": 9,
+   "id": "2609.17758",
+   "group": "general",
+   "title": "CALOS: Control-Affine Lyapunov On-manifold Safety Layer for Safe Deep Reinforcement Learning for Quadrotors",
+   "title_ja": "CALOS: クアッドローターの安全な深層強化学習のための制御アフィン・リアプノフ安全性レイヤー",
+   "summary_ja": "傾斜角不等式とリアプノフ降下条件を単一の二次計画問題（QP）として定式化し、基底学習アルゴリズムを変更することなく姿勢制約を課す実行時安全レイヤーを提案。能動集合列挙により公称トルクへの最小修正を高効率に計算する。",
+   "authors": [
+    "Fabrizio Cesareo",
+    "Sebastiano Mengozzi",
+    "Nicola Mimmo",
+    "Andrea Acquaviva"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "drone",
+    "reinforcement-learning",
+    "safety",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.17758",
+   "image": "figures/2026-09-17/2609.17758.jpg"
+  },
+  {
    "date": "2026-09-16",
    "rank": 0,
    "id": "2609.16405",
