@@ -1,0 +1,150 @@
+{
+ "title_ja": "AthenaZero: 動的操作のための低慣性双腕ロボット",
+ "tldr_ja": "人間並みの低い等価質量と高い制御自由度を両立させた双腕ロボット「AthenaZero」を開発し、時速110 km超の投球やミリ秒単位のタイミングが要求されるキャッチボール・バッティングといった高度な動的操作を実現しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "野球ボールを投げるAthenaZeroの外観です。極限まで慣性を抑えた設計により、最高で時速110 km（30.8 m/s）を超える極めてダイナミックな投球動作を達成しています。",
+  "caption": "Figure 1: AthenaZero throwing a baseball. AthenaZero ’s low-inertia design lends itself to highly dynamic, athletic tasks such as throwing a baseball in excess of 25 m/s.",
+  "image": "details/2609.19194/F1.jpg"
+ },
+ "overview_ja": "近年のロボット研究では、歩行ロボットがハードウェアの進化によって爆発的な運動性能を獲得した一方、マニピュレーション分野はいまだ数十年前の減速比の高い産業用・協働ロボット（コボット）に頼りがちでした。こうした高減速比アームは位置決め精度に優れる反面、ロータ慣性が減速比の2乗で跳ね上がるため「等価質量（衝突時に相手が感じる見かけの重さ）」が極めて重く、衝突を伴う高速・動的な作業では対象物を弾き飛ばしてしまうという根本的な問題を抱えています。\n\nそこで研究チームは、「減速比を極限まで下げた準直接駆動（QDD: Quasi-Direct Drive）アクチュエータ」と「重いモーターを根本側へ配置するリモート配置機構」を組み合わせ、手先等価質量を人間と同等（約2〜3 kg）まで軽量化した双腕ロボット「AthenaZero」を開発しました。\n\n検証として、市販ロボットとの等価質量解析や振り子衝突実験を行い、衝突時の衝撃力が劇的に下がることを示しました。さらに、極限の敏捷性と時間精度が試される「野球」を題材に、投球（最大30.8 m/s）、高速捕球（最大18.3 m/s）、そして2ミリ秒のずれも許されないバッティング動作を実証しました。ロボット同士や人間との連続ラリーにも成功し、ロボットが静的な位置決めから「接触の力学を制御する動的操作」へ踏み出す強力なプラットフォームになることを証明しました。",
+ "contributions_ja": [
+  "QDDアクチュエータとリモート配置機構を組み合わせ、人間の腕と同等の手先等価質量（従来のコボット比で約1桁低い）を持つ全身27自由度の双腕ロボットを開発した点",
+  "トルクセンサを用いず、モーターのq軸電流フィードバックと高透過性減速機のみで高帯域なインピーダンス制御を実現したハードウェア設計を示した点",
+  "手先等価質量の理論解析および振り子衝突実験により、従来の協働ロボット（Franka FR3等）に比べ衝突衝撃力が大幅に低減することを実証した点",
+  "投球（最高30.8 m/s）、捕球、バッティングというミリ秒単位の応答が求められる動的タスクにおいて、ロボット間および人間ロボット間の協調動作を実機検証した点"
+ ],
+ "sections": [
+  {
+   "heading": "Introduction",
+   "heading_ja": "なぜ今、低慣性な双腕ロボットが必要なのか？",
+   "summary_ja": "マニピュレーションが真に動的な領域へ進むためには、従来の高減速比コボットの限界を打ち破る低慣性ハードウェアが必要です。本章では、等価質量（見かけの質量）を人間並みに下げることが、未知の接触や高速衝撃を適切にいなす鍵であるという設計思想を論じています。",
+   "details_ja": "ロボット工学において、脚式ロボットはシミュレーションとQDDアクチュエータの進化によってアクロバティックな動きを可能にしました。しかし、マニピュレーション分野では学習アルゴリズムが急速に発展しているにもかかわらず、ハードウェアは数十年前の高剛性・高減速比な産業用アームの延長線上にとどまっています。\n\n### 動的操作を阻む「等価質量」の壁\n静的な位置決めが得意な市販の協働ロボットは、減速比が80:1を超えるような高減速ギアを採用しています。ここで問題になるのが、負荷側から見たモーターロータの慣性が減速比 $N$ の2乗（$N^2$）で増幅される点です。これにより、手先やリンクの「等価質量（接触時に相手が感じる実効的な質量）」が人間の腕（約2.76 kg）より1桁も重くなってしまいます。等価質量が大きすぎると、物体と接触した瞬間に過大な衝撃力が伝わり、相手を弾き飛ばしてしまうため、高速かつ柔軟なインタラクションが原理的に困難になります。\n\n### 慣性を隠すか、物理的に削るか\nこれまでも直動弾性アクチュエータ（SEA）のような機械的柔軟性や、力センサのフィードバックで慣性を「見かけ上隠す」アプローチが試みられてきました。しかし、直列弾性要素はシステムの固有振動数を下げて制御帯域（制御権限）を著しく制限してしまいます。また、フィードバック制御による仮想慣性の低減は、センサ応答速度やアクチュエータ遅延の制約から安定限界が厳しく、衝突の最初の瞬間（インパルス）は物理的な慣性で決まってしまいます。\n\n### 導き出された設計思想\nそこで著者らは「十分なペイロード（3 kg以上）を確保しつつ、等価質量を極限まで削り、制御帯域を最大化する」という方針を打ち立てました。長時間静止保持する能力（定格トルク）をあえて割り切り、QDDと剛性の高いシンプルな伝達機構によって、人間と同等の質量特性と瞬発トルクを兼ね備えた双腕ロボットの実現を目指しました。",
+   "figures": []
+  },
+  {
+   "heading": "Results",
+   "heading_ja": "人間並みの軽さと爆発的な瞬発力を実証する",
+   "summary_ja": "AthenaZeroの等価質量を市販ロボットと比較し、振り子衝突実験によって衝撃力が劇的に下がることを実証しました。さらに野球を題材とした実験を行い、時速110 km超の投球、高速捕球、高精度なバッティング、そして人間とのキャッチボールや打撃練習の継続に成功しました。",
+   "details_ja": "### ハードウェア構成\nAthenaZeroは、1自由度の腰（胴体）、左右それぞれ7自由度の腕、そして6自由度の手（3本指、劣駆動）を備えた双腕ロボットです。全体で27の関節を22個の独自カスタムQDDアクチュエータで駆動します。特筆すべきは、手首や関節に力・トルクセンサを一切積んでいない点です。減速機の摩擦が極めて小さく逆駆動性が高いため、モーターの駆動電流（q軸電流）から伝達トルクを正確に推定できます。\n\n### 等価質量解析と衝突実験\n手先の等価質量を解析した結果、Franka FR3やUR5e、KUKA iiwa14といった高減速比アームではロータ慣性の影響で手先等価質量が10〜30 kg以上に達するのに対し、AthenaZeroはロータ慣性を考慮しても約0.8〜2 kg程度と、人間の腕やBarrett WAMと同等の極めて低い値を記録しました。\n\nこの差を検証するため、1 kgの振り子をロボットの手首に衝突させる実験を行いました。重いFR3では手先が13.7 mmしか動かず、振り子が跳ね返されて最大衝撃力は208.3 Nに達しました。一方、AthenaZeroは手先が115.3 mmもしなやかに変位し、振り子は前進を維持、衝撃力は124.1 Nと大幅に抑えられました。\n\n### 野球タスクによる動的性能の実証\n運動性能の限界を試すため、研究チームは野球の投・捕・打タスクを実施しました。\n- **投球**: 単腕構成でテニスボール（約57 g）を時速110.9 km（30.8 m/s）で投擲。これは人型アームとして群を抜く世界最高レベルの記録です。双腕構成でも、硬式球（約145 g）を時速77 km（21.4 m/s）で7.3 m先の25 cm四方の枠内に正確に投げ込みました。\n- **捕球**: 7.3 m離れた位置から投げられた時速65.9 km（18.3 m/s、反応時間約0.4秒）のボールをキャッチすることに成功しました。これはマウンド間距離（18.4 m）に換算すると時速約164 km（102 mph）の捕球に相当します。\n- **バッティング**: 7.3 m先からの時速50 km（13.9 m/s）の投球を捉え、ピッチャー方向へ打ち返すことに成功しました。バットとボールがミートできる時間ウィンドウはわずか2ミリ秒しかなく、軌道予測と即時スイング生成の極限の統合が要求されます。\n\nさらに、2台のAthenaZero間、および人間とAthenaZero間でのキャッチボール（連続8〜12往復）や、連続したフリーバッティング（約3分間の連続ラリー）を成功させ、不完全な実環境に対する高い適応力を証明しました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "各ロボットの手先等価質量（見かけの質量）の比較です。上段のグラフ（A）では、Franka FR3やUR5eがロータ慣性によって等価質量を爆発的に増大させているのに対し、AthenaZeroはアクチュエータを含めても人間の腕と同等（紫の線）に収まっていることが分かります。下段（B, C）は腕全体での分布とランダム姿勢での統計を示しています。",
+     "caption": "Figure 4: Effective mass analysis of AthenaZero and off-the-shelf manipulators. We compare the effective mass of a human arm, AthenaZero —with a locked torso—and a set of commercially-available manipulators (Barrett WAM, Franka Research 3, UR5e, and KUKA LBR iiwa 14). A. We compute effective mass in a neutral configuration for an operational point at the wrist across a planar sweep of directions. Solid lines report total effective mass (including reflected inertia of the actuators) whereas dashed lines report the effective mass of the links alone. Numerical values for the maximum effective mass across swept directions for each arm are shown. B. …",
+     "image": "details/2609.19194/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "手首への1 kg振り子衝突実験の結果です。AthenaZero（A）は衝突の衝撃をしなやかに逃がして手先が115.3 mm動き、最大力は124.1 Nに抑えられました。一方、高減速比のFR3（B）は手先が13.7 mmしか動かず、振り子を激しく跳ね返して208.3 Nの衝撃力を記録しました。",
+     "caption": "Figure 5: Pendulum impact test. A. A 1 kg pendulum impact test on AthenaZero results in a relatively large end-effector displacement of 115.3 mm and a positive post-contact pendulum velocity. B. A 1 kg pendulum impact test on on the FR3 results in a much smaller end-effector displacement (13.7 mm) and a negative pendulum velocity (bouncing effect). Error bars indicate 95% confidence intervals calculated from the standard error of the mean for five independent trials per robot.",
+     "image": "details/2609.19194/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "AthenaZeroによる野球タスクの連続写真です。左から時速48 kmでの投球（A）、7.3 m離れた位置からの投球を0.544秒の反応時間で捕球する様子（B）、そしてテニスボールを正確に捉えるバッティング（C）を示しています。",
+     "caption": "Figure 7: Baseball-inspired tasks to showcase dynamic manipulation. A. Throwing a baseball at 13.4 m/s. B. Catching a baseball at 13.4 m/s @ 7.3 m (0.544 s reaction time). C. Batting a tennis ball at 13.4 m/s. @ 7.3 m (0.544 s reaction time).",
+     "image": "details/2609.19194/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "協調タスクの実証風景です。ロボット同士による連続キャッチボール（A）、人間とロボットのキャッチボール（B）、ロボット間のバッティング練習（C）、人間が投げたボールをロボットが打つバッティング練習（D）の様子です。",
+     "caption": "Figure 8: Cooperative variations of playing a game of catch and participating in batting practice. A. Two robots playing a game of catch with one another. B. A robot and a human playing a game of catch. C. One robot throwing batting practice to another robot. D. A human throwing batting practice to a robot.",
+     "image": "details/2609.19194/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Discussion",
+   "heading_ja": "トレードオフの先に見えた動的操作の未来",
+   "summary_ja": "低慣性化によって高い動的性能が得られた一方で、モーターの発熱や静止保持剛性の低下といった課題も浮き彫りになりました。本章では、これらのトレードオフをどう捉え、今後の動的操作研究をどう発展させるべきかを考察しています。",
+   "details_ja": "### 受け入れたトレードオフと課題\nAthenaZeroの設計は、従来の産業用ロボットとは全く異なるトレードオフの上に成り立っています。最大の課題は「熱」です。低減速比アクチュエータは高トルクを出すために大きな電流を必要とするため、静止状態で2 kg以上の負荷を長時間保持するとモーターが過熱します（80°Cで保護機能が作動）。このため、重い物をじっと持ち続けるような静的作業には向いていません。\n\nまた、逆駆動性が高くバックラッシが小さい反面、高減速比ギアのような機械的受動剛性がないため、従来のミリ波単位の軌道追従制御を行うと負荷によるたわみ（無負荷で3 mm、1.8 kg負荷で12 mm程度）が生じます。しかし研究チームは、この特性を欠点と捉えるのではなく、「人間と同じような物理的制約」と捉えています。人間が重い物を支え続けると疲労するように、ロボットも静止保持ではなく適応的なインピーダンス制御によって環境と協調すべきだという考え方です。\n\n### 動的操作が投げかける新たな問い\n野球タスクのような極限の動的挙動を実現してみて分かったのは、「躍度（ジャーク）最小化」といった既存の軌道計画アルゴリズムだけでは、実際の高速接触運動を説明・制御しきれないということです。QDDによる高透過性ハードウェアを得たことで、接触摩擦の不確実性や過渡ダイナミクスをリアルタイムにいなす制御論の重要性が浮き彫りになりました。AthenaZeroは、知能・制御・身体の三位一体を動的領域で探求するための理想的な実験台となります。",
+   "figures": []
+  },
+  {
+   "heading": "Materials and Methods",
+   "heading_ja": "徹底した慣性低減を実現するハードウェアと解析手法",
+   "summary_ja": "低慣性を達成するためのカスタムアクチュエータ選定、肩・肘・手首・手指の機構設計、そして等価質量の理論計算と振り子衝突実験のセットアップについて詳述しています。",
+   "details_ja": "### カスタムQDDアクチュエータと関節構成\n手先慣性を下げるため、4種類（直径95 mm、76 mm、38 mm、25 mm）のカスタムQDDアクチュエータを開発しました。肩関節や肘の屈曲には95 mmモーターと1段ヘリカル遊星歯車（減速比5:1）を採用し、人間の等尺性筋トルクと同等の約90 Nmのピークトルクを確保しています。モータードライバは胴体内に集約し、4 kHzの位置・速度ループ、16 kHzの電流ループ、1 kHzのEtherCAT通信でゲインをリアルタイムに変更（ゲインスケジューリング）しています。\n\n### 遠隔配置（リモート化）による慣性低減\n手先に近い関節ほど、質量が全体の慣性に深刻な悪影響を及ぼします。そこで、以下の工夫を凝らしました。\n- **肩・肘**: 肩はロール・ピッチ・ロールの3軸を1点に集約し、投球動作の特異点を避けるため初軸を上方に20度、前方に30度オフセットしました。肘の屈曲モーターはタイミングベルトを介して肩側に引き上げられています。\n- **手首**: 2自由度の並進アクチュエータによる並列リンク機構（パラレルメカニズム）を採用しました。モーターを肘側に配置し、ボールねじを介して手首を駆動することで、手先質量を劇的に削減しています。順運動学は解析解を持ちませんが、逆運動学の解析解を利用した超高速ルックアップテーブルにより、1クエリ約3 $\\mu$s（$O(1)$）で計算します。\n- **手・指**: 3本指の劣駆動ハンドです。指を駆動するモーターはすべて「胴体内」に配置され、長さ1.8 mのボーデンケーブルで指を牽引します。指先と掌にはTEPU素材と気圧センサを応用した触覚センサが埋め込まれています。\n\n### 等価質量の理論計算\n手先等の任意点における等価質量 $m_{\\mathbf{u}}$ は、線形ヤコビアン $\\mathbf{J_v(q)}$ と全質量行列 $\\mathbf{M(q)}$ から計算されます。ここで極めて重要なのが、質量行列 $\\mathbf{M(q)} = \\mathbf{M_l(q)} + \\mathbf{M_a}$ において、アクチュエータロータの慣性モーメント $I_{r,i}$ が減速比 $N_i$ の2乗で寄与する点です（$\\mathbf{M_a} = \\mathrm{diag}(N_i^2 I_{r,i})$）。この定式化を用い、任意の摂動方向ベクトル $\\mathbf{u}$ に対して手先が受ける見かけの質量を全方位で算出しました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "AthenaZeroの関節およびモーターの配置図です。胴体（TM）、肩（RM1〜RM3）、肘（RM4〜RM5）、手首（RM6〜RM7）、そして胴体内に収められたハンド用モーターの配置が示されています。末端に行けば行くほどモーターが手元側へ引き戻されている構造がよく分かります。",
+     "caption": "Figure 2: Motor-level and joint-level architecture of AthenaZero . Nomenclature: Torso (T), Right (R), Left (L), Joint (J), and Motor (M) . Two torso motors (TM1 and TM2) connect directly to the TJ1 torso joint in parallel via a belt. Shoulder motors RM1-RM3 (LM1-LM3) are axially coincident, combining towards RJ1-RJ3 (LJ1-LJ3) and acting as a spherical shoulder joint. Elbow junction actuators RM4-RM5 (LM4-LM5) through a belt transmission are axially perpendicular, mimicking a universal joint RJ4-RJ5 (LJ4-LJ5) at the elbow. Wrist motors RM6-RM7 (LM6-LM7) are differentially coupled, symbolically representing a near-universal joint RJ6-RJ7 (LJ6-LJ7) at the wrist junction. …",
+     "image": "details/2609.19194/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "伝達機構によるモーターのリモート配置のクローズアップです。肘の屈曲はベルト伝達で上腕側へ、手首はディファレンシャルリンクで前腕基部へ配置され、3本指ハンドは1.8 mのボーデンケーブルを介して胴体内から駆動されます。",
+     "caption": "Figure 3: Remoting actuation via transmissions reduces effective mass. Shoulder and Elbow: The majority of the arm’s mass is contained via the combination of motors RM1-RM5 (equivalently LM1-LM5). Shoulder motors are located at the joint, but elbow flexion leverages a belt transmission. Wrist: The wrist is a 2 DoF parallel mechanism which remotes the motors to the elbow junction. Hand: The hand is a 6 DoF, 3-tendon underactuated mechanism that interdigitates. Tactile sensors are placed inside of the fingertips and palm for contact sensing (denoted in blue).",
+     "image": "details/2609.19194/F3.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "ロボットアームの等価質量（見かけの重さ）において最大の支配要因はリンク自体の重さではなく、減速比の2乗で増幅されるモーターロータ慣性であること",
+  "直列弾性（SEA）や力フィードバックによる仮想慣性低減には帯域や安定性の限界があるため、真に動的な接触作業にはQDDによる物理的な低慣性化が極めて有効であること",
+  "低減速比化によって静止保持剛性や連続トルクは犠牲になるが、ミリ秒単位の高速制御ループとゲインスケジューリングを組み合わせることで動的タスクにおいて十分実用的な剛性を補えること",
+  "動的操作の運動生成は従来の運動学中心の最適化から、トルクと接触力学を直接扱う動力学ベースのアプローチへの転換が必要不可欠であること"
+ ],
+ "limitations_ja": [
+  "長時間の静止保持（特に2 kgを超える負荷を腕を伸ばした状態で維持すること）を行うと、数分でモーターが熱飽和（過熱）を起こすため、静的作業には適さない点",
+  "機械的な受動剛性が低いため、従来の工作機械や高精度コボットのようなミリ単位以下の絶対軌道追従精度を出すのが難しい点",
+  "末端の軽量化のために指の駆動モーターを胴体に置き、長いボーデンケーブルを採用した結果、摩擦が大きくなり把持力や指の応答速度が制限されている点"
+ ],
+ "keywords": [
+  "Low-Inertia Manipulator",
+  "Quasi-Direct Drive (QDD)",
+  "Effective Mass",
+  "Dynamic Manipulation",
+  "Bimanual Robotics"
+ ],
+ "id": "2609.19194",
+ "title": "AthenaZero: A low-inertia, bimanual robot for dynamic manipulation",
+ "authors": [
+  "Andrew S. Morgan",
+  "Gregory Xie",
+  "Capprin Bass",
+  "Rachel Thomasson",
+  "Chunpeng Wang",
+  "Erfan Shahriari",
+  "Harrison Busa",
+  "Oluwaseun Araromi",
+  "Joseph Aronov",
+  "Michael Burgess",
+  "Velin D. Dimitrov",
+  "Matthew A. Estrada",
+  "Faris Hamdi",
+  "Samuel Kendig",
+  "Taeyoon Lee",
+  "Jose Oscar Mur-Miranda",
+  "Emma Sommers",
+  "Paul Titchener",
+  "Margaret Wang",
+  "Achu Wilson",
+  "Mark Yeatman",
+  "Osman Dogan Yirmibesoglu",
+  "Alfred A. Rizzi",
+  "Annan Mozeika",
+  "Nicolas Rojas",
+  "Lael Odhner"
+ ],
+ "date": "2026-09-18",
+ "group": "general",
+ "tags": [
+  "hardware",
+  "manipulation",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.19194",
+ "pdf_url": "https://arxiv.org/pdf/2609.19194",
+ "summary_ja": "準ダイレクトドライブと遠隔伝達機構を採用し、エンドポイント有効質量を人間と同等（従来比約1/10）まで低減した双腕マニピュレータを開発。高いトルク透過性とバックドライバビリティを活かし、人間並みの動的応答が要求される野球の投球・捕球・打撃タスクを実機で実証した。",
+ "generated": "2026-09-18",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.19194"
+}
