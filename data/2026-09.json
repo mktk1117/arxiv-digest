@@ -1,6 +1,313 @@
 {
  "entries": [
   {
+   "date": "2026-09-18",
+   "rank": 0,
+   "id": "2609.19340",
+   "group": "focus",
+   "title": "ViLoMan: Learning Visual-Proprioceptive Whole-Body Loco-Manipulation Skills for Humanoid Robots",
+   "title_ja": "ViLoMan: ヒューマノイドロボットのための視覚・固有受容感覚による全身移動操作スキルの学習",
+   "summary_ja": "ヒューマノイドの移動と物理的相互作用を統合する自律全身移動操作フレームワークを提案。人間の部分的な動作デモを実行可能なロボット軌道へと変換し、教師・生徒蒸留を通じて機上センサ情報のみから動作する統一ポリシーを学習する。実機検証により多様な移動操作タスクの遂行を実証した。",
+   "authors": [
+    "Zejie Tian",
+    "Ruibing Hou",
+    "Bingpeng Ma",
+    "B\\\"orje F. Karlsson",
+    "Shiguang Shan"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.19340",
+   "image": "figures/2026-09-18/2609.19340.jpg"
+  },
+  {
+   "date": "2026-09-18",
+   "rank": 1,
+   "id": "2609.19272",
+   "group": "focus",
+   "title": "Learning Safe Humanoid Navigation from Reduced Order Models",
+   "title_ja": "縮小モデルからのヒューマノイド安全ナビゲーション学習",
+   "summary_ja": "階段など多層構造の地形におけるヒューマノイドのナビゲーション課題に対し、二段階の強化学習パイプラインを提案。まず縮小モデル動力学と3D LiDARを用いて複雑地形の経路方策を学習し、その知識を活用して全身動力学を持つフルオーダーのヒューマノイド方策を初期化・学習することで安定した移動を実現した。",
+   "authors": [
+    "William D. Compton",
+    "Zachary Olkin",
+    "Ryan Bena",
+    "Aaron D. Ames"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "navigation",
+    "locomotion",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.19272",
+   "image": "figures/2026-09-18/2609.19272.jpg"
+  },
+  {
+   "date": "2026-09-18",
+   "rank": 2,
+   "id": "2609.20035",
+   "group": "focus",
+   "title": "DR-MPC: Fast and Feasible Dynamics-Relaxed Model-Predictive Control for Legged Locomotion",
+   "title_ja": "DR-MPC: 脚ロボットの移動に向けた高速かつ実行可能な動力学緩和モデル予測制御",
+   "summary_ja": "脚移動のための新しいモデル予測制御（MPC）定式化と専用の内点法ソルバを提案。動力学等式とアフィン入力を二次ペナルティに緩和してボックス制約付きQPへと変換し、シューア補元による変数消去で高速化を図る。構造的に解の実行可能性を保証し、実機で高周波な実時間制御を可能にした。",
+   "authors": [
+    "Run Wang",
+    "Alapati Tuerxun",
+    "Shuo Liu",
+    "Wei Xiao",
+    "J\\'an Drgo\\v{n}a",
+    "Yilin Mo",
+    "Liang Wu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "locomotion",
+    "control",
+    "quadruped"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.20035",
+   "image": "figures/2026-09-18/2609.20035.jpg"
+  },
+  {
+   "date": "2026-09-18",
+   "rank": 3,
+   "id": "2609.20558",
+   "group": "focus",
+   "title": "Learning Slope-Adaptive Whole-Body Locomotion for Humanoid Robots in Roofing Construction",
+   "title_ja": "屋根工事におけるヒューマノイドロボットのための傾斜適応型全身歩行制御の学習",
+   "summary_ja": "傾斜面での屋根工事作業に向け、Unitree G1ヒューマノイドを対象とした作業意味・シーン接地型全身動作学習フレームワークを提案。人間のデモ動作を幾何学的な屋根モデルと照合して足や手の接触点を最適化し、強化学習を用いて傾斜適応型全身バランス制御と作業動作を両立させた。",
+   "authors": [
+    "Songyang Liu",
+    "Shuai Li"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.20558",
+   "image": "figures/2026-09-18/2609.20558.jpg"
+  },
+  {
+   "date": "2026-09-18",
+   "rank": 4,
+   "id": "2609.20566",
+   "group": "focus",
+   "title": "OmniMimic: Dynamics-completed Motion Augmentation for Multi-style Omnidirectional Quadruped Locomotion",
+   "title_ja": "OmniMimic: 多様な歩容スタイルを持つ全方向四足歩行のための動力学補完動作拡張",
+   "summary_ja": "方向が限定された動物のモーションキャプチャデータから、全方向移動が可能な四足歩行ポリシーを学習する手法を提案。時間反転や動力学補完、矢状面対称化を用いて物理的に妥当な動作を拡張し、手動の報酬設計に頼ることなく、後退や旋回を含む全方向で動物らしい自然な多歩容スタイルを獲得した。",
+   "authors": [
+    "Sheng Wu",
+    "Guoqiang Zhao",
+    "Zhe Yang",
+    "Fei Teng",
+    "Zhikun Zhou",
+    "Yanlin Yang",
+    "Zheng Fang",
+    "Hong Zheng",
+    "Yaonan Wang",
+    "Kailun Yang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV",
+    "eess.IV"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "reinforcement-learning",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.20566",
+   "image": "figures/2026-09-18/2609.20566.jpg"
+  },
+  {
+   "date": "2026-09-18",
+   "rank": 5,
+   "id": "2609.18122",
+   "group": "general",
+   "title": "\"Your Robot Was Trained on a Lie\": Collision Mesh Poisoning Attacks on Robotic Manipulation",
+   "title_ja": "ロボットは嘘に基づいて訓練されていた：ロボット操作に対する衝突メッシュ毒入れ攻撃",
+   "summary_ja": "シミュレータ内のレンダリング用視覚メッシュと物理計算用衝突メッシュの形状乖離に着目し、新たな脆弱性である「衝突メッシュ毒入れ（CMP）」攻撃を実証。視覚的には正常に見えるアセットの衝突メッシュを改ざんすることで、学習された操作ポリシーを意図的に失敗させられる脅威を明らかにした。",
+   "authors": [
+    "Gengyang Xu",
+    "Dongwei Xiao",
+    "Yiteng Peng",
+    "Yanbo Dai",
+    "Ruochen Zhou",
+    "Shing-Chi Cheung",
+    "Xiaoyu Ji",
+    "Wenyuan Xu",
+    "Shuai Wang"
+   ],
+   "categories": [
+    "cs.CR",
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "manipulation",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.18122",
+   "image": "figures/2026-09-18/2609.18122.jpg"
+  },
+  {
+   "date": "2026-09-18",
+   "rank": 6,
+   "id": "2609.19194",
+   "group": "general",
+   "title": "AthenaZero: A low-inertia, bimanual robot for dynamic manipulation",
+   "title_ja": "AthenaZero: 動的操作のための低慣性双腕ロボット",
+   "summary_ja": "準ダイレクトドライブと遠隔伝達機構を採用し、エンドポイント有効質量を人間と同等（従来比約1/10）まで低減した双腕マニピュレータを開発。高いトルク透過性とバックドライバビリティを活かし、人間並みの動的応答が要求される野球の投球・捕球・打撃タスクを実機で実証した。",
+   "authors": [
+    "Andrew S. Morgan",
+    "Gregory Xie",
+    "Capprin Bass",
+    "Rachel Thomasson",
+    "Chunpeng Wang",
+    "Erfan Shahriari",
+    "Harrison Busa",
+    "Oluwaseun Araromi",
+    "Joseph Aronov",
+    "Michael Burgess",
+    "Velin D. Dimitrov",
+    "Matthew A. Estrada",
+    "Faris Hamdi",
+    "Samuel Kendig",
+    "Taeyoon Lee",
+    "Jose Oscar Mur-Miranda",
+    "Emma Sommers",
+    "Paul Titchener",
+    "Margaret Wang",
+    "Achu Wilson",
+    "Mark Yeatman",
+    "Osman Dogan Yirmibesoglu",
+    "Alfred A. Rizzi",
+    "Annan Mozeika",
+    "Nicolas Rojas",
+    "Lael Odhner"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.19194",
+   "image": "figures/2026-09-18/2609.19194.jpg"
+  },
+  {
+   "date": "2026-09-18",
+   "rank": 7,
+   "id": "2609.19480",
+   "group": "general",
+   "title": "Self-excited actuation enables adaptive and resilient flapping-wing flight",
+   "title_ja": "自励駆動による適応性と回復力に優れた羽ばたき飛行の実現",
+   "summary_ja": "昆虫の非同期筋肉（伸張活性化により神経指令なしで自発的に羽ばたく機構）に着想を得た、初の非同期駆動型羽ばたき飛行ロボットを開発。気流変化などの外乱に対して機械的・自律的に羽ばたきが適応し、高速な制御ループなしに安定した飛行と耐障害性を達成することを示した。",
+   "authors": [
+    "Rundong Yang",
+    "Ethan S. Wold",
+    "Ellen Liu",
+    "James Lynch",
+    "Wei Zhou",
+    "Mark Jankauski",
+    "Simon Sponberg",
+    "Nick Gravish"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "drone",
+    "hardware",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.19480",
+   "image": "figures/2026-09-18/2609.19480.jpg"
+  },
+  {
+   "date": "2026-09-18",
+   "rank": 8,
+   "id": "2609.20649",
+   "group": "general",
+   "title": "DexTouch-WM: Learning Action-Conditioned Tactile World Models from Human Touch for Dexterous Robot Manipulation",
+   "title_ja": "DexTouch-WM: 人間の触覚から学習する器用なロボット操作向け行動条件付き触覚ワールドモデル",
+   "summary_ja": "人間の手の接触動作データから、未来のRGB画像と双方向の接触動態を同時に予測する行動条件付き触覚ワールドモデルを提案。人間と多指ロボットハンドに共通配置のフレキシブル圧電センサアレイを適用し、人間の触覚経験をロボット行動空間へと転移可能にすることで器用な操作を実現した。",
+   "authors": [
+    "Yan Qin",
+    "Yue Chen",
+    "Wenwei Lin",
+    "Shujia Liu",
+    "Chuqiao Lyu",
+    "Kailun Su",
+    "Chenze Yu",
+    "Ping Luo",
+    "Wenbo Ding",
+    "Tianxing Chen",
+    "Renjing Xu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "world-model",
+    "manipulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.20649",
+   "image": "figures/2026-09-18/2609.20649.jpg"
+  },
+  {
+   "date": "2026-09-18",
+   "rank": 9,
+   "id": "2609.19196",
+   "group": "general",
+   "title": "DITTO: Dexterous Interface for Transparent TeleOperation",
+   "title_ja": "DITTO: 透明性の高い遠隔操作のための器用なインターフェース",
+   "summary_ja": "多自由度ハンドでの操作データ収集における視覚的ギャップと力覚フィードバックの欠如を解決する協調設計システムを提案。7自由度ロボットハンドと同等の運動学を持つ電動外骨格グローブを開発し、1対1のアクチュエータマッピングにより自然な接触力提示とシームレスな遠隔操作を実現した。",
+   "authors": [
+    "Joaquin Palacios",
+    "Katelyn Lee",
+    "Cheng Zhang",
+    "Zhanpeng He",
+    "Matei Ciocarlie"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "teleoperation",
+    "manipulation",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.19196",
+   "image": "figures/2026-09-18/2609.19196.jpg"
+  },
+  {
    "date": "2026-09-17",
    "rank": 0,
    "id": "2609.18930",
