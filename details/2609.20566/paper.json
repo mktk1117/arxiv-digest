@@ -1,0 +1,145 @@
+{
+ "title_ja": "OmniMimic: 多様な歩容スタイルを持つ全方向四足歩行のための動力学補完動作拡張",
+ "tldr_ja": "前進データばかりで後退や横移動が欠けている動物の運動データから、動力学的一貫性を持った逆再生・鏡映拡張と段階的な指令空間拡張を行い、4種類の歩容スタイルを保ちながら全方向へ自在に移動できる単一ポリシーを実現しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "OmniMimicの全体フレームワークです。(a) 後退・左右反転モーションの接触力やトルクを動力学計算で補完するDMA、(b) 模倣データから全方向目標領域へ徐々に指令を広げるDOCE、(c) 共通動作と歩容固有の補正を統合するSMPから構成されています。",
+  "caption": "Fig. 2: Overview of OmniMimic. (a) Dynamics-completed Motion Augmentation (DMA) produces reversed and mirrored references with physical labels. (b) Demonstration-guided Omnidirectional Command Expansion (DOCE) expands per-axis command ranges. (c) Shared-residual Multi-gait Policy (SMP) adds softly gated residuals to a shared action. (d) Training uses physical guidance and event-aware rewards. (e) Actor-only deployment uses proprioception, commands, and gait code.",
+  "image": "details/2609.20566/F2.jpg"
+ },
+ "overview_ja": "本物の犬などの動物の動きを模倣させるアプローチは、手動で設計した報酬関数では表現しきれない生き生きとした歩容スタイルを四足ロボットに獲得させる強力な方法です。しかし大きな落とし穴があります。動物のモーションキャプチャデータはほとんどが「前進」ばかりで、後ろ歩きや真横へのステップ、その場旋回といったデータが極端に少ないのです。そのため、従来の模倣学習ではデータにない方向への速度指令を与えると歩容が崩れたり、逆に強化学習で無理に全方向移動を学習させるとせっかくの動物らしい歩容スタイルが失われてしまったりしていました。\n\nそこで著者らは、動物データから全方向への自然な移動スキルを学習する新フレームワーク「OmniMimic」を提案しました。まず、前進モーションの時系列を単純に逆再生するだけでなく、ロボットの動力学方程式と接触制約を満たすトルクや接触力を物理的に補完（Dynamics Completion）し、さらに左右反転を行うことで、後退や旋回の物理ラベル付きデータを合成します。次に、学習初期には元データの速度域付近のみを与え、徐々に全方向の目標速度範囲へと指令を広げるカリキュラムを導入しました。さらに、共通のアクターと歩容ごとの残差エキスパートを組み合わせることで、各歩容の個性を保ったまま効率的に学習させます。\n\nシミュレーション上のUnitree Go2を用い、4つの歩容（Trot、Pace、Canter、Pronk）で検証したところ、最先端の模倣学習ベースラインであるAPEXと比べて、足先位置の二乗平均平方根誤差（RMSE）を12.9%削減し、全方向の速度指令グリッドにおける追従RMSEを63.1%も低減しました。さらに、シミュレーションで学習した単一のポリシーを実機のGo2へゼロショットで転移させ、舗装路や芝生の上で全方向の軽快なマルチ歩容移動を実現できることを実証しました。",
+ "contributions_ja": [
+  "時間反転と矢状面反転に接触制約付き動力学補完を組み合わせ、後退や左右反転の信頼性の高い物理ラベル（トルク・接触力など）を自動生成する手法「DMA」を提案したこと。",
+  "模倣データの速度分布から目標とする全方向速度空間へと段階的にサンプリング範囲を広げ、歩容スタイルの崩壊を防ぐカリキュラム「DOCE」を導入したこと。",
+  "共通のアクターと歩容ごとの有界な残差エキスパートをソフトゲーティングで混合し、歩容間の知識共有と個性的なスタイルの維持を両立する方策構造「SMP」を構築したこと。",
+  "単一のポリシーで4種類の歩容の全方向移動（前後左右・旋回）を達成し、ベースラインを大幅に上回る追従性能と実機Go2へのゼロショット転移を示したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "動物の動きを真似たいけれど、後ろ歩きのデータがない！",
+   "summary_ja": "動物の模倣学習は自然な歩容を獲得できますが、データが前進に偏っているため全方向への移動制御が困難でした。本論文は、動力学的に一貫したデータ拡張、段階的な指令拡張、残差方策構造を組み合わせたOmniMimicにより、この課題を克服します。",
+   "details_ja": "四足歩行ロボットは、ペットのようなコンパニオンロボットや点検作業など、人間社会の様々な環境へ普及し始めています。こうした応用では、転倒しない安定性はもちろんのこと、親しみやすさや表現力豊かな歩容スタイル、そしてジョイスティック操作に応じた機敏な全方向移動が求められます。\n\n動物の運動模倣（Motion Imitation）は、複雑な調整を要する手作業の報酬設計なしにリアルな歩容を獲得できる優れた手法です。しかし、犬などの動物はほとんどの時間を「前進」して過ごします。後退や横歩き、その場旋回といったデータはライブラリの中に極めてわずかしか存在しません。そのため、前進以外の速度指令を与えられたときに、スタイルを維持するための教師信号が決定的に不足してしまいます。\n\nこれを解決しようとすると、3つの大きな壁にぶつかります。\n- **動力学の不整合**: モーションの姿勢系列を単に時間反転（逆再生）しても、ターゲットロボットが必要とする正しい床反力や関節トルクにはなりません。また、左右の旋回などをペアにするための変換も自明ではありません。\n- **急激な分布シフト**: 学習初期から全方向・広範囲の速度指令を与えてしまうと、模倣データの速度分布と乖離しすぎて歩容スタイルの学習が破綻します。\n- **歩容の平均化（モード崩壊）**: 単一のニューラルネットワークで複数の歩容（小走り、側対歩、駈歩など）を学習させると、共通の平均的な動きに縮退してしまい、それぞれの歩容の特徴が消えてしまいます。\n\nOmniMimicは、これらの難題に対して動力学補完によるデータ拡張、段階的な指令拡張カリキュラム、歩容特化の残差ネットワークを提案し、単一ポリシーで4つの歩容による全方向移動を可能にしました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "歩行学習アプローチの比較です。(a) 従来の模倣学習は自然ですが移動方向が限定的、(b) 報酬設計によるRLは全方向に対応できるもののスタイルが不自然になりがちです。(c) 本手法OmniMimicは、動物の自然な歩容スタイルを保ったまま全方向移動を実現します。",
+     "caption": "Fig. 1: Comparison of quadruped locomotion learning paradigms. Directionally limited demonstrations provide sparse style supervision away from recorded motions; reward-engineered RL uses explicit objectives to shape gait behavior across broad commands. OmniMimic combines demonstration-derived gait priors with omnidirectional command following.",
+     "image": "details/2609.20566/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "模倣学習、全方向制御、そして物理ベース拡張の交差点",
+   "summary_ja": "自然な歩容を移植する模倣学習、広範な速度指令を追従する強化学習、そしてロボットの動力学に動きを整合させる研究が進められてきました。OmniMimicはこれらを統合し、限定的な動物データからスタイルを保ちつつ指令空間を拡張する点で新規性を持っています。",
+   "details_ja": "本研究は、主に以下の3つの研究分野の強みを掛け合わせた位置にあります。\n\n### II-A 模倣に基づく運動学習\n動物のモーションキャプチャデータをロボットに転移する研究は盛んに行われており、参照軌道を直接追従する手法や、敵対的生成ネットワーク（AMPなど）を用いて分布全体をマッチさせる手法があります。また、APEXのように学習初期のトルク誘導を徐々に減衰させて探索を促す手法もあります。しかし従来法は、与えられたモーションライブラリの範囲外の動き、特に後退や横移動に対しては一貫したスタイルを維持できませんでした。\n\n### II-B 全方向・マルチ歩容歩行制御\n報酬関数を工夫した強化学習では、広範な速度指令空間を学習させることでロバストな全方向移動が実現されています。「Walk These Ways」のように歩容や速度のパラメータを網羅的に学習する研究もありますが、これらは手作業の報酬設計に依存しており、動物特有の複雑な協調動作を自然に再現することは困難でした。OmniMimicは、限られた動物データを出発点としつつ、全方向の指令空間へと無理なく拡張します。\n\n### II-C 物理を考慮したモーション処理\n動物の骨格や質量特性はロボットと異なるため、物理シミュレーション内で運動学・動力学を整合させるリターゲティング技術が提案されています。また、左右対称性を利用したデータ拡張も存在します。OmniMimicはこれらを発展させ、シミュレータ上で追従させた順方向運動から正確な物理ラベル（接触力やトルク）を取得し、逆再生運動に対しても制約付き最適化を解いて物理量を完全に補完するアプローチを採っています。",
+   "figures": []
+  },
+  {
+   "heading": "III OmniMimic Framework",
+   "heading_ja": "物理補完・段階的拡張・残差アクターの3本柱で攻略する",
+   "summary_ja": "OmniMimicの中核をなす3つの技術を解説します。逆再生・鏡映データに物理ラベルを与えるDMA、基準速度から指令領域を徐々に広げるDOCE、そして共通動作と各歩容の補正量を巧みに合成するSMPです。",
+   "details_ja": "OmniMimicの学習パイプラインは、以下の3つのモジュールで構成されています。\n\n### III-A 動力学補完モーション拡張（DMA）\nまずオフラインで各歩容の前進モーションをシミュレータ上の追従ポリシーに追従させ、各フレームにおける関節状態、適用トルク、足先の接地状態、床反力などを記録します。\n- **時間反転と動力学補完**: 後退モーションを作るため、フレーム順序を反転し、速度の符号を反転します。ただし、前進時のトルクや力をそのまま反転しても動力学的に破綻するため、反転後の各フレームにおいて関節加速度・床反力・関節トルクを変数とする制約付き二次計画法（QP）を解きます。これにより、運動方程式と摩擦錐制約を厳密に満たす物理ラベルを生成します。\n- **信頼度重み付け**: 追従誤差や接触遷移時の衝撃の大きさに応じて各フレームの物理ラベルに信頼度スコア $c_t$ を付与します。\n- **矢状面反転（鏡映）**: 左右の動きを補うため、左右の脚を入れ替え、横速度や旋回角速度を反転した鏡映データを生成します。\n- **物理誘導と報酬**: 学習時、これらの物理ラベルを用いて、参照トルクによる誘導（学習の進捗とともに減衰）と、接地タイミングや鉛直荷重配分を評価するイベント検知型の物理報酬を与えます。なお、これらは訓練時のみ使用され、推論時には一切不要です。\n\n### III-B デモ誘導型全方向指令拡張（DOCE）\nいきなり全方向の速度指令をランダムに与えると学習が不安定化します。そこで、学習進行度 $p = \\min(i/I_c, 1)$ に応じたカリキュラムを導入します。最初は選択された参照モーションの現在フレームの速度そのものを中心としてサンプリングし、学習が進むにつれて目標とする全方向の速度上下限（前後 $\\pm 2$ m/s、左右 $\\pm 2$ m/s、旋回 $\\pm 1.5$ rad/s）へとサンプリング範囲を広げていきます。\n\n### III-C 共有残差マルチ歩容ポリシー（SMP）\n単一のポリシーで複数の歩容を破綻なく扱うため、ネットワークを2階層に分けました。\n- 全歩容で重みを共有する「共通アクター」は、状態・指令・歩容のOne-hotコードを受け取り、基本的なバランスと歩行動作を出力します。\n- 各歩容に特化した4つの「残差エキスパート」は、歩容コードなしで状態と指令から固有の補正値（$\\tanh$ で有界化）を出力します。\n- これらを歩容コードに基づいたソフトマックス重みで合成します。これにより、歩容間で共通する運動スキルは共有しつつ、各歩容特有の足運びの崩れを防止します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "OmniMimicのシステム詳細です。(a) オフライン追従から得たラベルを逆再生・制約付き補完・左右反転する流れ、(b) 指令空間の段階的拡張、(c) 共通アクターと歩容ごとの残差を統合する構造、(d) 訓練時の物理誘導、(e) 実機配備時のシンプルな入力構成を示しています。",
+     "caption": "Fig. 2: Overview of OmniMimic. (a) Dynamics-completed Motion Augmentation (DMA) produces reversed and mirrored references with physical labels. (b) Demonstration-guided Omnidirectional Command Expansion (DOCE) expands per-axis command ranges. (c) Shared-residual Multi-gait Policy (SMP) adds softly gated residuals to a shared action. (d) Training uses physical guidance and event-aware rewards. (e) Actor-only deployment uses proprioception, commands, and gait code.",
+     "image": "details/2609.20566/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Results",
+   "heading_ja": "ベースラインを圧倒する全方向追従と、実機での軽快な走り",
+   "summary_ja": "シミュレーション評価において、OmniMimicはAPEXやAMPに対して速度追従RMSEを最大63.1%削減し、全方向で高いスタイル再現度を示しました。さらにアブレーション実験で各構成要素の重要性を証明し、実機Unitree Go2へのゼロショット転移にも成功しました。",
+   "details_ja": "シミュレーション環境（Isaac Gym）上のUnitree Go2を用い、Trot（小走り）、Pace（側対歩）、Canter（駈歩）、Pronk（跳躍歩）の4歩容で評価を行いました。\n\n### IV-A & B ベースライン比較（vs. AMP, APEX）\n公平な比較のため、全手法で同じ単一ポリシーによるマルチ歩容学習を実施しました。\n- **追従精度**: 前後参照速度における足先位置RMSEにおいて、OmniMimicはAPEX比で12.9%の誤差削減を達成しました。さらに、全方向の速度指令グリッド（729点）での速度追従RMSEは、APEXの0.7806から0.2880へと63.1%も大幅に改善しました。\n- **移動方向ごとの傾向**: 図 F4 のレーダーチャートが示すように、特に前後速度 $v_x$（90.0%）および横速度 $v_y$（86.2%）の追従スコアでベースラインを圧倒しました。APEXは旋回追従には優れるものの横移動が極めて弱く、AMPは後退指令に対してほぼ静止してしまう現象が見られました。\n- **軌跡の比較**: 図 F5 の通り、前後・左右・旋回の符号を組み合わせた8パターンの過酷な指令に対し、OmniMimicのみが全パターンで安定して走行を継続できました。\n\n### IV-C & D アブレーション実験\n各モジュールの寄与を段階的に検証しました。\n- **DOCEの貢献**: 指令拡張カリキュラムを導入することで、グリッド追従RMSEが56.4%も激減しました。\n- **SMPの貢献**: 残差ネットワーク構造にすることで、追従RMSEがさらに15.9%低減し、関節角度の再現度も向上しました。\n- **DMAの貢献**: 動力学補完による物理ラベルを加えることで、足先位置RMSEが11.3%改善し、歩容スタイルの忠実度が大きく向上しました。また、後退ラベルを「単純な時間反転」にした場合と比較して、動力学補完を行った場合は接触力や着地衝撃のRMSEが有意に低減し、物理的妥当性が裏付けられました。\n\n### IV-E 実機デモ\nシミュレーションで学習したポリシーをそのまま実機のGo2にデプロイしました。トルク誘導や参照軌道入力は不要で、自己受容感覚とジョイスティックの速度指令、歩容切り替えコードのみで動作します。舗装路でのTrot、Pace、Pronk、および芝生上でのダイナミックなCanterを含め、前後左右・旋回の全方向移動を滑らかにこなすことが確認されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "元の動物モーションにおける速度分布（実線）と、OmniMimicの追従一致率（破線）です。デモデータがほぼ存在しない後退（負の $v_x$）や横移動（$\\pm v_y$）の領域でも、高い追従スコアを維持していることが分かります。",
+     "caption": "Fig. 3: Reference-motion velocity distributions (solid) and OmniMimic’s marginal tracking agreement (dashed). Dashed curves use RMSE pooled across four gaits and averaged over the other two command axes on the $52{,}111$ -command grid.",
+     "image": "details/2609.20566/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "各歩容および平均における速度追従スコアの比較です。(a) 前後 $v_x$、(b) 左右 $v_y$、(c) 旋回 $\\omega_z$ のそれぞれで、OmniMimicがAPEXやAMPを大きく上回る並進移動性能を示しています。",
+     "caption": "Fig. 4: Velocity-tracking agreement for (a) $v_{x}$ , (b) $v_{y}$ , and (c) $\\omega_{z}$ . Each panel compares AMP [ 15 ] , APEX [ 10 ] , and OmniMimic across four gaits and the all-gait aggregate, using $52{,}111$ deterministic commands per gait. Agreement is the normalized RMSE-based score defined in Experimental Setup; higher is better.",
+     "image": "details/2609.20566/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "シミュレーションにおけるTrot歩容の軌跡比較です。前後・左右・旋回の全8通りの符号組み合わせに対し、AMPやAPEXが失速・旋回不能に陥る中、提案手法（Ours）のみがすべての指令を正しく実行できています。",
+     "caption": "Fig. 5: Trot rollouts in simulation for AMP [ 15 ] , APEX [ 10 ] , and OmniMimic (top to bottom), from the same standing pose without torque guidance, across all eight sign combinations of the command $\\mathbf{v}^{\\star}=(v_{x}^{\\star},v_{y}^{\\star},\\omega_{z}^{\\star})$ (columns); translational components are $\\pm 1$ m/s and yaw is $\\pm 1$ rad/s. Each panel shows the opaque $2.8$ s pose, progressively more transparent earlier poses, and mean body-frame velocities $\\bar{\\mathbf{v}}=(\\bar{v}_{x},\\bar{v}_{y},\\bar{\\omega}_{z})$ over $1$ – $6$ s; green checks/red crosses mark qualitative success/failure in executing the combined command.",
+     "image": "details/2609.20566/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実機Unitree Go2によるハードウェア実証です。シミュレーションから微調整（ファインチューニング）なしで、舗装路や芝生の上でTrot、Pace、Canter、Pronkの4歩容を安定して実行できました。",
+     "caption": "Fig. 6: Hardware demonstrations. A single simulation-trained OmniMimic policy executes Trot , Pace , Canter , and Pronk on the Unitree Go2 without fine-tuning.",
+     "image": "details/2609.20566/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "限られた動物データから、豊かな全方向ロボット歩行へ",
+   "summary_ja": "OmniMimicは、動力学補完、カリキュラム学習、残差方策の協調により、データの乏しい方向へもスタイルを崩さず適応できることを示しました。今後は不整地への対応や連続的な歩容遷移の獲得が期待されます。",
+   "details_ja": "本論文では、前進に偏った動物の運動データから、全方向への速度追従性と多様な歩容スタイルを両立する単一ポリシー学習フレームワーク「OmniMimic」を提案しました。\n\n実験を通じて、指令拡張（DOCE）と残差構造（SMP）が主に指令追従性能を押し上げ、動力学補完（DMA）が歩容スタイルの忠実度を支えるという、各コンポーネントの見事な補完関係が明らかになりました。これにより、ロボットは動物らしい美しいフォームを崩すことなく、コントローラーの指示通りに前後左右へ駆け回ることができます。\n\n本手法は、モーションキャプチャデータの少なさに悩む模倣学習研究において、物理法則に基づいたデータ拡張がいかに強力であるかを示す好例と言えます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "モーションの逆再生を学習に使う際は、単なる運動学の反転ではなく、接触制約と動力学方程式を満たすように力・トルクを最適化（動力学補完）することがスタイル忠実度の向上に不可欠である。",
+  "デモデータの分布と目標指令空間が乖離している場合、デモの現在フレーム速度を中心として徐々に全域へサンプリングを広げるカリキュラム（DOCE）が学習の破綻を防ぐ極めて有効な手段となる。",
+  "単一ポリシーで複数歩容を学習させる際は、完全に重みを共有するのではなく、共有アクターに歩容別の有界な残差エキスパートをソフトゲーティングで足し合わせる構造が、表現の縮退（モード崩壊）を防ぐ。",
+  "訓練時に物理ラベルに基づくトルク誘導やイベント報酬を積極的に活用しても、デプロイ時にはそれらを完全に切り離し、自己受容感覚と速度指令・歩容コードのみのシンプルなアクターとして実機動作が可能である。"
+ ],
+ "limitations_ja": [
+  "スタイルの忠実度評価が、参照データが存在する前後方向の速度付近でのみ定量化されており、大きく外れた横移動時などのスタイル評価は定性的な観察にとどまっている点。",
+  "歩容の切り替えが離散的な歩容コード（One-hot）に依存しており、速度に応じてスムーズにTrotからCanterへと遷移するような無段階・自律的な歩容遷移は扱えていない点。",
+  "評価が主に平坦な地形に限定されており、段差や不整地といった複雑な環境における頑健性や追従精度の定量評価は今後の課題とされている点。"
+ ],
+ "keywords": [
+  "Legged Locomotion",
+  "Motion Imitation",
+  "Reinforcement Learning",
+  "Dynamics Completion",
+  "Sim-to-Real Transfer"
+ ],
+ "id": "2609.20566",
+ "title": "OmniMimic: Dynamics-completed Motion Augmentation for Multi-style Omnidirectional Quadruped Locomotion",
+ "authors": [
+  "Sheng Wu",
+  "Guoqiang Zhao",
+  "Zhe Yang",
+  "Fei Teng",
+  "Zhikun Zhou",
+  "Yanlin Yang",
+  "Zheng Fang",
+  "Hong Zheng",
+  "Yaonan Wang",
+  "Kailun Yang"
+ ],
+ "date": "2026-09-18",
+ "group": "focus",
+ "tags": [
+  "quadruped",
+  "locomotion",
+  "reinforcement-learning",
+  "imitation-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV",
+  "eess.IV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.20566",
+ "pdf_url": "https://arxiv.org/pdf/2609.20566",
+ "summary_ja": "方向が限定された動物のモーションキャプチャデータから、全方向移動が可能な四足歩行ポリシーを学習する手法を提案。時間反転や動力学補完、矢状面対称化を用いて物理的に妥当な動作を拡張し、手動の報酬設計に頼ることなく、後退や旋回を含む全方向で動物らしい自然な多歩容スタイルを獲得した。",
+ "generated": "2026-09-18",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.20566"
+}
