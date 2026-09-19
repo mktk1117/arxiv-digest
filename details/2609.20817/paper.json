@@ -1,0 +1,142 @@
+{
+ "title_ja": "FAMOS: スパースな観測からのフィードフォワード3D可動機構モデリング",
+ "tldr_ja": "数枚の部分的な点群を入力するだけで、物体の可動パーツの分割と関節パラメータを単一の順伝播で高精度かつ高速に予測できるフレームワーク「FAMOS」を提案しました。関節の可動量に着目した損失関数と手続き型データ生成により、未知の物体に対しても頑健に動作します。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "FAMOSの全体フレームワークです。異なる状態・視点から得られた部分点群を特徴量化し、Multi-state Articulation Transformerでパーツクエリと統合処理することで、パーツ分割と関節タイプ・パラメータを一括予測します。",
+  "caption": "Figure 2 : Framework Overview. We consider a sparse set of observations capturing an object in different articulation states and from different viewpoints. First, each view is lifted to 3D, resulting in partial point clouds which are encoded and tokenized via a frozen PartField [ 36 ] and geometric embeddings. The point tokens and a fixed set of learnable part queries pass through the Multi-state Articulation Transformer , whose layers alternate between state-wise and global attention. Per-query heads decode the joint parameters and a per-point head predicts the movable part segmentation.",
+  "image": "details/2609.20817/F2.jpg"
+ },
+ "overview_ja": "ロボットが冷蔵庫の扉を開けたり、引き出しを引いたりして人間環境で作業するには、対象物がどこでどう動くのかという「関節構造（articulation）」を正しく理解する必要があります。しかし、従来の最適化ベースの手法は計算に数分かかり、大量の多視点画像を必要としました。一方で近年の深層学習による高速なフィードフォワード手法は、たった1枚の画像や点群から形状の「見た目の事前知識」に頼って関節を推論していたため、見たことのない形状の物体では関節の向きを誤るという問題がありました。\n\nそこで著者らは、数枚程度のまばらで順不同な部分点群から、実際に動いた差分を手がかりにして関節パラメータと可動パーツを直接推定する新手法「FAMOS」を開発しました。核心となるのは、状態内と状態間を交互に注目するTransformer構造と、入力間で動いた範囲そのものを予測させる「観測可動幅（Observed Articulation Span）損失」です。これにより、単一画像からの当て推量に逃げず、複数状態の幾何的な変化をしっかり捉えられるようになります。\n\nさらに、関節物体の3Dデータ不足を解決するため、幾何プリミティブを組み合わせて無限にアセットを自律生成するパイプラインも構築しました。PartNet-Mobilityなどの標準ベンチマークで検証したところ、既存のフィードフォワード手法を大幅に上回り、最適化手法と比べても同等以上の精度を約3,000倍のスピード（約0.1秒）で達成できることを実証しました。",
+ "contributions_ja": [
+  "まばらで順不同な部分点群から、可動パーツの領域分割と関節パラメータを単一のネットワーク順伝播で解く新しいモデル「FAMOS」を提案したこと",
+  "状態内の幾何文脈と状態間の対応付けを両立する「Multi-state Articulation Transformer」と、複数状態の活用を強制する「観測可動幅損失」を導入したこと",
+  "関節物体の学習データ不足を解消するため、幾何プリミティブから注釈付きモデルを学習中にオンザフライで無限生成するプロシージャル生成器を開発したこと",
+  "3つのベンチマークと実環境のカジュアル撮影データにおいて、従来手法を大きく引き離す認識精度と約3,000倍の推論高速化を実証したこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "動く物体をどう捉えるか：見た目の推測から「動き」の観察へ",
+   "summary_ja": "家庭環境にあふれる関節物体を扱うには、パーツの可動方向や軸の推定が必須ですが、既存研究は計算が重いか、見た目の事前知識に頼りすぎて未知形状に弱いという課題がありました。FAMOSは数枚の部分的な観測から「実際の動き」を捉えて関節構造を瞬時に導くことで、この壁を破ります。",
+   "details_ja": "日常生活には、ドア、引き出し、ハサミなど、関節（articulation）を持つ物体があふれています。ロボットがこれらを操作するには、どのパーツがどう動くかを3Dで理解しなければなりません。\n\nしかし、既存のアプローチには大きな制約がありました。例えばNeRFや3D Gaussian Splattingを用いたテスト時最適化手法は、状態ごとに数十枚もの密な多視点画像を要求し、物体1つにつき数分から数十分の計算時間がかかります。動画ベースの手法はオクルージョン（遮蔽）や複数パーツの同時運動で追跡エラーが累積しがちです。一方、1回の順伝播で推定を行うフィードフォワード手法は高速ですが、単一状態の形状のみから予測するものが多く、「学習時に見たカテゴリの平均的な形状」を暗記して当て推量しているに過ぎませんでした。これでは未知の形状や欠損のある入力に太刀打ちできません。\n\nそこでFAMOSは、日常的に手軽に撮れるような数枚のまばらで順不同な部分点群を入力とし、実際に観測された「動き」そのものに基づいて関節を推定します。鍵となるのは、異なる状態間での点同士の直接的なやり取りを可能にするTransformerアーキテクチャと、入力全体で動いた角度や距離を予測させる新しい学習目標です。また、関節物体の3Dデータセットが絶対的に不足している問題に対し、プログラムで自動生成するパイプラインを導入することで、モデルの汎化性能を飛躍的に高めています。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "密なスキャン、動画追跡、そしてフィードフォワードへ",
+   "summary_ja": "関節物体の推定は、密な多視点画像からの最適化、操作動画からの追跡、単一入力からのフィードフォワード予測へと発展してきました。FAMOSはこれらの長所を取り入れつつ、順不同な複数状態の部分点群を扱える点で独自の位置を築いています。",
+   "details_ja": "### 密な多視点入力からの再構成\n従来は、2つの関節状態それぞれについて大量のカメラ視点から撮影し、ニューラル陰関数表現や3D Gaussian Splatting（3DGS）を用いてインスタンスごとに最適化する手法が主流でした。高品質な再構成ができる反面、計算コストが極めて重く、可動パーツ数の事前知識を必要とするなど、実世界でのスケーラビリティに欠けていました。\n\n### 操作動画からの関節モデリング\n時系列の4D点群や動画から関節を推定する手法も提案されています。しかし、既存手法は点追跡モジュールを数珠つなぎにしているため、オクルージョンやパーツ同士の重なりによる追跡エラーが蓄積しやすい欠点がありました。また、動きが連続した時系列映像であることを前提としています。\n\n### フィードフォワード型の手法\n近年は単一のメッシュや点群から直接関節を予測する高速なモデルが登場しています。しかし、1つの状態しか見ないアプローチでは、静止形状の幾何学的特徴から関節を「推測」するしかなく、形状のバリエーションに弱くなります。複数状態を入力できる先行研究（DittoやARTなど）もありますが、完全な点群が必要だったり、パーツ数や状態数が固定されていたりと制約が多くありました。FAMOSは、入力の状態数が可変で、部分的な点群であっても、パーツ数の事前仮定なしに一発で推定できます。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "状態間を行き来するアテンションと「可動幅」で解くネットワーク設計",
+   "summary_ja": "部分点群を事前学習済みモデルでトークン化し、状態内と状態全体のAttentionを交互に行うTransformerに入力します。さらに、複数状態にまたがる動きの範囲を予測する補助損失を課すことで、ネットワークが複数状態の情報を余さず活用するように誘導します。",
+   "details_ja": "### 3.1 問題設定\n入力は、物体の異なる関節状態や視点から得られた $S$ 個のまばらな部分点群 $\\mathcal{X} = \\{\\mathbf{X}_s\\}_{s=1}^S$ です。状態数 $S$ は可変で、$S=1$（単一状態）にも対応します。出力は、(1) 静止ベースと可動パーツを合わせた総パーツ数 $P$、(2) 各点のパーツ所属ラベル（セグメンテーション）、(3) 各パーツの関節パラメータ（回転軸と原点、または並進方向）です。\n\n### 3.2 Multi-State Articulation Transformer\n点群は凍結されたPartFieldバックボーンと座標・法線の埋め込みによってトークン化されます。ここで重要なのは、トークンに「どの状態か」を表す状態インデックスを付与しないことです。これにより、入力の状態数が変わっても柔軟に処理できます。\n\nモデル内部には $K$ 個の学習可能なパーツクエリがあり、以下の2つのAttentionステージを交互に $L$ 層繰り返します。\n- **State-wise Attention**：同一観測（状態）内の点トークン同士でSelf-Attentionを行い、それぞれの幾何学的文脈をまとめます。同時にクエリ同士も自己注目して役割を調整します。\n- **Global Attention**：全状態の点トークンとパーツクエリをすべて結合し、一括でAttentionをかけます。ここが最大のポイントです。クエリを介さずとも点同士が直接やり取りできるため、視点やオクルージョンで欠損した部分の幾何的な対応関係を強力に捉えられます。\n\n### 3.3 観測可動幅（Observed Articulation Span）\n関節の軸や原点は物体固有の性質なので、実は単一状態の見た目だけでもそれらしく予測できてしまいます。そのため、単純に関節パラメータだけを教師信号にすると、モデルが複数状態を無視して1つの状態から暗記推論してしまう「学習の近道」が生じます。\nそこで著者は、入力された観測全体の中でパーツが実際に動いた角度や距離の最大範囲 $\\Delta_p = \\max_{s \\in \\mathcal{V}_p} \\theta_{s,p} - \\min_{s \\in \\mathcal{V}_p} \\theta_{s,p}$ を予測させる補助タスクを導入しました。この可動幅は入力セット全体を見渡してパーツを正しく追跡しないと絶対に予測できないため、モデルが複数状態の情報を統合することを強く促します。\n\n### 3.5 プロシージャルデータ生成\n関節物体の学習データ不足を解決するため、箱や円柱などの幾何プリミティブを組み合わせて、戸棚や家電など15系統の物体を自動生成するシステムを作りました。寸法やパーツ数をランダムに変化させ、学習ループの中で毎ステップ新しい形状と完璧な正解ラベルをCPU上でリアルタイム生成します。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "観測可動幅（Observed Articulation Span）の概念図です。各入力状態でパーツがどれだけ開いたかの最大値と最小値の差を予測させることで、モデルに入力全体を比較・参照することを強制します。",
+     "caption": "Figure 3 : Observed articulation span. The target is defined as the range of joint values covered by the input observations, encouraging the model to aggregate articulation cues across multiple states.",
+     "image": "details/2609.20817/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "プロシージャル生成パイプラインで作られたアセットの例です。基本形状の組み合わせから多様なカテゴリの動く物体が作られ、正確なパーツ分割と関節位置が最初から自動付与されています。",
+     "caption": "Figure 4 : Procedural dataset. Examples of procedurally generated assets across multiple object families, with movable parts highlighted in color to show known ground-truth annotations.",
+     "image": "details/2609.20817/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "未知の物体でも高精度：約3,000倍の高速化と実世界への汎化",
+   "summary_ja": "PartNet-Mobility、ACD、ArtiCraft-10Kの3つのデータセットで評価を行いました。FAMOSは既存のフィードフォワード手法や最適化手法を大きく引き離し、推論時間はわずか0.1秒を実現。合成データのみの学習でありながら、実世界の撮影画像に対しても高い汎化性を示しました。",
+   "details_ja": "### 実験設定とベースライン\n評価には、学習ドメインに近いPartNet-Mobilityに加え、未知の幾何や複雑な構造を含むACD、およびLLMエージェントが自動生成したArtiCraft-10Kの3つを用いました。比較対象は、代表的フィードフォワード手法であるParticulateを複数入力対応に拡張したものと、最新の最適化手法であるReArt（4D点群）およびArtGS（3DGS）です。\n\n### 定量評価の結果\nパーツ分割（表1）において、FAMOSは全ベンチマークでトップの数値を記録しました。特に未知データセットであるACDでは、Particulateに対してF1スコアで28.2ポイントもの大差をつけました。最適化手法は密な入力を与えているにもかかわらず、F1スコアが60%未満に留まっています。\n関節推定（表2）の最も厳しい指標（タイプ・軸角度誤差5度未満・原点誤差5%未満を満たすMAO）でも、FAMOSはPartNet-Mobilityで98.4、ACDで64.5、ArtiCraftで90.0という圧倒的なスコアを叩き出しました。ベースラインよりもはるかに多くのパーツを正しく検出しながら、低い幾何誤差を達成しています。\n\n### アブレーションと分析\nモデル設計の検証（表4）では、Global Attentionをレジスタトークンによる間接的なやり取りに置き換えるとACDのMAOが8.1ポイント低下し、観測可動幅損失を抜くと5.7ポイント低下しました。点同士の直接アテンションと可動幅の学習が極めて重要であることが数字で裏付けられています。\n入力状態数に関する実験（図7(b)）では、状態数が1から2に増えた段階で性能が急上昇し、観測された動きが関節推定に決定的な手がかりを与えていることが確認されました。\n\n### 実行速度と実世界データ\n最適化ベースのReArtが1物体あたり182秒、ArtGSが297秒かかるのに対し、FAMOSはわずか0.1秒（約3,000倍高速）で推論を完了します。また、スマホ等で適当に撮った実世界の家具の画像からSAM2と点群再構成モデルを通して入力した場合でも、正確にパーツと回転軸・並進軸を予測できることが示されました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "各ベンチマークにおける定性比較結果です。FAMOS（Ours）は複雑な引き出しや扉の分割と、回転軸（赤矢印）やスライド方向（黄矢印）を正解（Ground-Truth）と極めて近い形で推定できています。",
+     "caption": "Figure 5 : Qualitative results. All feed-forward methods receive $S=2$ input states. The RGB views show the corresponding viewpoints and articulation states. Movable parts are colored by segment over the grey static base, and predicted joint axes are drawn as arrows (red for revolute, yellow for prismatic). † denotes re-trained on our data.",
+     "image": "details/2609.20817/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "複数状態推論の効果です。(a)可動幅損失がないと軸予測が狂いやすくなります。(b)状態数が2つになるだけで性能が急伸します。(c)1状態では推測が外れても、2状態で動きが見えれば正確に修正されます。",
+     "caption": "Figure 7 : Effect of multi-state reasoning. (a) Removing the observed articulation span loss leads to less accurate joint predictions. (b) On ACD, segmentation (Seg $F_{1}$ ) and motion estimation (MAO $F_{1}$ ) improve as more observations are provided, with the largest gain from the second state. (c) A single observation can admit a plausible but incorrect prediction; the second state reveals the motion and allows the model to predict the correct joint configuration.",
+     "image": "details/2609.20817/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "まばらな部分点群から関節構造を高速・正確に導くFAMOSを提案しました。状態間を行き来するTransformer構造、観測可動幅損失、そしてプロシージャルデータ生成の組み合わせにより、従来の限界を打ち破る性能を達成しています。",
+   "details_ja": "本研究では、数枚の不完全な観測から関節物体を丸ごとモデリングするフィードフォワード手法「FAMOS」を提示しました。状態内・状態間を網羅するMulti-state Articulation Transformerと、観測された可動範囲を監督する新しい目的関数によって、形状の当て推量から脱却し、観測された動きに基づいた正確な関節パラメータの予測を可能にしました。\n\nさらに、幾何プリミティブから無限にアセットを生み出す生成器により、関節物体のデータ不足という根本課題にも切り込みました。実験では最適化ベースおよびフィードフォワード型のベースラインを一貫して上回り、実環境のデータでも見事に動作することを確認しました。高速かつ頑健に関節を認識できる本技術は、実世界で動的に環境とインタラクションするロボットマニピュレーションにとって強力な基盤になると期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：計算コストの深掘りと実世界での挙動",
+   "summary_ja": "付録では、入力トークン数に対するスケーラビリティ解析、プロシージャル生成器の高速性、および実世界キャプチャに対する追加の定性結果や現在の制約事項が詳しく報告されています。",
+   "details_ja": "### 計算量とスケーラビリティ\nGlobal Attentionは入力点数と状態数に対して計算量が2乗で増加しますが、FlashAttentionの活用により実用上非常に軽快に動作します。標準設定（状態数 $S=2$、点数 $N=2048$）ではGPUメモリ消費量はわずか1.56 GiB、遅延は65.6 msです。状態数を12、点数を8192（合計約9.8万トークン）まで引き上げたストレステストでも、1.20秒・10.66 GiBで動作し、大規模な観測にも十分スケールします。\n\n### プロシージャル生成の効率\n学習時のオンザフライ生成パイプラインは、CPU1プロセスあたり1秒間に約334アセットを生成可能（1個あたり約3ミリ秒）で、学習のボトルネックになりません。手動アノテーションなしで多様なデータフローを供給し続けられる点が強みです。\n\n### 限界と失敗例\n現在のモデルにも課題があります。第一に、学習データの幾何分布から極端に外れた物体では性能が低下します。第二に、取っ手や小さなスイッチなど、物体全体に対して小さすぎる可動パーツは部分点群の解像度不足で分離が困難です。第三に、現在は各可動パーツが静止ベースに直接つながる「深さ1の運動学ツリー（kinematic tree）」に限定されており、多関節アームのように関節の先にさらに関節がある多層リンク構造には対応していません。",
+   "figures": [
+    {
+     "key": "F9",
+     "caption_ja": "実環境でカジュアルに撮影された物体に対する追加の予測例です。本やキャビネットなどの日常的な物体に対し、ノイズや欠損のある点群からでも正しいパーツ分割と関節軸が得られています。",
+     "caption": "Figure D.1 : Additional real-world examples. Predictions of Famos on casually captured real-world objects. RGB images are taken from [ 15 , 4 , 1 ] .",
+     "image": "details/2609.20817/F9.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "「見た目からの推測」に頼る単一入力よりも、たとえ数枚の粗い点群であっても「状態間の変化（動き）」を直接見比べるアーキテクチャが汎化性能を決定づける。",
+  "状態にまたがる変化量そのものを予測させる「観測可動幅損失」のような補助タスクは、ネットワークが複数入力を無視して手抜き推論するのを防ぐのに非常に効果的。",
+  "3Dの関節データセット不足に対しては、単純な幾何プリミティブを組み合わせたプロシージャル生成器によるオンザフライ事前学習が実用的な解決策になる。",
+  "最適化手法と比べて約3,000倍速い0.1秒で推論できるため、リアルタイムなロボットのインタラクション計画に組み込みやすい。"
+ ],
+ "limitations_ja": [
+  "静止ベースに各パーツが直接ぶら下がる「深さ1のツリー構造」しか扱えず、ロボットアームのような連鎖した関節（多段リンク）には未対応。",
+  "物体全体に対してパーツが非常に小さい場合（つまみ、鍵、小型ボタンなど）や、点群の欠損・ノイズが激しい場合にはセグメンテーションに失敗しやすい。",
+  "プロシージャル生成により多様性は増したものの、既存の大規模3D形状データセットと比べるとカテゴリの網羅性には依然として限界がある。"
+ ],
+ "keywords": [
+  "Articulated Object Modeling",
+  "Feed-Forward Reconstruction",
+  "Multi-State Transformer",
+  "Part Segmentation",
+  "Procedural Data Generation"
+ ],
+ "id": "2609.20817",
+ "title": "FAMOS: Feed-Forward 3D Articulation Modeling from Sparse Observations",
+ "authors": [
+  "Kevin Qu",
+  "Tao Sun",
+  "Massimiliano Viola",
+  "Liyuan Zhu",
+  "Zhizhuo Zhou",
+  "Sayan Deb Sarkar",
+  "Konrad Schindler",
+  "Iro Armeni"
+ ],
+ "date": "2026-09-19",
+ "group": "general",
+ "tags": [
+  "perception",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.CV",
+  "cs.AI",
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.20817",
+ "pdf_url": "https://arxiv.org/pdf/2609.20817",
+ "summary_ja": "スパースな部分点群から可動パーツのセグメンテーションと関節パラメータを推定するフィードフォワードモデルを提案。Multi-state Articulation Transformerにより複数状態の観測から幾何変化を集約し、カテゴリごとの形状事前分布に依存せず多様な関節物体を復元する。",
+ "generated": "2026-09-19",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.20817"
+}
