@@ -1,0 +1,137 @@
+{
+ "title_ja": "MILER: 非構造化環境でのSim-to-Real強化学習に向けた意味的中間表現",
+ "tldr_ja": "軽量な意味論的鳥瞰図（BEV）と軌道整合（Trajectory Alignment）を組み合わせることで、高精度な物理・グラフィクスシミュレータを使わずに、実車2台で最高時速33.6 kmのオフロード自動運転をゼロショットで実現しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "MILERの全体パイプラインです。シミュレーション内ではパーリンノイズから生成した意味論的鳥瞰図（BEV）と簡略化された2輪モデルで強化学習を行い、実機走行時はBEVFusionで生成した実環境のBEVを入力しつつ、仮想車両の軌道に実車を追従させることで、知覚と制御のSim-to-Realギャップを同時に埋めています。",
+  "caption": "Fig. 2: Simplified overview of the data-flow pipeline during offline training and online deployment. During training, a mid-level representation (MLR) simulator generates BEVs from semantic grid maps and extracts the vehicle state from the bicycle model, both of which are fed into the RL policy network. During online deployment, LiDAR and camera streams are processed by BEVFusion [ 6 ] to generate semantic BEVs, which, together with the vehicle state measured by the vehicle sensors, are fed into the RL policy. …",
+  "image": "details/2609.20747/F2.jpg"
+ },
+ "overview_ja": "強化学習（RL）は自動運転に大きな可能性を秘めていますが、舗装や白線のない非構造環境（オフロードなど）では、安全性の問題から実環境での試行錯誤学習ができません。しかし、シミュレータで学習した方策をそのまま実車に持ち込む「Sim-to-Real転移」は、見た目の多様さや複雑な車両挙動が原因で非常に困難でした。従来はフォトリアルな3Dシミュレータや高度な車両物理モデルを構築することでこの差を埋めようとしてきましたが、それには膨大なコストがかかります。\n\nそこで著者らは、重たい3Dグラフィクス描画や複雑な物理演算を一切捨て、意味論的な鳥瞰図（BEV: Bird's-Eye-View）と単純な2輪運動学モデル（バイシクルモデル）だけで完結する軽量シミュレータを自作しました。知覚表現を「走行可能」「走行準可能」「走行不可」「未知」の4クラスに抽象化し、さらに実機走行時には実車側で推定したBEVを仮想車両の座標系に幾何変換して入力し、実車は仮想車両の軌道を追従する「軌道整合（Trajectory Alignment）」を取り入れました。これにより、知覚と制御の両面でSim-to-Realギャップを解消しています。\n\n実験では、障害物や急なヘアピンカーブ、背の高い草地が連続する3.0 kmのテストコースを用意し、仕様の異なる2台のテスト車両で検証しました。その結果、人間の介入なしに合計17.3 kmを走破し、非構造環境の車両サイズ強化学習としては初となる時速30 km超（最高33.6 km/h）での滑らかな自律走行に成功しました。エッジコンピュータ（Jetson AGX Orin）上で推論1.9 msという圧倒的な軽さも達成しています。",
+ "contributions_ja": [
+  "3Dレンダリングや複雑な物理モデリングを排し、パーリンノイズによる意味論的グリッドマップと2輪モデルで構成される高速な意味論的中間表現（MLR）シミュレータを開発した点",
+  "抽象的なシミュレーションで学習した方策を、知覚の幾何変換と制御の軌道整合を組み合わせることで、実機へゼロショット転移させるフレームワーク「MILER」を提案した点",
+  "実車2台を用いた合計17.3 kmのオフロード走行実験において、介入なしで最高時速33.6 kmを達成し、非構造環境における実車強化学習として初めて30 km/hの壁を突破した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "非構造環境の自動運転に、なぜ軽量な中間表現と強化学習が有効なのか",
+   "summary_ja": "オフロードなどの非構造環境では実機での試行錯誤が危険なためシミュレーション学習が不可欠ですが、現実とのギャップ（Sim-to-Realギャップ）が大きな壁でした。本研究は、意味論的中間表現（MLR）シミュレータと軌道整合手法を組み合わせることで、追加学習なしで実車に適用できるMILERを提案します。",
+   "details_ja": "強化学習（RL）は人間を超えるような制御方策を自己学習できる魅力的な手法ですが、オフロードなどの非構造環境で実機を使って転移学習や試行錯誤を繰り返すことは、衝突などの安全面から許容されません。そのためシミュレータ環境での学習が基本となりますが、現実世界の複雑な物理現象や多種多様な見た目をシミュレータ内で完全に再現することは極めて困難です。\n\n本論文が提案するMILERは、このSim-to-Real問題をスマートに回避します。知覚側では、カメラやLiDARの生データを直接シミュレートするのではなく、意味論的鳥瞰図（BEV）という「中間表現」に集約します。シミュレータ側ではMinecraftの地形生成から着想を得たプロシージャル生成マップを使い、車両運動も単純な2輪モデル（バイシクルモデル）のみで扱います。\n\nそして実車走行時には、車載センサからBEVFusionで生成した実環境のBEVを仮想車両の座標系に合わせ込み、強化学習ポリシーが計算した行動に従って仮想車両を動かし、実車はそれを追いかけるという「軌道整合」アプローチを採用します。これにより、車両ダイナミクスや知覚のドメインギャップを最小限に抑え、事後調整なし（ゼロショット）で2台の異なる実車への適用を可能にしました。",
+   "figures": []
+  },
+  {
+   "heading": "I-A Related Work",
+   "heading_ja": "先行研究との違い：高精度シミュレータへの依存から脱却する",
+   "summary_ja": "従来のSim-to-Real研究は、写実的なグラフィクスや精緻な車両物理モデルを構築するアプローチが主流でした。本研究は都市部で使われ始めた中間表現をオフロードに応用し、知覚と制御の双方を幾何学的・制御工学的に橋渡しする点で一線を画しています。",
+   "details_ja": "オフロードや非構造環境でのSim-to-Real研究は、都市部の自動運転に比べてまだ非常に限られています。模倣学習や実機での直接強化学習も研究されていますが、安全性が最優先されるシステムにおいてシミュレータなしの学習・評価は現実的ではありません。\n\nSim-to-Realにおける課題は大きく「知覚」と「アクチュエーション（車両制御・運動）」の2つに分かれます。\n\n- **アクチュエーションの転移**: 速度が上がると車体振動や遅延、摩擦の影響で挙動が不安定になります。従来は詳細な物理モデルを作るか、実走行データから車両モデルを学習する手法がとられていましたが、本研究ではシミュレーション上の仮想車両に実車を追従させる「軌道整合（Trajectory Alignment）」を採用し、物理モデルの詳細化そのものを不要にしています。\n- **知覚の転移**: これまでは高忠実度シミュレータ（CARLAなど）でカメラやLiDARのレンダリングを現実に近づける工夫がされてきました。しかしテクスチャやライティングのモデリングには莫大な労力がかかります。中間表現（BEVやセグメンテーション画像）を介す研究も存在しますが、依然として高精細シミュレータに依存していました。\n\n都市部向けにはNocturneやCommonRoadといった抽象表現シミュレータが存在しますが、非構造環境の強化学習に意味論的中間表現シミュレータを本格適用した事例は本研究が初めてです。",
+   "figures": []
+  },
+  {
+   "heading": "II Methods",
+   "heading_ja": "MILERの設計：シミュレータ、状態表現、学習法、そして実機転移",
+   "summary_ja": "パーリンノイズで自動生成したBEVマップ上でバイシクルモデルを動かし、PPOを用いて加加速度と操舵角速度変化量を学習します。実機への展開時は、BEVFusionで得たBEVを円形クロップ処理して座標系を合わせ、実車を追従制御させます。",
+   "details_ja": "### II-A シミュレータ（MLR Simulator）\nシミュレータ内では現実のような3Dレンダリングを行わず、直接GPU上で意味論的グリッドマップを扱います。クラスは「Drivable（舗装路・砂利）」「Semi-drivable（草地）」「Non-drivable（障害物・静止車両）」「None（未知領域）」の4つだけです。Minecraftの地形生成のように複数のパーリンノイズを重ね合わせ、多様な形状のマップ（500 m × 500 m、解像度0.4 m）を3,800枚自動生成しました。グラフ探索と移動平均平滑化（CCMA）で大まかな目標経路（ウェイポイント）を生成し、エージェントには初期位置や操舵角にガウスノイズを与えて探索性と頑健性を高めています。\n\n### II-B モデル化と報酬設計\n方策ネットワークへの入力状態は、自車中心のBEV（60 m四方、解像度0.25 m、ワンホット表現＋ウェイポイント描画チャンネル）、車両状態（速度、加速度、操舵角、操舵角速度）、前回の行動、目標速度、前方80点の相対ウェイポイント列、ゴールまでの残り距離です。これらをCNNとMLPで特徴抽出し、結合して行動を出力します。\n行動空間は、ジャーク（加加速度）と操舵角速度の変化量という高次微分の2自由度とし、それぞれ5段階に離散化した計25通りのカテゴリカル分布として出力します。2回積分されてから車両位置に反映されるため、離散化されていても滑らかな走行が可能です。\n報酬は経路に沿った進行量$\\Delta s$をベースとし、目標速度の一致度、方位誤差へのペナルティ、急加速・急操舵を防ぐ滑らかさペナルティ、障害物からの距離や草地走行時の速度制限ペナルティを加えています。\n\n### II-C 強化学習設定\nPPOをベースとし、初期の衝突ペナルティなどを緩めて徐々に厳しくするカリキュラム学習を採用しました。また、割引率をあえて$\\gamma=1$（無割引）とすることで、目先の報酬にとらわれず危険な無茶をしない大局的な安全運転を促しています。\n\n### II-D 実機への展開（Deployment）\n実機上ではBEVFusionによりカメラとLiDARから実環境のBEVを推定します。しかし、実車とシミュレーション内の仮想車両にはズレが生じるため、実車中心のBEVを同次変換で行列回転・平行移動させて仮想車両中心に変換します。この際、回転時の境界欠落を防ぐために円形クロップ（Circular Crop）を施します。仮想車両を行動方策で進め、実車はスタンレー制御器などの縦横フィードバック制御によって仮想車両の軌跡を追従します。この一連の推論はエッジデバイスのJetson AGX Orin上で平均1.9 msで完了します。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "パーリンノイズを重ね合わせて生成された合成マップ（上段）と、車両中心で切り出された60 m四方の意味論的BEV（下段）の例です。緑が走行可能路、黄が草地などの準走行可能路、赤が障害物を示しており、多彩な走行環境が自動生成されています。",
+     "caption": "Fig. 3: Examples of synthetically generated maps and corresponding BEVs. The top row shows five example maps with their target-waypoint networks. The bottom row shows BEVs obtained at the centers of the maps, including bounding boxes representing typical vehicle dimensions. The maps measure $$500\\text{\\,}\\mathrm{m}$\\times$500\\text{\\,}\\mathrm{m}$$ , and the BEVs measure $$60\\text{\\,}\\mathrm{m}$\\times$60\\text{\\,}\\mathrm{m}$$ . Classes: Drivable ( ), Semi-drivable ( ), and Non-drivable ( ).",
+     "image": "details/2609.20747/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "方策ネットワークのアーキテクチャです。BEVはストライド付きCNNで圧縮され、車両状態や目標経路などの数値ベクトルはMLPで処理された後、結合されて行動ロジットと状態価値を出力します。",
+     "caption": "Fig. 4: The policy network architecture. The BEV is processed by a CNN and subsequently flattened. The vehicle state, previous actions, target waypoints, target velocity and remaining path length are processed by an MLP. All resulting vectors are concatenated and fed into a final MLP to produce the output.",
+     "image": "details/2609.20747/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "実車（黒）と仮想車両（青）の知覚入力を位置合わせする手順です。(A) BEVFusionで得た実車中心のBEVを、(B) 仮想車両座標系へ変換し、(C)(D) 回転や並進に伴う端のアーティファクトを円形クロップで除去して方策へ入力します。",
+     "caption": "Fig. 5: Transformation of the perception inputs of the real vehicle (black) and virtual vehicle (blue), illustrated using a simplified BEV of size $$20\\text{\\,}\\mathrm{m}$\\times$20\\text{\\,}\\mathrm{m}$$ and exaggerated lateral and rotational offsets. (A) Original BEV produced by BEVFusion and centered on the real vehicle. (B) BEV transformed into the virtual-vehicle frame using nearest-neighbor cell assignment; cells outside the original BEV are assigned to the None class. (C) Circular cropping with radius $\\frac{1}{2}W_{\\mathrm{BEV}}$ eliminates rotational artifacts. …",
+     "image": "details/2609.20747/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "III Evaluation",
+   "heading_ja": "実車実験：時速33.6 kmを記録、2台の異なる車両で完全自律走行を達成",
+   "summary_ja": "車両重量やホイールベースの異なる2台の実車を使い、全長3.0 kmの過酷なコースで評価しました。人間の介入なしで合計17.3 kmを走破し、最大33.6 km/hの滑らかな高速走行と障害物回避を実現しています。",
+   "details_ja": "### III-A シミュレーション学習\n学習はNVIDIA A100 GPU 1枚で約68時間（10億サンプル、200万エピソード以上）実施しました。動的・運動学的制約は、実車の物理限界よりも保守的に低く設定されています。\n\n### III-B 実機評価シナリオ\n実験にはホイールベースや車重の異なる2台のテスト車両（MuCAR-4: 2.60 m/1.8 t、MuCAR-3: 2.86 m/2.5 t）を使用しました。学習自体はMuCAR-4のパラメータのみで行われましたが、同一の学習済みモデルを両方の車両にそのまま適用しています。コースは全長3.0 kmで、最高速を出せる直線、コンテナや樹木、工事用バリケード、180度ヘアピンカーブ、背の高い草地や砂利道などが混在しています。\n各車両で3周連続走行を試み、合計17.3 kmを走破しました。MuCAR-4は全3周を完全介入なしで完走し、直線では最高速度33.6 km/hを達成しました。急カーブ前や障害物の側を通過する際には報酬設計通りに適切に減速し、激しい横揺れ（ハンチング）のないスムーズな挙動を見せました。また、目標経路がポールで遮られている箇所では、障害物の隙間を見つけて自律的に迂回して走行しました。なお、MuCAR-3の3周目において、降雨と夕暮れの暗さにより知覚（BEVFusion）が障害物を過剰に大きく検知したため、狭い隙間を通れずに安全停止する事象が1度だけ発生しました。\n\n### III-C アブレーション研究\n- **知覚ギャップの検証**: HDマップから直接生成した同一の理想的BEVと、実際のBEVFusionによるBEVを比較しました。理想的BEVを入力した場合、車両間の平均速度差はわずか0.150 m/sとなり、方策自体が車両個体差に対して極めて頑健であることが確認されました。\n- **軌道整合の有無**: 軌道整合を排してポリシーの出力を直接実車の制御入力にした場合、時間遅延や摩擦の影響で激しいハンチングが発生し、最初のカーブを曲がりきれずに障害物手前で停止してしまいました。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "実車走行実験における代表的なシーンです。直線路での最高速33.6 km/h走行（左）、工事用バリケード回避と急カーブ（中央）、ポールを避けて隙間を通り抜ける迂回行動（上中央）、草地走行時の自律的な減速（右上）など、多彩な状況を滑らかに走破しています。",
+     "caption": "Fig. 6: Selected scenarios from the real-vehicle tests. The figure shows fused BEVs, the target waypoints (brown), the ego vehicle’s position with color-coded velocity, the start of each scenario (black dot), a grid with $2\\text{\\,}\\mathrm{m}$ $\\times$ $2\\text{\\,}\\mathrm{m}$ cells and selected images from the scenarios on the left. For improved visibility, we reduced the BEV radius to $20\\text{\\,}\\mathrm{m}$ . All BEVs are fused using the orientation of the first BEV, and newer BEVs overwrite older ones.",
+     "image": "details/2609.20747/F6.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "制御アブレーション実験の結果です。軌道整合をオフにしてポリシーの制御出力を直接車両に流し込んだ場合、遅延やモデル化誤差によってカーブで制御遅れが生じ、障害物へ向かって停止して走行に失敗しました。",
+     "caption": "Fig. 8: Control ablation with vehicle B. The scenario shows how the vehicle failed to navigate the first curve of the track, driving toward an obstacle and stopping in front of it.",
+     "image": "details/2609.20747/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Limitations",
+   "heading_ja": "残された課題：人間の熟練運転とのギャップと知覚距離の限界",
+   "summary_ja": "ヘアピンカーブ手前での「アウト・イン・アウト」のような熟練した大回り挙動は獲得できておらず、またBEVの有効距離（60 m）の制限により、40 km/hを超えるような超高速域の制御にはさらなる先読みが必要であることが分かりました。",
+   "details_ja": "実験を通じていくつか明確な限界も見えてきました。\n\n第1に、熟練ドライバーのような高度なマニューバの欠如です。エージェントは180度ヘアピンカーブに入る手前で車体を外側に振るような予備動作（アウト・イン・アウト）を行わず、2つ目のバリケードを避ける際にも1つ目ほど余裕を持った進入ができませんでした。これは、目標経路からどれだけ逸脱してよいかという探索と安全のトレードオフに起因しています。経路から離れすぎると、後から障害物が現れた際に行き止まりになるリスクがあるため、方策が保守的になりがちです。\n\n第2に、速度の上昇限界です。学習時に目標速度を40 km/h以上に設定しても、エージェントの最高速度は伸び悩みました。これはBEVのセンシング範囲が車両中心で60 m（前方約30 m）に制限されているためです。ジャーク$-2.0\\,\\mathrm{m/s^3}$、減速度$-2.0\\,\\mathrm{m/s^2}$という安全制約下では、35 km/hからの停止に最低でも28.4 mの制動距離を要します。つまり、これ以上の高速走行を行うには、より遠方まで見通せる知覚範囲と先読みが必要になります。",
+   "figures": []
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望：軽量中間表現が拓くオフロード強化学習の可能性",
+   "summary_ja": "MILERは、意味論的中間表現と軌道整合によって、重たい物理・3Dシミュレータなしに時速30 km超のゼロショットSim-to-Realを達成しました。今後は人間の運転データの活用や、動的な他車両・歩行者がいる環境への拡張が期待されます。",
+   "details_ja": "本論文では、非構造環境における強化学習自動運転のためのフレームワーク「MILER」を提案しました。軽量な意味論的中間表現（MLR）シミュレータで方策を訓練し、軌道整合手法を空間的な中間表現へと拡張することで、追加の学習を一切行わずに実車へのゼロショット転移を成功させました。\n\n実車2台を用いた大規模な検証により、30 km/hを超える速度域でも車体の発振（ハンチング）を起こさず、未知のオフロードコースを安定して走破できることが実証されました。一方で、10億サンプルという大規模な学習を行っても、カーブ前の外振りなど人間的な運転技術を自動獲得するには至りませんでした。著者らは今後、人間の運転データを併用した学習手法や、動的な障害物・他車両が混在するより高度な環境への対応を進めるとしています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "重厚な3Dグラフィクスや精緻な車両物理モデルを作り込まなくても、意味論的BEV＋2輪モデルという極めて抽象的なシミュレーションでオフロードの強化学習が可能であること",
+  "シミュレーション内の仮想車両を実車が追従する「軌道整合（Trajectory Alignment）」を取り入れることで、車両ダイナミクスや遅延によるSim-to-Realギャップを実質的に無効化できること",
+  "行動空間を加加速度（jerk）と操舵角速度変化量という高次微分に設定することで、離散的な行動選択であっても実車走行時の滑らかさを大幅に担保できること"
+ ],
+ "limitations_ja": [
+  "ヘアピンカーブでのアウト・イン・アウトなど、人間ドライバーのような戦略的でダイナミックな走行マニューバは自己学習できていない点",
+  "BEVの知覚レンジ（前方約30 m）が制動距離のボトルネックとなり、時速40 km以上の超高速走行への拡張にはより長距離の先読みが必要になる点",
+  "雨天や薄暗い時間帯など、BEVFusionのセグメンテーション精度が低下する悪天候下では、走行可能領域を誤認識して立ち往生するリスクがある点"
+ ],
+ "keywords": [
+  "Reinforcement Learning",
+  "Sim-to-Real Transfer",
+  "Autonomous Driving",
+  "Bird's-Eye-View (BEV)",
+  "Unstructured Environments"
+ ],
+ "id": "2609.20747",
+ "title": "MILER: Semantic Mid-Level Representation for Sim-to-Real Reinforcement Learning in Unstructured Autonomous Driving",
+ "authors": [
+  "Thomas Steinecker",
+  "Denis Trescher",
+  "Alexander Bienemann",
+  "Thorsten Luettel",
+  "Mirko Maehlisch"
+ ],
+ "date": "2026-09-19",
+ "group": "focus",
+ "tags": [
+  "reinforcement-learning",
+  "sim-to-real",
+  "autonomous-driving",
+  "simulation"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.20747",
+ "pdf_url": "https://arxiv.org/pdf/2609.20747",
+ "summary_ja": "非構造化環境での自動運転を対象に、意味的中間表現（MLR）を用いたゼロショットSim-to-Real強化学習フレームワークを提案。独自の軽量MLRシミュレータ上でRL方策を訓練し、実車ではカメラから抽出したMLRを入力とすることで、現実環境へ直接転移させた。",
+ "generated": "2026-09-19",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.20747"
+}
