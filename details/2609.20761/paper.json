@@ -1,0 +1,125 @@
+{
+ "title_ja": "Agile-WAM: 接触リッチなロボット制御のための触覚ワールドアクションモデル",
+ "tldr_ja": "視覚と触覚の時間スケールの違いに着目し、軽量なFlow Matchingによって未来の状態予測とロボットの行動系列生成を同時に行うことで、高精度な接触作業とわずか11.9ミリ秒の推論遅延を両立させた論文です。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "Agile-WAMの全体アーキテクチャです。視覚・触覚・固有感覚の観測を一度だけ共有潜在空間へと射影し、軽量なFlow Matchingネットワークによって行動系列と未来の視覚・触覚潜在表現をまとめて生成する無駄のない構造になっています。",
+  "caption": "Fig. 2: Overview of Agile-WAM . Agile-WAM encodes visual, tactile, and proprioceptive observations into a shared latent that serves as the source of a lightweight vision-tactile-to-action flow-matching backbone. The flow jointly generates latent representations of the action chunk and future visual and tactile observations. An action autoencoder provides a structured action latent space, while multi-horizon multimodal prediction uses a longer horizon for vision and a short horizon for tactile feedback to capture their distinct temporal dynamics. The model is trained end-to-end with flow-matching, action reconstruction and generation, and visual/tactile latent prediction losses.",
+  "image": "details/2609.20761/F2.jpg"
+ },
+ "overview_ja": "ギアの噛み合わせやコネクタの挿抜のような「接触がリッチな作業」では、視覚情報だけでは力加減や微小なズレを捉えきれません。そこで環境のダイナミクスを予測しながら行動を生成するワールドアクションモデル（WAM）に触覚を統合する試みが注目されていますが、既存のモデルは大規模な動画生成モデルに依存しており、計算コストが重く現場での高速制御に向かないという大きな課題がありました。\n\n著者らが着目したのは、「視覚と触覚は変化のタイムスケールが本質的に異なる」という点です。カメラ画像は前後のフレーム間で滑らかに変化するため直近を予測しても学びが少ない一方、触覚センサの信号は物体に接触した瞬間に跳ね上がるため、遠い未来を予測しようとすると重要な接触変化を見落としてしまいます。そこで本研究は、視覚は少し先の未来（アクション実行長に合わせたステップ）、触覚は直近の1ステップ先を予測する「マルチホライズン多峰性予測」を導入しました。さらに、視覚・触覚から行動へと直接潜在空間を輸送する軽量なFlow Matchingを採用し、重いクロスアテンションを徹底的に排除しました。\n\nシミュレータ上の9タスクと実機ロボットによる5つの高難度な接触作業で検証したところ、実機実験では従来手法に対して成功率が相対値で29.4%向上し、推論遅延もわずか11.9 ms（RTX 4090）に抑えられることを実証しました。大規模モデルに頼らなくても、適切な時間スケールの設計と直接的な生成フローによって、高速かつ正確な触覚ワールドモデルが実現できることを鮮やかに示しています。",
+ "contributions_ja": [
+  "視覚と触覚の観測を共有潜在空間に統合し、クロスアテンションを使わずに軽量なFlow Matchingで直接行動と未来予測を生成するAgile-WAMを提案した点。",
+  "時間変化が緩やかな視覚は長めのホライズン、急激に変化する触覚は直近1フレームを予測する「マルチホライズン多峰性予測」を導入し、接触ダイナミクスの学習効率を劇的に改善した点。",
+  "シミュレータ9環境および実機5環境の接触リッチなタスクにおいて、最先端の拡散・フローベース手法を上回る成功率を達成し、実機で11.9 msの低遅延推論を実現した点。"
+ ],
+ "sections": [
+  {
+   "heading": "I INTRODUCTION",
+   "heading_ja": "なぜ触覚ワールドモデルに「軽さ」と「時間差」が必要なのか",
+   "summary_ja": "ワールドアクションモデルは環境の未来予測と行動生成を同時に学習することで優れた制御性能を発揮しますが、既存の触覚対応モデルは大規模な事前学習済み動画生成モデルに頼っており推論が重いという難点があります。本論文は、視覚と触覚の時間スケールの違いに着目したマルチホライズン予測と、軽量なFlow Matching backboneを組み合わせることでこの課題を打破します。",
+   "details_ja": "ロボットが環境と物理的にインタラクションするとき、視覚だけではどうしても限界があります。特に硬い物体同士が接触するような作業では、見た目はほとんど同じなのに加わっている力が全く異なるというケースが頻繁に起こるからです。そこで触覚センサ（本研究では接触面の力と方向を捉えるTacFF: 触覚力場センサ）の併用が必須になります。\n\n近年では、環境がどう変化するかという物理ダイナミクスと行動を同時に予測する「ワールドアクションモデル（WAM）」に触覚を取り入れる研究が登場しています。しかし、その多くは大規模な事前学習済み動画生成モデルをベースにしており、推論に膨大な計算リソースを消費します。これでは、高い制御周波数が求められる実機のオンボード環境には載せられません。「ワールドモデルの予測能力を保ったまま、軽快（Agile）に動く触覚モデルは作れないのか？」というのが本論文の出発点です。\n\nここで鍵となったのが、視覚と触覚の「時間変化のスピード感の違い」です。カメラ画像は連続するフレーム同士が非常によく似ており、1ステップ先を予測させても自明すぎて大したダイナミクスを学べません。一方で、触覚信号は接触した瞬間に劇的にスパイクするため、先のステップを予測させると細かい接触の遷移を捉えきれなくなります。\n\nそこで本研究では、視覚はまとまった未来（実行するアクション長と同じオフセット）、触覚は次の1フレームを予測対象とする「マルチホライズン多峰性予測」を考案しました。さらに、画像と触覚の潜在表現から直接ターゲットを生成するFlow Matchingを用いることで、重いクロスアテンションを一切挟まない超軽量なアーキテクチャ「Agile-WAM」を完成させました。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "触覚学習・ワールドモデル・Flow Matchingの交差点",
+   "summary_ja": "触覚の利用は単なる方策の入力や反射的なフィードバックにとどまるものが主流でしたが、近年はワールドモデルへと発展しています。本論文は、動画基盤モデルを巨大化させる最近の潮流とは一線を画し、Flow Matchingによるダイレクトな生成とマルチモーダル予測を組み合わせたアジャイルな路線を開拓しています。",
+   "details_ja": "本研究の関連領域は大きく3つに分けられます。\n\n- ロボット学習における触覚統合: 触覚センサから得られる接触力や滑りの情報は、操作ポリシーの学習に不可欠です。しかし、先行研究の多くは触覚信号をポリシーの追加の入力として扱ったり、反射的なフィードバック制御に使ったりするにとどまっていました。Agile-WAMでは、触覚の未来予測そのものをモデルの学習目標に組み込み、接触ダイナミクスを能動的に理解させます。\n- ロボット向けワールドアクションモデル: 未来の観測と行動を一緒にモデル化することで物理的な先読み能力を持たせるWAMは、視覚中心から触覚へと広がりつつあります。しかし既存の触覚WAM（Tactile-WAMなど）は、大規模な事前学習済み生成モデルをファインチューニングするアプローチが中心で、推論の重さがネックでした。Agile-WAMはゼロから学習する軽量なバックボーンでこれを代替します。\n- Flow Matchingによる行動生成: ガウスノイズから繰り返しデノイズする拡散モデルに比べ、Flow Matchingはより少ないステップ数で高品質な連続行動系列を生成できます。特に、観測潜在表現を初期分布としてターゲットへ直接ベクトル場を張る手法（VITAなど）は、生成ループ中の条件付け（Cross-Attention）をなくせる利点があります。Agile-WAMはこの発想を拡張し、行動だけでなく未来の視覚・触覚潜在表現まで一度のフローで同時生成します。",
+   "figures": []
+  },
+  {
+   "heading": "III METHODOLOGIES",
+   "heading_ja": "Agile-WAMの仕組み：直結Flow Matchingと時間差予測",
+   "summary_ja": "現在の視覚・触覚・固有感覚を1つの潜在表現にエンコードし、Flow Matchingによって行動チャンクと未来の視覚・触覚潜在表現を同時に生成します。視覚はアクション長に合わせた未来、触覚は直近の1フレーム先を予測させるマルチホライズン設計と、潜在空間での予測誤差逆伝播がポイントです。",
+   "details_ja": "Agile-WAMの全体構成とアルゴリズムは、無駄を削ぎ落とした洗練されたパイプラインになっています。\n\n### III-A 観測から行動・未来予測へのジョイントモデリング\n環境ステップ $t$ において、ロボットは画像 $O_t^{\\mathrm{vis}}$、触覚信号 $O_t^{\\mathrm{tac}}$、ロボット関節状態 $q_t$ を受け取ります。ポリシー $\\pi$ が生成するのは、長さ $H$ の行動チャンク $a_{t:t+H}$ と、未来の観測の潜在表現 $z_t^{\\mathrm{future}} = [z_{t+h_{\\mathrm{vis}}}^{\\mathrm{vis}}, z_{t+h_{\\mathrm{tac}}}^{\\mathrm{tac}}]$ です。\n\n通常のフロー生成ではガウスノイズからスタートして観測を毎ステップ注入しますが、Agile-WAMでは現在の観測を統合した潜在表現 $z_0$ そのものをフローの始点（ソース分布）とします。終点（ターゲット）は行動と未来潜在表現を連結した $z_1 = [z_1^a, z_1^{\\mathrm{vis}}, z_1^{\\mathrm{tac}}]$ です。フロー時間 $\\tau \\in [0,1]$ の線形補間において、軽量なMLPネットワーク $v_\\theta$ が速度場 $z_1 - z_0$ を学習します。生成ループの中で追加の条件付けを行わないため、常微分方程式（ODE）を解く計算が極めて高速です。\n\n### III-B Agile-WAMのモデル設計と学習損失\n画像エンコーダには事前学習済みResNet-18を、触覚エンコーダには空間構造を持つTacFF信号に合わせてゼロから学習するResNet-18を使用し、関節状態とともに線形射影して $z_0$ を作ります。\n\n行動空間の崩壊を防ぐため、行動のエンコーダ $E_a$ とデコーダ $D_a$ からなるオートエンコーダを用意します。学習時には、正解行動の再構成損失 $\\mathcal{L}_{\\mathrm{AE}}$ に加え、ODEを実際に解いて生成された潜在変数 $\\hat{z}_1^a$ をデコーダに入力した際の行動誤差 $\\mathcal{L}_{\\mathrm{act}}$ もバックプロパゲーションします。これにより、ODEの積分プロセスを通じて生成される潜在表現が、実行可能な正解行動へと強力に引き戻されます。\n\n### III-C マルチホライズン多峰性予測\nここが本手法の真骨頂です。未来の潜在表現の予測ターゲットを、触覚は直近フレーム（$h_{\\mathrm{tac}} = 1$）、視覚は実行アクション長に合わせた未来（$h_{\\mathrm{vis}} = h = 8$）に設定します。ピクセル単位での画像再構成は計算が重すぎるため、エンコーダを通過した後の潜在空間で平均二乗誤差 $\\mathcal{L}_{\\mathrm{vis}}$ と $\\mathcal{L}_{\\mathrm{tac}}$ を計算します。全体の目的関数はFlow Matching損失 $\\mathcal{L}_{\\mathrm{FM}}$ を含む5つの損失の加重和としてエンドツーエンドで最適化されます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "Agile-WAMのデータフローと損失設計です。現在フレームのカメラ画像と触覚信号をエンコードして共有潜在表現 $z_0$ を作り、Flow Matchingによって行動チャンク・視覚潜在変数（$t+h$）・触覚潜在変数（$t+1$）を一度に生成します。",
+     "caption": "Fig. 2: Overview of Agile-WAM . Agile-WAM encodes visual, tactile, and proprioceptive observations into a shared latent that serves as the source of a lightweight vision-tactile-to-action flow-matching backbone. The flow jointly generates latent representations of the action chunk and future visual and tactile observations. An action autoencoder provides a structured action latent space, while multi-horizon multimodal prediction uses a longer horizon for vision and a short horizon for tactile feedback to capture their distinct temporal dynamics. The model is trained end-to-end with flow-matching, action reconstruction and generation, and visual/tactile latent prediction losses.",
+     "image": "details/2609.20761/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV EXPERIMENTS",
+   "heading_ja": "実機挿入タスクで成功率29.4%向上、推論はわずか11.9ミリ秒",
+   "summary_ja": "シミュレーション9タスクおよび実機5タスクで評価を実施しました。Agile-WAMは最先端の拡散・フローベース手法を上回る高い成功率を記録し、初期位置がズレても触覚を頼りに手探りで修正するリカバリ動作を自律的に獲得しました。さらに1回の推論遅延は11.9 msと、高周波制御に十分なリアルタイム性を実証しています。",
+   "details_ja": "### IV-A 実験設定\n評価にはManiFeelシミュレータの9タスクと、Flexiv Rizon 4ロボットアームを用いた実機5タスク（ギア組み立て、ペグ挿入、LANケーブル挿入、LANケーブル抜去、電源プラグ挿入）を採用しました。実機の手先には $32 \\times 32$ のピエゾ抵抗式圧力センサとRealsense D405を搭載しています。比較対象は、視覚のみのDiffusion Policy (DP) とVITA、視覚＋触覚のDP-VTとVITA-VT、そして触覚WAMの先行研究であるTactile-WAM（TAAM）です。行動チャンクは $H=16$、実行長は $h=8$、Eulerソルバによる生成ステップ数はわずか6ステップに設定されています。\n\n### IV-B 性能評価とリカバリ動作\n実機実験の結果、Agile-WAMはベースラインに対して全体成功率で相対29.4%の大幅な向上を達成しました。特筆すべきは、手先カメラが挿入対象で遮蔽されて「目隠し」状態になったときの適応力です。ペグ挿入で穴のフチに当たった際、視覚のみのVITAは止まってしまい、単純に触覚を入れただけのVITA-VTは強引に押し込もうとして失敗します。一方、Agile-WAMは表面を滑らせるように微小に動かしながら穴を探り当ててスムーズに挿入しました。ギアの噛み合わせでも、引っかかりを検知して手先を軽くひねって修正する動作が見られました。\n\n### 推論効率の比較\nRTX 4090を用いたレイテンシ測定において、Agile-WAMの推論時間はわずか11.9 msでした。100ステップのデノイズを要するDP（487.6 ms）と比べて約40倍高速であり、未来予測ヘッドを持たない最小構成のVITA（10.7 ms）と比べてもオーバーヘッドはごくわずかです。潜在空間の拡張分はGPUの並列計算によって完全に隠蔽されています。\n\n### IV-C & IV-D アブレーション研究\n予測損失を外すと性能が落ちることから、性能向上はモデル容量の増加ではなく未来予測そのものによる効果であることが確認されました。また、入力と予測のモダリティが一致している（視覚・触覚の両方を入力し、両方を予測する）ときが最も高精度でした。ホライズンの比較では、両方を1ステップ先にすると視覚情報が自明すぎて悪化し、両方を8ステップ先にすると触覚の急激な変化を捉えきれず精度が低下しました。視覚を+8、触覚を+1とするマルチホライズン設定が最適であることが数字で裏付けられています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "実機で検証された5つの接触リッチなタスクです。ギアの噛み合わせ、ペグ挿入、LANケーブルの抜き差し、コンセントへのプラグ挿入など、手先カメラの死角が生じやすく触覚フィードバックが不可欠な課題が揃っています。",
+     "caption": "Fig. 3: Real-world experiments include five challenging tasks: Gear Assembly, Peg Insertion, Internet Cable Insertion, Internet Cable Unplugging, and Power Plug Insertion.",
+     "image": "details/2609.20761/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "Agile-WAMが獲得したリカバリ動作の様子です。最初のアプローチで位置がズレても、対象を押し潰すことなく適切な接触圧を保ちながら手探りで正しい位置へと修正しています。",
+     "caption": "Fig. 4: Agile-WAM effectively learns corrective behaviors in real-world experiments. When the initial attempt fails to align the object with the target position, Agile-WAM can still recover under an obstructed visual view by gently maintaining contact with the surrounding surface and using tactile feedback to search for the correct insertion position. This recovery capability substantially improves the success rate over baselines, which often fail to correct the misalignment.",
+     "image": "details/2609.20761/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "各種アブレーション実験の結果です。(a)予測損失の有無、(b)予測モダリティの組み合わせ、(c)視覚と触覚の予測ホライズンの違い、(d)予測損失の重みによる影響がそれぞれ示されています。",
+     "caption": "Fig. 5: Ablation studies of Agile-WAM . (a) Joint action–future modeling improves performance beyond the gain from increased latent capacity. (b) Jointly modeling both future visual and tactile observations provides the strongest performance under multimodal input. (c) Multi-horizon multimodal prediction better matches the different temporal characteristics of vision and tactile signals. (d) We vary the visual and tactile prediction loss weights to explore their respective influence on policy performance.",
+     "image": "details/2609.20761/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V CONCLUSIONS",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "視覚・触覚の特性を考慮したマルチホライズン予測と軽量Flow Matchingにより、高精度かつ高速なワールドアクションモデルが実現できることを示しました。巨大な基盤モデルを使わずとも、制御周波数の高い実機マニピュレーションに耐えうる実用的な触覚WAMの道筋を切り拓く成果です。",
+   "details_ja": "本論文では、接触リッチなロボット制御に向けた高速な触覚ワールドアクションモデル「Agile-WAM」を提案しました。マルチモーダル観測潜在表現をそのままFlow Matchingのソースとし、クロスアテンションを介さずに直接行動と未来潜在変数を生成する設計により、抜群の計算効率を達成しています。\n\nまた、視覚はマクロな時間変化、触覚はミクロな急峻変化を追うという「マルチホライズン多峰性予測」の導入が、接触を伴う繊細な修正行動の獲得に決定的な役割を果たすことが実験的に示されました。シミュレーションと実機の双方で最先端手法を凌駕しつつ、11.9 msという超低遅延を達成した本成果は、リアルタイムロボット制御におけるワールドモデル活用の新たなスタンダードとなる可能性を秘めています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "視覚と触覚をマルチモーダル学習させる際は、変化のタイムスケールの違い（視覚は緩やか、触覚は急激）を考慮して予測ホライズンを分ける設計が極めて有効である。",
+  "動画基盤モデルを無理にファインチューニングしなくても、直接的なFlow Matchingを使えばゼロからの学習で十分に強力なワールドアクションモデルが作れる。",
+  "現在の観測潜在変数をそのままフローの始点に置くアーキテクチャ（Direct Flow Matching）は、生成ループ中のCross-Attentionを排除できるため実機制御のレイテンシ削減に直結する。"
+ ],
+ "limitations_ja": [
+  "触覚センサとして空間解像度を持つTacFF型やグリッド型圧力センサを前提としており、一般的な1軸・6軸力覚センサなどの異なるセンサ形式にそのまま適用できるかは検証されていない。",
+  "実機評価における教示データ収集はテレオペレーションに依存しており、リカバリ動作を学習させるために意図的に失敗・修正軌道を含めたデータを用意する必要がある。",
+  "推論自体は11.9 msと高速であるものの、実システム全体としての制御周期はカメラや触覚センサのサンプリング周波数（本実験では30 Hz）によって律速される。"
+ ],
+ "keywords": [
+  "World Action Model",
+  "Tactile Sensing",
+  "Flow Matching",
+  "Contact-Rich Manipulation",
+  "Robot Learning"
+ ],
+ "id": "2609.20761",
+ "title": "Agile-WAM: An Agile Tactile World Action Model for Contact-Rich Robot Control",
+ "authors": [
+  "Hanchu Zhou",
+  "Brendan Lynch",
+  "Raman Goyal",
+  "Dechen Gao",
+  "Begum Kasap",
+  "Boqi Zhao",
+  "Junshan Zhang"
+ ],
+ "date": "2026-09-19",
+ "group": "focus",
+ "tags": [
+  "control",
+  "world-model",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.20761",
+ "pdf_url": "https://arxiv.org/pdf/2609.20761",
+ "summary_ja": "接触を伴う制御に向けた推論効率の高い触覚ワールドアクションモデルを提案。視覚と触覚の観測を共有潜在空間へ直接エンコードし、フローマッチングにより未来の状態予測と行動生成を統合することで、大規模な生成基盤に頼らずに効率的な実機展開を可能にした。",
+ "generated": "2026-09-19",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.20761"
+}
