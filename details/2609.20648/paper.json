@@ -1,0 +1,130 @@
+{
+ "title_ja": "SkipVLA: 高速なロボット操作に向けた古典的計画によるVLA推論ステップのスキップ",
+ "tldr_ja": "巨大なVLAモデルを物体接触の瞬間だけに限定し、空間移動を高速な古典的動作計画器に任せることで、成功率を落とさずにタスク時間を最大2.5倍高速化し消費エネルギーを半減させました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "実機の6自由度アームによるピック＆プレースにおけるSkipVLAの動作の様子です。空間内の移動（白矢印の①や②から③への移動）は古典プランナーが高速に行い、掴む・置くといった繊細な接触動作（赤色の②や黄色の③）のときだけVLAに制御を切り替えています。",
+  "caption": "Figure 1 : Our hybrid method on a real-world pick-and-place task, shown at three points in time. White arrows are free-space transit executed by the planner module. (❶, cyan) From the start pose, the planning module predicts a hover target above the red block and moves the arm to it. (❷, red) The VLA expert module performs the grasp. When the gripper closes, control returns to the planner, which moves the arm to a predicted hover target above the box. (❸, yellow) The VLA expert places the block in the box.",
+  "image": "details/2609.20648/F1.jpg"
+ },
+ "overview_ja": "カメラ画像と自然言語の指示からロボットの動作を直接生成するVision-Language-Action（VLA）モデルは、高い汎用性で注目を集めています。しかし、数十億パラメータのネットワークを制御ループごとに推論するためレイテンシが非常に大きく、タスク実行がもたつき、エッジデバイスでの消費電力も跳ね上がるという深刻な実用上の課題がありました。\n\nそこで著者らは、ロボットの操作タスクが「掴む・置くなどの繊細な接触動作」と「空間を大きく移動するフリースポート移動」に自然と二分できる点に着目しました。接触動作には画像から適応的に動くVLAの表現力が必須ですが、空中を移動するだけなら言語理解は不要で、幾何学的な衝突回避をミリ秒単位で解ける古典的な動作計画（サンプリング型プランナーなど）のほうが圧倒的に速く安全です。\n\n提案手法の「SkipVLA」は、VLAの凍結された視覚言語特徴を利用して移動目標となるホバー位置を予測し、空間移動は古典プランナー（VAMPやcuRoboV2など）に任せ、把持や配置の瞬間だけVLAを呼び出します。指示境界の判定にはグリッパーの開閉状態を活用するため、追加のアノテーションやポリシーの再学習は一切不要です。\n\nシミュレータ（LIBEROベンチマーク13タスク）と実機（6自由度YAMアーム3タスク）で3種類のVLAを用いて検証した結果、タスク完了までの実行時間を最大2.5倍（約60%減）に高速化し、NVIDIA Jetson Thorでの計算エネルギーを52%以上削減しました。さらに、移動中の誤差蓄積を古典プランナーがリセットするため、成功率自体も維持・向上することが示されました。",
+ "contributions_ja": [
+  "空間移動を古典プランナーに任せ、接触を伴うスキルのみにVLAを呼び出すプラグアンドプレイなハイブリッド制御フレームワーク「SkipVLA」を提案したこと。",
+  "VLAの凍結された視覚言語トークンを再利用し、既存の模倣学習データから追加アノテーションなしで3D目標位置を予測する軽量スコアリングヘッドを開発したこと。",
+  "シミュレーション13タスクと実機6自由度アーム3タスク、複数のVLA（π0.5、SmolVLA、MolmoAct2）およびプランナーにおいて、成功率を保ちながら最大2.5倍の高速化と52%超の省電力化を実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜ全動作を巨大なAIに任せる必要があるのか？",
+   "summary_ja": "VLAは高い汎用性を持つ一方で推論遅延が大きく、実用展開の大きなボトルネックになっています。操作タスクを「接触動作」と「空間移動」に分離し、移動を古典プランナーに肩代わりさせるSkipVLAの着想と概要を述べています。",
+   "details_ja": "近年のVLAモデルは、事前学習済みの視覚言語モデルにロボットのアクション生成ヘッドを組み合わせることで、自然言語による多様な指示の遂行や未知環境への汎化を可能にしました。しかし、数アクションを生成するたびに数十億パラメータのネットワークを推論する必要があり、その遅延はロボットの制御周期を大幅に上回ってしまいます。長時間のタスクでは動作がもたつき、計算資源の消費も激しくなります。\n\nこれまでの高速化のアプローチには、モデルの蒸留（軽量化）、非同期アクションチャンキング（推論と実行の並行化）、小型の低レベルポリシーを組み合わせる階層構造などがありました。しかし、蒸留は性能低下を招きやすく、非同期化は古いアクションの実行による分布シフトのリスクがあり、階層型はサブタスク用の小型モデルを一から学習し直す手間がかかります。何より、障害物のない空中を移動するだけの単純な動きにまで巨大モデルを呼び出しているという根本的な無駄が放置されていました。\n\nロボット操作は本来、「接触の多い細かなスキル（掴む、向きを変える、置く）」と「空間内の大まかな移動（物体に近づく、目標地点へ運ぶ）」の2つに分解できます。接触動作には視覚と動作の密なフィードバックが必要ですが、空間移動は単なる幾何学的な衝突回避問題です。古典的な動作計画器（サンプリングベースのプランナーや軌道最適化）を使えば、衝突のない安全な軌道をマイクロ秒からミリ秒単位で生成できます。ただし古典プランナーは意味を理解できないため、「何を掴むべきか」という目標位置を言語から決定することはできません。\n\nそこで本研究では、VLAの表現力を借りて目標位置を決定し、空間移動は古典プランナーに任せ、接触動作のみVLAが担当するハイブリッド制御「SkipVLA」を提案します。追加データ収集やVLAの再学習を行わずに導入できるプラグアンドプレイな手法です。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "実機におけるSkipVLAの実行サイクルです。初期位置からプランナーが物体の直上（ホバー位置）まで腕を運び（①）、把持の瞬間だけVLAが接触動作を実行（②）、グリッパーが閉じた後は再びプランナーが箱の上まで運び、VLAが配置動作を行います（③）。",
+     "caption": "Figure 1 : Our hybrid method on a real-world pick-and-place task, shown at three points in time. White arrows are free-space transit executed by the planner module. (❶, cyan) From the start pose, the planning module predicts a hover target above the red block and moves the arm to it. (❷, red) The VLA expert module performs the grasp. When the gripper closes, control returns to the planner, which moves the arm to a predicted hover target above the box. (❸, yellow) The VLA expert places the block in the box.",
+     "image": "details/2609.20648/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "学習ベース制御と古典的動作計画のこれまでの歩み",
+   "summary_ja": "VLAの高速化研究や古典プランナーとの統合を試みた先行研究を整理しています。幾何学最適化のみに頼る手法や復旧用途に限定していた従来法に対し、SkipVLAは事前学習表現を活用したスムーズな役割分担を実現している点で一線を画します。",
+   "details_ja": "関連研究は大きく3つの系統に分かれます。\n\n### VLAモデルとその高速化\n拡散モデルやフローマッチングを取り入れた最新のVLAは表現力に優れる一方、計算負荷が極めて高いです。軽量化のための蒸留モデルや、推論遅延を隠蔽する非同期チャンキング、小型ポリシーを組み合わせる階層型アプローチなどが提案されてきました。しかし、分布外へのドリフトや専用モデルの再学習コストといったトレードオフが常に付きまとっていました。\n\n### 古典的動作計画の強みと限界\nサンプリングベース動作計画（SBMP）やGPU並列軌道最適化（cuRoboなど）は、極めて高速かつ安全性の保証された軌道を生成できます。しかし、これらは純粋な座標幾何学の世界で動作するため意味論の理解がなく、自然言語から「どの物体を目標とすべきか」を自律的に導くことはできません。\n\n### 基底モデルと古典プランニングの統合\n基底モデルにコストマップや関係性の制約を出力させ、軌道最適化で解く研究（VoxPoserやReKepなど）もあります。しかし、タスク全体を幾何最適化に頼るため、コスト関数として定式化しにくい複雑でダイナミックな接触動作には適していません。また、プランナーを行動ポリシーと統合する試み（MPVIやLiLo-VLAなど）でも、ポリシーが分布から外れたときの復旧手段としてプランナーを使ったり、事前に定義されたスキル順序に依存したりといった制約がありました。\n\nこれに対しSkipVLAは、事前学習済みVLAの視覚言語特徴を空間移動の目標決定にのみ転用し、通常実行時の空間移動を動的に古典プランナーへバイパスします。VLAの学習済みポリシーを崩すことなく、大幅なレイテンシ削減と衝突回避を両立させています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "LIBEROタスクにおけるSkipVLAのロールアウトとスコア推移です。下部のグラフは対象物体のスコア予測確率を示しており、プランナーによる高速移動中（青）から物体直上に到達するとVLA制御（橙）へ切り替わり、把持が完了すると即座に次の目標（バスケット）が選択されてプランナー移動へ戻る様子が分かります。",
+     "caption": "Figure 2 : SkipVLA on a single LIBERO-Object episode. Top: five keyframes from one successful rollout of $\\pi_{0.5}$ + SkipVLA with the VAMP planner. (a) The scoring module selects a target object and pose. (b) VAMP’s plan is followed from start to target pose and control is handed over to VLA. (c) The VLA completes the skill of grasping and the control is handed over to SkipVLA which scores the next target. (d) VAMP’s plan is followed from start to target pose and control is handed over to VLA. (e) The VLA completes the skill of placing and task is marked complete. …",
+     "image": "details/2609.20648/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "III Background",
+   "heading_ja": "数式で見るVLAの動作サイクルとレイテンシのボトルネック",
+   "summary_ja": "VLAの定式化、アクションチャンキング、実行時間の内訳、模倣学習の基本を定義しています。制御周期に対して推論遅延が圧倒的に大きいという問題の所在を明確にしています。",
+   "details_ja": "本研究で扱う問題設定と表記法を整理します。\n\nロボットの一般化ポリシーを $\\pi^{\\text{vla}}$ と表します。このポリシーは、カメラ観測 $\\mathcal{O}_s$（ワークスペースのRGB-D画像や手先カメラ画像）、自然言語指示 $L$、および固有受容感覚状態 $\\mathbf{p}_s$（関節角度やグリッパー状態）を入力とし、ステップ $s$ におけるロボットのアクションを出力します。\n\n近年のVLAは1ステップごとに1アクションを出すのではなく、1回の推論で未来の $K$ ステップ分のアクションをまとめて出力する「アクションチャンキング」を採用しています。そのため、モデルへの問い合わせ（クエリ）は $K$ ステップごと、すなわちステップ集合 $\\mathcal{Q}$ で発生します。\n\nここで、長さ $N$ の軌道 $\\tau$ を実行するのにかかる総時間 $\\mathcal{T}(\\tau)$ を考えると、次の式で表されます:\n$$\\mathcal{T}(\\tau) = N \\Delta t_{\\text{ctrl}} + |\\mathcal{Q}| \\Delta t_{\\text{lat}}$$\nここで $\\Delta t_{\\text{ctrl}}$ はロボットの制御周期（サンプリング周波数の逆数）であり、$\\Delta t_{\\text{lat}}$ はVLAがアクションチャンクを計算する推論遅延です。大規模なVLAでは $\\Delta t_{\\text{lat}} \\gg \\Delta t_{\\text{ctrl}}$ となり、推論待ち時間がロボットの俊敏な動作を妨げる最大のボトルネックとなっています。\n\nまた、一般的な模倣学習ではエキスパートのデモ軌道に対してステップごとにアクション損失を最小化するように学習しますが、これが空間移動の最適化において足枷となる点にも触れています。",
+   "figures": []
+  },
+  {
+   "heading": "IV Method",
+   "heading_ja": "SkipVLAの仕組み：目標を予測し、移動を飛ばして接触だけを解く",
+   "summary_ja": "SkipVLAのアーキテクチャ、軌道レベルの目的関数、目標位置予測器の構造、およびグリッパーイベントを用いた自己教師あり学習について詳述しています。既存デモを再利用するため追加アノテーションは不要です。",
+   "details_ja": "SkipVLAは、VLAポリシー $\\pi^{\\text{vla}}$ と超低遅延な古典制御モジュール $\\pi^{\\text{fast}}$ を、インジケータモジュール $I_s \\in \\{0, 1\\}$ で動的に切り替えます。\n\n### IV-A 問題定式化と軌道レベルの目的関数\n古典プランナーは幾何学的・運動学的に最短の衝突なし軌道を生成するため、人間のデモ軌道を1ステップずつ模倣しようとすると、安全で高速な軌道であっても損失関数でペナルティを受けてしまいます。そこで著者らは、全ステップの一致を求めるのではなく、「タスクを成功させる重要な通過点（キーウェイポイント）を通過しつつ、総実行時間を最小化する」という軌道レベルの目的関数を導入しました。\n\n具体的には、軌道を「接触操作セグメント」と「接近・配置のための移動セグメント」に分割します。接触操作セグメントではエキスパートの各ステップを忠実にトレースさせ、移動セグメントでは始点と終点の手先ポーズのみが一致すればよいというセグメント損失 $\\ell_{\\text{seg}}$ を定義しました。\n\n### IV-B 実装の詳細\n高速制御モジュール $\\pi^{\\text{fast}}$ は、目標ポーズ予測器 $f_{\\text{tgt}}$ と低レベルモーションプランナー $\\mathcal{P}$ から構成されます。\n- **目標ポーズ予測器 ($f_{\\text{tgt}}$)**: 観測からFastSAMとDBSCANを用いて物体の3Dバウンディングボックス候補を抽出します。そして、VLAの凍結された視覚言語特徴トークンをKey/Valueとし、各ボックスの学習可能位置埋め込みをQueryとするクロスアテンションを適用して、軽量MLPで関連度スコアを算出します。最高スコアのボックス直上にある衝突のないホバー位置を目標ポーズ $\\mathbf{p}^{\\text{tgt}}_s$ とします。\n- **古典プランナー ($\\mathcal{P}$)**: VAMPやcuRoboV2を用い、現在位置から目標ポーズまでの軌道を瞬時に生成します。\n- **インジケータモジュール ($I$)**: タスク境界の切り替えには、手先が目標ホバー位置に到達したか（許容誤差 $\\epsilon_d$ 以内）と、グリッパーの開閉状態の変化（開から閉、または閉から開）というシンプルなヒューリスティックを用います。目標に近づくとVLAに制御を渡し、グリッパーが切り替わると再びプランナーへ制御を戻します。\n\n### IV-C ハイブリッド構造の学習方法\nVLA本体は完全に凍結し、プランナーも学習不要です。したがって学習が必要なのは目標ポーズ予測器のスコアリングヘッドのみです。エキスパートデモ内でグリッパー状態が変化した瞬間（把持や解放の瞬間）を検出し、そのときに手先に最も近かったバウンディングボックスを正解ラベルとして自動抽出します。これを用いて交差エントロピー損失でスコアヘッドを学習するため、手動のアノテーションは1つも必要ありません。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "SkipVLAの推論パイプラインです。カメラ画像と指示文から凍結VLAの特徴を抽出し、点群から得たバウンディングボックス候補とクロスアテンションを行ってスコアラー（$f_{\\text{tgt}}$）が目標を特定します。移動はプランナーが担い、インジケータ（$I_s$）が条件を満たしたときのみVLAの行動を出力します。",
+     "caption": "Figure 3 : Inference pipeline of our proposed SkipVLA. We represent our input data as $\\mathcal{O}_{s},L,\\mathbf{p}_{s}$ , where $\\mathcal{O}_{s}$ contains a workspace image, a wrist image, and a workspace depth map, $L$ represents the language instruction of the task, and $\\mathbf{p}_{s}$ represents the proprioceptive state. The base expert component $\\pi^{vla}$ comprises a VLM and an action head that process the input stream to output an action vector and a vision-language context latent. The object detection module takes in a different subset of inputs and uses FastSAM [ 31 ] and DBSCAN to generate object bounding boxes. …",
+     "image": "details/2609.20648/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Experiments",
+   "heading_ja": "実機とシミュレータで実証：最大2.5倍の高速化と成功率の向上",
+   "summary_ja": "シミュレーション（LIBEROの13タスク）と実機6自由度アーム（3タスク）で検証を実施しました。推論呼び出し回数が激減し、実行時間の大幅短縮と消費エネルギーの半減を達成しただけでなく、誤差蓄積の防止により成功率も向上しました。",
+   "details_ja": "実験では、「古典プランナーへの委譲がタスク成功率を損なわずに時間とクエリ回数を削減できるか」「プランナーや基底VLAの変更に対して頑健か」を検証しました。\n\n### V-A シミュレーション実験（LIBERO）\nLIBERO-Object（10タスク）およびLIBERO-10（3タスク）において、パラメータ数3.5Bの「$\\pi_{0.5}$」と0.5Bの「SmolVLA」をベースモデルとして評価しました。各タスク50試行を行っています。\n結果として、プランナーにVAMPを採用したSkipVLAは、LIBERO-Objectで実行時間を40%、LIBERO-10で27%削減しました。この短縮幅はVLAクエリ回数の削減率と綺麗に比例しており、無駄な推論をスキップした成果が直接現れています。プランナーをcuRoboV2に変えても同様の傾向が確認され、手法のモジュール性が示されました。\n切り替えインジケータの判定を物体の高さ変化に基づくヒューリスティックに変えるアブレーション実験でも性能は安定しており、設計のロバスト性が確認されています。\n\n### V-B 実機実験（6自由度 YAMアーム）\n実機環境では $\\pi_{0.5}$ と「MolmoAct2」をバックボーンとし、難易度の異なる3つのピック＆プレースタスク（単一物体、複数物体、3段ブロック積み）を各20試行検証しました。計算機にはNVIDIA Jetson Thorを用い、消費エネルギーも計測しています。\n- **実行時間とクエリ数の大幅削減**: MolmoAct2ではタスク完了時間が平均46.0%削減され、最大で59.6%減（2.47倍の高速化）を達成しました。$\\pi_{0.5}$ でも平均30.6%短縮されました。VLAの推論回数は平均33.8%減少しています。\n- **消費エネルギーの削減**: Jetson Thor上での試行あたりの消費電力は、MolmoAct2で平均52.4%、$\\pi_{0.5}$ で平均29.1%削減され、エッジ展開における圧倒的な省エネ性能を示しました。\n- **成功率の向上という嬉しい副産物**: 単なる高速化にとどまらず、複数物体の配置成功率が90%から100%へ、高精度なブロック積みでは $\\pi_{0.5}$ で+15ポイント、MolmoAct2で+10ポイント成功率が向上しました。シミュレーションのSmolVLAに至っては39%から82%へと倍増しています。\nなぜ成功率が上がるのかというと、模倣学習特有の「誤差の累積（ホライズン $T$ に対して $O(\\epsilon T^2)$ で広がるドリフト）」を抑えられるためです。空間移動を古典プランナーが正確に行い、物体の真上にアームを再配置（リセット）してからVLAを呼び出すため、VLAが分布外の状態に陥るのを防ぐ効果が働いています。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "実機タスクにおける経過時間と累積成功率の比較（(a)単一物体、(b)複数物体、(c)ブロック積み）です。どのタスクでもSkipVLA（実線）はベースライン（点線）より曲線が左上側に大きく張り出しており、より短い時間で高い成功率に到達していることが一目で分かります。",
+     "caption": "Figure 4 : Cumulative distribution of success rate (%) vs. wall clock (s) for 3 tasks across $\\pi_{0.5}$ , MolmoAct2, $\\pi_{0.5}$ + SkipVLA and MolmoAct2 + SkipVLA measured across 20 trials per task. (a) put the red block in the box. (b) put both the red and blue blocks in the box. (c) stack the 3 blocks in a tower.",
+     "image": "details/2609.20648/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "SkipVLAは、空間移動を古典プランナーに任せることでVLAの推論回数を削減し、高速化・省電力化・精度向上を同時に達成しました。モデルの再学習なしで導入できる実用的なアプローチです。",
+   "details_ja": "本研究では、空間移動を古典的動作計画器にオフロードすることで事前学習済みVLAを高速化する「SkipVLA」を提案しました。VLAの凍結特徴を活用した軽量スコアラーによって移動目標を定め、接触動作時のみVLAに制御を委ねることで、実機において最大2.5倍の高速化と50%以上の省エネルギー化を達成しました。\n\nさらに、古典プランナーが移動中の誤差蓄積をリセットするアンカーとして機能するため、ベースラインと同等以上のタスク成功率を叩き出すことも実証されました。大規模な再学習や追加のデータ収集を必要としない点も、現場への導入しやすさにおいて大きな強みです。\n\n現在の実装では、タスク境界の切り替えをグリッパーの開閉イベントに依存しているため、ピック＆プレース以外の複雑な接触タスク（拭き掃除やドア開けなど）への拡張には課題が残ります。今後は、学習ベースの時系列セグメンテーションなどを導入し、あらゆるマニピュレーションタスクへ一般化していくことが期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "マニピュレーション全行程を1つのVLAでエンドツーエンドに解く必要はなく、「大まかな移動」と「繊細な接触」でツールを使い分けるハイブリッド構成が極めて有効である。",
+  "古典プランナーを挟むことは、単なる高速化だけでなく、模倣学習の致命的な弱点である「累積誤差による分布外ドリフト」を物理的に断ち切るリセット効果を持つ。",
+  "大規模VLAの学習済み表現は、追加のデモアノテーションなしでもバウンディングボックスの照合といった目標予測タスクへ極めて効率的に転用できる。"
+ ],
+ "limitations_ja": [
+  "現在のタスク切り替えインジケータがグリッパーの開閉状態に依存しているため、把持や配置を伴わない連続的な接触作業（拭き掃除、ツール操作など）にはそのまま適用できない。",
+  "上空からのピック＆プレース（top-down grasp）を前提とした3Dバウンディングボックス予測とホバー位置生成を行っており、横からのアプローチや複雑な姿勢指定が必要な把持への対応には拡張が必要である。",
+  "物体検出にFastSAMやDBSCANといった既存のセグメンテーションツールを用いているため、物体の重なりが激しい環境や透明体・不定形物など、検出器が苦手とする環境での堅牢性に制約がある。"
+ ],
+ "keywords": [
+  "Vision-Language-Action Models",
+  "Motion Planning",
+  "Robot Manipulation",
+  "Hybrid Control",
+  "Efficient Inference"
+ ],
+ "id": "2609.20648",
+ "title": "SkipVLA: Skipping VLA Steps with Classical Planning for Fast Robot Manipulation",
+ "authors": [
+  "Kaivalya Agrawal",
+  "Md Ashiqur Rahman",
+  "Raymond A. Yeh",
+  "Zachary Kingston"
+ ],
+ "date": "2026-09-19",
+ "group": "general",
+ "tags": [
+  "vision-language-action",
+  "planning",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.20648",
+ "pdf_url": "https://arxiv.org/pdf/2609.20648",
+ "summary_ja": "VLAモデルの推論遅延を削減するハイブリッド方策を提案。粗い意味的理解と目標設定をVLAが担い、障害物のない移動などは古典的な高速動作計画器で肩代わりすることで、指示追従性を保ったままタスク完了までの推論回数と実行時間を大幅に削減した。",
+ "generated": "2026-09-19",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.20648"
+}
