@@ -1,6 +1,265 @@
 {
  "entries": [
   {
+   "date": "2026-09-19",
+   "rank": 0,
+   "id": "2609.20575",
+   "group": "focus",
+   "title": "Accelerating Visual Policy Learning with Sampling-Based Model Predictive Control",
+   "title_ja": "サンプリング型モデル予測制御による視覚方策学習の加速",
+   "summary_ja": "移動や操作の視覚方策学習を効率化するSGPSを提案。サンプリング型MPCによる行動目標の精緻化と、微分可能シミュレーションを用いた一次方策勾配更新を交互に行うことで、望ましくない接触パターンへの局所収束を防ぎ、計算コストを抑えつつロバストな方策を獲得する。",
+   "authors": [
+    "Yilang Liu",
+    "Haoxiang You",
+    "Qian Wang",
+    "Daniel Rakita",
+    "Ian Abraham"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "locomotion",
+    "manipulation",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.20575",
+   "image": "figures/2026-09-19/2609.20575.jpg"
+  },
+  {
+   "date": "2026-09-19",
+   "rank": 1,
+   "id": "2609.20761",
+   "group": "focus",
+   "title": "Agile-WAM: An Agile Tactile World Action Model for Contact-Rich Robot Control",
+   "title_ja": "Agile-WAM: 接触リッチなロボット制御のための触覚ワールドアクションモデル",
+   "summary_ja": "接触を伴う制御に向けた推論効率の高い触覚ワールドアクションモデルを提案。視覚と触覚の観測を共有潜在空間へ直接エンコードし、フローマッチングにより未来の状態予測と行動生成を統合することで、大規模な生成基盤に頼らずに効率的な実機展開を可能にした。",
+   "authors": [
+    "Hanchu Zhou",
+    "Brendan Lynch",
+    "Raman Goyal",
+    "Dechen Gao",
+    "Begum Kasap",
+    "Boqi Zhao",
+    "Junshan Zhang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "control",
+    "world-model",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.20761",
+   "image": "figures/2026-09-19/2609.20761.jpg"
+  },
+  {
+   "date": "2026-09-19",
+   "rank": 2,
+   "id": "2609.20747",
+   "group": "focus",
+   "title": "MILER: Semantic Mid-Level Representation for Sim-to-Real Reinforcement Learning in Unstructured Autonomous Driving",
+   "title_ja": "MILER: 非構造化環境でのSim-to-Real強化学習に向けた意味的中間表現",
+   "summary_ja": "非構造化環境での自動運転を対象に、意味的中間表現（MLR）を用いたゼロショットSim-to-Real強化学習フレームワークを提案。独自の軽量MLRシミュレータ上でRL方策を訓練し、実車ではカメラから抽出したMLRを入力とすることで、現実環境へ直接転移させた。",
+   "authors": [
+    "Thomas Steinecker",
+    "Denis Trescher",
+    "Alexander Bienemann",
+    "Thorsten Luettel",
+    "Mirko Maehlisch"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "sim-to-real",
+    "autonomous-driving",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.20747",
+   "image": "figures/2026-09-19/2609.20747.jpg"
+  },
+  {
+   "date": "2026-09-19",
+   "rank": 3,
+   "id": "2609.20756",
+   "group": "focus",
+   "title": "OPTED: On-Policy Fine-Tuning for End-to-End Driving using a Render-Free Teacher",
+   "title_ja": "OPTED: レンダリング不要な教師を用いたエンドツーエンド運転のオンポリシー微調整",
+   "summary_ja": "エンドツーエンド運転方策において、高コストなセンサシミュレーションを回避しつつ閉ループの安全性を高めるオンポリシー微調整手法を提案。描画不要な状態空間で特権的教師モデルをRL訓練し、それをセンサ方策へ蒸留することで低コストに閉ループ性能を向上させた。",
+   "authors": [
+    "Damiano Da Col",
+    "Maximilian Igl",
+    "Peter Karkus",
+    "Kashyap Chitta",
+    "Boris Ivanovic",
+    "Marco Pavone",
+    "Konrad Schindler",
+    "Christos Sakaridis"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "autonomous-driving",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.20756",
+   "image": "figures/2026-09-19/2609.20756.jpg"
+  },
+  {
+   "date": "2026-09-19",
+   "rank": 4,
+   "id": "2609.20648",
+   "group": "general",
+   "title": "SkipVLA: Skipping VLA Steps with Classical Planning for Fast Robot Manipulation",
+   "title_ja": "SkipVLA: 高速なロボット操作に向けた古典的計画によるVLA推論ステップのスキップ",
+   "summary_ja": "VLAモデルの推論遅延を削減するハイブリッド方策を提案。粗い意味的理解と目標設定をVLAが担い、障害物のない移動などは古典的な高速動作計画器で肩代わりすることで、指示追従性を保ったままタスク完了までの推論回数と実行時間を大幅に削減した。",
+   "authors": [
+    "Kaivalya Agrawal",
+    "Md Ashiqur Rahman",
+    "Raymond A. Yeh",
+    "Zachary Kingston"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "planning",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.20648",
+   "image": "figures/2026-09-19/2609.20648.jpg"
+  },
+  {
+   "date": "2026-09-19",
+   "rank": 5,
+   "id": "2609.20414",
+   "group": "general",
+   "title": "TouchSight: Bare-Handed Tactile Prediction from Egocentric Video via Generative Visual Augmentation",
+   "title_ja": "TouchSight: 生成的視覚拡張を用いた主観視点動画からの素手接触力予測",
+   "summary_ja": "主観視点RGB動画から手全体の高密度な接触力を予測するTouchSightを提案。圧力グローブと素手の外観ギャップを埋めるため、画像生成を活用した20時間の対データセットTwinTouch-20Hを構築し、高価なセンサなしで日常の手指操作から接触力を推定可能にした。",
+   "authors": [
+    "Danyan Zhou",
+    "Jinxuan Lu",
+    "Jiawei Lin",
+    "Tianxing Chen",
+    "Chuqiao Lyu",
+    "Wenbo Ding"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.AI"
+   ],
+   "tags": [
+    "perception",
+    "manipulation",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.20414",
+   "image": "figures/2026-09-19/2609.20414.jpg"
+  },
+  {
+   "date": "2026-09-19",
+   "rank": 6,
+   "id": "2609.20034",
+   "group": "general",
+   "title": "Astronex-World 1.0: Real-Time Interactive World Model Foundation",
+   "title_ja": "Astronex-World 1.0: リアルタイム対話型動画ワールドモデル基盤",
+   "summary_ja": "実時間で対話可能なオープン動画ワールドモデル基盤を提案。テキストや画像からカメラ軌道、64次元の連続アクション、エンボディメント識別子を入力として未来の視覚状態を予測する。ブロック因果アテンションとKVキャッシュにより低遅延な継続的生成を実現した。",
+   "authors": [
+    "Xin Zhou",
+    "Cong Miao"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.20034",
+   "image": "figures/2026-09-19/2609.20034.jpg"
+  },
+  {
+   "date": "2026-09-19",
+   "rank": 7,
+   "id": "2609.20659",
+   "group": "general",
+   "title": "HIL-UMI: Bringing Human-in-the-Loop Post-Training of Vision-Language-Action Models to Universal Manipulation Interface",
+   "title_ja": "HIL-UMI: 汎用操作インタフェースによるVLAモデルの人間介在型事後学習",
+   "summary_ja": "手持ち型操作機器UMIを用いたVLAモデルのHuman-in-the-Loop事後学習フレームワークを提案。方策の自律実行中に人間が介入する修正データを効率的に収集・学習し、実機ロボットを長時間占有することなく分布外状態への対応力とタスク成功率を改善した。",
+   "authors": [
+    "Zimu Han",
+    "Yiming Zeng",
+    "Jiyao Zhang",
+    "Zihao Zhao",
+    "Yuanfei Wang",
+    "Yixiang Jin",
+    "Shiqi Li",
+    "Shuangben Chen",
+    "Wei Huang",
+    "Ruodai Li",
+    "Hui Shen",
+    "Hao Dong"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "vision-language-action",
+    "imitation-learning",
+    "manipulation",
+    "teleoperation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.20659",
+   "image": "figures/2026-09-19/2609.20659.jpg"
+  },
+  {
+   "date": "2026-09-19",
+   "rank": 8,
+   "id": "2609.20817",
+   "group": "general",
+   "title": "FAMOS: Feed-Forward 3D Articulation Modeling from Sparse Observations",
+   "title_ja": "FAMOS: スパースな観測からのフィードフォワード3D可動機構モデリング",
+   "summary_ja": "スパースな部分点群から可動パーツのセグメンテーションと関節パラメータを推定するフィードフォワードモデルを提案。Multi-state Articulation Transformerにより複数状態の観測から幾何変化を集約し、カテゴリごとの形状事前分布に依存せず多様な関節物体を復元する。",
+   "authors": [
+    "Kevin Qu",
+    "Tao Sun",
+    "Massimiliano Viola",
+    "Liyuan Zhu",
+    "Zhizhuo Zhou",
+    "Sayan Deb Sarkar",
+    "Konrad Schindler",
+    "Iro Armeni"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "perception",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.20817",
+   "image": "figures/2026-09-19/2609.20817.jpg"
+  },
+  {
    "date": "2026-09-18",
    "rank": 0,
    "id": "2609.19340",
