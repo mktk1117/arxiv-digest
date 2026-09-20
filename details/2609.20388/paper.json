@@ -1,0 +1,138 @@
+{
+ "title_ja": "Navi-Agent: 自己位置推定を用いない単眼視覚言語ナビゲーションエージェント",
+ "tldr_ja": "深度センサや絶対座標を一切使わず、単眼RGB画像と移動履歴だけで「座標フリーなトポロジカル空間メモリ」を構築し、確実な場所確認と失敗からの復帰（バックトラック）を実現するゼロショットVLN-CEエージェントです。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "上段は従来の幾何マップ依存型や記憶を持たないRGB反応型エージェント。下段が提案手法「Navi-Agent」で、座標を持たないビジュアルアンカーグラフ（ノード＝視覚シーン、エッジ＝移動履歴）によって場所の同定、進捗確認、視覚的な再訪によるエラー復帰を実現しています。",
+  "caption": "Fig. 1: Navi-Agent overview. The proposed agent builds a coordinate-free Visual Anchor Graph to maintain visual spatial memory for long-horizon navigation.",
+  "image": "details/2609.20388/F1.jpg"
+ },
+ "overview_ja": "連続環境における視覚言語ナビゲーション（VLN-CE）では、未知の環境で自然言語の指示に従いながら長距離を移動する必要があります。既存のゼロショット手法の多くは、深度カメラやオドメトリから得られる大域的な幾何座標をベースにマップを作ってきました。しかし実世界ではセンサ制約やドリフトがあり、座標への依存をなくした「幾何制約下ナビゲーション」が求められています。問題は、座標がないと「以前来た場所かどうかの判定」「指示通りの移動が完了したかの検証」「道を間違えたときのリカバリ」が極めて困難になる点です。\n\nそこで著者らは、明示的な座標を一切使わずに「視覚的シーン」をノードとし、「実行した移動履歴」をエッジとするナビゲーション履歴トポロジー（ビジュアルアンカーグラフ）を維持するシステム「Navi-Agent」を考案しました。指示を分解したサブゴールごとに、VLM（Vision-Language Model）で視認可能な目標点を選び、局所ナビゲータで移動します。停止後は周囲を見回してグラフを更新し、進捗を検証します。もし間違った経路に入り込んでも、記憶した過去の視覚特徴を追跡しながら元いた場所まで物理的に引き返す（バックトラックする）閉ループの復帰機構を備えています。\n\nHabitatシミュレータ上のベンチマーク（OpenNav_R2R-CE_100）および2種類の実機ロボット（AGV、車輪型脚ロボット）で検証した結果、幾何制約下のゼロショット手法として最高水準の性能を達成しました。さらに、深度や自己位置推定を利用する既存手法にも迫る高い頑健性と復帰能力を示しました。",
+ "contributions_ja": [
+  "深度、絶対自己位置、オドメトリなどの幾何座標に一切頼らない、幾何制約下のゼロショットVLN-CEフレームワークを初めて提案した。",
+  "視覚シーンをノード、実行した移動履歴をエッジとして定義し、座標フリーで場所の同定や進捗確認を可能にするビジュアルアンカーグラフを設計した。",
+  "過去の視覚ノード検索、移動履歴に基づく点追跡、視覚照合を組み合わせた、視覚再訪ベースの頑健な閉ループ復帰（バックトラック）機構を実現した。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "自己位置推定を捨て、視覚と履歴だけで空間を覚える",
+   "summary_ja": "大規模基盤モデルの発展によりゼロショットVLN-CEの実用化が進んでいますが、多くは幾何座標に依存しています。Navi-Agentは明示的な座標を持たず、視覚シーンと移動履歴からなるトポロジカルメモリによって、場所の同定、進捗検証、失敗からの復帰を実現します。",
+   "details_ja": "ゼロショットVLN-CE（連続環境における視覚言語ナビゲーション）は、エキスパートの軌道データを学習することなく、自然言語の指示に従ってロボットをゴールへ導く挑戦的なタスクです。最近のシステムでは、長い指示を複数のサブタスクに分解し、局所的な移動を行い、観測に基づいて進捗を判定しながら段階的に進むアプローチが定着してきました。\n\nしかし、こうした従来手法は観測同士を紐付けるために、BEV（鳥瞰図）マップや3Dボクセルマップ、ランドマークグラフなどの「大域座標」に強く依存していました。これに対して、深度センサや絶対座標を使えない幾何制約下の設定も研究されていますが、局所的な画像比較にとどまり、「今いる場所が以前訪れた場所なのか」「予定した移動が完了したのか」「迷子になったときに元の正しい位置へ戻れるか」という空間認識の持続性に大きな課題を抱えていました。\n\nそこでNavi-Agentは、従来の距離ベースのトポロジーを「視覚観測と移動履歴に基づくトポロジー」へと置き換えました。単眼RGB画像から周囲のシーンをアンカーノードとして記録し、ノード間の移動履歴をエッジとして保存します。これにより、座標や深度、オドメトリが一切存在しない過酷なセンサ制約下でも、確実な進捗判定と視覚的な引き返しによるエラー復帰を可能にしました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "Navi-Agentのシステム全体像。指示の分解（Decompose）、6方向RGB画像からの目標選択（SelectTarget）、局所実行（ExecuteLocal）、アンカーグラフの更新と進捗検証（Instruction Progress Verification）、そして失敗時の復帰（Backtrack）という検証可能な閉ループで構成されています。",
+     "caption": "Fig. 2: Navi-Agent system overview. A long-horizon instruction is first decomposed into ordered typed sub-goals ( Decompose ). For each active sub-goal, SelectTarget ranks six RGB views with a VLM and grounds the selected visual target (floor mask, trackable point, and ViNT goal crop); ExecuteLocal then performs navigation via point tracking and ViNT. Each physical stop is registered into a coordinate-free visual anchor graph, where nodes store RGB views, semantic signatures, place identities, and visit contexts, and edges record executed motion. …",
+     "image": "details/2609.20388/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "座標に頼る従来手法と、幾何制約への挑戦",
+   "summary_ja": "既存のゼロショットナビゲーションは、大域的な距離マップや事前構築トポロジーに依存するものが主流でした。近年登場した幾何制約下の研究は局所的な比較にとどまっており、持続的な空間メモリの構築と復帰機能が不足していました。",
+   "details_ja": "ゼロショットVLN-CEのエージェント研究は、指示理解、局所実行、進捗推定、行動決定を交互に行う枠組みを中心に発展してきました。例えばNavGPTは視覚をテキストに変換してGPTに方向を選ばせ、DiscussNavはマルチエキスパートの議論形式で完結性を判定し、MapGPTはオンラインでトポロジカル関係をプロンプトに組み込んでいます。\n\nこれらの手法が利用する空間表現は、深度やカメラポーズ、オドメトリを用いた距離マップやセマンティックシーンマップが基盤となっています。これらは障害物回避や距離計算、目標探索に強力な足場を提供しますが、正確な幾何学的センサ情報が手に入ることを前提としています。\n\n一方で、モデル自身の空間推論能力を検証し、ロボットプラットフォーム間の汎用性を高めるために、幾何情報を排した研究も始まっています。DreamNavは局所軌道と未来予測画像を比較し、LightZeroNavは短期的な観測履歴とステージ単位の参照画像を用いて進捗を比較推定します。しかしこれらは局所的な手掛かりに依存しており、グローバルな座標がない状況下で過去の観測を「一意な場所」としてどう永続化し、いかにエラーから復帰するかという問いには十分答えられていませんでした。",
+   "figures": []
+  },
+  {
+   "heading": "III Methodology",
+   "heading_ja": "Navi-Agentの仕組み：検証可能な局所ループと座標なきグラフ",
+   "summary_ja": "長大な指示を独立したサブゴールに分解し、視覚目標の選択、点追跡による局所移動、停止位置でのアンカー登録と進捗検証をループさせます。検証が通らない場合は探索を行い、限界に達すると視覚的な引き返し（バックトラック）を実行します。",
+   "details_ja": "### III-A 問題設定とシステム構成\n単眼の前方RGBカメラのみを搭載したエージェントが、初期位置から自然言語指示 $I$ に従ってゴールを目指します。深度、絶対位置、オドメトリ、SLAM座標、大域マップは一切利用できません。システムはGroundingDINOとSAM（セグメンテーション）、局所ナビゲータViNT、KLT点追跡器など既存の学習済みモジュールを組み合わせて構成されています。\n\n### III-B 全体パイプライン\nナビゲーションは「指示分解 → 目標選択 → 局所実行 → アンカー構築・照合 → 進捗検証」という局所ループで進みます。進捗が承認されれば次の指示へ進み、未完了なら探索バジェットの範囲で別方向を探索し、失敗した場合はバックトラックで過去のノードに戻ります。\n\n### III-C 指示の分解（Instruction Decomposition）\nエピソード開始時にフリーズされたLLMを用いて指示 $I$ を順序付きサブゴール列 $G=\\{g_1, \\dots, g_N\\}$ に分解します。各サブゴールは「部屋に入る」「ドアを抜ける」など独立して視覚確認できるイベントとして記述されます。\n\n### III-D 視覚目標の選択（Visual Target Selection）\nその場で旋回して $60^\\circ$ ごとに6枚のRGB画像を撮影します。VLMがサブゴールのテキストと歩行可能領域の手掛かりから各方向をランキングし、有望な方向の周囲をさらに細かく探索して目標画像 $v$ を決定します。画像中の物体や床マスクから追跡可能な点 $p$ を選定します。これは座標ではなく画像上の視覚的参照点です。\n\n### III-E 局所実行（ExecuteLocal）\n選ばれた点 $p$ をKLTトラッカーで追跡し、その周辺クロップ画像をViNTナビゲータに入力して前進や旋回のアクションを生成します。追跡点が画像下端を抜けた（\"bottom_exit\"）とき、目標地点に物理的に到着したと判定して停止します。\n\n### III-F 進捗検証とアンカーグラフの構築\n停止した場所で再び周囲6方向のRGBスキャンを撮影して「訪問情報（visit）」を作成します。Associate処理が大域特徴量とRANSACによる局所特徴マッチングを用いて、過去のアンカーノードと照合し、「SAME（再訪）」「NEW（新規）」「AMBIGUOUS（曖昧）」を判定します。続いてVerifyProgressがサブゴールの達成可否をCommit_stage、Intermediate、Wrong、Uncertainのいずれかで判定します。\n\n### III-G バックトラックと再自己位置推定\n進捗が確認できず探索予算を使い果たした場合、Backtrackが起動します。保存された過去の移動履歴とRGB画像を照合し、視覚目標を復元して局所実行モジュールを再利用することで、以前のアンカー位置まで逆戻りします。戻った場所がターゲットのアンカーと一致（SAME）したことを確認してから、別の候補方向の探索を再開します。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "視覚目標選択（SelectTarget）の流れ。(a) その場で旋回して撮影した6方向の基準画像から、VLMが指示文と移動可能性に基づいて優先順位を判定します。(b) 選ばれた候補方向の前後 $\\pm 30^\\circ$ を追加撮影し、目標を精密に決定します。",
+     "caption": "Fig. 4: Visual target selection ( SelectTarget ). (a) Six canonical views captured by rotating in place; the VLM ranks them with the sub-goal text and walkable-route evidence (green: Rank-1 departure, yellow: Rank-2). (b) Refinement over three views at $\\pm 30^{\\circ}$ around the coarse pick.",
+     "image": "details/2609.20388/F4.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "局所実行モジュールの目標構築。左画像で選択された床マスク（黄色）上の目標点 $p$（青）を追跡し、右画像のように $p$ の周辺クロップ（赤枠）をViNTナビゲータに渡します。点が画像下部から抜けると到着と判断します。",
+     "caption": "Fig. 6: Goal construction for ExecuteLocal . Left: the selected view $v$ with the floor mask (yellow) and the tracked target point $p$ (blue). Right: the goal crop around $p$ (red frame) that is fed to the ViNT local navigator; the tracker updates $p$ every frame and the crop follows it until $p$ exits through the bottom of the image.",
+     "image": "details/2609.20388/F6.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "座標フリーなアンカーグラフと視覚的バックトラックの動作。(a) 訪問ごとに作成されたアンカー $A_1$〜$A_7$ が移動エッジで結ばれます。$A_5$ で分岐が失敗（赤）した際、(b)の前進時ビューと(c)の引き返し時ビューを照合し、$A_4$ へと物理的に戻って探索をやり直します。",
+     "caption": "Fig. 5: Coordinate-free anchor graph and visual backtracking. (a) Anchors $A_{1}$ – $A_{7}$ are created by BuildVisit from six-view RGB visits and linked by executed TraversalEdge s (solid blue, numbered in execution order); room labels are the semantic signatures used by Associate . At $A_{5}$ the branch is judged uncertain (orange) and then fails (red). (b) The stored departure view of edge $A_{4}\\!\\rightarrow\\!A_{5}$ . (c) The view after Backtrack returns along the same edge; Associate classifies the returned visit as SAME to $A_{4}$ (green), which commits the reverse edge and restores exploration from $A_{4}$ . …",
+     "image": "details/2609.20388/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "実験結果：幾何センサなしでどこまで迫れるか",
+   "summary_ja": "シミュレータ（Habitat）および2種類の実機ロボットで評価を行いました。提案手法は幾何制約下のベースラインを上回る最高精度を記録し、深度やオドメトリを使う手法とも競合できる頑健性を示しました。",
+   "details_ja": "### IV-A 評価設定と指標\nHabitatシミュレータを用いたR2R-CEの標準ベンチマーク（OpenNavプロトコルの100エピソード）で評価しました。行動は前進（0.25 m）と旋回（$10^\\circ$）の離散アクションです。エージェントには深度、絶対ポーズ、オドメトリ、大域マップを一切与えず、RGB画像のみを入力とします。評価指標には成功率（SR）、オラクル成功率（OSR）、ナビゲーション誤差（NE）、軌道効率（SPL）を用いました。\n\n### IV-B 主要結果\n幾何制約下の手法との比較において、Navi-Agentは優れた性能を示し、SOTA（最高水準）を達成しました。さらに、深度センサや完全な大域座標を利用する手法と比較しても遜色のない成功率を達成しており、座標情報がなくても視覚トポロジーと検証ループによって十分なナビゲーションが可能であることを裏付けました。\n\n### IV-C アブレーション研究\n- **VLMバックボーンの検証**: 複数の基盤モデルを比較したところ、Qwen3.6-Plusが最良の結果を示しましたが、他のモデルでも堅調に動作し、特定のVLMに依存しないことが確認されました。\n- **グラフと復帰機構の影響**: グラフ構築と復帰を無効化したモデル（w/o anchor graph and recovery）は、引き返しを行わないためSPLこそ高くなる（22.45）ものの、SRは28.33%に低下しました。また、探索のホップ数を広げすぎると（3ホップでSR 14.67%）、誤った分岐の拡大や誤差の蓄積が起きるため、1ホップに制限した復帰が最もバランス良く機能することが分かりました。\n\n### IV-D 空間状態の検証とバックトラック性能\n自己位置推定なしで過去のアンカーへ戻るバックトラックの精度を測定したところ、復帰位置の誤差は平均2.32 mに収まり、80.3%の成功率で元の場所へ再訪できました。また、視覚的に類似した場所の同定（アンカー照合）でもF1スコア0.71を達成し、高い識別力を示しました。\n\n### IV-E 実機ロボットへの展開\n屋内の図書館環境において、車輪型脚ロボットとAGVの2つのプラットフォームに実装しました。単眼RGBカメラのみを用い、深度やIMU、事前地図なしで評価したところ、いずれの機体でも成功率0.7〜0.8を達成しました。出口や曲がり角で初期探索に失敗しても、1ホップの復帰機構によって正しいトポロジーノードまで引き返し、無事にゴールへ到達できました。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "実機ロボットでの検証の様子。上段がAGVプラットフォーム、下段が車輪型脚ロボットでの走行軌跡です。カメラ高や機構が異なる両プラットフォームにおいて、単眼カメラのみでドアの通過や廊下の追従といったタスクを達成しました。",
+     "caption": "Fig. 7: Real-world deployment of Navi-Agent across different platforms and tasks. The top row (1–6) shows execution traces on the AGV platform, while the bottom row (7–12) illustrates those on the wheeled-legged robot. Specifically, columns 1–3 and 7–9 depict Task 1, whereas columns 4–6 and 10–12 demonstrate Task 2.",
+     "image": "details/2609.20388/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "Navi-Agentは、深度センサや座標を使わずに視覚観測と移動履歴から空間トポロジーを構築し、長距離ナビゲーションを可能にしました。今後は高次のセマンティック推論や曖昧な空間関係の推論へと拡張される予定です。",
+   "details_ja": "Navi-Agentは、幾何座標や深度情報を一切排除した厳しい幾何制約環境において、視覚観測と移動履歴のみから構築される「座標フリーな空間状態」が長距離のVLN-CEを十分に支えられることを実証しました。\n\n視覚的な場所の同一性と移動遷移をトポロジーとして管理することで、場所の確定、進捗の検証、そして経路から外れた際の視覚的再訪によるエラー復帰という、自律ナビゲーションに不可欠な閉ループを確立しました。シミュレーションと実機実験の双方がその実用性を証明しています。\n\n今後の課題として著者らは、現在の移動遷移ベースの表現から、より高次なセマンティック空間メモリや空間推論への拡張を挙げています。単なる移動履歴の保持にとどまらず、複雑で曖昧な環境配置に対しても柔軟に推論できるスケーラブルな空間理解を目指すとしています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「座標がなければナビゲーションできない」という前提を覆し、単眼RGBと移動履歴のトポロジーで十分な長距離ナビゲーションが可能であることを示した。",
+  "視覚的な特徴点追跡（KLT）と局所ナビゲータ（ViNT）を組み合わせ、画像端からの目標点の退出（bottom_exit）を着地点判定にするなど、幾何センサを使わない実装設計が秀逸。",
+  "誤経路からの復帰（バックトラック）は探索範囲を広げすぎると逆効果になり、1ホップ程度の厳密な制限を設けることが成功率と効率のバランスを取る鍵となる。"
+ ],
+ "limitations_ja": [
+  "バックトラックの探索深度を2〜3ホップ以上に拡大すると、誤った分岐の探索が重なり成功率が大幅に低下する。",
+  "視覚的な場所照合（Associate）のF1スコアは0.71であり、似たような景観が続く極端にテクスチャレスな環境では誤認識のリスクが残る。",
+  "大域的な幾何座標を持たないため、空間全体の最適なショートカットの発見や大域的な地図最適化までは行えない。"
+ ],
+ "keywords": [
+  "Vision-and-Language Navigation",
+  "VLN-CE",
+  "Coordinate-free Navigation",
+  "Visual Anchor Graph",
+  "Zero-shot Navigation",
+  "Monocular RGB"
+ ],
+ "id": "2609.20388",
+ "title": "Navi-Agent: Unlocalized Monocular Navigation Agent",
+ "authors": [
+  "Wenyuan Xie",
+  "Mengyang Hong",
+  "Yongzhong Wang",
+  "Yanbiao Ji",
+  "Yijin Zhou",
+  "Shaokai Wu",
+  "Shalayiding Sirejiding",
+  "Huayi Zhou",
+  "Yi-Chao Chen",
+  "Ma Ling",
+  "Yue Ding",
+  "Hongtao Lu"
+ ],
+ "date": "2026-09-20",
+ "group": "general",
+ "tags": [
+  "navigation",
+  "vision-language-action",
+  "perception"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.20388",
+ "pdf_url": "https://arxiv.org/pdf/2609.20388",
+ "summary_ja": "連続環境における視覚言語ナビゲーションにおいて、明示的な大域座標や深度情報を用いずに単眼画像と過去の動作履歴から座標フリーな空間状態を構築するNavi-Agentを提案。ゼロショットで場所の確認や進捗検証、復帰動作を可能にし、位置推定誤差に頑健な誘導を実現した。",
+ "generated": "2026-09-20",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.20388"
+}
