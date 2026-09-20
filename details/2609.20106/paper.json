@@ -1,0 +1,111 @@
+{
+ "title_ja": "AnyviewMeter: カメラ幾何とマルチビューアテンションを用いたロボット報酬モデルの適応",
+ "tldr_ja": "事前学習済みのロボット進捗評価モデルにカメラの光線情報（プルッカー座標）を注入し、さらに複数カメラの映像を同一時刻内で相互参照させるアテンション機構によって、未知視点への頑健性と高精度なマルチビュー評価を実現した論文です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "AnyviewMeterの全体アーキテクチャ。パッチごとのプルッカー光線を視覚トークンおよびQuery/Keyに追加して幾何情報を与え、複数視点のフレームを「同期ブロック・アテンション」で統合することで、片方のカメラが遮蔽されても正しいタスク進捗を予測できます。",
+  "caption": "Fig. 1: Overview of AnyviewMeter. Left: one StackCube test execution seen by a camera whose view of the stack is blocked by the arm (A) and by a clear camera (B); tags give the state-derived progress label. Calibration assigns a Plücker ray to each image patch. Middle: synchronized frames from both cameras form one sequence for the Robometer-4B backbone, in which synchronous block attention lets the two frames of each time step (outlined) attend to each other. A ray encoder adds geometry to visual tokens and, through Q/K ray conditioning, to decoder queries and keys; base weights stay frozen while LoRA, the geometry modules, and the progress head are trained. …",
+  "image": "details/2609.20106/F1.jpg"
+ },
+ "overview_ja": "ロボットが作業をどれだけ達成したかを画像からスカラー値で評価する「進捗報酬モデル」は、強化学習やポリシー評価に欠かせない技術です。しかし従来のモデルは、カメラの角度が変わったりロボット自身のアームで手元が遮蔽されたりすると、実際のタスク状態は同じでも出力が大きくブレてしまうという根本的な問題を抱えていました。通常ファインチューニングを行うと、モデルは見かけのRGB情報だけからカメラ配置を推測しなければならず、未知の画角や視点に弱くなってしまいます。\n\nそこで著者らは、カメラのキャリブレーション情報をパッチごとの6次元光線（プルッカー座標系）としてモデルに直接教え込む「AnyviewMeter」を提案しました。事前学習済みモデル（Robometer）の重みをLoRAで効率的に適応させつつ、視覚特徴量とTransformer内部のQuery/Keyの双方に幾何情報を組み込みます。さらに複数台のカメラがある場合は、各視点の予測値を後から平均するのではなく、デコーダ内で同一時刻のフレーム同士が相互に情報を見合える特殊なアテンションマスク（同期ブロック・アテンション）を設計しました。\n\nシミュレータ（ManiSkill）および実機Franka Pandaを用いた検証の結果、単一カメラでの適応では未知の画角に対してRGBファインチューニングより誤差を約21%削減しました。また複数カメラを用いた評価では、個別予測の平均（レイトフュージョン）に比べて進捗誤差を41〜69%も削減し、実機環境でも約21%の誤差削減を達成しました。カメラ幾何情報と複数視点の統合が、タスク特化型の報酬モデル適応に極めて有効であることを実証しています。",
+ "contributions_ja": [
+  "キャリブレーションされたカメラ光線（プルッカー座標）を視覚トークンとアテンションのQuery/Keyに注入し、事前学習済みモデルを単一または複数視点へ適応させる幾何条件付けフレームワークを提案した点",
+  "追加の学習パラメータなしで、事前学習済みデコーダ内部において同一時刻の複数視点トークンを相互参照させつつ時間的因果性を保つ「同期ブロック・アテンション」を導入した点",
+  "シミュレーションおよび実機ロボット（固定カメラ＋手先カメラ）の実験により、未知視点に対する高い汎化性能と、単純な予測平均を大きく上回る早期統合の優位性を実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "カメラが変わると報酬も狂う？幾何情報で解決する進捗評価",
+   "summary_ja": "視覚に基づく報酬モデルはタスク進捗を推定しますが、視点の違いや遮蔽によって予測が不安定になります。本章では、カメラ光線を用いた幾何条件付けと、複数視点をデコーダ内で統合するアテンション機構によって、この課題を解決するAnyviewMeterの動機と概要を述べています。",
+   "details_ja": "ロボットの進捗評価モデルは、画像から「作業がどこまで進んだか」を推定して報酬を出力します。しかし、同じ物理状態であっても、カメラの位置によって見え方は大きく異なります。例えば、グリッパーが目標に向かって前進しているとき、あるカメラからは大きく動いて見えても、別のカメラでは視線方向に動いているためほぼ静止して見えることがあります。また、キューブの手前に置かれた場合と上に乗った場合で、視点によっては似たような投影像になってしまうこともあります。\n\n事前学習済みの大規模モデル（Robometerなど）を特定のタスクや現場のカメラ配置に適応させる際、通常のRGBファインチューニングでは、モデルが見た目（テクスチャ）だけからカメラ配置を察しなければなりません。そこで本研究では、キャリブレーションされたカメラから得られる6次元のプルッカー光線（Plücker ray）を幾何情報として直接入力します。\n\nさらに、幾何情報だけでは「アームに隠れて見えない状態」を復元できません。これには相補的な別カメラの映像が不可欠です。本研究では、各カメラの予測を後から平均する（レイトフュージョン）のではなく、デコーダの内部で同じ時刻のトークン同士を相互参照させる「同期ブロック・アテンション（synchronous block attention）」を提案しています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "AnyviewMeterのシステム全体図。アームによって積み重ねが見えないカメラAと全体が見えるカメラBの映像を同期させ、光線エンコーダで幾何情報を加えたうえで同一シーケンスとして処理します。これにより、単一カメラや単純平均では早期に達成と誤認してしまう局面でも、正しく進捗を追従できます。",
+     "caption": "Fig. 1: Overview of AnyviewMeter. Left: one StackCube test execution seen by a camera whose view of the stack is blocked by the arm (A) and by a clear camera (B); tags give the state-derived progress label. Calibration assigns a Plücker ray to each image patch. Middle: synchronized frames from both cameras form one sequence for the Robometer-4B backbone, in which synchronous block attention lets the two frames of each time step (outlined) attend to each other. A ray encoder adds geometry to visual tokens and, through Q/K ray conditioning, to decoder queries and keys; base weights stay frozen while LoRA, the geometry modules, and the progress head are trained. …",
+     "image": "details/2609.20106/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "視覚報酬モデル・マルチビュー統合・幾何条件付けの系譜",
+   "summary_ja": "視覚進捗推定、複数視点の表現学習、そしてカメラ光線を用いた幾何学的条件付けという3つの先行研究領域を整理しています。本手法は、これらを組み合わせて事前学習済み報酬モデルの適応へと応用した点に新規性があります。",
+   "details_ja": "本研究の立ち位置は、以下の3つの研究分野の交差点にあります。\n\n### 視覚報酬と進捗推定\n画像からゴール条件付きの表現を学んだり、言語指示に対する進捗を評価したりする手法が発展してきました。Robometerのようにフレーム単位の進捗と軌跡比較を組み合わせるモデルや、残余時間を予測するRynnValueなどが存在します。本研究は、既存の進捗評価モデルを新しいカメラ配置にいかに高精度に適応させるかを扱っています。\n\n### マルチビュー表現とフュージョン\n複数視点の映像を同時に扱う研究は表現学習やポリシー学習で盛んに行われています（Robo-Dopamineなど）。しかし、視点間の整合性を取るだけでは「どちらの視点にも真の証拠が映っていない」場合に対応できません。本手法は、事前学習済みモデルのデコーダ内部で同期した視点を早期に融合させ、片方の死角を補い合います。\n\n### 幾何条件付けとアテンション制御\n古典的な多視点幾何学に基づき、近年の生成モデル（CameraCtrl）やアテンション機構（SCoPE）ではピクセルやパッチごとのプルッカー光線が使われています。またロボット制御ポリシーでも光線条件付けが視点汎化に効くことが知られています。本研究は、このプルッカー光線による条件付けを進捗評価モデルへと持ち込みました。また、OctoやRynnValueなどの先行研究が導入してきた時間マスクの設計を参考にしつつ、同一時刻の視点間のみを全結合する独自の同期ブロック・アテンションを導入しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Plücker-Conditioned Task Adaptation",
+   "heading_ja": "光線を埋め込み、デコーダ内で視点を繋ぐアーキテクチャ",
+   "summary_ja": "プルッカー光線の定義とパッチへの割り当て、視覚特徴量およびQuery/Keyへの幾何情報の注入法、そして複数視点を同時に処理する同期ブロック・アテンションの設計について詳述しています。追加パラメータを最小限に抑えつつ効率的に学習する仕組みが解説されます。",
+   "details_ja": "### III-A 問題設定と出力形式\nカメラ $v$ の時刻 $t$ における画像 $I_t^v$ と、内部パラメータ $K_v$、外部パラメータ $[R_v \\mid t_v]$ を入力とし、正規化された進捗 $\\hat{y}_t \\in [0, 1]$ を予測します。ベースモデル（Robometer）の重み $\\theta_0$ は固定し、LoRAパラメータ $\\Delta\\theta$、幾何モジュール $\\psi$、進捗ヘッド $\\omega$ のみを学習します。出力はRobometerを踏襲し、0.05刻みの10個のビンの確率分布として予測し、その期待値を進捗とします。\n\n### III-B トークンごとのカメラ光線（プルッカー座標）\n画像をパッチ分割（$256\\times 256$ 入力、パッチサイズ16、 $2\\times 2$ マージで $8\\times 8$ グリッド）した各トークン中心に対し、世界座標系でのカメラ中心 $o$ と光線方向 $d$ から、方向とモーメント $m = o \\times d$ の6次元ベクトル $r = [d^T, m^T]^T$ を計算します。モーメントを独立に正規化せず実スケールで保つことで、2本の光線が同一平面上にあるか（交差または平行か）を表す相反積（reciprocal product）の幾何学的整合性を活かせる設計にしています。\n\n### III-C 特徴量とアテンションの幾何条件付け\n幾何情報は2つの経路で注入されます。\n- **パッチ特徴量への加算**: 小型MLPの光線エンコーダ $g_\\psi$ で光線を隠れ層次元に射影し、視覚トークンに加算します。初期状態では事前学習済みの視覚特徴を崩さないよう、ControlNetのようにゼロ初期化を用います。\n- **Query/Keyへの適応**: デコーダの特定層（第27、31、35層）において、位置エンコーディング後に光線特徴から生成した項を追加します。アテンションの分子を展開すると「外観」「外観×幾何」「幾何×幾何」の相互作用項が現れ、幾何的に整合する領域同士のアテンションが自然に強化されます。\n\n### III-D 同時マルチビュー予測と同期ブロック・アテンション\n複数カメラのフレームは $I_1^1, I_1^2, \\dots, I_t^1, I_t^2$ のように時刻順かつカメラ交互にインターリーブして1つのシーケンスにします。\n通常の因果マスク（Causal Mask）では、カメラ1は同時刻のカメラ2を参照できず、カメラ順序に依存してしまいます。そこで本研究では「同期ブロック・アテンション」を考案しました。同一時刻 $t$ に属する全カメラのトークン同士は相互に参照可能にしつつ、未来の時刻のトークンはマスクします。\nここでの重要な工夫が「自己読み出しマスク（self-readout mask）」です。同一時刻内のフレームが自分自身の進捗読み出しトークンを参照することだけを禁止します。これにより、あるカメラのフレームは他方のカメラの読み出し情報のみを受け取ることになり、カメラ間での早期融合が強力に促されます。最終的な進捗は、最後のカメラの進捗トークンから読み出します。\n\n### III-E 学習の予算と計算コスト\n学習するパラメータ数は合計7,439万（LoRAに約6,606万、幾何アダプタに約504万、進捗ヘッドに約329万）で、通常のRGBファインチューニングに比べてわずか7.3%の増加にとどまります。RTX 5090を1枚使った2カメラの学習でもGPUメモリは13.43GBしか消費せず、24kステップの学習が約3.6時間で完了します。",
+   "figures": []
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "シミュレーションと実機で検証：未知視点への強さと複数視点統合の威力",
+   "summary_ja": "ManiSkillの4つのシミュレータタスクと実機アームの3タスクで性能を検証しています。未知画角に対する単一視点の汎化性能、複数視点を統合する際の後段平均（レイトフュージョン）に対する大幅な優位性、そしてアブレーション実験による各コンポーネントの貢献を明らかにしています。",
+   "details_ja": "### IV-A 実験設定\nシミュレータ（ManiSkill）の4タスク（PickCube, PushCube, StackCube, PegInsertionSide）と、実機Franka Pandaを用いた3タスク（コップのプレート配置、コップ持ち上げ、コップのスタック）で評価を行いました。評価指標は平均絶対誤差（MAE）と、時系列順序の一致度を測るケンドールのタウ（$\\tau_a$、1に近いほど良い）です。\n\n### IV-B 単一視点での未知視点汎化\nPickCubeにおいて、学習時の方位角から外れたカメラ群（edge/far）や画角（FOV）を変更したカメラ群でテストしました。単一カメラのAnyviewMeterは、RGBのみのファインチューニング（R1）と比較して全カメラ群でMAEを13.9〜27.0%削減しました。特に画角変更グループではMAEが0.1166から0.0918へと約21.2%改善し、幾何情報を与えることで未知のカメラパラメータに対しても頑健になることが確認されました。\n\n### IV-C & IV-D 複数視点統合 vs レイトフュージョン\n従来のRobometerでは、複数カメラの予測を単純平均すると、遮蔽された悪いカメラに引っ張られて相関が0.788から0.434へと激減することがありました。本手法（P1）のようにデコーダ内で同期ブロック・アテンションを用いて早期統合を行うと、シミュレータ全4タスク・全カメラ群において、個別予測の平均（レイトフュージョン）よりもMAEが41〜69%低下しました。時系列の順序性（$\\tau_a$）についても約88%の条件で最高スコアを記録しています。\n\n### IV-E 実機ロボットでの評価\n固定俯瞰カメラと手先（手首）カメラを備えた実機ロボットで評価しました。通常再生だけでなく、逆再生（Reversed）、一時停止（Frozen）、後戻り（Recovery）のテストクリップを作成し、見かけの再生時間だけで進捗を当てていないかを厳しく検証しています。\nAnyviewMeterは全タスクで最も低いMAE（平均0.081、R1の平均0.103から約21%減）と最も高い $\\tau_a$ を達成しました。特に逆再生クリップでは、事前学習そのまま（R0）の $\\tau_a$ が0.32〜0.53、RGB適応（R1）が0.85〜0.89にとどまる中、AnyviewMeterは0.90〜0.93と非常に正確に進捗の減少を捉えました。\n\n### IV-F アブレーション研究\n複数視点予測においてコンポーネントを順次追加した結果、単純に光線を足したりブロックアテンションにするだけではタスクによって悪化が見られましたが、「自己読み出しマスク」を導入して初めて全タスクで一貫したMAE削減（RGBベース比で26〜39%改善）が達成されました。また光線パスの検証では、パッチ光線とQuery/Key光線の両方を組み合わせることで最も低いMAE（0.0335）が得られることが示されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "実機コップスタックタスクにおける進捗予測の推移。通常・逆再生・停止・後戻りの4つの動作パターンに対して、AnyviewMeter（青）は手先カメラと固定カメラの情報を統合し、破線（逆再生の反転）と実線が綺麗に一致する理想的な進捗推定を実現しています。",
+     "caption": "Fig. 3: Progress predictions on one real stack-cups test demonstration, the median of the 30 test demonstrations by AnyviewMeter error, shown as its normal, reversed, frozen, and recovery test clips. Frames are from the fixed camera. With one camera, the original Robometer and RGB fine-tuning see the fixed camera only; with two cameras, both are run on the fixed and wrist cameras and averaged, whereas AnyviewMeter processes both jointly. Dashed (top row): each model’s prediction on the reversed clip, flipped in time; it should match the solid curve because both clips show the same frames. Time is clip playback time.",
+     "image": "details/2609.20106/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion and Limitations",
+   "heading_ja": "まとめと今後の課題：ロボット報酬モデルの次なるステップ",
+   "summary_ja": "AnyviewMeterがカメラ幾何情報と同期ブロック・アテンションによって頑健な進捗評価を実現したことを総括しています。また、正確なキャリブレーションの必要性やオフライン評価にとどまっている点など、今後の課題と限界についても率直に述べています。",
+   "details_ja": "本研究の結論として、既存のロボット報酬モデルを特定タスクに適応させる際には、「カメラの幾何情報を入力すること」そして「遮蔽があるなら相補的なカメラを追加し、デコーダ内で早期に統合すること」が極めて有効な戦略であることが示されました。\n\n一方で、論文中では以下の限界や懸念点も挙げられています。\n- **キャリブレーションへの依存**: カメラの正確な内部・外部パラメータを前提としており、実環境で生じるキャリブレーション誤差に対する頑健性はまだ十分に評価されていません。\n- **失敗検出の検証不足**: 実機実験のデモデータは時間線形ラベルが付与された成功軌跡をベースに人為的な変換（逆再生や停止）を加えたものであり、真の失敗動作を頑健に検知できるかは今後の検証が必要です。\n- **強化学習ループへの未投入**: 今回の評価はオフラインでのデモデータ評価（スコアリング）にとどまっており、実際にこの報酬モデルを使ってオンライン強化学習を行い、ポリシーの学習速度や成功率がどれだけ向上するかは今後の課題として残されています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "報酬モデルにパッチ単位のプルッカー光線（6次元）を渡すだけで、追加パラメータわずか7%程度で未知の画角や視点に対する汎化性能が大きく向上する。",
+  "複数台カメラの予測を後から平均する（レイトフュージョン）のは死角に弱く危険。デコーダ内で同一時刻トークンを相互参照させる「早期統合」が圧倒的に効く。",
+  "同一時刻のブロックアテンションでは、「自分のフレームの読み出しトークンを見ない」という自己読み出しマスクを入れることで、他カメラの情報を強制的に参照させる設計が肝になる。",
+  "時間反転や一時停止などの摂動データで評価することで、モデルが見かけの経過時間ではなく真の物理的進捗を捉えているかを検証できる。"
+ ],
+ "limitations_ja": [
+  "厳密なカメラキャリブレーションが必須であり、カメラがズレた場合の感度解析が不足している点。",
+  "オフラインの軌跡評価にとどまっており、得られた報酬信号を使って実際にロボットの強化学習（RL）を回した際の効果が未検証である点。",
+  "実機データセットは成功デモの変形が中心であり、予期せぬ失敗行動に対する評価や堅牢性が完全には示されていない点。"
+ ],
+ "keywords": [
+  "Robotic Reward Models",
+  "Plücker Coordinates",
+  "Multi-View Attention",
+  "Camera Geometry",
+  "Parameter-Efficient Fine-Tuning (PEFT)"
+ ],
+ "id": "2609.20106",
+ "title": "AnyviewMeter: Adapting Robotic Reward Models with Camera Geometry and Multi-View Attention",
+ "authors": [
+  "Yuang Tu",
+  "Runjia Tan",
+  "Yujie Yan",
+  "Jinghan Hu",
+  "Chen Lv"
+ ],
+ "date": "2026-09-20",
+ "group": "focus",
+ "tags": [
+  "reinforcement-learning",
+  "perception",
+  "control"
+ ],
+ "categories": [
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.20106",
+ "pdf_url": "https://arxiv.org/pdf/2609.20106",
+ "summary_ja": "視覚に基づくロボット報酬モデルにおいて、カメラ視点の変化や遮蔽による評価のブレを解消する適応フレームワークを提案。LoRAとプルッカー直線による光線埋め込み、同期ブロックアテンションを組み合わせることで、カメラ幾何情報を視覚特徴に統合し、幾何学的一貫性のあるスカラー報酬を出力する。方策学習において視点変化に頑健な報酬推定を実現する。",
+ "generated": "2026-09-20",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.20106"
+}
