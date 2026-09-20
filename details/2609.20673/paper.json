@@ -1,0 +1,117 @@
+{
+ "title_ja": "FunArt: 生成的3D潜在表現からの機能構造と可動機構の復元",
+ "tldr_ja": "静止した単一シーンのRGB-Dスキャンから、事前学習済み3D生成モデルの特徴量を活用して、物体の可動パーツ・操作部・キネマティクス（回転・直動の軸や可動域）を一度に推定するフレームワーク「FunArt」を提案しました。人に動かしてもらう実演動画なしで、ロボットが触る前に動かし方を理解できます。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "FunArtの全体像です。静止状態で撮影されたRGB-D画像列から個々の物体を復元し、可動パーツ（引き出しや扉）と操作部（取っ手）をセグメンテーションします。これらを階層的な3Dシーングラフへとまとめ、回転軸や可動域などの運動パラメータをノードに付与します。",
+  "caption": "Fig. 1: Given posed RGB-D observations of a scene captured in a single static configuration (left), FunArt reconstructs object instances and decomposes them into movable parts and functional interactive elements (center, colored). The predictions are assembled into a hierarchical, articulation-aware functional 3D scene graph (right): objects contain movable parts, and movable parts are associated with their interaction elements (if any). Each movable part stores its predicted motion type, axis, origin, and range, with one representative node (the door panel) shown in detail.",
+  "image": "details/2609.20673/F1.jpg"
+ },
+ "overview_ja": "ロボットが日常生活空間でドアを開けたり引き出しを引いたりするには、どこがどう動くのかという「キネマティクス（幾何学的な運動拘束）」と、どこを触ればいいかという「機能的インタラクティブ要素（ハンドルやノブなど）」を事前に知る必要があります。\n\nしかし、これまでのアプローチには大きな課題がありました。一つは人間が物体を動かす動画を見る手法ですが、これでは誰も触っていない未知の環境には対応できません。もう一つは静止した点群全体から直接推定する手法ですが、散らかった部屋の大量の背景形状に埋もれて、小さな取っ手などの局所的な構造を見失いがちでした。\n\nそこで著者らは、「物体ごとに注目し、大規模な3D生成モデルが学習した形状事前知識を借りればよいのでは？」と考えました。具体的には、3D生成基盤モデルTRELLIS.2の幾何VAE（変分オートエンコーダ）を凍結したまま特徴抽出器として利用します。物体の全体構造を表すコンパクトな潜在トークンと、表面の微細な形状を保持するトークンを組み合わせ、軽量なTransformerデコーダで可動パーツ・操作部・運動パラメータを同時に予測します。\n\n実室内データセット「Articulate3D」で検証したところ、可動パーツ検出や運動パラメータ推定において従来手法を上回る精度を達成しました。触る前に「見て理解する」ロボット知能へ向けた実用的な一歩です。",
+ "contributions_ja": [
+  "人間による操作デモを必要とせず、静止したRGB-Dスキャンのみから機能と可動構造を含む3Dシーングラフを構築するタスクを提唱しました。",
+  "大規模3D生成モデル（TRELLIS.2）の凍結幾何VAEから大域的特徴と局所表面特徴を取り出し、クエリベースでパーツと運動パラメータを同時推定する軽量デコーダを提案しました。",
+  "ボリューム再構成（TSDF）から3D生成モデルの入力表現（O-Voxel）へ、中間メッシュを介さずに直接変換する効率的かつノイズに強いパイプラインを構築しました。",
+  "ベンチマークデータセットArticulate3Dにおいて、可動部・操作部のセグメンテーションおよび運動推定の全項目で既存の最高精度を更新しました。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "触る前に動きを見抜く：静止スキャンからの可動構造理解",
+   "summary_ja": "家庭やオフィスで働くロボットには、物体に触れる前に扉の開き方やハンドルの位置を理解する能力が不可欠です。本研究は、事前学習済み3D生成モデルが獲得した幾何学的パターンを手がかりに、静止スキャンから機能と可動性を持つ3Dシーングラフを構築するFunArtを提案します。",
+   "details_ja": "家庭や職場で自律ロボットが活躍するためには、家具の配置を知るだけでは不十分です。棚の前に立ったとき、「手前の板は左開きの扉で、右側の取っ手を引けば開く」と触る前に見抜く必要があります。事前にこれが分かっていれば、ロボットは扉の回転軌道を避けて立ち位置を決め、一連の滑らかな動作で引き開けることができます。\n\nしかし、従来の技術はこの要件を十分に満たしていませんでした。\n- インタラクション駆動型のアプローチ：人間が実際に家具を動かしている映像やデモを観察して関節を推定します。精度は高いですが、人が事前に動かして見せなければならず、自律的な運用には限界があります。\n- シーン全体の点群を入力とするアプローチ（USDNetなど）：静止スキャンから一発で予測しますが、部屋全体の広大な点群から小さなノブや取っ手を探索するため、計算効率が低く精度も落ちがちでした。\n\nまた、近年の「3Dシーングラフ（空間内の物体と関係性をグラフ構造で表す表現）」も、物体の場所や取っ手の位置までは保持していても、「どう動くか」というキネマティクスまでは扱えていませんでした。\n\nそこでFunArtは、物体ごとに領域を切り出してから形状を深く読み解く「オブジェクト中心」の構成をとります。数百・数千の高品質3Dアセットで学習された生成モデル「TRELLIS.2」の幾何VAEに着目し、その圧縮表現に埋め込まれたパーツの対称性や構造パターンを利用して、可動部とその運動パラメータを同時に予測します。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "FunArtの処理パイプラインです。静止した観測画像から物体インスタンスを再構成し、可動パーツや操作用エレメントへ分解して、運動タイプ・回転軸・原点・可動域を付与した機能的3Dシーングラフを出力します。",
+     "caption": "Fig. 1: Given posed RGB-D observations of a scene captured in a single static configuration (left), FunArt reconstructs object instances and decomposes them into movable parts and functional interactive elements (center, colored). The predictions are assembled into a hierarchical, articulation-aware functional 3D scene graph (right): objects contain movable parts, and movable parts are associated with their interaction elements (if any). Each movable part stores its predicted motion type, axis, origin, and range, with one representative node (the door panel) shown in detail.",
+     "image": "details/2609.20673/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "可動性推定と機能的3Dシーングラフのいま",
+   "summary_ja": "物体の可動性推定はデモ動画を利用する手法から静止点群を扱う手法へと広がっており、3Dシーングラフも操作部の表現へと拡張されてきました。しかし、静止スキャンから操作部と詳細な運動パラメータを同時に結びつける試みはFunArtが初めてです。",
+   "details_ja": "### 可動性推定（Articulation Estimation）\n物体の関節構造（回転ジョイントや直動ジョイント、軸方向、可動範囲など）を推定する研究は、古くは平面追跡や手動操作時の軌道解析から始まりました。近年では2つの異なる状態の点群や画像から関節を推定する手法（DittoやPARISなど）が登場しています。\n\nしかしこれらは「動かした前後」を必要とするため、未知の環境で即座に行動したいロボットには不向きです。そこで静止した点群から一挙に推定する手法（USDNetなど）や、VLM（視覚言語モデル）の知識を使う手法（REACT3D）が登場しました。しかし、シーン全体を一度に処理しようとすると、広大な背景に埋もれた小さな可動部を見落としやすくなります。また、幾何形状だけが分かっても「どこを把持して動かせばよいか」という操作対象が欠けていました。\n\n### 機能的3Dシーングラフ（Functional 3D Scene Graphs）\nロボットが操作を実行するには、ハンドル・ノブ・ボタンといった「機能的インタラクティブ要素（FIE）」の特定が不可欠です。3Dシーングラフ（3DSG）は空間内の物体や意味関係を階層的に管理する構造として広く使われていますが、最近ではFIEをノードとして追加するFunGraphやOpenFunGraph、KeySG、FunFactなどが提案されています。\n\nしかし、これらの機能的3DSGは「どこに操作部があるか」を記述するだけで、それがどのパーツをどのように動かすかというキネマティクス情報が欠落していました。逆に、キネマティクスを含む最新の3DSGは人間が動かすデモ動画を前提としています。静止したRGB-D画像のみから、FIEと可動パーツのキネマティクスを同時に結びつけて獲得する手法は、これまで存在しませんでした。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "生成モデルの潜在空間を解読し、物体の動きと機能を同時に予測する",
+   "summary_ja": "再構成された物体をTRELLIS.2の幾何表現（O-Voxel）に変換し、凍結した幾何VAEから大域的な潜在トークンと高解像度な表面トークンを抽出します。これらをTransformerベースのクエリデコーダに入力し、パーツマスク・種別・運動パラメータを一挙に予測します。",
+   "details_ja": "### III-A 予備知識：O-Voxel表現\n本手法では3D生成基盤モデルTRELLIS.2で採用されている「O-Voxel」表現を用います。O-VoxelはDual Contouring（デュアルコンタリング：メッシュ再構成手法）に着想を得た柔軟な疎ボクセル表現で、ボクセル内の頂点位置と交差フラグで滑らかな表面形状を記述します。本研究では色や質感（PBR材質）は使わず、大規模学習された幾何VAEのみを凍結して利用します。\n\n### III-B 凍結された生成3D特徴量からの可動性予測\n物体のバウンディングボックスを基準に中心化・正規化を行い、解像度 $512^3$ の疎なO-Voxelに変換して凍結VAEに入力します。\n- ボトルネック潜在トークン $Z$（有効解像度 $32^3$）：物体全体の大域的な構造文脈をコンパクトに保持しており、「この物体がどう動くか」を大所高所から判断するのに役立ちます。\n- デコーダ直前の表面トークン $F_0$：表面に沿った高解像度な幾何特徴を保持しており、パーツ境界の正確な分離に役立ちます。\n\nこれらから最遠点サンプリングで $F_0$ から $N=4096$ 個、$Z$ から $L=256$ 個のトークンを選びます。表面トークンを6層のTransformerエンコーダで文脈化した後、4層のTransformerデコーダにおいて $K=32$ 個の学習可能クエリでパーツをデコードします。\nここでのポイントは「非対称マスクアテンション」です。各層で予測されたパーツ領域マスクは表面トークン $F_0$ に対してのみアテンションを制限し、隣接する引き出し同士などの分離を促します。一方で、潜在トークン $Z$ は常に全体が見えるようにしておくことで、物体全体の文脈を失わないように工夫しています。\n\n最終クエリから、各ヘッドを通じて以下を出力します：\n- パーツ分類（回転、直動、機能的要素、または非パーツ $\\varnothing$）\n- 回転・直動の運動軸（MLPで直接単位ベクトルを回帰。薄い板状部品でもSVDより安定）\n- 運動の原点（パーツ重心からの相対オフセットとして回帰）\n- 可動範囲（中心 $\\hat{r}_k$ と幅の半分 $\\hat{h}_k$）\n- マスクのIoU信頼度スコア\n\n### III-C TSDF再構成からO-Voxelへの直接変換\n実環境では、RGB-D画像列からTSDF（切り捨て符号付き距離関数）マップが作られます。通常はここから一度メッシュを抽出し、再度ボクセル化しますが、FunArtではTSDFのゼロ交差点の重心から直接O-Voxelの双対頂点を配置する数式を導出しました。中間メッシュを省くことで高速化し、未観測領域に不要な面が勝手に張られるのを防いでいます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "FunArtのアーキテクチャ詳細です。TSDFから変換されたO-Voxelを凍結VAEに入力し、潜在トークン $Z$ と表面トークン $F_0$ を抽出します。Transformerエンコーダとマスク付きクロスアテンションデコーダを経て、軽量なヘッドがパーツマスクや運動パラメータを予測します。",
+     "caption": "Fig. 2: The input TSDF object is converted to an O-Voxel representation and processed by the frozen TRELLIS.2 geometry VAE, which provides $L$ latent tokens $Z$ and $N$ dense surface tokens $F_{0}$ . After feature projection (via MLP) and positional encoding (PE), the surface tokens are refined by a six-layer Transformer encoder. A four-layer masked cross-attention decoder combines these features with $K$ learned queries and the latent-token context. Per-query prediction heads estimate the part mask and class, motion axis, origin, and range, together with a confidence score, yielding the final proposals.",
+     "image": "details/2609.20673/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "ベンチマークで実証された高精度な構造・運動推定",
+   "summary_ja": "実室内ベンチマーク「Articulate3D」において、可動パーツ分割、運動パラメータ推定、機能要素分割の全タスクでベースラインを上回りました。アブレーション実験により、生成潜在表現の併用や実データ由来の再構成幾何での学習が性能向上に不可欠であることが確認されました。",
+   "details_ja": "### 実験設定\n評価には実スキャンデータセットScanNet++をベースにした「Articulate3D」（学習195シーン、検証42シーン）を使用しました。物体検出が完璧な理想状態を測る「GT物体入力」と、マッピングフロントエンドから全自動で動かす「再構成物体入力（エンドツーエンド）」の2設定で検証しています。モデルの学習対象はわずか9.5Mパラメータの予測ヘッドのみで、推論時間は物体1個あたりわずか10ms（TSDFから潜在変数への変換を含めても約410ms）と非常に軽量です。\n\n### IV-A 可動パーツのセグメンテーション\nエンドツーエンド設定において、FunArtはシーン全体を扱う強力なベースラインUSDNetに対して $AP_{50}$ で1.5ポイント、$AP$ 全体でも明確な差をつけて最高精度を記録しました（表I）。大まかな検出指標である $AP_{25}$ ではUSDNetが勝る場面もありますが、幾何形状を厳密に捉える $AP_{50}$ や $AP$ でFunArtが大きく上回ります。これは衝突のないマニピュレーション計画を立てる上で決定的に重要な強みです。\n\n### IV-B 運動パラメータの推定精度\nマスクのIoUが0.5以上かつ、軸の角度誤差15度以内、原点位置誤差0.25m以内という厳しい複合指標で評価しました（表II）。FunArtは軸のみ・複合評価のいずれでも従来手法を圧倒し、特にエンドツーエンドの軸・原点複合 $AP_{50}$ でベースラインを2.8ポイント上回りました。また、可動範囲（角度・移動量）の予測においても、中央値誤差わずか3.8度/3.1cmという高精度を達成しています。\n\n### IV-C 機能的インタラクティブ要素（FIE）の検出\nハンドルやノブなどの検出（表III）では、エンドツーエンドの $AP_{50}$ で既存手法を6.7ポイント突き放しました。学習不要の既存シーングラフ手法（FunGraphやKeySGなど）は、RGB-Dの観測ノイズに弱く、正解FIEの3〜5割程度しか捉えられないのに対し、FunArtは高い復元性能を示しました。\n\n### IV-D アブレーション実験\n設計の妥当性を検証した結果（表IV）：\n- 潜在トークン $Z$ を除き表面特徴 $F_0$ だけにすると、全タスクで性能が低下しました。\n- 軸推定にSVDを用いたり、原点を絶対座標で直接予測させると精度が大きく悪化しました。\n- 最も性能低下が激しかったのは「実再構成幾何を使わずに学習した場合」であり、実測スキャン特有のノイズや欠損を含んだ形状で学習することが実用上極めて重要であることが分かりました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "Spotロボットを用いた実環境の電子レンジに対する適用例です。静止画像から扉やタイマーノブ、ハンドルを正確にパーツ分割し、回転軸（赤と緑の矢印）を正しく同定できています。",
+     "caption": "Fig. 3: SPOT interacting with a real-world microwave. FunArt’s segmented 3D points and predicted motion axes are reprojected onto the RGB image. The left legend identifies the scene-graph nodes, while the insets show the 3D part segmentation in two articulation states.",
+     "image": "details/2609.20673/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望：物理インタラクションへの橋渡し",
+   "summary_ja": "FunArtは、大規模3D生成モデルが持つ形状の事前知識をうまく引き出すことで、静止RGB-D観測から物体の機能と可動構造を推定できることを示しました。触る前の初期仮説として機能し、ロボットの計画や能動的探索を強力に支援します。",
+   "details_ja": "FunArtは、静止したシーンを一度スキャンするだけで、どのパーツがどう動き、どこに手をかければ操作できるかという「機能的・可動的3Dシーングラフ」を人手デモなしに自動生成する新しい枠組みを打ち立てました。大規模な3D生成モデル（TRELLIS.2）が事前学習で培った幾何学的潜在表現が、ロボットの物理的な理解にもそのまま転用できることを美しく実証しています。\n\n著者は、本手法を能動的知覚や実際の接触行動を完全に置き換えるものではなく、それらをガイドするための「優れた初期仮説の生成器」と位置づけています。触る前に高精度な当たりをつけておくことで、無駄な試行錯誤を減らし、安全で効率的なロボットの行動計画が可能になります。\n\n今後は、複数物体間の機能的な依存関係（例えば電源プラグとコンセントの関係など）の表現拡張や、実際にロボットを動かしながら仮説を検証・更新していくオンラインの能動的知覚システムへの統合が期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "3D生成基盤モデルの幾何VAEは、テクスチャやメッシュ生成だけでなく、物体のパーツ分割や可動軸予測といったロボティクス的な構造理解のための強力な事前知識としてそのまま転用できます。",
+  "パーツ予測には「大域的な文脈（潜在トークン）」と「局所的な表面精度（デコーダ特徴）」の双方が不可欠であり、アテンションマスクを表面特徴側のみにかける非対称な設計が効きます。",
+  "運動パラメータの回帰では、主軸の直接回帰や重心からの相対オフセット予測など、幾何学的な特異点や数値的不安定性を避けるパラメータ設計が精度を大きく左右します。",
+  "シミュレータ等の綺麗なCAD形状だけでなく、スキャン再構成特有の穴あきやノイズを含んだ形状表現で学習させることが、実環境での高いロバスト性に直結します。"
+ ],
+ "limitations_ja": [
+  "静止スキャンのみに依存しているため、激しいオクルージョン（遮蔽）やスキャンの著しい欠損がある場合、幾何学的な曖昧さを解消しきれないことがあります。",
+  "凍結VAE自体は汎用的ですが、後段の予測ヘッドは教師あり学習を行っているため、学習データ（Articulate3D）に存在しない全く未知の構造カテゴリや珍しい機構への汎化には限界があります。",
+  "物体間の相互関係（連動して動く複雑なリンク機構など）や、遠隔スイッチと照明のような離れた要素間の機能的依存関係まではモデル化されていません。"
+ ],
+ "keywords": [
+  "Articulated Object Modeling",
+  "3D Scene Graphs",
+  "3D Foundation Models",
+  "Robotic Manipulation",
+  "RGB-D Perception"
+ ],
+ "id": "2609.20673",
+ "title": "FunArt: Decoding Functional Structure and Articulation from Generative 3D Latents",
+ "authors": [
+  "Dennis Rotondi",
+  "Abdelrhman Werby",
+  "Kai O. Arras"
+ ],
+ "date": "2026-09-20",
+ "group": "general",
+ "tags": [
+  "perception",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.CV",
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.20673",
+ "pdf_url": "https://arxiv.org/pdf/2609.20673",
+ "summary_ja": "単一の静的RGB-D観測から、可動パーツのセグメンテーションとキネマティクスモデルを含む機能的3Dシーングラフを構築するFunArtを提案。対象の幾何をTRELLIS.2の疎構造ボクセル表現に変換し、相互作用履歴なしに事前学習された潜在表現から可動関節とパーツ構造を直接復元する。",
+ "generated": "2026-09-20",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.20673"
+}
