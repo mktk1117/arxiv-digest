@@ -1,6 +1,284 @@
 {
  "entries": [
   {
+   "date": "2026-09-20",
+   "rank": 0,
+   "id": "2609.20106",
+   "group": "focus",
+   "title": "AnyviewMeter: Adapting Robotic Reward Models with Camera Geometry and Multi-View Attention",
+   "title_ja": "AnyviewMeter: カメラ幾何とマルチビューアテンションを用いたロボット報酬モデルの適応",
+   "summary_ja": "視覚に基づくロボット報酬モデルにおいて、カメラ視点の変化や遮蔽による評価のブレを解消する適応フレームワークを提案。LoRAとプルッカー直線による光線埋め込み、同期ブロックアテンションを組み合わせることで、カメラ幾何情報を視覚特徴に統合し、幾何学的一貫性のあるスカラー報酬を出力する。方策学習において視点変化に頑健な報酬推定を実現する。",
+   "authors": [
+    "Yuang Tu",
+    "Runjia Tan",
+    "Yujie Yan",
+    "Jinghan Hu",
+    "Chen Lv"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "perception",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.20106",
+   "image": "figures/2026-09-20/2609.20106.jpg"
+  },
+  {
+   "date": "2026-09-20",
+   "rank": 1,
+   "id": "2609.20709",
+   "group": "focus",
+   "title": "MoWAM: Explicit Future Motion Prediction for Efficient World Action Models",
+   "title_ja": "MoWAM: 効率的な世界行動モデルのための明示的な将来運動予測",
+   "summary_ja": "将来のダイナミクスを考慮する世界行動モデルにおいて、推論コストの高い将来動画生成の代わりに構造化されたロボットの将来運動を直接予測するMoWAMを提案。シーン全体の再構築を排し、コンパクトな抽象化としてロボットの運動発展を明示的にモデル化することで、計算量を大幅に抑えつつ分布シフトに対する頑健性を向上させ、方策学習の効率を高めた。",
+   "authors": [
+    "Jiayu Wang",
+    "Bin Zhu",
+    "Yue Yu",
+    "Jingjing Chen"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "control",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.20709",
+   "image": "figures/2026-09-20/2609.20709.jpg"
+  },
+  {
+   "date": "2026-09-20",
+   "rank": 2,
+   "id": "2609.20646",
+   "group": "focus",
+   "title": "TraceFlow: Guiding Frozen Flow-Matching Robot Policies with Success and Failure Traces",
+   "title_ja": "TraceFlow: 成功および失敗トレースによる凍結Flow-Matchingロボット方策の誘導",
+   "summary_ja": "事前学習済みFlow-Matching方策に対し、追加学習なしでテスト時に過去の成功・失敗ロールアウトを活用して方策を修正するTraceFlowを提案。検索された成功例と失敗例のアクション密度から進行度に応じた補正場を構築し、固定された速度場に有界なガイダンスを加えることで、失敗軌跡を負の証拠として活かした頑健な制御実行を可能にする。",
+   "authors": [
+    "Jiaxuan Zhang",
+    "Ruizhe Liu",
+    "Yu Zhang",
+    "Yanchao Yang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "reinforcement-learning",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.20646",
+   "image": "figures/2026-09-20/2609.20646.jpg"
+  },
+  {
+   "date": "2026-09-20",
+   "rank": 3,
+   "id": "2609.20776",
+   "group": "focus",
+   "title": "GeoAAC: Geometry-Based Adaptive Action Chunking from Denoising Trajectories in VLA Policies",
+   "title_ja": "GeoAAC: VLA方策におけるデノイジング軌道の幾何特性に基づく適応型アクションチャンキング",
+   "summary_ja": "Flow-Matching型VLA方策において、従来固定されていたアクションチャンク長を予測信頼度に応じて動的に調整するGeoAACを提案。デノイジング軌道の幾何学的特徴から行動予測の不確実性やタスク段階ごとの制御精度要求を捉え、適切な実行ホライズンを割り当てることで、閉ループフィードバック性と動作継続性を両立し制御性能を改善した。",
+   "authors": [
+    "Xin Chen",
+    "Sen Chen",
+    "Yujuan Ding",
+    "Jian Liu",
+    "Guoqing Wang",
+    "Wei Ye",
+    "Heng Tao Shen",
+    "Yi Bin"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "vision-language-action",
+    "control",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.20776",
+   "image": "figures/2026-09-20/2609.20776.jpg"
+  },
+  {
+   "date": "2026-09-20",
+   "rank": 4,
+   "id": "2609.20680",
+   "group": "focus",
+   "title": "Towards Scaling Marine Perception with Synthetic Data",
+   "title_ja": "合成データによる海洋環境認識のスケーリングに向けて",
+   "summary_ja": "水中環境における学習ベース認識タスクのため、IsaacSimベースのシミュレータOceanSimを拡張した合成データ生成パイプラインを提案。実データの収集が極めて困難な水中に特化し、外観や構造を柔軟に設定可能な自動アノテーション付きフォトリアリスティックデータを大規模生成することで、sim-to-realなモデル学習を支援する。",
+   "authors": [
+    "Haoyu Ma",
+    "Onur Bagoren",
+    "Anja Sheppard",
+    "Elias Fandi",
+    "Ashrith Edukulla",
+    "Tanner Aslan",
+    "Natasha Sieh",
+    "Jingyu Song",
+    "Katherine A. Skinner"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "simulation",
+    "dataset",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.20680",
+   "image": "figures/2026-09-20/2609.20680.jpg"
+  },
+  {
+   "date": "2026-09-20",
+   "rank": 5,
+   "id": "2609.20822",
+   "group": "general",
+   "title": "Coding Agents with an Obstacle-Aware Harness for Safe Robot Manipulation",
+   "title_ja": "安全なロボットマニピュレーションのための障害物認識ハーネスを備えたコーディングエージェント",
+   "summary_ja": "LLMが制御プログラムを生成するコーディングエージェント型マニピュレーションにおいて、指示文で禁止しても障害物衝突が多発する課題を検証。タスク達成バイアスによる安全性無視を防ぐため、障害物認識ハーネスを導入して安全制約をプログラム実行時に担保する枠組みを提案した。",
+   "authors": [
+    "Bingxin Xu",
+    "Yuzhang Shang",
+    "Zhen Dong",
+    "Emilio Ferrara"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CL",
+    "cs.CV"
+   ],
+   "tags": [
+    "llm-agent",
+    "manipulation",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.20822",
+   "image": "figures/2026-09-20/2609.20822.jpg"
+  },
+  {
+   "date": "2026-09-20",
+   "rank": 6,
+   "id": "2609.20673",
+   "group": "general",
+   "title": "FunArt: Decoding Functional Structure and Articulation from Generative 3D Latents",
+   "title_ja": "FunArt: 生成的3D潜在表現からの機能構造と可動機構の復元",
+   "summary_ja": "単一の静的RGB-D観測から、可動パーツのセグメンテーションとキネマティクスモデルを含む機能的3Dシーングラフを構築するFunArtを提案。対象の幾何をTRELLIS.2の疎構造ボクセル表現に変換し、相互作用履歴なしに事前学習された潜在表現から可動関節とパーツ構造を直接復元する。",
+   "authors": [
+    "Dennis Rotondi",
+    "Abdelrhman Werby",
+    "Kai O. Arras"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.RO"
+   ],
+   "tags": [
+    "perception",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.20673",
+   "image": "figures/2026-09-20/2609.20673.jpg"
+  },
+  {
+   "date": "2026-09-20",
+   "rank": 7,
+   "id": "2609.20791",
+   "group": "general",
+   "title": "StageGuard: Learning Stage Transitions for Long-Horizon Robot Tasks via Agentic Distillation",
+   "title_ja": "StageGuard: エージェント蒸留による長期間ロボットタスクのステージ遷移学習",
+   "summary_ja": "階層型制御においてスキルの終了と次サブタスクへの遷移を判定する軽量モデルを学習する蒸留フレームワークStageGuardを提案。大規模VLMの高精度な推論能力から判断境界を効率的に抽出し、リアルタイムで実機動作可能なスキル完了チェッカーを実現した。",
+   "authors": [
+    "Jinbang Huang",
+    "Yuanzhao Hu",
+    "Zhiyuan Li",
+    "Ran Qi",
+    "Yixin Xiao",
+    "Yangzheng Wu",
+    "Tengyue Ba",
+    "Zhanguang Zhang",
+    "Yingxue Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "planning",
+    "manipulation",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.20791",
+   "image": "figures/2026-09-20/2609.20791.jpg"
+  },
+  {
+   "date": "2026-09-20",
+   "rank": 8,
+   "id": "2609.20691",
+   "group": "general",
+   "title": "Custom PX4 firmware for autonomous hybrid aerial-marine missions",
+   "title_ja": "空中・水上ハイブリッド自律任務のためのカスタムPX4ファームウェア",
+   "summary_ja": "飛行と水上航行を1つのミッションで両立する水空両用ドローンのため、PX4ファームウェアを拡張。標準のフライト機能や安全機構を維持したまま手動・自律の水上航行モードを統合し、QGroundControlを介して空中・水上ウェイポイントを統合管理できる航行制御システムを構築・実証した。",
+   "authors": [
+    "Andrea Capuozzo",
+    "Fabio Ruggiero",
+    "Vincenzo Lippiello"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "drone",
+    "control",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.20691",
+   "image": null
+  },
+  {
+   "date": "2026-09-20",
+   "rank": 9,
+   "id": "2609.20388",
+   "group": "general",
+   "title": "Navi-Agent: Unlocalized Monocular Navigation Agent",
+   "title_ja": "Navi-Agent: 自己位置推定を用いない単眼視覚言語ナビゲーションエージェント",
+   "summary_ja": "連続環境における視覚言語ナビゲーションにおいて、明示的な大域座標や深度情報を用いずに単眼画像と過去の動作履歴から座標フリーな空間状態を構築するNavi-Agentを提案。ゼロショットで場所の確認や進捗検証、復帰動作を可能にし、位置推定誤差に頑健な誘導を実現した。",
+   "authors": [
+    "Wenyuan Xie",
+    "Mengyang Hong",
+    "Yongzhong Wang",
+    "Yanbiao Ji",
+    "Yijin Zhou",
+    "Shaokai Wu",
+    "Shalayiding Sirejiding",
+    "Huayi Zhou",
+    "Yi-Chao Chen",
+    "Ma Ling",
+    "Yue Ding",
+    "Hongtao Lu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "navigation",
+    "vision-language-action",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.20388",
+   "image": "figures/2026-09-20/2609.20388.jpg"
+  },
+  {
    "date": "2026-09-19",
    "rank": 0,
    "id": "2609.20575",
