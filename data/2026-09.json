@@ -1,6 +1,277 @@
 {
  "entries": [
   {
+   "date": "2026-09-21",
+   "rank": 0,
+   "id": "2609.21447",
+   "group": "focus",
+   "title": "FootQuery: Future-Touchdown-Guided Retrieval from Depth History for Perceptive Humanoid Locomotion",
+   "title_ja": "FootQuery: 将来の接地位置予測に基づく深度履歴検索によるヒューマノイド知覚歩行",
+   "summary_ja": "不整地でのヒューマノイド歩行では死角となる足元地形の把握が課題となる。本論文は固有受容感覚から次の接地位置とその不確実性を予測し、過去のスパースな深度画像から関連する地形情報を適応的に検索・抽出するFootQueryを提案。実機での着地位置を過去画像に逆投影して学習を監督することで、オクルージョン下でも踏み外しを防ぎ、視覚情報を活用した安定な全身移動制御を可能にする。",
+   "authors": [
+    "Tao Dong",
+    "Jia Yu",
+    "Yuxuan Fan",
+    "Linna Zhao",
+    "Jiaqi Gong",
+    "Andong Yang",
+    "Chao Gao",
+    "Guyue Zhou"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "perception",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.21447",
+   "image": "figures/2026-09-21/2609.21447.jpg"
+  },
+  {
+   "date": "2026-09-21",
+   "rank": 1,
+   "id": "2609.22075",
+   "group": "focus",
+   "title": "LIMBO: Learning and Internalizing Model-Free Barrier Objectives for Agile and Safe Whole-Body Control",
+   "title_ja": "LIMBO: 俊敏かつ安全な全身制御に向けたモデルフリー制御バリア目的の学習と内在化",
+   "summary_ja": "高次元・非線形なダイナミクス下での衝突回避とバランス維持を両立する全身制御（WBC）のため、LIMBOフレームワークを提案。固定されたベース制御器の残差行動空間上でモデルフリーな制御バリア関数（Q-CBF）を学習し、その安全構造をタスク方策に蒸留する。学習した安全価値を用いたリスク誘導サンプリングにより、高次元な制御空間でも扱いやすく頑健な安全証明と俊敏な動作を実現する。",
+   "authors": [
+    "Jake Gonzales",
+    "Arturo Flores Alvarez",
+    "Yu-Ming Chen",
+    "Aaron D. Ames",
+    "Lillian J. Ratliff",
+    "Manikantan Nambi"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "safety",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.22075",
+   "image": "figures/2026-09-21/2609.22075.jpg"
+  },
+  {
+   "date": "2026-09-21",
+   "rank": 2,
+   "id": "2609.21107",
+   "group": "focus",
+   "title": "Learning Scene-Aware Humanoid Locomotion through 3D Clutter from Immersive Human Demonstrations",
+   "title_ja": "MTC: 没入型人間のデモから学ぶ3D密集散乱環境下でのヒューマノイドのシーン認識歩行",
+   "summary_ja": "3次元的に障害物が密集した幾何拘束の強い環境を走査するヒューマノイド歩行手法Moving Through Clutter（MTC）を提案。実環境の構築コストを避けるため、手続き型VR環境で没入型の人体動作デモを収集し、全身動作と環境形状が密に結合したシーン認識歩行方策を模倣学習する。幾何学的な障害物回避と接触を伴う狭隘空間での移動を両立させる全身制御スキルの獲得を実証した。",
+   "authors": [
+    "Beichen Wang",
+    "Tong Xu",
+    "Daniel Kosukhin",
+    "Yuen-Hei Yeung",
+    "Yuanjie Lu",
+    "Xuesu Xiao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.21107",
+   "image": "figures/2026-09-21/2609.21107.jpg"
+  },
+  {
+   "date": "2026-09-21",
+   "rank": 3,
+   "id": "2609.21761",
+   "group": "focus",
+   "title": "CRISP: Contact-Rich Robotic Simulation Platform with Extensive Geometries and Contact Solvers",
+   "title_ja": "CRISP: 多様な幾何形状と接触ソルバを備えた接触リッチなロボットシミュレーション基盤",
+   "summary_ja": "高精度な嵌め合いなど接触リッチなタスク向け物理エンジンCRISPを提案。既存シミュレータが抱える幾何表現の制約や接触ソルバの精度・頑健性の不足を解決するため、多様な3D形状表現と高精度な衝突検出、安定したマルチコンタクト数値解法を統合している。狭小公差でのマニピュレーションや歩行など、複雑な接触相互作用を伴う運動制御学習に高忠実度な物理計算環境を提供する。",
+   "authors": [
+    "Somang Lee",
+    "Sunkyung Park",
+    "Jinhee Yun",
+    "Seoki An",
+    "Dongjun Lee"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "control",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.21761",
+   "image": "figures/2026-09-21/2609.21761.jpg"
+  },
+  {
+   "date": "2026-09-21",
+   "rank": 4,
+   "id": "2609.21572",
+   "group": "focus",
+   "title": "SABER: Learning Attention-based Semantic Affordance for Legged Locomotion",
+   "title_ja": "SABER: 脚ロボット歩行のための注意機構に基づく意味論的アフォーダンスの学習",
+   "summary_ja": "従来の幾何情報に加え、接触してよい対象かを判断する意味論的接触許可を統合した強化学習歩行方策SABERを提案。産業現場では壊れやすい配管や資材への接触が重大な事故につながる。局所3D幾何と接触許可属性を単一の地形アフォーダンスマップに統合し、プランナーを介さずポリシーが直接エンドツーエンドで推論することで、危険物への接触を回避しつつ安全で適応的な脚式移動を実現する。",
+   "authors": [
+    "Hari Prasanth Palanivelu (Michael)",
+    "Samuel Sze (Michael)",
+    "Kennard Garrison Johannes (Michael)",
+    "Albertus Hendrawan Adiwahono (Michael)",
+    "Meng Yee (Michael)",
+    "Chuah"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "reinforcement-learning",
+    "perception",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.21572",
+   "image": "figures/2026-09-21/2609.21572.jpg"
+  },
+  {
+   "date": "2026-09-21",
+   "rank": 5,
+   "id": "2609.21045",
+   "group": "general",
+   "title": "DEXTERA: From a Single Image to Deployable Dexterous Manipulation via Real-to-Sim-to-Real",
+   "title_ja": "DEXTERA: 単一画像から実機展開可能な巧緻マニピュレーションを実現するReal-to-Sim-to-Real基盤",
+   "summary_ja": "実機データ収集が高コストな巧緻マニピュレーションに対し、1枚のRGB画像から展開可能な方策を自動生成するDEXTERAを提案。静的背景のガウシアン表現とVLMにより物理パラメータを推定した対話可能アセットに分解し、物理シミュレータ内で大規模に方策を学習する。視覚・幾何・ダイナミクスのギャップを段階的に埋めることで、実機への確実なゼロショット転移を可能にした。",
+   "authors": [
+    "Jin Wu",
+    "Lianjie Yuan",
+    "Zeyan Sun",
+    "Yuanyuan Lei",
+    "Disi A",
+    "Bicheng Han",
+    "Fangzhou Xia"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "sim-to-real",
+    "simulation",
+    "grasping"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.21045",
+   "image": "figures/2026-09-21/2609.21045.jpg"
+  },
+  {
+   "date": "2026-09-21",
+   "rank": 6,
+   "id": "2609.21788",
+   "group": "general",
+   "title": "From Pretraining to Proficiency: Real-World Subtask RL for Long-Horizon Manipulation with Minimal Human Intervention",
+   "title_ja": "PARTS: 最小限の人手介入で長大タスクのボトルネックを克服する実機サブタスク強化学習",
+   "summary_ja": "長期マニピュレーション課題において事前学習済み基盤モデルが特定サブタスクで失敗する問題に対し、実機サブタスクRL手法PARTSを提案。全タスクの模倣データを再収集する代わりに、事前学習モデルをフリーズさせて失敗のボトルネックとなるサブタスクにのみRL練習を集中させる。これによりオペレーターの介入を最小限に抑えつつ、疎な報酬下でも高効率にタスク成功率を大幅改善することに成功した。",
+   "authors": [
+    "Sichang Su",
+    "Benjamin Yang",
+    "Zhiyun Deng",
+    "Boyuan Liang",
+    "Yip Fun Yeung",
+    "Zelin Wang",
+    "Lingfeng Sun"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "manipulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.21788",
+   "image": "figures/2026-09-21/2609.21788.jpg"
+  },
+  {
+   "date": "2026-09-21",
+   "rank": 7,
+   "id": "2609.21022",
+   "group": "general",
+   "title": "Catch Me If You Can: Real-Time Feedback Denoising for Responsive VLAs",
+   "title_ja": "VLA-Feedback: 応答性の高いVLAのためのリアルタイム・フィードバック・デノイジング",
+   "summary_ja": "拡散モデルに基づくVLAは行動チャンクをオープンループで実行するため、対象物の移動や接触変化に遅れが生じる。本論文は低周波の拡散プランニングと高周波の視覚フィードバックを融合したVLA-Feedbackを提案。実行前にチャンク全体を完全デノイズせず、実行中に逐次フィードバックを用いてリアルタイムにノイズ除去を行う2タイムスケール構造により、動的環境での応答性を大幅に向上させた。",
+   "authors": [
+    "Yiheng Ji",
+    "Xingru Zhou",
+    "Luis Sentis",
+    "Mingyo Seo"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "control",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.21022",
+   "image": "figures/2026-09-21/2609.21022.jpg"
+  },
+  {
+   "date": "2026-09-21",
+   "rank": 8,
+   "id": "2609.21818",
+   "group": "general",
+   "title": "LunaDrive: A Delay-Compensated High-Voltage GaN FET-Based Motor Driver for Dynamic Robots with Flat BLDC Motors",
+   "title_ja": "LunaDrive: フラット型BLDCモータを搭載したダイナミックロボット用遅延補償型高電圧GaN FETモータドライバ",
+   "summary_ja": "高出力なフラットBLDCモータの性能を最大限引き出すため、定格電圧（48V以下）を超えて駆動可能なGaN FETベースのモータドライバLunaDriveを開発。従来のSi MOSFETが抱える高電圧・大電流のトレードオフを解消し、遅延補償制御を組み込むことで瞬時最高回転速度と急峻なトルク応答を実現。高ダイナミクスを要求されるロボットの運動性能向上に寄与する。",
+   "authors": [
+    "Sota Yuzaki",
+    "Temma Suzuki",
+    "Hiromi Tada",
+    "Masanori Konishi",
+    "Kento Kawaharazuka",
+    "Kei Okada"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.21818",
+   "image": "figures/2026-09-21/2609.21818.jpg"
+  },
+  {
+   "date": "2026-09-21",
+   "rank": 9,
+   "id": "2609.21024",
+   "group": "general",
+   "title": "Adapting Rigid-Body Dynamics Derivatives for Constraint Embedding Closed-Chain Models",
+   "title_ja": "拘束埋め込み型閉リンク機構モデルに対する剛体動力学微分の適応",
+   "summary_ja": "ロボットのリンク機構に閉ループが存在する場合の剛体動力学1次微分アルゴリズムを拡張した研究。従来の効率的な微分手法では関節速度の影響が局所配位に依存しないと仮定していたが、本手法ではこの仮定を取り払い、拘束埋め込み型閉リンク機構を含むより一般的な関節モデルへと拡張。並列リンクや閉ループ駆動機構を持つロボットの高精度かつ高速な軌道最適化・制御計算を可能にする。",
+   "authors": [
+    "Daniel J. Volpi",
+    "Patrick M. Wensing"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.21024",
+   "image": "figures/2026-09-21/2609.21024.jpg"
+  },
+  {
    "date": "2026-09-20",
    "rank": 0,
    "id": "2609.20106",
