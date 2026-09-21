@@ -1,0 +1,139 @@
+{
+ "title_ja": "拘束埋め込み型閉リンク機構モデルに対する剛体動力学微分の適応",
+ "tldr_ja": "閉ループリンク機構を木構造に集約する「拘束埋め込み法」において、関節運動部分空間の姿勢依存性を取り込むことで、高速かつ正確な逆動力学の解析的1階微分アルゴリズムを導出・実装した論文です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "開ループ系（a）と拘束埋め込み法を用いた閉ループ系（b）のモデリングの比較です。閉ループを構成する複数の剛体を「集合剛体（aggregate body）」としてひとまとめにクラスタ化することで、全体を木構造トポロジーとして再構成し、効率的な再帰的動力学計算を可能にしています。",
+  "caption": "Fig. 1: Body numbering and notation examples for (a) an open-chain system and (b) a constraint-embedding model applied to a closed-chain system.",
+  "image": "details/2609.21024/F1.jpg"
+ },
+ "overview_ja": "ロボットのモデル予測制御（MPC）や微分可能シミュレーションでは、剛体動力学の1階微分をいかに速く、正確に計算できるかが極めて重要です。開ループ系に対しては、Pinocchioなどに実装されているような洗練された解析的再帰微分アルゴリズムが存在します。しかしこれらの既存手法は、関節運動を表す運動部分空間行列 $\\mathbf{S}_i$ が局所座標系で一定（姿勢によらない）であるという仮定に強く依存していました。\n\n一方、近年の脚ロボットやアクチュエータ機構では、ベルト伝達や平行四連リンク、差動機構などの「局所的な閉ループ」が多用されています。こうした閉ループを扱う手法として、閉ループ内の剛体をひとまとめの「集合剛体」に集約して木構造とみなす「拘束埋め込み法」が知られていますが、集約された関節の $\\mathbf{S}_i$ は関節角度に応じて複雑に変化するため、従来の微分アルゴリズムをそのまま適用することができませんでした。\n\nそこで著者らは、全系の逆動力学を行列の全体積の形で捉え直すグローバル因数分解の枠組みを用い、$\\mathbf{S}_i$ の姿勢依存性（$\\nabla_{\\mathbf{q}}\\mathbf{S}_i$ など）を明示的に組み込んだ新しい解析的1階微分アルゴリズムを導出しました。そしてこれをオープンソースライブラリ GRBDA に実装し、複素ステップ微分法との比較により倍精度浮動小数点の限界に近い精度を持つことを検証しました。\n\nさらに実在するロボット群（Mini Cheetah、MIT Humanoid、Tello、Cassieなど）で実行時間を計測した結果、機構キネマティクス自体の微分による計算負荷の増加はごくわずかである一方、モータロータなどの追加剛体を含めることや、多数のリンクを巻き込む大きなループを扱うことのほうが計算時間に支配的な影響を与えることを明らかにしました。",
+ "contributions_ja": [
+  "関節運動部分空間行列 $\\mathbf{S}_i$ が姿勢に依存する場合にも適用できる、逆動力学の解析的1階微分アルゴリズムを導出・定式化した点",
+  "局所閉ループを集合剛体として扱う「拘束埋め込み法」と組み合わせ、脚ロボットなどの複雑な駆動系を持つ閉ループ機構の厳密な動力学微分を可能にした点",
+  "提案アルゴリズムをオープンソースの剛体動力学ライブラリ GRBDA に実装し、複素ステップ法による数値微分との比較で $10^{-14}$ レベルの極めて高い数値精度を実証した点",
+  "実在する各種ロボットのモデルを用い、リンク機構のキネマティクス微分・モータロータの慣性・ループの深さが計算時間に与える影響を包括的にベンチマーク評価した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "閉ループ機構の動力学微分がなぜ今まで難しかったのか",
+   "summary_ja": "MPCや学習ベース制御の普及に伴い動力学微分の重要性が増していますが、既存の高速な解析的アルゴリズムは開ループ系で関節特性が姿勢不変であるモデルに限定されていました。本論文では、局所閉ループを木構造として扱える「拘束埋め込み法」に対して、この不変性の前提を取り払った新しい微分アルゴリズムを提案します。",
+   "details_ja": "現代の最適化ベースのロボット制御、特にモデル予測制御（MPC）や微分可能シミュレーションを用いたシステム同定・強化学習では、剛体動力学の高精度かつ高速な勾配（微分）計算が不可欠です。しかし、既存の最も効率的な動力学微分アルゴリズム（例えばPinocchioに代表される実装など）は、回転関節や直動関節、浮遊ベースといった、関節運動部分空間行列 $\\mathbf{S}_i$ が局所座標系で一定（姿勢に依存しない）となる開ループ系に特化して作られてきました。\n\nところが近年の高性能ロボット、とりわけ四足歩行や二足歩行ロボットでは、質量を根元に集中させるために平行リンクやベルト駆動、差動ギヤといった局所的な閉ループ機構が頻繁に採用されています。こうした閉ループを扱う伝統的なラグランジュ未定乗数法は、開ループのような洗練された再帰的計算構造を崩してしまい、計算効率が低下します。これに対して「拘束埋め込み法」は、閉ループに含まれるリンク同士を『集合剛体（aggregate body）』としてまとめ上げることで、系全体を木構造トポロジーとして再構築し、開ループと同等の再帰アルゴリズムを適用できるようにする非常に強力な手法です。\n\nしかし、拘束埋め込みモデルで現れる一般化関節の $\\mathbf{S}_i$ は、リンクの幾何学的拘束を反映するため姿勢に応じて非線形に変化します。そのため、従来の高速微分アルゴリズムの前提が破綻していました。本論文の目的は、この姿勢不変の仮定を取り除き、より一般的な関節モデルや拘束埋め込みモデルに対してもそのまま適用できる、厳密で効率的な逆動力学の1階微分アルゴリズムを確立することです。",
+   "figures": []
+  },
+  {
+   "heading": "II Background",
+   "heading_ja": "空間ベクトル表記と拘束埋め込みモデルの基礎",
+   "summary_ja": "フェザーストーンの空間ベクトル表記を用いた開ループ系の逆動力学定式化と、拘束埋め込み法の基本的な仕組みを復習します。拘束埋め込みによって閉ループ内のリンク群を一つの集合剛体に集約すると、関節運動を記述する $\\mathbf{S}_i$ が姿勢依存性を持つことが明確になります。",
+   "details_ja": "### II-A 剛体動力学とLie理論に基づく状態微分\nロボットの自由度を $n$ とし、各関節 $i$ の配位を $\\mathbf{q}_i$、一般化速度を $\\dot{\\mathbf{q}}_i$、一般化力を $\\boldsymbol{\\tau}_i$ とします。姿勢の表現方法（例えばクォータニオンと回転行列など）に依存しないよう、配位に関する微分 $\\frac{\\partial \\boldsymbol{f}}{\\partial \\mathbf{q}_i}$ はLie微分 $\\mathscr{L}_{X_{i,j}}\\boldsymbol{f}$ の行列として定義します。逆動力学（ID）は $\\boldsymbol{\\tau} = \\mathbf{H}\\ddot{\\mathsf{q}} + \\mathbf{C}\\dot{\\mathsf{q}} + \\mathbf{g}$ で表されますが、順動力学（FD）の微分はIDの微分から容易に変換できるため、本研究ではIDの偏微分 $\\frac{\\partial \\boldsymbol{\\tau}}{\\partial {\\mathsf{q}}}$ および $\\frac{\\partial \\boldsymbol{\\tau}}{\\partial {\\dot{\\mathsf{q}}}}$ に集中します。\n\n### II-B 空間ベクトルと拘束埋め込みモデル\n並進と回転を統合した6次元の空間ベクトル表記を用います。隣接リンク間の空間速度は $\\mathbf{v}_i = {}^{i}\\mathbf{X}_{p(i)} \\mathbf{v}_{p(i)} + \\mathbf{S}_i(\\mathbf{q}_i) \\dot{\\mathbf{q}}_i$ で伝播します。ここで ${}^{i}\\mathbf{X}_{p(i)}$ は座標変換行列、$\\mathbf{S}_i$ は関節運動部分空間行列です。空間加速度の伝播には $\\mathbf{S}_i$ の局所時間微分 $\\mathring{\\mathbf{S}}_i = \\frac{\\mathrm{d}}{\\mathrm{d}t}\\mathbf{S}_i$ が現れますが、従来の開ループ微分手法ではこれがゼロであると仮定されていました。\n\n拘束埋め込み法の核心は、局所的な閉ループを構成する剛体群を「集合剛体（aggregate body）」としてひとくくりにクラスタ化することです。図 F1 に示すように、集約後のグラフ構造を木構造にすることで、開ループと同様の親から子への再帰的計算スキームが利用可能になります。ただし、集約された関節の相対運動は機構内部のループ拘束方程式を解いて得られるため、$\\mathbf{S}_i(\\mathbf{q}_i)$ には三角関数や拘束ヤコビアンの逆行列が入り込み、強い姿勢依存性を持つことになります。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "（a）標準的な浮遊ベースの開ループ系モデルと、（b）閉ループリンクを含む脚機構に拘束埋め込みモデルを適用した例です。閉ループを形成するリンク（例えばリンク4, 5, 6）が単一の集合剛体（青色のボディ4）にまとめられ、全体として木構造の接続関係が作られます。",
+     "caption": "Fig. 1: Body numbering and notation examples for (a) an open-chain system and (b) a constraint-embedding model applied to a closed-chain system.",
+     "image": "details/2609.21024/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "III Global Factorization of the RNEA",
+   "heading_ja": "再帰ニュートン・オイラー法（RNEA）の全体配列表記",
+   "summary_ja": "各リンクごとの微分を個別に追うのではなく、系全体の運動学・動力学変数を縦に積み上げたグローバル行列を用いて、RNEAをコンパクトに定式化します。先祖リンクからの伝播を表す累積和演算子 $\\mathsf{\\Sigma}$ を導入することで、その後の微分導出が大幅にシンプルになります。",
+   "details_ja": "リンクごとに再帰式を追いかけると式が極めて煩雑になるため、本論文ではCarpentierら（2018年）のアプローチに倣い、系全体の物理量をスタックしたグローバル行列形式で定式化を行います。\n\n- 全関節の自由運動モードをブロック対角に並べた $\\mathsf{S} = \\mathrm{diag}(\\mathbf{S}_1, \\dots, \\mathbf{S}_N)$\n- 全リンクの局所空間速度を積み上げた $\\mathsf{V} = [\\mathbf{v}_1^\\top, \\dots, \\mathbf{v}_N^\\top]^\\top$\n- 各リンクの先祖リンクすべてを足し合わせる累積和演算子 $\\mathsf{\\Sigma} \\in \\mathbb{R}^{6N_B \\times 6N_B}$\n\nこの演算子 $\\mathsf{\\Sigma}$ を使うと、全リンクの速度は $\\mathsf{V} = \\mathsf{\\Sigma} \\mathsf{S} \\dot{\\mathsf{q}}$ と極めて簡潔に表現できます。また、空間変換の微分関係から $\\frac{\\mathrm{d}}{\\mathrm{d}t}\\mathsf{\\Sigma} = -\\mathsf{\\Sigma} (\\mathsf{v}_J \\times)$（ただし $\\mathsf{v}_J = \\mathsf{S}\\dot{\\mathsf{q}}$）という極めて重要な恒等式が導かれます。加速度、各リンクに加わる正味の外力 $\\mathsf{F}$、部分木に伝わる関節力 $\\breve{\\mathsf{F}} = \\mathsf{\\Sigma}^\\top \\mathsf{F}$、そして最終的な関節トルク $\\boldsymbol{\\tau} = \\mathsf{S}^\\top \\breve{\\mathsf{F}}$ に至るまで、すべてこのグローバル演算子により線形代数的に整理されます。",
+   "figures": []
+  },
+  {
+   "heading": "IV Contribution: First-Order Derivatives Applicable to Constraint-Embedding Models",
+   "heading_ja": "姿勢依存の運動部分空間を取り入れた解析的微分の導出",
+   "summary_ja": "本論文の核心部分です。$\\mathbf{S}$ が姿勢に依存することに伴って生じる追加項（$\\nabla_{\\mathbf{q}}\\mathbf{S}$ や $\\nabla_{\\mathbf{q}}\\mathring{\\mathbf{S}}$ など）を厳密に考慮し、速度・加速度・力・トルクの偏微分を行列演算として導出しました。導出結果は効率的な前進・後退2パスの再帰アルゴリズムへと落とし込まれます。",
+   "details_ja": "### IV-A & IV-B 基礎恒等式と運動ベクトルの微分\n本手法の鍵は、配位 $\\mathsf{q}$ の変化に伴って累積演算子 $\\mathsf{\\Sigma}$ だけでなく関節モード $\\mathsf{S}$ 自体も変化することを認める点です。$\\mathsf{\\Sigma}$ の微分に関する恒等式を巧みに整理することで、速度の配位微分は $\\nabla_{\\mathsf{q}}\\mathsf{V} = \\mathsf{\\Sigma} \\dot{\\mathsf{\\Psi}}$ という形で統一されます。ここで各ブロック $\\dot{\\boldsymbol{\\Psi}}_j$ には、先行研究には存在しなかった $\\nabla_{\\mathbf{q}_i}\\mathbf{S}_i\\dot{\\mathbf{q}}_i$ という追加項が明示的に現れます。加速度についても同様に、$\\mathring{\\mathsf{S}}$ の微分などを織り込んだ $\\ddot{\\mathsf{\\Psi}}$ や $\\dot{\\mathsf{\\Upsilon}}$ を定義し、$\\nabla_{\\mathsf{q}}\\mathsf{A} = \\mathsf{\\Sigma} \\ddot{\\mathsf{\\Psi}}$、$\\nabla_{\\dot{\\mathsf{q}}}\\mathsf{A} = \\mathsf{\\Sigma} \\dot{\\mathsf{\\Upsilon}}$ というコンパクトな関係式を導きます。\n\n### IV-C & IV-D 力・トルクの微分とアルゴリズム化\nリンクに作用する空間力、部分木の伝達力、そして最終的な関節トルク $\\boldsymbol{\\tau}$ の配位微分・速度微分をグローバル行列から展開します。最終的に関節トルクの微分を行列のスパース性（先祖・子孫の関係）に基づいて分解すると、関節インデックス $j \\preceq i$、$i = j$、$i \\prec j$ の3パターンに応じた具体的な漸化式が得られます。\n\nこの導出により、機構依存の局所的な計算として新たに必要となるのは次の3つの項だけであることが明らかになりました。\n- 任意の固定ベクトル $\\mathbf{y}$ に対する $\\nabla_{\\mathbf{q}_i}\\mathbf{S}_i \\mathbf{y}$\n- 速度積項の微分 $\\nabla_{\\mathbf{q}_i}\\mathring{\\mathbf{S}}_i \\dot{\\mathbf{q}}_i$\n- 固定力ベクトル $\\mathbf{F}$ に対する $\\nabla_{\\mathbf{q}_i}\\mathbf{S}_i^\\top \\mathbf{F}$\n\nこれらは関節機構ごとに異なるため、自動微分（AD）ツール（CasADiなど）で生成した小さな関数を呼び出します。全体の流れはAlgorithm 1としてまとめられ、前進パスで速度・加速度・力の微分中間量を蓄積し、後退パスでトルク微分を逆伝播させる構成となっています。",
+   "figures": []
+  },
+  {
+   "heading": "V Results",
+   "heading_ja": "精度検証と実機モデルを用いたベンチマーク",
+   "summary_ja": "提案手法をGRBDAライブラリに実装し、Mini CheetahやCassie、Telloなどのモデルで評価しました。複素ステップ法との比較で最大誤差 $8.53 \\times 10^{-14}$ という極めて高い数値を達成し、機構キネマティクスの微分計算コストは全体の十数%程度に留まることを示しました。",
+   "details_ja": "### V-A 対象ロボットと検証モデル\n評価には、産業用アーム KUKA LWR 4+ のほか、四足歩行ロボット MIT Mini Cheetah、二足歩行ロボット Agility Robotics Cassie、MIT Humanoid、Tello（二足脚部および全身）を用いました。KUKA以外はすべて拘束埋め込みモデルです。MIT Humanoidの脚部ベルト伝達（図 F2(a)）、Telloの股関節差動機構および膝・足首リンク機構（図 F2(b)）、Cassieの足首・つま先4節リンク機構（図 F2(c)）など、多種多様な閉ループ駆動系を評価対象としました。\n\n### V-B 正確性の検証\n丸め誤差の影響を受けない複素ステップ微分法（Complex-step method）を真値として比較を行いました。全ロボットモデルにおける逆動力学微分の最大誤差は $8.53 \\times 10^{-14}$（表 I）であり、倍精度浮動小数点演算の限界に近い極めて高い精度が確認されました。Mini Cheetahの各関節トルク微分誤差の分布（図 F3）を見ると、浮遊ベースのレンチ微分で誤差がわずかに大きくなるものの、最も誤差が大きい成分でも平均 $1.44 \\times 10^{-14}$ に収まっています。\n\n### V-C 計算速度とスケーリング\nIntel i9-14900 CPU上で実行時間を計測しました（図 F4）。Telloモデル（下半身）において、機構もロータも無視した簡易モデル（7.21 $\\mu$s）にロータ慣性（10個の剛体）を追加すると11.97 $\\mu$s（66.0%増）となりましたが、そこへさらに閉ループ機構のキネマティクス微分を追加しても14.41 $\\mu$s（20.4%増）の増加に留まりました。また、ADで生成されたコードが占める割合は最大でも12.7%でした。\n\nツリーの深さやループサイズのスケーリング実験（図 F5, F6）からは、自由度に対して $O(n)$ から $O(n^2)$ の間で良好にスケーリングすること、および多数の剛体を巻き込む大きな非局所ループでは集合剛体のサイズが膨らみ、計算負荷が増大することが実証されました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "実験で評価された3種類の複雑な駆動機構です。（a）MIT Humanoidの膝・足首にまたがる結合ベルト駆動、（b）Telloの股関節差動機構（ピンク）および膝・足首リンク機構（青・緑）、（c）Cassieの後脚4節リンク機構。これらはすべて $\\mathbf{S}_i(\\mathbf{q})$ が姿勢依存となる拘束埋め込みモデルとして定式化されています。",
+     "caption": "Fig. 2: Actuation mechanisms for the (a) MIT Humanoid Leg, (b) Tello humanoid [ 14 ] , and (c) Cassie Leg. The MIT Humanoid [ 9 ] has a coupled belt drive for the knee and ankle. Tello [ 8 ] has a 2DoF differential hip mechanism and a coupled linkage mechanism for the knee and ankle. Cassie has four bar mechanisms for its distal DoFs.",
+     "image": "details/2609.21024/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "モータロータを拘束埋め込みでモデル化したMIT Mini Cheetahにおける、複素ステップ法に対するトルク配位微分 $\\partial\\boldsymbol{\\tau}_i/\\partial\\mathbf{q}_j$ の誤差ヒートマップです。誤差は最大でも $10^{-14}$ オーダーと極めて小さく、基底（浮遊ベース）に近いリンクほど長い伝播パスによる微小な数値誤差の蓄積が見られます。",
+     "caption": "Fig. 3: Per-joint error for the inverse dynamics derivatives for MIT Mini Cheetah with motor rotors modeled using constraint embedding.",
+     "image": "details/2609.21024/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "各種ロボットおよびその簡易版（機構 kinematics の有無 $\\pm$M、ロータ慣性の有無 $\\pm$R）における前進パス（Fwd）と後退パス（Bwd）の計算時間（$\\mu$s）の内訳です。緑とオレンジのバーがCasADiのAD生成コードの実行時間を示しており、機構微分の追加コストは全体のわずかな割合に過ぎないことが分かります。",
+     "caption": "Fig. 4: Algorithm speed for full and simplified robot models with clang. Fwd refers to the forward pass of Algorithm 1 (lines 2-11) and Bwd refers to its backward pass (lines 12-28). $+/-$ M indicate with/without actuation mechanism transmission kinematics and $+/-$ R indicate with and without motor rotors.",
+     "image": "details/2609.21024/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "シリアルチェーンと二分木（バイナリツリー）構造における自由度（DoF）に対する計算時間（$\\mu$s）のスケーリングです。理論的には $O(n^2)$ ですが、実用的な自由度の範囲では $O(n)$ の項が支配的であり、探索深さの浅い二分木のほうがシリアルチェーンよりも高速に動作します。",
+     "caption": "Fig. 5: Scaling performance of kinematic trees with different joint types and topologies (serial chain vs. binary tree).",
+     "image": "details/2609.21024/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "2つの10リンクシリアルチェーンを特定の深さで連結した「A字型」閉ループモデルにおける計算時間です。ループが巻き込む剛体数が多くなる（ループが深くなる）ほど、集合剛体内の密な行列演算のサイズが増大して計算コストが跳ね上がる傾向が示されています。",
+     "caption": "Fig. 6: Computation time vs. loop depth for two 10-body chains connected by an additional body at varying depths. Two three link chains connected at a depth of 2 are shown in the inset.",
+     "image": "details/2609.21024/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Conclusions",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "関節運動部分空間の姿勢不変の仮定を取り除き、拘束埋め込み閉ループモデルに対応した逆動力学の解析的1階微分法を確立しました。機構キネマティクスの微分コストは低く抑えられることが示され、今後は2階微分への拡張やGPU並列化、接触拘束との統合が期待されます。",
+   "details_ja": "本論文では、剛体動力学の逆動力学微分の枠組みを拡張し、拘束埋め込み法を用いた閉ループ運動学モデルに適用できるように一般化しました。運動部分空間行列 $\\mathbf{S}_i$ の局所姿勢不変性の前提を取り払ったことで、脚ロボットなどに多用される複雑な伝達機構を高精度にモデル化した状態での勾配計算が可能になりました。導出されたアルゴリズムはオープンソースライブラリ GRBDA に統合されています。\n\n詳細な性能ベンチマークにより、伝達機構のキネマティクス微分を追加すること自体は計算時間にほとんど悪影響を与えない（オーバーヘッドが極めて小さい）ことが判明しました。一方で、ロータ慣性を取り込むことによる剛体数の増加や、広範なリンクをつなぐ大きな閉ループを集合剛体として扱うことのほうが、計算コストに対して支配的な影響を与えます。\n\n今後の展望として著者らは以下の点を挙げています。\n- 最適化手法の収束性をさらに高めるための、2階動力学微分への拡張\n- 大規模な軌道最適化や強化学習環境を加速するGPU実装\n- 局所ループは拘束埋め込みで扱い、非局所ループや地面接触はラグランジュ未定乗数法や近接作用素で扱うといった、ハイブリッドな順動力学微分フレームワークの構築",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「拘束埋め込み法」を用いれば、閉ループリンクを持つロボットでも木構造アルゴリズムを崩さずに逆動力学とその厳密な1階微分を計算できる",
+  "機構の非線形キネマティクスに起因する $\\mathbf{S}_i(\\mathbf{q})$ の微分（AD生成コード）は、アルゴリズム全体の計算時間の十数%程度しか消費しないため、MPCへの組み込みが十分に現実的である",
+  "実時間性能を気にする場合、伝達キネマティクスの微分よりも「モータロータを別剛体として増やすか否か」や「ループに含まれる剛体数の多さ」のほうが計算負荷に大きな影響を与える"
+ ],
+ "limitations_ja": [
+  "対象が逆動力学（ID）の微分に限定されており、順動力学（FD）の微分を得るには質量行列の分解・反転を介する必要があるため、接触を伴う順シミュレーションでの直接利用には追加の計算コストがかかる",
+  "閉ループがロボット全体にまたがるような「非局所的で大きなループ」の場合、集合剛体内の自由運動行列のサイズが肥大化し、計算時間が大幅に悪化する",
+  "機構固有の微小な偏微分項（$\\nabla_{\\mathbf{q}}\\mathbf{S}_i$ など）の評価をCasADiによるAD生成コードに頼っており、機構に特化した完全な手計算解析解による最適化までは踏み込んでいない"
+ ],
+ "keywords": [
+  "Rigid-Body Dynamics Derivatives",
+  "Constraint Embedding",
+  "Closed-Chain Mechanisms",
+  "Model Predictive Control (MPC)",
+  "Spatial Vector Algebra",
+  "Differentiable Simulation"
+ ],
+ "id": "2609.21024",
+ "title": "Adapting Rigid-Body Dynamics Derivatives for Constraint Embedding Closed-Chain Models",
+ "authors": [
+  "Daniel J. Volpi",
+  "Patrick M. Wensing"
+ ],
+ "date": "2026-09-21",
+ "group": "general",
+ "tags": [
+  "control",
+  "planning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.21024",
+ "pdf_url": "https://arxiv.org/pdf/2609.21024",
+ "summary_ja": "ロボットのリンク機構に閉ループが存在する場合の剛体動力学1次微分アルゴリズムを拡張した研究。従来の効率的な微分手法では関節速度の影響が局所配位に依存しないと仮定していたが、本手法ではこの仮定を取り払い、拘束埋め込み型閉リンク機構を含むより一般的な関節モデルへと拡張。並列リンクや閉ループ駆動機構を持つロボットの高精度かつ高速な軌道最適化・制御計算を可能にする。",
+ "generated": "2026-09-21",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.21024"
+}
