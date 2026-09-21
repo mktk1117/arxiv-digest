@@ -1,0 +1,133 @@
+{
+ "title_ja": "DEXTERA: 単一画像から実機展開可能な巧緻マニピュレーションを実現するReal-to-Sim-to-Real基盤",
+ "tldr_ja": "作業空間を撮影した1枚のRGB画像から、背景の3Dガウス表現とインタラクティブな物体アセット（物理パラメータ付き）を自動生成し、シミュレーション上でポリシーを学習して多指ハンドの実機へとゼロショットまたは少量の実データ併用で展開できる統合Real-to-Sim-to-Realフレームワークです。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "単一画像からシミュレーション環境を構築するアセット分解パイプラインの概要です。(a) VLMによる前景と背景の識別・物理特性推論、(b) セグメンテーションと修復を経た3Dメッシュ生成、(c) 背景のインペインティングとマルチビュー生成による3Dガウシアン表現の最適化という流れで、即座に動かせるデジタルツインを立ち上げます。",
+  "caption": "Fig. 1: Single-image asset factorization. (a) Semantic parsing separates interactive objects from the static scene. (b) Object localization, segmentation, completion, and mesh generation produce foreground assets. (c) Background completion and multi-view reconstruction produce the Gaussian scene.",
+  "image": "details/2609.21045/F1.jpg"
+ },
+ "overview_ja": "ロボットハンドによる器用な操作（デクスタラス・マニピュレーション）は、指先と物体の接触が複雑で自由度も高いため、実機でのデータ収集に膨大な時間と人手、ハードウェア破損のリスクが伴います。この課題に対し、物理シミュレータ内で大規模にデータを集めて実機へ転移させるアプローチが注目されていますが、実環境そっくりのデジタルツインを手作業で作るのは非常に骨が折れる作業でした。さらに、見た目や形状、物理特性のわずかなズレがシミュレーションと実機の差（Sim-to-Realギャップ）となり、確実な動作を阻んでいました。\n\nそこで本研究が提案するのが「DEXTERA」です。なんと、作業卓を撮影したたった1枚のRGB画像から、背景の静的な3Dガウシアン表現と、操作可能な剛体・リンク構造（多関節）物体のメッシュモデル、さらにはVLMが推論した摩擦や質量などの物理パラメータまでを自動生成します。続いて、カメラ・ロボット・物体の実スケールと座標系を自動で正確に整合させ、汎用的なタスクプリミティブ（持ち上げ、押し、受け渡しなど）を適用してシミュレータ内で多彩なタスクを構築します。VR遠隔操作のデモを物体中心軌道合成で数千件にスケールアップし、模倣学習や強化学習でポリシーを鍛え上げます。\n\n実験では、単腕（KUKA + LEAP Hand）と双腕（OpenArm + BrainCo Hand）の2つの多指プラットフォーム、計13のタスク構成で評価を実施しました。シミュレーションで成功した軌道をそのまま実機で再生する実験では87.95%という高い物理的一貫性を確認。さらに、シミュレーションのみで学習したポリシーの実機ゼロショット展開に成功しただけでなく、わずかな実データを混ぜて学習（Co-training）することで、実機成功率を29.2%から61.9%へと大幅に向上させました。",
+ "contributions_ja": [
+  "1枚のRGB画像から背景の3D Gaussian Splattingと操作可能アセット（剛体・多関節・物理パラメータ）を完全自動で切り分けて生成するパイプラインを確立した点",
+  "測地スケール、カメラ外部パラメータ、ロボットの手先形状を正確に一致させる3段階の自動キャリブレーション・アライメント手法を開発した点",
+  "再利用可能なタスクプリミティブと物体中心の軌道合成を組み合わせ、最小限のVRデモから模倣学習・強化学習用の大規模マルチモーダルデータを効率的に生成する仕組みを提示した点",
+  "2種類の本格的な多指ハンド構成と13のタスクペアにおいて、シミュレーション単体での実機ゼロショット動作および実データとの協調学習による実機成功率の大幅向上（29.2%から61.9%）を実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "I INTRODUCTION",
+   "heading_ja": "1枚の写真から始まる、多指ハンドの自律学習と実機展開",
+   "summary_ja": "器用な多指マニピュレーションは実世界でのデータ収集コストが極めて高いため、シミュレーションの活用が不可欠です。しかし従来は環境構築の手間とSim-to-Realギャップが壁となっていました。本論文は1枚のRGB画像から実機配備可能なポリシーまでを一気通貫で生み出すフレームワーク「DEXTERA」を提案します。",
+   "details_ja": "大規模なロボット基盤モデルの発展により、様々なタスクやロボット形態で多様な動作が獲得できるようになってきました。しかし、その学習には依然として人間がオペレータとなって実機を動かし、失敗したら手作業でリセットし、安全監視を続けるという膨大なコストがかかります。特に指先で器用にモノを扱うデクスタラス・マニピュレーションでは、自由度が高く接触もリッチなため、必要とされるデモ軌道の精度と試行回数が跳ね上がります。\n\n物理シミュレータを使えば安全かつ大規模にデータを集められますが、今度は「実環境そっくりの作業空間をシミュレータ内に用意する」という別のボトルネックに直面します。メッシュのモデリング、物理パラメータの調整、カメラとロボットの位置合わせなどを手作業で行うのは現実的ではありません。また、従来のReal-to-Sim手法の多くはマルチアングルの動画スキャンが必要だったり、二本指のグリッパーによる単純なピック＆プレースに留まっており、多指ハンドによる複雑な接触を伴うタスクには十分に対応できていませんでした。\n\nそこで著者らは、「1枚の画像から、見た目も物理もロボットとの位置関係も一致したシミュレーション環境を作り、多指ハンドのポリシーを学習して実機へ戻せるか？」という問いに挑みました。DEXTERAは、単一画像のアセット分解、厳密なスケール・ロボットキャリブレーション、再利用可能なタスク定義と軌道生成、そして共通インターフェースによる実機配備という4つのステージを統合することで、この難問を解決しています。",
+   "figures": []
+  },
+  {
+   "heading": "II RELATED WORK",
+   "heading_ja": "3D生成AIとロボティクス実環境シミュレーションの交差点",
+   "summary_ja": "3Dシーン合成やReal-to-Simの先行研究は見た目の再現や二本指グリッパーが中心でした。本研究は単一画像からの入力、関節物体の自動推論、物理パラメータの組み込み、そして多指ハンドへの対応によって先行手法の枠組みを大きく前進させています。",
+   "details_ja": "本章では、関連する3つの研究領域とDEXTERAの立ち位置が整理されています。\n\n### II-A 3D Scene Synthesis\n近年、NeRFや3D Gaussian Splatting（3DGS：複数の3Dガウス分布で空間の見た目を表現する技術）により、スパースな視点画像から高品質なシーン再構成が可能になりました。しかしロボット操作に使うには、単なる見た目の復元だけでなく、物体が独立して動かせ（actionable）、当たり判定（コリジョン）を持ち、実世界のメートル寸法と一致している必要があります。DEXTERAは単一画像を静的背景と操作対象アセットに分解し、剛体だけでなく関節構造（articulation）や力学特性まで推論することで、シミュレーションですぐに動かせる環境を構築します。\n\n### II-B Real-to-Sim for Robot Learning\n現実空間をシミュレータに落とし込むReal-to-Sim手法は盛んに研究されていますが、多くは多視点スキャンを前提としていたり、特定のタスクに特化していました。統合的なフレームワークであるSimFoundryも多視点ビデオを必要とし、TabletopGenやRoboSnapなどは二本指のパラレルグリッパーを前提とした卓上タスクに限定されていました。単一画像から出発し、多指ハンドによる接触リッチな操作にまで踏み込んだ統合パイプラインは未開拓でした。\n\n### II-C Simulation-Based Task and Policy Scaling\n最新のシミュレーション基盤ではタスク定義やドメインランダム化が標準化されていますが、これらはあらかじめ用意されたアセットを使うものがほとんどで、現実の作業卓の再構成とは切り離されていました。DEXTERAはこの隙間を埋め、シーン再構成からタスク生成、ポリシー学習、実機配備までを完全に一元化しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "1枚の画像から実機ポリシーまでを繋ぐ4つのステージ",
+   "summary_ja": "DEXTERAは、(1) 単一画像の要素分解と3D生成、(2) 実スケールとカメラ・手先形状の幾何アライメント、(3) タスクプリミティブによるシミュレータ構築、(4) 軌道合成と共通インターフェースによる学習・配備、の4段階で動作します。",
+   "details_ja": "DEXTERAへの入力は、作業空間を写した1枚のRGB画像 $I_{0}$、ロボットモデル、そしてキャリブレーション用のセンサデータ（カメラ内部パラメータ、ロボット関節角度、深度画像）です。アセット生成自体は $I_{0}$ のみから行い、残りの測定値はメトリックスケールの復元と位置合わせに使われます。\n\n### III-A Single-Image Asset Factorization（単一画像のアセット分解）\nまず入力画像を、操作可能な前景オブジェクトと静的な背景に切り分けます。Vision-Language ModelであるQwen3-VLに画像を渡し、物体名、カテゴリ、剛体か関節物体か、推定される物理パラメータ（質量や摩擦など）、インタラクティブかどうかのフラグを予測させます。前景物体はGrounding DINOとSAM 3で切り出し、オクルージョン（隠蔽部）がある場合はFLUX.2で画像補完した上で、Hunyuan3D 3.1によってテクスチャ付き3Dメッシュへ変換します。ハサミやノートPCなどの関節物体については、リンクの分割や関節軸、可動域をフィードフォワードモデルで推論し、URDF形式で出力します。一方の背景は物体をインペインティングで消去後、HY-World 2.0で全方位パノラマを展開し、仮想カメラ軌道に沿って画像を生成して3D Gaussian Splatting（3DGS）として最適化します。\n\n### III-B Metric Scene and Object Alignment（メトリック空間への統合整準）\n生成されたアセットはスケールや向きがバラバラなため、現実世界のメートル座標系に一致させます。背景の3Dガウス表現は、測地されたRGB-D画像に対し、色差・SSIMによるフォトメトリック損失 $\\mathcal{L}_{\\mathrm{photo}}$ とSuperPoint特徴点の一致に基づく幾何損失 $\\mathcal{L}_{\\mathrm{sparse}}$ を最小化してスケール $s_G$ とカメラ姿勢 ${}^{G}\\mathbf{T}_C$ を最適化します。また、ロボットとカメラの外部パラメータ校正では、アームの大きな形状に引きずられて手先の位置合わせが狂わないよう、アームとハンドから同数の点群（$N$点）をサンプリングしてマッチングを行う「morphology-balanced ICP」を導入しています。さらに物体アセットはRGB-Dの観測点群とSim(3) ICPでスケールを合わせ、Qwen3-VLを用いて「機能的に上向きの軸を+Zにする」といった標準座標系（Canonical frame）へ整列させます。\n\n### III-C Simulator Task Construction（タスク構築）\n整列したアセット群はIsaac Lab上にUSD形式で読み込まれます。タスクは「持ち上げ（Lift）」「押し（Push）」「姿勢変更（Pick and reorient）」「配置（Pick and place）」「手渡し（Handover）」「関節操作（Articulation）」という6つの再利用可能なタスクプリミティブから構成され、目標姿勢の分布や報酬関数、成功判定が自動設定されます。センサ入力とシミュレーション特権情報が分離された統一インターフェース（Table I）により、実機と全く同じ観測空間でポリシーを評価できます。\n\n### III-D Policy Learning and Deployment（ポリシー学習と配備）\nデータ収集では、Meta Quest 3によるVR遠隔操作で各タスク10本の基礎デモを収集します。これを物体中心の幾何変換と球面線形補間（SLERP）、ガウスノイズの付加によって、様々な配置へ数百〜数千本規模に自動拡張（Trajectory Synthesis）します。模倣学習（ACT、Diffusion Policy、OpenVLAなど）ではシミュレーションデータと実機データを1:1で混ぜたCo-trainingを行い、強化学習では特権情報を持つ教師ポリシーから観測情報のみで動く生徒ポリシーへのPPO蒸留（Teacher-Student）を採用しています。実機配備はROS 2を介してリアルタイムに行われます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "実世界メトリック空間への3段階アライメント手順です。(d) 背景ガウス表現のスケールとカメラ姿勢の最適化、(e) 手先がずれないようアームとハンドの点数を等しく揃えた形態バランスICPによるロボット校正、(f) 生成メッシュのスケール復元と正規座標軸への整列を示しています。",
+     "caption": "Fig. 2: Metric scene and object alignment. (d) Photometric and sparse geometric constraints recover scene scale and camera pose. (e) Robot geometry refines marker-based calibration. (f) Object rescaling and canonical-axis alignment ground each asset metrically.",
+     "image": "details/2609.21045/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "シミュレータ内でのタスク構築プロセスです。(g) 3Dガウスの背景と物理メッシュを統合し、(h) 持ち上げや受け渡しなど6種類のタスクプリミティブを定義して、マルチモーダルな観測インターフェース経由で学習と実機配備をシームレスに繋ぎます。",
+     "caption": "Fig. 3: Simulator task construction. (g) Gaussian appearance, mesh collisions, and dynamic assets form the simulation scene. (h) Task primitives define objectives, randomization, and success criteria, with shared multimodal observations for learning and deployment.",
+     "image": "details/2609.21045/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "圧倒的な再現度と、実機で動く多指マニピュレーションの検証",
+   "summary_ja": "KUKA（LEAP Hand）とOpenArm（BrainCo Revo1）の2つのロボット実機環境で検証しました。3D再構成の精度比較、87.95%の軌道リプレイ成功率による物理的整合性の証明、そしてCo-trainingによる実機成功率の劇的な改善（29.2%から61.9%）が確認されました。",
+   "details_ja": "実験は、単腕の「KUKA LBR iiwa 7 + LEAP Hand (KL)」と、双腕の「OpenArm + BrainCo Revo1 (OB)」という2つの実機プラットフォームで実施されました（Fig. 4）。\n\n### IV-A Visual Fidelity and Pose Alignment（見た目と形状の精度）\n86個の物体インスタンスを対象に、SAM3D、TRELLIS.2、Hunyuan3D-2.1などの最新3D生成モデルと比較しました（Table II、Fig. 6）。DEXTERAは画像平面での重なり度合い（Mask IoU）、色再現性（PSNR 25.11 dB）、3D幾何形状（Chamfer-L1 6.84 mm）のすべての指標でベースラインを上回る最高精度を記録しました。背景についてもPSNR 20.74 dB、Chamfer-L1 6.33 mmを達成し、極めて忠実なデジタルツインが構築できていることが確認されました。\n\n### IV-B Physical Consistency through Cross-Domain Replay（物理的一貫性の検証）\n「シミュレータ内で成功した軌道は、本当に実機でもそのまま成功するのか？」を検証するため、シミュレーション上で成功した各タスク30本、計390本の軌道を実機でオープンループ再生しました。その結果、全体の成功率は87.95%（343/390試行）に達しました（Table IV、Fig. 7）。特にボウルの手渡しやバスケットの両手持ち上げなど4つの構成では100%成功を記録しました。接触滑りやハードウェアのたわみが影響しやすい姿勢変更や箱の配置では73.33%に留まりましたが、生成されたアセットの物理モデルが実世界の接触ダイナミクスを十分に捉えていることが証明されました。\n\n### IV-C Policy Learning and Sim-to-Real Transfer（クローズドループ制御と実機展開）\nACT、Diffusion Policy (DP)、BC-RNN、OpenVLA、$\\pi_{0.5}$、PPO蒸留（T–S）の6種類のポリシーを評価しました（Table V）。模倣学習では、わずか10本のVRデモを拡張したシミュレーションデータと実機データを1:1で併用しています。実機評価では$\\pi_{0.5}$が平均56.5%の成功率でトップ、僅差でACTが54.2%で続きました。一方、OpenVLAは平均13.8%と苦戦しました。\n\n特筆すべきは、シミュレーションデータだけで学習した「ゼロショット実機転移」の検証結果です（Fig. 8）。シミュレーション単体学習でも、ACTで35.0%、$\\pi_{0.5}$で36.7%の実機成功率を達成し、ノートPCを閉じるタスクでは75〜80%という高いゼロショット成功率を記録しました。さらに、少量の実機デモを混ぜて学習（Co-training）させると、実機成功率は全体平均で29.2%から61.9%へと倍増しました（18通りの比較中17通りで向上）。シミュレーション環境での成功率も62.4%から67.3%へと微増しており、実データを加えることがシミュレーション側の汎化性能向上にも寄与していることが明らかになりました。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "物体再構成の定性比較です。紙パック飲料、放射温度計、スクールバスの玩具において、ベースライン手法と比較してDEXTERA（右端）が実物（左端）のテクスチャや微細な立体形状を最も忠実に再現できていることが分かります。",
+     "caption": "Fig. 6: Qualitative object-reconstruction comparison on a coconut-water carton, thermometer, and toy bus. Columns show the ground-truth object, SAM3D, TRELLIS.2, Hunyuan3D-2.1, and DEXTERA (ours). DEXTERA preserves object shape and appearance across geometrically and texturally distinct assets.",
+     "image": "details/2609.21045/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "シミュレーションで生成した軌道を実機でそのまま再現（オープンループ再生）した様子です。(a, b) は両手でのバスケット持ち上げ、(c, d) はボウルの手渡しタスクで、接触を伴う複雑な動作でも実世界とシミュレーションの間で破綻なく一貫した挙動を示しています。",
+     "caption": "Fig. 7: Visual and interaction consistency during basket lifting and bowl handover. Rows (a, b) show simulated and real basket lifting, respectively; (c, d) show simulated and real bowl handover. Columns progress through successive interaction stages from left to right.",
+     "image": "details/2609.21045/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "シミュレーション単体学習（青）と実データ併用のCo-training（橙）の成功率比較です。右側の網掛け部分が実機での評価を表しており、Co-trainingによってほぼ全てのタスクで実機成功率が劇的に跳ね上がっていることが一目瞭然です。",
+     "caption": "Fig. 8: Simulation-only training versus sim-real co-training for three policies on six task-embodiment pairs. Each panel separates simulation evaluation (left) from physical evaluation (right, shaded), with 100 and 20 trials per bar, respectively. Bar labels report success percentages. OB: OpenArm + BrainCo Revo1; KL: KUKA + LEAP Hand. Co-training improves physical success in 17 of 18 comparisons.",
+     "image": "details/2609.21045/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V CONCLUSION",
+   "heading_ja": "まとめと今後の展望：1枚の画像からどこまで行けるか",
+   "summary_ja": "DEXTERAは1枚の画像から多指ハンドのポリシーを学習・実機展開できることを実証しました。現状の制約として変形体・流体への非対応や長期タスクでのダイナミクスギャップが挙げられており、今後の拡張が期待されます。",
+   "details_ja": "本研究では、単一画像からのアセット生成、厳密な幾何・物理アライメント、タスク構築、軌道合成、そしてマルチモーダルなポリシー展開を統合した「DEXTERA」を提案しました。多指ハンドを用いた13のタスク構成で実験を行い、87.95%の軌道リプレイ成功率、シミュレーション単体でのゼロショット実機動作、そしてCo-trainingによる実機成功率の大幅向上（29.2%→61.9%）という確かな成果を残しました。\n\n一方で、論文中では今後の課題として以下の限界点も率直に述べられています。\n- アセット生成が剛体およびリンク構造を持つ関節物体に限られており、衣類などの変形体（Deformable）や液体などの流体には対応していないこと。\n- 現状の評価は基本的なタスクプリミティブに焦点を当てており、多数のステップを要する長大（Long-horizon）な作業ワークフローでの検証が不足していること。\n- VLMによる物理パラメータ推論には依然として誤差があり、複数ステップの配置タスクなどではダイナミクスのズレが累積しやすいこと。\n- 背景生成は部屋スケールに対応しているものの、現在の実機実験は据え置き型のロボットアームに限定されており、移動マニピュレータへの拡張が必要であること。\n- ロボット自体の運動学モデルや関節構造は既知の前提としており、画像からの完全自動推定には至っていないこと。\n\nこれらの課題はあるものの、1枚の写真からここまでの精度で実用的な多指操作環境を自動構築できることを示した意義は極めて大きく、今後の自律型ロボット学習の標準的な基盤となっていく可能性を秘めています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "1枚のRGB画像からでも、最新の3D生成AIとVLMによる物理推論を組み合わせれば、多指ハンドの接触動作に耐えうる高精度なシミュレーション環境を立ち上げられる",
+  "アームとハンドの点群数を揃える「形態バランスICP」や、SuperPointと測地深度を併用したハイブリッド最適化など、丁寧なメトリックスケール整合がSim-to-Real成功の鍵を握る",
+  "シミュレーション単独でも3割以上のゼロショット実機転移が可能だが、わずかな実機デモを混ぜたCo-trainingを行うことで、実機成功率を6割超へと飛躍的に高めることができる"
+ ],
+ "limitations_ja": [
+  "布やスポンジなどの柔軟物・変形体、あるいは液体の物理シミュレーションには対応しておらず、剛体と関節物体のみが対象である点",
+  "長時間の複雑な手順を要するロングホライズンなタスクでは、VLMが推定した物理パラメータの微小な誤差が積み重なり、失敗につながりやすい点",
+  "ロボット自身のURDFモデルや運動学パラメータはあらかじめ既知であることを前提としており、写真からロボット自体を推論しているわけではない点"
+ ],
+ "keywords": [
+  "Dexterous Manipulation",
+  "Real-to-Sim-to-Real",
+  "3D Gaussian Splatting",
+  "Imitation Learning",
+  "Sim-to-Real Transfer",
+  "Robot Foundation Models"
+ ],
+ "id": "2609.21045",
+ "title": "DEXTERA: From a Single Image to Deployable Dexterous Manipulation via Real-to-Sim-to-Real",
+ "authors": [
+  "Jin Wu",
+  "Lianjie Yuan",
+  "Zeyan Sun",
+  "Yuanyuan Lei",
+  "Disi A",
+  "Bicheng Han",
+  "Fangzhou Xia"
+ ],
+ "date": "2026-09-21",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "sim-to-real",
+  "simulation",
+  "grasping"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.21045",
+ "pdf_url": "https://arxiv.org/pdf/2609.21045",
+ "summary_ja": "実機データ収集が高コストな巧緻マニピュレーションに対し、1枚のRGB画像から展開可能な方策を自動生成するDEXTERAを提案。静的背景のガウシアン表現とVLMにより物理パラメータを推定した対話可能アセットに分解し、物理シミュレータ内で大規模に方策を学習する。視覚・幾何・ダイナミクスのギャップを段階的に埋めることで、実機への確実なゼロショット転移を可能にした。",
+ "generated": "2026-09-21",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.21045"
+}
