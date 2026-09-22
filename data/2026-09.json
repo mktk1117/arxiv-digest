@@ -1,6 +1,292 @@
 {
  "entries": [
   {
+   "date": "2026-09-22",
+   "rank": 0,
+   "id": "2609.23666",
+   "group": "focus",
+   "title": "UniPoint: Unified Point-Level Sensor Fusion for Humanoid Locomotion Across Challenging Terrains",
+   "title_ja": "UniPoint：困難な地形を走破するヒューマノイド歩行のための点群レベル統一センサ統合",
+   "summary_ja": "全方向LiDARと2台の深度カメラの生点群を早期統合し、過酷な不整地を走破するヒューマノイド全身歩行手法UniPointを提案。従来の標高マップのドリフトや視野狭窄を解消し、点群表現から直接ロバストな歩行制御ポリシーを学習する。",
+   "authors": [
+    "Sicen Li",
+    "Zhen Chu",
+    "Chao Li",
+    "Qiuguo Zhu",
+    "Jun Wu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "perception",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.23666",
+   "image": "figures/2026-09-22/2609.23666.jpg"
+  },
+  {
+   "date": "2026-09-22",
+   "rank": 1,
+   "id": "2609.22274",
+   "group": "focus",
+   "title": "CHOREO: Every Humanoid Skill as a Trajectory",
+   "title_ja": "CHOREO：あらゆるヒューマノイドスキルを軌道として統合するフレームワーク",
+   "summary_ja": "強化学習や生成モデルなど異なる手法で学習された多様なヒューマノイドスキルを、統一表現「SkillMotion」として軌道化し、追加学習なしで合成するフレームワークCHOREOを提案。互換性のない方策間の連携を可能にし、実機を含む柔軟な全身動作生成を実現した。",
+   "authors": [
+    "Ziyi Sun",
+    "Jingwen Chen",
+    "Yuxi Wang",
+    "Xiuze Xia",
+    "Long Cheng",
+    "Zhaoxiang Zhang",
+    "Yujun Dong"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.22274",
+   "image": "figures/2026-09-22/2609.22274.jpg"
+  },
+  {
+   "date": "2026-09-22",
+   "rank": 2,
+   "id": "2609.23483",
+   "group": "focus",
+   "title": "STRIDER: Stepping-Enabled Multi-Gait Hierarchical 3D Loco-Manipulation Framework for Humanoid Robots",
+   "title_ja": "STRIDER：ヒューマノイドの3Dロコマニピュレーションのための足配置対応階層型マルチ歩容フレームワーク",
+   "summary_ja": "ヒューマノイドのロコマニピュレーションに向けた階層型フレームワークSTRIDERを提案。地形認識に基づく精密な3D足配置制御、敵対的運動事前分布（AMP）による自然な歩行、デカルト空間での上半身制御を統合し、不整地での安定歩行と物体搬送の両立を実機実証した。",
+   "authors": [
+    "Yuanzhuo Li",
+    "Wen Zhao",
+    "Zhe Yong",
+    "Xiang Meng",
+    "Gang Han",
+    "Hengle Ren",
+    "Xiaoyang Zheng",
+    "Zhen Wang",
+    "Yijie Guo"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.23483",
+   "image": "figures/2026-09-22/2609.23483.jpg"
+  },
+  {
+   "date": "2026-09-22",
+   "rank": 3,
+   "id": "2609.24145",
+   "group": "focus",
+   "title": "MimicAgent: Quadruped Skills via Prompt-to-Trajectory Generation",
+   "title_ja": "MimicAgent：プロンプトからの軌道生成による動的四足歩行スキルの獲得",
+   "summary_ja": "四足ロボットの動的スキル獲得において、報酬設計の代わりにLLMを用いて参照軌道をプロンプトから直接生成するMimicAgentを提案。生成軌道を模倣強化学習の指針とすることで、複雑な手動報酬チューニングを回避し、多様な高難度アクロバットスキルを効率的に獲得させた。",
+   "authors": [
+    "Lucky Kant Nayak",
+    "Narayanan Palghat Parameswaran",
+    "Neehar Peri",
+    "Deva Ramanan"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "reinforcement-learning",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.24145",
+   "image": "figures/2026-09-22/2609.24145.jpg"
+  },
+  {
+   "date": "2026-09-22",
+   "rank": 4,
+   "id": "2609.23968",
+   "group": "focus",
+   "title": "Opt2VLA: Force-Aware Vision-Language-Action for Contact-Rich Humanoid Whole-Body Manipulation",
+   "title_ja": "Opt2VLA：接触の多いヒューマノイド全身マニピュレーションのための力認識VLA",
+   "summary_ja": "接触が頻発するヒューマノイド全身操作のため、力認識型VLAフレームワークOpt2VLAを提案。幾何学的な運動目標だけでなく目標インピーダンスや接触力を明示的に予測し、全身コントローラ（WBC）と連携させることで、外乱や視覚遮蔽に頑健な接触作業を実現した。",
+   "authors": [
+    "Fukang Liu",
+    "Yipu Chen",
+    "Jaehwi Jang",
+    "Danfei Xu",
+    "Zsolt Kira",
+    "Ye Zhao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "manipulation",
+    "vision-language-action",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.23968",
+   "image": "figures/2026-09-22/2609.23968.jpg"
+  },
+  {
+   "date": "2026-09-22",
+   "rank": 5,
+   "id": "2609.23252",
+   "group": "general",
+   "title": "Robot World Models Are Not Invariant to How the Actions Are Written",
+   "title_ja": "ロボットワールドモデルはアクションの記述形式に対して不変ではない",
+   "summary_ja": "ロボットの行動空間の定義（絶対関節角か相対変位量か）がワールドモデルに与える影響を調査した論文。同一の運動軌道であっても表現形式を変えると潜在動力学モデルの予測性能が大幅に崩壊することを発見し、モデルベースRLや基盤モデル設計に重要な知見を提示した。",
+   "authors": [
+    "Ahmed Karim",
+    "Leon Chlon"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "world-model",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.23252",
+   "image": null
+  },
+  {
+   "date": "2026-09-22",
+   "rank": 6,
+   "id": "2609.24093",
+   "group": "general",
+   "title": "Dexterous Robot Manipulation from Human Demonstrations via Contact-Anchored Retargeting and Residual Policy Learning",
+   "title_ja": "接触アンカー型リターゲティングと残差強化学習による人間デモからの器用なロボット操作",
+   "summary_ja": "人間の手操作デモから多指ハンドへの転移において、関節角ではなく「接触構造」を保ちつつ単一の残差強化学習で物理的整合性を修復する手法を提案。力覚情報が欠落した大規模な人間動画・デモデータから、安定した器用な接触マニピュレーション方策の獲得を可能にした。",
+   "authors": [
+    "Zihao Yang",
+    "Chengyuan Liu",
+    "Yu Zhou",
+    "Runze Lv",
+    "Tianyu Cui",
+    "Sheng Yi",
+    "Haohua Zhu",
+    "Irvine Lu",
+    "JieQ Sun"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "reinforcement-learning",
+    "grasping"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.24093",
+   "image": "figures/2026-09-22/2609.24093.jpg"
+  },
+  {
+   "date": "2026-09-22",
+   "rank": 7,
+   "id": "2609.22462",
+   "group": "general",
+   "title": "VLPSA: Vision-Language-Poisson-Safe Actions for Full-Body Safety of Learned Policies",
+   "title_ja": "VLPSA：学習済み方策の全身安全性を保証する視覚言語ポアソン安全アクション",
+   "summary_ja": "学習済みVLA方策に安全性を付与するため、ポアソン安全関数（PSF）から制御バリア関数（CBF）をオンライン合成する安全フィルタVLPSAを提案。モデルの再訓練なしに、ロボット全身および把持物体を考慮した二次計画法（CBF-QP）により動的障害物の衝突を厳密に回避する。",
+   "authors": [
+    "Meg Wilkinson",
+    "Emily Fourney",
+    "Joel W. Burdick",
+    "Aaron D. Ames"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "safety",
+    "vision-language-action",
+    "control",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.22462",
+   "image": "figures/2026-09-22/2609.22462.jpg"
+  },
+  {
+   "date": "2026-09-22",
+   "rank": 8,
+   "id": "2609.24048",
+   "group": "general",
+   "title": "What Matters in Designing World Action Models: An Empirical Study",
+   "title_ja": "ワールドアクションモデル設計における重要要素の実証的研究",
+   "summary_ja": "ロボット制御向けワールドアクションモデル（WAM）の設計空間を体系的に検証した研究。ワールドモデルと行動方策の間の因果構造、結合アーキテクチャ、学習戦略が汎化性能や制御精度に与える影響を多角的に分析し、今後のWAM設計に向けた指針を提供している。",
+   "authors": [
+    "Chao Tang",
+    "Haoqing Wang",
+    "Zilang Cen",
+    "Weishi Mi",
+    "Wei Xia",
+    "Fangcheng Liu",
+    "Anda Cheng",
+    "Yeqing Shen",
+    "Xiaohui Cui",
+    "Xiaoyuan Zhang",
+    "Yehui Tang",
+    "Tingguang Li"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "vision-language-action",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.24048",
+   "image": "figures/2026-09-22/2609.24048.jpg"
+  },
+  {
+   "date": "2026-09-22",
+   "rank": 9,
+   "id": "2609.24433",
+   "group": "general",
+   "title": "FoldQuantVLA: Native Low-Bit Quantization of Vision-Language-Action Models via Consistent Folding",
+   "title_ja": "FoldQuantVLA：整合フォールディングによるVLAモデルのネイティブ低ビット量子化",
+   "summary_ja": "VLAモデルの推論遅延を削減するため、重みと活性化の双方を4-bit整数（W4A4）に圧縮する訓練後量子化手法FoldQuantVLAを提案。チャネルスケーリングとアダマール変換により精度劣化を抑制し、Jetson等のエッジデバイス上で動作性能を保ちながら高速推論を実現した。",
+   "authors": [
+    "Hung T. Ho",
+    "Khanh D. Nguyen",
+    "Quang D. Nguyen",
+    "Thanh Q. Duong",
+    "Ngan Le",
+    "Meng Guo",
+    "Vien A. Ngo",
+    "An T. Le"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "vision-language-action",
+    "hardware",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.24433",
+   "image": "figures/2026-09-22/2609.24433.jpg"
+  },
+  {
    "date": "2026-09-21",
    "rank": 0,
    "id": "2609.21447",
