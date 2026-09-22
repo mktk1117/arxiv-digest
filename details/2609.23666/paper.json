@@ -1,0 +1,137 @@
+{
+ "title_ja": "UniPoint：困難な地形を走破するヒューマノイド歩行のための点群レベル統一センサ統合",
+ "tldr_ja": "LiDARとデプスカメラの点群を地図を作らず直接ボクセル化して融合し、単一の強化学習ポリシーで70cmの高台や100cmの溝など多様な難所を走破できるヒューマノイド制御手法を提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "等身大ヒューマノイドDR02が、同一の学習済みポリシーで45cmの薄い障害物、100cmの溝、20cmの階段、70cmの高台、飛び石、平均台などの屋内環境や、未知の屋外路面を次々と走破している様子です。",
+  "caption": "Fig. 1: DR02 humanoid traverses challenging terrains with a single policy in real-world tests and generalizes zero-shot to three outdoor scenes. Top row, left to right: 45-cm thin barrier, 100-cm gap, 20-cm stairs. Middle row: 70-cm-high platform, stepping stones, balance beam. Bottom row (outdoor): industrial steel-grating stairs, gravel, grass.",
+  "image": "details/2609.23666/F1.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットが屋外やプラントなどの複雑な実環境で活動するには、狭い足場や大きな段差、溝といった多様な地形を安全に踏み越える必要があります。しかし、従来の視覚に基づく歩行制御には大きな弱点がありました。前方のデプスカメラ単体では視野が狭く、高さマップ（ロボット周辺の標高を2次元グリッドで表す表現）を作ると激しい運動による自己位置推定のズレで形状が崩れ、板状の薄い障害物を見落としてしまいます。さらに複数カメラの画像を直接CNNで処理しようとすると、計算コストがセンサ数に応じて膨らんでしまいます。\n\nそこで著者らは、全方位LiDARと前後2台のデプスカメラから得られる3次元計測値を「すべて同じ3次元点」として扱い、ロボット基準で直接早期融合（Early Fusion）するフレームワーク「UniPoint」を開発しました。点群をボクセル化して固定長（400個）のトークンに落とし込み、線形アテンションと自己受容感覚（固有感覚）をクエリとするクロスアテンションで符号化します。これにより、地図構築やオドメトリに頼らず、計算量を一定に抑えたまま全方位の地形特徴を捉えられます。\n\nさらにシミュレータ上で足裏の接地判定を密にペナルティ化する報酬設計や、センサのノイズ・欠損を注入した統一カリキュラム学習を導入しました。実機（1.75m、75kgのDR02）の車載低消費電力プロセッサ（RK3588）に一切の微調整なしで展開したところ、70cmの高台昇降や100cmの溝越え、さらにはLiDARを完全に遮蔽した状態での階段昇降まで見事に成功させました。",
+ "contributions_ja": [
+  "全方位LiDARと前後デプスカメラの計測値を点群レベルで早期融合し、センサ数に依存しない固定トークン数で処理する低負荷な知覚パイプラインを構築した点",
+  "足裏の支持状態を多点スキャンして密に評価する報酬と、斜面方向に合わせた速度分解報酬を提案し、狭小な足場での安定性を劇的に高めた点",
+  "センサ欠損注入とドメインランダム化により、8種類の異なる地形を単一のポリシーで走破できる統一モデルを訓練した点",
+  "等身大ヒューマノイド実機上で、推論時間1.5msという超軽量動作を保ちながら、従来記録を上回る70cm高台や100cm溝の走破を実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜヒューマノイドの「目」はこれほど頼りなかったのか",
+   "summary_ja": "屋外の実応用では多様な地形を全身で走破する必要がありますが、従来の高さマップや画像ベースの手法は視野狭窄・位置ズレ・計算負荷の壁に直面していました。これらを打破するため、点群レベルでセンサを統合し固定トークンで効率的に処理するUniPointを提案します。",
+   "details_ja": "ヒューマノイドロボットが変電所の点検や工場メンテナンスなどの現場で活躍するためには、階段、スロープ、飛び石、平均台、そして薄い板状の障害物といった、極めて不均一な地形を安全に歩行できなければなりません。安全な踏み込み位置（フットホールド）を見つけるには、広い視野、局所的な精度、そしてセンサの一部が壊れても破綻しない冗長性の3つが同時に求められます。\n\nしかし、これまでのアプローチには構造的な限界がありました。\n- 固有感覚（関節角度や角速度など）だけに頼る盲目歩行はセンサ故障には強いものの、足元から先の地形を予測できないため、飛び石のような不連続な地形を渡れません。\n- 前方のデプスカメラ1台やロボット周囲の局所的な高さサンプリングでは、背後や真下の死角をカバーできません。\n- オドメトリ（自己位置推定）で補正しながら作る高さマップ（Elevation Map）は、足踏みや激しい揺れによるドリフトで輪郭が崩れやすく、地面に直立した薄い板などをグリッド化で見落とす致命的な欠陥があります。\n- 複数カメラの画像を入力にすると、センサ数に比例してCNNの計算負荷が跳ね上がります。\n\nUniPointは発想を根本から変え、「距離センサはすべて3次元点群の発生源にすぎない」と捉えます。360度LiDARと前後2台のデプスカメラの点群をロボット基準座標で直接束ね、ボクセル化によって固定数のトークンに圧縮して処理します。地図も画像も作らないため、オドメトリ不要で計算コストがセンサ数から完全に切り離されます。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "知覚歩行の進化と点群インターフェースの台頭",
+   "summary_ja": "教師・生徒学習による盲目歩行から高さマップ、点群の直接利用へと研究が進んできました。UniPointはこれらを発展させ、地図生成を排した点群レベルの早期融合と、固有感覚によるクロスアテンションを組み合わせた独自の位置づけを持ちます。",
+   "details_ja": "近年の強化学習によるヒューマノイド歩行制御は、知覚情報の扱い方によっていくつかの系統に分かれます。\n\n### II-A Learning-Based Humanoid Locomotion\n並列シミュレーション環境の発展に伴い、特権情報（シミュレータ内の完全な地形情報）を与えた教師モデルから、カメラ画像や固有感覚のみを受け取る生徒モデルへ蒸留する手法が主流となりました。1台のデプスカメラを使うDPLや、前後歩行のために複数カメラを蒸留するRPL、車載足元地形の再構成を試みる研究などが登場していますが、多種多様な難所を単一モデルで乗り越えるには至っていませんでした。\n\n### II-B Perceptive Locomotion and Terrain Representation\n地形表現としては、高さマップ（Elevation Map）の復元が広く使われてきました。しかし、LiDARとデプスを融合する場合でも高さマップを経由することが多く、垂直な壁の消失やオドメトリドリフトの影響を免れませんでした。一方で、PointNetによる要約やボクセル化など、生の点群を直接ポリシーに入力する試みが四足ロボット等で始まっています。UniPointは、あらゆるセンサの点を即座にボクセル空間で1つのトークンセットにまとめ、固有感覚からのクエリで必要な空間位置へ適応的にアテンションを向ける点で一線を画しています。\n\n### II-C Safe Foot Placement and Reward Design\n飛び石や平均台のような狭小な足場を渡るには、「足を踏み外さない」ための報酬設計が極めて重要です。踏み外しによる転倒は時間的に遅れて発生するスパース（疎）な信号であるため、足裏の多点サンプリングによって安全領域を逸脱した瞬間に密なペナルティを与えるアプローチが研究されてきました。本論文もこの系譜を受け継ぎ、足裏の支持状態を密に判定するスキャンと、斜面進行方向への速度分解を組み合わせた新しいカリキュラムを導入しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "点群を束ねてアテンションで読む：UniPointのアーキテクチャ",
+   "summary_ja": "LiDARとカメラの点群をロボット座標系でボクセル化し、400個の固定トークンとして線形アテンションとクロスアテンションで処理します。足裏スキャン報酬と斜面速度分解、さらにセンサ劣化注入を組み込んだ単一のPPO学習により、高い堅牢性を実現します。",
+   "details_ja": "UniPointの全体パイプラインは、点群の統合処理、ネットワーク設計、そしてシミュレーション内での頑健な報酬設計から成り立っています。\n\n### III-A Overview\n制御ポリシー $\\pi_{\\theta}$ は50Hzで動作し、全身23自由度（脚12、腰3、腕8）の目標関節位置を出力してPD制御器で追従します。入力は過去5フレーム分（約0.1秒）の固有感覚履歴、400個のボクセルトークン、および速度指令です。学習にはPPO（Proximal Policy Optimization）を用い、単一ステージのエンドツーエンド学習を行っています。歩行周期や位相信号などの歩行パターン拘束は一切与えず、報酬と地形カリキュラムから自然な歩容を生み出します。\n\n### III-B Multi-Source Point-Level Perception Fusion\nロボット頭部の全方位LiDAR（20Hz）と、胴体前後のデプスカメラ（60Hz）から得られた点群は、まず胴体境界ボックス内の自己干渉点を除去されます。残った点をロボット基準の $0.1\\,\\mathrm{m}$ ボクセルグリッドに量子化し、各ボクセル内の重心点を求めます。ここからランダムに $K=80$ 個のトークンをサンプリングし、過去 $G=5$ フレーム分をスタックして合計 $80 \\times 5 = 400$ 個のトークンを生成します。各トークンには時間（フレーム）の位置エンコーディングが付与されるため、オドメトリによる座標変換を行わなくても、ネットワーク自身が短時間の移動ズレを暗黙的に補正できます。\nネットワーク側では、点群トークンを2層の線形自己アテンション（Linear Self-Attention）で符号化します。これにより計算量を $O(N^2 d)$ から $O(Nd^2)$ へと大幅に削減しています。さらに、固有感覚と指令から生成した状態ベクトル $s_t$ をクエリとし、点群特徴をキー・バリューとする16ヘッドのクロスアテンション（Cross-Attention）を適用します。この「自分の体勢から見て、今どの空間の点に注目すべきか」を動的に選択する仕組みが、精緻な足場選択を可能にしています。\n\n### III-C Terrain-Aware Reward Design\n安全な着地を促すため、2つの新しい地形認識報酬を設計しました。\n- **足裏支持完全性スキャン（Foot-sole support-integrity scan）**: 各足裏の下に $7 \\times 3 = 21$ 点の仮想レイを撃ち、公称支持平面からの偏差 $d_{f,i}$ を測定します。$-0.11\\,\\mathrm{m}$ を超えて下方に抜けている場合（踏み外し）や、$+0.02\\,\\mathrm{m}$ を超えて突出している場合（障害物との干渉）を違反点として検出し、支持脚に対して密なペナルティを与えます。\n- **斜面適応型速度分解（Slope-aligned velocity decomposition）**: ロボット直下の地形平面を最小二乗法でフィッティングし、水平指令速度をその斜面接線ベクトル上へ射影します。これにより、上り下り坂でも無理のない自然な並進速度追従を可能にしました。\n\n### III-D Unified Training with Deployment-Grade Robustness\nIsaac Lab上で4096並列環境を用い、8種類の地形の難易度カリキュラムを同時に学習させます。訓練中には点群へのガウスノイズ付加、ランダムドロップアウト、外れ値、LiDARの回転スキャン歪み、自己遮蔽といった知覚劣化を積極的に注入（Perception-degradation injection）します。さらにアクチュエータ遅延や質量、摩擦などのドメインランダム化を徹底することで、シミュレータから実機へのゼロショット転移を可能にしています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "UniPointの全体フレームワーク。(a) センサ配置、(b) 入力情報、(c) オンボードのポリシーネットワーク構造、(f) 訓練時に注入される点群ノイズモデル、(g) 足裏スキャナによる違反検出、(h) 斜面に応じた速度分解の幾何学的関係を示しています。",
+     "caption": "Fig. 2: Framework overview. (a) Sensor configuration: JT128 $360^{\\circ}$ LiDAR and front and rear D435i depth cameras. (b) Observations: commands, stacked proprioception, and multi-source exteroception. (c) Onboard actor network, the policy of Sections III-A and III-B . (d) PPO training: the critic loss from (e) updates the actor in (c) by policy gradient. (e) Privileged information: the asymmetric critic additionally receives a height scan, base velocity, base mass, and terrain flag on top of proprioception and commands. (f) Voxel noise model: training-time cloud degradation, red original, yellow dropped, blue outlier points. …",
+     "image": "details/2609.23666/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "実機とシミュレーションで検証：70cm高台も100cm溝も越える",
+   "summary_ja": "実機ヒューマノイドDR02とシミュレーションで広範な比較を行いました。UniPointはシミュレーションの8地形平均で94.6%の成功率を達成し、実機では車載低消費電力チップで1.5msという超高速推論を実現しつつ、70cmの高台や100cmの溝、LiDAR完全遮蔽下での歩行をクリアしました。",
+   "details_ja": "提案手法の有効性を確かめるため、等身大ヒューマノイドDR02（身長1.75m、体重約75kg、31自由度中23自由度を制御）を用いて実験を行いました。\n\n### IV-A Experimental Setup\n計算機には車載SoCであるRK3588（CPU）を使用しました。UniPointのフォワードパス時間はわずか $1.5\\,\\mathrm{ms}$ であり、デプス画像CNNベースラインの $8.6\\,\\mathrm{ms}$ と比較して5分の1以下です。前処理（$0.2\\sim 0.5\\,\\mathrm{ms}$）を含めても極めて軽量です。比較対象として、固有感覚のみの盲目（Blind）ポリシー、従来の高さサンプリング（Height Sampling）、デプス画像CNN（LiDARなし）、クロスアテンションをMLP結合に置き換えたConcat版を用意しました。\n\n### IV-B Simulation Results\nシミュレータにおける難関8地形の走破実験では、UniPointが全地形平均で94.6%という極めて高い成功率を記録し、すべての地形で79%以上を維持しました。他の比較手法はいずれも特定の地形で70%未満に急落しています。\n- **薄い障害物（Thin barriers）**: 高さサンプリングは上からのグリッド投影で見落とすため成功率が18.0%に低迷したのに対し、UniPointは3次元形状を保持できるため99.8%を達成しました。\n- **飛び石（Stepping stones）**: 高さサンプリングが67.0%、CNNが62.8%にとどまる中、UniPointは79.2%を記録しました。\n- **アブレーション**: 足裏スキャン報酬を除去すると飛び石の成功率は79%から68%へ落ち、接触違反率が10%から33%へ跳ね上がりました。また、クロスアテンションを単純結合（Concat）にすると飛び石が69.3%、薄い障害物が89.5%へと低下し、固有感覚をクエリとして重要点を選別する機構が不可欠であることが裏付けられました。\n- **センサ劣化耐性**: テスト時に点群の欠損率を上げていく実験では、25%欠損時でも81%の成功率を維持し、ベースラインを大きく引き離しました。\n\n### IV-C Real-World Results\n実機環境において各設定20回の試行を行いました。\n- 高さマップを用いた実機ベースラインは、階段やスロープでは動くものの、オドメトリドリフトや振動により70cm高台（9/20）、100cm溝（4/20）、飛び石（2/20）、薄い障害物（0/20）と激しく破滅しました。\n- 一方、UniPointは単一ポリシー・現場でのパラメータ調整なしで、70cmの高台昇降（20/20）、100cmの溝越え（19/20）、45cmの薄い障害物跨ぎ（19/20）、平均台（17/20）、飛び石（16/20）を達成しました。さらに後方視界をカバーしているため、後ろ向きの階段昇降も18/20でクリアしました。\n- **単一モダリティ喪失実験**: 360度LiDARを白い袋で完全に覆い隠し、デプスカメラ2台のみが生きている極限状態でも、40cm高台の昇降や20cm階段の上り下りを安定して継続できることを確認しました。\n- **未知の屋外汎化**: 学習で一切使っていない砂利道、岩場、森林の敷石路、鉄格子階段などの屋外環境でも、命綱なしでゼロショット歩行に成功しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "シミュレーションで評価した8種類の過酷な地形。重畳表示された点はポリシーが読み込んでいるボクセルトークンで、クロスアテンションの重みが高い点ほど赤く（暖色）表示されています。",
+     "caption": "Fig. 3: Simulation snapshots of the eight terrain types of Table II ; overlaid points are the voxel tokens the policy reads, colored by online cross-attention weight, warm is high, cold is low.",
+     "image": "details/2609.23666/F3.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実機における4つの代表的な走破シーン（薄い障害物、70cm高台、100cm溝、飛び石）。下段のトークン可視化を見ると、ロボットがまさに着地・離陸しようとしている境界やエッジ部分にアテンションが集中していることが分かります。",
+     "caption": "Fig. 6: Complete crossings at four representative settings of Table VI . In each group, the top row shows robot keyframes with time in seconds at the upper left, and the bottom row shows the voxel tokens the policy reads at the same instants, colored by online cross-attention weight; warm is high, cold is low. In (b), the robot ascends and then descends the platform.",
+     "image": "details/2609.23666/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "高さマップを用いた従来手法の代表的な失敗例。(a) 薄い障害物がマップに映らず蹴倒す、(b) 溝の対岸が細く歪んで縁を踏み外す、(c) ドリフトで高台の輪郭が浮遊セルに分裂して脚を引っ掛ける様子が捉えられています。",
+     "caption": "Fig. 7: Three representative real-world failures of the elevation-map baseline of Table VI , which builds an online elevation map from a single forward LiDAR. In each group, the top row shows robot keyframes with time in seconds at the upper left, and the bottom row shows the map the baseline builds at the same instants.",
+     "image": "details/2609.23666/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "LiDARを袋で完全に覆った状態での単一センサ喪失テスト。LiDAR情報が全滅しても、残ったデプスカメラと固有感覚により、階段の上り下りや高台の昇降を安全に継続できています。",
+     "caption": "Fig. 8: Real-world occlusion test with the $360^{\\circ}$ LiDAR fully covered by a white bag; the leftmost panel shows the occlusion setup. From left to right: descending the stairs, stepping down from the high platform, and climbing onto the high platform.",
+     "image": "details/2609.23666/F8.jpg"
+    },
+    {
+     "key": "F9",
+     "caption_ja": "シミュレーション学習のみで未知の屋外環境へゼロショット展開した様子。屋外階段、鉄格子、砂利道、岩場、森林の石畳などを補助ロープなしで走破しています。",
+     "caption": "Fig. 9: Zero-shot generalization over outdoor unstructured terrain, without fine-tuning or a tether. From left to right: outdoor stairs, steel-grating stairs, gravel, a rocky path, and a flagstone trail through forest.",
+     "image": "details/2609.23666/F9.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Discussion and Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "UniPointは、オドメトリ不要の点群早期融合、足裏支持スキャン報酬、知覚劣化シミュレーションの3本柱により、低計算コストと抜群の走破性を両立させました。今後は知覚範囲の拡張や上半身を使った接触動作への展開が期待されます。",
+   "details_ja": "UniPointが優れた性能を発揮できた理由は、相互に補強し合う3つのコア要素にあります。\n1. オドメトリに依存しない点群レベルの融合が、薄い構造物の見落としを防ぎ、センサ故障時の段階的な性能低下（Graceful Degradation）を可能にしました。\n2. 足裏支持スキャンによって、転倒という遅延したスパース信号を密な報酬へと変換し、狭小な足場への着地精度を高めました。\n3. 知覚劣化注入とドメインランダム化により、Sim-to-Realギャップを埋め、追加のファインチューニングなしで実機展開を成功させました。\n\n現在の実装では前方1.3m・後方1.1mの知覚範囲にとどまっており、これは手法の限界ではなくカバレッジ設定によるものです。ボクセルトークン数を固定しているため、点群の前処理コストは点数に比例して線形にしか増えず、ネットワークの計算量は完全に一定に保たれます。\n\n今後は、知覚距離の延伸やボクセル解像度のさらなる最適化、手すりを掴むような上半身の接触を伴う全身動作やマニピュレーションへの拡張、さらには動的な障害物が存在する動的環境でのセンサ統合へと研究を発展させていく予定です。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「センサはすべて3次元点の供給源」と割り切り、地図や画像を作らず点群のままボクセル化して束ねる設計が、低計算負荷とロバスト性を両立させる強力な選択肢になる。",
+  "2次元グリッドの高さマップ（Elevation Map）は薄い障害物の見落としやオドメトリドリフトに極めて脆弱であり、点群の3次元構造を直接保持する方が有利である。",
+  "固有感覚をクエリとするクロスアテンションを導入することで、膨大な空間情報の中から「今、自分の姿勢にとってクリティカルな足場情報」だけを動的に抽出できる。",
+  "学習時にセンサ欠損やノイズを積極的に注入しておくことで、実機でLiDARが全滅するようなハードウェア障害が発生しても歩行を維持できる。"
+ ],
+ "limitations_ja": [
+  "現在の知覚範囲が前方1.3m・後方1.1mと比較的近傍に限定されており、より高速な走行や大跳躍にはさらなる長距離認識が必要になる点",
+  "ボクセルサイズを0.1mとしているため、それより極端に細い足場や微細な凹凸の識別に限界がある点（0.05mに細分化すると計算負荷が跳ね上がるトレードオフが存在）",
+  "障害物や地形がすべて静止している前提となっており、動いている障害物や動的な人間とのすれ違いへの適応は今後の課題である点"
+ ],
+ "keywords": [
+  "Humanoid Locomotion",
+  "Sensor Fusion",
+  "Point Cloud",
+  "Reinforcement Learning",
+  "Sim-to-Real Transfer"
+ ],
+ "id": "2609.23666",
+ "title": "UniPoint: Unified Point-Level Sensor Fusion for Humanoid Locomotion Across Challenging Terrains",
+ "authors": [
+  "Sicen Li",
+  "Zhen Chu",
+  "Chao Li",
+  "Qiuguo Zhu",
+  "Jun Wu"
+ ],
+ "date": "2026-09-22",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "locomotion",
+  "perception",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.23666",
+ "pdf_url": "https://arxiv.org/pdf/2609.23666",
+ "summary_ja": "全方向LiDARと2台の深度カメラの生点群を早期統合し、過酷な不整地を走破するヒューマノイド全身歩行手法UniPointを提案。従来の標高マップのドリフトや視野狭窄を解消し、点群表現から直接ロバストな歩行制御ポリシーを学習する。",
+ "generated": "2026-09-22",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.23666"
+}
