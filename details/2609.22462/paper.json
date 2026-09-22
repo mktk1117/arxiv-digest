@@ -1,0 +1,111 @@
+{
+ "title_ja": "VLPSA：学習済み方策の全身安全性を保証する視覚言語ポアソン安全アクション",
+ "tldr_ja": "VLA（視覚・言語・行動）モデルを再学習することなく、ロボット全身および把持した物体の衝突回避をリアルタイムに保証するポアソン安全関数（PSF）ベースの安全フィルタ技術です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "VLPSAの全体パイプラインです。上位のVLAモデルが生成した名目軌道を、センサ点群からオンライン構築された2重解像度のポアソン安全関数（PSF）と制御バリア関数（CBF）を用いて安全に補正します。物体を把持した瞬間にはその把持物体表面にもサンプル点を注入し、全身と物体を一体として衝突から守ります。",
+  "caption": "Fig. 1 : Pipeline for VLPSA: Sensory and semantic input and robot state are sent to the VLA for a nominal trajectory and gripper state. Depth sensors are fused with robot state information to create an occupancy map for the synthesis of PSFs at varying resolutions for safety filtering. When grasping, live samples are generated and updated to protect the held object, incorporated into the same safety filter.",
+  "image": "details/2609.22462/F1.jpg"
+ },
+ "overview_ja": "大規模な視覚・言語・行動モデル（VLA）は、ロボットの汎用的なマニピュレーションを飛躍的に前進させました。しかし、模倣学習ベースのポリシーは学習データの分布外となる環境に対して幾何学的な安全保証を持っていません。特に人間と協調するような狭隘・動的環境では、アームのリンクや把持した物体が障害物と衝突する危険が常に付きまといます。\n\nそこで著者らは、VLAの再学習を一切行わずに展開時（推論時）の制御ループ内で全身の安全性を保証するフレームワーク「VLPSA」を提案しました。環境の占有グリッドから楕円型偏微分方程式であるポアソン方程式をリアルタイムに解くことで、滑らかな安全関数（ポアソン安全関数: PSF）をオンライン生成します。これをもとに制御バリア関数（CBF）による2次計画問題（QP）を構成し、VLAが指示する名目軌道を最小限の修正で安全な関節速度指令へと変換します。さらに、作業領域と広域空間で解像度を変えるマルチグリッド合成や、物体把持時にそのバウンディングボックス表面をロボットの保護対象へ動的に追加する仕組みを導入しました。\n\nシミュレーションベンチマーク（SafeLIBERO）において、VLPSAはベースとなる$\\pi_{0.5}$の衝突回避率を23.1%から91.2%へと劇的に向上させ、既存の安全フィルタ手法を上回る衝突回避率を達成しました。さらに実機のFranka FR3アームを用いた実験でも、障害物が密集する環境や人間・ボールが動的に割り込んでくる状況下で、全身および把持物体がリアルタイムに衝突を回避できることを実証しました。",
+ "contributions_ja": [
+  "VLAポリシーの再学習を必要とせず、動的・雑多な環境でロボット全身の衝突回避を保証するPSF-CBF安全フィルタを提案した点",
+  "作業空間全体の粗いグリッドと作業領域周辺の細かいグリッドをブールOR合成し、高精度と実時間性を両立したマルチグリッドPSFを構築した点",
+  "事前幾何情報のない把持物体をロボットの終端リンクの幾何的拡張としてサンプル点群へ動的注入し、把持物の衝突回避保証を確立した点",
+  "Franka FR3実機において、人間や動的障害物が存在する中での把持・運搬タスクを150Hzの安全フィルタ制御ループで実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "賢いVLAだからこそ「現場での確実な安全ブレーキ」が必要になる",
+   "summary_ja": "VLAモデルは汎用的な操作能力を獲得しつつありますが、学習分布外での幾何学的な安全保証がありません。本研究は、ポリシーを再学習することなく、ロボット全身と把持物体を動的障害物からリアルタイムに保護する幾何学的安全フィルタを提案します。",
+   "details_ja": "近年、$\\pi_{0.5}$やOpenVLAなどのVLAモデルが目覚ましい成果を上げています。しかし、これらは模倣学習ベースであるため、訓練データに含まれない配置や未知の障害物に対して衝突を防ぐ厳密な保証がありません。\n\n安全性を担保するアプローチには、安全なデモデータでの学習や制約付き強化学習、世界モデル上での到達可能集合解析などがあります。しかしこれらは、学習モデルの表現精度に依存しており、幾何学的に独立した安全保証を与えるものではありません。また、VLAは低速（数Hz〜数十Hz）でアクションチャンク（一連の目標値群）を出力するため、途中で人間や動的障害物が作業空間に侵入してきた際、チャンク単位の補正では応答が遅れてしまいます。\n\nそこで本研究では、VLAの出力軌道を制御周期（100Hz以上）の安全フィルタに通すアプローチを採用しました。制御バリア関数（CBF）とポアソン安全関数（PSF）を組み合わせることで、ポリシーの再学習なしに環境の幾何情報に基づいた安全性を保証します。本研究の核となる新規性は、ロボットのアーム全身だけでなく「把持した未知の物体」まで保護対象に含め、さらにマルチ解像度PSFによってリアルタイム性と狭隘空間での高解像度を両立させた点にあります。",
+   "figures": []
+  },
+  {
+   "heading": "II Preliminaries",
+   "heading_ja": "理論の土台：制御バリア関数（CBF）とポアソン安全関数（PSF）",
+   "summary_ja": "システムを安全領域内に留め続けるCBFの基礎と、知覚データから滑らかなCBFを解くPSFの数理を解説します。これをマニピュレータの運動学モデルと結合し、表面サンプル点に基づく全身安全保証の枠組みを整理しています。",
+   "details_ja": "### II-A Control Barrier Functions (CBF)\nシステムの状態 $\\mathbf{x}$ に対し、安全集合をスカラー関数 $h(\\mathbf{x}, t) \\ge 0$ の領域として定義します。CBFは、その時間微分に関して $\\dot{h} \\ge -\\alpha(h)$ という不等式を満たす制御入力を選ぶことで、一度安全集合に入った状態が未来永劫外に出ないこと（前方不変性）を保証する数理ツールです。名目制御入力 $k_{\\mathrm{nom}}$ を最小限の修正で安全化するため、2次計画問題（CBF-QP）を解きます。本研究ではタスク追従を制御リアプノフ関数（CLF）で表し、安全性と競合した場合にはCLF条件を緩和（スラック変数 $\\delta$ を導入）するCLF-CBF-QPの形式を採用しています。\n\n### II-B Poisson Safety Functions (PSF)\n従来のCBFは障害物形状に応じた $h$ の設計が困難でした。PSFは、センサから得られた自由空間 $\\Omega$ 上でポアソン方程式 $\\nabla^2 h_0 = f < 0$ （境界 $\\partial\\Omega$ 上で $h_0 = 0$）を解くことで、障害物境界でゼロになり内部で正となる滑らかな関数を自動生成する手法です。動的障害物に対しては境界が動く問題としてオンラインで解き直すことで対応します。\n\n### II-C Application to Manipulators and VLA Policies\nマニピュレータの制御は関節速度 $\\mathbf{v}$ の運動学系として扱います。ロボット全身を保護するため、ロボット表面を解像度 $\\varepsilon$ でサンプリングした有限点集合 $\\mathcal{Y}(\\mathbf{q})$ を用意します。環境側をあらかじめ $\\varepsilon$ だけ膨張（バッファリング）させた領域でPSFを解くことで、有限個のサンプリング点に対してCBF条件を課すだけでロボット表面全体の衝突回避が数学的に保証されます。VLAから得られるアクションチャンクは補間されて目標軌道となり、これをCLFで追従しながら、各点のCBF制約を満たす関節速度をQPで決定します。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "VLPSAの核心：把持物の動的保護と2段解像度ポアソン解法",
+   "summary_ja": "VLA軌道のトラッキング設計、把持した物体を安全制約へ即座に追加するサンプル注入法、そして計算速度と細かな隙間通過を両立するマルチ解像度PSFのブール合成手法を詳しく説明します。",
+   "details_ja": "### III-A VLA + Safety Filter\nVLAの各アクションを個別にフィルタリングすると追従誤差が蓄積し、VLAの意図が失われる危険があります。そこで、サイズ $T$ のアクションチャンクを線形補間して連続な目標軌道 $\\mathbf{x}_d(t)$ を生成し、高速な制御ループでCLFを用いて追従させます。安全制約と干渉した際はCLF側をスラック変数で適切に緩めるため、安全を最優先しながら可能な限りタスクを前進させられます。\n\n### III-B Grasp-triggered Sample Injection\nマニピュレーションでは、物を掴んだ瞬間にロボットの幾何学的形状が変化します。従来の学習型安全フィルタではこの動的な幾何変化への適応が困難でした。VLPSAでは、把持開始時刻 $t_g$ を検知すると、エンドエフェクタ座標系において対象物を含むバウンディングボリューム $\\hat{\\mathcal{B}}_O^E$ の表面に解像度 $\\varepsilon_O$ のサンプル点群を生成し、ロボットのサンプル集合へ即座に注入します（$\\mathcal{Y}_{\\mathrm{aug}}$）。剛体把持である限りサンプル点は物体表面を覆い続けるため、定理に基づき把持物体全体の衝突回避がそのまま保証されます。\n\n### III-C Multi-resolution Poisson\nPSFの解像度を上げると狭い隙間を認識できますが、偏微分方程式の求解時間が急増して動的障害物への追従が破綻します。そこで、作業空間全体をカバーする粗いグリッド（解像度 $\\delta_c$）と、作業領域に絞った細かいグリッド（解像度 $\\delta_f$）の2つを並行して解きます。細かいグリッドの人工的な境界壁で安全関数がゼロになってしまう問題を避けるため、ブールOR合成を適用します。具体的には $h = \\max(h_f, h_c)$ とし、非平滑な最大値関数を直接微分する代わりに、差分 $\\Delta_i = |h - h_i|$ で緩和した2つの制約を同時に課します。これによりモード切り替えの不連続性を生じさせず、滑らかな安全制御を実現しました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "マルチグリッドの挙動解析です。左図は把持物体のサンプル点における細かいグリッド（fine-grid）の採用率を示しており、静的障害物の密集環境では安定して使われ、動的障害物接近時には鋭いピークを示します。右図は合成されたゼロ等高線で、細かいグリッド（青）と粗いグリッド（オレンジ）が継ぎ目なく連携している様子が分かります。",
+     "caption": "Fig. 2 : Multigrid Usage. (Left) Fine-grid usage (% of sample points) for the grasped object during a trial in static clutter and with dynamic obstacles. The grasped object shows consistent moderate usage under clutter but sparser, higher peaks under moving obstacles. (Right) Zero-level set of the fine PSF $h_{f}$ in a cluttered environment showing which grid wins at each point.",
+     "image": "details/2609.22462/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Results",
+   "heading_ja": "シミュレーションと実機で証明された圧倒的な衝突回避性能",
+   "summary_ja": "SafeLIBEROベンチマークにおいて、ベースラインのVLSAを凌駕する91.2%の衝突回避率を記録しました。さらに実機のFranka FR3を用いて、障害物が密集した机上や人間・ボールが動的に割り込むシーンでも安全に動作することを確認しました。",
+   "details_ja": "### IV-A Simulation Benchmark & IV-B Simulation Discussion\nシミュレーション評価には障害物豊富なSafeLIBEROを用いました。名目の$\\pi_{0.5}$ポリシーは衝突回避率（CAR）がわずか23.1%でしたが、VLPSAを適用することで91.2%へと劇的に改善しました。既存の代表的安全フィルタであるVLSA*（CAR 77.2%）と比較しても衝突回数を約3分の1に抑えています。把持物体のサンプル注入を無効化したアブレーション（VLPSA-NI）ではCARが78.1%まで低下することから、運搬中の物体保護が極めて重要であることが裏付けられました。また、安全制約によって無駄な衝突によるエピソード終了を防ぐため、単純なタスク成功率も名目ポリシーを上回っています。\n\n### IV-C Hardware Experiments\n実機評価ではFranka FR3アーム、Hesai LiDAR 2台、ZED2iステレオカメラ2台を使用しました。\n- **知覚と占有マップ**: 1.5m四方の空間を1cm解像度で管理し、アーム自身の点群をマスクして誤検知を防ぎつつ、60Hz以上でマップを更新します。\n- **サンプル注入**: 物体把持時にはYOLOのバウンディングボックスを膨張・カービング処理して物体表面サンプルを生成し、自己遮蔽処理と連携させます。\n- **制御構成**: 粗いグリッド（80^3、3cm分解能）と細かいグリッド（50^3、1cm分解能）を40Hzで並列にPSF求解し、安全フィルタQPは150Hzで高速実行します。\n- **雑多・動的環境での結果**: バナナをボウルに運ぶタスクにおいて、名目$\\pi_{0.5}$は障害物に接触してしまいましたが、VLPSAは密集した障害物を巧みにすり抜けました。さらに作業中に人間やボールが急にアームやバナナに接近しても、PSF値が正を保ち（衝突マージンを維持）、障害物が去った後に自動で作業を再開することを確認しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "(A) 障害物が密集した実機環境での動作比較です。名目VLA（上段）は障害物に次々と接触してしまいますが、VLPSA（中段）は全身と把持物を衝突させずにタスクを完遂します。(B) 人間や動的障害物が繰り返し作業空間へ割り込んできた際のPSF最小値の推移です。常に正の値を維持し、安全マージンが確保されていることが分かります。",
+     "caption": "Fig. 3 : (A) Hardware validation of the VLA policy with and without the proposed safety layer in a cluttered tabletop environment for the task “Pick up the banana.” (Top) The cluttered environment is out-of-distribution for the nominal VLA policy, which completes the task but collides with multiple objects in the scene. (Middle) With the proposed full-body safety architecture, the VLA policy completes the same task while avoiding all collisions. (Bottom Left) The minimum active Poisson Safety Function value per link remains positive through-out the trial. (Bottom Right) The nominal trajectory versus the safety filtered trajectory throughout the trial. …",
+     "image": "details/2609.22462/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望：VLAの汎用性に「確かな安全性」をアドオンする",
+   "summary_ja": "VLPSAは、VLAポリシーの再学習なしにロボット全身および把持物体の動的衝突回避を達成しました。今後は長期的計画との統合や遮蔽に強い形状予測モデルとの融合が期待されます。",
+   "details_ja": "本研究は、事前学習済みVLAポリシーに対して、再学習なしで全身および把持物体の動的安全性を幾何学的に保証する枠組み「VLPSA」を確立しました。シミュレーションと実機の双方で、障害物が密集する環境や動的干渉が存在する状況下でも高い衝突回避能力を発揮することを証明しました。\n\n今後の課題として著者らは、安全フィルタによって一時的に軌道から外れた際にVLAが目的を見失ってしまう現象の解消（モデル予測制御: MPCとの組み合わせや、より早い段階での安全制約の統合など）や、センサの死角・オクルージョンに起因する見落としを防ぐ高度な形状補完技術の導入を挙げています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "VLAモデルの再学習を行わなくても、幾何学的なPSF-CBF安全フィルタを制御層に挟むだけで全身の動的衝突回避が可能になる",
+  "物体を把持した瞬間に対象物のバウンディングボックス表面をサンプル点として追加するだけで、マニピュレータと把持物を一体として数学的に保護できる",
+  "大域的な粗いグリッドと局所的な細かいグリッドをブールOR合成することで、計算負荷を抑えながら狭い隙間の通過とリアルタイム制御（150Hz）を両立できる"
+ ],
+ "limitations_ja": [
+  "知覚パイプラインに依存するため、センサの死角にある障害物や、把持後にグリッパー内で物体が大きく滑った場合には安全保証が破綻するリスクがある",
+  "動的障害物の移動速度がセンサ更新やロボットの関節速度限界を超える極端に速いケースには追従できない",
+  "安全フィルタによって名目軌道から大きく押し戻された際、VLAの短期的なゴール認識が狂ってタスクが停滞・失敗することがある"
+ ],
+ "keywords": [
+  "Vision-Language-Action Models",
+  "Control Barrier Functions",
+  "Poisson Safety Functions",
+  "Full-Body Safety",
+  "Collision Avoidance"
+ ],
+ "id": "2609.22462",
+ "title": "VLPSA: Vision-Language-Poisson-Safe Actions for Full-Body Safety of Learned Policies",
+ "authors": [
+  "Meg Wilkinson",
+  "Emily Fourney",
+  "Joel W. Burdick",
+  "Aaron D. Ames"
+ ],
+ "date": "2026-09-22",
+ "group": "general",
+ "tags": [
+  "safety",
+  "vision-language-action",
+  "control",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.22462",
+ "pdf_url": "https://arxiv.org/pdf/2609.22462",
+ "summary_ja": "学習済みVLA方策に安全性を付与するため、ポアソン安全関数（PSF）から制御バリア関数（CBF）をオンライン合成する安全フィルタVLPSAを提案。モデルの再訓練なしに、ロボット全身および把持物体を考慮した二次計画法（CBF-QP）により動的障害物の衝突を厳密に回避する。",
+ "generated": "2026-09-22",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.22462"
+}
