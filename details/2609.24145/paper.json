@@ -1,0 +1,132 @@
+{
+ "title_ja": "MimicAgent：プロンプトからの軌道生成による動的四足歩行スキルの獲得",
+ "tldr_ja": "報酬関数の調整（リワードシェイピング）に頼る代わりに、LLMマルチエージェントに「大まかな目標動作軌道」をコード生成させ、強化学習の模倣学習（DeepMimic）で物理的に実行可能なポリシーへ昇華させるフレームワークです。車輪付き四足ロボット（Go2-W）において宙返りや逆立ち走行など多彩なスキルを生成し、シミュレーションだけでなく実機への転移（Sim-to-Real）まで実証しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "MimicAgentの全体フローです。テキスト指示からLLMエージェント群が反復改善を通じて大まかな参照軌道（緑色）を生成し、それを目標として強化学習（DeepMimic）を行うことで、物理整合性の取れたポリシー（青色）を獲得します。",
+  "caption": "Fig. 1 : Overview. MimicAgent uses LLM coding agents within a recursive self-improvement loop to generate coarse reference trajectories (shown in green ) from text prompts. Our agentic pipeline converts short text prompts into detailed skill descriptions, translates these into executable functions that describe base and foot motion over time, and outputs them as reference trajectories. We show that these coarse motions are effective reference targets for example-guided RL (with policy rollouts shown in blue ).",
+  "image": "details/2609.24145/F1.jpg"
+ },
+ "overview_ja": "四足歩行ロボットに宙返りやスピンなどの高度でダイナミックなスキルを強化学習（RL）で習得させようとすると、最大の壁になるのが「報酬関数の設計（リワードシェイピング）」です。少し重みを変えるだけで予期せぬ転倒や奇妙な動きに陥るため、研究者が何時間も手作業で調整し続ける「大学院生勾配降下法」が常態化していました。最近ではEurekaのようにLLMに報酬関数を書かせる試みも登場していますが、複雑な形態のロボットや多彩なスキルに対しては頑健に機能せず、人間がタスクごとの評価指標を細かく作らなければならないという根本的な課題が残っています。\n\nそこで著者らは発想を180度転換しました。「人間にとってもLLMにとっても、報酬関数を数式でこねくり回すより、『こんな風に動いて』と目標動作（参照軌道）を直接作るほうが圧倒的に直感的で簡単ではないか？」という着眼点です。ヒューマノイドでは大規模なモーションキャプチャ（MoCap）データを使った模倣学習が大成功を収めていますが、四足ロボットにはそのような多様な動作データセットがありません。ならば、LLMに作らせてしまおうと考えたわけです。\n\n提案された「MimicAgent」は、テキスト指示から運動計画を立て、順運動学コードを生成し、汎用的な単体テストで物理破綻を自己修正しながら参照軌道を出力するエージェントパイプラインです。生成された軌道は物理シミュレーションを考慮していない大まかなものですが、これをDeepMimicベースの模倣強化学習のガイドとして与えることで、物理法則を満たすダイナミックな制御ポリシーへと昇華させます。\n\n検証の結果、車輪付き四足ロボット（Unitree Go2-W）において65種類の多彩なスキルを生成することに成功しました。人手によるアニメーション付けよりも短時間で滑らかな軌道が得られ、Eurekaを大きく上回る指示追従性をユーザー評価で記録し、さらに実機への直接展開（Sim-to-Real）にも成功しています。",
+ "contributions_ja": [
+  "テキストプロンプトから四足ロボットの目標動作軌道をコード生成・自己改善ループで自動作成するMimicAgentフレームワークの提案。",
+  "タスク固有の成功判定関数を一切使わず、高さや関節限界などの「タスク非依存な単体テスト」だけで妥当な参照軌道をフィルタリング・自己修正できる仕組みの実装。",
+  "物理制約を無視した大まかなキネマティクス軌道であっても、模倣強化学習とSim-to-Realパイプラインを経由することで実機動作可能なポリシーを学習できることの実証。",
+  "報酬関数を探索する既存のLLM手法（Eureka）と比較して、軌道空間で指示を与えるアプローチのほうが探索効率・表現力・トークン消費量の面で優れていることの実験的解明。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "報酬の沼から抜け出す：数式ではなく「軌道」をLLMに描かせる",
+   "summary_ja": "強化学習による四足歩行のスキル獲得では報酬設計の難しさが長年の課題であり、LLMによる報酬自動設計（Eurekaなど）もロボットの形態やタスクの多様性に対応しきれていませんでした。本研究では、大規模MoCapデータが不足している四足ロボットに対し、LLMコーディングエージェントを用いてテキストから大まかな参照軌道を直接生成し、模倣学習で物理的に妥当なポリシーへ落とし込むMimicAgentを提案します。",
+   "details_ja": "近年、強化学習（RL）を用いた脚ロボットの移動制御は目覚ましい俊敏性と頑健性を見せています。しかし、その学習は高度にチューニングされた報酬関数に依存しており、複雑でダイナミックなスキルになればなるほど、手作業による試行錯誤（いわゆる大学院生勾配降下法）が不可欠でした。\n\nこの課題に対し、LLMを用いて報酬設計を自動化する研究（Eurekaなど）が登場しています。しかし、これらは候補となる報酬を評価するために人間が設計したタスク固有の成功指標（フィットネス関数）を必要とし、車輪付き四足歩行ロボットのような複雑な形態や多様なスキルに対しては脆弱で、プロンプトの指示通りに動かないケースが多発していました。\n\n一方、ヒューマノイドの分野では、大規模なモーションキャプチャ（MoCap）データを教師として模倣学習を行う「Example-guided RL（実例誘導型強化学習）」が大成功を収めています。しかし、四足ロボットにはそのような大規模で多様なモーションデータセットが存在しません。\n\nそこで著者らは「MimicAgent」を提案しました。核心となる洞察は、「人間にとってもLLMにとっても、報酬関数を微調整するより、参照動作を直接生成するほうがはるかに容易である」という点です。テキストからベース（胴体）と足先軌道を記述する実行可能コードをLLMに生成させ、MuJoCoの順運動学（FK）でキネマティクス的に破綻のない軌道を作成します。物理演算を行わないため力学的には不完全ですが、そのダイナミクスの整合性は後段の模倣RL（DeepMimic）に任せるという役割分担を行っています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "テキスト指示から模倣強化学習までの全体パイプラインです。LLMエージェントが生成した大まかな参照軌道（緑色）を教師として、物理シミュレータ環境で模倣ポリシー（青色）を学習させます。",
+     "caption": "Fig. 1 : Overview. MimicAgent uses LLM coding agents within a recursive self-improvement loop to generate coarse reference trajectories (shown in green ) from text prompts. Our agentic pipeline converts short text prompts into detailed skill descriptions, translates these into executable functions that describe base and foot motion over time, and outputs them as reference trajectories. We show that these coarse motions are effective reference targets for example-guided RL (with policy rollouts shown in blue ).",
+     "image": "details/2609.24145/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Works",
+   "heading_ja": "四足歩行制御と「言葉でロボットを動かす」技術の現在地",
+   "summary_ja": "四足ロボット制御はMPCからRLによる模倣学習へとパラダイムが広がりつつあり、自然言語からロボット動作を生成する研究も急速に進展しています。しかし、既存の言語条件付きポリシーは大規模な対データが必要であり、LLMを用いたコード生成でも中間表現の選択が課題となっていました。本研究は、LLMで参照軌道を直接合成し模倣学習に渡すという新たなアプローチをとります。",
+   "details_ja": "### 四足歩行ロコモーションの進化\n四足歩行ロボットの制御は古くから研究されており、モデル予測制御（MPC）を用いてトロット（速歩）、バウンド、ギャロップ（襲歩）などの接触パターンを追従させる手法が主流でした。しかし、MPCは手作業で設計された参照軌道が必要で計算コストも高く、行動の多様性に限界がありました。近年は模倣強化学習を用いることで、二足立ちや全身でのマニピュレーションなど、より直感的でアクロバティックな動作が実現できるようになっています。\n\n### テキストからロボット制御へ（Text-to-Robot Control）\n言語指示からロボットを動かす研究には、大きく分けて2つの系統があります。\n- 言語条件付きエンドツーエンドポリシー：自然言語指示から関節指令を直接出力する方針ですが、多様な移動動作を網羅する「テキストとロボット動作のペアデータ」を大量に集めるのが困難です。\n- LLMによるコード・中間表現の生成：LLMを高レベルなプランナーや制御コード生成器として使い、上位の指示を下位のモーター制御に変換するアプローチです。\n\n本研究はこの後者の流れを汲みつつ、報酬関数ではなく「直接模倣学習のターゲットとなる参照軌道を合成する」というアプローチを採用している点がユニークです。",
+   "figures": []
+  },
+  {
+   "heading": "III Dynamic Skills via Trajectory Synthesis",
+   "heading_ja": "エージェント連携による軌道合成とSim-to-Realパイプライン",
+   "summary_ja": "MimicAgentは運動計画、コード生成、キネマティクス実行、自己修正の4つのエージェントループで構成されます。生成された動作はタスク非依存の単体テストで検証され、不合格なら診断エージェントの指摘をもとに修正されます。得られた軌道をもとに、特権情報を持つTeacherポリシーをPPOで学習し、実機で取得可能な観測のみを用いるStudentポリシーへ蒸留（DAgger）することで実機展開を可能にしています。",
+   "details_ja": "### エージェント型モーション合成パイプライン\nMimicAgentは、テキストプロンプトを段階的に具体化するマルチエージェント構造をとっています（図 F2）。\n1. **Motion Plannerエージェント**：スキルの全体意図、安定化戦略、位相（フェーズ $\\phi \\in [0, 1]$）ごとのサブフェーズ分割、各脚の接地状態、胴体の並進・角速度コマンド、足先軌道を記述した詳細なテキスト計画を作成します。\n2. **Code Generatorエージェント**：計画をもとに、ベース位置 $\\mathbf{p}_t^{\\text{base}}$、ベース姿勢（クォータニオン）$\\boldsymbol{\\alpha}_t^{\\text{base}}$、関節角度 $\\boldsymbol{\\theta}_t$ を出力するPythonプログラムを生成します。\n3. **Kinematic Executor**：生成コードをMuJoCoの順運動学（FK）で実行し、離散フェーズごとのキーフレーム列 $\\boldsymbol{\\tau} = \\{s_0, \\dots, s_T\\}$ を得ます。物理シミュレーションは行わないため高速に動作します。\n\n### タスク非依存の単体テスト（Unit Tests）と自己改善ループ\nEurekaのようにタスクごとの成功判定を作るのではなく、あらゆるスキルに共通する「構造的妥当性」をチェックする単体テストを導入しています。\n- **ベース高さの範囲**：地面から0.1m未満、または直立時の2倍を超える高さになったらペナルティ。\n- **関節リミット違反**：関節可動域を超えた関節数 $N_{\\text{violated}}$ に応じて減点。\n- **床面への潜り込み**：足先が地面にめり込んだ深さと頻度を評価。\n- **足の滞空時間制約**：非空中スキルにおいて、動作サイクルの半分以上で少なくとも1本の脚が接地していることを要求。\n\nテストに失敗した場合、**Motion Diagnosisエージェント**が失敗原因を自然言語で分析し、**Code Modificationエージェント**がコードを書き直します。この自己修正ループを最大3回（$N=3$）回します。\n\n### 模倣強化学習とSim-to-Real（Teacher-Student蒸留）\n得られた粗い軌道をもとに、DeepMimicに基づく目標条件付きRLを行います。対象ロボットは12個の脚関節と4個の車輪を持つ16自由度のUnitree Go2-Wです。\n- **Teacherポリシー**：シミュレータ内の完全な状態（特権情報 $s^{\\text{priv}}_t$：真の速度、リンク位置、接触フラグ、グローバルYaw角など）を受け取り、PPOで参照軌道を追従するよう学習します。\n- **Studentポリシー**：実機に搭載されたセンサーから得られるプロプリオセプティブ情報（関節角・角速度、過去50ステップの履歴 $H$）と、IMUのドリフトを避けるためYaw不変な投影重力ベクトル $\\hat{\\mathbf{g}}_t$ を用いて行動します。\n- **蒸留**：Teacherが収束した後、DAggerを用いてStudentに行動模倣学習（$\\lVert a_t - \\hat{a}_t \\rVert^2$）を行います。ドメインランダム化と観測ノイズを加えることで、実機への高い適応力（Sim-to-Real）を確保しています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "MimicAgentの内部アーキテクチャです。プロンプトから運動計画を立て、コード生成を経てキネマティクス実行し、タスク非依存の単体テストでチェックします。失敗した場合は診断エージェントが理由をフィードバックし、コードを自動修正します。",
+     "caption": "Fig. 2 : MimicAgent Pipeline. Given the prompt “the wheeled quadruped performs a full forward flip and lands upright on all four wheels”, our motion planner agent draws on prior knowledge of the robot model and the simulation environment API to decompose the skill into subparts. The code generator agent converts this phase plan into executable base and foot trajectories, which the kinematic executor renders. Task-agnostic unit tests then check the rendered motion for violations. The motion-diagnosis agent summarizes any failed checks and returns them as targeted feedback for code revision. …",
+     "image": "details/2609.24145/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "人手アノテーションや既存手法を圧倒する動作品質と実機検証",
+   "summary_ja": "57名のユーザー調査において、MimicAgentはEurekaを大半のスキルで大きく上回る指示追従評価を獲得しました。また、人手でキーフレームを作成するよりも短時間で滑らかな軌道が得られ、専門家が手動調整したRLコントローラと同等以上の歩行周期安定性を達成しました。さらに、未踏の「スケート動作」の獲得や、実機Go2-Wでの二足逆立ち歩行など、シミュレーションから実世界への転移も実証されています。",
+   "details_ja": "### ベースライン比較とユーザー調査\nEurekaおよび人間がGUIツールで手動作成したキーフレーム（DeepMimicで学習）を比較対象とし、Go2の標準歩行からGo2-Wの宙返りまで7つのスキルで57名による5段階リッカート尺度のブラインド評価を行いました。\n結果、フロントフリップ（+3.5）、サイドフリップ（+3.5）、トロット（+1.8）、エアリアルクロスオーバー（+2.3）、クラブダイアゴナルスカトル（+2.4）など、多くのスキルでMimicAgentがEurekaを大幅に上回りました。Eurekaはタスク固有のフィットネス関数を与えていたにもかかわらず、複雑な車輪付き四足ロボットのダイナミック動作を安定して獲得できませんでした。\n\n### アノテーション時間と軌道品質\nGUIツールを用いた手作業のアノテーション時間とMimicAgentの生成時間を比較したところ、MimicAgentは一貫して短時間で完了しました。特に非対称で複雑な脚動作を伴うスキルでは人間の作業時間が跳ね上がるのに対し、LLMは一定の速度でコード化できます。\nさらに、学習されたポリシーの追従誤差（MSE）を調べた結果、MimicAgentが生成した軌道で学習したポリシーのほうが、人間の手動キーフレームよりもグローバル位置・姿勢・速度の全指標で低い誤差を達成しました。LLMが生成した数学的関数ベースの軌道のほうが、人間の手作業よりも時間的・空間的に滑らかだったためです。\n\n### 専門家設計ポリシー（Walk-These-Ways）との比較\n手動チューニングされた歩行コントローラ「Walk-These-Ways (WTW)」と波形形態解析（WMA）で比較しました。トロット（目標1.0 m/s）において、MimicAgentは0.9999 m/sとWTWの6分の1の誤差を達成し、歩行周期の安定性も0.958（WTWは0.865）と極めてメトロノームのように正確でした。バウンドでも速度誤差が30%低く、接地比率39.4%という明確な空中浮遊相を自発的に獲得しました。\n\n### 計算コストとトークン消費\nEurekaがスキルあたり80個の報酬候補を反復評価して膨大なLLMトークンを消費するのに対し、MimicAgentのトークン消費量は約42分の1で済みました。GPU学習時間は同等（約46〜51時間）ですが、Eurekaのボトルネックは探索予算ではなく「そもそも意図した動作を報酬関数として発見できないこと」にあると指摘しています。\n\n### 単体テストのアブレーションと失敗分析\n単体テストの各制約を取り除いた検証では、滞空時間制約と床面潜り込み制約を組み合わせることが不可欠であることがわかりました（片方だけだと地面に極端にめり込む縮退解が発生）。\n失敗したスキル（成功率92%のうち残り8%）を分析すると、すべて長時間の空中回転スキルでした。物理的にあり得ないほどゆっくり上昇して長時間浮遊するような参照軌道が生成された場合、ロボットが追従できず、その場で静止して関節だけ動かす解（これでも高い追従報酬が得られてしまう）に陥ることが確認されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "LLMにより自動提案・生成された65種類のスキルの分類です。能動的な車輪駆動（Active）、脚駆動（Passive）、それらの複合（Hybrid）の全6カテゴリにバランスよく分布しており、手法が一部の動作空間に偏っていないことを示しています。",
+     "caption": "Fig. 3 : LLM Generated Skill Diversity. MimicAgent generates 65 skills distributed across all six taxonomy categories, covering both 22 Active (wheel-driven), 36 Passive (limb-driven), and 7 Hybrid motion regimes. The balanced spread demonstrates that the pipeline does not collapse onto a narrow subset of the motion space.",
+     "image": "details/2609.24145/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "シミュレーション上で合成された代表的なスキルです。前脚だけでバランスを取って滑走するスケート動作など、これまでにない高度なスキルも獲得できています。",
+     "caption": "Fig. 4 : Qualitative Skill Synthesis Results. We present representative skills synthesized by MimicAgent. Each subfigure shows a different skill (with the initial prompt in the subcaption); please see the project page for trajectory rollouts.",
+     "image": "details/2609.24145/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "Unitree Go2-W実機での展開の様子です。左側は2脚での逆立ち歩行（Handstand Walk）、右側は前輪のみで走行する動作（Wheelie Roll）であり、Sim-to-Realに成功しています。",
+     "caption": "Fig. 5 : Sim-to-Real Deployment. MimicAgent policies transfer directly from simulation to the Go2-W quadruped for both (a) two-legged handstand walking and (b) rolling on the front wheels; please see the project page for rollouts.",
+     "image": "details/2609.24145/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめ：報酬チューニングから解放されるロボット学習の新しい道",
+   "summary_ja": "MimicAgentは、LLMエージェントによって大まかでキネマティクス的に妥当な参照軌道を合成し、四足ロボットの模倣学習を行う新しいパラダイムを確立しました。手作業の報酬設計や大規模MoCapデータの制約を回避し、シミュレーションおよび実機において多様で動的なスキルを効率よく獲得できることを示しました。",
+   "details_ja": "本論文では、四足歩行ロボットの軌道生成をLLMエージェントで自動化するフレームワーク「MimicAgent」を提案しました。\n\nコーディングエージェントを活用して「大まかだがキネマティクス的に成立している参照動作」を直接合成することにより、従来の報酬設計の脆弱さや手作業の膨大な労力を回避し、さらにヒューマノイドのような大規模モーションキャプチャデータセットが存在しない四足ロボットでも模倣学習を可能にしました。\n\n実験では、生成された参照軌道がロバストで表現力豊かな動作を学習するのに十分であることが示され、主観評価でもEurekaを大きく上回る指示追従性能が実証されました。報酬という抽象的で過敏な数式を探索するのではなく、「動きの軌道そのもの」をLLMと協調して作り上げるアプローチが、今後のロボットスキル獲得における極めて有望な道筋であることを明確に示しています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「報酬関数の自動生成」よりも「大まかな軌道の自動生成」のほうが、LLMにとっても人間にとっても直感的で破綻しにくい。",
+  "参照軌道は物理シミュレーションを無視した運動学（FK）レベルの粗いものであっても、後段の模倣強化学習（DeepMimic）を通せば物理制約を満たすポリシーに昇華できる。",
+  "タスク固有の成功判定を作らなくても、「高さ制限」「関節限界」「床潜り込み」といったタスク非依存の単体テストだけで、LLMの自己修正ループを効果的に回すことができる。",
+  "Teacher-Student構成（特権情報の蒸留とYaw不変な観測設計）を適切に組むことで、LLM生成軌道由来のポリシーでも追加の微調整なしに実機（Sim-to-Real）へ直接展開できる。"
+ ],
+ "limitations_ja": [
+  "物理法則を無視した浮遊時間や非現実的な上昇軌道が生成された場合、模倣学習側で「その場で静止して関節だけ動かす」という局所解に陥るケースがある。",
+  "単体テストに合格しても、人間の意図通りの意味（セマンティクス）を正確に反映できているかは完全には自動保証できず、最終的な確認が必要な場合がある。",
+  "現状のキネマティクス生成では床面との接触力や摩擦限界を考慮していないため、極端な高トルクやスリップを要求する動作ではRL側での収束が難しくなる可能性がある。"
+ ],
+ "keywords": [
+  "Quadrupedal Locomotion",
+  "Large Language Models (LLMs)",
+  "Trajectory Generation",
+  "Reinforcement Learning",
+  "Sim-to-Real",
+  "Imitation Learning"
+ ],
+ "id": "2609.24145",
+ "title": "MimicAgent: Quadruped Skills via Prompt-to-Trajectory Generation",
+ "authors": [
+  "Lucky Kant Nayak",
+  "Narayanan Palghat Parameswaran",
+  "Neehar Peri",
+  "Deva Ramanan"
+ ],
+ "date": "2026-09-22",
+ "group": "focus",
+ "tags": [
+  "quadruped",
+  "locomotion",
+  "reinforcement-learning",
+  "llm-agent"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.24145",
+ "pdf_url": "https://arxiv.org/pdf/2609.24145",
+ "summary_ja": "四足ロボットの動的スキル獲得において、報酬設計の代わりにLLMを用いて参照軌道をプロンプトから直接生成するMimicAgentを提案。生成軌道を模倣強化学習の指針とすることで、複雑な手動報酬チューニングを回避し、多様な高難度アクロバットスキルを効率的に獲得させた。",
+ "generated": "2026-09-22",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.24145"
+}
