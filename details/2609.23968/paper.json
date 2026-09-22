@@ -1,0 +1,146 @@
+{
+ "title_ja": "Opt2VLA：接触の多いヒューマノイド全身マニピュレーションのための力認識VLA",
+ "tldr_ja": "幾何的な位置指令だけでなく接触力指令も同時に予測する VLA ポリシーと、軌道最適化（TO）から得られる関節トルクで強化した強化学習ベースの全身コントローラを組み合わせることで、言語指示に応じた柔軟かつ高精度な力加減の全身制御を実現しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "Opt2VLA の全体パイプラインです。軌道最適化（TO）によって物理的に整合したトルク・力軌道を生成し、これを教師信号として力追従 RL 全身コントローラ（FCT）を学習させます。さらにコントローラのシミュレーション実行から収集したデータで VLA をファインチューニングし、言語指示からエンドエフェクタ位置と接触力を同時に予測して実機ヒューマノイドを展開します。",
+  "caption": "Fig. 2: Overview of Opt2VLA . (a) Whole-body TO generates physically consistent motion, joint torque, and contact force trajectories under full-body dynamics and contact constraints. (b) Force-conditioned controller with torque supervision (FCT) is trained to track geometric motion goals (i.e., end-effector $3$ D target positions) while regulating interaction force, using privileged torque supervision only during training. (c) Large-scale simulation rollouts, together with a smaller set of real-world executions, are used to collect multimodal data including vision, language prompts, robot kinematic state, measured joint torques, end effector targets, and target-force labels. …",
+  "image": "details/2609.23968/F2.jpg"
+ },
+ "overview_ja": "ヒューマノイドが日常生活で活躍するためには、テーブルを拭く、棚に箱を押し込む、重さの違う箱を持ち上げるといった「環境と強く接触するタスク」をこなす必要があります。しかし、従来の Vision-Language-Action（VLA）モデルはエンドエフェクタの位置や関節角度といった「幾何学的なモーション目標」しか出力せず、接触力を明示的に考慮していませんでした。その結果、「優しく拭く」のか「強くこする」のかといった力加減を言語から直接制御できず、接触時の外力で低レベルコントローラが不安定になる課題がありました。\n\nそこで著者らは、VLA の出力インターフェースに「目標接触力」を明示的に組み込むフレームワーク「Opt2VLA」を提案しました。高レベルのマルチタスク VLA ポリシーは、視覚と言語指示、トルク履歴から幾何目標と接触力目標を同時に予測します。そして低レベルでは、事前に全身軌道最適化（TO: Trajectory Optimization）から得たトルク教師信号を活用して訓練された強化学習（RL）全身コントローラが、その位置と力を同時に追従します。\n\n実機ヒューマノイド Digit を用いたシミュレーションおよび実世界実験（テーブル拭き、棚への箱押し込み、重量の異なる箱の持ち上げ）において、位置追従のみのベースラインに比べて接触力の制御精度と安定性が大幅に向上し、指示言語（\"gently\", \"firmly\", \"strongly\"）に応じた力加減の切り替えに成功したことを実証しました。",
+ "contributions_ja": [
+  "ヒューマノイドの VLA と全身コントローラのインターフェースに、幾何目標に加えて連続的な接触力目標を明示的に導入した新しい制御定式化を提案しました。",
+  "軌道最適化（TO）による物理的に整合した関節トルク教師信号を用いて、力追従精度を高めた強化学習ベースの全身コントローラ（FCT）を構築しました。",
+  "遠隔操作に頼ることなく、TO と訓練済みコントローラのロールアウトを活用して、視覚・言語・力目標が揃った大規模なマルチモーダル学習データを収集・公開するパイプラインを確立しました。",
+  "実機ヒューマノイド Digit 上で、言語指示に応じた力加減の調節と接触タスクのクローズドループ制御（Sim-to-Real）を実証しました。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜヒューマノイドに「力加減」を指示する必要があるのか",
+   "summary_ja": "ヒューマノイドが人と共存する環境で作業するには、位置の精度だけでなく接触力の制御が不可欠です。本章では、既存の VLA が幾何的な位置目標のみに依存している限界を指摘し、力指令を明示化した階層的 VLA フレームワーク Opt2VLA を提案する動機を述べています。",
+   "details_ja": "ヒューマノイドロボットが人間環境で自律作業を行う際、棚へ物を押し込む、表面を拭く、重い荷物を把持するといった作業では、持続的かつ適切な接触力を発揮することが安定性と安全性の鍵を握ります。\n\n近年、Vision-Language-Action（VLA）モデルの発展により、自然言語の指示からエンドエフェクタの位置や関節角度を計画する研究が急速に進んでいます。しかし、既存手法の多くはアクション表現を「幾何学的な動作（モーション）」に閉じており、接触力を明示的に指令するインターフェースを持っていません。幾何学的には全く同じ動きであっても、タスクの文脈や対象物の特性によって必要とされる力は大きく異なります。また、接触によって手先が遮蔽されたりカメラが揺れたりすると、視覚情報だけに頼ったフィードバックは破綻しやすくなります。\n\nそこで本論文が提案するのが、モーション目標（どこへ動かすか）と接触力目標（どれくらいの強さで接触するか）を VLA から同時に明示出力する「Opt2VLA」です。低レベルの全身コントローラには強化学習（RL）を採用し、全身軌道最適化（TO）で計算された物理的に整合した関節トルクを訓練時の教師信号として与えることで、正確な力発揮を実現します。さらに、このコントローラをシミュレーション上で走らせることで、高コストな遠隔操作なしに力ラベル付きの大規模マルチモーダルデータを集め、VLA をファインチューニングする枠組みを提案しています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "Opt2VLA の全体アーキテクチャ。(a) 接触制約と動力学を解く TO による軌道生成、(b) 特権トルク教師信号を用いた力条件付き RL コントローラ（FCT）の学習、(c) 大規模ロールアウトによるデータ収集、(d) VLA のファインチューニング、(e) 実機 Digit への展開という一連の流れが示されています。",
+     "caption": "Fig. 2: Overview of Opt2VLA . (a) Whole-body TO generates physically consistent motion, joint torque, and contact force trajectories under full-body dynamics and contact constraints. (b) Force-conditioned controller with torque supervision (FCT) is trained to track geometric motion goals (i.e., end-effector $3$ D target positions) while regulating interaction force, using privileged torque supervision only during training. (c) Large-scale simulation rollouts, together with a smaller set of real-world executions, are used to collect multimodal data including vision, language prompts, robot kinematic state, measured joint torques, end effector targets, and target-force labels. …",
+     "image": "details/2609.23968/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "ヒューマノイド全身制御と VLA のこれまでの歩みと課題",
+   "summary_ja": "従来の全身制御手法（モデルベース・強化学習）と最新のヒューマノイド向け VLA 研究を整理しています。位置目標のみに依存するアプローチや単なる力・触覚フィードバックの利用に対し、本研究が「高レベルで目標力を直接計画する」という点でどう一線を画すかを解説しています。",
+   "details_ja": "本研究の関連分野は、大きく「ヒューマノイドの全身制御（WBC）」と「ヒューマノイド向け VLA」の2つに分かれます。\n\n### ヒューマノイド全身制御（WBC）\n従来のモデルベース制御や最適化手法は、正確な動力学モデルと接触条件の仮定に強く依存するため、不確実性の高い実環境へのリアルタイム展開に難点がありました。一方、強化学習（RL）を用いた手法では、人間からのモーションリターゲティングが主流ですが、人間とロボットの身体構造の差（Embodiment gap）から動力学的に破綻した軌道になりやすく、明示的な力やトルクの教師信号も得られません。近年では、動力学的に実行可能な軌道を生成できる軌道最適化（TO）を RL の誘導に使う試み（Opt2Skill など）が登場していますが、依然として幾何学的な位置目標を追従する枠組みに留まっており、タスクレベルで接触力を直接変更することはできませんでした。\n\n### ヒューマノイド向け Vision-Language-Action（VLA）\n大規模事前学習済み VLA モデルをヒューマノイドに応用する試み（Open6DOR や GR00T など）が活発化していますが、それらの多くは手先位置や関節角度を計画するだけで、物理的な接触力の調整は下位のコントローラ任せになっていました。一部の卓上マニピュレーション研究では関節トルクや触覚のフィードバックを入力として受け取るものもありますが、それらは「現在の接触状態」を観測しているだけであり、「タスクとしてどれだけの力を発揮すべきか」を高レベルで計画しているわけではありません。Opt2VLA は、言語指示と視覚情報から必要な接触力を直接推論し、それを下位のコントローラに渡す点で明確に異なります。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "Opt2VLAのアーキテクチャ：言語から力目標を出し、物理に基づき追従する",
+   "summary_ja": "VLA が幾何目標と接触力目標を同時に出力する仕組みと、それを追従する強化学習ベースの力条件付き全身コントローラ（FCT）、そして訓練データを生み出す軌道最適化（TO）の連携手法を詳しく説明しています。",
+   "details_ja": "Opt2VLA は、「高レベルの VLA 計画」と「低レベルの全身実行」を明確に分離した階層構造をとっています。\n\n### III-A 力指令を明示出力する VLA ポリシー\nVLA ポリシーには事前学習済みモデル GR00T-N1.7 を採用しています。言語指示 $l$、視覚画像 $I_t$、ロボット状態履歴 $\\mathbf{s}_{t-K:t}$、そして計測された関節トルク履歴 $\\bm{\\tau}_{t-K:t}$ を受け取り、ホライズン $H$ にわたる左右の手足の 3D 位置目標 $\\hat{\\mathbf{P}}_{t:t+H}^{\\mathrm{ee}}$ と、接触法線力目標 $\\hat{\\mathbf{F}}^{\\mathrm{ref}}_{t:t+H}$ を同時に予測します。\nトルクの入力形式については、専用のトルクエンコーダを用意してアクショントークンに追加する構成とし、さらに補助学習タスクとして「将来の計測関節トルク」を予測するヘッドを設けることで、接触特徴の学習を強化しています。訓練データはシミュレーション内のコントローラ実行から自動収集され、言語プロンプトには \"gently\"（弱）、\"firmly\"（中）、\"strongly\"（強）という3段階の力加減ラベルが付与されます。\n\n### III-B トルク教師信号付きの力適応型全身制御（FCT）\n低レベルコントローラは、非対称 Actor-Critic 構造の RL ポリシー（FCT）として学習されます。Actor の観測 $o_t^{\\mathrm{actor}}$ には手先位置目標 $\\mathbf{p}_t^{\\mathrm{ee}}$ と目標接触力 $\\mathbf{F}_t^{\\mathrm{ref}}$（実機展開を想定してガウスノイズを重畳）、ロボット固有感覚、関節トルク履歴が含まれます。ポリシーの出力はデフォルト関節位置からのオフセットであり、内部の高速 PD 制御ループを介してトルクに変換されます。\n報酬関数は、幾何学的追従報酬 $r_t^{\\mathrm{motion}}$、目標力追従報酬 $r_t^{\\mathrm{force}}$、正則化項 $r_t^{\\mathrm{reg}}$ に加え、TO から得られた参照関節トルクを追従する $r_t^{\\mathrm{torque}}$ を含みます。このトルク報酬は訓練時（Critic 側）の特権情報としてのみ使われ、実機展開時には不要です。\n\n### III-C 軌道最適化（TO）による教師データの生成\nPinocchio と Crocoddyl をベースにした接触陰的時間微分動的計画法（DDP）を用い、浮遊基地動力学や摩擦円錐、アクチュエータ制限を満たす全身運動と関節トルク軌道をオフラインで計算します。これにより、運動と動力学的に完全に整合した力・トルクの教師軌道を生成できます。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "テーブル拭きタスクにおける手先位置ごとの実測接触力分布（散布図とガウス分布フィッティング）。位置のみ追従する MO は目標力を変えても一定の力しか出せませんが、力条件付きの FC と FCT は目標に応じて明確に力を変化させられます。特に FCT（最下段）は分散が小さく、均一な力制御が実現できています。",
+     "caption": "Fig. 3: Contact force distributions for the surface wiping task under different target forces. Each subplot shows scattered measured contact forces (left) across trials at global end-effector $(x,y)$ positions, along with a Gaussian fit (right) summarizing the resulting distribution. Results are aggregated over $10\\times 3$ trials with varying motion directions and table heights. Axes indicate position in meters, and color encodes normal contact force in newtons. FC and FCT produce force levels that vary with the target, whereas MO produces similar forces across target conditions. FCT achieves lower average force-tracking error than FC, as shown in Table II .",
+     "image": "details/2609.23968/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Results",
+   "heading_ja": "実験結果：力制御の精度向上と、言語による力加減の自在な切り替え",
+   "summary_ja": "ヒューマノイド Digit を用い、テーブル拭き、棚への箱押し込み、重さの異なる箱の持ち上げの3タスクで検証しました。TO によるトルク指導を受けた FCT が最も高精度に力を追従し、VLA を統合した実機実験でも指示通りの力調節に成功しました。",
+   "details_ja": "実機ヒューマノイド Digit（20自由度駆動、約48 kg）を対象に、シミュレーションと実世界の両面で評価を行いました。\n\n### 低レベルコントローラの力制御性能比較\n3つのコントローラ、(1) 幾何追従のみ（MO）、(2) 力条件付き（FC）、(3) トルク指導付き力条件制御（FCT、提案手法）を比較しました。\n- **テーブル拭き**: MO は目標力を変えても接触力がほぼ一定（分散大）でした。FC は力レベルの分離には成功したものの誤差が目立ちました。一方、FCT は平均追従誤差と分散が最も小さく、安定した接触を実現しました。\n- **棚への箱押し込み**: 箱を棚の壁に押し当てる際、FCT は平均誤差 $4.2 \\pm 5.5$ N という最も正確でシャープな力分布を達成しました。\n- **箱の持ち上げ**: 0.5 kg、1.0 kg、2.0 kg の箱に対し、FCT は指令力と発揮力の間に極めて綺麗な線形関係を維持し、把持力誤差 $0.9 \\pm 1.0$ N を記録しました。\n\n### クローズドループ VLA の評価とアブレーション\nシミュレーション環境で 9 種類の VLA 構成を比較しました。タスク完了だけでなく、言語指示の力帯域（gentle: 0〜9 N、firm: 5〜16 N、strong: 12〜22 N）および平均力誤差 5 N 以内を満たすかを総合成功率（Joint SR）として評価しました。\n位置情報のみ入力するベースライン（C0）の総合成功率は 40.0% に留まったのに対し、専用トルクエンコーダ、観測履歴、将来トルク予測の補助損失を導入した提案構成（C7）は総合成功率 82.2%（タスク完了率 90.0%）を達成しました。単に状態ベクトルにトルクを結合する（C4: 27.8%）よりも、専用エンコーダを介することが極めて重要であることが判明しました。\n\n### 実機 Digit での検証\n実機センサを用いた 30 試行の評価において、FCT コントローラは指令値との間で高い相関（テーブル拭き: $R^2=0.98$、箱押し込み: $R^2=0.70$、箱持ち上げ: $R^2=0.80$）を示しました。さらにエンドツーエンドの VLA 実機実験でも、\"gently\", \"firmly\", \"strongly\" の言語プロンプトに応じて、ロボットが明確に発揮する接触力を変化させられることが確認されました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "棚への箱押し込みタスクにおける目標力ごとの実測押出力の時間変化。MO は力レベルを分離できず、FC はレベル差はあるものの追従誤差が大きくなっています。対して FCT は指令値（色別）に忠実に追従し、過渡応答後も最も集中した力分布を維持しています。",
+     "caption": "Fig. 4: Measured push forces for the shelf-box pushing task under different target-force commands . MO fails to separate force regimes, FC distinguishes force levels but exhibits large tracking error, while FCT achieves more concentrated force distributions and the lowest tracking error. Results at each target force level are aggregated across $10$ target positions to evaluate force tracking over diverse motions, covering $20$ target force levels and $200$ trials in total.",
+     "image": "details/2609.23968/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "箱持ち上げタスクでの把持力制御。(a) 重さを変えても力が変わらない MO、(b, c) 指令力に対する実際の発揮力（FC と FCT）。FCT は箱の重さが 0.5 kg 〜 2.0 kg と変化しても理想的な対角線（点線）に極めて近い正確な把持力を発揮しています。(d〜i) は各重量・力指令ごとの力プロファイルです。",
+     "caption": "Fig. 5: Force realization in the box pickup task. (a) Measured grasp force trajectories over time for MO under different object weights. (b–c) Realized versus commanded grasp force for FC and FCT across object weights; points denote average lift-and-hold forces with linear fits per weight. (d–f) FC grasp force trajectories over time for different object weights and commanded force levels. (g–i) Corresponding force trajectories for FCT. The reference-force ranges are $3$ – $20$ N, $5$ – $20$ N, and $10$ – $20$ N for the $0.5$ kg, $1.0$ kg, and $2.0$ kg boxes, respectively, with $10$ trials per weight–force condition.",
+     "image": "details/2609.23968/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実機 Digit における FCT コントローラの力追従性能。左からテーブル拭き、箱押し込み、箱持ち上げ。横軸が指令接触力、縦軸が外付け力センサで計測された実測値です。高い線形相関（$R^2$ が 0.70〜0.98）を示し、実機でも正確に力加減が追従できていることが分かります。",
+     "caption": "Fig. 6: Hardware force tracking of Opt2VLA’s FCT controller. (a) surface wiping, (b) shelf-box pushing, and (c) box pickup. Markers show per-trial mean, baseline-corrected force during steady contact; dashed lines indicate ideal tracking and solid lines show least-squares fits.",
+     "image": "details/2609.23968/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "実機 Digit での VLA エンドツーエンド力変調結果。(a) 言語プロンプト（gentle, firm, strong）ごとの VLA 指令力（点線）と実測接触力（実線）の時系列波形。(b) 評価区間における平均力の棒グラフ。指示語の強さに応じて、VLA の指令と実機の発揮力が段階的に増加しています。",
+     "caption": "Fig. 7: End-to-end Opt2VLA force modulation on hardware. (a) VLA commands (dashed) and measured forces (solid). (b) Mean commanded and measured forces over the task-specific evaluation phase. Results include five trials per task and prompt.",
+     "image": "details/2609.23968/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめ：力と動きの協調が拓くヒューマノイドの自律性",
+   "summary_ja": "Opt2VLA の総括です。幾何目標と力目標を分離・統合したインターフェースと、TO 由来のトルク教師信号による強化学習の組み合わせが、接触タスクにおける言語駆動型ヒューマノイド制御の新たな基準を示しました。",
+   "details_ja": "本研究では、言語・視覚による高レベル計画とヒューマノイドの全身制御の間に「明示的な接触力コマンド」を取り入れた枠組み「Opt2VLA」を提案しました。\n\n軌道最適化（TO）によって動力学的に整合した動作・トルク教師データをシミュレーションで大量に生成し、力追従 RL コントローラを訓練した上で、そのロールアウトデータを用いて VLA をファインチューニングする階層的アプローチにより、高コストな人間の遠隔操作データに頼ることなく、優れた接触適応能力を獲得させることができました。実験では、単なる幾何追従では不可能な力加減の制御や、専用トルクエンコーダおよび将来トルク予測損失の有効性が定量的に実証され、実機ヒューマノイド Digit への Sim-to-Real 転移にも成功しました。\n\n今後は、さらに複雑で動的な接触タスクや、多点接触を伴う作業への拡張が期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "VI Appendix",
+   "heading_ja": "付録：報酬設計、領域ランダム化、および実機評価の詳細",
+   "summary_ja": "強化学習の報酬関数やシミュレーションの領域ランダム化パラメータ、実機実験における外付け力センサを用いた評価プロトコルやシミュレーション評価の厳密な合否判定基準についてまとめています。",
+   "details_ja": "付録では、実験の再現と詳細な理解に必要な設定が網羅されています。\n\n### 報酬設計と Sim-to-Real のための領域ランダム化\nコントローラの報酬関数には、手先・関節・ベースの位置速度追従に加えて、目標接触力追従（$r^{\\mathrm{force}}$）と TO 参照トルク追従（$r^{\\mathrm{torque}}$）が組み込まれています。シミュレーションから実機への転移を成功させるため、リンク質量（$\\pm 10\\%$）、重心位置、関節摩擦、減衰、アクチュエータ遅延（0〜40 ms）などの物理パラメータを広範囲にランダム化しています。また、VLA の予測誤差に対する耐性を高めるため、コントローラに入力される手先目標位置と力指令自体にもガウスノイズを付加して学習させています。\n\n### 実機評価プロトコルと接触フェーズ検出\n実機実験では、外部の力覚プレート（テーブル拭きタスク用 Bertec 力プレート）や薄型力センサ（SensX 160）を使用して真の接触力を計測しました。これらのセンサ値はポリシーには一切入力されず、評価専用として扱われます。データ解析では、フィルタ処理によって接触の開始と終了（定常接触区間）を自動判定し、ベースライン補正を行った非フィルタ信号を用いて追従誤差（MAE や $R^2$）を厳密に算出しています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "VLA の出力に「目標接触力」を明示的に加えることで、幾何学的な動作が同じでもタスクに応じた柔軟な力加減が可能になる。",
+  "RL コントローラの学習時に軌道最適化（TO）から得られる関節トルクを特権教師信号として与える手法（FCT）は、接触力の追従精度と安定性を劇的に向上させる。",
+  "VLA への力覚フィードバック統合には、状態ベクトルへの単純結合ではなく「専用のトルクエンコーダ」と「将来トルク予測の補助損失」が極めて効果的である。",
+  "遠隔操作に頼らなくても、「TO による参照軌道生成 → RL コントローラの訓練 → コントローラ実行によるデータ収集」というループで高品質な力認識 VLA データセットが構築できる。"
+ ],
+ "limitations_ja": [
+  "接触力目標は単一の接触点における法線力スカラーに限定されており、摩擦力や多点接触（両手で複雑な形状を包み込むような接触など）の完全なレンチ制御には至っていない。",
+  "実機実験におけるテーブル拭きタスクでは、VLA の選択した目標力自体は正しくても、下位コントローラの追従バイアスによって実測力に定常的なオフセット誤差が生じている。",
+  "TO の生成にはタスクごとの接触スケジュールや簡易モデルの定義が依然として必要であり、完全なオープンワールド環境への即座な適応には課題が残る。"
+ ],
+ "keywords": [
+  "Humanoid Whole-Body Manipulation",
+  "Vision-Language-Action (VLA)",
+  "Trajectory Optimization",
+  "Force-Aware Control",
+  "Reinforcement Learning"
+ ],
+ "id": "2609.23968",
+ "title": "Opt2VLA: Force-Aware Vision-Language-Action for Contact-Rich Humanoid Whole-Body Manipulation",
+ "authors": [
+  "Fukang Liu",
+  "Yipu Chen",
+  "Jaehwi Jang",
+  "Danfei Xu",
+  "Zsolt Kira",
+  "Ye Zhao"
+ ],
+ "date": "2026-09-22",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "manipulation",
+  "vision-language-action",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.23968",
+ "pdf_url": "https://arxiv.org/pdf/2609.23968",
+ "summary_ja": "接触が頻発するヒューマノイド全身操作のため、力認識型VLAフレームワークOpt2VLAを提案。幾何学的な運動目標だけでなく目標インピーダンスや接触力を明示的に予測し、全身コントローラ（WBC）と連携させることで、外乱や視覚遮蔽に頑健な接触作業を実現した。",
+ "generated": "2026-09-22",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.23968"
+}
