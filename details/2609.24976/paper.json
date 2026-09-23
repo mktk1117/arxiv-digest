@@ -1,0 +1,136 @@
+{
+ "title_ja": "DexTacWAM: 巧緻操作のための視覚・触覚統合型ワールドアクションモデル",
+ "tldr_ja": "大量の動画で事前学習した世界モデルに多指触覚を組み込み、接触状態の推移を予測しながら高精度な器用な操作を実現する新しいフレームワークです。わずか約4時間の触覚データと各タスク100デモ程度の学習で、従来手法を大きく上回る操作成功率を達成しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "DexTacWAMの全体アーキテクチャです。左側のWorld-Model Transformerがカメラ画像と左右の手の触覚トークンを統合して未来の状態を共同予測し、右側のAction Modelがその潜在表現をもとに各指の力や手腕の動作指令を出力します。",
+  "caption": "Figure 1 : Overall architecture of Dex Tac WAM . A two-block transformer design. Left: the World-Model Transformer ( $\\times N$ ) fuses vision and bimanual tactile tokens through per-modality self-attention and a shared cross-modality self-attention, producing predictive latents that form a joint visuo-tactile world state. Right: the Action Model ( $\\times N$ ) cross-attends to the World-Model latents with per-modality K/V RMS normalization, conditioned on a state token from proprioception, and predicts contact force, action, and next-state. Inputs are head-view RGB and left/right dexterous tactile streams encoded by lightweight encoders, together with raw state observations.",
+  "image": "details/2609.24976/F1.jpg"
+ },
+ "overview_ja": "ロボットが器用に手先を操る「巧緻操作（dexterous manipulation）」では、指先にかかる力や滑り、把持の安定性といった接触状態が成功のカギを握ります。しかし、これらはカメラから見えにくく、遮蔽も起きやすいため、視覚だけに頼る従来の世界モデル（World Model）や方策では限界がありました。一方で、多指ハンドの触覚データをゼロから大量に集めて学習するのはコストが高すぎます。\n\nそこで著者らは、事前学習済みの動画拡散モデルを活用し、視覚と触覚のダイナミクスを一緒に予測する世界モデル「DexTacWAM」を考案しました。指ごとの触覚情報を個別にエンコードしたうえで、手の姿勢と指の識別情報を保ちながらコンパクトに圧縮し、動画モデルに「別のカメラ視点」のような形で注入する仕組みです。さらに、触覚エンコーダのみを4時間分のデータで適応させ、世界モデルと行動モデルはタスクあたり約100本のデモでファインチューニングする「継続学習（continual vision-to-touch learning）」戦略を提案しました。\n\n実機の22自由度両手多指ロボットを使い、トングでのミニトマト把持やボウルの分離、ボトルのキャップ開けなど接触が極めて重要な6種類のタスクで検証したところ、DexTacWAMは全タスクでトップスコアを記録しました。平均スコアは70.6%に達し、触覚を入力する最強ベースラインの38.0%を圧倒しています。単に触覚を行動の入力に使うだけでなく、「未来の接触がどう変わるか」を世界モデル内で予測することが、器用な操作の実現に決定的な役割を果たすと示されました。",
+ "contributions_ja": [
+  "視覚シーンの推移と両手・複数指の接触ダイナミクスを同時に予測する統合型世界・行動モデル「DexTacWAM」を提案したこと。",
+  "指の識別性や手姿勢情報を維持したまま5本の指先触覚を1つの潜在表現に圧縮し、学習を2.26倍、推論を1.29倍高速化する触覚圧縮器を開発したこと。",
+  "凍結した画像VAEとわずか4時間の相互作用データ、およびタスクあたり100デモ程度で動画モデルを触覚予測へ拡張する、高効率な継続学習パイプラインを確立したこと。",
+  "実機の両手多指ハンドによる難関な6タスクにおいて平均スコア70.6%を達成し、触覚状態の能動的予測が接触リッチな操作に不可欠であることを実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "見えない接触をどう捉えるか？手先の器用さを生む世界モデルへの挑戦",
+   "summary_ja": "動画世界モデルはロボット学習の有望なアプローチですが、従来は視覚中心であり、手先で隠れる接触や滑りなどの物理相互作用を捉えきれませんでした。DexTacWAMは、動画モデルに多指触覚の推移予測を直接組み込むことでこの課題を克服します。",
+   "details_ja": "ロボットが環境の未来を予測しながら行動する世界行動モデル（World-Action Model; WAM）や、大規模なVision-Language-Action（VLA）モデルが注目を集めています。しかし、その多くは「目に見えるシーンがどう変化するか」を予測する視覚中心のアプローチです。トングで物をつまんだり、重ねたボウルを指の摩擦で1枚だけ剥がしたりするような接触リッチなタスクでは、接触力や滑り、把持の安定性といったカメラからは直接見えない情報が極めて重要になります。\n\n多指ハンドでは、複数の指に分散した接触情報が手のポーズや物体の形状に応じて複雑に変化します。これまでにも触覚を世界モデルに組み込む試みはありましたが、そのほとんどは2本指の平行グリッパーを対象とした局所的なものでした。多指ハンドに拡張しようとすると、指ごとの位置関係や時間変化をどう保つかという構造上の課題に直面します。\n\nもう一つの大きな壁は「データの非対称性」です。インターネット上に無尽蔵にある人間の動画とは違い、触覚データはロボットが実際に触れて集める必要があり、非常に高価です。ゼロから巨大な触覚モデルを訓練するのは現実的ではありません。\n\nここがポイントなのですが、DexTacWAMは触覚情報を単なる「方策への補助入力」として受け取るのではなく、「予測すべき世界状態の一部」として扱います。そして、豊富な動画データで事前学習された世界モデルの事前知識をフル活用し、わずか4時間程度の相互作用データとタスクあたり約100本の遠隔操作デモだけで、視覚と多指触覚を同時に予測する世界モデルへと拡張する枠組みを実現しました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "従来の世界モデルや触覚方策と何が違うのか？",
+   "summary_ja": "従来の世界モデルは視覚中心、既存の触覚世界モデルは平行グリッパー中心にとどまっていました。DexTacWAMは、多指ハンドの複雑な分散触覚を世界モデル内の状態推移として明示的にモデル化する点で決定的に異なります。",
+   "details_ja": "### 世界モデルとWAM（World-Action Models）\n環境のダイナミクスを潜在空間で学習し、行動で条件づけられた未来を予測する世界モデルは急速に発展しています。しかし、既存のVLAやWAMは視覚シーンの変化を追うものが主流で、接触リッチな制御を支配する物理的相互作用状態を陽に表現できていませんでした。\n\n### 視覚・触覚世界モデルの限界\n触覚信号を世界モデルに取り込む先行研究（VTAMやVT-WMなど）も登場していますが、それらの多くは2指の平行グリッパーや単純なエンドエフェクタが前提でした。グリッパーに比べて多指ハンドの触覚は、指の識別（どの指が触れているか）、接触の局所性、手姿勢との幾何学的連動など、はるかに構造が複雑です。\n\nDexTacWAMに最も近い研究として、方策内部で未来の触覚トークンを自己回帰予測するViTacFormerがあります。しかしViTacFormerは視覚の未来を予測せず、触覚予測を完了してから方策に渡す構造（forecast-then-act）を取っています。対してDexTacWAMは、視覚と触覚の潜在変数を「ひとつの世界状態」として同時に拡散モデルで予測し、世界モデルの1回のフォワードパスから得られる特徴量を行動モデルが直接利用します。これにより、完全なノイズ除去画像を生成する余計なレイテンシを挟まずに行動へ繋げることができます。\n\n### 触覚を用いた巧緻操作\n従来の触覚ロボット学習では、触覚信号を行動方策への追加特徴量やフィードバック信号として入力するのが一般的でした。しかし、この方法では接触ダイナミクスが世界モデルの予測対象になりません。また、視覚トークンと触覚トークンをナイーブに混ぜると分布の不一致から学習が不安定になる問題もありました。DexTacWAMは構造化された触覚圧縮器と正規化機構を導入することで、この問題をきれいに解決しています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "システム全体の設計です。左のWorld-Model Transformerでは視覚と左右の手の触覚トークンを自己注意機構で結合し、右のAction ModelではモダリティごとにRMS正規化を行って行動予測の安定化を図っています。",
+     "caption": "Figure 1 : Overall architecture of Dex Tac WAM . A two-block transformer design. Left: the World-Model Transformer ( $\\times N$ ) fuses vision and bimanual tactile tokens through per-modality self-attention and a shared cross-modality self-attention, producing predictive latents that form a joint visuo-tactile world state. Right: the Action Model ( $\\times N$ ) cross-attends to the World-Model latents with per-modality K/V RMS normalization, conditioned on a state token from proprioception, and predicts contact force, action, and next-state. Inputs are head-view RGB and left/right dexterous tactile streams encoded by lightweight encoders, together with raw state observations.",
+     "image": "details/2609.24976/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "5本の指を1つにまとめ、動画モデルと協調させる巧みなアーキテクチャ",
+   "summary_ja": "凍結した画像VAEで指ごとの触覚を抽出し、ポーズ情報を加味した圧縮器で手ごとに集約します。これを動画拡散モデルに注入して視覚・触覚を同時予測し、モダリティ別正規化を備えた行動モデルで制御指令を生成します。",
+   "details_ja": "DexTacWAMは、マルチビューカメラ画像、両手10本の指先触覚、手の関節位置（プロプリオセプション）、行動からなる観測を扱います。世界状態を視覚潜在変数 $z_t^v$ と圧縮された左右の手の触覚潜在変数 $z_t^\\tau = \\{\\hat{z}_t^{\\tau,L}, \\hat{z}_t^{\\tau,R}\\}$ の組 $s_t = \\{z_t^v, z_t^\\tau\\}$ として定義するのが核となる設計です。\n\n### 3.1 指ごとの触覚エンコーダ\n触覚センサ（Sharpaセンサ）から得られる密な接触マップは、接触領域や変形パターンといった画像的な空間構造を持っています。そこで著者らは、触覚専用のVAEを一から作るのではなく、事前学習済みの「視覚VAE」を凍結して再利用しました。1チャンネルの触覚画像を $1\\times 1$ 畳み込みで疑似RGBに変換して視覚VAEに通すことで、強力な空間事前知識を活かしつつ、世界モデルと相性の良い潜在表現を得ています。\n\n### 3.2 手姿勢を考慮した触覚圧縮器（5:1圧縮）\n10本すべての指先トークンをそのまま世界モデルに流すと、トークン数が膨大になり計算が破綻します。そこで、指の識別埋め込み（Finger PE）を付加したうえで、関節角度から得た手の姿勢埋め込みをクエリに加え、自己注意プーリングによって5指のトークンを1つの手の表現へと集約（5:1圧縮）します。さらに時間方向の注意機構（TimeSformer）を通すことで、滑りや持ち替えといった時間的な接触変化を保持します。\n\n### 3.3 視覚・触覚の同時世界モデル\n圧縮された左右の手の触覚潜在変数は、視覚の別アングルカメラと同じように「追加の視点（View）」として動画拡散トランスフォーマー（DiT）に入力されます。世界モデルの骨格自体には手を加えず、Flow Matchingによるノイズ予測タスクにおいて視覚と触覚のデノイジング損失をバランスよく学習させることで、大域的なシーンの推移と局所的な接触変化の同期した予測を可能にしました。\n\n### 3.4 モダリティ別K/V正規化と行動エキスパート\n世界モデルが予測した特徴量をもとに行動を出力する「Action Expert」を学習します。ここで重要な問題が発生します。密で大域的な視覚トークンと、疎で接触に敏感な触覚トークンでは値のスケールや分布が大きく異なり、そのまま交差注意（Cross-Attention）にかけると学習が発散してしまうのです。著者らは、Key/Value（K/V）シーケンスを視覚と触覚に分割し、パラメータ不要のRMSNormをモダリティごとに適用してから結合する仕組みを導入しました。これにより追加パラメータなしで学習を安定化させています。出力する行動は、10指の6次元力目標（計60次元）や手腕の位置姿勢を含む連続ベクトルです。\n\n### 3.5 継続的 Vision-to-Touch 学習\n学習は3段階で進みます。まず約4時間の多様な相互作用データを使って触覚エンコーダのアダプタと圧縮器を学習します（画像VAEは凍結）。次に、タスクごとの遠隔操作デモ約100本を使って世界モデルをファインチューニングし、最後に行動モデルを同じデモデータ上でゼロから学習します。膨大な触覚事前学習を挟むことなく、動画モデルの知識を効率的に触覚へ転移させるスマートな手順です。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "多指触覚エンコーダと圧縮器の構成です。各指の触覚を共有の凍結視覚VAEでエンコードし、指IDと手姿勢情報を加えた上で自己注意プーリングにより5指の情報を1つの潜在表現に圧縮します。",
+     "caption": "Figure 2 : Multi-finger tactile encoder with a finger- and pose-aware tactile compressor. Per-finger tactile observations are converted to pseudo-RGB inputs and encoded by a frozen pretrained vision VAE shared across fingers. Finger-specific positional embeddings preserve finger identity before $5{:}1$ self-attention pooling compresses the five tactile streams into one hand latent using a hand query and pose embeddings, followed by temporal refinement. Pre- and post-fusion reconstruction losses encourage the compressed tactile latent to retain localized multi-finger contact information.",
+     "image": "details/2609.24976/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "実機22自由度ロボットで検証！触覚の未来予測がもたらす圧倒的な差",
+   "summary_ja": "6つの接触リッチな実機タスクにおいて、DexTacWAMは平均スコア70.6%でベースラインを圧倒しました。接触変化を「予測」することが成功の鍵であり、圧縮器による高速化や視覚予測精度の維持も確認されました。",
+   "details_ja": "### 4.1 実機巧緻操作タスクでのメイン結果\n評価には22自由度の両手多指ハンド（Sharpa触覚センサ搭載）を使用し、接触が成否を分ける6つのタスクを実施しました。\n- **Cube Place w/ Occlusion**: ロボット自身の腕で立方体が隠れる状況での把持\n- **Cube Handover**: 視覚だけでは把持の安定が分かりにくい両手間の受け渡し\n- **Two-Hand Wipe**: 左手でボードを支え、右手でクリーナーを均一な圧力で滑らせるホワイトボード消し\n- **Tongs**: トングを介してミニトマトを潰さず落とさずに運ぶ道具操作\n- **Bowl**: 親指と人差し指の摩擦を使い、重なったボウルから一番上の1個だけを剥がすタスク\n- **Bottle Cap**: 指の摩擦と回転トルクを維持してボトルのキャップを開けるタスク\n\n各手法20回の試行を行った結果、DexTacWAMは全タスクで単独トップ、平均スコア70.6%を達成しました。直接方策に触覚力を入力する最強のベースラインReactive Diffusion Policy（RDP）の38.0%、視覚のみの世界モデルGenie Envisioner（GE）の26.8%に大差をつけています。\n特に劇的な差が出たのは「Tongs（トング）」で、DexTacWAMがスコア60を叩き出したのに対し、カメラ主体のベースラインは10以下に沈みました。トングを介した操作では視覚的にトマトの接触状態がほぼ分からないため、触覚ダイナミクスの予測が決定打となったのです。\n\n### 4.2 アブレーション研究：何が効いているのか？\n世界モデルから触覚予測を外し、方策に直接触覚特徴を入れる構造に戻したところ、4タスクの平均スコアは74.7%から26.6%へと急落しました。つまり、単に触覚を「見る」だけでなく、「未来の接触がどう推移するかを予測する」ことが性能向上の本質であると証明されました。\nまた、行動モデルのモダリティ別K/V RMS正規化を外すと学習が完全に破綻することも確認されました。\n触覚圧縮器の評価では、指ID埋め込み、手姿勢の注入、時間注意を組み合わせることで、圧縮前の接触情報の保持率（Retention Ratio）が62.9%から89.4%へと大幅に向上することが分かりました。\n\n### 4.3 予測精度の分析と効率性\n予測された触覚潜在変数は真値とのコサイン類似度0.967を記録し、「直前のフレームをそのままコピーする予測」と比べて誤差が約半分（0.561倍）になりました。静的なコピーではなく、動的な接触の変化を捉えている証拠です。\nさらに驚くべきことに、動画モデルに触覚予測を追加しても、未来画像の予測PSNRの低下は0.5 dB以内に収まっており、視覚予測能力を損なわずに触覚を獲得できています。\nまた、5:1の触覚圧縮によりトークン数が3,168から864へと3.67倍削減され、学習速度は2.26倍、推論速度は1.29倍（281.6 ms/chunk）高速化されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "ホワイトボード消しタスクにおける視覚・触覚の同時予測結果です。上段のカメラ画像とともに、下段の人差し指の触覚せん断力マップにおいて、接触の発生・移動・離脱がグラウンドトゥルースと見事に一致して予測されています。",
+     "caption": "Figure 3 : Joint visuo-tactile world-model prediction on the wiping task. Ground-truth and predicted visual and tactile observations are shown at six instants from one held-out rollout, spanning approach, contact, wiping, and release. The tactile rows visualize the shear magnitude of the right index fingertip using a shared color scale. Across consecutive prediction windows conditioned on observed history, the predicted contact patch emerges, moves, and disappears consistently with the visual interaction, rather than persisting as a static imprint.",
+     "image": "details/2609.24976/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "評価に用いた6つの実機タスクの自律実行の様子です。遮蔽下の把持、両手受け渡し、持続的な拭き取り、トングでの道具操作、ボウル分離、キャップ開けと、多様な接触パターンを網羅しています。",
+     "caption": "Figure 4 : Representative DexTacWAM rollouts on the six evaluation tasks. Keyframes progress from left to right and are sampled from autonomous closed-loop executions. The tasks span visual occlusion, bimanual transfer, sustained surface contact, tool-mediated manipulation, multi-finger separation, and rotational contact under torque.",
+     "image": "details/2609.24976/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめ：動画の事前知識を触覚へ広げる、高効率な新パラダイム",
+   "summary_ja": "DexTacWAMは、事前学習済み動画モデルの知識を多指触覚ダイナミクスへと拡張し、実機の接触リッチな操作で最高性能を達成しました。データと計算コストの両面で効率的なアプローチであり、今後の複雑な物理相互作用モデルの基盤となります。",
+   "details_ja": "DexTacWAMは、動画事前学習で培われた時間・空間の事前知識を巧みに活用し、視覚シーンと多指触覚の接触ダイナミクスを共同予測する世界行動モデルです。わずか4時間の触覚エンコーダ適応とタスクあたり約100本のデモという極めて少ないデータ量で、視覚予測品質を落とすことなく接触予測能力を獲得できる点、そして圧縮器により学習・推論を大幅に軽量化できる点が際立っています。触覚を単なる制御フィードバックではなく「世界状態の予測対象」として組み込む設計思想は、今後の巧緻操作ロボットにおける世界モデルの標準的な指針となるはずです。",
+   "figures": []
+  },
+  {
+   "heading": "6 Limitations",
+   "heading_ja": "限界と今後の課題：センサの汎用性と失敗からの復帰",
+   "summary_ja": "本研究の検証はSharpa光学式触覚センサに限定されており、他方式のセンサへの汎用性は未検証です。また、成功デモのみで学習しているため、失敗からの自己復帰能力には課題が残ります。",
+   "details_ja": "著者らは率直に以下の2つの限界を挙げています。\n\n- **触覚センサの種類の限定**: 今回の検証はカメラベースの光学式触覚センサ（Sharpa）のみで行われており、静電容量式やピエゾ抵抗式、磁気式など、他のセンシング原理を持つ触覚センサにそのまま転移できるかは未検証です。\n- **成功デモへの依存**: 世界モデルも行動モデルも人間の成功デモのみで学習しているため、通常時の実行は非常に滑らかですが、一度予期せぬ失敗（大きな滑りや落下の兆候など）が起きた際のリカバリー動作を陽に学習していません。今後は外乱データや強化学習を取り入れ、失敗からの回復能力を補強することが求められます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "接触リッチな操作では、触覚を行動方策の追加入力にするだけでなく「世界モデルの中で未来の接触推移を予測する」ことが性能を劇的に引き上げる。",
+  "事前学習済みの視覚VAEや動画拡散モデルの重みは、軽量なアダプタと適切な学習段階を踏むことで、わずかなデータから多指触覚の予測へと転移可能である。",
+  "多指ハンドの触覚は指IDと手の幾何姿勢を埋め込んで圧縮（5:1）することで、情報損失を抑えつつ学習・推論コストを大幅に削減できる。",
+  "視覚と触覚など特性が大きく異なるマルチモーダル表現を行動モデルに渡す際は、交差注意前のモダリティ別K/V正規化が学習安定化に極めて有効である。"
+ ],
+ "limitations_ja": [
+  "光学式（ビジョンベース）触覚センサに特化したパイプラインであり、電気抵抗式や磁気式などの他センサへの適用性が未評価である点。",
+  "成功デモのみで訓練されているため、接触が完全に外れたり失敗したりした際の自律的な自己修正・リカバリー能力が十分ではない点。",
+  "実機での遠隔操作データ収集（タスクあたり100デモ）が依然として必要であり、完全なゼロショット適応ではない点。"
+ ],
+ "keywords": [
+  "World-Action Models",
+  "Dexterous Manipulation",
+  "Visuo-Tactile Sensing",
+  "Continual Learning",
+  "Diffusion Transformer"
+ ],
+ "id": "2609.24976",
+ "title": "DexTacWAM: A Visuo-Tactile World-Action Model for Dexterous Manipulation",
+ "authors": [
+  "Haoran Yuan",
+  "Zekai Wang",
+  "Boning Shao",
+  "Haoran Lu",
+  "Trevor Darrell",
+  "Ismini Lourentzou",
+  "Wei Zhan"
+ ],
+ "date": "2026-09-23",
+ "group": "general",
+ "tags": [
+  "world-model",
+  "manipulation",
+  "perception"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.24976",
+ "pdf_url": "https://arxiv.org/pdf/2609.24976",
+ "summary_ja": "各指先の接触ダイナミクスを捉える触覚表現をビデオ拡散ワールドモデルに統合したDexTacWAMを提案。指と姿勢を考慮した触覚圧縮器により潜在表現化し、接触リッチな22自由度双腕ハンドによる巧緻操作タスクにおいて高精度な状態予測と制御性能を達成した。",
+ "generated": "2026-09-23",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.24976"
+}
