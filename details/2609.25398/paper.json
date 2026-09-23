@@ -1,0 +1,129 @@
+{
+ "title_ja": "Norm2Tex: 法線マップテクスチャによる視覚触覚シミュレーションの拡張",
+ "tldr_ja": "視覚型触覚センサーのシミュレーションにおいて、物体の3Dメッシュを細かく作り直すことなく、ノーマルマップから復元した微細な凹凸を中間深度マップに加算することで、リアルな表面テクスチャを極めて軽い計算コストで再現するプラグイン「Norm2Tex」を提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "実機DIGITセンサーの画像（上段）と、従来のTaximシミュレータによる画像（中段）、そしてNorm2Texを適用した画像（下段）の比較です。従来のシミュレータでは素材の違いによらず同じつるっとした画像になってしまいますが、Norm2Texを使うことで木目や布地、3Dプリント痕、岩肌といった微細なテクスチャが見事に再現されています。",
+  "caption": "Fig. 1: Comparison of real-world visuo-tactile data from DIGIT (top) and the commonly simulated rendering on Taxim (center). Independent of the texture, the Taxim rendering looks the same. Norm2Tex (bottom) fills this sim-to-real gap by augmenting surface details (left to right: wood, fabric, 3D print, and rock) to the rendering.",
+  "image": "details/2609.25398/F1.jpg"
+ },
+ "overview_ja": "視覚型触覚センサー（ゲル状の柔軟膜の変形を内部カメラで捉えるセンサー）は、物体の全体形状だけでなく、指先の細かなテクスチャまでミクロ単位で取得できる強力なデバイスです。しかし、ロボットの深層学習ポリシーを訓練するには大量のデータが必要で、実機で接触を繰り返してデータを集めるのは時間もコストもかかります。\n\nそこでシミュレータの活用が期待されますが、従来の触覚シミュレータは物体のメッシュ形状から大まかな接触形状を計算するものがほとんどでした。そのため、布の編み目や木目のような高周波の微細テクスチャが完全に抜け落ちてしまい、シミュレーションと実機の間で大きな見た目・特徴のギャップ（Sim-to-Realギャップ）が生じていました。かといって、数ミリ〜マイクロメートル単位の細かな凹凸をすべて3Dポリゴンメッシュとして作り込むと、接触判定の計算負荷が跳ね上がってしまいます。\n\nそこで著者らは、既存の深度マップベースの触覚シミュレータにそのまま後付けできる拡張機能「Norm2Tex」を開発しました。あらかじめプロシージャル（数式やノイズ）に生成したノーマルマップ（法線マップ）からポアソン積分を用いて擬似的な高さマップを復元し、シミュレータが接触時に生成するセンサー深度画像に直接足し合わせる仕組みです。\n\n実験では、TACTOやTaximといった既存のシミュレータに組み込んでもフレームレートの低下がごくわずか（GPU利用時で1.5%程度）であることを確認しました。さらに、シミュレーション画像だけで学習した分類モデルが実機画像に対して72%の精度で素材をゼロショット分類できること、強化学習で訓練した把持力調整ポリシーが実世界でも素材ごとの摩擦の違いに応じた動作変化を示せることを実証しました。",
+ "contributions_ja": [
+  "既存の深度マップベース触覚シミュレータに計算オーバーヘッドほぼなしで組み込める、軽量なプラグイン手法Norm2Texを提案したこと。",
+  "Blender上でノイズやパラメータを調整して多様なノーマルマップを自動生成し、任意の3Dメッシュに適用できるプロシージャルテクスチャ生成パイプラインを構築したこと。",
+  "TACTOとTaximの2つの代表的シミュレータへ統合し、レンダリング速度への影響が極めて軽微であることを定量評価したこと。",
+  "シミュレーションのみで学習したモデルを用い、ゼロショットの素材分類タスクおよび強化学習によるリアルロボットの把持力調整タスクでSim-to-Realの有効性を実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "触覚シミュレーションに足りなかった「手触りのきめ細かさ」",
+   "summary_ja": "視覚型触覚センサーは高密度な情報を得られる反面、学習データの収集が大変です。シミュレータによるデータ生成が求められていますが、既存のシミュレータはポリゴンメッシュの大まかな形状しか反映できず、表面のテクスチャが欠落していました。本研究は、この課題をノーマルマップの活用によって解決する拡張手法Norm2Texを提案します。",
+   "details_ja": "DIGITやGelSightなどに代表される視覚型触覚センサーは、シリコンなどの柔軟な接触面に小型カメラを向け、接触による表面の変形をRGB画像として捉える仕組みです。この画像には、接触面の全体的な傾きや曲率といった低周波の情報だけでなく、指先のザラつきや木目といった高周波のテクスチャ情報も豊富に含まれています。これらは滑り検知や材質識別、欠陥検出などに不可欠です。\n\nしかし、ロボットの制御ポリシーを学習させるには膨大な接触データが必要です。三人称視点の外部カメラならロボットを動かしている間ずっとデータを記録できますが、触覚センサーは対象物に実際に接触した瞬間にしか有効な信号が得られません。実機で接触を何千回も繰り返すのは非常にコストが高く、シミュレーション環境でのデータ生成が強く求められてきました。\n\nところが、既存の触覚シミュレータの多くは、物体の3Dメッシュ形状から接触面の変形を計算するアプローチを採っています。実世界のあらゆる物体が持つ細かな表面テクスチャをメッシュの頂点として表現しようとすると、ポリゴン数が膨大になり接触計算が破綻してしまいます。結果として、シミュレータ内の接触画像はつるつるのプラスチックのようになってしまい、実機画像との間に深刻なSim-to-Realギャップが存在していました。\n\nNorm2Texは、この問題を「独立したシミュレータを新設する」のではなく、既存シミュレータの中間表現である深度マップに高周波テクスチャを差し込む「ドロップインの拡張機能」として解決します。物体のノーマルマップさえあれば、メッシュ自体を複雑化させることなく、リアルな触覚テクスチャをレンダリング工程へ注入できます。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "接触力学モデルから深層生成モデルまで：既存アプローチとの違い",
+   "summary_ja": "視覚型触覚シミュレータには深度直接変換型や有限要素法・物質点法を用いた物理モデル型などがあります。また画像変換GANや拡散モデルで質感を補う研究もありますが、実データ収集が必要だったり時間的一貫性が欠けたりする欠点がありました。Norm2Texは物理シミュレーションと描画の中間に位置し、UVマップに基づく空間的整合性を保ちながら機能します。",
+   "details_ja": "### 視覚型触覚センサー向けシミュレータの系譜\n既存のシミュレータは、接触面の変形をどうモデル化するかでいくつかの系統に分かれます。初期のGelSightシミュレータやTaxim、TacSLなどは、接触深度から直接フォン反射モデルやデータ駆動型のキャリブレーションマップを使ってRGB画像を合成していました。一方、近年のTacIPCやDiffTactileは有限要素法（FEM）、Tacchiシリーズは物質点法（MPM）を用いてエラストマー（弾性体）の内部応力やマーカー変位を高精度にシミュレーションします。\n\nNorm2Texが対象とするのは、これら物理変形シミュレーションの終了後、最終的な光学レンダリングへ渡す手前の中間表現（深度マップ）です。そのため、FEMやMPMなど接触力学シミュレーション自体の計算を重くすることなく、レンダリング直前で微細テクスチャを付加できるという、既存技術と直交する相補的な立ち位置を持っています。\n\n### テクスチャ生成における先行研究との対比\nシミュレーション触覚画像の見た目を実機に近づけるため、CycleGANやSightGANのような画像変換モデルや、近年のTactile Diffusionに代表される拡散モデルを使ってテクスチャを合成する手法も提案されてきました。\n\nしかし、これらの深層学習ベースの手法には2つの大きな課題があります。第一に、モデルの学習やファインチューニングのために結局実機の触覚データを大量に集める必要がある点です。第二に、フレーム間でテクスチャの空間的な位置関係が一貫しない（時間的整合性の欠如）という問題です。ロボットが物体表面をなぞったり滑らせたりするとき、凹凸のパターンが滑らかに移動しなければスリップ等の検知を誤ってしまいます。Norm2Texは、3DメッシュにUV展開されたノーマルマップと幾何情報に直接紐づいて動作するため、実機データを必要とせず、かつ幾何学的に完全に一貫した連続観測が可能になります。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "ノーマルマップから高さマップへ：高速な周波数領域ポアソン積分",
+   "summary_ja": "Norm2Texは、まずBlenderのプロシージャルマテリアルからノーマルマップを生成します。次にフーリエ変換を用いたポアソン方程式の解法により高速に擬似高さマップへ変換し、シミュレーション実行時には接触面のUV座標から該当箇所を切り出してベースのセンサー深度マップに加算します。",
+   "details_ja": "### III-A 予備知識：ノーマルマップの扱い\nノーマルマップは、物体の接線空間における法線ベクトルをRGB値（$[0, 1]$）として保持しています。これを $[-1, 1]$ にリスケールして正規化することで、表面の法線ベクトル $\\mathbf{n}$ を復元できます。この法線ベクトルから、未知の高さ場に対する $x$ 方向および $y$ 方向の傾き（勾配） $h_x, h_y$ を推定します。\n\n### III-B 任意メッシュに対するテクスチャ生成\nWeb上で配布されている一般的な3DモデルにはRGBテクスチャしか付属していないことが多いため、著者はBlenderを活用したプロシージャル生成パイプラインを用意しました。ノイズ関数や構造パラメータを組み合わせることで、木材、布地、岩、3Dプリント面など様々な素材のノーマルマップとUV展開済みメッシュを自動作成できるようにしています。\n\n### III-C 法線から高さマップへの変換（Poisson Integration）\n生成されたノーマルマップから表面の凹凸（擬似高さマップ）を復元するため、Frankot-Chellappa法に基づく周波数領域（フーリエ領域）でのポアソン積分を採用しています。ノーマルマップをUVアイランドごとに $N$ 個のパッチに分割し、各パッチの離散勾配 $\\mathbf{d}_p$ と高さマップの差分が最小二乗で一致するよう、以下のエネルギーを最小化します：\n\n$$\\min_{H_p} \\sum_{i,j} (D_x(h) - d_{x,i,j})^2 + (D_y(h) - d_{y,i,j})^2$$\n\nこれを偏微分してゼロとおくと、離散ポアソン方程式 $\\Delta_d H_p = \\nabla_d \\cdot \\mathbf{d}_p$ が得られます。境界条件を周期的と仮定することで、離散フーリエ変換（FFT）を用いて周波数領域で対角化し、連立一次方程式を解くことなく瞬時に逆フーリエ変換から高さマップ $H_p$ を復元できます。\n\nさらに、微細な凹凸を残すファインパス（ガウスフィルタ $\\sigma=0.35$）と大まかなうねりを捉えるコースパス（$\\sigma=1.1$）の2段階で復元を行い、重み $\\alpha=0.2$ でブレンドすることで、リアルな質感を表現したグローバル高さマップ $H_{\\text{global}}$ を事前に作成しておきます。\n\n### III-D シミュレーション実行時の高さマップ問い合わせ\nシミュレーション実行時、シミュレータ側が計算したセンサーと物体の相対姿勢から接触領域のUV座標を特定し、$H_{\\text{global}}$ から対応する領域を切り出してローカル高さマップ $H_{\\text{local}}$ を取得します。これに素材の凸凹度合いを表すスケール係数 $\\beta$（例: 0.5mm）を掛け、ベースの接触深度 $H_{\\text{sensor}}$ に足し合わせます：\n\n$$H_{\\text{final}} = H_{\\text{sensor}} + \\beta H_{\\text{local}}$$\n\nこうしてできた $H_{\\text{final}}$ を既存シミュレータのレンダラへ渡すだけで、細かな凹凸が光と影に反映された触覚画像が完成します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "Norm2Texの全体アーキテクチャです。オフラインでBlenderを用いてプロシージャルテクスチャからノーマルマップと大域高さマップ $H_{\\text{global}}$ を生成しておき、シミュレーション実行時には接触面のUV座標から局所高さマップ $H_{\\text{local}}$ を切り出してセンサー深度 $H_{\\text{sensor}}$ に加算するシンプルな構造になっています。",
+     "caption": "Fig. 2: The Norm2Tex architecture. First, a procedural texture is created for a given mesh using Blender. At initialization, the global texture height map $H_{\\text{global}}$ is computed, and a copy of the mesh is created internally for reference. During simulation, given the relative transform of the mesh to the sensor at the contact point, the corresponding UV coordinates are used to fetch the pixels from $H_{\\text{global}}$ to create $H_{\\text{local}}$ . Finally, $H_{\\text{sensor}}$ and $H_{\\text{local}}$ are added together to create the final depth image $H_{\\text{final}}$ , which is then used for rendering the tactile image by the tactile simulator.",
+     "image": "details/2609.25398/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "単一の布地（Fabric）プロシージャルマテリアルから、パラメータを変更するだけで生成された多様な布テクスチャの例です。編み目の粗さや密度を変えることで、1つのベース素材から多種多様な触覚画像を簡単に作り出せます。",
+     "caption": "Fig. 3: Examples of different fabric renderings generated from a single procedural texture ( fabric ) by adjusting its parameters.",
+     "image": "details/2609.25398/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "実験：シミュレータの速度維持と実世界へのゼロショット転移",
+   "summary_ja": "TACTOおよびTaximへの組み込み実験では、実行速度への影響がごくわずかであることを示しました。また、シミュレーション画像のみで学習したResNet-18が実機DIGIT画像の素材を72%の精度で分類できること、強化学習による把持力制御ポリシーが実機環境でも素材に応じた適切な力加減を発揮できることを確認しました。",
+   "details_ja": "### IV-A シミュレータへの適用性と計算オーバーヘッド\nTaximおよびTACTO（深度ベースパイプライン）のMuJoCo環境にNorm2Texを組み込み、1000フレームあたりの平均描画時間を計測しました。その結果、Norm2Texの処理が追加されても描画時間の増加はごくわずかでした。特にCUDAを用いたGPU環境下では、Taximにおける描画時間の差はわずか1.5%にとどまり、強化学習のデータ収集ループを邪魔しない極めて軽量な設計であることが証明されました。\n\n### IV-B ゼロショットSim-to-Real素材分類\nシミュレーションで生成したテクスチャが実世界の認識に役立つかを検証するため、5種類（布、岩、滑らかなアクリル、3Dプリント、木材）の素材分類タスクを実施しました。実機DIGITセンサーで各100枚の実データを収集する一方、シミュレータ側ではBlenderで調整したテクスチャを用いて各カテゴリ6000枚の接触画像を合成しました。\n\nシミュレーション画像のみでResNet-18を学習させ、実機画像にゼロショット適用したところ、全体で72%の高い正解率を達成しました。混同行列を見ると、3Dプリントの積層痕が薄いためアクリルや木材と見分けにくかったり、変形しやすい布地が岩と誤認されたりするケースがありましたが、ランダム推測（20%）を大幅に上回る性能を示し、テクスチャ情報がSim-to-Real転移に直接寄与することが確認されました。\n\n### IV-C ゼロショット把持力調整ポリシー\nさらに動的な制御タスクとして、ロボットハンドでキューブを「落とさないギリギリの最小把持力（最大のグリッパー開き幅）」で保持する強化学習タスクを評価しました。滑りやすさは素材の摩擦係数によって異なり、摩擦はテクスチャから推定可能です。キューブには重りとして500mlのペットボトルを吊り下げています。\n\nPPOを用いて学習したポリシーの出力を比較したところ、触覚を使わないBlindポリシーや、テクスチャのないTaxim単体ポリシーは、素材によらず単一の開き幅まで開いて物体を落としてしまいました。一方、Norm2Texで学習したポリシーは、摩擦の大きい木材や布地では適度な開き幅を保ち、滑りやすいアクリルではしっかりと握り直すという、素材に応じた制御動作を実機上でゼロショットで再現することに成功しました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "実世界データに対するゼロショット素材分類の混同行列（左）と、センサー画像から初期背景を引いた入力画像（右）です。岩や木材、布地などは高い精度で分類できていますが、凹凸の薄いアクリルと3Dプリントの間で一部誤分類が見られます。",
+     "caption": "Fig. 4: (Left) Confusion matrix for the classifier trained on simulated Norm2Tex data and deployed zero-shot in the real world. (Right) Real-world input image to the classifier, i.e., DIGIT image minus initial blank image. Note that acrylic and 3D-printed smooth textures are hard to distinguish. When the fabric texture is granular, it can be mistaken for rock.",
+     "image": "details/2609.25398/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "木材テクスチャにおけるNorm2Tex画像（上段）と実機DIGIT画像（下段）およびその2Dフーリエ変換スペクトルです。Norm2Texは木目の方向性を示す高周波成分を綺麗に捉えていますが、実機ではノイズ等により高周波が減衰しており、完全な見た目の一致がなくとも分類や制御には十分役立つことが示されています。",
+     "caption": "Fig. 5: Norm2Tex(top) and real-world (bottom) tactile images and 2D Fourier transform for wood. Norm2Tex retains directional/high-frequency spectral structure corresponding to the wood grain, while the real tactile capture is dominated by low frequencies when the texture is faint.",
+     "image": "details/2609.25398/F5.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "キューブ保持タスクにおけるグリッパー開き幅の時系列推移です。BlindやTaxim単体では素材によらず同じ開き幅まで進んでしまいますが、Norm2Tex（最下段）は木材・アクリル・布地それぞれで実機（オレンジ線）においても素材に応じた明確な適応挙動を示しています。",
+     "caption": "Fig. 8: Gripper state for real-world and simulation rollouts of the cube-holding experiment for blind, Taxim, and Norm2Tex policies using wood, acrylic, and fabric materials. In the empty condition, all policies continue opening because no object-induced termination occurs. The blind and Taxim policies exhibit similar opening behavior across materials, whereas Norm2Tex produces distinct material-dependent responses in the real world. These results indicate that Norm2Tex observes tactile distinctions between grasp conditions. The black lines and values represent the maximum gripper opening before dropping. Those values were determined empirically.",
+     "image": "details/2609.25398/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusions",
+   "heading_ja": "まとめと今後の展望：よりリアルな触覚シミュレーションを目指して",
+   "summary_ja": "Norm2Texは、深度マップにノーマルマップ由来の凹凸を加算することで、視覚型触覚シミュレーションにリアルなテクスチャを低コストで導入できることを示しました。今後はFEMやMPMベースの高度な物理シミュレータへの組み込みや、接触境界の影の忠実な再現が課題となります。",
+   "details_ja": "本論文では、ノーマルマップを利用して視覚型触覚シミュレーションに高周波の表面テクスチャを付与するプラグイン「Norm2Tex」を提案しました。シミュレータの内部物理エンジンやメッシュデータを改変することなく、中間深度マップに直接高さを注入するアプローチにより、既存のレンダリングパイプラインをそのまま活かしながらリアルな接触画像を作成できます。\n\nシミュレーションデータのみで訓練したモデルが、実世界の素材分類で72%の精度を達成し、ロボットの把持力制御においても素材に応じた振る舞いを引き出せることを示しました。これは、Sim-to-Realにおけるテクスチャ情報の重要性を強く裏付ける結果です。\n\n今後の課題としては、FEM（有限要素法）やMPM（物質点法）に基づく最新シミュレータへの本ロジックの統合や、実機センサーのシリコンパッド圧縮時に生じる境界付近の複雑な影・光学的アーティファクトの再現が挙げられています。テクスチャ生成パイプラインはオープンソースとして公開される予定です。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "3Dメッシュを細分化しなくても、ノーマルマップと周波数領域ポアソン積分を組み合わせることで、触覚シミュレーションに高周波テクスチャを極小の計算負荷で導入できる。",
+  "シミュレータの中間表現である深度マップ（Depth Map）にテクスチャ高さを加算するプラグイン構成のため、TaximやTACTOなど既存の多様なシミュレータにそのまま適用可能。",
+  "視覚型触覚画像を用いたロボット制御において、表面テクスチャがあることで摩擦特性を間接的に推論でき、素材に応じた把持力調整のような高度な閉ループ制御がSim-to-Real可能になる。"
+ ],
+ "limitations_ja": [
+  "シリコンパッドが強く押し込まれた際に生じる境界付近の特有の影や光学的歪み（アーティファクト）をシミュレータ側が再現できておらず、テクスチャの薄いアクリルなどで実機との乖離が残る点。",
+  "実世界の触覚画像はノイズ等により高周波成分が減衰しがちであり、シミュレータ上の鮮明なテクスチャスペクトルと完全には一致しない点。",
+  "現時点では物体の変形自体（布がぐにゃりとたわむなど）を考慮したテクスチャの歪みまでは物理的に連動していない点。"
+ ],
+ "keywords": [
+  "Vision-based Tactile Sensing",
+  "Tactile Simulation",
+  "Sim-to-Real Transfer",
+  "Normal Map",
+  "Reinforcement Learning"
+ ],
+ "id": "2609.25398",
+ "title": "Norm2Tex: Augmenting Visuo-Tactile Simulations with Texture",
+ "authors": [
+  "Seongjin Bien",
+  "D\\'ebora Oliveira Makowski",
+  "Roberto Calandra",
+  "Florian Walter",
+  "Wolfram Burgard"
+ ],
+ "date": "2026-09-23",
+ "group": "general",
+ "tags": [
+  "simulation",
+  "perception",
+  "sim-to-real"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.25398",
+ "pdf_url": "https://arxiv.org/pdf/2609.25398",
+ "summary_ja": "視覚型触覚センサのシミュレーションにおいて、法線マップテクスチャから高周波な表面微細構造を付与するプラグイン手法Norm2Texを提案。レンダリング前に深度マップを直接修正することで既存シミュレータに容易に統合でき、シミュレーションと実機触覚データ間のドメインギャップを効果的に低減する。",
+ "generated": "2026-09-23",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.25398"
+}
