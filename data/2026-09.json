@@ -1,6 +1,275 @@
 {
  "entries": [
   {
+   "date": "2026-09-23",
+   "rank": 0,
+   "id": "2609.25754",
+   "group": "focus",
+   "title": "PLAT: Sparse Timed Keyframe Motion Tracking for Humanoid Control via Privileged Latent Transition Learning",
+   "title_ja": "PLAT: 特権潜在遷移学習によるヒューマノイドのための疎な時間指定キーフレーム追従制御",
+   "summary_ja": "密な動作軌道ではなく疎な未来のキーフレームと目標時刻のみから全身運動を生成するヒューマノイド制御フレームワークPLATを提案。密な参照系列を学習時の特権情報として活用し、疎な目標から安定した全身制御方策を学習する3段階アプローチを導入。高レベルのプランナと接続可能な柔軟な動作追従を実現した。",
+   "authors": [
+    "Zepeng Wang",
+    "Jiangxing Wang",
+    "Chao Ma",
+    "Xiaochuan Shi",
+    "Zongqing Lu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.25754",
+   "image": "figures/2026-09-23/2609.25754.jpg"
+  },
+  {
+   "date": "2026-09-23",
+   "rank": 1,
+   "id": "2609.25486",
+   "group": "focus",
+   "title": "Brace Yourself: Task-Conditioned Environmental Bracing for Forceful Humanoid Manipulation",
+   "title_ja": "環境支持を利用した高出力ヒューマノイドマニピュレーション",
+   "summary_ja": "ヒューマノイドが片手で環境を突いて体を支え、もう片方の手で高負荷作業を行う支持ハンド戦略（SHS）を提案。環境支持構成の最適化と2つの同期強化学習方策を組み合わせ、Unitree G1実機において非支持時の13.5Nを大幅に上回る最大60Nの接触力を安定して発揮できることを実証した。",
+   "authors": [
+    "Zongyuan Zhang",
+    "Christopher Lehnert",
+    "Will N. Browne",
+    "Jonathan M. Roberts"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "manipulation",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.25486",
+   "image": "figures/2026-09-23/2609.25486.jpg"
+  },
+  {
+   "date": "2026-09-23",
+   "rank": 2,
+   "id": "2609.25363",
+   "group": "focus",
+   "title": "HOTICE: Whole-Body Humanoid Object Transportation in Cluttered Environments",
+   "title_ja": "HOTICE: 混雑環境におけるヒューマノイドの全身物体運搬",
+   "summary_ja": "障害物で狭小化した環境下でヒューマノイドが物体を運搬するための全身移動マニピュレーション学習フレームワーク。ロボットと物体の双方に衝突回避を促す分離型ポテンシャル場と、全身の広大な行動空間を扱うデュアルエージェント強化学習を導入し、協調的かつ衝突のない運搬動作を実現した。",
+   "authors": [
+    "Toan Nguyen",
+    "Weiduo Yuan",
+    "Siheng Zhao",
+    "Yue Wang",
+    "Daniel Seita"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.25363",
+   "image": "figures/2026-09-23/2609.25363.jpg"
+  },
+  {
+   "date": "2026-09-23",
+   "rank": 3,
+   "id": "2609.25450",
+   "group": "focus",
+   "title": "REDACT: Robust Perceptive Locomotion under Unseen Visual Corruption",
+   "title_ja": "REDACT: 未知の視覚劣化下における頑健な知覚歩行",
+   "summary_ja": "深度カメラを用いた脚ロボット歩行において、学習時に想定外のオクルージョンやセンサノイズなどの視覚的乱れに対処する生徒-教師フレームワークREDACTを提案。持続的な特徴メモリと乱れに頑健な視覚エンコーダにより、実環境での未知のセンサ劣化下でも安定した踏破性能を維持する。",
+   "authors": [
+    "Natapat Kirdwichai",
+    "Tobias Driskell-Poole",
+    "Andrei Sontea",
+    "Jadu Dash",
+    "Muhammad Burhan Hafez",
+    "Danesh Tarapore"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "reinforcement-learning",
+    "sim-to-real",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.25450",
+   "image": "figures/2026-09-23/2609.25450.jpg"
+  },
+  {
+   "date": "2026-09-23",
+   "rank": 4,
+   "id": "2609.26420",
+   "group": "focus",
+   "title": "Sample, Simulate, Select: Physics-in-the-Loop Text-to-Motion for Humanoids Without Training",
+   "title_ja": "Sample, Simulate, Select: 学習不要な物理ループ内テキスト-モーション生成によるヒューマノイド制御",
+   "summary_ja": "言語からのヒューマノイド動作生成において、追加学習を行わず物理シミュレータと事前学習済み全身追従制御器をループに組み込む手法を提案。Text-to-Motionモデルから生成した複数候補をUnitree G1向けIKで変換し、剛体シミュレーション内で追従性能が最も高い動作を選択・実行する。",
+   "authors": [
+    "Raphael Memmesheimer",
+    "Sven Behnke"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "humanoid",
+    "simulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.26420",
+   "image": "figures/2026-09-23/2609.26420.jpg"
+  },
+  {
+   "date": "2026-09-23",
+   "rank": 5,
+   "id": "2609.24682",
+   "group": "general",
+   "title": "Think Like a World Model, Act Like a VLA: Distilling World-Model Representations into Compact Robot Policies",
+   "title_ja": "ワールドモデルのように考えVLAのように動く: 小型方策へのワールドモデル表現蒸留",
+   "summary_ja": "高推論コストなワールドモデルの未来予測計算を制御ループから排除しつつ、その物理シーン表現をVLAモデルに継承させる蒸留手法を提案。通常訓練に凍結ワールドモデルの特徴量アラインメント損失を1項加えるだけで、高周波制御を維持しながら操作の頑健性を大幅に向上させた。",
+   "authors": [
+    "Trung Dao",
+    "Sankalp Yamsani",
+    "Jaden Park",
+    "Joohyung Kim",
+    "Yong Jae Lee"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "world-model",
+    "vision-language-action",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.24682",
+   "image": "figures/2026-09-23/2609.24682.jpg"
+  },
+  {
+   "date": "2026-09-23",
+   "rank": 6,
+   "id": "2609.25398",
+   "group": "general",
+   "title": "Norm2Tex: Augmenting Visuo-Tactile Simulations with Texture",
+   "title_ja": "Norm2Tex: 法線マップテクスチャによる視覚触覚シミュレーションの拡張",
+   "summary_ja": "視覚型触覚センサのシミュレーションにおいて、法線マップテクスチャから高周波な表面微細構造を付与するプラグイン手法Norm2Texを提案。レンダリング前に深度マップを直接修正することで既存シミュレータに容易に統合でき、シミュレーションと実機触覚データ間のドメインギャップを効果的に低減する。",
+   "authors": [
+    "Seongjin Bien",
+    "D\\'ebora Oliveira Makowski",
+    "Roberto Calandra",
+    "Florian Walter",
+    "Wolfram Burgard"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "perception",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.25398",
+   "image": "figures/2026-09-23/2609.25398.jpg"
+  },
+  {
+   "date": "2026-09-23",
+   "rank": 7,
+   "id": "2609.26292",
+   "group": "general",
+   "title": "RoboTwin-Phys: Do WAMs and VLAs Understand the Physical World?",
+   "title_ja": "RoboTwin-Phys: WAMとVLAは物理世界を理解しているか？",
+   "summary_ja": "質量、摩擦、関節ダイナミクスなど13種類の物理パラメータを体系的に変化させ、視覚言語行動モデルやワールドアクションモデルの物理的汎化性を評価するベンチマーク。外観や配置の変化だけでなく、実世界の物理条件の変動に対する方策の脆弱性を多角的に検証可能にした。",
+   "authors": [
+    "Jiaqi Zhang",
+    "Feng Ye",
+    "Mingjia Yang",
+    "Zhihong Chen",
+    "Mingkang Xiang",
+    "Xinglin Yao",
+    "Yanbin Li",
+    "Siwei Ma",
+    "Chuanmin Jia"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "benchmark",
+    "vision-language-action",
+    "world-model",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.26292",
+   "image": "figures/2026-09-23/2609.26292.jpg"
+  },
+  {
+   "date": "2026-09-23",
+   "rank": 8,
+   "id": "2609.25322",
+   "group": "general",
+   "title": "JAMB: Joint Action-Motion Diffusion for Bimanual Manipulation",
+   "title_ja": "JAMB: 双腕マニピュレーションのための関節行動・動作同時拡散",
+   "summary_ja": "一方の腕の動きが環境を変化させる双腕協調操作において、行動と将来の3D点追跡軌跡をTransformer内で同時にデノイズする拡散方策JAMBを提案。将来の幾何的変化と操作行動が相互に洗練し合うことで、物体の相互干渉を伴う複雑な両手作業の成功率を向上させた。",
+   "authors": [
+    "Chuyang Xiao",
+    "Peilin Meng",
+    "David Held"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "imitation-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.25322",
+   "image": "figures/2026-09-23/2609.25322.jpg"
+  },
+  {
+   "date": "2026-09-23",
+   "rank": 9,
+   "id": "2609.24976",
+   "group": "general",
+   "title": "DexTacWAM: A Visuo-Tactile World-Action Model for Dexterous Manipulation",
+   "title_ja": "DexTacWAM: 巧緻操作のための視覚・触覚統合型ワールドアクションモデル",
+   "summary_ja": "各指先の接触ダイナミクスを捉える触覚表現をビデオ拡散ワールドモデルに統合したDexTacWAMを提案。指と姿勢を考慮した触覚圧縮器により潜在表現化し、接触リッチな22自由度双腕ハンドによる巧緻操作タスクにおいて高精度な状態予測と制御性能を達成した。",
+   "authors": [
+    "Haoran Yuan",
+    "Zekai Wang",
+    "Boning Shao",
+    "Haoran Lu",
+    "Trevor Darrell",
+    "Ismini Lourentzou",
+    "Wei Zhan"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "world-model",
+    "manipulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.24976",
+   "image": "figures/2026-09-23/2609.24976.jpg"
+  },
+  {
    "date": "2026-09-22",
    "rank": 0,
    "id": "2609.23666",
