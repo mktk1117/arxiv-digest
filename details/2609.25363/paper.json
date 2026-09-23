@@ -1,0 +1,152 @@
+{
+ "title_ja": "HOTICE: 混雑環境におけるヒューマノイドの全身物体運搬",
+ "tldr_ja": "ヒューマノイドロボットが周囲を障害物に囲まれた狭い空間で、荷物と自身の両方をぶつけずに全身協調して運搬するための強化学習フレームワークHOTICEを提案し、シミュレーションおよび実機Unitree G1での頑健な運搬を実証しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "HOTICEの全体構成です。ロボット用と物体用で分離されたポテンシャル場（左上）、上半身と下半身のアクションを分担しつつ協調させるデュアルエージェント構造（右上）、そして多様なシーンのエキスパートから1つの汎用ポリシーを蒸留して実機へ展開するパイプライン（下）を示しています。",
+  "caption": "Fig. 2: Method Overview. HOTICE is composed of three main components. Humanoid-Object Decoupled Potential Fields (top left) : a Standard Guidance Field guides the robot’s head, pelvis, and feet, while an Object-Centric Guidance Field guides the carried object and the robot’s hands. Dual-Agent Learning Architecture (top right) : the whole-body control is split between an upper-body actor-critic and a lower-body actor-critic, each with its own body-specific reward set, but remain coordinated via unified state observations and shared whole-body rewards. …",
+  "image": "details/2609.25363/F2.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットが実社会で活躍する上で、荷物を持って目的地まで運ぶ「物体運搬」は欠かせない機能です。しかし、床に障害物が散らばり、左右の通路が狭く、頭上からも梁などが迫るような乱雑な環境では、途端に難易度が跳ね上がります。ロボット自身の足や頭がぶつからないように姿勢をかがめたり跨いだりするだけでなく、抱えている荷物自体も壁や障害物に当てないように腕の位置を細かく調整しなければならないからです。\n\nそこで著者らは、全身のロコマニピュレーション（移動と操作の統合制御）を実現する学習フレームワーク「HOTICE」を開発しました。ポイントは大きく3つあります。1つ目は、ロボット本体用と把持物体用で空間的なポテンシャル場を分離して計算する「HOD-PF」です。物体側にあらかじめ安全マージンを持たせることで、重い荷物でもぶつかる前に先回りして持ち上げたり退避させたりできます。2つ目は、全身の自由度が大きすぎる課題を解決するために、上半身（腕8関節）と下半身（脚12関節）を別々のエージェントとして学習させるデュアルエージェント設計です。両者は状態観測と一部の運搬報酬を共有しているため、制御空間を分割しつつも全身のバランスと運搬動作を両立できます。3つ目は、個別シーンで学習した特化型教師ポリシー群を1つの生徒ポリシーへ蒸留する「専門家から汎用家への蒸留戦略」です。\n\n検証ではMuJoCoシミュレータと実機のUnitree G1ヒューマノイドを用いました。未知の乱雑なシーンや円柱・球体といった異なる形状の物体に対しても頑健に運搬でき、側方・頭上・床面の障害物を回避しながら目標地点へ到達できることを実証しています。",
+ "contributions_ja": [
+  "ロボット本体と把持物体それぞれに対して別個の障害物回避誘導ベクトルを生成し、協調した運搬動作を導くポテンシャル場フレームワーク「HOD-PF」を提案したこと",
+  "上半身（腕8関節）と下半身（脚12関節）の制御を分離しつつ、観測と運搬報酬を共有することで高次元な全身協調を効率的に学習するデュアルエージェント強化学習構造を構築したこと",
+  "多様な障害物シーンで事前訓練した特化型ポリシー群から1つの生徒ポリシーへ蒸留することで、未知シーンや異なる物体形状にも汎化し、実機Unitree G1へのゼロショット展開を達成したこと"
+ ],
+ "sections": [
+  {
+   "heading": "I INTRODUCTION",
+   "heading_ja": "なぜヒューマノイドの「障害物だらけの運搬」は難しいのか？",
+   "summary_ja": "人間中心の乱雑な環境での荷物運搬において、固定アームや車輪型台車、ドローンでは限界がありヒューマノイドの形態が有利です。しかし、高次元な全身制御に加えて荷物の体積や慣性が加わるため、極端な回避姿勢と把持の両立が極めて困難でした。",
+   "details_ja": "荷物を運ぶタスクは、配送や倉庫管理、家庭内支援などロボット工学の要となる問題です。従来は固定台座のアームや車輪付き移動ロボット、ドローンなどが使われてきました。しかし、固定アームは届く範囲が狭く、車輪型は段差や狭い通路に弱く、ドローンは積載重量や飛行空間の制約を受けます。\n\nこれに対してヒューマノイドは、人間サイズの接地面積で狭い隙間を通り抜け、床の障害物を跨ぎ、頭上の障害物をくぐり抜けるといった柔軟な全身動作が可能です。単一の機体で多様な環境に適応できる大きなメリットがあります。\n\nところが、障害物が密集した環境でのヒューマノイドによる運搬はこれまで十分に研究されていませんでした。なぜかというと、移動と操作を同時に行う「ロコマニピュレーション」はただでさえアクション空間が高次元で学習が難しい上に、障害物を避けるために極端にかがんだり身体をひねったりする非標準的な姿勢を取らざるを得ないからです。さらに重く大きな荷物を抱えると、ロボット自身の重心が崩れやすくなるだけでなく、荷物自体が新たな衝突物体となって通過できる空間が極端に狭まってしまいます。\n\nこの課題を克服するために提案されたのが、本論文の「HOTICE（Humanoid Object Transportation In Cluttered Environments）」です。幾何関係を整理したポテンシャル場誘導、上下半身のデュアルエージェント分離、そして多数の環境エキスパートからの知識蒸留を組み合わせることで、実機を含む複雑環境での運搬を実現しました。",
+   "figures": []
+  },
+  {
+   "heading": "II RELATED WORK",
+   "heading_ja": "先行研究の歩み：歩行通過と物体運搬のギャップを埋める",
+   "summary_ja": "脚ロボットの狭小空間通過やヒューマノイドの荷物運搬は個別に研究されてきましたが、両者が重なる「全身を制約する乱雑環境での運搬」は未開拓でした。HOTICEは物体と本体の衝突境界を分離して扱うことで、このギャップを埋めています。",
+   "details_ja": "### II-A 乱雑環境におけるヒューマノイドの歩行通過\n狭い空間を脚ロボットで通過する研究は、モデル予測制御などの古典的計画から強化学習へと発展してきました。最近ではヒューマノイドでもパルクール動作や不整地歩行、接触を伴う通過などが実現されています。特に先行研究のHumanoidPFでは、人工ポテンシャル場をロボットの各キーポイントで参照することで、頭上・足元・側方の障害物を避けて歩行することに成功しました。しかしこれらは「荷物を持っていないロボット自身」だけを対象にしており、荷物によって衝突判定が外側に大きく拡張され、バランスが著しく崩れる状況には対応できませんでした。\n\n### II-B ヒューマノイドによる物体運搬\nヒューマノイドの物体運搬は、軌道計画ベースの手法から学習ベースへとシフトし、荷物の重さやサイズの変動に対する頑健性、大荷物の抱え込み運搬などが達成されてきました。最近ではカメラ等の外界センサを統合して不整地を歩いたり視覚誘導で運んだりする例も増えています。しかし既存研究の多くは、平坦で開けた環境や、まばらに障害物がある程度の空間を想定しており、「避けて大回りして歩けば済む」設定がほとんどでした。現実の人間の生活空間のように、上からも横からも下からも障害物が迫り、ロボットと荷物が一体となってギリギリの隙間をすり抜けなければならない過酷な環境を扱った研究は不足していました。",
+   "figures": []
+  },
+  {
+   "heading": "III PROBLEM STATEMENT",
+   "heading_ja": "タスク設定：3方向から迫る障害物を抜けて荷物をゴールへ",
+   "summary_ja": "側方・頭上・床面の障害物が混在する環境において、物体を把持したヒューマノイドがスタート地点からゴールまで衝突も落下も転倒もせずに運搬するタスクを定義しています。直方体ボックスを基本としつつ、様々な形状への汎化も検証します。",
+   "details_ja": "本研究で扱う問題設定は次の通りです。ヒューマノイドは、側方障害物（壁や家具など）、床面障害物（バーや段差）、頭上障害物（垂れ下がった梁など）が混在する乱雑な環境に置かれます。\n\nロボットは初期位置 $\\mathbf{s} \\in \\mathbb{R}^{3}$ において、すでに対象物体 $\\mathscr{O}$ を把持した状態からスタートし、障害物群 $\\mathscr{C}$ に衝突することなく目標位置 $\\mathbf{g} \\in \\mathbb{R}^{3}$ まで運搬しなければなりません。運搬対象の物体 $\\mathscr{O}$ は主に直方体の箱を想定していますが、後述の実験のように円柱や球体にも適用可能です。なお、本研究の主眼は運搬中の全身協調と衝突回避にあるため、タスク開始時は物体を把持した状態を前提としていますが、完全なパイプラインを組むために台から物体を持ち上げるピックアップポリシーも別途学習させています。\n\nタスクの成功条件は非常に厳密です。ロボット自身または荷物のいずれかが障害物に一度でも衝突した場合、荷物を落とした場合、あるいはロボットが転倒した場合はすべて失敗と判定されます。荷物を保持したままロボットが目標位置 $\\mathbf{g}$ の許容範囲内に到達して初めて成功となります。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "問題設定と手法の全体図です。ロボットは上・下・横が塞がれた隙間を、荷物を抱えながら通り抜ける必要があります。",
+     "caption": "Fig. 2: Method Overview. HOTICE is composed of three main components. Humanoid-Object Decoupled Potential Fields (top left) : a Standard Guidance Field guides the robot’s head, pelvis, and feet, while an Object-Centric Guidance Field guides the carried object and the robot’s hands. Dual-Agent Learning Architecture (top right) : the whole-body control is split between an upper-body actor-critic and a lower-body actor-critic, each with its own body-specific reward set, but remain coordinated via unified state observations and shared whole-body rewards. …",
+     "image": "details/2609.25363/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV METHOD",
+   "heading_ja": "HOTICEのコア技術：分離ポテンシャル場・上下半身分離・蒸留",
+   "summary_ja": "HOTICEは、物体用と本体用で分けたポテンシャル場「HOD-PF」、上半身と下半身の強化学習を分担するデュアルエージェント構造、そして複数環境の特化教師から1つの汎用生徒を育てる蒸留戦略の3要素で構成されます。",
+   "details_ja": "### IV-A 分離型ヒューマノイド・物体ポテンシャル場（HOD-PF）\n従来のHumanoidPFを大幅に拡張し、ロボット本体用と物体用で2系統のポテンシャル場を構築しました。\n- **標準誘導場（SGF）**: 空間内の任意位置 $\\mathbf{x}$ に対し、目標への引力場 $\\mathbf{U}_{\\text{att}}$ と障害物からの斥力場 $\\mathbf{U}_{\\text{rep}}$ の負の勾配からベクトル場 $\\mathbf{F}_{\\text{standard}}(\\mathbf{x})$ を計算します。引力には測地線距離 $\\text{D}_{\\text{geo}}$ を、斥力には符号付き距離関数 $\\text{sdf}(\\mathbf{x})$ と影響範囲 $d_0=0.2\\,\\text{m}$ を用います。これを頭・骨盤・足先などのキーポイントでクエリし、各部位の進行方向を促す報酬を与えます。\n- **物体中心誘導場（OGF）**: 運搬物体とその手を誘導するための独立したベクトル場 $\\mathbf{F}_{\\text{object}}$ です。ここが工夫のポイントで、障害物をあらかじめマージン $m=8\\,\\text{cm}$ だけ膨張させた $\\mathscr{C}_{\\text{inflated}}$ に対して場を計算します。なぜなら、物体は関節で直接駆動できないため制御遅延やセンサノイズの影響を受けやすく、足元のように「直前で跨ぐ」ことが難しいためです。安全マージンによって、障害物に近づくかなり前から先回りして荷物を持ち上げたり傾けたりする動作が誘発されます。さらに手の報酬計算では、下半身の歩行によって生じる全体速度成分 $\\mathbf{c}$ を差し引いた残差に対してコサイン類似度を計算し、障害物回避のために腕自身が能動的に行った調整だけを正当に評価します。\n\n### IV-B デュアルエージェント学習アーキテクチャ\n全身制御の巨大なアクション空間に対処するため、行動空間を上半身（腕8関節）と下半身（脚12関節）に分割しました（腰と手首はタスク上不要と判断し除外）。\n単一のポリシーで無理に解くのではなく、2つの独立したActor-Criticを用意します。両エージェントは同じ観測状態を読み込み、同じ終了判定を共有しますが、行動はそれぞれ $\\mathbf{a}_{\\text{up}} \\in \\mathbb{R}^8$ と $\\mathbf{a}_{\\text{low}} \\in \\mathbb{R}^{12}$ を出力し、結合されて20次元のトルク指令になります。報酬も「歩行・バランス用の下半身報酬」「把持維持用の上半身報酬」「荷物の持ち上げやHOD-PF誘導のような共有報酬」に綺麗に仕分けられています。これにより、歩行と把持の勾配が互いに干渉して学習が崩壊するのを防いでいます。\n\n### IV-C 専門家から汎用家への蒸留（Specialist-to-Generalist）\n環境ごとに異なる報酬チューニングを行うことなく、手続き型生成シーンや実環境スキャンデータ（3D-FRONT）を用いた多様な個別シーンで特化型の特権教師ポリシーを並列学習させます。その後、DAggerと追加のPPOを用いて、センサノイズや制御遅延を加えた1つの汎用生徒ポリシーに蒸留します。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "標準誘導場（SGF、青矢印）と物体中心誘導場（OGF、橙矢印）の比較です。障害物をあらかじめ8cm膨張させて計算したOGFは、物体に対してより手前から、より大きな回避スペース（頭上・側方のクリアランス）を確保するよう指示を出します。",
+     "caption": "Fig. 3: Humanoid-Object Decoupled Potential Fields. The Object-Centric Guidance Field (OGF) provides earlier collision-avoidance signals and affords the robot more headroom than the Standard Guidance Field (SGF).",
+     "image": "details/2609.25363/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V EXPERIMENTS",
+   "heading_ja": "実験結果：圧倒的なシミュレーション性能と実機G1での走破性",
+   "summary_ja": "シミュレーションの20環境においてベースラインを大きく突き放す成功率を記録し、50の未知環境や円柱・球体の運搬にも汎化しました。実機Unitree G1でも側方・頭上・床面の障害物を回避しながら箱を落とさず運搬することに成功しました。",
+   "details_ja": "### V-A シミュレーション実験\nMuJoCo Playground環境を用い、最大3.5 kg、最大40 cm四方の箱を対象に評価しました。比較対象として、(1) 物体専用のOGFを省き全体にSGFを適用したモデル（SGFのみ）、(2) 上下半身を分割しない単一エージェントモデル、(3) その両方を省いたモデルの3つを用意しました。20シーン・各1,000回のロールアウト（計20,000試行）を実施したところ、提案手法HOTICEは競合を大幅に上回る成功率（SR）と目標到達距離（mDist）を記録しました。SGFのみでは物体が障害物に接触しやすく、単一エージェントでは跨ぎ動作などで転倒が多発したのに対し、HOTICEはスムーズに身体を低くしたり箱を持ち上げたりして通過しました。\n\nさらに、75シーンの教師から蒸留したポリシーを50の完全未知シーンでテストしたところ、平均成功率80.1%（最低でも約70%）、平均残差距離0.27 mという高い汎化性能を示しました。また、直方体だけでなく円柱や球体に対しても、物体のキーポイント配置を8点定義し直すだけの最小限の変更で、直方体と同等の高水準な成功率を達成しました。\n\n### V-B 実機実験（Unitree G1）\n実機のUnitree G1ヒューマノイドに本ポリシーをゼロショット展開しました。環境のSLAM地図とロボットの自己位置、および箱に貼ったAprilTagによる箱位置推定をもとにリアルタイムでHOD-PFベクトルを計算し、50 Hzで制御を行いました。側方、頭上、床面（転がしたパイプ）の3タイプの障害物に対して各6試行を実施した結果、側方障害物では6/6（100%）、頭上および床面では5/6（83.3%）の成功率を収めました。SGFのみでは箱が横の壁にぶつかり、単一エージェントでは床のパイプを跨ぐ際にバランスを崩して転倒したのに対し、HOTICEは実環境でも極めて安定した回避運搬を披露しました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "シミュレーションにおける定性評価です。(A) SGFのみだと箱を壁に擦り、単一エージェントだと段差でバランスを崩しますが、HOTICE（Ours）は綺麗にクリアします。(B) 手続き生成シーンやリアルな室内家具環境でも追加調整なしに適応しています。",
+     "caption": "Fig. 4: Qualitative Results in Simulation. (A) - left comparison – The proposed decoupled potential fields enable HOTICE to more reliably avoid collisions during object transportation. (A) - right comparison – Our method is capable of maintaining the robot’s balance and stability under challenging obstacle conditions thanks to the dual-agent architecture. (B) – Our method effectively handles a wide variety of challenging procedurally generated scenes (upper row) and realistic indoor scenes (lower row) , without any scene-specific reward tuning.",
+     "image": "details/2609.25363/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "50の未知シーンに対する汎化評価です。学習環境との幾何的類似度（横軸）が下がるにつれて成功率は穏やかに低下しますが、平均80.1%と高い性能を維持しています。",
+     "caption": "Fig. 5: Results on Unseen Scenes. We evaluate our generalist policy on 50 unseen scenes in simulation and plot (A) success rate and (B) mean distance to goal against similarity to the training set. Least-squares fits (shaded by $\\pm$ RMSE) indicate a graceful degradation in both metrics with increasing novelty, while our method still maintains strong average performance.",
+     "image": "details/2609.25363/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "円柱や球体など異なる形状の物体を運搬する様子です。キーポイントを8箇所設定するだけで、ポリシー構造を変えずに同様の障害物回避運搬が可能です。",
+     "caption": "Fig. 6: Results on Other Objects. HOTICE is also generalizable to cylinder (left) and sphere object shapes (right) with only minimal shape-specific reward tuning.",
+     "image": "details/2609.25363/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "実機Unitree G1での実験の様子です。上段の提案手法は椅子や頭上障害物、床のパイプを難なく回避していますが、比較ベースライン（中段・下段）では衝突や跨ぎ動作時の転倒が発生しています。",
+     "caption": "Fig. 7: Real-World Qualitative Results. HOTICE performs effectively across different types of obstacles, whereas the SGF-only policy is more prone to collisions, and the single-agent policy underperforms on challenging motions such as hurdling over the ground obstacle.",
+     "image": "details/2609.25363/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI DISCUSSION AND LIMITATIONS",
+   "heading_ja": "考察と今後の課題：接触の活用や動的環境への対応",
+   "summary_ja": "高い衝突回避性能を示した一方で、衝突してしまった後の復帰機構、肩に担ぐような多様な把持スタイル、動く障害物への対応、そして壁に身体を預けるような「許容される接触」の活用などが今後の課題として挙げられています。",
+   "details_ja": "HOTICEは優れた成果を収めましたが、著者らはいくつかの明確な限界と将来の発展性を挙げています。\n\n- **衝突後のリカバリー**: 本手法は「ぶつからないこと」を前提に最適化されているため、一度大きな外乱を伴う衝突が起きると、姿勢を立て直せずに転倒してしまいます。\n- **把持形態のバリエーション**: 今回のポリシーは両手で体の前に抱えるスタイルに限定されています。荷物を肩に担いだり、腰に密着させて抱え込んだりといった、人間が日常的に行うより柔軟で高度なマニピュレーション戦略はまだ獲得できていません。\n- **動的障害物への対応**: 本研究では静的な障害物のみを扱っています。人間や他のロボットが行き交う動的なオープンワールド環境への拡張が必要です。\n- **積極的・許容可能な接触の利用**: すべての接触をゼロにするだけでなく、狭い隙間で壁に体を預けて擦り抜けたり、ビーズクッションのような柔らかい物体を押し退けたり、足や背中でドアや小物を押して道を作るといった「接触を活用した運搬」の探求が興味深い次のステップとして示唆されています。",
+   "figures": []
+  },
+  {
+   "heading": "VII CONCLUSION",
+   "heading_ja": "結び：実用的なヒューマノイド運搬に向けて",
+   "summary_ja": "HOTICEは、物体と本体を分離したポテンシャル場、上下半身のデュアルエージェント構造、教師生徒蒸留を組み合わせることで、過酷な乱雑環境での物体運搬を可能にしました。今後の全身ロコマニピュレーション研究の強固な基盤となる成果です。",
+   "details_ja": "本論文では、床面・側方・頭上の障害物が密集する極限の環境において、ヒューマノイドが荷物を安全に目的地へ運ぶための全身学習フレームワークHOTICEを提案しました。\n\n幾何学的関係を反映した分離型ポテンシャル場（HOD-PF）によって物体に先回りの回避動作を与え、上下半身を分けたデュアルエージェント学習によって高次元制御の破綻を防ぎ、多数の教師から汎用生徒へと蒸留することで高い汎化性と実機展開能力を実現しました。シミュレーションと実機Unitree G1の両方で実証されたこのアプローチは、将来の物流や家庭内支援など、実世界で人と共に働くヒューマノイドの実現に向けた大きな一歩です。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "ロボットと荷物でポテンシャル場を分離し、荷物側にあらかじめ安全マージン（8cm）を持たせることで、重い物体の「先回りした回避・持ち上げ動作」を自然に引き出せる",
+  "全身ロコマニピュレーションでは、上半身（腕）と下半身（脚）でエージェントを分割しつつ観測と一部の運搬報酬を共有するデュアルエージェント設計が、勾配の競合を防ぐ上で極めて有効である",
+  "物体のキーポイントを8点に統一することで、直方体・円柱・球体といった異なる形状に対してもネットワーク構造を変えずにそのまま適用できる",
+  "多数の乱雑シーンで学習した特化型教師ポリシーからのDAgger蒸留により、単一の生徒ポリシーで未知環境への高い汎化と実機ゼロショット転移が可能になる"
+ ],
+ "limitations_ja": [
+  "衝突を完全に回避する設計のため、予期せぬ強い接触が起きた際の転倒復帰（ポストコリジョン制御）が考慮されていない",
+  "荷物を体の前で抱えるスタイルに固定されており、肩に担いだり腰に乗せたりするような多彩な把持バリエーションには対応していない",
+  "動的な歩行者や動く障害物への対応、および柔らかい障害物を押し退けて進むような接触許容型の運搬は未実装である"
+ ],
+ "keywords": [
+  "Humanoid Loco-Manipulation",
+  "Whole-Body Control",
+  "Cluttered Environments",
+  "Artificial Potential Fields",
+  "Dual-Agent Reinforcement Learning",
+  "Sim-to-Real Transfer"
+ ],
+ "id": "2609.25363",
+ "title": "HOTICE: Whole-Body Humanoid Object Transportation in Cluttered Environments",
+ "authors": [
+  "Toan Nguyen",
+  "Weiduo Yuan",
+  "Siheng Zhao",
+  "Yue Wang",
+  "Daniel Seita"
+ ],
+ "date": "2026-09-23",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "locomotion",
+  "manipulation",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.25363",
+ "pdf_url": "https://arxiv.org/pdf/2609.25363",
+ "summary_ja": "障害物で狭小化した環境下でヒューマノイドが物体を運搬するための全身移動マニピュレーション学習フレームワーク。ロボットと物体の双方に衝突回避を促す分離型ポテンシャル場と、全身の広大な行動空間を扱うデュアルエージェント強化学習を導入し、協調的かつ衝突のない運搬動作を実現した。",
+ "generated": "2026-09-23",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.25363"
+}
