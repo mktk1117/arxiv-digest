@@ -1,6 +1,299 @@
 {
  "entries": [
   {
+   "date": "2026-09-24",
+   "rank": 0,
+   "id": "2609.28378",
+   "group": "focus",
+   "title": "ForgetMimic: Motion Unlearning for Reinforcement Learning Humanoid Control",
+   "title_ja": "ForgetMimic: 強化学習ヒューマノイド制御のための運動アンラーニング",
+   "summary_ja": "強化学習によるヒューマノイド制御において、安全性や著作権保護の観点から特定の望ましくない動作を方策から消去するアンラーニング手法ForgetMimicを提案。忘却対象の動作を抑止しつつ、他の俊敏で自然な全身運動性能を維持することを実証した。",
+   "authors": [
+    "Xukun Luan",
+    "Zhongxiang Lei",
+    "Chen Gong",
+    "Shaowei Li",
+    "Yuanguo Bi",
+    "Jinyan Liu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CR",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "reinforcement-learning",
+    "control",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.28378",
+   "image": "figures/2026-09-24/2609.28378.jpg"
+  },
+  {
+   "date": "2026-09-24",
+   "rank": 1,
+   "id": "2609.25687",
+   "group": "focus",
+   "title": "SG-CPG: Severity-Gated Central Pattern Generators for Adaptive Quadruped Locomotion under Continuous Actuator Degradation",
+   "title_ja": "SG-CPG: 連続的なアクチュエータ劣化下における四足歩行のための重要度ゲート付き中枢パターン生成器",
+   "summary_ja": "アクチュエータの連続的な劣化や損傷下でも適応的に歩行を継続するCPGフレームワークSG-CPGを提案。健全時のCPGを固定し、損傷度に応じて脚間を再協調させる残差ゲートと弱った脚の振幅を縮小する振幅ゲートにより、離散的切替を伴わずに歩行を維持する。",
+   "authors": [
+    "Adarsh Kumar Kosta",
+    "Kaushik Roy"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.25687",
+   "image": "figures/2026-09-24/2609.25687.jpg"
+  },
+  {
+   "date": "2026-09-24",
+   "rank": 2,
+   "id": "2609.27547",
+   "group": "focus",
+   "title": "EBRL: Asynchronous Embodied RL by Multi-Grained Resource Management",
+   "title_ja": "EBRL: 多粒度リソース管理による非同期エンボディド強化学習基盤",
+   "summary_ja": "エンボディド強化学習において、環境シミュレーション、方策生成、モデル更新の計算資源の不均衡を解消する非同期学習基盤EBRLを開発。環境グループ間でロールアウトと訓練をパイプライン化して重複実行し、GPUの待機時間を大幅に削減して学習スループットを向上させた。",
+   "authors": [
+    "Liang Mi",
+    "Weijun Wang",
+    "Bowen Gao",
+    "Tianze Yu",
+    "Zixu Hao",
+    "Han Xiao",
+    "Xin Ding",
+    "Mingzhe Huang",
+    "Xin He",
+    "Lu Shi",
+    "Hao Wu",
+    "Haipeng Dai",
+    "Guihai Chen",
+    "Yunxin Liu",
+    "Ting Cao"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.DC"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.27547",
+   "image": "figures/2026-09-24/2609.27547.jpg"
+  },
+  {
+   "date": "2026-09-24",
+   "rank": 3,
+   "id": "2609.26520",
+   "group": "focus",
+   "title": "MATE: Multi-Agent Virtual Teleoperation Platform for Humanoid Collaboration Data Collection",
+   "title_ja": "MATE: ヒューマノイド協調データ収集のためのマルチエージェント仮想遠隔操作プラットフォーム",
+   "summary_ja": "複数ヒューマノイドの協調動作データを収集するための仮想遠隔操作プラットフォームMATEを提案。分散した複数の操作者が同一の物理シミュレーション環境内で全身ヒューマノイドを同時に遠隔操作できるようにし、実機環境のコストやリセット負担を解消した。",
+   "authors": [
+    "Yichuan Yu",
+    "Youzhuo Wang",
+    "Yiming Ren",
+    "Di Feng",
+    "Yexuan Yang",
+    "Bingxi Yang",
+    "Shengxiao Gong",
+    "Yujing Sun",
+    "Yuexin Ma"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "simulation",
+    "teleoperation",
+    "multi-robot"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.26520",
+   "image": "figures/2026-09-24/2609.26520.jpg"
+  },
+  {
+   "date": "2026-09-24",
+   "rank": 4,
+   "id": "2609.25969",
+   "group": "focus",
+   "title": "Predict Before You Step: Auditable Occupancy Forecasting for Dynamic Obstacle Avoidance under Sparse Guidance",
+   "title_ja": "Predict Before You Step: 疎な誘導下での動的障害物回避に向けた監査可能な占有予測",
+   "summary_ja": "脚ロボットが疎なウェイポイント誘導下で動的障害物を回避する局所回避方策LOOPを提案。過去の占有グリッドと自己速度から1秒先までの占有状態を予測し、50Hzで動作する固定の歩行制御器に適切な速度指令を出力してIsaac Lab上で高い回避性能を示した。",
+   "authors": [
+    "Yuhui Mao",
+    "Fen Liu",
+    "Shenghai Yuan",
+    "Tianxin Hu",
+    "Ruimeng Liu",
+    "Rong Su"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "planning",
+    "perception",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.25969",
+   "image": "figures/2026-09-24/2609.25969.jpg"
+  },
+  {
+   "date": "2026-09-24",
+   "rank": 5,
+   "id": "2609.28258",
+   "group": "general",
+   "title": "Generalizable Robotic Insertion with World Models",
+   "title_ja": "世界モデルを用いた汎用的なロボット嵌合タスクの実現",
+   "summary_ja": "手先カメラ画像と固有受容感覚を統合する世界モデルを学習させ、多様な幾何学形状の部品に対するロボット嵌合タスクを汎用化する枠組みを提案。最大90種の挿入タスクで訓練した単一の世界モデルにより、未知形状の対象物に対して56%のゼロショット成功率を達成した。",
+   "authors": [
+    "Nicklas Hansen",
+    "Iretiayo Akinola",
+    "Yijie Guo",
+    "Jie Xu",
+    "Bingjie Tang",
+    "Hao Su",
+    "Xiaolong Wang",
+    "Abhishek Gupta",
+    "Dieter Fox",
+    "Yashraj Narang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "manipulation",
+    "world-model",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.28258",
+   "image": "figures/2026-09-24/2609.28258.jpg"
+  },
+  {
+   "date": "2026-09-24",
+   "rank": 6,
+   "id": "2609.26795",
+   "group": "general",
+   "title": "\\phi-RIE: From Photorealistic Reconstruction to Interactive Environments",
+   "title_ja": "phi-RIE: フォトリアルな再構成から対話可能な物理シミュレータ環境へ",
+   "summary_ja": "3D Gaussian Splatting（3DGS）で復元したフォトリアルな静止シーンから、指定した物体を物理シミュレータ上で干渉可能な可動アセットに変換するパイプラインを提案。遮蔽領域の補完と背景分離を解くことで、ロボットの対話的な環境構築を自動化した。",
+   "authors": [
+    "Runyi Yang",
+    "Deheng Zhang",
+    "Xiaoye Wang",
+    "Kanzhi Wu",
+    "Lei Sun",
+    "Ajad Chhatkuli",
+    "Kunyu Peng",
+    "Luc Van Gool",
+    "Danda Pani Paudel"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV",
+    "cs.GR"
+   ],
+   "tags": [
+    "simulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.26795",
+   "image": "figures/2026-09-24/2609.26795.jpg"
+  },
+  {
+   "date": "2026-09-24",
+   "rank": 7,
+   "id": "2609.25696",
+   "group": "general",
+   "title": "The Cartesian Hand: In-Hand Manipulation with All-Linear Fingers",
+   "title_ja": "The Cartesian Hand: 全軸直動指によるインハンドマニピュレーション",
+   "summary_ja": "7自由度を持ち、すべて直動関節の指で構成された新しいロボットハンドThe Cartesian Handを開発。従来の多関節ハンドの複雑さを排しつつ、独立した把持と指間の相対直線運動を組み合わせることで、単一エンドエフェクタのみでのねじ蓋開けなど高度な手先操作を実現した。",
+   "authors": [
+    "Boxi Xia",
+    "Bokuan Li",
+    "Ryan Shin",
+    "Zijiang Yang",
+    "Jiaxun Liu",
+    "Boyuan Chen"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "manipulation",
+    "grasping"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.25696",
+   "image": "figures/2026-09-24/2609.25696.jpg"
+  },
+  {
+   "date": "2026-09-24",
+   "rank": 8,
+   "id": "2609.26467",
+   "group": "general",
+   "title": "RouteRLT: Learning When and Which RL Specialist Should Control a Vision-Language-Action Policy",
+   "title_ja": "RouteRLT: VLA方策をどの強化学習専門方策にいつ委譲すべきかの学習",
+   "summary_ja": "汎用的なVLAモデルに対し、コネクタ挿入など精密接触が必要な高難度局面でのみ特化型強化学習（RL）方策へ制御を切り替えるルーティング手法RouteRLTを提案。大局的なタスク汎化性を損なうことなく、精密操作フェーズの成功率を向上させた。",
+   "authors": [
+    "Chongyu Zhu",
+    "Jaden Hinds",
+    "Hyegang Kim",
+    "Juan Sebastian Rojas",
+    "Ramy Elmallah",
+    "Chi-Guhn Lee"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "reinforcement-learning",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.26467",
+   "image": "figures/2026-09-24/2609.26467.jpg"
+  },
+  {
+   "date": "2026-09-24",
+   "rank": 9,
+   "id": "2609.28364",
+   "group": "general",
+   "title": "LEAP-CBF: A Safety Filter for Uncertain Systems with Least-Effort Adversarial Potentials",
+   "title_ja": "LEAP-CBF: 最小努力敵対的ポテンシャルに基づく不確実システム向けセーフティフィルタ",
+   "summary_ja": "外乱や不確実性を伴う非線形制御システムにおいて、システムの破綻に必要な外乱の最小努力を定量化するLEAPに基づく制御バリア関数（CBF）フィルタを提案。過度な保守性を抑えながら、入力制約下でも厳密な安全保証を提供する。",
+   "authors": [
+    "Oswin So",
+    "Eric Yu",
+    "Chuchu Fan"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG",
+    "math.OC"
+   ],
+   "tags": [
+    "control",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.28364",
+   "image": "figures/2026-09-24/2609.28364.jpg"
+  },
+  {
    "date": "2026-09-23",
    "rank": 0,
    "id": "2609.25754",
