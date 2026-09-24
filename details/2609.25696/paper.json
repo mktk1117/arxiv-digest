@@ -1,0 +1,145 @@
+{
+ "title_ja": "The Cartesian Hand: 全軸直動指によるインハンドマニピュレーション",
+ "tldr_ja": "多関節の人間型ハンドや複雑なベルト機構を使わずに、7つの「直動関節」だけで把持と物体パーツ間の相対運動を可能にしたエンドエフェクタ「Cartesian Hand」を開発しました。ネジ回しやピペッティング、プライヤー操作など、35種類の道具や容器のインハンド操作をシンプルかつ高精度に実現しています。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "Cartesian Hand の全体構成と機構モデルです。上下2段に独立駆動する平行グリッパーが重なっており、さらに各指先が前後へ直動スライドする合計7自由度の直交リンク機構になっています。",
+  "caption": "Fig. 2: Cartesian hand with two stacked, identical parallel-jaw grippers, each with 2 sliding fingers. Green labels indicate the two actuated parallel grippers: L0 lower level (base) gripper, L1 upper level (auxiliary) gripper which can slide vertically relative to the base level gripper. Orange numbers indicate actuated fingertips: ( $P_{1}$ ) lower left fingertip, ( $P_{2}$ ) lower right fingertip, ( $P_{3}$ ) upper left fingertip, ( $P_{4}$ ) upper right fingertip. (a) Top view, (b) Isometric view, (c) side view, (d) joint kinematics. Dimensions in (a) and (c) are in mm.",
+  "image": "details/2609.25696/F2.jpg"
+ },
+ "overview_ja": "ロボットに道具や容器を扱わせようとすると、人間のような多指多関節ハンドは制御や機構が複雑すぎ、一方でシンプルな平行グリッパーでは掴んだ後の微調整やパーツ同士を動かす操作ができません。フタを回す、注射器を引く、プライヤーを握るといった日常の作業では、別の手で本体を支えるか、環境に押し付けて無理やり動かす必要がありました。\n\nそこで著者らは発想を転換しました。「そもそも道具側があらかじめ運動の自由度（ネジや軸、ピストンなど）を拘束してくれているのだから、ハンド側は直交する直線運動だけで十分ではないか」という着想です。開発された「Cartesian Hand」は、上下2段に積層された平行グリッパーと、前後方向にスライドする4つの指先、そして上下グリッパー間の間隔を伸縮させる軸を備えた、合計7自由度の全直動エンドエフェクタです。関節がすべて直動（直交軸）のため、指先位置と関節変位の関係式が常に一定で、特異点や非線形な逆運動学の計算に悩まされることがありません。\n\n検証では、実験室の器具、製造現場の工具、日用品など合計35種類の物体を対象に、ネジ開閉、シリンジ吸引、ピペット操作、ハサミやプライヤーの開閉、トリガー操作などを実施しました。各物体10回、計350回の試行すべてに成功し、さらに人間型ロボットの両手に搭載してチューブのフタを開けながらピペットで液体を分注する協調作業まで実証しました。複雑な指の関節を模倣しなくても、適切な直動の組み合わせで高度なインハンド操作が実現できることを鮮やかに示しています。",
+ "contributions_ja": [
+  "上下2段の平行グリッパーと4つの独立スライド指先、上下間隔調整を組み合わせ、すべて直動関節で構成された7自由度エンドエフェクタ「Cartesian Hand」を開発した点",
+  "ヤコビ行列が常に一定（特異点なし）という機構的特徴を活かし、複雑な軌道最適化なしに再利用できる直線運動プリミティブ群を体系化した点",
+  "実験室・工具・日用品にまたがる35種類の関節物体に対して、合計350試行のインハンド操作を100%の成功率で達成した点",
+  "同一のハードウェアと動作プリミティブを固定アーム（Franka）からヒューマノイドロボットへそのまま移植し、両手協調によるバイオ実験操作まで実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜ今、多関節ハンドではなく「直動」なのか？",
+   "summary_ja": "ロボットが人間向けの道具を扱うには把持後のパーツ間相対運動が不可欠ですが、従来の多指ハンドは制御が複雑で、平行グリッパーでは単体での操作が困難でした。本論文では、7つの直動関節のみで2箇所の独立把持と相対運動を生み出す「Cartesian Hand」を提案し、道具側の幾何学的拘束を活かしてシンプルな直線動作だけで多彩なインハンド操作を実現します。",
+   "details_ja": "ロボットが人間社会に入り込んで作業するとき、ただ物を持ち上げる「ピック＆プレイス」だけでは足りません。ボトルのキャップを回す、注射器のピストンを引く、プライヤーを握り込むといった作業は、物体をしっかり掴みつつ、その物体を構成するパーツ同士を相対的に動かす必要があるからです。\n\nこれまでこの問題には大きく分けて2つのアプローチがありました。1つは人間の手を模した多指多関節ロボットハンドです。器用な動きができる一方で、関節が多すぎて運動学が現在の姿勢に強く依存し、指同士の接触の調整や学習・制御の難易度が跳ね上がってしまいます。もう1つは、平行グリッパーの指先に駆動ベルトやローラーを仕込むアプローチです。単一物体の回転には便利ですが、2つのパーツを別々に掴んで相対運動させる作業には向きません。結局、もう1本のロボットアームで支えるか、治具や作業台に押し当てる必要がありました。\n\nそこで著者らは、「直動（並進）自由度だけで2箇所の独立把持と相対運動を完結させる」という新しいアプローチを提案しました。ネジは回転すると直進し、シリンジは直線に動き、プライヤーは1つの軸周りにしか回りません。つまり、操作対象となる道具や容器の多くは、パーツ間の動きが最初から機構的に拘束されています。そのため、ハンド側が複雑な指の曲げ伸ばしを真似しなくても、シンプルな直線運動の組み合わせだけで十分に操作できるのです。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "器用なハンド研究の系譜とCartesian Handの立ち位置",
+   "summary_ja": "器用なインハンド操作の研究は、多関節多指ハンド、接触面にベルトやローラーを仕込んだ機能拡張グリッパー、外力や環境接触を利用する手法に大別されます。Cartesian Handは、受動的な指先のまま直動配置を工夫することで、単一ハンド内での「2点独立把持と相対運動」という独自の強みを持っています。",
+   "details_ja": "本章では、関連する先行研究との違いが分かりやすく整理されています。\n\n- 多指多関節ロボットハンドの系譜：\n人間のような多関節の指を持ち、近年は模倣学習や大規模基盤モデル（VLAなど）と組み合わせることで柔軟な動作が実証されています。しかし、機構と制御の複雑さは依然として高く、実用上の大きな壁になっています。Cartesian Handは、あえて多関節を捨てて直交配置の直動関節だけに絞ることで、制御を根本からシンプルにしています。\n\n- 接触面を拡張したグリッパー：\nBACHやBOPのように、指先にアクティブな無限軌道ベルトやローラーを組み込んで、掴んだ物体を回転・並進させる研究があります。これらは単一の剛体を握り直すのには優れていますが、接触面自体のメカニズムが複雑になりがちです。対してCartesian Handは指先表面自体は普通の受動素材（摩擦テープ）のままで、指先そのものをスライドさせる構造をとっています。\n\n- 関節物体の操作と外部環境の利用：\n道具などの関節物体を扱う研究では、環境との接触や重力、あるいは双腕での協調動作に頼る「外部の器用さ（extrinsic dexterity）」が多く使われてきました。Cartesian Handは、ハンド単体で物体の2箇所を独立して掴み、そのパーツ間に直接相対運動を起こせるため、外部の治具やもう1本のアームに頼る必要を劇的に減らしています。",
+   "figures": []
+  },
+  {
+   "heading": "III Mechanical Design and Kinematics",
+   "heading_ja": "7自由度の全直動メカニズムと美しい運動学",
+   "summary_ja": "ハンドは上下2段の平行グリッパー（開閉2DoF）、各グリッパーの独立スライド指先（4DoF）、上下間隔調整（1DoF）の計7自由度で構成されます。すべて直動関節のためヤコビ行列が定数となり特異点が存在せず、簡単な直線運動プリミティブを組み合わせるだけで回転や引き抜きなどの高度な操作が実現できます。",
+   "details_ja": "### 直動にこだわったメカニカル設計\nCartesian Handの構造は非常に合理的です。基本となるのは、上下に重なった2台の平行開閉グリッパー（ベースグリッパーと補助グリッパー）です。\n\n自由度の内訳は以下の7つです：\n- 下段（ベース）グリッパーの開閉（$q_0$: y軸方向、ストローク52 mm）\n- 下段の左右指先スライド（$q_1, q_2$: x軸方向、ストローク各65 mm）\n- 上下グリッパー間の距離調整（$q_3$: z軸方向、ストローク52 mm）\n- 上段（補助）グリッパーの開閉（$q_4$: y軸方向、ストローク52 mm）\n- 上段の左右指先スライド（$q_5, q_6$: x軸方向、ストローク各65 mm）\n\n駆動には市販の安価なサーボモータ（Feetech-3915、ストールトルク1.39 N・m）を7個使い、ラック・アンド・ピニオンとアリ溝レールで直動に変換しています。指先の理論上の押し引き力は最大約170 Nに達し、片方のグリッパーだけで2 kgのボトルを楽々保持できます。重量は850 g、サイズは閉じた状態で $166 \\times 100 \\times 76$ mm とコンパクトです。3Dプリンタ（PLAまたはナイロンSLS）で簡単に製作でき、部品代はサーボやマイコンを含めても約500ドル、印刷後の組み立てはわずか2時間ほどで完了します。\n\n### 姿勢によらない不変の運動学\n多関節ハンドと決定的に違うのが運動学です。関節角ベクトルを $\\mathbf{q} \\in \\mathbb{R}^7$、4つの指先基準点の3次元位置を束ねたベクトルを $\\mathbf{p} \\in \\mathbb{R}^{12}$ と置くと、その関係は $\\mathbf{p} = \\mathbf{J}\\mathbf{q}$ という単純な線形変換で表されます。驚くべきことに、このヤコビ行列 $\\mathbf{J} \\in \\mathbb{R}^{12 \\times 7}$ はワークスペース全体で完全に「定数」です。関節の位置や手の開き具合によって変化しません。列フルランク（$\\operatorname{rank}(\\mathbf{J}) = 7$）を常に維持するため、特異点に引っかかる心配がゼロです。指先の可動域も完全な直方体（軸に沿ったボックス）になります。\n\n### 動作プリミティブの体系化\n7つの関節がそれぞれ「停止」または「移動」の2状態を取るとすると $2^7 = 128$ 通りになりますが、左右対称性や協調動作を考慮すると、わずか5つの基本プリミティブと6つの合成プリミティブ（計11種類）に集約できます。例えば、指先を互い違いに逆方向へスライドさせれば接触面の物体を回転させる「ツイスト」になり、下段で本体を掴んで上段を上下に動かせば「引き抜き・押し込み」になります。指先ストローク長（65 mm）を超える大角度の回転も、「掴んでひねる → 離して元の位置に戻る → 再び掴んでひねる」というサイクルを繰り返すことで、何周でもキャップを回すことができます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "Cartesian HandのCAD外観と幾何学的配置です。(a)上面図、(b)等角投影図、(c)側面図、(d)リンク構造モデルを示しており、下段（L0）と上段（L1）の2組のグリッパーが重なっている構造がよく分かります。",
+     "caption": "Fig. 2: Cartesian hand with two stacked, identical parallel-jaw grippers, each with 2 sliding fingers. Green labels indicate the two actuated parallel grippers: L0 lower level (base) gripper, L1 upper level (auxiliary) gripper which can slide vertically relative to the base level gripper. Orange numbers indicate actuated fingertips: ( $P_{1}$ ) lower left fingertip, ( $P_{2}$ ) lower right fingertip, ( $P_{3}$ ) upper left fingertip, ( $P_{4}$ ) upper right fingertip. (a) Top view, (b) Isometric view, (c) side view, (d) joint kinematics. Dimensions in (a) and (c) are in mm.",
+     "image": "details/2609.25696/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "各指先の到達可能ワークスペースを示した図です。直動関節だけで構成されているため、可動域は複雑な曲面にならず、オレンジ（下段）と青（上段）で示される直方体の領域として明確に定義されます。",
+     "caption": "Fig. 3: Linear joints make each finger’s reachable workspace an axis-aligned box. The hand at its two end configurations, (a) minimum configuration, and (b) maximum configuration. The workspace of the base gripper is colored orange, and the workspace of the auxiliary gripper is colored blue. The two regions of a gripper meet on the closing midplane, where the finger faces touch when shut.",
+     "image": "details/2609.25696/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "Cartesian Handで定義されたインハンド動作プリミティブの一覧です。直動軸の組み合わせによって、単なる平行移動だけでなく、物体のツイスト（回転）や押し引き、把持しながらの昇降運動などが生み出されます。",
+     "caption": "Fig. 4: In-hand primitives for the Cartesian hand. The moving components are marked with orange outlines, with arrows indicating the moving direction.",
+     "image": "details/2609.25696/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Control and Manipulation Procedures",
+   "heading_ja": "カメラ不要！接触検知とモジュール化された動作手順",
+   "summary_ja": "外部カメラによるビジュアルフィードバックは使わず、サーボモータの電流制限と速度低下による接触検知（プロプリオセプション）のみで物体サイズを自動計測して動作します。対象物の幾何パラメータを数箇所設定するだけで、同じ運動プリミティブの並びを多様な物体へ瞬時に適用できます。",
+   "details_ja": "### 接触を検知する関節制御\nCartesian Handの制御には、高価な力覚センサやカメラ画像によるフィードバックは一切使われていません。サーボモータ自身の位置・速度・負荷情報（プロプリオセプション）だけで接触を検知します。\n\n具体的には、トルク制限をかけた状態で関節を動かし、指令位置に達していないのに一定時間速度がしきい値を下回った場合を「接触」と判定します。この仕組みが極めて実用的です。例えばキャップを掴む際、グリッパーを閉じて接触した位置を記録するだけで、キャップの外径が自動的に測れます。外径が分かれば、「指定の回転角を回すために指先を何ミリ動かし、何回握り直せばよいか」がその場で計算できます。\n\n### 動作シーケンスの再利用\n作業手順は、あらかじめ定義された動作プリミティブの組み合わせとして記述されます。同じ機構を持つ物体であれば、全く同じ手順（プリミティブ列）をそのまま使い回せます。\n- ネジ構造の物体：掴む → ひねる → 離す → スライドを戻す → 再度掴む、の繰り返し\n- シリンジやピペット：下段で胴体を保持 → 上段でプランジャーを掴んで上下スライド\n- スプレーなどのトリガー：グリッパーの開閉動作そのものを引き金押しとして使用\n\n新しい物体に対応させる際も、ハンドの機構や制御コードを書き換える必要はなく、掴む高さやストローク長などのパラメータを微調整するだけです。実験では、各カテゴリの代表物体で一度手順を作ってしまえば、新しい未知の物体でも最大5回の事前テストだけで適切なパラメータを設定できました。",
+   "figures": []
+  },
+  {
+   "heading": "V Experiments",
+   "heading_ja": "35種類の物体を完全制覇！ヒューマノイドでの両手実験まで",
+   "summary_ja": "固定アーム（Franka）に取り付け、バイオ実験器具、工具、日用品の計35種類の物体に対して10回ずつ（合計350試行）の操作実験を行い、成功率100%を達成しました。さらにヒューマノイドロボットの両手に搭載し、片手でチューブを開けながらもう片手でピペットを操作する完全自律の両手実験タスクも成功させました。",
+   "details_ja": "### 実験設定（V-A）\n実験では、以下の3つの領域から合計35種類もの物体を集めて評価しました。\n- 実験室器具：20 mL / 60 mLシリンジ、マイクロピペット、マルチチャンネルピペット、96ウェルプレート、ペトリ皿、試薬瓶、遠心チューブなど\n- 工作・製造工具：ガスバーナー、手動ドライバー、電動ドライバー、ハサミ、4種類の異なるプライヤー、電動ドリルなど\n- 日用品：箸、スプレーボトル、ピーナッツバター瓶、チャイルドプルーフ薬瓶、電球、点鼻薬、スティックのりなど\n\nまずはFranka Emika Pandaアームにハンドを装着し、台座から物体を持ち上げた後はアームを完全に静止させ、ハンドの直動関節の動きだけでインハンド操作を実行しました。各物体10回、計350回の試行を行いました。\n\n### 圧倒的な操作汎用性と信頼性（V-B, V-C）\n結果は驚異的で、350試行すべてにおいて途中で落としたり失敗したりすることなく、100%の成功率を記録しました。直動関節ならではのバックラッシュの少なさと特異点のない決定論的な運動学、そして接触検知による適応が、高い再現性を支えています。\n\n連続動作のデモでは、スプレーボトルの引き金を引いた後、ピペットのプランジャーを回して容量を設定してから押し込み、さらにボトルのネジキャップを指先ツイストで回して開ける、という異種タスクを一連の流れでこなしました。すべて直線運動しかしていないのに、回転から押し引きまで滑らかにこなす様子は圧巻です。\n\n### ヒューマノイドへの展開と両手協調（V-D）\n次に、ハンドをDuke Humanoid V2の両腕に搭載しました。アームの接近軌道をヒューマノイド用に変更しただけで、ハンド側の動作手順やパラメータはFrankaアームの時と全く同じものがそのまま動作しました。\n\n両手タスクとして行われたのは、バイオ実験の自動化デモです。左手のCartesian Handが50 mL遠心チューブを持ち、ハンド内部の下段で胴体を掴みつつ上段でフタを回して開封します。同時に右手のCartesian Handがマイクロピペットを握ってプランジャーを押し、開いたチューブの中に差し込んで液体を分注しました。特筆すべきは、「片方のアームがもう一方の道具を支える固定具（治具）になる必要がない」点です。それぞれのハンドが独立して物体の把持と操作を内部で完結できるため、腕の自由度を位置合わせだけに贅沢に使えるのです。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "実験で評価された35種類の物体一覧です。実験器具（上段・青枠）、工具（中段・赤枠）、日用品（下段・黒枠）に分類されており、シリンジのピストン引きからプライヤーの開閉、ボトルの開栓まで多種多様な作業を網羅しています。",
+     "caption": "Fig. 5: The object set spans 35 objects across three domains. The tested objects are grouped into laboratory, makerspace, and household categories. The set includes multiple sizes or variants of syringes, pipettes, pliers, and spray bottles. Orange arrows indicate object motion.",
+     "image": "details/2609.25696/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "Frankaアーム上で単一ハンドが3種類の異なる道具を連続操作する様子です。スプレーのトリガー操作（直進）、ピペットのプランジャー押し込み（上下並進）、ボトルキャップの開閉（回転）が、同一の指先形状のまま実行されています。",
+     "caption": "Fig. 6: A continuous sequence demonstrates manipulation along three actuation axes. Two synchronized views of the sequence on the Franka embodiment, with the workstation top view above and the front view below: the hand pulls a spray bottle’s trigger by closing its jaw, presses a pipette’s plunger with the separation actuator, and twists a threaded cap off a bottle. The fingertip geometry remains unchanged throughout, and only the procedure settings change between objects.",
+     "image": "details/2609.25696/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "Duke Humanoidの両手にCartesian Handを搭載した両手バイオ実験タスクです。左手単独でチューブのフタを開け、右手単独でピペットを操作して液体の分注を行っており、腕同士の複雑な把持干渉なしに協調作業が進みます。",
+     "caption": "Fig. 7: Two Cartesian hands transfer liquid without coordinating on a shared object. The humanoid holds a 50 mL centrifuge tube in one hand and a pipette in the other. The tube-holding hand opens the tube on its own, its base gripper clamping the body while its auxiliary gripper twists off the cap; the pipetting hand then dispenses into the open tube. Each hand operates its own object, while the arms position the tube and pipette for liquid transfer.",
+     "image": "details/2609.25696/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Conclusions, Limitations, and Future Work",
+   "heading_ja": "まとめと今後の展望：あえてシンプルにすることの価値",
+   "summary_ja": "Cartesian Handは、直動関節のみでインハンド操作と相対運動を実現する革新的なエンドエフェクタです。現状は初期位置が既知で内部機構を持つ物体に限定されるという前提がありますが、触覚や視覚フィードバックの統合によってさらなる適応性の拡大が期待されます。",
+   "details_ja": "### 研究のまとめ\n本研究は、ロボットの器用さを追求する上で「必ずしも人間の手のような複雑な多関節関節を持つ必要はない」という強烈なアンチテーゼを示しました。道具が元々持っている拘束条件をうまく利用すれば、直動関節による独立2点把持と相対運動だけで、驚くほど豊かで実用的なインハンド操作が成立します。\n\n### 限界と今後の課題\nもちろん、現時点での制限事項もあります：\n- 構造化された物体への依存：\nネジやピストン、軸など、物体の側にあらかじめ自由度を拘束する機構が備わっている場合に最も真価を発揮します。完全に不定形な物体や、拘束のない自由な空間での物体の持ち替えなどは苦手です。\n- 視覚や触覚フィードバックの欠如：\n実験では作業台上の初期位置があらかじめ決まっており、姿勢のズレを目で見て修正することはしていません（ハンド表面にAprilTagは貼られていますが今回は未使用）。また、接触力そのものを高精度に測る触覚センサも搭載していません。\n\n今後の展望として、指先に触覚センサアレイを統合して滑りを検知することや、カメラによるビジュアルサーボを取り入れることで、事前のパラメータ調整すら不要な完全自律の道具操作システムへと発展することが期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "人間の手（多関節）をそのまま模倣しなくても、「直動2点把持＋相対運動」という機械構造を直接エンドエフェクタに組み込むことで、極めて高いインハンド操作性能が引き出せる。",
+  "ヤコビ行列が不変（定数）になる直交直動機構を採用することで、特異点や逆運動学計算の破綻を完全に排除し、動作の決定論的な信頼性を担保できる。",
+  "サーボモータの負荷変化による接触検知だけでも、物体の寸法計測や握り直し回数の動的計算が十分に可能である。",
+  "両手作業においてエンドエフェクタ側が単体でパーツ間相対操作を完結できると、アーム同士が相手を支え合う複雑な連動制御から解放される。"
+ ],
+ "limitations_ja": [
+  "操作対象が、ネジ・軸・ガイドレールなど「相対運動が機構的に拘束された関節物体」に強く特化しており、幾何拘束を持たない自由形状物体の器用な回転・姿勢変更には向かない点",
+  "カメラや高精度な力覚センサを用いたリアルタイムのフィードバック制御を行っておらず、初期把持位置の事前定義や最大5回程度のパラメータ事前試行が必要な点",
+  "指先の摩擦力に頼ったツイスト（摩擦駆動）を行っているため、表面が非常に滑りやすい物体や極めて強いトルクを要求されるボルト締めなどではスリップのリスクがある点"
+ ],
+ "keywords": [
+  "In-Hand Manipulation",
+  "Robotic Gripper",
+  "Prismatic Joint",
+  "Dexterous Manipulation",
+  "Articulated Object Manipulation",
+  "Bimanual Manipulation"
+ ],
+ "id": "2609.25696",
+ "title": "The Cartesian Hand: In-Hand Manipulation with All-Linear Fingers",
+ "authors": [
+  "Boxi Xia",
+  "Bokuan Li",
+  "Ryan Shin",
+  "Zijiang Yang",
+  "Jiaxun Liu",
+  "Boyuan Chen"
+ ],
+ "date": "2026-09-24",
+ "group": "general",
+ "tags": [
+  "hardware",
+  "manipulation",
+  "grasping"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.25696",
+ "pdf_url": "https://arxiv.org/pdf/2609.25696",
+ "summary_ja": "7自由度を持ち、すべて直動関節の指で構成された新しいロボットハンドThe Cartesian Handを開発。従来の多関節ハンドの複雑さを排しつつ、独立した把持と指間の相対直線運動を組み合わせることで、単一エンドエフェクタのみでのねじ蓋開けなど高度な手先操作を実現した。",
+ "generated": "2026-09-24",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.25696"
+}
