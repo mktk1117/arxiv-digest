@@ -1,0 +1,155 @@
+{
+ "title_ja": "ForgetMimic: 強化学習ヒューマノイド制御のための運動アンラーニング",
+ "tldr_ja": "多彩な動作を習得したヒューマノイドの制御ポリシーから、ゼロから再学習することなく、危険な格闘動作や権利侵害となる特定の動作だけを綺麗に忘れさせる「アンラーニング」技術を世界で初めて実機実証しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "ForgetMimicの全体像です。12種類の動作を習得したポリシーに対し、保持したい動作（歩行や宙返りなど）の性能を落とすことなく、指定した対象動作（格闘動作など）だけを選択的に実行不能（失敗）へと導きます。",
+  "caption": "Figure 1: Unlearning humanoid control policy via ForgetMimic. Given a pre-trained policy capable of executing 12 motions, ForgetMimic aims to obtain an unlearned policy that forgets the specified target motions (Fight) while preserving the others in simulation and the real world.",
+  "image": "details/2609.28378/F1.jpg"
+ },
+ "overview_ja": "近年、人間のモーションキャプチャデータを強化学習（RL）で模倣させることで、歩行や走行だけでなく、ダンス、宙返り、格闘技まで1つのポリシーで自在にこなすヒューマノイド制御が急速に発展しています。しかし、ここで新たな現場の課題が浮き彫りになってきました。「危険な攻撃動作だけを消したい」「著作権やプライバシー（GDPRの忘れられる権利）に抵触する動作データを除去したい」といった安全・法的要件です。これまではポリシー全体を最初から学習し直すしかなく、膨大な計算時間とコストがかかっていました。\n\nそこで著者らは、実世界のヒューマノイド制御に特化した初のモーションレベル忘却手法「ForgetMimic」を提案しました。アイデアの根幹は、忘れたい動作に対してだけ、追従が上手くいくほど強いペナルティを与える「アンチリワード微調整（ARFT）」です。さらに著者らは、ヒューマノイド制御で広く使われている2つの定番機能——苦手な動作を優先的に練習させるRSI（基準状態初期化）と、姿勢が崩れたときに引っ張り上げて助けるAW（アシストレンチ）——が、忘却の学習を強力に妨害している事実を突き止め、これらを無効化することで綺麗な忘却を実現しました。\n\n検証では、Unitreeのヒューマノイド「G1」と「H2」を用い、12種類の激しい動作を学習済みのポリシーから格闘動作などの忘却を試みました。その結果、忘却対象の動作は開始わずか数ステップで安全に停止（成功率0%）する一方、保持したい歩行や宙返りといった他の動作は追従性能の低下を2%未満に抑え、完璧に維持できることをシミュレーションと実機の両方で実証しました。",
+ "contributions_ja": [
+  "実世界の強化学習ヒューマノイド制御において、特定動作だけを選択的に消去する動作レベルのアンラーニング手法「ForgetMimic」を世界で初めて提案した点",
+  "追従精度に応じて適応的に負の報酬を与えるアンチリワード微調整（ARFT）を設計し、他タスクの破滅的忘却を防ぎながら目的動作を忘却させた点",
+  "ヒューマノイド学習の標準機能である基準状態初期化（RSI）とアシストレンチ（AW）が忘却を阻害するメカニズムを解明し、それらを無効化する重要性を示した点",
+  "Unitree G1およびH2という2種類の実機ロボットと12種類の多彩な動作群を用いて、シミュレーションおよび実機環境で有効性を徹底検証した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "ヒューマノイドが「覚えた動きを忘れる」べき切実な理由",
+   "summary_ja": "汎用ヒューマノイドが多彩な動作を習得できるようになった今、危険な動作の除去やデータ権利保護のための「アンラーニング」が急務となっています。しかし、既存の強化学習向けアンラーニング手法は実ロボットの連続空間やヒューマノイド特有の学習機構に対応できていませんでした。",
+   "details_ja": "身体性知能（Embodied AI）の進展により、強化学習（RL）を用いて人間のデモデータから俊敏で人間らしい動作を獲得する研究が大きく進んでいます。最近では単一のポリシーで歩行や階段昇降といった移動系、ダンスや宙返りといったパフォーマンス系、さらにはパンチやキックなどの格闘系まで、多種多様なスキルを切り替えて実行できるようになりました。\n\nしかし、この便利さは2つの深刻な問題をもたらします。1つ目は「安全性」です。介護や接客現場に投入するロボットが、裏で格闘動作を習得したままだと極めて危険です。実世界の運用で不適切と判明した動作や、悪意あるデータで汚染された動作は、確実に取り除く必要があります。2つ目は「プライバシーと著作権」です。GDPR（EU一般データ保護規則）における「忘れられる権利」への対応や、モーションキャプチャ提供者からのデータ削除要請があった場合、学習済みモデルからその影響を消し去らなければなりません。何十時間もかけてゼロから再学習するのは、計算資源の観点から非現実的です。\n\nこれまでの強化学習向けアンラーニングは、単純な離散状態のゲーム環境や、環境そのものを毒化する手法、あるいはオフラインRLの軌道削除にとどまっていました。連続空間を動き回る実機ロボットにはそのまま適用できません。本論文が提案するForgetMimicは、実世界ヒューマノイド制御のための初めてのモーションレベル・アンラーニング技術です。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "提案手法ForgetMimicの概念図。12種類の多様なスキルを持つ事前学習済みモデルに対し、Fight（格闘動作）のみをアンラーニング対象に設定すると、他のスキルを保持したまま格闘動作だけが即座に実行不能になります。",
+     "caption": "Figure 1: Unlearning humanoid control policy via ForgetMimic. Given a pre-trained policy capable of executing 12 motions, ForgetMimic aims to obtain an unlearned policy that forgets the specified target motions (Fight) while preserving the others in simulation and the real world.",
+     "image": "details/2609.28378/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related work",
+   "heading_ja": "ヒューマノイド制御とマシン・アンラーニングの交差点",
+   "summary_ja": "ヒューマノイド制御は単一の汎用ポリシーで多スキルを操る時代に入りましたが、不要スキルの安全な除去法は未開拓でした。一方、機械学習のアンラーニング研究も実機ロボット特有のダイナミクスには対応できていませんでした。",
+   "details_ja": "### ヒューマノイド制御の歩みと課題\nDeepMimicに始まり、近年ではMaskedMimic、BeyondMimic、ZESTといった研究が登場し、大規模かつ不均一な人間の動作データから単一の強化学習ポリシーで全身の多様なスキルを学習できるようになりました。しかし、知識を1つのポリシーに蓄積していくと、時代遅れの動作や有害な動作が紛れ込んだ際に、それらだけを取り除く手段がありませんでした。\n\n### マシン・アンラーニング（Machine Unlearning）の現状\nモデルから特定データの痕跡を消すアンラーニングは、主に教師あり学習の分野で発展してきました。強化学習（RL unlearning）への応用はまだ始まったばかりで、関連研究はごくわずかです。オンラインRLで環境ごと忘却させる手法や、オフラインRLで特定の軌道データを消去する手法が提案されていますが、これらはヒューマノイド制御には噛み合いません。\n\nなぜなら、ヒューマノイド制御は「単一のシミュレーション環境の中で、報酬関数を介して複数モーションを同時にフィッティングするオンラインRL」だからです。さらに後述するように、ヒューマノイド制御特有の学習補助機能がアンラーニングを邪魔してしまうため、ロボット制御に最適化された新しいアプローチが必要不可欠でした。",
+   "figures": []
+  },
+  {
+   "heading": "3 Preliminaries",
+   "heading_ja": "定式化: 何を維持して、何を劣化させるのか？",
+   "summary_ja": "ヒューマノイドの動作追従強化学習を定式化し、忘却対象のモーション群では性能を限界まで低下させつつ、保持対象のモーション群では元の性能を維持するというアンラーニングの数学的目標を定義します。",
+   "details_ja": "事前学習されたポリシー $\\pi_{\\theta}(\\mathbf{a}_t|\\mathbf{o}_t)$ は、PPO（Proximal Policy Optimization）を用いて、$N$ 個のクリップからなる基準モーションライブラリ $\\mathcal{M}$ を追従するように訓練されています。報酬関数は追従の正確さを測る $R_{\\text{track}}$ と、関節リミットや動作の滑らかさ、転倒を防ぐ生存ボーナスなどの正則化項 $R_{\\text{reg}}$ で構成されます。\n\nここで、$N$ 個の動作のうち忘却したい $K$ 個の対象動作セットを $\\mathcal{C}_{\\text{target}}$、残りの保持したい動作セットを $\\mathcal{C}_{\\text{keep}} = \\mathcal{M} \\setminus \\mathcal{C}_{\\text{target}}$ とします。モーション・アンラーニングのゴールは、ポリシーを $\\pi_{\\theta'}$ へと微調整し、次の2つの条件を同時に満たすことです。\n\n- 忘却対象 $\\mathcal{C}_{\\text{target}}$ に対する期待累積報酬を最小化（徹底的に劣化）させる\n- 保持対象 $\\mathcal{C}_{\\text{keep}}$ に対する性能低下を、許容誤差 $\\epsilon$ 以内に抑える\n\n追従報酬 $R_{\\text{track}}$ は、各関節や部位の位置・姿勢誤差を指数関数カーネルで評価した重み付け合計（最大値 $W$）で表されます。この報酬設計をベースに、忘却のための新しい学習メカニズムを組み込んでいきます。",
+   "figures": []
+  },
+  {
+   "heading": "4 Method",
+   "heading_ja": "ForgetMimic: アンチリワード微調整と阻害要因の排除",
+   "summary_ja": "提案手法は、対象動作が上手にできてしまうほど大きなペナルティを与える「アンチリワード微調整（ARFT）」を導入します。さらに、忘却学習を強力に妨害していた「基準状態初期化（RSI）」と「アシストレンチ（AW）」を完全に無効化します。",
+   "details_ja": "### 4.1 アンチリワード微調整（ARFT）\n環境自体を改変したり軌道を抜き取る既存手法と異なり、ForgetMimicは忘却対象の動作に対して「上手に追従すればするほど強いペナルティを受ける」というアンチリワード（追加の負の報酬）$R_{\\text{anti}}$ を注入します。\n\nステップごとの追従度合いを正規化した値を $\\bar{r}_{\\text{track}} \\in [0, 1]$、ペナルティ係数を $\\lambda > 0$ とすると、$R_{\\text{anti}} = -\\lambda \\bar{r}_{\\text{track}}$ と設計します。忘却対象の動作では全体の報酬が $R'_{\\text{target}} = R_{\\text{track}} + R_{\\text{anti}} + R_{\\text{reg}}$ となり、ペナルティ係数を総重み $W$ より大きく（$\\lambda > W$）設定すれば、追従するほど報酬がマイナスになります。一方、保持対象の動作では $R_{\\text{anti}} = 0$ のままにしておくため、元の優れた追従性能が損なわれません。\n\nこの報酬設計により、PPOのアドバンテージ（行動の良し悪しを示す指標）の符号が対象動作でのみ反転します。その結果、対象動作を再現する確率が勾配更新によって急速に抑制され、忘却が進みます。\n\n### 4.2 忘却を邪魔する2大学習機構のオーバーライド\n実は、単純にアンチリワードを入れるだけではアンラーニングは失敗します。ロボット学習で一般的な2つの機能が、忘却を邪魔してしまうからです。\n\n- **基準状態初期化（RSI）の衝突:** RSIは、失敗しやすい（追従が下手な）動作の時間帯を検知し、そこから優先的にエピソードを開始させる適応型サンプリングです。アンチリワードによって対象動作の失敗率が跳ね上がると、RSIは「この動作が苦手なんだな」と勘違いし、対象動作ばかりを集中的に練習させてしまいます。これでは逆効果なので、忘却時はRSIを完全に無効化し、全動作を一律の確率で均等にサンプリングします。\n- **アシストレンチ（AW）の衝突:** AWは、ロボットが姿勢を崩した際にシミュレータ上で胴体を外力で引っ張り上げて転倒を防ぐ、いわば「補助輪」です。対象動作でわざと失敗しようとしているロボットを、AWが力ずくで正しい姿勢に戻してしまうため、ペナルティの効果が打ち消されてしまいます。したがって、忘却学習中はAWも完全にオフにします。",
+   "figures": []
+  },
+  {
+   "heading": "5 Experiment",
+   "heading_ja": "12種類の動作で検証: 格闘動作だけを完全に消し去る",
+   "summary_ja": "Unitree G1/H2ロボットを用い、格闘動作を忘却させる実験を実施しました。対象動作の成功率は100%から0%へと急落し、わずか3〜4ステップで停止する一方、非対象動作の性能は98%以上維持されるという圧倒的な選択的忘却を達成しました。",
+   "details_ja": "### 5.1 実験設定\n物理シミュレータMuJoCo（mjlab）および実機のUnitree G1・H2を使用しました。動作ライブラリには、歩行・走行・スプリント・格闘（Fight, FightAndSports1）・ダンス・起き上がり・90度および360度宙返りなど、計12種類の多様な動作を用意しました。忘却対象には危険動作である格闘2種を設定しています。ベースラインとして「ゼロからの再学習（Retraining from scratch）」「ランダム報酬」「Ye et al.（環境忘却）」「Gong et al.（オフライン軌道忘却の適応）」の4つと比較しました。\n\n### 5.2 忘却性能の評価とベースライン比較\nForgetMimic（$\\lambda=8.0, 16.0$）を適用したところ、対象動作の成功率は100%から一気に0%へと崩壊しました。エピソード長（最大500ステップ）もわずか3〜4ステップへと縮小し、対象動作が指示されると即座に安全停止することが確認されました。その一方で、保持対象の10動作の追従報酬低下はわずか2%未満（0.87から0.85〜0.86）にとどまり、成功率も85%以上をキープしました。\n\nベースラインとの比較では、Ye et al.の手法は単一環境のヒューマノイド制御ではペナルティが全動作に伝播してしまい、非対象動作の成功率が74%から6%へと壊滅（大惨事忘却）しました。ランダム報酬やGong et al.の手法も非対象動作の成功率が10〜20%台に落ち込み、対象動作のエピソード長も130〜160ステップ程度残るなど、不完全な忘却に終わりました。ゼロからの再学習は約40 GPU時間を要しますが、提案手法はその何分の一もの短時間で、同等レベルの完全忘却を達成しています。\n\n### 5.3 アブレーションとハイパーパラメータ\nRSIやAWを有効にしたままでは忘却の進みが鈍く、非対象動作への悪影響も出ることが確認されました。また、ペナルティ係数 $\\lambda$ を追従報酬の総重み $W=8.0$ より大きく設定することで、初めて急速かつ確実な忘却が引き起こされることが感度分析から判明しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "忘却プロセスに伴う全12動作の追従報酬の推移（ヒートマップと折れ線グラフ）。赤枠で囲まれた忘却対象の2動作（Fight系）のみが急速に報酬を落としているのに対し、他の10動作（緑色）は学習が進んでも高い追従性能を完全に維持しています。",
+     "caption": "Figure 3: Catastrophic unlearning analysis. The experiment tracks per-clip tracking rewards across 22 checkpoints spanning from the non-unlearning baseline (0) through 99,999 iterations of anti-reward fine-tuning. The left figure shows a heatmap of the rewards for the 12 motions, where the target motions are circled in red lines. The right figure shows the average rewards for the target motions and the non-target motions over training iterations.",
+     "image": "details/2609.28378/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめ: 安全で制御可能なヒューマノイドへの第一歩",
+   "summary_ja": "強化学習によるヒューマノイド制御に特化した世界初のモーション・アンラーニング手法ForgetMimicを確立しました。実世界でロボットを安全かつ法令に準拠して継続運用するための強固な基盤技術となります。",
+   "details_ja": "本研究では、強化学習駆動のヒューマノイド制御において、特定動作を選択的に消去する「ForgetMimic」を提案しました。身体性知能が社会に普及するにつれ、時代遅れの動作、毒化された動作、プライバシーや著作権に抵触する動作を後から安全に消去する技術は不可欠になります。\n\nForgetMimicは、アンチリワード微調整と、RSI・AWといったロボット学習特有の干渉要因の排除を組み合わせることで、他の有用なスキルを一切損なわずに特定動作だけを確実に忘却させられることを示しました。今後の実世界ヒューマノイドが、より安全で、制御可能かつプライバシー準拠で進化し続けるための重要な技術的マイルストーンとなります。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix A Appendix",
+   "heading_ja": "付録: 実機検証と学習ダイナミクスの詳細",
+   "summary_ja": "Unitree G1およびH2の実機・シミュレーション双方で忘却動作を視覚的に検証しました。また、物理指標の定量評価や学習ダイナミクスの解析から、提案設定が真の忘却を引き起こしている裏付けを示しています。",
+   "details_ja": "### 実機ロボット（G1およびH2）での実証\nシミュレーションだけでなく、Unitree G1および大型のH2実機ロボットを用いてデプロイ検証を行いました。G1では格闘動作が指令された瞬間に安全に崩れ落ちて動作を停止する一方、ダンスや360度宙返り、歩行などは完璧に成功し続ける様子が確認されました。また、H2においてもダンスや格闘動作の忘却がシミュレーションおよび実機で綺麗に機能することが示されています。\n\n### 物理挙動の定量分析と学習ダイナミクス\n忘却された対象動作の詳細な挙動を分析すると、足の接地率が0.94から0.40〜0.56へ激減し、関節リミット違反率が上昇していました。これは単に報酬が下がっただけでなく、物理的な実行能力そのものが確実に奪われたことを意味します。\n\nさらに学習中のメトリクスを比較すると、RSIとAWを無効化した提案設定（Config B）では、ポリシーのエントロピーが急増して対象動作に対して「どう動けばいいか分からない（ランダム探索）」状態、すなわち真の忘却状態へ遷移していることが判明しました。対照的に、RSIとAWを残した設定（Config A）ではアシストレンチの介入度（AWゲイン）が増大し、ロボットを無理に動かし続けて忘却を妨害していました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "Unitree G1におけるシミュレーションと実機実験の様子。Baseモデルでは全動作をこなしますが、提案手法（Ours）では対象のFight系動作のみが安全に失敗（×）し、他のダンスや宙返り、歩行は成功（✓）し続けています。",
+     "caption": "Figure 5: Simulation and real visualizations for the Unitree G1. ✓ indicates the success, and × indicates the failure. The target motions are Fight and FightAndSports1 .",
+     "image": "details/2609.28378/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "学習ダイナミクスの比較。RSIとAWを無効化した提案構成（Config B: 青線）は、エントロピーが増大して綺麗に忘却が進むのに対し、有効のままの設定（Config A: 赤線）ではAWゲインが増加して忘却を邪魔しています。",
+     "caption": "Figure 7: Dynamic behaviors of the two configurations during unlearning training. Config A adopts $\\lambda=2.0$ , RSI, and AW, while Config B adopts $\\lambda=8.0$ with both RSI and AW disabled.",
+     "image": "details/2609.28378/F7.jpg"
+    },
+    {
+     "key": "F9",
+     "caption_ja": "Unitree H2を用いたシミュレーション結果。(a) Dance、(b) Fight、(c) Flip のそれぞれを忘却対象にした際、指定した動作のみが関節アライメント崩壊により即時終了（赤枠）し、他動作は維持されます。",
+     "caption": "Figure 9: Visualization results of the Unitree H2 in simulation. (a)–(c) show the demonstrations when the target motion is Dance , Fight , and Flip , respectively. Red boxes indicate that the motion episode has already terminated due to joint misalignment. Our algorithm achieves unlearning of the corresponding motion in H2 control while preserving the performance of other motions.",
+     "image": "details/2609.28378/F9.jpg"
+    },
+    {
+     "key": "F10",
+     "caption_ja": "Unitree H2実機によるデプロイ検証。DanceおよびFightを対象にした忘却テストにおいて、対象動作のみが正しく失敗（×）し、実行不能になることが実機でも確認されました。",
+     "caption": "Figure 10: Visualization results of the Unitree H2 in the real world. For the Unitree H2, we conduct the real-world deployment on unlearning for Dance and Fight . ✓ indicates success, and $\\times$ indicates failure. For Flip , we do not perform real-world deployment because it can easily damage the hardware. Dance and Fight are sufficient to validate our method.",
+     "image": "details/2609.28378/F10.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "ヒューマノイドの特定スキル削除は、ゼロからの再学習を行わなくても「アンチリワード微調整」によって短時間かつ高精度に実現できる。",
+  "強化学習で定番の学習加速ギミック（RSIやアシスト外力）は、アンラーニング時には「失敗を過剰補正する邪魔者」になるため、完全に無効化する必要がある。",
+  "ペナルティの強さ $\\lambda$ は追従報酬の総重み $W$ を超える値に設定するのが急所であり、中途半端なペナルティでは忘却が起きない。",
+  "環境レベルの負報酬を入れる既存のRLアンラーニングを単一環境のマルチタスク制御に適用すると、全スキルの破滅的崩壊を招くため、モーションレベルの差別化報酬が必須である。"
+ ],
+ "limitations_ja": [
+  "忘却された動作の挙動は「即座の関節制限違反や転倒によるエピソード中断」となるため、実機で試す際はハードウェアへの衝撃を防ぐ安全装置（吊り具など）が不可欠である。",
+  "現時点では動作追従型の強化学習（Mimic系）に特化しており、物体操作など外部環境との複雑な相互作用を伴うタスクへの拡張性は未検証である。",
+  "忘却対象と極めて運動学的に似通った非対象動作が存在する場合、どこまで干渉せずに分離できるかの限界値はさらなる検証が必要である。"
+ ],
+ "keywords": [
+  "Humanoid Control",
+  "Reinforcement Learning",
+  "Machine Unlearning",
+  "Sim-to-Real",
+  "Motion Tracking"
+ ],
+ "id": "2609.28378",
+ "title": "ForgetMimic: Motion Unlearning for Reinforcement Learning Humanoid Control",
+ "authors": [
+  "Xukun Luan",
+  "Zhongxiang Lei",
+  "Chen Gong",
+  "Shaowei Li",
+  "Yuanguo Bi",
+  "Jinyan Liu"
+ ],
+ "date": "2026-09-24",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "reinforcement-learning",
+  "control",
+  "safety"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CR",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.28378",
+ "pdf_url": "https://arxiv.org/pdf/2609.28378",
+ "summary_ja": "強化学習によるヒューマノイド制御において、安全性や著作権保護の観点から特定の望ましくない動作を方策から消去するアンラーニング手法ForgetMimicを提案。忘却対象の動作を抑止しつつ、他の俊敏で自然な全身運動性能を維持することを実証した。",
+ "generated": "2026-09-24",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.28378"
+}
