@@ -1,0 +1,169 @@
+{
+ "title_ja": "Morphometric Imitation：形態と接触を考慮した手のリターゲティングからSim-to-Real視覚運動方策へ",
+ "tldr_ja": "人間の手とロボットハンドの骨格や指の長さの違い（形態ギャップ）を最適化によって埋め、接触関係を忠実に再現することで、人間の手の動作データから実機で直接動く視覚運動ポリシーをゼロショットで学習するフレームワークを提案しました。",
+ "hero_figure": {
+  "key": "F3",
+  "caption_ja": "提案手法の核となる形態測定学的最適化（MMO）の3つのステージです。ターゲットとするロボットハンドの骨格に合わせてMANOモデル自体の形態を最適化し、接触関係を復元した上で、密な骨格ブレンディングと逆運動学によりロボットの関節指令へと変換します。",
+  "caption": "Fig. 3: Morphometric Optimization. We illustrate the three stages of morphometric optimization across three diverse robot hand embodiments: Dex3, Allegro, and Sharpa. (1) Morphology matching initializes Scaled MANO using robot-to-human palm and finger-length ratios, then optimizes its morphology to match the target robot hand. (2) Contact matching optimizes the morphology-aligned hand to recover the contacts from the reference human hand-object interaction. (3) Robot pose recovery applies linear blend retargeting to transfer the resulting morphology- and contact-aligned MANO skeleton to the robot skeleton, followed by inverse kinematics to recover the robot joint configuration.",
+  "image": "details/2609.28660/F3.jpg"
+ },
+ "overview_ja": "器用なロボットハンドによる物体操作を実現するうえで、人間の手と物体のインタラクション（HOI）データは非常に魅力的な情報源です。しかし、人間の手の柔軟な動きや接触をロボットハンドへ移し替えるのは簡単ではありません。ロボットと人間の手では指の本数やリンクの長さといった構造（形態）が大きく異なりますし、運動学的に移しただけの手先軌道は、物理シミュレーション環境に入れると滑ったり弾かれたりして物体を落としてしまいます。\n\n本論文が提案する「Morphometric Imitation」は、この課題を3段階のパイプラインで美しく解決します。第1段階の「形態測定学的最適化（MMO）」では、人間の手モデル（MANO）自体の指の長さや手のひらをロボットに合わせて変形・最適化し、変形でずれてしまった接触関係をフレームごとに復元します。第2段階では、この接触重視の運動学軌道を初期値として、物体の目標姿勢追従と指の接触状態の維持を両立する残差強化学習（Residual RL）を行い、物理的に実現可能な安定した教示軌道を作り出します。そして第3段階で、この軌道を点群ベースの視覚運動ポリシーへと蒸留します。\n\n3本指・4本指・5本指の3種類のロボットハンドと10種類の操作タスクで評価したところ、MMOは既存の運動学リターゲティング手法に比べて接触F1スコアを8ポイント以上改善しました。さらに、続く残差強化学習の成功率を最大35ポイントも押し上げています。最終的に得られた視覚運動ポリシーは、実機の7自由度アームと5本指ハンドにそのまま適用され、30個の実物体を対象とした300回の試行で89.3%という高いゼロショット成功率を達成しました。",
+ "contributions_ja": [
+  "ロボットハンドの構造に合わせてMANOモデルを変形し、接触関係を正確に保ちながら密な関節目標を生成する運動学リターゲティング手法「MMO」を開発した点。",
+  "物体の軌道追従と指の接触情報、机との衝突回避を組み込み、運動学軌道を物理的に成立する教示軌道へ安定して変換する残差強化学習手法を確立した点。",
+  "シミュレーション内で生成した教師軌道を点群ベースの視覚運動ポリシーへ蒸留し、実環境での追加学習なし（ゼロショット）で89.3%の実機成功率を実証した点。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "人間の手の動きから、どうやってロボットのポリシーを育てるか",
+   "summary_ja": "人間の手と物体の接触動作からロボットの自律操作を学習させる一連の枠組み「Morphometric Imitation」を導入します。形態差の吸収、接触の維持、動力学的整合性の確保、シム・ツー・リアルの移行という各段階の壁をシームレスに乗り越える設計思想を述べています。",
+   "details_ja": "ロボットハンドで器用な操作を実現するために、遠隔操作（テレオペレーション）で教示データを集める手法がよく使われます。しかし、テレオペは専用装置のコストが高く、熟練したオペレータが何時間も拘束されるため、大量のデータを集めるのが大変です。そこで注目されているのが、人間が日常的にモノを扱っている動作（HOI: Human Hand-Object Interaction）データを利用するアプローチです。\n\n人間の動作データをロボットに移植するには、通常3つのステップを踏みます。\n- 運動学的リターゲティング（幾何学的に人間の手の姿勢をロボットハンドの関節角に変換）\n- 動力学的リターゲティング（物理シミュレータ内で摩擦や接触力を考慮し、実際に破綻なく動く軌道へ修正）\n- ポリシー蒸留（得られた軌道をもとに、カメラ画像などから動く視覚運動ポリシーを学習）\n\nところが、従来手法には大きな弱点がありました。人間の手とロボットの手では大きさも指のプロポーションも異なるため、単純に指先の位置だけを合わせようとすると、肝心の「どこでどうモノに触れているか」という接触関係が崩れてしまいます。さらに、机の上での自然な人間の動作をロボットに移すと、指や手のひらが机に激突してしまう問題も頻発します。\n\n本論文の核心的な着眼点は、「形態（モルフォロジー）の違いと接触状態を最初から考慮してリターゲティングを行えば、運動学だけでなく後段の強化学習や実機展開まで劇的に安定する」という点にあります。この方針に基づいて作られたパイプライン全体を検証し、実機でのゼロショット展開までを一貫して実証しています。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "運動学と動力学、2つのリターゲティングの系譜",
+   "summary_ja": "ウェアラブルセンサを使わない教師なし運動学的リターゲティングと、強化学習や最適化を用いた動力学的リターゲティングの先行研究を整理します。本手法が既存研究とどう異なり、どこをブレークスルーしたかを明確に位置づけています。",
+   "details_ja": "### II-A 運動学的リターゲティングの潮流\n従来のリターゲティング手法には、グローブやモーションキャプチャなどの装着型デバイスを使うものや、人手で接触対応付けを行うものが多くありました。近年はカメラ画像から得られる3次元手形状モデルを用いた教師なし手法が主流になっています。代表例であるAnyTeleopやDex-Retargetingは、手先のキーポイントベクトルを手の大きさ比率で一律にスケーリングして位置合わせを行いますが、指ごとのプロポーションの違いや物体との接触面までは考慮されません。PyRokiは指先と物体の近接度を考慮し、OmniRetargetは四面体メッシュを用いて接触を保とうとしますが、手のひら全体の構造差を根本から吸収する仕組みには至っていませんでした。本研究のMMOは、人間の手モデル自体を最適化してターゲットロボットのプロポーションに一致させ、その上で接触を再構成する点が根本的に異なります。\n\n### II-B 動力学的リターゲティングと実機展開\n運動学的に変換した関節軌道は、そのままシミュレータで再生しても滑り落ちたり弾かれたりして失敗します。これを解決するため、近年は強化学習（RL）を用いて物理的に成立する軌道に修正する手法が盛んに研究されています。しかし、従来研究の多くはロボットが扱いやすいように人間の動作をあらかじめ制限して収集していたり、シミュレーション後に実機の遠隔操作データで微調整（ファインチューニング）を行ったりしていました。本研究は、事前制約のない自然な人間の動作データのみを出発点とし、残差強化学習によって物体の軌道追従と接触維持を両立させた上で、実機へのゼロショット展開を達成している点が際立っています。",
+   "figures": []
+  },
+  {
+   "heading": "III Modeling Human Hands with MANO",
+   "heading_ja": "ベースとなる人間の手モデル「MANO」の数理",
+   "summary_ja": "本研究の基盤となる統計的手形状モデル「MANO」の構造を説明します。手形状パラメータ、関節回転角、線形ブレンドスキニングによるメッシュ生成の仕組みを押さえることで、次章の変形手法への理解を深めます。",
+   "details_ja": "人間の手の幾何学的な表現には、広く普及している3次元手形状モデル「MANO」を採用しています。MANOは大量の手のスキャンデータから学習されたモデルで、手の形状パラメータ $\\vec{\\beta}$ と、関節の回転角を表す姿勢パラメータ $\\vec{\\theta}$ を入力として受け取り、手の表面メッシュ頂点 $\\mathbf{V}$ と3次元関節位置 $\\mathbf{J}_{\\text{posed}}$ を出力します。\n\n具体的には、安静時メッシュ $T_P$ を安静時関節位置 $J$ のまわりで回転させる線形ブレンドスキニング（LBS）の拡張を用いています。MANOは手首を含む16個の関節（指関節15個＋手首1個）を持ち、姿勢パラメータ $\\vec{\\theta}$ は手首の大域的な回転 $\\vec{\\theta}_g$ と各指の局所回転 $\\vec{\\theta}_h$ から構成されます。さらに、関節が曲がったときに皮膚が不自然につぶれたり過度に滑らかになったりするのを防ぐため、姿勢に応じた補正オフセット（姿勢ブレンドシェイプ）が組み込まれているのが特徴です。",
+   "figures": []
+  },
+  {
+   "heading": "IV Kinematic Retargeting: Morphometric Optimization",
+   "heading_ja": "手の形を変形させて接触を取り戻す「MMO」の仕組み",
+   "summary_ja": "提案手法の第1段階であるMMOを詳述します。手のひらと各指を個別に拡大縮小するScaled MANOを用いた形態マッチング、失われた接触を復元する接触マッチング、そして密な目標姿勢から関節角を解くロボット姿勢復元の3ステップから成ります。",
+   "details_ja": "MMO（Morphometric Optimization）は、人間の手とロボットの手の幾何学的なギャップを埋めるための革新的な3段階アルゴリズムです。\n\n### IV-A 形態マッチング（Morphology Matching）\nロボットハンドは、指が太かったり長手方向の比率が人間と違ったりします。そこでまず、MANOを拡張した「Scaled MANO」モデルを構築します。スケーリングベクトル $\\vec{S} \\in \\mathbb{R}^6$ を導入し、手のひらスケール $S_{\\text{palm}}$ と5本の指それぞれのスケール $S_i$ を独立に調整できるようにします。手のひらの頂点ブレンディングを崩さないよう、第1段階で手首を中心に手全体を一様拡大し、第2段階で中手指節（MCP）関節を中心に各指を独立にスケーリングします。その上で、ロボットのURDFから抽出した関節・指先位置とScaled MANOの対応点を最小二乗法（Levenberg-Marquardt法）で最適化し、ターゲットロボットのプロポーションにぴったり一致した変形済み手モデル $M_{\\text{morph}}$ を作ります。\n\n### IV-B 接触マッチング（Contact Matching）\n形態を変形させると、元の人間の手と物体との接触関係がどうしてもズレてしまいます。そこで、各フレームにおいて $M_{\\text{morph}}$ の姿勢を再最適化し、元の接触を復元します。\n- 接触判定：元の人間メッシュ表面のうち、物体表面との距離が5mm以下の頂点を接触頂点集合 $\\mathcal{H}_c$ として抽出します。接触のないアプローチ段階でも、最大接触フレームの頂点インデックスを参照し続けることで、滑らかなプレグラスプ（構え）を維持します。\n- 指の結合：人間より指が少ないロボット（3本指など）の場合、人間の複数本の指が1本のロボット指に対応するため、それらの相対距離を保つ拘束損失 $\\mathcal{L}_d$ を設けます。\n- 机との衝突ペナルティ：机の平面 $z_{\\text{table}}$ を下回る頂点に対してペナルティ $\\mathcal{L}_{\\text{table}}$ を課し、机へのめり込みを防ぎます。\nこれらをまとめた目的関数を解くことで、形態と接触が両立した手姿勢 $M_{mc}^t$ を得ます。\n\n### IV-C ロボット姿勢復元（Robot Pose Recovery）\n得られた $M_{mc}^t$ の動きをロボットの関節角に変換します。従来手法は指先の3次元位置だけを目標にして逆運動学（IK）を解くことが多く、手首や途中の関節があらぬ方向を向きがちでした。MMOでは、1次元骨格グラフ上の熱拡散方程式を用いてMANOとロボット骨格の間のブレンド重みを事前に計算し、すべてのロボット関節および指先に密な6自由度目標姿勢を生成します。その上で、机とのメッシュ干渉判定を高速化したJAX実装のIKを解くことで、机に衝突せず時間的にも滑らかなロボット関節軌道 $\\mathbf{q}_{\\text{ref}}$ を一発で復元します。この処理はGPU上で毎秒180フレームと極めて高速に動作します。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "MMOの3ステップ（形態マッチング、接触マッチング、ロボット姿勢復元）の流れです。Dex3、Allegro、Sharpaという構造の全く異なる3つのハンドにおいて、それぞれの形態に最適化されたMANO手モデルが生成され、物体との接触を保ちながらロボットの姿勢へと変換されていく様子が分かります。",
+     "caption": "Fig. 3: Morphometric Optimization. We illustrate the three stages of morphometric optimization across three diverse robot hand embodiments: Dex3, Allegro, and Sharpa. (1) Morphology matching initializes Scaled MANO using robot-to-human palm and finger-length ratios, then optimizes its morphology to match the target robot hand. (2) Contact matching optimizes the morphology-aligned hand to recover the contacts from the reference human hand-object interaction. (3) Robot pose recovery applies linear blend retargeting to transfer the resulting morphology- and contact-aligned MANO skeleton to the robot skeleton, followed by inverse kinematics to recover the robot joint configuration.",
+     "image": "details/2609.28660/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Dynamic Retargeting: Residual Reinforcement Learning",
+   "heading_ja": "残差強化学習で物理の壁を乗り越える",
+   "summary_ja": "運動学的な参照軌道をシミュレータ内で物理的に実行可能な軌道へと洗練させる残差強化学習を解説します。物体の追従だけでなく接触状態の一致を報酬に組み込み、机との衝突による早期終了を設けることで安全で安定した教示動作を生成します。",
+   "details_ja": "運動学的に求めた関節軌道 $\\mathbf{q}_{\\text{ref}}$ は幾何学的に正しくても、物理シミュレータ環境に入れると物体を滑り落としたり過剰な力で弾き飛ばしたりします。そこで、ManiSkillシミュレータ上でPPO（Proximal Policy Optimization）を用いた残差強化学習（Residual RL）を行います。ポリシー $\\pi$ は各時刻で微小な補正量 $\\Delta \\mathbf{q}_t$ を出力し、ロボットへの指令関節角を $\\mathbf{q}_{\\text{cmd}} = \\mathbf{q}_{\\text{ref}} + \\Delta \\mathbf{q}_t$ とします。ベースの軌道に乗っかりながら微調整することで、学習の探索空間を劇的に狭めています。\n\n### 観測と報酬の設計\nこのRLエージェントは特権的な状態情報を利用できる「教師ポリシー」として学習します。観測には自己受容感覚（関節角度）、現在および将来の参照関節角、物体姿勢の現在値と目標値、そして各指の接触状態（接触力が非ゼロかどうか）が含まれます。\n\n報酬関数は物体の追従と接触の維持の積として設計されています：\n$r_t = r_{\\text{obj},t} \\cdot r_{\\text{contact},t}$\n- 物体追従報酬 $r_{\\text{obj},t}$：物体メッシュからサンプリングした点群の平均点間距離（ADD誤差）に基づき、並進と回転の両方のズレを指数関数で評価します。\n- 接触報酬 $r_{\\text{contact},t}$：目標とする接触指の本数 $N_{\\text{goal},t}$ と、実際に物体と接触しているロボットの指の本数 $N_{\\text{obs},t}$ の一致度を評価します。ロボットの総指数 $N_{\\max}$ で正規化することで、指の本数が異なるハンドでも公平に機能します。\n\n### 早期終了とドメインランダム化\n机との激突や過剰な接触力が発生した瞬間にエピソードを即座に終了（Early Termination）させます。これにより、実機を破壊するような危険な動作を徹底的に排除します。さらに、ロボットのPDゲイン、摩擦係数、物体の質量、非等方スケーリング、重心位置、初期配置位置（$10\\,\\text{cm} \\times 10\\,\\text{cm}$ の範囲）、参照軌道の開始時刻などを幅広くランダム化して学習させることで、極めて頑健な教師軌道を生成します。学習はGPU 1枚で1ポリシーあたり60〜90分で完了します。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "残差RLによって得られたシミュレーション内での動作のタイムラプスです。ハンマー、リンゴ、立方体に対し、3本指（Dex3）、4本指（Allegro）、5本指（Sharpa）のすべてで、ハイパーパラメータを変更することなく安定した把持・操作軌道が生成できています。",
+     "caption": "Fig. 4: Dynamic Retargeting Rollouts. We show time lapses of residual RL policy rollouts for three robot hand embodiments (Dex3, Allegro, and Sharpa) across three object categories (hammer, apple, and cube). All policies use the same training hyperparameters, demonstrating that the residual RL formulation transfers across distinct hand morphologies and grasp configurations without embodiment- or task-specific tuning.",
+     "image": "details/2609.28660/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Zero-Shot Sim-to-Real Visuomotor Policy",
+   "heading_ja": "点群入力の視覚運動ポリシーへ蒸留し、実世界へ飛び出す",
+   "summary_ja": "シミュレーションで特権情報を用いて学習した教師ポリシーを、深度カメラの点群と関節角度のみを入力とする生徒ポリシーへと蒸留します。フロー・マッチングを用いた拡散的方策表現により、実機へのゼロショット展開を実現します。",
+   "details_ja": "シミュレータ内で完成した残差RLポリシーは、物体の正確なメッシュや質量といった特権情報を知っているため、そのまま実機カメラで動かすことはできません。そこで、この教師ポリシーの実行ログをデータセットとして、点群を入力とする「生徒ポリシー（視覚運動ポリシー）」を模倣学習で訓練します。\n\n### 生徒ポリシーのアーキテクチャ\nシミュレータ内の深度カメラから取得した点群から、RANSACによって机平面を除去し、ロボット自身と物体のみを含む点群を抽出します。生徒ポリシーには最新の模倣学習フレームワークであるManiFlowを採用しています。\n- 入力：現在と1ステップ前の点群 $(\\mathbf{p}_t, \\mathbf{p}_{t-1})$、ロボットの関節角度 $\\mathbf{q}_t$、直前の指令アクション $a_{t-1}$\n- モデル構造：点群エンコーダとDiT-Xアクション生成器を組み合わせ、フロー・マッチング（Flow Matching）と一貫性学習（Consistency Training）によって関節指令を出力します。\n- 制御周期：ポリシーは10Hzで動作し、関節目標値をチャンク（複数ステップの連続値）として予測し、3アクションずつ実行しながらリプランニングを行います。\n\n生徒の訓練時には、深度カメラのノイズや部分的な欠損、机の削り残しなどを模した点群ランダム化を追加で施します。これにより、実世界の劣悪な深度データに対してもびくともしない頑健性を獲得しています。",
+   "figures": []
+  },
+  {
+   "heading": "VII Experiments",
+   "heading_ja": "運動学から実機検証まで：徹底的な比較と実証",
+   "summary_ja": "3種類のハンドと10種類の物体タスクを用い、運動学的な接触精度、残差RLの成功率、アブレーション、実機でのゼロショット成功率を多角的に検証します。MMOの優位性と、実機300試行で89.3%という極めて高い成功率を示しました。",
+   "details_ja": "実験では、3本指のDex3、4本指のAllegro、5本指のSharpaの3種類のハンドを用い、GRABデータセットの10種類の物体操作（アラーム時計、リンゴ、ボウル、立方体、コップ、懐中電灯、ハンマー、電球、トーラス、ワイングラス）を検証しました。\n\n### VII-D 運動学的リターゲティングの比較\nDexPilot、AnyTeleop、Position、Contact PyRoki、OmniRetargetの5つの代表的なベースラインと比較しました。手と物体の接触位置が一致しているかを測る「位置認識接触F1スコア（許容誤差5mm）」において、MMOはAllegroで+8.3ポイント、Dex3で+27.8ポイント、Sharpaで+10.5ポイントと、最強のベースラインをすべてのハンドで大きく引き離しました。接触パッチ間距離も大幅に短縮されています。\n\n### VII-E 動力学的リターゲティング（残差RL）の評価\n同じ残差RLアルゴリズムを用い、初期参照軌道だけを各運動学手法のものに変えてタスク成功率を比較しました。MMOを起点とした場合、タスク成功率はDex3で82.5%、Allegroで69.9%、Sharpaで91.8%に達し、最強ベースライン（それぞれ53.2%、68.2%、56.5%）を最大35ポイント以上も上回りました。運動学段階での接触精度の高さが、そのまま物理シミュレーションでの成功率に直結することが証明されました。\n\nまた、RLの報酬や観測から「接触情報」を抜くと成功率は大きく低下し（例: Sharpaで91.8%→76.6%）、「物体姿勢情報」を抜くとさらに低下（54.3%）しました。物体姿勢がタスク全体の軌道追従を牽引し、接触情報が人間らしい安定把持を保証するという、両者の見事な補完関係がアブレーションによって確認されました。\n\n### VII-F 実機ゼロショット展開（KUKA iiwa14 ＋ Sharpaハンド）\n訓練済み生徒ポリシーを、実環境のKUKA iiwa14アームとSharpa Waveハンドにゼロショットで投入しました。カメラにはIntel RealSense L515 LiDARを使用し、10カテゴリ×各3種類の実物体（計30個、形状や質感が異なる）に対し、初期位置を$10\\,\\text{cm} \\times 10\\,\\text{cm}$の範囲でランダムに変えながら各10回、合計300回の試行を行いました。\n結果として、全体で89.3%（268/300回）という驚異的な成功率を記録しました。硬い木のテーブルの上で動作させましたが、机との強打による失敗はゼロでした。LiDAR光が透過してしまう透明なワイングラスでも、内部にピンポン球を入れて部分的に観測可能にするだけで93.3%成功し、点群の欠損に対する高い頑健性を示しました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "ワイングラス（上段: Sharpa）とボウル（下段: Allegro）の運動学リターゲティング結果の定性比較です。MMO（Ours）は人間の指の包み込みやボウルの縁をつまむ浅い親指の配置を完璧に再現していますが、既存手法は指がグラスの内側にめり込んだり、余計な指が接触したりしています。",
+     "caption": "Fig. 5: Qualitative kinematic retargeting at the end frames of the wineglass with Sharpa (first row) and the bowl with Allegro (second row). Each row shows the human reference and the four methods with the highest F1 at the same frame for direct comparisons. Results for all methods are provided in the Supplemental Material.",
+     "image": "details/2609.28660/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実機ゼロショット評価に用いられた10カテゴリ・全30個の実物体です。同じカテゴリでも大きさ、形状、材質、質量、重心が大きく異なる実製品が用意され、シミュレーションからの高い汎化性能が試されました。",
+     "caption": "Fig. 6: Real-World Object Set. 30 objects used for zero-shot sim-to-real evaluation, comprising three instances from each of the ten object categories.",
+     "image": "details/2609.28660/F6.jpg"
+    },
+    {
+     "key": "F2",
+     "caption_ja": "実機における視覚運動ポリシーのゼロショット実行の様子です。懐中電灯、立方体、リンゴ、ハンマー、電球、ボウルの6種類について、アプローチ、把持、そして持ち上げや手先での向き変更（インハンド・リオリエンテーション）までの一連の動作を滑らかに完遂しています。",
+     "caption": "Fig. 2: Visuomotor Policy Rollouts. Zero-shot sim-to-real rollouts for six objects: flashlight, cube, apple, hammer, lightbulb, and bowl. For each rollout, the first frame shows a time lapse of the reach from the home position to the pre-grasp, followed by the grasp in the second frame. The cube, apple, lightbulb, and bowl trajectories conclude with a lift. The flashlight trajectory additionally performs in-hand reorientation to point the flashlight forward, while the hammer trajectory reorients the hammer head toward the table before lifting.",
+     "image": "details/2609.28660/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VIII Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "形態と接触を意識したリターゲティングが出発点として極めて重要であることを総括します。カテゴリごとの個別ポリシー学習からマルチタスク汎用モデルへの拡張や、単眼動画からの直接学習といった今後の発展性に触れています。",
+   "details_ja": "本研究は、人間の動作データからロボットの視覚運動ポリシーを直接生み出すための包括的な枠組み「Morphometric Imitation」を提示しました。形態測定学的最適化（MMO）によって運動学段階から形態差と接触を正確に捉え、残差RLによって動力学的に洗練し、点群ベースの模倣学習で蒸留することで、実環境での追加学習を一切行うことなく89.3%の実機成功率を達成できることを示しました。\n\n現在の制約事項と今後の課題として、以下の点が挙げられています：\n- 現在は物体カテゴリごとに個別のポリシーを学習しているため、複数カテゴリをまとめて扱える統合的なマルチタスクポリシーの構築が期待されます。\n- 今回は高精度なモーションキャプチャデータ（GRAB）を用いましたが、MMO自体は高速（180fps）に動作するため、単眼RGB動画から3次元再構成した自然な動作データや、両手操作（バイマニュアル）への拡張が次のターゲットとなります。",
+   "figures": []
+  },
+  {
+   "heading": "付録",
+   "heading_ja": "接触評価の厳密なプロトコルと実機実験の詳細",
+   "summary_ja": "接触判定の幾何学的定義、全ベースラインとの網羅的な定性比較、そして実機実験におけるセンサ観測の特性と初期配置位置による成功率の偏りについて補足します。",
+   "details_ja": "### 接触評価の幾何学的定義\n接触メトリクスは、単に指先が物体の近くにあるかだけでなく、「人間のどの指が触れていた物体表面のパッチに、ロボットの対応する指が正確に触れているか」を面積加重F1スコアとして算出しています。符号付き距離関数（SDF）を用いて物体表面とロボットリンク表面を厳密にサンプリングし、机や物体へのめり込み深度もミリ単位で測定しています。\n\n### 実機におけるセンサ観測と失敗分析\n実機実験で使用したLiDAR深度カメラは、黒い物体や細い物体で点群の欠損が目立ちました（例えば小型の黒い懐中電灯など）。しかし、生徒ポリシー訓練時に点群の欠損やノイズを模倣するランダム化を徹底していたため、疎な点群しか得られない場合でも多くの試行で把持に成功しています。\n\n一方で、失敗した試行を分析すると、主に2つの原因がありました：\n- ワークスペース内の位置依存性：$10\\,\\text{cm} \\times 10\\,\\text{cm}$ の配置領域のうち、ロボットのベースに近い手前側の列（near row）で失敗が集中していました（グリッド試行での失敗29回のうち22回が手前側）。手前側はカメラの死角やアームの可動域の制約を受けやすいためと考えられます。\n- 物体形状の想定外の厚み：赤い目覚まし時計のように想定より厚みがある個体では、プレグラスプの開きが足りず、横から押しのけてしまう現象が見られました。また、ドーナツ形状のトーラスとして用意した養生テープは、学習元のベーグル形状よりも極端に薄かったため、80.0%と最も低い成功率にとどまりました。",
+   "figures": [
+    {
+     "key": "F9",
+     "caption_ja": "実機におけるポリシーへの入力点群です。RGB画像（参考用）、生深度画像、そして机平面を除去した入力用512点群（マゼンタ）を示しています。黒い目覚まし時計や小型懐中電灯など、点群が著しく欠損している物体でも正しく認識して把持できていることが分かります。",
+     "caption": "Fig. 9: Real-World Policy Inputs. For ten of the 30 physical instances, the RGB image from the L515 camera (for reference only; the policy does not observe RGB), the raw depth image (darker is closer; red marks pixels with no LiDAR return), and the policy input: the 512-point cloud after table removal (magenta), drawn over the color-coded depth image.",
+     "image": "details/2609.28660/F9.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "ロボットハンドのリターゲティングでは、指先位置だけでなく「手モデル自体の形態を最適化し、接触パッチを復元する」アプローチが後段の強化学習の成功率を決定づける。",
+  "動力学的リターゲティングにおいては、「物体の目標軌道追従」と「指の接触状態の一致」の2つを掛け合わせた報酬設計が最も高い効果を発揮する。",
+  "シミュレーション内で机との衝突による即時終了を設けることで、実機の硬い机の上でもハード衝突を完全にゼロに抑えながらゼロショット展開が可能になる。"
+ ],
+ "limitations_ja": [
+  "物体カテゴリごとに独立した強化学習および視覚運動ポリシーの訓練が必要であり、汎用的な単一モデルにはなっていない点。",
+  "入力動作データとして高品質なモーションキャプチャ（GRAB）を前提としており、ノイズの多い単眼RGB動画からの再構成データでの検証は今後の課題である点。",
+  "学習時のドメインランダム化の範囲を大きく超える幾何学的形状差（極端に薄いテープなど）に対しては、プレグラスプが不十分になり失敗しやすい点。"
+ ],
+ "keywords": [
+  "Dexterous Manipulation",
+  "Kinematic Retargeting",
+  "Residual Reinforcement Learning",
+  "Visuomotor Policy",
+  "Sim-to-Real Transfer",
+  "Contact-Aware Learning"
+ ],
+ "id": "2609.28660",
+ "title": "Morphometric Imitation: From Morphology and Contact Aware Hand Retargeting to Sim-to-Real Visuomotor Policy",
+ "authors": [
+  "Tara Sadjadpour",
+  "Siming He",
+  "C. K. Wolfe",
+  "Haozhi Qi",
+  "Lea Wilken",
+  "S. Shankar Sastry",
+  "Claire Tomlin",
+  "Jitendra Malik"
+ ],
+ "date": "2026-09-25",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "imitation-learning",
+  "reinforcement-learning",
+  "sim-to-real"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.28660",
+ "pdf_url": "https://arxiv.org/pdf/2609.28660",
+ "summary_ja": "人間の手と物体の相互作用動画から器用な操作方策を獲得するフレームワークを提案。接触を維持しつつ異形態の手へ運動を写像する最適化と、動力学的整合性を確保する残差強化学習を組み合わせ、シミュレーションから実機へのゼロショット転移による視覚運動方策の配備を実現した。",
+ "generated": "2026-09-25",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.28660"
+}
