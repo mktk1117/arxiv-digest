@@ -1,0 +1,128 @@
+{
+ "title_ja": "TAPESIM：ロボットマニピュレーションのための粘着テープ貼付の高速シミュレーション",
+ "tldr_ja": "巻き取られたテープの大半を剛体化しつつ、剥離先端付近に動的な変形カラーを配置することで、粘着テープの引き出し・貼り付け・切断を高精度かつ高速にシミュレーションできる手法を開発しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "粘着テープの物理挙動と基本機能の検証です。(a) 実機とシミュレーションの180度剥離力のキャリブレーション、(b) 巻き剛体クラスタから変形カラーを経て自由端へ繰り出される様子、(c) 刃の接触圧力によるテープ切断の様子を示しています。",
+  "caption": "Fig. 2: Peel-force calibration and tape-handling feasibility. (a) Force-gauge measurement and simulated peel shape at 50 s; the simulated fixture gives a median reaction of 2.54 N at $C_{n}=C_{t}=0.675$ . The arrow indicates pulling direction; the simulated profile uses equal horizontal and vertical scales. (b) A 32-turn Bond-R roll dispenses tape as the collar advances. Orange/magenta/blue indicate cluster/collar/free end, and gray the hub. State bars span the same rest-material interval; black markers track one material row. Roll views share a common scale. (c) Blade indentation and separation of a fixed-end strip. Black edges are fixed and gray denotes the blade. …",
+  "image": "details/2609.28766/F2.jpg"
+ },
+ "overview_ja": "ワイヤーハーネスの結束や段ボールの梱包など、ロボットが粘着テープを扱う作業は現場で強く求められています。しかし、テープ操作をシミュレータ上で再現するのは驚くほど困難でした。柔軟なテープ先端を引っ張ると、ロール全体が回転・移動しながら層と層が剥がれて新しいテープが繰り出され、さらに別の物体へ再接着します。これを既存の有限要素法や接触シミュレータで真面目に解こうとすると、何十層も密着した粘着界面の計算が重すぎて solver の収束が進まず、実用的な計算公差ではロールの回転自体が止まってしまう問題がありました。かといってロール全体を完全に剛体化してしまうと、テープをほどいて繰り出す変形が起きません。\n\nそこで著者らは、「ロール内部の大部分はほぼ一体の剛体として動き、激しい変形が起きるのはテープが剥がれる最前線だけである」という点に着目しました。提案手法「TapeSim」では、ロール内部を1つの剛体クラスタとしてまとめ、剥離前線だけにメッシュ状の変形可能な「カラー（襟）」を配置します。テープが引き出されると、剥離前線の進展に合わせて剛体だった要素がカラーへ、カラーだった要素が柔軟な自由端へと動的に役割を切り替えます。さらに、計算コストの高い凝集力接触を簡略化する着脱可能な結合（Releasable Bonds）も導入しました。\n\n実験では、32巻きのロールにおいて従来の全シェルモデルと比べて3.2〜8.4倍の高速化を達成しました。実ロボットによる引き上げ・貼り付け・巻きつけタスクの動作再現やポリシー評価でも、実機と高い一致度を示し、段ボール箱の連続梱包タスクも実演しています。",
+ "contributions_ja": [
+  "巻きテープの大半を剛体クラスタとし、剥離前線に進展する変形カラーを配置することで、薄膜シェルの回転・変形・繰り出しを両立するモデル低次元化手法を提案したこと",
+  "粘着層の接触・摩擦・剥離エネルギーを単一の仮想四面体要素で近似し、計算を高速化する着脱可能ボンド（Releasable Bonds）を導入・評価したこと",
+  "テープの接着、繰り出し、刃による切断を統合し、実ロボットの動作再生や学習済みポリシーの評価（Real-to-Sim）を可能にしたシミュレータを構築したこと"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜ粘着テープのシミュレーションはこんなにも難しいのか",
+   "summary_ja": "テープ操作には「柔軟な端部の変形」「ロール全体の回転・移動」「層間剥離による繰り出し」「物体への再接着」が同時に絡み合います。既存手法では計算負荷が高すぎるか、ロールが回らない・繰り出せないという壁に突き当たっていました。",
+   "details_ja": "ワイヤーハーネスの固定や梱包作業をロボットで自動化するには、シミュレータでの再現とポリシー評価が欠かせません。剛体や布・ロープなどの変形体シミュレーションは盛んに研究されていますが、粘着テープには特有の難しさがあります。\n\nテープの端を引っ張ったとき、ロールが滑らかに回転・移動しながらテープを繰り出し、既存の接着面はそのまま維持される必要があります。もしこの連成応答に誤差があると、カメラ画像に基づくロボットの行動やタスク成否が大きく狂ってしまいます。\n\nしかし、巻かれたテープの全層を薄膜シェルとして忠実に解こうとすると、隣接層間の接触と強い凝集力（接着力）によって非常に硬い連立方程式が生じます。実用的な計算公差では数値的にロールの回転がロックされてしまい、精度を上げようとすると計算時間が跳ね上がります。逆にロールを固定の剛体にしてしまうと、テープを引き出すための変形自体が起こせません。\n\nここで著者が着目したのが、「ロール内部のほとんどは剛体のように一体で動いており、変形が本質的に必要なのは剥離が起きる最前線だけだ」という事実です。TapeSim はこの洞察に基づき、剛体クラスタと前進する変形カラーを組み合わせることで、高速性と物理的な忠実性を両立させました。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "変形体操作、粘着接触、シミュレーション低次元化の交差点",
+   "summary_ja": "変形体ロボティクス、IPC に基づく接触・粘着モデル、剛体化などの低次元化シミュレーションの先行研究を概観します。本論文は剥離前線に特化した低次元化と簡略化ボンド界面により、これらをテープ操作へ拡張した位置づけです。",
+   "details_ja": "本研究の関連分野は主に3つあります。\n\n### 変形体・粘着物体のロボット操作\nロープ、布、バッグなどの操作ベンチマークは存在しますが、テープには「引き出し」と「再接着」が加わります。専用治具を使った自動化や、ピンと張った直線テープを仮定した配置計画などは研究されてきましたが、自由に動くロールからテープが順次繰り出され再接着する動的シミュレーションは実現できていませんでした。\n\n### 粘着と接触力学\n変形体の接触には、貫通を厳密に防ぐ IPC（Incremental Potential Contact：増分ポテンシャル接触）が広く使われています。IPC を粘着接触へ拡張した研究や、Raous–Cangemi–Cocou（RCC）モデルに基づく接触・摩擦・粘着の連成手法もあります。TapeSim はこれらを土台にしつつ、内部界面を軽量な仮想ボンドで置き換えるアプローチをとります。\n\n### 低次元化シミュレーション技術\nほぼ剛体として動く物体を効率的に扱うアフィン体動力学（ABD）や、局所的に変形体と剛体を切り替える適応的剛体化の研究があります。TapeSim では、テープが剥がれていく「剥離前線」という物理現象に特化して剛体領域と変形領域を切り替える点がユニークです。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "剛体クラスタ・前進カラー・着脱ボンドによる巧みな定式化",
+   "summary_ja": "薄膜シェルと IPC をベースに、接着界面を単純化する仮想四面体ボンド、ロール内部を6自由度に縮退させる剛体クラスタ、剥離に合わせて変形性を復活させる前進カラー、そして圧力閾値による刃の切断機構を提案します。",
+   "details_ja": "TapeSim のアルゴリズムは、高精度な接触計算と大胆なモデル低次元化を綺麗に融合させています。\n\n### III-A IPCによる薄膜シェルシミュレーション\nテープの基材は、StVK膜弾性と離散シェル曲げ弾性を持つ三角形薄膜シェルとしてモデル化します。平らな状態を基準形状とするため、ロール状に巻かれた状態では弾性ひずみエネルギーが蓄えられています。各時間ステップ $\\Delta t$ で、慣性項、弾性ポテンシャル、法線接触バリア、摩擦からなる目的関数を最小化します。IPC のバリアエネルギーにより、メッシュ同士の交差や貫通は完全に防止されます。\n\n### III-B 凝集接触から着脱可能ボンド（Releasable Bonds）へ\n従来の凝集接触モデル（RCCベース）では、接触点対ごとに粘着強度 $\\beta \\in [0, 1]$ を追跡し、垂直方向の引き離しと接線方向の滑りに抵抗します。しかしロール内部の界面ではほとんど相対運動が起きないため、この計算は無駄になります。\nそこで、接触点と相手側三角形の3頂点から仮想的な四面体を作り、その剛性エネルギーで接着・接触・摩擦をまとめて近似する「着脱可能ボンド」を導入しました。これにより自由度を一切増やさず、計算を劇的に軽くできます。ボンドは引張力がある閾値 $f_{\\rm break}$ を超えたときのみ破断し、圧縮時には壊れません。破断後は通常の IPC 接触処理に戻ります。\n\n### III-C 剛体巻き領域と前進する変形カラー\nロール内部の大部分を剛体クラスタ $\\mathcal{C}$、剥離前線周辺を柔軟な変形カラー $\\mathcal{L}$、引き出された部分を自由端シェル $\\mathcal{F}$ に分割します。\nクラスタ内部の頂点は個別の自由度を持たず、クラスタ全体の並進と回転（6自由度）を共有します。これにより自由度数と内部接触の計算が大幅に削減されます。\n\n重要なのは「カラーの前進」です。各ステップ終了後、自由端に隣接するカラー頂点の変形量 $g_i = \\|x_i - \\tilde{x}_i\\|$（剛体運動からの乖離）を監視します。乖離が閾値 $\\delta$ を超え、接着が外れた頂点は自由端 $\\mathcal{F}$ に昇格します。するとカラーの幅を $N$ エッジ分維持するように、隣接する剛体クラスタの頂点が変形可能なカラーへと復元されます。このバトンタッチによって、テープのスムーズな繰り出しが実現します。\n\n### III-D 自由端テープの切断\n刃とテープの IPC 接触法線力から計算される局所接触圧力が、2ステップ連続で閾値（1 kPa）を超えた瞬間に切断を発動します。刃の線に沿って有限幅の隙間（カーフ）を取り除いてメッシュを再分割し、切断後の両断片がそのまま物理挙動を継続できるようにします。",
+   "figures": []
+  },
+  {
+   "heading": "IV Evaluation",
+   "heading_ja": "実機比較、計算速度、ポリシー評価で見る実力",
+   "summary_ja": "提案手法（剛体化 R / 全シェル F、凝集 Coh / ボンド Bond の4構成）を多角的に比較しました。32巻きロールで最大8.4倍の高速化を達成し、実ロボットの開ループ動作再生や閉ループ方針の成否予測でも高い一致度を示しました。",
+   "details_ja": "評価では、Coh-F（全シェル・凝集）、Bond-F（全シェル・ボンド）、Bond-R（剛体クラスタ・ボンド）、Coh-R（剛体クラスタ・凝集）の4モデルを比較しています。\n\n### IV-A 物理セットアップと基本機能\nまず、実機で力学センサを使って測定したテーブルからの180度引き剥がし力（中央値2.54 N）に合うよう、シミュレーションのパラメータを調整しました。また、32巻きの Bond-R ロールを引いたところ、カラーが追従して 17.75 秒間で 370.5 mm のテープが破綻なく繰り出され、刃による切断も安定して行えることを確認しました。\n\n### IV-B ロール運動と計算効率\n端部を固定してロールをスイングさせた実験では、全シェル（Coh-F）だと計算公差の影響でロールの回転が阻害されていましたが、剛体クラスタ化（Rモデル）によって本来の自由な回転運動が回復しました。\n計算速度の面では、32巻きロールにおいて剛体クラスタ化によりステップあたり 3.2〜3.4倍 の高速化が得られました。さらに、同等の回転運動精度を出すための solver 許容公差で比較した場合、Coh-F から Coh-R で 8.4倍、Bond-F から Bond-R で 4.5倍 もの高速化を記録しました。\n\n### IV-C 開ループ動作の再現精度（Stick replay）\nロボットがテープの端を掴んで持ち上げ、スタンドに貼り付ける「Stick」タスクの実機軌道をシミュレータでそのまま再生しました。カメラ画像上のロール中心位置の追跡誤差を測定したところ、全シェル（Coh-F: 22.96 px）に比べて、Coh-R（17.57 px、23%減）および Bond-R（16.28 px、29%減）と、剛体クラスタ化したモデルの方がむしろ実機に近い軌道を描くことが分かりました。\n\n### IV-D 閉ループでのポリシー成否予測\n模倣学習で訓練した視覚言語行動（VLA）ポリシーを実機とシミュレータの双方で動かし、成否が一致するかを検証しました。\n- **Peel（剥離）**: 剛体クラスタ化によって、実機との成否の一致率が 69% から 81〜82% へ、Balanced Accuracy（BA）が 50% から 72.9〜76.3% へと大幅に改善しました。\n- **Stick（貼り付け）**: 全体の成功率は実機（70.4%）とシミュレータ（約68〜69%）でよく合致しましたが、個別の成否判別（BA）では Bond-F が 64.6% で最も良好でした。\n- **Wrap（巻きつけ）**: 1巻き成功の判定では Coh-R が 76.6% の BA を達成しましたが、難易度の高い2巻き成功の予測はモデル問わず依然として困難でした。\n\n### IV-E 接着強度への感度\nテーブル接着力を20倍、100倍に変えると成功率が激変し、事前の剥離力キャリブレーションがいかに重要かが裏付けられました。\n\n### IV-F テレオペによる段ボール箱梱包デモ\nフラップを閉じ、テープを貼り、引き出し、カッターで切り、上から押さえて封をする一連の箱詰め作業を実施しました。RTX 5090 環境で実時間の約0.422倍のフレームレートで安定してシミュレーションが完遂しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "ロールの回転運動と計算時間の比較です。(a) 許容公差固定時のステップ計算時間、(b) 同等の回転運動を再現するために必要な計算時間、(c) 32巻きロール解放後のハブ回転角度の推移を示しています。剛体クラスタ化（R）により計算時間が劇的に短縮され、回転の抑制も解消されています。",
+     "caption": "Fig. 3: Roll motion and computational cost. (a) Mean physics-step time over 1750 steps at Newton tolerance $10^{-3}$ m/s, excluding cluster updates and rendering. (b) Mean physics-step time for comparable roll motion, using tolerances selected by matching hub-rotation ranges. (c) Hub rotation after release for a 32-turn roll at $10^{-2}$ m/s, relative to the first post-release state. (d) Coh-F at 7.48 and 12 s, before and after hub release at 7.5 s. Views share time and scale; dots mark the held tip, circles the hub center, and spokes the hub orientation.",
+     "image": "details/2609.28766/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "ロボットによる Stick 動作の実機モーション再生結果です。上段はカメラ画像上でのロール中心ランドマーク誤差の推移、下段は実機（Real）と各シミュレータモデルの同期フレーム比較です。剛体クラスタ化モデル（Bond-R, Coh-R）が実機の揺れや姿勢を最もよく捉えています。",
+     "caption": "Fig. 4: Clustered models retain Stick replay fidelity. Top: ego-camera core-landmark error for five real-motion replays; each curve averages two simulation repeats. Time is measured from recording start, excluding the stationary first 3 s. Hollow markers identify estimated real landmarks. Bottom: synchronized real/sim frames from Stick 19, repeat 1, at 6.5 and 9.5 s, using the same crop across models.",
+     "image": "details/2609.28766/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "Peel、Stick、Wrap の3タスクにおける実機とシミュレータのポリシー成功率の比較です。対角線（点線）に近いほど実機環境との一致度が高いことを示しており、クラスタ化モデルが高い予測精度を持っています。",
+     "caption": "Fig. 5: Real versus simulated policy success across three tape tasks. Top: Coh-R rollout scenes. Bottom: simulated success rate (horizontal) versus real success rate (vertical); the dashed diagonal indicates equal rates. Circles/squares denote Peel/Stick, and filled/open triangles denote Wrap success with at least one/two completed turns. Peel, Stick, and Wrap use 100, 71, and 55 matched cases, respectively.",
+     "image": "details/2609.28766/F5.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "遠隔操作による段ボール箱梱包の一連のシミュレーションです。フラップ閉じ、テープ貼り付け、引き出し、刃による切断、そして封かんの押し込みまでが一連の物理環境内で破綻なく実行されています。",
+     "caption": "Fig. 8: Continuous teleoperated box sealing. Frames from one simulated rollout show flap closing, tape attachment, dispensing, cutting, and pressing the seal. Times are measured from the start of the recording.",
+     "image": "details/2609.28766/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "TapeSim は剛体クラスタと動的カラーの組み合わせにより、粘着テープの繰り出しシミュレーションを劇的に高速化・高精度化しました。基本表現として剛体クラスタ化を推奨し、タスクの性質に応じて接触界面を選択する指針を提示しています。",
+   "details_ja": "本論文では、巻きテープの物理挙動を効率的かつ高精度に解くシミュレータ「TapeSim」を提案しました。\n\n剛体クラスタと前進する変形カラーの連成により、32巻きロールで3〜8倍以上の高速化を達成しつつ、従来モデルで発生していた数値的な回転ロックを解消しました。実機ロボットとの比較検証においても、開ループの動作追従性・閉ループのポリシー評価精度の双方が向上することが確認されました。\n\n実用上の指針として、著者らは剛体クラスタ化（R）を標準として推奨しています。界面モデルについては、計算速度を最優先する場合は Bond-R、巻きつけなど複雑な再接触が絡むタスクには Coh-R を選ぶのが適しています。今後はソースコードの公開も予定されており、梱包やハーネス組み立てといった産業ロボットの自動化研究を大きく加速させることが期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「動かない内部は剛体、変形する前線だけ柔軟体」という局所的な役割分担が、多層粘着構造のシミュレーションにおいて劇的な高速化と安定化をもたらす",
+  "solver の公差設定によってロール回転が物理的にロックされる現象があり、モデルの低次元化（クラスタ化）がその数値的不具合を本質的に解決した",
+  "シミュレータ全体の成功率の一致だけでなく、個別の試行ごとの正誤一致度（Balanced Accuracy）を評価することの重要性が示された"
+ ],
+ "limitations_ja": [
+  "難易度の高い2巻き以上の Wrap（巻きつけ）タスクにおいて、実機で稀に成功する試行をシミュレータ側で正確に拾い切れない（偽陰性・偽陽性が出る）課題が残る",
+  "テープの剥離力パラメータは実機での事前キャリブレーションに依存しており、粘着強度がずれるとポリシー評価の乖離が急激に大きくなる"
+ ],
+ "keywords": [
+  "Tape Dispensing Simulation",
+  "Incremental Potential Contact (IPC)",
+  "Rigid-Deformable Coupling",
+  "Robotic Manipulation",
+  "Real-to-Sim Evaluation"
+ ],
+ "id": "2609.28766",
+ "title": "TAPESIM: Efficient Simulation of Adhesive Tape Dispensing for Robotic Manipulation",
+ "authors": [
+  "Zhaofeng Luo",
+  "Xinyu Lu",
+  "jaehoon Choi",
+  "Zhehuan Chen",
+  "Trinity Chung",
+  "Xiaowen Qiu",
+  "Hugh Nicholas Perkins",
+  "Gianna Calderon",
+  "Alexis Duburcq",
+  "Sanghyun Son",
+  "Tsun-Hsuan Wang",
+  "Yi-Ling Qiao",
+  "Minchen Li"
+ ],
+ "date": "2026-09-25",
+ "group": "general",
+ "tags": [
+  "simulation",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.GR"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.28766",
+ "pdf_url": "https://arxiv.org/pdf/2609.28766",
+ "summary_ja": "ワイヤハーネス固定や梱包作業での粘着テープ貼付を再現するシミュレータTapeSimを提案。ロールの大部分を剛体クラスタとしつつ繰り出し部と剥離テープのみに変形を集中させるモデル化により、低計算コストで実用的な許容誤差内での連続的な繰り出しと貼付・剥離挙動を再現した。",
+ "generated": "2026-09-25",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.28766"
+}
