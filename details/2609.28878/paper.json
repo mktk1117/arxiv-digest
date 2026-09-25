@@ -1,0 +1,131 @@
+{
+ "title_ja": "OSRAM：閉ループシステムモデリングによるオンラインSim-to-Real適応",
+ "tldr_ja": "実機に持っていくと発生する微妙な追従のズレを、方策（ポリシー）を書き換えるのではなく「ロボットに与える目標指令（リファレンス）側を賢く補正する」ことで解決した研究です。ロボットとコントローラを丸ごと1つのシステムとしてモデル化し、実機わずか数十ステップの微調整で高精度な軌道追従を達成しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "OSRAMの全体アーキテクチャです。シミュレーション環境で物理パラメータを揺らしながら閉ループモデルをメタ学習しておき、実機展開後はわずかな実データでモデルを微調整します。そのモデルを使ってMPPI（サンプリング型最適化）で目標指令を補正するため、配備済みの方策には一切手を加える必要がありません。",
+  "caption": "Fig. 2: Overview of OSRAM. During simulation pretraining, a base policy is trained and used to collect closed-loop rollouts under randomized system dynamics, from which a meta-learned command-response model is trained. After deployment, the model is rapidly finetuned using limited real interaction and used to optimize future reference commands. The underlying control policy remains unchanged throughout adaptation.",
+  "image": "details/2609.28878/F2.jpg"
+ },
+ "overview_ja": "強化学習などで訓練した制御方策をシミュレータから実機へ移植する「Sim-to-Real」は大きく発展しましたが、現場では依然として厄介な問題が残ります。ロボットは転倒せず安定して動いているのに、モーターの遅延や摩擦、質量のズレによって「指定した速度や軌道から微妙にズレ続ける」という残留追従誤差です。これを直そうとすると、実機で複雑な物理パラメータを同定し直すか、ポリシー自体を追加学習（ファインチューニング）する必要があり、膨大な実機データや安全性の検証コストがかかっていました。\n\nそこで著者らは発想を転換しました。「コントローラが真面目に動いているなら、コントローラをいじるのではなく、送る指令（リファレンス）のほうをゲタを履かせるように補正すればいいのでは？」と考えたのです。例えば、目標速度より遅れがちならあらかじめ速めの指令を送り、行き過ぎるなら手前で緩めます。この補正を正しく行うため、ロボット本体と制御ポリシーを丸ごと一体の「閉ループシステム」と見なし、指令に対する応答挙動を直接学習するフレームワーク「OSRAM」を提案しました。\n\n評価では、2足歩行ロボット「Tron1」を用い、通常の速度追従だけでなく腕付きの移動マニピュレーションタスクでも検証を行いました。シミュレーションと実機の両方で、従来のドメイン適応手法や残差ポリシー学習を上回る追従精度を達成し、実機マニピュレーションでは追従誤差（RMSE）を約37cmから約3cmへと劇的に削減できることを示しました。",
+ "contributions_ja": [
+  "ロボットと配備済みポリシーを単一の閉ループ動特性として定式化し、高次元な物理状態ではなくタスクレベルの指令-応答関係を直接モデル化する枠組みを提案したこと",
+  "シミュレーション上で多様な環境ダイナミクスをまたぐメタ学習（Reptile）を行い、実機配備後にごく少量のデータ（数十ステップの勾配更新）で即座に適応できる事前モデルを構築したこと",
+  "同定した閉ループモデルに基づき、実時間MPPI（モデル予測経路積分制御）を用いて目標指令をオンラインで最適化・補正するアルゴリズムを開発したこと",
+  "2足歩行ロボットの実機において、歩行速度追従および全身移動マニピュレーションの両タスクで追従精度の大幅な向上を実証したこと"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "方策を変えずに「指令」を変える：Sim-to-Realの新しいアプローチ",
+   "summary_ja": "Sim-to-Realでは、ロボットが安定して動いていても摩擦や遅延などの未モデル化要素によって追従誤差が残ることが大きな課題です。OSRAMはポリシーを再訓練する代わりに、ロボットとコントローラ全体をブラックボックスとして捉え、目標指令を最適化して誤差を打ち消します。",
+   "details_ja": "強化学習によってロボットの動的な振る舞いを獲得できるようになりましたが、シミュレーションと現実のギャップ（Sim-to-Realギャップ）は依然として完全には埋まりません。ドメインランダマイゼーション（訓練時にシミュレータの質量や摩擦をランダムに変える手法）を使えば頑健にはなりますが、分布を広げすぎると性能が低下し、狭すぎると実機で追従遅れや定常偏差が残ってしまいます。\n\n実機データから物理パラメータを同定してポリシーを再学習させるアプローチもありますが、高次元な実ロボットで物理ダイナミクスを正確に推定するのは極めて難しく、安全性の検証にも多大なコストがかかります。\n\nここで着目したのが、「すでに動いているコントローラはそのままにして、コントローラに渡す参照指令（Reference command）側を適応させる」というアイデアです。例えば、指示した速度よりも10%遅れて走るクセがあるなら、最初から約10%増しの速度指令を送り込めば、結果として望み通りの速度で走ってくれるはずです。\n\nこれを実現するために、OSRAMでは「ロボット本体＋コントローラ」を1つの閉ループ動特性システムと見なします。全身の複雑な関節角やトルクを追うのではなく、「どんな指令を出したら、どんな結果が返ってきたか」というタスク空間の入出力履歴だけを学習します。これにより、極めて低次元かつデータ効率の良い適応が可能になります。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "実機Tron1での実験結果の比較です。(a)の位置フィードバックなし速度追従では横方向へのドリフトが抑えられ、(b)の移動マニピュレーション（サイン波追従）ではベースラインで見られた大きな追従遅れが解消して目標軌道（黒破線）に綺麗に重なっています。",
+     "caption": "Fig. 1: OSRAM reduces residual sim-to-real tracking errors through online reference-command adaptation. (a) Velocity tracking without position feedback. (b) Loco-manipulation sine wave trajectory tracking.",
+     "image": "details/2609.28878/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "既存のオンライン適応と何が違うのか？",
+   "summary_ja": "従来のオンライン適応手法（RMAや残差ポリシー学習など）は、方策の内部表現や出力トルク自体を書き換えるアプローチが主流でした。一方OSRAMは、制御方策には一切触れず、外側の参照指令インタフェースのみを通じて非線形な挙動を補正する点に独自性があります。",
+   "details_ja": "### II-A オンライン適応によるSim-to-Real転移\n実機配備後のデータを使って挙動を調整する手法としては、RMA（Rapid Motor Adaptation）のように観測履歴から環境の潜在表現を推定してポリシーに入力する方法や、事前学習済みポリシーの上から残差行動を加える残差ポリシー（Residual Policy）学習があります。しかし、これらは方策そのものの改造や追加入力モジュールを必要とします。対してOSRAMは、配備済みの方策を完全に凍結したまま、外部から与える参照指令だけを動的に加工するため、既存システムへの導入が極めて容易です。\n\n### II-B ロボティクスにおける入出力ダイナミクスモデリング\n状態遷移モデルを学習するモデルベース制御は強力ですが、全身状態が高次元になると膨大なデータが必要になります。そこで、内部状態を完全に復元せずに入出力履歴から将来の応答を予測する手法（NARXモデルやデータ駆動型参照ステアリングなど）が提案されてきました。先行研究のデータ駆動型参照ステアリングは線形表現を仮定することが多いのに対し、OSRAMはシミュレーションでのメタ学習を活用することで、非線形な深層学習モデルを少量の実機データで素早く適応させる点が進歩しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "OSRAMの仕組み：メタ学習と実時間サンプリング最適化",
+   "summary_ja": "シミュレーション上で多様なダイナミクスを走らせ、閉ループ指令-応答モデルをメタ学習します。実機配備後はわずかな実データでモデルを微調整し、MPPIを用いて「狙った応答を引き出すための補正済み指令」を50Hzでリアルタイムに最適化します。",
+   "details_ja": "OSRAMは大きく「シミュレーションでのメタ学習フェーズ」と「実機でのオンライン適応・制御フェーズ」の2段階から構成されます。\n\n### 閉ループ指令-応答モデリング\nロボットと方策 $\\pi$ の複合体を1つのシステムとし、モデル $F_{\\theta}$ を定義します。このモデルは、過去の参照指令履歴 $\\mathbf{r}^{\\text{ref}}$ と実際の応答履歴 $\\mathbf{r}^{\\text{real}}$ から、次のステップの実応答 $\\hat{\\mathbf{r}}^{\\text{real}}_{t+1}$ を予測します。状態空間全体ではなく、タスクに直接関係する変数（例えばベース速度や手先位置など）だけを扱うため、モデルの入力次元が大幅に圧縮されます。\n\n### 閉ループメタ学習（Reptileの応用）\n実機での適応を素早く行うため、一次メタ学習アルゴリズムであるReptileに着想を得た学習を行います。シミュレータ内でロボットの質量、摩擦、アクチュエータ特性をランダムに変化させ、さらに参照指令に励起信号（揺らぎ）を加えて多様なデータを収集します。1ステップ予測損失と複数ステップ展開（Autoregressive rollout）の一貫性損失を組み合わせた損失関数で学習し、未知の環境に対しても数回の勾配更新ですぐに適応できる初期パラメータを獲得します。\n\n### MPPIによる実時間参照指令最適化\n実機に展開したら、少量の軌道データを使ってモデル $F_{\\theta}$ を数回〜数十回勾配更新して微調整します。その後、最適化アルゴリズムMPPI（Model Predictive Path Integral）を走らせ、未来の候補指令列を大量に並列サンプリングします。評価コストには「予測応答が本来の目標を追従しているか（$\\ell_{\\text{track}}$）」「補正指令が無茶な値に乖離していないか（$\\ell_{\\text{dev}}$）」「指令が時間的に滑らかか（$\\ell_{\\text{smooth}}$）」の3つを組み込み、最も適切な補正指令 $\\mathbf{r}^{\\text{ref,new}}$ を選んでコントローラに渡します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "OSRAMの訓練と適応の流れです。上段のシミュレーション環境でベースポリシーとメタモデルを訓練し、下段の実機配備後は少量のデータでモデルをファインチューニングしてMPPIで指令を書き換えます。",
+     "caption": "Fig. 2: Overview of OSRAM. During simulation pretraining, a base policy is trained and used to collect closed-loop rollouts under randomized system dynamics, from which a meta-learned command-response model is trained. After deployment, the model is rapidly finetuned using limited real interaction and used to optimize future reference commands. The underlying control policy remains unchanged throughout adaptation.",
+     "image": "details/2609.28878/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experimental Results",
+   "heading_ja": "実験結果：未知の環境でも安定して高精度追従を実現",
+   "summary_ja": "2足歩行ロボットTron1を用い、速度追従と移動マニピュレーションで検証しました。OSRAMは開ループモデルや既存の適応手法（RMA風RNN、残差ポリシー）を凌駕する追従精度を示し、実機でも手先位置追従のRMSEを36.94cmから3.11cmへと激減させました。",
+   "details_ja": "### IV-A 実験セットアップ\nLimX Dynamics社の2足歩行ロボット「Tron1」（単体、およびアームを搭載した移動マニピュレーション仕様）を使用しました。制御周期として、MPPIプランナーはRTX 4090 GPU上で50Hzで動作し、ダイナミクスモデルは2Hzでバックグラウンド更新されます。評価指標には、平均追従誤差 $E_{\\text{mean}}$、二乗平均平方根誤差 $E_{\\text{RMSE}}$、複数試行のばらつき $E_{\\text{std}}$、転倒しない成功率（SR）を使用しました。\n\n### IV-B 未知ダイナミクスへの適応（Q1の検証）\n訓練時とは重心やアクチュエータゲインが異なる分布外（OOD）条件において、通常の順ダイナミクスモデル（FD）と提案メタモデルを比較しました。1ステップ予測の平均絶対誤差（MAE）は、FDの0.0594に対して提案法は0.0116と約80.5%（約5分の1）に低減しました。この予測精度の向上がそのまま制御性能に直結し、目標速度0.7m/sにおいてRMSEが0.1472から0.0929へと大幅に改善しました。\n\n### IV-C なぜ「閉ループ」をモデル化するのか？（Q2の検証）\n関節アクションを明示的に入力とする一般的な開ループモデル（全身状態を使うOL-Full、タスク出力のみを使うOL-Out）と比較しました。低速時は開ループモデルでもある程度動きますが、より高速な0.9m/sの過酷な設定では、開ループモデルを用いた制御はロボットが転倒して成功率0%となりました。一方、閉ループモデルを扱うOSRAMは100%の成功率を維持し、RMSEも0.1560に抑えられました。限られた適応データしかない場合、低レベルのアクションを予測するよりも「指令と応答」に絞ってモデル化するほうが圧倒的に堅牢であることが分かります。\n\n### IV-D 既存のオンライン適応手法との比較（Q3の検証）\nRMAに代表される潜在表現推定型（RNN-Adapt）や残差ポリシー型（Res-Adapt）と比較しました。どちらのベースラインも転倒は防げたものの定常的な追従遅れが残り、目標速度0.4m/sでのRMSEはRNN-Adaptが0.1415、Res-Adaptが0.1421でした。これに対しOSRAMは0.0733と約半分の誤差を達成しました。\n\n### IV-E 実機ハードウェアでの実証（Q4の検証）\n実機実験では、わざと追加の重りを載せてゲインを変更し、大きなSim-to-Realギャップを作りました。速度追従タスクでは、OSRAMの導入により横方向のふらつき（ドリフト）が顕著に抑えられました。モデルの微調整に必要な勾配ステップ数も約30回（十数秒のデータ）で誤差が収束することが確認されました。\nさらに難易度の高いアーム付き移動マニピュレーション（手先で3次元サイン波を描くタスク）では、適応なしのベースラインが手先X方向RMSE $36.94\\pm 3.02$ cmと大きく遅れを生じたのに対し、OSRAMを適用すると $3.11\\pm 0.31$ cmへと劇的に改善しました。\n\n### IV-F どのように指令が補正されているのか？\n予測モデルが実応答を正確に捉えているため、ロボットが指令に対して追従遅れを起こす特性がある場合、OSRAMは目標値より一歩先んじた大きな指令値を生成します。逆に目標を行き過ぎそうになると指令を早めに引き戻します。このように「賢くサバを読む」指令をリアルタイムに生成することで、結果として実機が本来の目標通りに動くという仕組みです。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "シミュレーションでの予測および速度追従の比較です。(a)では提案メタモデルが目標速度の変化を最も正確に予測できています。(b)と(c)では、目標速度0.7m/sにおいてOSRAMが開ループモデル（OL-Full, OL-Out）や適応なし（w/o DA）に比べて圧倒的に低くバラつきの少ないRMSEを達成していることが分かります。",
+     "caption": "Fig. 3: Model prediction and velocity-tracking comparison. (a) Predicted velocity trajectories from different dynamics models, with a magnified view highlighting local prediction differences. (b) Closed-loop velocity-tracking performance compared with the target command. (c) Distribution of tracking RMSE over multiple trials. Lower RMSE and tighter distributions indicate more accurate and consistent tracking.",
+     "image": "details/2609.28878/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "実機Tron1による実験データです。(a)速度追従時の実機走行軌跡で、OSRAMが横方向のズレを綺麗に補正しています。(b)微調整の勾配ステップ数に伴い急激に予測誤差（MAE）が低下する様子。(c)(d)移動マニピュレーション時の手先3D軌道とX位置の時間変化で、ベースライン（灰色）の遅れをOSRAM（オレンジ）が完璧にリカバリーしています。",
+     "caption": "Fig. 4: Hardware results of velocity-tracking and loco-manipulation. (a) Global position trajectories for velocity tracking, truncated at $x=3.5\\,\\mathrm{m}$ to highlight lateral tracking error. (b) Forward-velocity prediction error, measured by $v_{x}$ MAE, versus the number of finetuning gradient steps. (c) End-effector global position trajectories for loco-manipulation. (d) Global $x$ -position trajectories for loco-manipulation.",
+     "image": "details/2609.28878/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion, Limitation And Future Work",
+   "heading_ja": "まとめと今後の展望：低次元指令から全身協調への拡張へ",
+   "summary_ja": "OSRAMはポリシーを変更せず、閉ループ指令-応答モデルを通じて指令を補正する実用的なオンラインSim-to-Real手法です。今後は高次元な全身軌道への拡張や、微分可能モデルを活かした勾配ベースの高速最適化が期待されます。",
+   "details_ja": "OSRAMは、既存の学習済みポリシーに手を加えることなく、参照指令の適応だけで残留Sim-to-Real誤差を打ち消せることを示しました。特に閉ループ全体を1つのブラックボックス入出力として捉える視点は、高次元な物理モデルの同定を回避する上で非常に強力です。\n\n一方で、著者らはいくつかの限界と今後の課題も挙げています。\n- **高次元指令への対応**: 今回検証したのはベース速度（3次元）や手先位置（3次元）といった比較的低次元な指令空間でした。全身の関節軌道のような超高次元な指令に適応する場合、潜在空間への圧縮手法などを組み合わせる必要があります。\n- **最適化バックエンドの計算コスト**: 現在はMPPIによるサンプリング型最適化を用いており、ハイパーパラメータの調整に敏感な面があります。学習したニューラルネットモデルは微分可能であるため、今後は勾配ベースの最適化アルゴリズムを導入してさらに高速・効率的に解く方向性が考えられます。\n- **他の制御系との融合**: 今回は強化学習ポリシーを対象としましたが、OSRAMの原理はモデル予測制御（MPC）などの古典的・モデルベースコントローラにもそのまま適用可能なはずであり、さらなる応用が期待されます。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "OSRAMが誤差を修正するメカニズムの可視化です。(a)(b)学習済み閉ループモデルの高い1ステップ予測精度を示しています。(c)(d)破線の目標に対して、ロボットの追従遅れを見越して紫色（最適化された指令）があらかじめ大きく振れることで、結果としてオレンジ色（実応答）が目標にぴったり追従している様子がよく分かります。",
+     "caption": "Fig. 5: (a)–(b) One-step predictions of the finetuned closed-loop dynamics model for velocity tracking and loco-manipulation, respectively. (c)–(d) Nominal references, OSRAM-adapted references, and realized responses for forward-velocity tracking and end-effector $y$ -position tracking. The adapted references compensate for systematic tracking errors so that the realized responses more closely follow the nominal targets.",
+     "image": "details/2609.28878/F5.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "「ポリシーを再学習する」「実機の物理パラメータを同定する」以外に、「参照指令を賢く歪ませて送る」という第3の適応アプローチが極めて実用的であること",
+  "ロボット本体とポリシーをひとまとめにした「閉ループ系」として入出力を捉えると、全身状態をモデル化するよりもデータ効率が高く、高速なオンライン適応が可能になること",
+  "シミュレーションでのメタ学習（Reptile等）を事前に行っておけば、実機での微調整はわずか数十回の勾配更新（数十秒のデータ）で十分な精度に達すること",
+  "RMAなどの既存の内部適応手法とOSRAMを組み合わせることで、さらなる追従性能の向上が期待できること"
+ ],
+ "limitations_ja": [
+  "指令空間がベース速度や手先位置など低次元であることを前提としており、全身の自由度を直接指令するような高次元タスクへの直接適用はまだ検証されていない点",
+  "サンプリングベースの最適化手法（MPPI）を用いているため、温度パラメータやノイズ共分散などのチューニングに性能が左右されやすい点",
+  "ベースとなるポリシーがある程度安定してタスクを遂行できる（転倒しない）ことが前提であり、ポリシー自体が破綻しているような極端な環境ギャップには対応できない点"
+ ],
+ "keywords": [
+  "Sim-to-Real Transfer",
+  "Online Adaptation",
+  "Closed-Loop System Identification",
+  "Model Predictive Path Integral (MPPI)",
+  "Meta-Learning",
+  "Legged Locomotion"
+ ],
+ "id": "2609.28878",
+ "title": "Online Sim-to-Real Adaptation via Closed-Loop System Modeling",
+ "authors": [
+  "Yuhao Huang",
+  "Samuel A. Moore",
+  "Boyuan Chen"
+ ],
+ "date": "2026-09-25",
+ "group": "general",
+ "tags": [
+  "sim-to-real",
+  "control",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.28878",
+ "pdf_url": "https://arxiv.org/pdf/2609.28878",
+ "summary_ja": "ダイナミクス誤差による追従精度低下を解決するため、既存コントローラへの参照指令をオンライン適応させるOSRAMを提案。ロボットと方策を単一の閉ループ系として扱い、再訓練や物理パラメータ同定を行わずにデータ効率よくシミュレーションと実機のギャップを補正する。",
+ "generated": "2026-09-25",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.28878"
+}
