@@ -1,6 +1,289 @@
 {
  "entries": [
   {
+   "date": "2026-09-25",
+   "rank": 0,
+   "id": "2609.28959",
+   "group": "focus",
+   "title": "TactileStep: Sole Tactile Learning for Regulating Foot-Terrain Interaction in Humanoid Locomotion",
+   "title_ja": "TactileStep：ヒューマノイド歩行における足部と地形の相互作用調整のための足底触覚学習",
+   "summary_ja": "ヒューマノイドのパルクール等における着地衝撃や不安定な接地を緩和するため、足底圧力センサを活用する歩行制御枠組みTactileStepを提案。実機の圧力インソールと触覚シミュレーションを整合させ、接地コンプライアンスを調節することで柔軟な着地と安定した支持を実現した。",
+   "authors": [
+    "Zizhuo Wang",
+    "Ming-ju Lee",
+    "Shaoting Zhu",
+    "Haozhe Lou",
+    "Hang Zhao",
+    "Yiming Li"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "humanoid",
+    "control",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.28959",
+   "image": "figures/2026-09-25/2609.28959.jpg"
+  },
+  {
+   "date": "2026-09-25",
+   "rank": 1,
+   "id": "2609.28960",
+   "group": "focus",
+   "title": "Echo in the Steps: Learning Perceptive Humanoid Parkour with Gated Memory",
+   "title_ja": "Echo in the Steps：ゲート付きメモリを用いた知覚的ヒューマノイドパルクールの学習",
+   "summary_ja": "足場が疎で狭い不連続地形を走破するため、車載深度カメラのみを用いた知覚ヒューマノイドパルクール手法を提案。顕著性事前分布とゲート付きメモリを融合した時系列知覚モジュールにより、高速遷移時でも正確な足場選択と交互着地を可能にし、安定した走破を実現した。",
+   "authors": [
+    "Ming-Ju Lee",
+    "Zizhuo Wang",
+    "Shaoting Zhu",
+    "Haozhe Lou",
+    "Hang Zhao",
+    "Yiming Li"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "humanoid",
+    "perception",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.28960",
+   "image": "figures/2026-09-25/2609.28960.jpg"
+  },
+  {
+   "date": "2026-09-25",
+   "rank": 2,
+   "id": "2609.29092",
+   "group": "focus",
+   "title": "DAWN: Noise-Robust Quadruped Parkour via Depth-Denoising World Models",
+   "title_ja": "DAWN：深度デノイジングワールドモデルによるノイズ耐性四足歩行パルクール",
+   "summary_ja": "実機展開時の深度センサノイズによる歩行性能劣化を防ぐため、ワールドモデルに基づく知覚フレームワークDAWNを提案。従来の経験的な後処理フィルタに依存せず、ワールドモデル内で深度特徴のデノイジングとアライメントを直接学習することで、高ノイズ環境下でも頑健な四足歩行パルクールを実現した。",
+   "authors": [
+    "Yohan Choi",
+    "Min-Jun Kim",
+    "Jin-Sung Kim",
+    "Yong-Jae Kim",
+    "Youn-Hee Han"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "locomotion",
+    "quadruped",
+    "world-model",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.29092",
+   "image": "figures/2026-09-25/2609.29092.jpg"
+  },
+  {
+   "date": "2026-09-25",
+   "rank": 3,
+   "id": "2609.29850",
+   "group": "focus",
+   "title": "BeyondRetarget: Learning Executable Humanoid Motions Directly from Monocular Video",
+   "title_ja": "BeyondRetarget：単眼動画からのヒューマノイド実行可能動作の直接学習",
+   "summary_ja": "人間動画からヒューマノイドの動作を獲得する際、従来のリターゲティングに伴う運動機構の乖離や誤差累積を解決する手法BeyondRetargetを提案。人間表現を経由せず、単眼動画からロボットの関節自由度や動力学的制約を満たす実行可能な動作を直接エンドツーエンドで学習する。",
+   "authors": [
+    "Tianyu Xiong",
+    "Yi Lu",
+    "Jinrui Wang",
+    "Ziqi Liang",
+    "Dandan Lei",
+    "Xiaoyang Zhou",
+    "Xiao-xiao Long",
+    "Qiu Shen",
+    "Xun Cao"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "locomotion",
+    "humanoid",
+    "imitation-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.29850",
+   "image": "figures/2026-09-25/2609.29850.jpg"
+  },
+  {
+   "date": "2026-09-25",
+   "rank": 4,
+   "id": "2609.30140",
+   "group": "focus",
+   "title": "Contact as a Decision Variable: Capability-Tradeoff Contact Selection for Legged Loco-Manipulation",
+   "title_ja": "決定変数としての接触：脚式ロコマニピュレーションのための能力トレードオフに基づく接触選択",
+   "summary_ja": "脚式ロボットによるロコマニピュレーションにおいて、環境支持接触と全身姿勢の同時最適化を行うCTCSを提案。作業を満たした後の残余レンチ、手先到達範囲、ベース可動性の3つの能力指標と接触獲得コストのトレードオフを定式化し、全身最適化の計算負荷を低減して最適な接触点を選択する。",
+   "authors": [
+    "Al Jaber Mahmud",
+    "Shuai Li",
+    "Xuan Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "manipulation",
+    "planning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.30140",
+   "image": "figures/2026-09-25/2609.30140.jpg"
+  },
+  {
+   "date": "2026-09-25",
+   "rank": 5,
+   "id": "2609.28878",
+   "group": "general",
+   "title": "Online Sim-to-Real Adaptation via Closed-Loop System Modeling",
+   "title_ja": "OSRAM：閉ループシステムモデリングによるオンラインSim-to-Real適応",
+   "summary_ja": "ダイナミクス誤差による追従精度低下を解決するため、既存コントローラへの参照指令をオンライン適応させるOSRAMを提案。ロボットと方策を単一の閉ループ系として扱い、再訓練や物理パラメータ同定を行わずにデータ効率よくシミュレーションと実機のギャップを補正する。",
+   "authors": [
+    "Yuhao Huang",
+    "Samuel A. Moore",
+    "Boyuan Chen"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "sim-to-real",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.28878",
+   "image": "figures/2026-09-25/2609.28878.jpg"
+  },
+  {
+   "date": "2026-09-25",
+   "rank": 6,
+   "id": "2609.28920",
+   "group": "general",
+   "title": "Koopman-Accelerated Model-Based Diffusion for Real-Time Robot Control",
+   "title_ja": "リアルタイムロボット制御に向けたクープマン加速モデルベース拡散",
+   "summary_ja": "モデルベース拡散制御（MBD）の高い計算コストを解決する双線形クープマンMBD（BK-MBD）を提案。制御周期ごとに状態を高次元空間へ1度だけ写像し、以降の全ロールアウトを行列ベクトル積として高速伝播させることで、実機で実時間動作可能な軌道最適化を達成した。",
+   "authors": [
+    "Bohyeong Pak",
+    "Kangmin Lee",
+    "Sanghyun Kim"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.28920",
+   "image": "figures/2026-09-25/2609.28920.jpg"
+  },
+  {
+   "date": "2026-09-25",
+   "rank": 7,
+   "id": "2609.28766",
+   "group": "general",
+   "title": "TAPESIM: Efficient Simulation of Adhesive Tape Dispensing for Robotic Manipulation",
+   "title_ja": "TAPESIM：ロボットマニピュレーションのための粘着テープ貼付の高速シミュレーション",
+   "summary_ja": "ワイヤハーネス固定や梱包作業での粘着テープ貼付を再現するシミュレータTapeSimを提案。ロールの大部分を剛体クラスタとしつつ繰り出し部と剥離テープのみに変形を集中させるモデル化により、低計算コストで実用的な許容誤差内での連続的な繰り出しと貼付・剥離挙動を再現した。",
+   "authors": [
+    "Zhaofeng Luo",
+    "Xinyu Lu",
+    "jaehoon Choi",
+    "Zhehuan Chen",
+    "Trinity Chung",
+    "Xiaowen Qiu",
+    "Hugh Nicholas Perkins",
+    "Gianna Calderon",
+    "Alexis Duburcq",
+    "Sanghyun Son",
+    "Tsun-Hsuan Wang",
+    "Yi-Ling Qiao",
+    "Minchen Li"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.GR"
+   ],
+   "tags": [
+    "simulation",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.28766",
+   "image": "figures/2026-09-25/2609.28766.jpg"
+  },
+  {
+   "date": "2026-09-25",
+   "rank": 8,
+   "id": "2609.30082",
+   "group": "general",
+   "title": "Real-Time Force Regulation for Whole-Hand Dexterous Grasping",
+   "title_ja": "手全体を用いた器用な把持のためのリアルタイム接触力調整",
+   "summary_ja": "手全体に及ぶ動的な接触変化に対して把持安定性を維持するリアルタイム力調整フレームワークを提案。物体追跡と固有受容感覚から手全体の接触位置を幾何学的に推定し、触覚センサを用いずに摩擦やアクチュエータ制限を満たす目標接触力配分をオンラインで高速再計算する。",
+   "authors": [
+    "Sang Min Kim",
+    "Alexander Alexiev",
+    "Tzu-Yuan Lin",
+    "Sangbae Kim",
+    "Young Min Kim",
+    "Yonghyeon Lee"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "grasping",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.30082",
+   "image": "figures/2026-09-25/2609.30082.jpg"
+  },
+  {
+   "date": "2026-09-25",
+   "rank": 9,
+   "id": "2609.28660",
+   "group": "general",
+   "title": "Morphometric Imitation: From Morphology and Contact Aware Hand Retargeting to Sim-to-Real Visuomotor Policy",
+   "title_ja": "Morphometric Imitation：形態と接触を考慮した手のリターゲティングからSim-to-Real視覚運動方策へ",
+   "summary_ja": "人間の手と物体の相互作用動画から器用な操作方策を獲得するフレームワークを提案。接触を維持しつつ異形態の手へ運動を写像する最適化と、動力学的整合性を確保する残差強化学習を組み合わせ、シミュレーションから実機へのゼロショット転移による視覚運動方策の配備を実現した。",
+   "authors": [
+    "Tara Sadjadpour",
+    "Siming He",
+    "C. K. Wolfe",
+    "Haozhi Qi",
+    "Lea Wilken",
+    "S. Shankar Sastry",
+    "Claire Tomlin",
+    "Jitendra Malik"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "imitation-learning",
+    "reinforcement-learning",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.28660",
+   "image": "figures/2026-09-25/2609.28660.jpg"
+  },
+  {
    "date": "2026-09-24",
    "rank": 0,
    "id": "2609.28378",
