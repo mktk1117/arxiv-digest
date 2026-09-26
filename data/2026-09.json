@@ -1,6 +1,280 @@
 {
  "entries": [
   {
+   "date": "2026-09-26",
+   "rank": 0,
+   "id": "2609.29945",
+   "group": "focus",
+   "title": "Error- and Prediction-Driven Motor Learning in the Cortico-Cerebellar Loop",
+   "title_ja": "小脳皮質ループにおける誤差・予測駆動型運動学習",
+   "summary_ja": "センサ遅延下でのロバスト制御に向け、小脳に着想を得た多重化予測表現と内部フィードバックを統合した制御フレームワークを提案。運動学的変数と誤差信号を結合符号化することで、遅延下でも高精度なオンライン補正を実現した。小脳ループ内の内部フィードバックにより適応が劇的に加速し、学習時間を一桁短縮することを示した。",
+   "authors": [
+    "Ana Carolina Filipe",
+    "Rui Ponte Costa",
+    "Cl\\'audia Soares"
+   ],
+   "categories": [
+    "cs.LG"
+   ],
+   "tags": [
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.29945",
+   "image": "figures/2026-09-26/2609.29945.jpg"
+  },
+  {
+   "date": "2026-09-26",
+   "rank": 1,
+   "id": "2609.28838",
+   "group": "focus",
+   "title": "Uncertainty-Gated Exploration Noise Suppresses Task Collapse in Online RL Fine-Tuning of a Flow-Matching Vision-Language-Action Policy",
+   "title_ja": "不確実性ゲート付き探索ノイズによるFlow-Matching型VLAポリシーのオンラインRLにおけるタスク崩壊の抑制",
+   "summary_ja": "Flow-Matching型VLAポリシーをPPOでオンライン強化学習ファインチューニングする際、特定タスクの性能が破壊される「タスク崩壊」現象を分析。新規性と不確実性に基づいてタスクストリーム間で探索を再配分する不確実性ゲート付き探索ノイズ制御器を提案し、計算資源が限られた環境下でも崩壊を防ぎ安定した学習を実証した。",
+   "authors": [
+    "Mehmet Turan Yard{\\i}mc{\\i}",
+    "Yunus Emre \\c{C}o\\u{g}urcu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "vision-language-action",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.28838",
+   "image": null
+  },
+  {
+   "date": "2026-09-26",
+   "rank": 2,
+   "id": "2609.30187",
+   "group": "focus",
+   "title": "Ego-Exo4D Human Meshes Dataset: 4D Human Motion Reconstruction for Ego-Exo Captures",
+   "title_ja": "Ego-Exo4D Human Meshesデータセット：一人称・三人称視点映像からの4D人体動作再構成",
+   "summary_ja": "一人称および多視点三人称動画を含むEgo-Exo4Dデータセットに対し、密な4D人体メッシュモーションを大規模に再構成したデータセットとパイプラインを提案。疎な3D姿勢アノテーションの課題を解決し、スキル学習や身体化AI、ヒューマノイドへのモーションリターゲティング等に資する高品質な全身運動データを提供する。",
+   "authors": [
+    "Abhiram Maddukuri",
+    "Georgios Pavlakos"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.RO"
+   ],
+   "tags": [
+    "dataset",
+    "humanoid",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.30187",
+   "image": "figures/2026-09-26/2609.30187.jpg"
+  },
+  {
+   "date": "2026-09-26",
+   "rank": 3,
+   "id": "2609.28984",
+   "group": "focus",
+   "title": "CrossSafe: Towards Cross-Embodiment Latent Safety Filters",
+   "title_ja": "CrossSafe：エンボディメント横断型潜在安全フィルタに向けて",
+   "summary_ja": "異種ロボット間で安全性制約を共通の潜在表現として扱うクロスエンボディメント安全フィルタを提案。障害物回避などの抽象的な安全判断は形態を超えて共有し、実際の安全動作の実行を各ロボットのキネマティクスやダイナミクスに応じて実現する。異なる形態のロボット間で安全方針を汎化・転移させる枠組みを示した。",
+   "authors": [
+    "Ihab Tabbara",
+    "Yuxuan Yang",
+    "Hussein Sibai"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "control",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.28984",
+   "image": "figures/2026-09-26/2609.28984.jpg"
+  },
+  {
+   "date": "2026-09-26",
+   "rank": 4,
+   "id": "2609.30258",
+   "group": "focus",
+   "title": "Temporal Gradient Inversion for Private Trajectory Reconstruction in Embodied Reinforcement Learning",
+   "title_ja": "身体性強化学習におけるプライベート軌道再構成のための時間的勾配反転",
+   "summary_ja": "分散型身体性強化学習において、端末から送信される方策勾配のみから観測と行動の時系列軌道を自己回帰的に再構成する時間勾配反転攻撃TRACEを提案。連続する勾配間の時間的相関を定式化して利用することで、従来の単一フレーム攻撃を超えて実環境エージェントの非公開センサ・行動履歴を高精度に復元し、プライバシー脆弱性を明らかにした。",
+   "authors": [
+    "Sudip Bhujel",
+    "Shanghao Shi",
+    "Ruiquan Huang",
+    "Ning Zhang",
+    "Yang Xiao"
+   ],
+   "categories": [
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.30258",
+   "image": "figures/2026-09-26/2609.30258.jpg"
+  },
+  {
+   "date": "2026-09-26",
+   "rank": 5,
+   "id": "2609.30247",
+   "group": "general",
+   "title": "Rolling-WAM: World Action Models with Rolling Imagination",
+   "title_ja": "Rolling-WAM：ローリング想像によるワールドアクションモデル",
+   "summary_ja": "動画生成と行動生成を統合するワールドアクションモデル（WAM）において、閉ループ制御の応答遅延を解決するRolling-WAMを提案。動画と行動のチャンクをスライド窓内で異なるノイズ段階で保持し、直近の行動を完全にデノイズしつつ未来予測を部分的に洗練するローリングスケジュールにより、高周波な再計画と制御性能を両立した。",
+   "authors": [
+    "Yinghua Zhou",
+    "Junjie Ye",
+    "Yiqi Zhao",
+    "Hao Dong",
+    "Celina Shiyu Wang",
+    "Ruohai Ge",
+    "Tingyi Yang",
+    "Basile Van Hoorick",
+    "Gaurav Sukhatme",
+    "Vitor Guizilini",
+    "Yue Wang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "world-model",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.30247",
+   "image": "figures/2026-09-26/2609.30247.jpg"
+  },
+  {
+   "date": "2026-09-26",
+   "rank": 6,
+   "id": "2609.29171",
+   "group": "general",
+   "title": "Representation World Model: Learning States, Transition and Executable Plans in Representation",
+   "title_ja": "表現ワールドモデル：表現空間における状態・遷移・実行可能計画の学習",
+   "summary_ja": "状態遷移の予測と実行可能な計画の生成を潜在表現空間内で直接完結させる表現ワールドモデル（RWM）を提案。端点表現から構成される潜在パスに局所的な逆動力学監督を適用し、表現空間の幾何構造そのものに計画能力を組み込むことで、明示的な探索や最適化を介さず推論時に直接軌道を生成することを可能にした。",
+   "authors": [
+    "Yijun Yuan",
+    "Weicheng Zheng",
+    "Weibang Wang",
+    "Minghui Qin",
+    "Chang Sun",
+    "Junhao Huang",
+    "Kenan Li",
+    "Anmin Liu",
+    "Yicheng Yao",
+    "Hang Zhao"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "world-model",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.29171",
+   "image": "figures/2026-09-26/2609.29171.jpg"
+  },
+  {
+   "date": "2026-09-26",
+   "rank": 7,
+   "id": "2609.29375",
+   "group": "general",
+   "title": "Free-Init: Scan-Free, Motion-Free, and Correspondence-Free Initialization for Doppler LiDAR-Inertial Systems",
+   "title_ja": "Free-Init：Doppler LiDAR-慣性システム向けスキャンフリー・動作不要・対応点不要の初期化",
+   "summary_ja": "FMCW Doppler LiDARとIMUを用いた高周波で堅牢な初期化フレームワークFree-Initを提案。点ごとのDoppler速度と慣性計測を非慣性運動学のもとで直接融合することで、LiDAR歪み補正や励振動作、環境地図との対応点探索を一切必要としないプラグアンドプレイな初期化を実現した。",
+   "authors": [
+    "Mingle Zhao",
+    "Jiahao Wang",
+    "Tianxiao Gao",
+    "Chengzhong Xu",
+    "Hui Kong"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "perception",
+    "navigation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.29375",
+   "image": "figures/2026-09-26/2609.29375.jpg"
+  },
+  {
+   "date": "2026-09-26",
+   "rank": 8,
+   "id": "2609.30249",
+   "group": "general",
+   "title": "RAPID: Robot Agentic Programming from Demonstrations",
+   "title_ja": "RAPID：実演からのロボット自律プログラミング",
+   "summary_ja": "人間の1回のデモ動画からロボットプログラムを自動生成・検証・洗練するエージェントフレームワークRAPIDを提案。デモからテスト可能なタスク仕様、ロボットの動作プリミティブ、検証用対話環境を自動推論し、コーディングエージェントの反復ループにより頑健で再利用可能なプログラムを構築する。",
+   "authors": [
+    "Yuyao Liu",
+    "Jiayuan Mao",
+    "David Hsu",
+    "Leslie Pack Kaelbling",
+    "Tom\\'as Lozano-P\\'erez"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "llm-agent",
+    "manipulation",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.30249",
+   "image": "figures/2026-09-26/2609.30249.jpg"
+  },
+  {
+   "date": "2026-09-26",
+   "rank": 9,
+   "id": "2609.29000",
+   "group": "general",
+   "title": "Learning from Mixed-Quality Deployment Experience for Robot Manipulation",
+   "title_ja": "ロボットマニピュレーションにおける品質混在の展開経験からの学習",
+   "summary_ja": "実環境展開で自然に蓄積される成否混合の自律実行データから、人間の追加修正や能動的探索なしに方策を学習する手法を提案。模倣学習での望ましくない行動の強化や、スパース報酬下でのオフライン強化学習の価値推定の不安定さを防ぎつつ、不完全な展開ログを効果的に活用して方策性能を向上させた。",
+   "authors": [
+    "Yangang Ren",
+    "Yujie Yan",
+    "Zirui Li",
+    "Jiaming Guo",
+    "Di Zeng",
+    "Ji Tao",
+    "Lan Yu",
+    "Xuesong Tian",
+    "Chen Lv"
+   ],
+   "categories": [
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "imitation-learning",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.29000",
+   "image": "figures/2026-09-26/2609.29000.jpg"
+  },
+  {
    "date": "2026-09-25",
    "rank": 0,
    "id": "2609.28959",
