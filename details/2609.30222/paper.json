@@ -1,0 +1,149 @@
+{
+ "title_ja": "TrackEverything: 3Dシーン表現の重複排除による長期間高密度トラッキング",
+ "tldr_ja": "動画中の「すべての可視点」を1000フレーム以上にわたって追跡できる初の3Dポイントトラッカーです。世界座標系でのボクセル重複排除と動的領域に絞った軌跡推定により、動画の長さではなくシーン本来の広さに応じた効率的なスケーリングを実現しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "TrackEverythingの概要と長尺動画でのスケーリング性能です。左のグラフが示すように、従来の2Dベース手法ではフレーム数に応じてトークン数が線形爆発してOOM（メモリ不足）になりますが、提案手法は3D空間で重複を排除するため、アクティブなトークン数がほぼ一定（362倍削減）に保たれ、1000フレーム超でも40GB未満の単一GPUで全点追跡が可能です。",
+  "caption": "Figure 1: TrackEverything tracks all points across all frames of long videos (1000+ frames) in 3D world-coordinate space. Left: a persistent, voxel-de-duplicated 3D scene representation grows with unique scene content rather than video length, remaining practical while prior all-frame dense 3D trackers run out of memory. Right: for each input video (top) we show the output dense 3D tracks (bottom). Trails are shown for dynamic points; static content is rendered as a 3D point cloud.",
+  "image": "details/2609.30222/F1.jpg"
+ },
+ "overview_ja": "ロボットが動的な実世界で作業を行うには、カメラに映るあらゆる物体の表面が「どこへどう動いたか」を長期にわたって正確に把握する視覚追跡が欠かせません。しかし、従来のポイント追跡技術には大きなジレンマがありました。少数の指定点だけを長く追う「疎（Sparse）トラッカー」か、画面全体の点を追えるものの48〜64フレーム程度でメモリが尽きる「密（Dense）トラッカー」かの二者択一だったのです。動画を2D画像の連続として扱う限り、同じ場所を何度も再エンコードするため、時間とともに計算量とメモリが爆発してしまうのが原因でした。\n\nそこで著者らは、「動画とは本質的に3D世界の2D投影にすぎない」という原点に立ち返りました。もし世界座標系の3D空間でシーンを保持すれば、すでに観測した静止面を何重にも保持する必要はなく、新しく見えた表面だけを追加すればよいはずです。この着想から生まれたのが「TrackEverything」です。時間窓の境界で同じ3Dボクセルに到達した追跡点を統合（重複排除）し、さらに静止している大部分の背景と動いている物体を切り分けることで、長大な動画でも計算資源を浪費しない仕組みを構築しました。\n\n検証実験では、標準ベンチマークTAPVid-3Dにおいて、既存のオープンソース全点密トラッカーを20%以上上回る精度（APD）を達成しました。さらに、従来手法が約96フレームでメモリ不足に陥るのに対し、TrackEverythingは1000フレームを超える長尺動画でも全点追跡を余裕で完走できることを実証しました。動的な環境で動くロボットの基盤モデルに向けて、極めて実用的なブレークスルーを示しています。",
+ "contributions_ja": [
+  "1000フレームを超える長尺動画において、可視の全シーンポイントを追跡できる世界初の3Dポイントトラッカー「TrackEverything」を提案しました。",
+  "時間窓の境界で同一ボクセル内の追跡点を統合する「ボクセルベース重複排除」を導入し、モデルの計算量をフレーム数ではなく物理シーン固有の幾何サイズに依存させました。",
+  "追跡処理を「終点予測＋静止/動体分類」と「動体点のみの軌跡デコード」に分離し、さらに重い4D相関ボリュームを「3D WAFT」による特徴サンプリングへ置き換えることで劇的な軽量化を達成しました。",
+  "TAPVid-3Dにおいて、短尺クリップで既存のオープンソース全点密トラッカーを20%以上上回るAPDを記録し、長尺動画でも最高峰の疎トラッカーに匹敵する精度を維持しました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ全点トラッキングは長時間の壁にぶつかっていたのか？",
+   "summary_ja": "従来の動画処理は2Dフレームを単位とするため、同じ場所が映り続けるだけでも計算量が時間に比例して増大していました。本研究は、世界座標系の3D表現を導入して重複した観測を統合し、動画の長さではなく物理的な広さに応じてスケールする新しいトラッカーを提案します。",
+   "details_ja": "現在、Vision-Language-Action（VLA）モデルやロボット方策の入力として動画が広く使われていますが、2Dピクセル空間でフレームごとに処理を行う従来のアプローチには根本的な欠点があります。すでに見た背景や物体が映っているだけでも、フレームごとに新しい視覚トークンが生成され、計算量とメモリ消費量が動画の長さに比例して線形に膨れ上がってしまうのです。\n\nこの問題はポイントトラッキングで特に顕著でした。少数の点だけを追う「疎（Sparse）トラッカー」は長時間を追えますが、シーンの大部分を見落とします。一方で、すべてのピクセルを追う「密（Dense）トラッカー」は、最初のフレームに見えている点だけに限定するか、わずか48〜64フレームの極小クリップしか扱えませんでした。つまり、「動画全体を通して、新しく現れた面も含めたすべての点を追跡する」ことはこれまで不可能だったのです。\n\nここがポイントです。動画とは、本来3D空間の出来事を2Dカメラで切り取った影のようなものです。もし最初から世界座標系（カメラではなく実世界の基準座標）の3D表現として空間を持てば、カメラが同じ場所を映し続けても新しい情報は増えず、未知の場所が見えたときだけ表現を広げればよくなります。\n\nTrackEverythingはこの発想を具現化するため、3つの工夫を取り入れました。\n- ボクセルベースの重複排除：時間窓の境界で、同じ3D位置に重なった点を1つの代表トラックに統合します。\n- 終点推定と軌跡デコードの分離：まず時間窓の末尾での位置と「静止か動体か」を判定し、高コストな詳細軌跡の復元は動いている点だけに絞って行います。\n- 3D WAFT（Warp-Aligned Feature Transform）：膨大なメモリを食う4D相関ボリュームをやめ、3D点群から2D特徴マップへの投影・サンプリングを活用した超軽量な特徴照合を行います。\n\nこれにより、40GBのGPUメモリ1枚で1000フレームを超える全点追跡を可能にしました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "TrackEverythingの処理結果と既存手法との比較です。右側の可視化では、静止している背景は3D点群として保持され、動体（馬、犬、ロボットアームなど）のみにカラーの軌跡が描画されています。左下の棒グラフが示す通り、1000フレーム以上の全点追跡において従来手法（D4RT、VDPM）がことごとくOOMになる中、提案手法だけが完走しています。",
+     "caption": "Figure 1: TrackEverything tracks all points across all frames of long videos (1000+ frames) in 3D world-coordinate space. Left: a persistent, voxel-de-duplicated 3D scene representation grows with unique scene content rather than video length, remaining practical while prior all-frame dense 3D trackers run out of memory. Right: for each input video (top) we show the output dense 3D tracks (bottom). Trails are shown for dynamic points; static content is rendered as a 3D point cloud.",
+     "image": "details/2609.30222/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "「疎」と「密」の溝：これまでの追跡技術の限界",
+   "summary_ja": "点追跡は、少数のクエリ点を追う疎トラッカーと、グリッド全体を追う密トラッカーに二分されていました。いずれの手法も2Dフレーム基準の冗長性や高コストな相関計算に縛られており、長尺動画での全点追跡には届いていませんでした。",
+   "details_ja": "既存の研究は大きく「疎（Sparse）トラッキング」と「密（Dense）トラッキング」の2系統に分かれます。\n\n### 疎ポイントトラッキング\nPIPsやTAP-Vidに端を発するこの系統（近年ではCoTrackerやSpatialTrackerなど）は、ユーザーが指定した少数のクエリ点をスライディングウィンドウと反復最適化で追跡します。最近では3D空間に拡張した手法も登場していますが、内部表現として毎フレーム全画面のトークンを保持しているため、メモリ消費は時間に比例します。また、クエリ特徴と動画特徴の間で4D相関ボリューム（直積のような重いテンソル）を計算するため、追跡する点数を増やすと計算量が破綻してしまいます。\n\n### 密ポイントトラッキング\n画面全体を追う密トラッキングでも妥協が続いていました。2DではDELTAやAllTrackerなどがありますが、これらは「第1フレームに見えている点」しか追えず、後から物体の陰から出てきた表面を無視してしまいます。3DでもDUSt3RやVGGTをベースにした最新手法（Any4DやD4RT、VDPMなど）が登場していますが、毎フレーム独立して表面を表現するため、例えば$512 \\times 512$解像度で200フレームの動画を全点追跡しようとすると、$10^{10}$回もの予測が必要となり、48〜64フレームの短尺でメモリが限界に達していました。\n\nTrackEverythingは、スライディングウィンドウの境界で点をボクセル統合して重複を削ぎ落とし、4D相関を3D WAFTに置き換えることで、この計算量の壁を根本から打ち破りました。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "どうやって解くか：重複排除、終点先行、3D WAFT",
+   "summary_ja": "入力動画と深度から得た3D特徴点群を、$L=16$フレームの時間窓ごとに処理します。終点位置と動体判定を先行して行い、動体のみ軌跡を詳細化させた後、時間窓の境界で同一ボクセルの点を統合して次世代へと受け渡します。",
+   "details_ja": "動画 $\\mathbf{I}\\in\\mathbb{R}^{T\\times H\\times W\\times 3}$ と、センサーや事前学習済みモデル（VGGT-$\\Omega$等）から得た世界座標系3D点群 $\\mathbf{P}$ を入力とし、全シーン点に対する3D軌跡 $\\mathbf{X}$、可視性 $\\mathbf{V}$、静止/動体フラグ $\\mathbf{S}$ を出力します。\n\n### 3.1 エンコーディング（Encoding）\n動画を重複のない $L=16$ フレーム単位の時間窓に分割します。各フレームをDINOv3-smallバックボーンとViT Adapterでエンコードし、解像度 $(H/4, W/4)$ の特徴マップを得ます。これらを3D点群と結びつけて世界座標系のトークンとし、まずフレーム内でサイズ $v$ のボクセルに量子化して平均プーリング（平均化）します。異なる時刻の点が誤って混ざらないよう、この時点ではフレーム内限定でボクセル化し、窓内の全フレーム分を結合してサイズ $(N, D)$ の時空間特徴点群を作ります。\n\n### 3.2 反復洗練プロセス（Iterative Refinement）\nすべての点に対して毎フレームの軌跡を一気に予測するのは無駄が多すぎます。なぜなら、実世界の大半（床や壁、家具など）は世界座標系で見れば静止しているからです。そこで処理を2段階に分割しました。\n\n### 3.2.1 終点リファイナー（Endpoint Refiner）\nまず、時間窓の終端フレーム（$t_{\\mathrm{tgt}}=L-1$）における3D位置の残差 $\\Delta\\mathbf{x}$、可視性、そして「静止（Static）か動体（Dynamic）か」の分類ロジットを出力します。\n- 3D WAFTによる特徴構築：高コストな相関ボリュームは使いません。現在の推定先座標をターゲットフレームの画像特徴マップに再投影し、バイリニア補間（周辺ピクセルからの重み付きサンプリング）で特徴 $\\mathbf{g}_{\\mathrm{tgt}}$ を取得します。これに点の発生元の特徴 $\\mathbf{g}_{\\mathrm{src}}$ と点群特徴 $\\mathbf{f}_i$ を結合します。元画像と投影先の特徴が一致していれば正しい位置にいるという「テンプレート照合」の信号が暗黙的にモデルへ伝わります。\n- トランスフォーマーによる自己注意：点群全体でSelf-Attentionを行い、残差と分類を反復更新します。\n\n### 3.2.2 軌跡リファイナー（Trajectory Refiner）\n終点リファイナーで「動体」と判定された点だけを対象に、窓内の各時刻の密な軌跡を詳細化します。等速度運動で初期化した後、トラック内の時間方向Self-Attentionと、シーン特徴点群へのCross-Attentionを交互に行います。トラック同士の相互作用を省くことで、計算量を抑えつつ並列処理を可能にしています。静止と判定された点は、世界座標系でその場に留まるだけなので軌跡デコードをまるごとスキップします。\n\n### 3.3 スライディングウィンドウと重複排除（De-Duplication）\nここが最も重要な仕掛けです。時間窓の処理が終わった瞬間、すべての点は窓の終端時刻での位置に揃っています。物理的に「2つの異なる物体表面が同じ時刻に全く同じ3D空間を占めることはない」ため、終端位置でボクセル化を行い、同じボクセルに入った点を平均プーリングで1つの点に統合（重複排除）します。これにより、動画が進んでも表現のサイズは「これまでに訪れた固有の3Dシーンの広さ」にしか比例しなくなります。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "TrackEverythingの全体アーキテクチャです。上段のEncodingで2D特徴と3D点群を統合し、右上段のEndpoint Refinerで窓末尾の変位と静止/動体マスクを予測します。下段では動体点（Dynamic）のみをTrajectory Refinerに送って窓内の詳細軌跡を復元し、静止点と結合して出力します。",
+     "caption": "Figure 2: TrackEverything architecture. TrackEverything processes videos in sliding windows of length $L$ . Encoding: Video frames are encoded and unprojected into a world-coordinate 3D feature cloud using depths/pointmaps from sensors or geometry predictors. Endpoint Refinement: Conditioned on source/target position embeddings and 3D WAFT feature sampling, a recurrent transformer iteratively predicts each point’s 3D offset $\\Delta\\mathbf{x}$ at the target timestep, visibility, and a static/dynamic classification. …",
+     "image": "details/2609.30222/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "実力検証：長尺動画での圧倒的なスケーラビリティと精度",
+   "summary_ja": "TAPVid-3DベンチマークとPointOdyssey等で評価しました。短尺クリップでは既存の全点密トラッカーを20%以上引き離し、900フレームを超える長尺動画でもGPUメモリを30GB未満に抑えながら高精度を維持できる唯一の手法であることが示されました。",
+   "details_ja": "### 4.1 評価設定\n評価には実環境・車載・スタジオ撮影を含む「TAPVid-3D」を用いました。評価指標には、正解位置との距離誤差が閾値以内に収まっている割合を表すAPD（Average Position Distance）を採用しています。画素閾値を3D逆投影した厳格な「APD-P」と、絶対距離（0.1m〜1.0m）で測る「APD-M」の両方を測定しています。\n\n### 4.2 主要な結果\n- 短尺（48フレーム）での比較：全点密トラッカーであるVDPMに対して、TrackEverythingは平均APD-Pで20%以上の大差をつけて勝利しました。巨大モデルD4RT（10億パラメータ超かつ非公開データで学習）に対しても、わずか61Mパラメータの提案手法がADTデータセットなどで上回る性能を示しました。\n- 長尺動画での比較：既存の全点密トラッカー（VDPMやD4RT）はメモリ超過で全く動作しません。TrackEverythingは長尺でも完走し、追跡点数が桁違いに多いにもかかわらず、最先端の疎トラッカー（SpatialTracker-v2等）と同等以上の精度を達成しました。\n\n### 4.3 スケーリングと計算コストの検証\nPointOdysseyの長尺データを用いて、フレーム長とクエリ点数を変化させた際の挙動を詳細に調べました。\n- 動画の長さに対するスケーリング：他手法はフレーム数とともにメモリ消費が跳ね上がり、Any4Dは96フレーム、SpatialTracker-v2は200フレーム、CoTracker3でも600フレーム程度でOOMになりました。対してTrackEverythingは、900フレームに達してもメモリ消費が30GB未満に収まり、極めて緩やかな増加にとどまりました。\n- クエリ点数に対するスケーリング：クエリ点を1万点まで増やしても、4D相関を使わないため推論遅延がほぼ横ばいで安定していました。\n\n### 4.4 アブレーション（要素別の効果検証）\n- 静止/動体の分離：全点を動体として軌跡デコードに通すと、追跡精度は全く変わらない（31.2 APD-P）にもかかわらず、推論遅延は4.8倍、ピークメモリは2.5倍に激増しました。動体だけに絞る設計がいかに効率的かが分かります。\n- ボクセル重複排除：ボクセル化を無効化すると即座にOOMが発生し、重複排除が長尺全点追跡の生命線であることが裏付けられました。ボクセルサイズは $v=0.02$ が精度とメモリの最良のバランスでした。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "牛のいる納屋のシーンにおけるベースラインとの定性比較です。最初のフレームには1頭の牛しか映っておらず、2頭目は後から画面に入ってきます。従来の第1フレーム依存の密トラッカーや疎トラッカーでは後から出現した牛を追えませんが、TrackEverything（一番左の列）は新規に現れた表面も漏らさず高密度に追跡できています。",
+     "caption": "Figure 4: Qualitative comparison against baselines. TrackEverything tracks every visible point across time, including newly emerging content. Notice that only one cow is visible in the first frame, while the second cow emerges later. Sparse trackers need human-specified queries and are usually demoed with a first-frame grid; densifying queries over later frames quickly becomes prohibitive ( Figure 3 ). First-frame dense trackers have the same blind spot by design. In all visualizations, we show trails for dynamic points only; the method tracks all points and accounts for camera motion, but we omit static-point trails in the 2D renderings for clarity.",
+     "image": "details/2609.30222/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Limitations",
+   "heading_ja": "残された課題：不可逆マージのリスクと幾何への依存",
+   "summary_ja": "ボクセル化による平均プーリングは不可逆なため、追跡誤差があると別の物体表面が永久に1点へ統合されてしまうリスクがあります。また、外部の深度推定精度に依存する点や、際限なく広がる未知空間でのメモリ管理にも改善の余地があります。",
+   "details_ja": "革新的なTrackEverythingですが、いくつかの限界も存在します。\n\n- 不可逆なボクセル統合のリスク：時間窓の境界で行う重複排除は、空間的な近さだけを見て平均プーリングで統合します。もしトラッカーが位置の推定を誤ると、本来は別々であるはずの2つの物体表面が1つのトラックに永久に潰されてしまい、後から元に戻せません（※どうしても失いたくない重要点は、重複排除から除外される個別クエリブランチを使うことで回避可能です）。\n- 外部3D幾何への依存：本手法は入力として深度や点群マップ（VGGT-$\\Omega$など）を必要とします。幾何推定モデルの進化をそのまま享受できるモジュール性の強みがある反面、点群が歪んでいると追跡精度も直引きで悪影響を受けます。\n- どこまでも広がる空間でのメモリ増加：同じ部屋に留まる限りトークン数は一定ですが、カメラが未踏のオープンワールドを延々と進み続ける場合、新しい幾何が蓄積してメモリが徐々に増えていきます。数時間規模の動画を扱うには、遠く離れた過去の空間をキャッシュから追い出す（Cache Eviction）仕組みが必要です。",
+   "figures": []
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめ：動的世界を捉える3D基盤への大きな一歩",
+   "summary_ja": "世界座標系での3Dボクセル重複排除により、計算量をフレーム数から物理空間の広さへと切り離す「TrackEverything」を提案しました。長尺動画での高密度3Dトラッキングを現実的な計算資源で達成し、次世代の動的3D基盤モデルへの道を拓きました。",
+   "details_ja": "本論文では、長尺動画に映るあらゆる可視表面を追跡可能な3Dトラッカー「TrackEverything」を提示しました。\n\n「計算複雑性を動画のフレーム数ではなく、物理シーン固有の幾何学的サイズにスケールさせる」という思想のもと、ボクセルベースの重複排除、終点先行型の静止/動体分離、そして3D WAFTによる高速な特徴サンプリングという3つの柱を組み合わせました。その結果、40GBの単一GPUという身近な計算機環境で、1000フレーム超の動画に対する全点3D追跡を初めて実用的なものにしました。\n\nロボットマニピュレーションや自動運転など、動的な実世界で振る舞うAIエージェントにとって、永続的で無駄のない3D表現は極めて強力な武器になります。TrackEverythingはその基盤技術として、今後のロボティクス・ビジョン研究に大きな影響を与えるはずです。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix A Appendix",
+   "heading_ja": "付録：さらなる高速化とパイプラインの詳細",
+   "summary_ja": "第1反復の直後に静止点を先行統合する「Early Merge」により、精度を落とさず推論速度を約1.8倍（平均23.1 FPS）に引き上げられることや、長尺動画ベンチマークでの詳細なアブレーション結果が示されています。",
+   "details_ja": "付録では、実装の詳細と追加の実験結果が豊富に報告されています。\n\n### 初期反復での早期統合（Early Merge）\n通常は時間窓の境界でボクセル重複排除を行いますが、終点リファイナーの最初のイテレーション（Iteration 0）が終わった直後に、静止と判定された点だけを先行してボクセル統合するオプション（Early Merge）が紹介されています。静止/動体の判定は1回の反復でほぼ収束するため、静止点を早い段階で間引いても追跡精度（APD-P: 31.2 vs 31.3）に一切影響しません。\nこの工夫により、トラッカー単体の処理速度は平均12.6 FPSから23.1 FPSへと約1.8倍に高速化されました。カメラが固定された実験室シーン（PStudio）などでは41.5 FPSという驚異的なリアルタイム性能を叩き出しています。\n\n### 合成データセットでの評価と完全な履歴復元\n密な3D正解ラベルが存在するPointOdysseyやDynamic Replicaの評価（表3）でも、TrackEverythingは他手法を圧倒しました。また、ボクセル化によってアクティブなメモリ上の点は統合されますが、推論時に各ステップの統合マッピング履歴と空間オフセット残差を記録しておくことで、動画全体の全初期点について元の解像度のまま完全な3D軌跡履歴 $\\mathbf{X}$ を復元できる仕様になっています。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "スライディングウィンドウと重複排除のパイプラインです。上の時間窓（Window i）の終端で46,000点あった追跡点が、ボクセル化によって同一面の重複が削ぎ落とされ、16,000点に圧縮されます。下の時間窓（Window i+1）では、前窓から引き継いだ16,000点の記憶と新規フレームから生成された点群を足し合わせ、無駄のない状態で追跡を継続します。",
+     "caption": "Figure 5: Sliding-window tracking and cross-window de-duplication pipeline. Top row (Window $i$ ): A temporal window of frames is processed by TrackEverything to predict dense 3D tracks across all points. At the final timestep of the window, the predicted 3D point locations (here 46k points) are voxelized by quantizing coordinates into spatial voxels and mean-pooling co-located tokens. This cross-frame de-duplication prunes redundant surface observations (reducing point count from 46k to 16k). Bottom row (Window $i+1$ ): When the subsequent frame window arrives, its frames are lifted into a 3D point cloud using a feedforward geometry predictor (or sensor depths). …",
+     "image": "details/2609.30222/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "3D WAFTによる投影と反復洗練の様子です。上段では等速度運動の初期推定（赤点）と正解位置（緑点）のズレを示しています。下段では反復（Iter 0〜2）が進むにつれて、再投影位置が正解へと収束し、サンプリングされる特徴パッチが見た目の一致する正しい領域へと補正されていく過程が視覚化されています。",
+     "caption": "Figure 6: 3D WAFT projection and iterative refinement dynamics. Top: Projections across time under zero-velocity initialization. Source points initialized at frame $T=0$ (red dots) are projected to future timesteps ( $T=7$ and $T=15$ ) using camera extrinsics and intrinsics. Red dots denote projected 2D locations under the zero-velocity prior ( $\\mathbf{x}_{\\mathrm{tgt}}^{(0)}=\\mathbf{x}_{\\mathrm{src}}$ in world space); green dots mark true ground-truth (GT) locations, with green arrows at $T=15$ indicating displacement error. …",
+     "image": "details/2609.30222/F6.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "「2Dピクセルの時間発展」ではなく「世界座標系3D空間の幾何」として動画を捉えることで、時間方向の冗長なトークン蓄積を根本から排除できる。",
+  "シーンの大半を占める静止領域と動く物体を分離し、高コストな軌跡デコードを動体だけに限定する設計は、精度を犠牲にせずに計算量を数分の一に削る極めて実用的な知見である。",
+  "高価な4D相関ボリュームを張らなくても、3D予測座標を2D特徴マップに投影してバイリニアサンプリングする「3D WAFT」で十分高精度な対応点探索ができる。",
+  "外部の幾何推定器（深度やSLAM）と疎結合にしておくことで、ハードウェアセンサーや最新の3D基盤モデルの進化をモデルの再学習なしでそのまま吸収できる。"
+ ],
+ "limitations_ja": [
+  "時間窓境界でのボクセル統合が平均プーリングによる不可逆な処理のため、一度トラッキングを誤って別の物体同士が同一ボクセルにマージされると二度と分離できない。",
+  "外部から入力される3D点群マップ（深度推定など）の幾何学的精度に依存しており、幾何推定が大きく破綻している環境では追跡精度も低下する。",
+  "定常的な環境ではトークン数が一定に保たれるが、未知の広大なオープンワールドを移動し続けるような探索シーンでは、訪問した空間に比例してメモリが線形に増大していくためキャッシュ破棄機構が不可欠となる。"
+ ],
+ "keywords": [
+  "3D Point Tracking",
+  "Dense Tracking",
+  "Scene Representation",
+  "Voxel De-duplication",
+  "3D WAFT"
+ ],
+ "id": "2609.30222",
+ "title": "TrackEverything: Long Horizon Dense Tracking via De-Duplicating 3D Scene Representations",
+ "authors": [
+  "Ayush Jain",
+  "Sreeharsha Paruchuri",
+  "Ishita Gupta",
+  "Fan Zhang",
+  "Tanner Schmidt",
+  "Jakob Engel",
+  "Katerina Fragkiadaki",
+  "Adam W. Harley"
+ ],
+ "date": "2026-09-27",
+ "group": "general",
+ "tags": [
+  "perception"
+ ],
+ "categories": [
+  "cs.CV",
+  "cs.AI",
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.30222",
+ "pdf_url": "https://arxiv.org/pdf/2609.30222",
+ "summary_ja": "従来の点追跡が抱える追跡期間と点密度のトレードオフを解消する3D点追跡手法。動画を世界座標系の永続的3D点軌跡として表現し、ボクセル化に基づく重複排除機構によって動画長ではなくシーンの幾何形状に応じた計算量スケーリングを実現した。",
+ "generated": "2026-09-27",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.30222"
+}
