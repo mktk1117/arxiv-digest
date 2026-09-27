@@ -1,0 +1,128 @@
+{
+ "title_ja": "汎化タスク・モーション計画問題のためのコーディングエージェント",
+ "tldr_ja": "シミュレータへの試行錯誤アクセスを与えられた最新のコーディングエージェントは、手作りの抽象化やドメイン定義なしで、従来のTAMPプランナーを上回る汎用的な実行プログラムを自律的に合成できることを示しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "本研究の全体像。コーディングエージェントがサンドボックス内でシミュレータを叩きながら汎用的なPythonプログラム（ポリシー）を書き上げます。手作業で構築したTAMPプランナーと比較して、物体の数が増えても高い成功率を維持し、推論計算時間は桁違いに短いことが分かります。",
+  "caption": "Fig. 1 : Coding agents for generalized TAMP. A coding agent ( Claude Code with Opus 5) synthesizes a programmatic policy shared across problem instances, without hand-designed planning components. Compared with the planner and LLM-based generalized planner, the agentic method achieves a higher success rate while maintaining efficiency. Bottom: success rate and computation time per instance as the number of objects grows, averaged over environments with a planner available and multiple object counts.",
+  "image": "details/2609.30233/F1.jpg"
+ },
+ "overview_ja": "ロボットが複雑な作業を行うタスク・モーションプランニング（TAMP: 離散的な行動選択と連続的な動作計画を同時に解く技術）は、長大な探索ステップや幾何・力学制約が複雑に絡み合うため、非常に難しい問題です。これに対処する「汎化TAMP」では、問題インスタンス間の共通パターンを活用してプランニング負荷を減らそうとしますが、既存手法は専門家による膨大な手動モデリングや記号定義に依存していました。\n\nそこで著者らは、「最新のコーディングエージェントにタスク説明とシミュレータ環境へのアクセスだけを渡し、自律的に試行錯誤させれば、新しいインスタンスにも汎化できる制御プログラムを合成できるのではないか」と考えました。エージェントは固定の予算内で自作のテストスクリプトを実行し、シミュレータの挙動を確認しながらプログラムを修正していきます。出来上がったプログラムは固定され、テスト時にはLLMを使わずに実行されます。\n\n検証にはKinDERベンチマークなどの計28環境を用い、Claude Code（Opus 5）やCodex（GPT-6 Astraなど）を評価しました。合計980個の合成プログラムに対し、未知のテスト環境で延べ98,000エピソードの大規模評価を実施しています。\n\nその結果、コーディングエージェントが書いたプログラムは、人手で丁寧に作り込まれたTAMPプランナー（平均成功率47%）を大きく超える56%〜95%の成功率を叩き出しました。特に物体数が増加しても性能が落ちにくく、実行時の計算時間も1オーダー以上短縮されるなど、自律的なコーディングエージェントが汎化TAMPの強力なベースラインになることが実証されました。",
+ "contributions_ja": [
+  "コーディングエージェントがシミュレータとの対話を通じて、手動エンジニアリングなしでTAMP問題を解く汎用プログラムを合成できることを体系的に実証した点",
+  "28環境・980プログラム・98,000エピソードにおよぶ大規模かつ厳密な評価プロトコルを構築し、手動プランナーや静的なLLM生成ベースラインと比較した点",
+  "エージェントが自発的にエッジケースを探索するテストスイートを作成し、ロボットのキネマティクス誤差をキャリブレーションして逆運動学を自作するなどの高度な物理推論行動を確認した点",
+  "従来の人手設計プランナーには見られなかった、非把持操作や環境レイアウトを巧みに利用した予想外の効率的戦略をエージェントが自律発見できることを示した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "コーディングエージェントはTAMPの職人技を置き換えられるか？",
+   "summary_ja": "TAMPは幾何・物理制約が複雑に絡むため、解くのが本質的に困難です。本研究では、最新のコーディングエージェントがシミュレータとの対話を通じて、手作業の抽象化なしに汎用的な制御プログラムを合成できるかを28環境で検証しました。",
+   "details_ja": "タスク・モーションプランニング（TAMP）は、完全観測かつ物体中心の状態表現が与えられたとしても、本質的に難しい計算問題です。なぜなら、どの物体を掴むかという離散的な選択と、衝突回避や到達可能性といった連続的な幾何・運動学制約が密結合しているためです。この課題に対して、問題間の共通規則性を利用して高速に解く「汎化TAMP」が研究されてきましたが、述語やサンプラー、スキルといった構成要素を手動で作り込む必要がありました。\n\n近年、LLMはコード生成で目覚ましい成果を上げていますが、プロンプトに幾何情報を与えてもTAMPのような物理的意思決定では失敗することが知られていました。そこで著者らは、最新のコーディングエージェント（Claude CodeやCodex）を使い、エージェント自身にシミュレータをプローブさせ、テスト駆動でプログラムを合成させる「AgenticGenPlan」を提案しました。\n\n本研究の大規模実験では、28のシミュレーション環境を対象に、7つの合成手法、各5試行、計980個の生成プログラムに対して未知の100インスタンスでテスト（合計98,000エピソード）を行いました。その結果、プランナーが存在する16環境において、人手設計プランナーの平均成功率47%に対し、エージェントは56%〜95%という大幅に高い成功率を達成しました。さらに、物体数が増えてプランナーがタイムアウトするような場面でも、エージェントのプログラムは短時間で高い成功率を維持しました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "エージェントが自律的に発見した予想外の成功戦略。ツールの向きを持ち替えて大量のボールを一度にすくう（上から3段目）戦略や、指定された掃除用ツールを無視してアーム自身でブロックを掃き出す（上から5段目）戦略など、既存の論文にはない独創的な解法が見られます。",
+     "caption": "Fig. 2 : Unexpected successful strategies found by the coding agents. Each row shows one execution from left to right; the annotation describes the unexpected behavior. The strategies come from both the main setting and the + source setting.",
+     "image": "details/2609.30233/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Problem Setting",
+   "heading_ja": "問題設定：シミュレータを使ったプログラム合成と未知環境での評価",
+   "summary_ja": "有限ホライズンのゴール指向型MDPを対象とし、物体中心の完全観測状態を扱います。エージェントは学習時にシミュレータを自由に叩いてPythonプログラムを合成し、テスト時にはLLMなしで未知のインスタンスを解きます。",
+   "details_ja": "### II-A MDPs and Simulator Access\n問題は有限ホライズンのゴール指向型マルコフ決定過程（MDP: $\\mathcal{M}=\\langle\\mathcal{S},\\mathcal{A},P,R,\\rho,H\\rangle$）として定式化されます。状態 $\\mathcal{S}$ は完全観測かつ物体中心であり、各物体の姿勢、幾何形状、関節角度、速度などが含まれます。初期状態分布 $\\rho$ からインスタンスが生成され、物体数や配置がランダムに変化します。エージェントにはシミュレータの `reset` と `step` API へのアクセスが与えられます。\n\n### II-B TAMP Environments\n本研究で扱うTAMP環境は、知覚や言語理解の難しさを排除し、「物理推論」そのものに焦点を当てた設定です。ホライズンが長く報酬はスパースであり、どのツールやサブゴールを選ぶかによって実行可能な動作空間が極めて狭くなるという特徴を持ちます。\n\n### II-C Synthesis and Evaluation\n合成フェーズでは、エージェントにタスク記述とシミュレータアクセス、そして一定の予算が与えられます。エージェントが最終的に出力するのは、履歴から行動を決定するプログラムポリシー $a_t = \\pi(h_t)$ です。\n評価フェーズでは、生成されたプログラムが完全に固定（フリーズ）され、LLMの呼び出しは一切行われません。合成中には一度も見せていない未知の初期状態 $s_0 \\sim \\rho$ を入力し、制限時間 $\\tau$（60秒）以内の目標達成率（成功率）と、1行動あたりの計算時間を測定します。",
+   "figures": []
+  },
+  {
+   "heading": "III Generalized TAMP with Coding Agents",
+   "heading_ja": "エージェントの仕組みとベースライン：サンドボックスでの対話的開発",
+   "summary_ja": "Claude Code（Opus 5）とCodex（GPT-5.6 Sol / GPT-6 Astra）を隔離されたコンテナ内で動作させました。比較対象として、手動設計TAMPプランナー、非対話型LLM手法（LLMGenPlan）、ワンショット生成を用意しています。",
+   "details_ja": "### III-A Coding Agents\nエージェントのバックエンドには、Claude Code（Opus 5）とCodex（GPT-5.6 Sol、GPT-6 Astra）を採用しました。エージェントはネットワーク遮断されたDockerサンドボックス内で動作し、利用できるライブラリもNumPyとSciPyのみに制限しています（既存のTAMPライブラリに頼らせないためです）。\n\nエージェントにはタスク記述とシミュレータを呼び出すクライアントクラスのみが渡され、環境のソースコードや手動設計されたプランニング用述語・スキルは一切与えられません（メイン設定）。エージェントは自らPythonスクリプトを書いてシミュレータを実行し、挙動を観察しながら `reset` と `get_action` メソッドを持つポリシークラスを実装・修正します。各修正はGitリポジトリにコミットされ、開発プロセスが追跡されます。また比較用として、環境のソースコードや内部関数（逆運動学など）を直接参照・利用できる「+ source」設定も検証しました。\n\n### III-B Baselines\n比較対象として以下のベースラインを用意しました。\n- **TAMPプランナー**: ベンチマーク付属の公式実装で、記号探索と連続サンプラー、手作りのモーションプランニングスキルを組み合わせた古典的プランナー。\n- **LLMGenPlan**: 先行研究に基づく非エージェント型のLLM汎化手法。ツールやシェルは使えず、環境ソースコードを読んだLLMがコードを出力し、固定パイプラインからエラーログなどの定義済みフィードバックを受け取って修正する仕組み。\n- **One-shot**: LLMGenPlanが最初に生成した単一のプログラムをそのまま評価するベースライン。",
+   "figures": []
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "実験結果：手動プランナーを凌駕する性能と驚くべき自律戦略",
+   "summary_ja": "28環境での大規模検証により、Codex（GPT-6 Astra）とClaude Code（Opus 5）は手動プランナーや他のLLM手法を圧倒しました。エージェントは自作テストでエッジケースを洗い出し、ロボットの運動学モデルを自律的に同定・補正していました。",
+   "details_ja": "### IV-A Environment Setup\n実験にはKinDERベンチマーク（Kinematic2D/3D、Dynamic2D/3Dの計25環境）とPDDLStreamの3ドメインを使用しました。各手法につき5回の独立した合成ランを行い、1ランあたり20ドルのAPI予算を設定しています。テストには合成時に使われていない100個のランダムシードを使用しました。\n\n### IV-B Results and Analysis\n主要な結果は以下の通りです。\n- **手動プランナーとの比較**: プランナーが存在する16環境において、プランナーの平均成功率47%に対し、Solは56%、Opusは82%、Astraは95%に達しました。Astraは16環境中15環境でプランナーを上回りました。\n- **エッジケースの自律的テスト**: エージェントは自らテストスクリプトを書き、境界条件を洗い出しました。例えばStickButton環境では、棒が壁際に配置されて掴めないケースやボタンが高い位置にあるケースをスクリプトで意図的に収集し、それらをパスするように「横から掴んで壁から離し、下から持ち直してボタンを押す」という多段階戦略を組み上げました。\n- **内部モデルのキャリブレーション**: Shelf環境では、手先の位置が観測から得られないため、Opusは自前の知識からロボットアームの初期運動学モデルを構築した上で、キューブを掴んで動かす実験を行い、手先位置の誤差（RMSE）を38.9mmから1.8mmへと大幅に縮小させ、自作の逆運動学（IK）ソルバーを完成させました。\n- **計算効率**: テスト時の推論時間は極めて高速でした。プランナーがインスタンスあたり平均29秒を要したのに対し、Opusプログラムは平均2.1秒、Astraプログラムは平均0.5秒でした。1行動あたりの処理時間では、Astraはわずか1.3msで動作する簡潔な閉形式制御コードを出力していました。\n- **ソースコードアクセスの効果**: ソースコードを与えた「+ source」設定では成功率がさらに向上（Opusで74%→84%、Astraで86%→95%）しましたが、同じソースコードを渡された非対話型のLLMGenPlanは28%にとどまりました。対話的・能動的にコードをテスト・修正できるエージェント機能こそが決定的な勝因であることを示しています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "エージェントによるテストと物理同定の様子。左図（StickButton）：壁際にある棒を下から掴めないエッジケースを自作テストで発見し、「横から掴んで引き離し、下から掴み直す」手順を実装。右図（Shelf）：ロボットアームを動かして手先とブロックの位置関係を測定し、内部キネマティクスモデルの誤差を補正して逆運動学（IK）を解いています。",
+     "caption": "Fig. 3 : Left: custom tests reveal edge cases in StickButton. Opus writes a script that repeatedly calls reset with different seeds to find wall-adjacent sticks and high buttons for testing its program. The wall prevents a bottom grasp. A side grasp lets the robot move the stick away from the wall but leaves the high button out of reach; releasing and re-grasping from below provides the required height. Right: learning robot geometry through interaction. In Shelf, Opus probes the arm while holding a cube, fits its kinematic model to observed cube positions, and uses the calibrated model for inverse kinematics (IK). The initial model discrepancy is exaggerated for visibility.",
+     "image": "details/2609.30233/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "合成プロセス中における戦略の洗練過程（Blocked環境でのSolのログ）。最初の手法（A）では手前の障害物に阻まれて成功率15%でしたが、遠くのテーブルから予備ブロックを取ってくるフォールバック処理を追加したコミット（B）によって、一気に成功率が56%へ跳ね上がっています。",
+     "caption": "Fig. 4 : Refining manipulation strategies during synthesis. In one Sol Blocked run, a revision adding a spare-block fallback changes success from 15% (A) to 56% (B); the pictured execution retrieves an alternative goal block from a distant table. The curve shows the held-out success rate of each commit, in commit order.",
+     "image": "details/2609.30233/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Related Work",
+   "heading_ja": "関連研究：TAMPの学習・基盤モデル・コード生成エージェントの系譜",
+   "summary_ja": "汎化TAMP、LLMによるプランニング誘導、ロボット制御コードの合成に関する先行研究を整理し、本研究が「特定のTAMP枠組みに縛られず、汎用エージェントにゼロからポリシーを書かせる」点で一線を画すことを位置づけています。",
+   "details_ja": "### V-A Generalized Planning and Learning for TAMP\nTAMP研究では、記号探索と連続サンプリングを繋ぐPDDLStreamなどのフレームワークが発展してきました。また、複数インスタンスにまたがる解を導く汎化TAMPとして、サンプラーや探索ヒューリスティクスの学習が行われてきましたが、依然として特定フレームワーク向けの設計が必要でした。\n\n### V-B Foundation Models for Task and Motion Planning\nLLMをTAMPに組み込む研究として、LLMを高レベルなタスク計画のガイドに使う手法や、制約記述プログラムを出力させる手法（PRoC3SやMOPSなど）があります。これらに対し本研究は、既存のTAMP抽象化構造を前提とせず、探索やサンプリング、最適化アルゴリズムそのものをエージェントが自由にコードとして実装する点が異なります。\n\n### V-C Agentic Synthesis of Robotic Programs\nCode-as-Policies以降、LLMに制御コードを書かせる研究が活発化し、RHOやASPIREのようにフィードバックを用いてスキルを洗練するエージェントも登場しています。しかしこれらは主に一般的なマニピュレーションベンチマークを対象としており、TAMP特有の幾何・力学制約が複雑に絡む物理推論への体系的検証は行われていませんでした。\n\n### V-D Systematic Evaluation of Embodied Agents\n先行する評価研究では、プランニング実行時にLLMを呼び出す構成が多く検証されてきました。一方、本研究は「合成時にシミュレータを使ってコードを反復改善し、テスト時はLLMなしの固定プログラムとして超高速に動かす」という点で実用性と新規性を備えています。",
+   "figures": []
+  },
+  {
+   "heading": "VI Discussion",
+   "heading_ja": "限界と展望：自律物理推論が拓く次世代プランニングの可能性",
+   "summary_ja": "完全観測や事前学習データの漏洩懸念といった限界はあるものの、試行錯誤ログや独創的な解法は真の推論能力を裏付けています。コーディングエージェントは今後のTAMP研究における強力なベースラインとなります。",
+   "details_ja": "### 限界（Limitations）\n本研究の設定は、完全観測かつ物体中心の状態表現が得られており、合成フェーズでシミュレータを無制限に叩けることを前提としています。そのため、実世界のような知覚の不確実性や部分観測が存在する環境への直接的な適用可能性はまだ示されていません。また、フロンティアモデルの事前学習データにベンチマークコードが含まれていた可能性を完全には排除できません。しかし、エージェントがシミュレータを叩いてパラメータを微調整している生ログや、文献に存在しない独自の非把持操作・回避行動を発見している事実から、単なる暗記の再生ではなく、能動的な物理推論が行われている強い証拠が得られています。\n\n### 結論（Conclusions）\n汎用コーディングエージェントは、手作りの抽象化やドメイン定義を一切与えられなくても、シミュレータとの対話を通じて環境の物理特性を理解し、手動設計の古典的プランナーを凌駕する汎化プログラムを生成できることが示されました。本成果は、今後のTAMP研究においてコーディングエージェントが不可欠かつ強力なベースラインとなることを明確に示しています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "コーディングエージェントにシミュレータのAPIを与えて自由にテスト駆動開発を行わせると、手動設計された古典的TAMPプランナーを上回る汎用プログラムが生成される。",
+  "テスト実行時にはLLMを呼ばず、合成されたPythonプログラムを単体で動かすため、推論計算時間がミリ秒〜秒単位と圧倒的に高速になる。",
+  "エージェントは単にコードを書くだけでなく、自らエッジケースを収集するスクリプトを走らせたり、ロボットのキネマティクス誤差をキャリブレーションしてIKを解くなど、高度なエンジニアリングプロセスを自律遂行できる。",
+  "非対話型LLM（LLMGenPlan）では解けない問題も、ツール実行とシミュレータ対話を備えたエージェント構造にすることで劇的に成功率が向上する。"
+ ],
+ "limitations_ja": [
+  "完全観測かつ物体中心の状態（Object-centric state）が前提となっており、カメラ画像からの知覚誤差やノイズへの耐性は検証されていない。",
+  "砂利や大量の小物体をかき集める・注ぐといった、高度な接触力学を伴う3次元動的環境（Dynamic3D）では依然として成功率が低い。",
+  "最新プロプライエタリモデルの学習データが非公開であるため、ベンチマーク環境の仕様や類似コードを事前学習時にどの程度見ていたかの完全な切り分けは難しい。"
+ ],
+ "keywords": [
+  "Task and Motion Planning (TAMP)",
+  "Coding Agents",
+  "Generalized Planning",
+  "Program Synthesis",
+  "Physical Reasoning"
+ ],
+ "id": "2609.30233",
+ "title": "Coding Agents for Generalized Task and Motion Planning Problems",
+ "authors": [
+  "Matteo Merler",
+  "Bowen Li",
+  "Josh Roy",
+  "Yichao Liang",
+  "Qianwei Wang",
+  "Yixuan Huang",
+  "Tom Silver"
+ ],
+ "date": "2026-09-27",
+ "group": "general",
+ "tags": [
+  "planning",
+  "llm-agent",
+  "simulation"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.30233",
+ "pdf_url": "https://arxiv.org/pdf/2609.30233",
+ "summary_ja": "環境ごとのエンジニアリング負荷が高いTAMP問題に対し、シミュレータと対話しながらインスタンス間で汎化するプログラムを自動合成するコーディングエージェントフレームワークを提案。幾何・運動学的制約を考慮した計画器の自動生成を実証した。",
+ "generated": "2026-09-27",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.30233"
+}
