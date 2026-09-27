@@ -1,6 +1,260 @@
 {
  "entries": [
   {
+   "date": "2026-09-27",
+   "rank": 0,
+   "id": "2609.30264",
+   "group": "focus",
+   "title": "AD-WM: Action-Discriminative World Models for Counterfactual Model Predictive Control",
+   "title_ja": "AD-WM: Action-Discriminative World Models for Counterfactual Model Predictive Control",
+   "summary_ja": "Latent world models are typically trained to predict factual transitions, whereas model predictive control (MPC) must compare alternative actions from the same state. A model can therefore achieve low factual prediction…",
+   "authors": [
+    "Jiabin Qiu",
+    "Zixuan Chen",
+    "Hongye Cao",
+    "Jieqi Shi",
+    "Jing Huo",
+    "Yang Gao"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.30264",
+   "image": "figures/2026-09-27/2609.30264.jpg"
+  },
+  {
+   "date": "2026-09-27",
+   "rank": 1,
+   "id": "2609.30233",
+   "group": "focus",
+   "title": "Coding Agents for Generalized Task and Motion Planning Problems",
+   "title_ja": "Coding Agents for Generalized Task and Motion Planning Problems",
+   "summary_ja": "Task and motion planning (TAMP) problems remain difficult even with full observability and object-centric states because discrete decisions are tightly coupled to geometric, kinematic, and dynamic constraints. Generaliz…",
+   "authors": [
+    "Matteo Merler",
+    "Bowen Li",
+    "Josh Roy",
+    "Yichao Liang",
+    "Qianwei Wang",
+    "Yixuan Huang",
+    "Tom Silver"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "llm-agent",
+    "simulation",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.30233",
+   "image": "figures/2026-09-27/2609.30233.jpg"
+  },
+  {
+   "date": "2026-09-27",
+   "rank": 2,
+   "id": "2609.30023",
+   "group": "focus",
+   "title": "Res-HIL: Human-Guided Residual Reinforcement Learning for Sample-Efficient Dexterous Manipulation",
+   "title_ja": "Res-HIL: Human-Guided Residual Reinforcement Learning for Sample-Efficient Dexterous Manipulation",
+   "summary_ja": "Imitation learning enables robots to acquire manipulation skills from demonstrations, but the resulting policies can fail outside the training data, while collecting more demonstrations requires substantial human effort…",
+   "authors": [
+    "Mariia Iavorskaia",
+    "Christian Dietz",
+    "Sebastian Albrecht",
+    "Majid Khadiv"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "reinforcement-learning",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.30023",
+   "image": "figures/2026-09-27/2609.30023.jpg"
+  },
+  {
+   "date": "2026-09-27",
+   "rank": 3,
+   "id": "2609.29166",
+   "group": "focus",
+   "title": "HarnessPAI: An Evolving Harness for Physical AI",
+   "title_ja": "HarnessPAI: An Evolving Harness for Physical AI",
+   "summary_ja": "Physical AI aims to build embodied agents that perceive the world, understand and reason about it, and decide how to act. Yet the field has focused primarily on the last component: the action model that maps observation…",
+   "authors": [
+    "Xin Wang",
+    "Wenhao Wu",
+    "Menghao Zhang",
+    "Zhi Wang",
+    "Kun Shao",
+    "Jian Luan",
+    "Yang Li",
+    "Qing Li",
+    "Shangding Gu",
+    "Huichi Zhou",
+    "Shuqing Shi",
+    "Fei Ni",
+    "Shuo Lu",
+    "Weicheng Meng",
+    "Kang Li",
+    "Jin Wu",
+    "Kang Zhao",
+    "Shangmin Guo",
+    "Gen Li",
+    "Yongqiang Tang",
+    "Zhizhong Zhang",
+    "Yuan Xie",
+    "Heng Qu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "locomotion",
+    "llm-agent",
+    "quadruped"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.29166",
+   "image": "figures/2026-09-27/2609.29166.jpg"
+  },
+  {
+   "date": "2026-09-27",
+   "rank": 4,
+   "id": "2609.30222",
+   "group": "general",
+   "title": "TrackEverything: Long Horizon Dense Tracking via De-Duplicating 3D Scene Representations",
+   "title_ja": "TrackEverything: Long Horizon Dense Tracking via De-Duplicating 3D Scene Representations",
+   "summary_ja": "Existing point tracking models face a fundamental tradeoff: they can either track a sparse set of query points over long horizons, or track all points across only short clips. We introduce TrackEverything, a 3D point tr…",
+   "authors": [
+    "Ayush Jain",
+    "Sreeharsha Paruchuri",
+    "Ishita Gupta",
+    "Fan Zhang",
+    "Tanner Schmidt",
+    "Jakob Engel",
+    "Katerina Fragkiadaki",
+    "Adam W. Harley"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [],
+   "abs_url": "https://arxiv.org/abs/2609.30222",
+   "image": "figures/2026-09-27/2609.30222.jpg"
+  },
+  {
+   "date": "2026-09-27",
+   "rank": 5,
+   "id": "2609.30214",
+   "group": "general",
+   "title": "Underwater C3-JEPA: An Object-Centric Cross-View World Model for ROV Salvage",
+   "title_ja": "Underwater C3-JEPA: An Object-Centric Cross-View World Model for ROV Salvage",
+   "summary_ja": "We present Underwater C$^{3}$-JEPA (cross-view, control-conditioned, context-extended), an object-centric multi-view predictive world model for near-field heavy-load underwater ROV salvage. Without contact sensors, it p…",
+   "authors": [
+    "Yuncong Yang",
+    "Jinlong Li",
+    "Yulong Xue",
+    "Feng Wu",
+    "Chunwen Zhang",
+    "Lei Qiao",
+    "Xuyang Wang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "world-model",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.30214",
+   "image": "figures/2026-09-27/2609.30214.jpg"
+  },
+  {
+   "date": "2026-09-27",
+   "rank": 6,
+   "id": "2609.30213",
+   "group": "general",
+   "title": "ReVAMP: Vector-Accelerated Motion Planning for Kinematically-Constrained Systems via Reparameterization",
+   "title_ja": "ReVAMP: Vector-Accelerated Motion Planning for Kinematically-Constrained Systems via Reparameterization",
+   "summary_ja": "Robots often must satisfy one or more constraints during motion planning for real-world tasks. When such constraints reduce the valid configuration space to a measure-zero subset, sampling based planning algorithms requ…",
+   "authors": [
+    "Shrutheesh R. Iyer",
+    "Thomas Cohn",
+    "Zachary Kingston"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.30213",
+   "image": "figures/2026-09-27/2609.30213.jpg"
+  },
+  {
+   "date": "2026-09-27",
+   "rank": 7,
+   "id": "2609.30134",
+   "group": "general",
+   "title": "Training-free Behavior Cloning",
+   "title_ja": "Training-free Behavior Cloning",
+   "summary_ja": "Neural behavior cloning compresses demonstrations into large models, making individual actions difficult to trace and policy updates costly. Retrieval policies retain access to demonstrations but struggle with mismatch …",
+   "authors": [
+    "Maximilian Adang",
+    "Timothy Chen",
+    "Lars Osterberg",
+    "Aiden Swann",
+    "Mac Schwager"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "imitation-learning",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.30134",
+   "image": "figures/2026-09-27/2609.30134.jpg"
+  },
+  {
+   "date": "2026-09-27",
+   "rank": 8,
+   "id": "2609.30127",
+   "group": "general",
+   "title": "Faster Visuomotor Policy Learning on Action Manifolds via Riemannian MeanFlow",
+   "title_ja": "Faster Visuomotor Policy Learning on Action Manifolds via Riemannian MeanFlow",
+   "summary_ja": "Visuomotor policies learn a direct map from raw sensory observations to robot action sequences. Policies based on Diffusion and Flow Matching capture the multimodal distribution over action sequences in an end-to-end ma…",
+   "authors": [
+    "S. Talha Bukhari",
+    "Austin Garrett",
+    "Yi Wei",
+    "Ruiqi Ni",
+    "Zachary Kingston",
+    "Aniket Bera"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.30127",
+   "image": "figures/2026-09-27/2609.30127.jpg"
+  },
+  {
    "date": "2026-09-26",
    "rank": 0,
    "id": "2609.29945",
