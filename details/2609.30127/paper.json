@@ -1,0 +1,118 @@
+{
+ "title_ja": "リーマンMeanFlowによる行動多様体上の高速な視覚運動方策学習",
+ "tldr_ja": "ロボットの手先姿勢などの幾何拘束（多様体）を保ちつつ、拡散・フロー型ポリシーの多段階積分を不要にする「リーマンMeanFlowポリシー（RMFP）」を提案しました。教師モデルなしの単一ステージ学習で、わずか1回のネットワーク評価（1-NFE）でも既存の多段階手法に匹敵する動作生成を実現しています。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "球面 $\\mathcal{S}^2$ 上でのLASA文字「W」の1-NFEによる軌道生成結果です。黒線が教示データ、色付きの線が生成軌道を示しています。従来のRFMP（左）に比べて、提案手法のRMFP（右）は教示に忠実かつ滑らかな軌道を1ステップの呼び出しで生成できています。",
+  "caption": "Figure 1 : We present Riemannian MeanFlow Policy (RMFP) for fast action sequence generation on manifolds. Here we show 1-NFE trajectory generation for the LASA shape W projected onto $\\mathcal{S}^{2}$ [ 8 ] . Demonstrations from the dataset are shown in black and the executed trajectory is colorized by time-parameterization. $\\star$ denotes the north pole. As shown, RMFP traces a smoother path while abiding by the demonstrations. Median DTW is $0.023$ for RMFP against $0.079$ for RFMP.",
+  "image": "details/2609.30127/F1.jpg"
+ },
+ "overview_ja": "ロボットが画像などの観測から動作列を直接出力する視覚運動（ビジュアルモータ）ポリシーでは、マルチモーダルな行動分布を捉えるために拡散モデルやフローマッチングが広く使われています。しかし、これらは動作を生成するたびに学習したベクトル場を数値積分（ODEを解く計算）する必要があり、ネットワークの評価回数（NFE）が増えて制御周期が遅くなるという深刻な問題を抱えています。さらに、ロボットの手先姿勢（位置・回転クォータニオン・グリッパー開閉度）はユークリッド空間ではなくリーマン多様体上に存在するため、幾何学的拘束を破らない生成が求められます。\n\nそこで著者らは、瞬時の速度場ではなく、有限時間の移動そのものを表すフロー写像（平均速度）を多様体上で直接学習する「Riemannian MeanFlow Policy (RMFP)」を提案しました。代数学的な半群則に基づくフロー写像の一貫性（Consistency）損失と、教示データへと係留するリーマン条件付きフローマッチング損失を組み合わせることで、教師モデルからの蒸留や微分項の計算を一切使わずに1段階で安定して学習できる枠組みを構築しています。\n\n検証では、球面上の文字軌道（LASA）やPush-T、ユークリッド空間のRobomimic、さらに手先姿勢多様体（$\\mathbb{R}^3 \\times \\mathcal{S}^3 \\times \\mathbb{R}^2$）を扱うFranka Kitchenシミュレーション、そして実機の6自由度マニピュレータ実験を行いました。その結果、わずか1〜2回のNFEという低計算コストでも、従来の10回以上のNFEを要する多段階手法と同等以上の高いタスク成功率を達成できることを実証しました。",
+ "contributions_ja": [
+  "直積多様体上の動作空間において、代数的半群則とリーマン条件付きフローマッチングを組み合わせ、教師なし・単一ステージでフロー写像を直接学習する枠組み（RMFP）を構築したこと",
+  "多様体拘束を課す位置が異なる「速度予測型」と「終点予測型」の2種類のネットワーク出力構造を定式化し、次元やタスク特性による挙動の違いを理論的・実験的に解明したこと",
+  "球面、直積多様体、ユークリッド空間の各シミュレーションベンチマークおよび実機ロボットにおいて、1〜2 NFEという極めて少ない計算量でSOTAの多段階生成手法に匹敵する性能を示したこと"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜ多様体上での「1ステップ高速生成」が必要なのか",
+   "summary_ja": "ロボットの動作空間は回転などを含む幾何学的多様体ですが、従来の拡散・フロー型ポリシーは多段階の数値積分を必要とし、高速制御の妨げになっていました。本論文では、有限時間ジャンプを可能にするMeanFlowの考え方を多様体へ拡張し、教師なし・1ステージで学習可能なRMFPを提案します。",
+   "details_ja": "ロボットの視覚運動ポリシー学習では、同じ観測に対して複数の解が存在するため、マルチモーダルな分布を表現できる拡散モデルやフローマッチングが標準的なバックボーンとなっています。しかし、ロボットの手先位置・クォータニオン姿勢・グリッパーからなる動作空間は、単純なベクトル空間ではなく $\\mathbb{R}^3 \\times \\mathcal{S}^3 \\times \\mathbb{R}^2$ のような直積多様体です。これを強引に9次元ユークリッド空間として扱うと、多様体外の無意味な領域に確率が割り振られてしまいます。\n\n先行研究であるRiemannian Flow Matching Policy (RFMP) は、多様体上の測地線を条件付きパスとして速度場を学習しますが、推論時にはオイラー法などの数値積分を何度も解く必要があり、ネットワーク評価回数（NFE）の分だけ推論時間が膨らみます。積分ステップを粗くすると多様体上でモード崩壊を起こしやすくなり、タスクごとのチューニングが欠かせませんでした。\n\nこの課題に対し、数ステップで有限時間の移動を直接出力するフロー写像の学習が注目されています。しかし、既存のConsistency Modelsは事前学習済み教師モデルからの蒸留が必要であり、MeanFlow等の研究もユークリッド空間前提や生物分子データ等に限られていました。本論文が提案するRMFPは、ロボットの動作多様体上で直接フロー写像（区間の平均速度）を学習し、教師なしの単一ステージ学習で、わずか1 NFEでの高精度な動作生成を可能にします。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "球面 $\\mathcal{S}^2$ 上に投影されたLASA手書き文字「W」の軌道生成比較（1-NFE）。黒線がデモ軌道で、色付き線が生成軌道です。RFMP（左）は粗い積分によりカクついて誤差が大きいのに対し、RMFP（右）は1ステップで滑らかに教示を再現できています。",
+     "caption": "Figure 1 : We present Riemannian MeanFlow Policy (RMFP) for fast action sequence generation on manifolds. Here we show 1-NFE trajectory generation for the LASA shape W projected onto $\\mathcal{S}^{2}$ [ 8 ] . Demonstrations from the dataset are shown in black and the executed trajectory is colorized by time-parameterization. $\\star$ denotes the north pole. As shown, RMFP traces a smoother path while abiding by the demonstrations. Median DTW is $0.023$ for RMFP against $0.079$ for RFMP.",
+     "image": "details/2609.30127/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "多様体上の生成モデルとロボット行動学習の流れ",
+   "summary_ja": "リーマン多様体上の生成モデル（正規化フロー、拡散モデル、フローマッチング）の発展と、ロボットマニピュレーションにおける低NFE化の系譜を整理します。本研究は、フロー写像学習をロボットの直積動作空間に初めて導入した位置づけです。",
+   "details_ja": "### II-A リーマン多様体上の生成モデル\n多様体上で生成モデルを構築する試みとして、多様体拘束ODEに基づく連続正規化フローや、熱核を用いた拡散モデルが提案されてきました。さらに、測地線をパスとして速度場を回帰するリーマンフローマッチング（RFM）が登場し、発散推定や複雑なシミュレーションが不要になりました。しかし、これらはすべてベクトル場の積分に依存するためサンプリングに時間がかかります。並行する最近の研究ではフロー写像を直接学習する試みもありますが、地理データやタンパク質構造などを対象としており、ロボットの観測条件付き動作列生成には適用されていませんでした。\n\n### II-B ロボット操作のための生成ポリシー学習\nロボット操作では、Diffusion Policyが行動チャンク（一定期間の動作列）を一括生成することで高い性能を示してきました。そのサンプリング速度を上げるため、ステップ適応型ソルバー、Consistency Policyのような蒸留手法、ユークリッド空間でのフロー写像学習が研究されています。しかし、回転などの多様体拘束を考慮した上で、教師なし・非微分で1ステップ生成を可能にする手法はこれまで存在しませんでした。",
+   "figures": []
+  },
+  {
+   "heading": "III Methodology",
+   "heading_ja": "半群則とアンカーで多様体上の平均速度を捉える",
+   "summary_ja": "RMFPは、確率パス上の移動を表す平均速度を学習します。中間時刻を挟んだ2回の移動の合成が全体移動と一致するという代数的半群則（Consistency）と、教示データに係留するフローマッチング損失を組み合わせ、教師なし・1次勾配のみで学習します。",
+   "details_ja": "### III-A 幾何学的背景とRFMP\nロボットの手先動作 $\\mathcal{A} = \\mathbb{R}^3 \\times \\mathcal{S}^3 \\times \\mathbb{R}^2$ を時間幅 $T_p$ だけ連ねた動作チャンク空間は、直積多様体 $\\mathcal{M} = \\mathcal{A}^{T_p}$ となります。測地線は指数写像 $\\mathrm{Exp}$ と対数写像 $\\mathrm{Log}$ で定義されます。従来のRFMPは事前分布からデモ動作までの測地線に沿った瞬時速度 $v(a, s)$ を学習するため、サンプリングには $T$ 回の指数写像オイラー更新（$T$ NFE）が必要でした。\n\n### III-B リーマンMeanFlowポリシー（RMFP）の定式化\n有限時間区間 $[s, t]$ での移動を1ステップで予測するため、測地線コードを時間幅で割った「平均速度」 $u(a, s, t) = \\frac{\\mathrm{Log}_a(\\Phi_{s,t}(a))}{t-s}$ を考えます。任意の時刻 $s \\le r \\le t$ に対し、フロー写像は合成則 $\\Phi_{r,t} \\circ \\Phi_{s,r} = \\Phi_{s,t}$ を満たします。この代数的な半群恒等式をターゲットとして、ストップグラディエント（$\\mathrm{sg}$）を用いた一貫性損失 $\\mathcal{L}_{\\mathrm{semi}}$ を定義します。\n\nただし半群則は $u \\equiv 0$ でも成立してしまうため、データ境界を固定するアンカーとしてリーマン条件付きフローマッチング損失 $\\mathcal{L}_{\\mathrm{anchor}}$ を $t=s$ の極限に結合します。これにより、高階の微分項（ヤコビアン・ベクトル積など）を一切使わずに1次勾配だけで安定学習できます。\n\n### 出力パラメータ表現（速度予測 vs 終点予測）\nネットワーク出力 $h_\\theta$ の拘束方法として2通りを設計しました。\n- **速度予測（RMF-$v$）**: 出力を接空間 $T_a\\mathcal{M}$ に直交射影して $u_\\theta$ とする。\n- **終点予測（RMF-$x_1$）**: 出力を多様体 $\\mathcal{M}$ 上に射影したあと、測地線に沿って平均速度へと逆算する。分母に $1-s$ が入るため重み関数で特異点を抑える。\n\n### 実装の詳細\nバックボーンにはDiffusion Policyで一般的な1D-UNetを使用し、観測条件付けはFiLMで行います。時間入力は2つの時刻 $(s, t)$ を受け取るよう拡張されています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "評価に用いたシミュレーション環境。(a) 球面 Push-T（平面Push-Tを球面 $\\mathcal{S}^2$ へ立体射影）、(b) Robomimic Tool Hang（7自由度単腕によるフック挿入とレンチ掛け）、(c) Robomimic Transport（14自由度双腕でのツール受け渡し）、Franka Kitchen（多段階タスク）。",
+     "caption": "Figure 3 : Simulated environments of the evaluation benchmarks. (a) Spherical Push-T: the Push-T canvas under the stereographic map onto $\\mathcal{S}^{2}$ , with the agent (blue), the block (grey-blue) and the goal pose (green). (b) Robomimic Tool Hang: a single arm inserts a hook into a base and hangs a wrench on it, from a state observation. (c) Robomimic Transport: two arms transfer a hammer from a covered container to a target bin on the opposite shelf, from camera observations. …",
+     "image": "details/2609.30127/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "1ステップ生成で多段階手法にどこまで迫れるか",
+   "summary_ja": "球面LASA、球面Push-T、Franka Kitchen、Robomimic、および実機ロボットで実験を行いました。RMFPは1〜2 NFEという極小ステップにおいて、従来のRFMPや拡散モデルを大幅に上回り、10 NFEの性能と同等の結果を叩き出しました。",
+   "details_ja": "### IV-A & B ベンチマーク実験結果\n- **球面LASA（文字軌道生成）**: $\\mathrm{NFE}=1$ において、中央値DTW誤差はRFMPの $0.090$ に対し、RMF-$x_1$ は $0.022$、RMF-$v$ は $0.033$ と圧倒的に高精度かつ滑らかな軌道を生成しました。\n- **球面Push-T**: $\\mathrm{NFE}=1$ でRMF-$v$ がカバレッジスコア $78.5$ を記録し、RFMP（$67.9$）や拡散モデルRDP-$x$（$73.1$）を大きく引き離しました。$\\mathrm{NFE}=10$ では $85.0$ に達します。\n- **Franka Kitchen（$\\mathbb{R}^3 \\times \\mathcal{S}^3 \\times \\mathbb{R}^2$）**: 4つ以上のサブタスク達成率を評価。$\\mathrm{NFE}=1$ において、RMF-$x_1$-hemi（半球事前分布）は $41.7$ を達成し、RFMP-hemi（$20.6$）に $21.1$ ポイントもの大差をつけました。高次元直積多様体では終点予測（RMF-$x_1$）が特に堅牢でした。\n- **Robomimic（ユークリッド空間）**: Tool Hang（7-DoF）では $\\mathrm{NFE}=1$ でRMF-$v$ が成功率 $64.0$ を記録（標準Diffusion Policyは $0.0$ で破綻）。Transport（14-DoF双腕）でも 1 NFE で $90.0$ 以上をキープしました。\n\n全体として、RMFPはステップ数を 1 から 10 へ増やしても性能変動が最大 $10.2$ ポイント以内に収まり、予算の少なさに左右されない極めてフラットで頑健な挙動を示しました。\n\n### IV-C 実機ロボット検証\nNVIDIA Jetson Thorを搭載した6自由度I2RT YAMアーム実機を用い、外部カメラと手先カメラのマルチモーダル観測下で物体把持・運搬タスクを評価しました。60回の教示データから学習したRMFPにより、実環境のノイズ下でもリアルタイムかつ破綻のないスムーズな動作生成ができることを確認しました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "実機6自由度ロボットアーム（YAM）による実世界マニピュレーションの実行フェーズ。机上のブロックへアプローチして把持し、目標位置へ搬送して箱の中へ正確に配置する一連の動作を、学習したRMFPにより高速かつ滑らかに実行しています。",
+     "caption": "Figure 4 : Riemannian MeanFlow Policy executed in a real-world manipulation task. The policy is trained on $60$ real-world demonstrations and deployed on the YAM robotic platform. Representative stages of the rollout show the robot approaching and grasping the object, transporting it to a goal state, and placing it into the target container.",
+     "image": "details/2609.30127/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "幾何拘束を満たす高速ポリシーの新標準",
+   "summary_ja": "代数的な半群則とフローマッチングアンカーを統合したRMFPにより、多様体上の動作生成における推論コストを大幅に削減しました。教師なし・1次勾配の単一ステージ学習で、1 NFE動作生成というロボット制御にとって理想的な性質を実現しています。",
+   "details_ja": "本研究は、幾何学的拘束を受ける視覚運動ポリシーにおいて、従来の瞬時速度場ではなく有限時間平均速度（フロー写像）を学習することで、多段階積分のボトルネックを解決しました。代数的一貫性損失により微分計算を排除し、教師モデル蒸留も不要なため、実装・学習の負担が非常に軽いのが強みです。1回のフォワードパスで多様体拘束を満たした動作シーケンスを生成できる本手法は、高速な制御ループが求められる実機ロボティクスにとって極めて実用的な基盤となります。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "ロボットの手先姿勢のような多様体空間でも、フロー写像の一貫性（半群則）を解くことで「1ステップでの動作生成」が実用レベルで可能になる",
+  "教師モデルからの蒸留を行わず、データ境界のアンカー損失と半群損失を組み合わせるだけで、単一ステージかつ1次勾配のみで安定して学習できる",
+  "ネットワークのヘッド構造は、低次元では速度予測（RMF-v）が、姿勢を含む高次元直積多様体では終点予測（RMF-x1）が有利に働く傾向がある"
+ ],
+ "limitations_ja": [
+  "半群則を評価するために学習時の1勾配ステップあたり4回のネットワーク評価が必要であり、学習時の計算負荷が従来のRFMP（1回）より重い",
+  "NFEを5〜10回と増やしていった場合の性能上限（天井）は、従来の多段階フローマッチング（RFMP）を大きく超えるわけではない（あくまで低NFE領域での性能維持が強み）",
+  "多様体上の対数写像・指数写像が閉形式（解析的）に計算できる空間（球面やユークリッド空間の直積）に限定されている"
+ ],
+ "keywords": [
+  "Visuomotor Policy Learning",
+  "Riemannian Manifolds",
+  "Flow Matching",
+  "MeanFlow",
+  "Robotic Manipulation"
+ ],
+ "id": "2609.30127",
+ "title": "Faster Visuomotor Policy Learning on Action Manifolds via Riemannian MeanFlow",
+ "authors": [
+  "S. Talha Bukhari",
+  "Austin Garrett",
+  "Yi Wei",
+  "Ruiqi Ni",
+  "Zachary Kingston",
+  "Aniket Bera"
+ ],
+ "date": "2026-09-27",
+ "group": "focus",
+ "tags": [
+  "control",
+  "reinforcement-learning",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.30127",
+ "pdf_url": "https://arxiv.org/pdf/2609.30127",
+ "summary_ja": "拡散やフローマッチングに基づく方策は行動空間の幾何構造を無視し多段階の数値積分を要するため高頻度制御が困難であった。本研究は行動空間のリーマン幾何を考慮しつつ少ないステップ数で推論可能なRiemannian MeanFlow Policy（RMFP）を提案。マニピュレータ等の関節・SE(3)空間に即した効率的な軌道生成を実現する。",
+ "generated": "2026-09-27",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.30127"
+}
