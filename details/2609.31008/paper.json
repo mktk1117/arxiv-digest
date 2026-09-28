@@ -1,0 +1,141 @@
+{
+ "title_ja": "分散配置された低コストToFセンサを用いた四足歩行ロボットの障害物回避と足先位置計画",
+ "tldr_ja": "1個あたり約10ドルの小型ToFセンサを複数分散配置することで、高価で消費電力の大きい深度カメラを置き換え、四足歩行ロボットの近接障害物回避や足場計画が実用水準で動作することを実証した論文です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "四足歩行ロボットANYmal Dの前面に8個の低コストToFセンサを分散配置し、足元の近傍環境をセンシングしている様子です。解像度は粗いものの、リアルタイムに局所標高マップを構築して安全な足場選択と障害物回避を可能にしています。",
+  "caption": "Fig. 1 : This paper studies time-of-flight (ToF) sensors for quadrupedal locomotion and navigation. Mounted on the front shell of ANYmal D, they provide near-field perception for elevation mapping, obstacle avoidance, and footstep planning.",
+  "image": "details/2609.31008/F1.jpg"
+ },
+ "overview_ja": "四足歩行ロボットが不整地を歩くためには、足元の地形を正確に把握する近接知覚が欠かせません。これまでは主にIntel RealSenseなどの深度カメラが使われてきましたが、カメラのサイズが大きくロボットの関節近くや曲面には配置しづらいため、どうしても脚元に死角ができてしまいます。さらに、消費電力が大きくコストがかさむ点も課題でした。\n\nそこで著者らは、安価な小型Time-of-Flight（ToF）センサに着目しました。1個わずか約10ドル、重さや消費電力も極めて小さいマルチゾーンToFセンサ（8×8ピクセル）を8個、ANYmal Dの前面シェルに死角を埋めるように分散配置するアプローチです。\n\n単体のセンサはノイズが多く超低解像度ですが、適切な幾何配置で視野を重ね合わせ、ロボットの運動に合わせた標高マップ生成パイプラインへ統合することで、実用的な近傍地形の復元を試みました。\n\nLiDARを正解とした3D再構成精度の評価や、枕木・階段を越える足場計画実験、さらにシミュレーションと実世界での障害物回避ナビゲーションを実施した結果、従来の深度カメラとほぼ遜色ない歩行踏破性能と局所回避が達成できることを確認しました。高級なセンサに頼り切らなくても、賢い分散配置によって十分な知覚性能が得られることを明確に示した実用価値の高い研究です。",
+ "contributions_ja": [
+  "1個約10ドルのマルチゾーンToFセンサを分散配置し、従来の深度カメラ（約400ドル）と同等の近接知覚を大幅な低コスト・低消費電力で実現したこと",
+  "ANYmal Dのフロントシェルに8個のToFセンサを最適配置し、従来の深度カメラでは死角となっていた脚元近傍まで水平180°・垂直90°の広い視野を確保したこと",
+  "LiDARを参照データとした室内3D形状復元精度の定量評価を行い、粗いToF点群でも約10cm単位の構造を捉えられることを明らかにしたこと",
+  "不整地の階段昇降や枕木の踏破、複雑な障害物コースの自動回避において、ToFベースの局所標高マップが深度カメラと同等の歩行成功率を達成することを実機で実証したこと"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "高価な深度カメラを安価なToFセンサのアレイで置き換える挑戦",
+   "summary_ja": "四足ロボットの近接知覚に広く使われている深度カメラは、死角の発生や高い消費電力、高コストといった制約を抱えています。本研究では、小型・安価なToFセンサをロボット外装に分散配置し、足元の死角を解消しながら実用的な歩行と局所障害物回避が可能かを検証します。",
+   "details_ja": "四足歩行ロボットは、点検作業や災害現場、森林調査など、足場の悪い非構造化環境での活躍が期待されています。こうしたタスクを自律的にこなすには、周囲の地形形状を正確に認識する幾何学的な知覚が不可欠です。\n\n現在主流のプラットフォームではLiDARと深度カメラを組み合わせて使っていますが、それぞれ弱点があります。LiDARは長距離の計測に優れる一方で近距離が苦手で、脚元の細かな地形形状を取りこぼしがちです。一方の深度カメラ（例えばRealSense D435i）は幅が約9cmもあり、ロボットの関節付近や湾曲した外装には取り付けにくいため、踏み込み位置となる脚元の近傍にどうしても死角が生まれてしまいます。また、複数台搭載すると消費電力や計算負荷、システム全体のコストが跳ね上がる問題もありました。\n\nそこで注目したのが、近年進化が著しいマルチゾーンToF（Time-of-Flight）センサです。これは光の往復時間から複数ポイントの距離を同時に測れる極小センサで、1個あたり約10ドルと極めて安価です。単体では解像度が低くノイズも目立ちますが、ロボットのボディに分散配置して視野を重ね合わせれば、死角を消しつつ十分な情報量が得られるのではないかと考えました。\n\n本論文では、ANYbotics社の四足ロボットANYmal Dの前面に8個のToFセンサを統合し、従来の深度カメラや高精度LiDARと比較して、地形マッピングや足場計画、障害物回避がどこまで通用するかを徹底的に検証しています。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "四足ロボットの幾何知覚と近接センシングの歩み",
+   "summary_ja": "四足ロボットの知覚はLiDARによる大域マッピングと深度カメラによる局所マッピングが中心でした。近年はドローンやマニピュレータで小型ToFセンサの活用が進んでいますが、四足ロボットの複雑な足場計画や標高マップ構築に適用可能かどうかは未開拓の課題でした。",
+   "details_ja": "### II-A Geometric Perception for Quadrupeds\n四足歩行ロボットの歩行制御や経路計画において、LiDARと深度カメラは標準的な幾何センサとして定着しています。LiDARは地下探査や森林調査などの大規模な状態推定とマッピングを牽引してきました。一方で深度カメラは、近距離の密な点群を取得できるため、局所的な標高マップを作ってモデル予測制御や強化学習コントローラで足を置く位置を決める用途や、障害物回避ナビゲーションに多用されています。最近では生デプス画像を直接ニューラルネットワークに入力してパルクールのような激しい運動をさせる研究も登場していますが、依然として大型な深度カメラへの依存が続いています。\n\n### II-B Close-range Perception\n近距離の障害物検知には、かつて単一ビームの超音波センサや接触式の人工ヒゲなどが研究されてきました。しかし、超音波は平坦地面の仮定が必要だったり、ヒゲは接触直前まで情報が得られなかったりと、不整地歩行には不向きでした。\n\n近年では、超小型・軽量・低消費電力という利点から、ナノドローンの衝突回避にToFセンサを利用する研究が増えています。またロボットアームやヘビ型ロボットの表面にToFセンサを並べて近接制御を行う試みも行われてきました。しかし、これらは大まかな距離を知る使い方が主であり、四足ロボットが必要とするような「精緻な局所標高マップを構築して安全な着地点をリアルタイムに計算する」というシビアなタスクに低解像度ToFが耐えうるかは、これまで検証されていませんでした。",
+   "figures": []
+  },
+  {
+   "heading": "III System Design",
+   "heading_ja": "低コストToFセンサを分散配置するハード・ソフト設計",
+   "summary_ja": "STマイクロエレクトロニクス製の小型ToFセンサ8個を、ANYmal Dの前面カスタムシェルに分散配置しました。I2Cデイジーチェーンによる高速読み出しと、ToFのノイズ特性を考慮した標高マッピングフレームワークへの統合を実現しています。",
+   "details_ja": "### III-A ToF Sensors\n採用したのはSTMicroelectronics社製のマルチゾーンToFセンサ「VL53L5CX」です。サイズは$6.4 \\times 3.0 \\times 1.5\\,\\mathrm{mm}$と超小型で、対角$65^\\circ$の視野角内で$8 \\times 8$（計64ゾーン）の距離計測を0.02m〜4mの範囲で行えます。コストは1個約10ドルで、約400ドルのRealSense D435iと比べて桁違いに安価です。消費電力も1個あたり約0.2〜0.4Wと、深度カメラ（2〜4W）の10分の1程度に抑えられます。\n\n### III-B ANYmal Integration\nANYmal Dの前面シェルを3Dプリントで特注設計し、8個のToFセンサを埋め込みました。隣り合うセンサの視野（FoV）をあえて部分的にオーバーラップさせることで計測密度を高め、ノイズへの頑健性を向上させています。同時に、ロボット自身の脚やボディが視野に入り込んで計測を邪魔しないよう配置角度を厳密に調整しました。これにより、水平$180^\\circ$、垂直$90^\\circ$という極めて広い視野を実現し、既存の深度カメラが抱えていた脚元直下の死覚を大幅にカバーしています。\n\n### III-C Software Integration\n8個のセンサはI2Cバスでデイジーチェーン接続され、RP2350マイコンを介してシリアル通信でデータを吸い上げます。全センサの読み出しは1サイクルあたり約1msで完了し、15HzでROS2の点群メッセージとして配信されます。得られた点群は、四足ロボットで広く使われているFankhauserらの局所標高マッピング（Elevation Mapping）に40Hzで統合されます。ToF特有のノイズを考慮するため、Nguyenらのセンサ誤差モデルのパラメータを調整して適用しました。なお、センサデータは標高マップ生成にのみ使用され、ロボット自身の自己位置推定は車載LiDARオドメトリと自己受容感覚の統合推定器に任せています。\n\n### III-D Handheld Mapping Device Integration\nToFセンサ単体の幾何形状復元性能を公平に評価するため、ヘキサゴン状に360°カバーするLiDAR（Hesai PandarQT-64）の天面に8個のToFセンサを円環状に配置した手持ちスキャナ装置も製作しました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "ANYmal Dの前面に取り付けた特注の3Dプリント製フロントシェルです。赤色シェルの周囲に8個のVL53L5CXセンサが埋め込まれており、左下の拡大図にはセンサを固定・配線するための専用カスタム基板が示されています。",
+     "caption": "Fig. 2 : The 3D-printed front shell embedding the ToF sensors. The shell integrating 8 VL53L5CX is highlighted. The inset view shows the custom PCB designed for the sensing unit.",
+     "image": "details/2609.31008/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "ToFセンサの視野（FoV）の幾何学的配置です。(a)各センサがカバーする錐台、(b)方位角と仰角のカバー範囲（従来のRealSense 2台と比較して上下・左右ともに大幅に広がっていることが分かります）、(c)地面に投影したときの死角解消の様子を示しています。",
+     "caption": "Fig. 3 : Field of View of the ANYmal’s ToF sensors. (a) Shaded pyramids representing the FoV of each ToF . (b) Azimuth–elevation coverage of the eight ToF s compared against the depth cameras. (c) The FoV of the depth cameras and the ToF s when projected on the ground plane.",
+     "image": "details/2609.31008/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "システムの全体構成です。左上では8個のToFセンサがI2Cでデイジーチェーン接続されRP2350マイコン経由でROS2へ送られる様子、右上にはLiDAR評価用の手持ち計測デバイス、下部にはANYmal D実機への搭載構成が示されています。",
+     "caption": "Fig. 4 : System-level integration of ToFs. We show the ANYmal D and handheld reconstruction setup.",
+     "image": "details/2609.31008/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experimental Evaluation",
+   "heading_ja": "形状復元・足場計画・障害物回避の3段階で実力検証",
+   "summary_ja": "LiDARとの比較による3D復元精度の評価、枕木や階段を使った足場計画実験、シミュレーションと実環境での自律障害物回避を行いました。低解像度かつノイズがあるにもかかわらず、深度カメラと同等の歩行性能を発揮できることが証明されました。",
+   "details_ja": "### IV-A Exp 1 – Reconstruction Accuracy with a LiDAR Reference\n手持ちデバイスを用いてオフィス環境（4m × 5m）をスキャンし、64層LiDARの点群を正解値としてToF点群の再構成精度を評価しました。最近傍ユークリッド距離を算出したところ、誤差の中央値は2cm未満に収まり、約10cmサイズの家具の輪郭もしっかり捉えられました。メッシュ再構成手法（Poisson、Ball Pivoting、TSDF）を比較したところ、TSDFやPoissonを用いることで粗い点群からでも滑らかで連続した部屋の表面形状を復元できることが確認されました。\n\n### IV-B Exp 2 – Footstep Planning\n続いて、ANYmal Dの実機を用い、知覚型強化学習（RL）コントローラに入力する局所標高マップをToFセンサで生成して歩行性能を検証しました。比較対象はフロントのRealSense深度カメラ2台によるマップ、および外部知覚なしのブラインド歩行です。テストした環境は以下の3つです。\n- **枕木（高さ約13cm×3本）**: 前進速度40cm/sで走行。ブラインド歩行は足を取られて3回中全試行失敗しましたが、ToF構成と深度カメラ構成はいずれも10回中10回成功しました。\n- **不整室内階段（段差9cm、17cm、17cm）**: ブラインドでは1段目しか越えられず衝突しましたが、ToFと深度カメラは共に10回全試行で昇降をクリアしました。\n- **屋外階段（高さ15cm×7段）**: 深度カメラのほうが綺麗なマップを作りますが、ToFの粗いマップでもコントローラが足を置く段差構造を十分に捉え、10回中10回とも登坂に成功しました。\n\n### IV-C Exp 3 – Obstacle Avoidance\n最後に、局所プランナと組み合わせた障害物回避ナビゲーションを行いました。\nシミュレーションでは、距離依存ガウスノイズモデル（$d_{\\text{sim}} = d_{\\text{GT}} + \\mathcal{N}(0, (0.01 d_{\\text{GT}})^2)$）を組み込み、難易度別のコースで評価しました。深度カメラと比べて移動距離に差はなく、回避判断でやや減速したため所要時間がわずかに延びた程度で全コースを走破しました。さらにセンサ故障への耐性試験として8個からランダムにセンサを減らしたところ、2個故障（残り6個）でも成功率はほぼ落ちず、3個故障して初めて難関コースで性能低下が見られるという高い耐障害性を示しました。\n\n実世界実験では段ボール箱を配置した3つの難易度（Easy, Medium, Hard）のコースで検証しました。ToFは点群が粗いため、障害物のエッジ付近を通過する際に脚がかすれる接触回数が深度カメラよりやや多かったものの、主要な障害物を確実に検知してゴールに到達できました。プランナの局所解（引力と斥力の釣り合いで停止する現象）による停止を除けば、実用上十分な自律回避能力があることが確認されました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "オフィス環境における累積点群の比較です。左のLiDAR点群に対して、右の8個のToFセンサによる点群は密度こそ劣るものの、壁面やテーブル、棚などの主要な室内構造を明瞭に捉えていることが分かります。",
+     "caption": "Fig. 5 : Accumulated point cloud reconstruction results of an office using LiDAR (left) and ToF (right). The point clouds are colorized by surface normal in the z-direction.",
+     "image": "details/2609.31008/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "高さ13cmの枕木を乗り越える足場計画実験の様子です。下段には深度カメラ（左）とToFアレイ（右）から生成された標高マップが示されており、ToFでも脚を置くべき障害物の高さをコントローラが認識するのに十分な精度が出ていることが確認できます。",
+     "caption": "Fig. 7 : Exp 2 – Footstep Planning on Railway Sleepers. Top: ANYmal D traversing an obstacle course consisting of three 13 cm railway sleepers arranged in line. Bottom: representative elevation maps generated using depth sensing (left) and distributed ToF sensing (right).",
+     "image": "details/2609.31008/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "段差の高さが不揃いな室内階段を登る実験の様子です。深度カメラ（左下）に比べてToF（右下）の標高マップは粗くアーティファクトも見られますが、段差のエッジ構造が保たれているため、強化学習コントローラは一度も踏み外すことなく登降できました。",
+     "caption": "Fig. 8 : Exp 2 – Footstep Planning on an Irregular Indoor Staircase. Top: indoor staircase experiment with ANYmal D. Bottom: representative elevation maps generated using depth sensing (left) and distributed ToF sensing (right).",
+     "image": "details/2609.31008/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusions",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "低コストな分散ToFセンサアレイが、四足ロボットの足場計画や近接障害物回避に十分実用的であることを示しました。解像度の限界はあるものの、長距離センサと相補的に組み合わせる軽量・省電力な近接知覚アプローチとして非常に有望です。",
+   "details_ja": "本研究では、分散配置されたマルチゾーンToFセンサが、四足歩行ロボットの近接知覚において深度カメラの代替になり得るかを調査しました。実験の結果、生成される標高マップは解像度が粗くノイズを含むものの、足場計画や雑多な環境での局所ナビゲーションには十分な幾何学的情報を提供できることが分かりました。これにより、従来の深度カメラ構成と比べて、劇的な低コスト化・低消費電力化・省スペース化が可能になります。\n\nもちろん限界もあります。解像度が粗いため、細いワイヤーや小さな障害物の検出、ミリ単位の足場選択が求められる極限環境では精度が不足します。したがって、このToFセンサアレイは高精度な長距離LiDARを完全に排除するものではなく、脚元の死角を補い近距離の安全性を担保する相補的な近接知覚デバイスとして位置づけるのが最適です。今後は、他のセンサとのマルチモーダル統合や、ロボット全身へのさらなる分散配置パターンの最適化を進めていく予定です。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "1個約10ドルのマルチゾーンToFセンサを複数分散配置することで、高価な深度カメラを使わなくても四足ロボットの近接地形知覚が成立する",
+  "局所標高マップを逐次更新する近距離タスク（足場計画や局所回避）であれば、ミリ単位の解像度がなくてもセンチメートル級の精度で十分機能する",
+  "分散アレイ構成はハードウェアの死角を大幅に解消でき、センサが1〜2個脱落・故障しても知覚性能が急激に破綻しない高い耐障害性を持つ",
+  "長距離・高精度のLiDARと、低コスト・超省電力の近接分散ToFという役割分担は、脚型ロボットのセンサ構成として極めて合理的である"
+ ],
+ "limitations_ja": [
+  "センサ1個あたり8×8ピクセルと極めて低解像度なため、細いポールやテーブルの脚、小さな突起などの検出を見落としやすい",
+  "壁や障害物のエッジ付近で再構成形状が丸まりやすく、狭小空間をすり抜ける際にロボットの脚が接触する頻度が深度カメラより高くなる",
+  "グローバルな地図構築や長距離の自己位置推定には使えないため、上位のナビゲーションにはLiDARなど別の知覚モダリティが必須となる"
+ ],
+ "keywords": [
+  "Time-of-Flight Sensors",
+  "Quadruped Robots",
+  "Elevation Mapping",
+  "Footstep Planning",
+  "Obstacle Avoidance"
+ ],
+ "id": "2609.31008",
+ "title": "Quadruped Obstacle Avoidance and Footstep Planning with Distributed Low-cost Time-of-Flight Sensors",
+ "authors": [
+  "Giammarco Caroleo",
+  "Timoth\\'ee Mahamoodally",
+  "Matteo Manzardo",
+  "Jin Jin",
+  "Marco Pontin",
+  "Matias Mattamala",
+  "Renato Vidoni",
+  "Perla Maiolino",
+  "Maurice Fallon"
+ ],
+ "date": "2026-09-28",
+ "group": "focus",
+ "tags": [
+  "quadruped",
+  "locomotion",
+  "planning",
+  "perception"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.31008",
+ "pdf_url": "https://arxiv.org/pdf/2609.31008",
+ "summary_ja": "四足歩行ロボットANYmalにおいて、高価で死角がある深度カメラやLiDARの代替として分散配置型ToFセンサを活用するアーキテクチャを提案。近傍地形の3D再構成精度を評価し、足先計画および障害物回避において死角を排除しつつ低コスト・省電力に機能することを示した。",
+ "generated": "2026-09-28",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.31008"
+}
