@@ -1,0 +1,202 @@
+{
+ "title_ja": "InternW0-Δ：2万時間超のオープンデータで予測動力学と行動を架橋する世界行動モデル",
+ "tldr_ja": "大規模な動画生成モデルのダイナミクス予測能力を、推論時に未来動画を生成する重いコストをかけずにロボット制御へと転移させる世界行動モデル（WAM）を提案し、2万時間超の統合オープンデータセットと高速な学習・展開基盤とともに全公開した研究です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "InternW0-Δの全体像です。実機ロボット、UMI、一人称視点動画などを統合した23,072時間のマルチソースデータで事前学習を行い、動画エキスパートと行動エキスパートを接続するMoT構造やCausal Imprintによって、多様なシミュレーションベンチマークおよび4種類の実機プラットフォームで最高水準の性能を達成しています。",
+  "caption": "",
+  "image": "details/2609.31394/F1.jpg"
+ },
+ "overview_ja": "大規模動画モデルが獲得した「世界がどう変化するか」という予測知識をロボット制御に生かす「世界行動モデル（World Action Model: WAM）」が大きな注目を集めています。しかし、高精度に未来の映像を予測・生成できることと、ロボットを器用に動かせることは別問題です。従来のWAMの多くは、推論時に重い拡散モデルで未来動画を実際にロールアウト（生成）して行動を導出するか、あるいは動画生成と行動予測を単純に並行学習させるにとどまり、動画モデルが捉えた未来の変化を行動予測に直結させる有効な表現が得られていませんでした。\n\nそこで著者らは「InternW0-Δ」を開発しました。動画エキスパートと行動エキスパートを「Mixture-of-Transformers（MoT）」で結合し、推論時には未来動画を一切生成せずに、学習時のみ与えられる未来情報から「今後どうシーンが変わるか」を行動エキスパートへ橋渡しする新機構「Causal Imprint（因果刻印）」を導入しました。さらに、事前学習済みの4D基盤モデルから幾何・運動の事前知識を蒸留することで、行動生成に必要な物理的洞察を強化しています。\n\nこれを支えるため、実機操作ログや一人称視点の人手作業、UMIデータなど15種類以上の公開データを標準的な80次元状態・行動空間へ統合し、2万時間超の大規模コーパスを構築しました。評価ではLIBERO-PlusやRoboTwin 2.0、EBench、RoboDojoといった難関シミュレーション環境で従来手法を大幅に上回る頑健性を記録し、双腕グリッパから多自由度霊長類ハンドまで4種類の実機でもゼロからの事前学習の有効性とリアルタイム制御性能を実証しました。",
+ "contributions_ja": [
+  "推論時に未来動画の生成（ロールアウト）を行わず、学習時の未来教師信号から行動に必要なシーン変化表現を抽出して行動エキスパートへ直接渡す新機構「Causal Imprint」を提案しました。",
+  "動画エキスパートと行動エキスパートを融合する有向Mixture-of-Transformers（MoT）に加え、事前学習済み4D基盤モデルからの幾何・運動蒸留、静止画VLMによる意味理解を統合したアーキテクチャを構築しました。",
+  "ロボット実機、UMI、一人称視点動画（Ego2Robot含む）など多様なオープンソースデータを標準の80次元表現に統一し、2万時間超の最大級の事前学習用データセットと厳格なフィルタリング手法を確立しました。",
+  "事前学習済みモデルの重み、学習・評価コード、推論を大幅に高速化して実機で152.8ミリ秒の往復レイテンシを実現したシステム基盤をすべてオープンソース化しました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "未来を予測できても動かせない？世界行動モデルの課題と突破口",
+   "summary_ja": "動画予測モデルの物理知識を行動制御に生かす世界行動モデルですが、推論時に重い動画生成を行わずにどう行動へ役立つ表現を取り出すかが長年の課題でした。InternW0-Δは、有向MoT構造とCausal Imprint、4D蒸留を組み合わせることで、未来動画を生成することなく高精度かつ頑健なロボット制御を実現しました。",
+   "details_ja": "近年、大規模動画生成モデルの事前学習によって「物理世界が時間とともにどう変化するか」というダイナミクス知識を獲得し、それをロボット操作に転移させる「世界行動モデル（World Action Model: WAM）」が活発に研究されています。しかし、綺麗な未来動画を生成できることと、ロボットを正しく制御できることの間には大きなギャップがあります。ロボットを行動させるには、指示されたタスクに関わる本質的な変化を見極め、物体の3次元・4次元的な幾何や動きを理解し、現在のシーンに即して行動を決定しなければなりません。\n\nオンラインの制御中に未来動画を拡散モデルで何ステップも生成していては、計算遅延が大きすぎてリアルタイムなロボット制御が破綻してしまいます。したがって、「未来動画を生成する重い処理を行わずに、動画モデルが持つ予測能力を行動生成に直結する表現としてどう取り出すか」が最大の核心です。\n\nInternW0-Δはこの課題に対し、動画エキスパートと行動エキスパートを「Mixture-of-Transformers（MoT）」で結びつけ、学習時のみ未来情報を教師として与えて潜在的なシーン変化を抽出する「Causal Imprint（因果刻印）」を考案しました。また、Track4Worldと呼ばれる4D基盤モデルから幾何・運動の知識を学習時のみ蒸留することで、推論時のオーバーヘッドをゼロに保ちながら制御性能を底上げしています。\n\nさらに、実機や人手作業など異種混合の公開データを統一して2万時間超の学習データを整備し、大規模事前学習と下流適応の2段階パイプラインを確立しました。LIBERO-Plus（92.8%達成）やRoboTwin 2.0（環境ランダム化下で71.9%達成）をはじめとする多数のシミュレータと4種類の実機プラットフォームで圧倒的な成果を収めています。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "VLAから世界行動モデル（WAM）への進化とオープン基盤の潮流",
+   "summary_ja": "視覚・言語・行動を統合する従来のVLAモデルに対し、WAMは未来の映像予測を結びつけることで物理世界の理解を深めてきました。InternW0-Δは、推論時の未来動画生成を廃した高速路線の知見を発展させ、4D幾何蒸留や大規模オープンデータの統一アプローチを組み合わせる独自の位置づけを築いています。",
+   "details_ja": "### 視覚-言語-行動（VLA）モデルと世界行動モデル（WAM）\nRT-2やOpenVLAのように、事前学習済みVLM（視覚言語モデル）の言語・視覚理解をロボット制御に転移するVLAが発展し、π0やGR00T N1のように連続値の行動生成を行うモデルへと進化してきました。一方で、静的な画像認識だけでなく「世界がどう動くか」をモデル化するWAMとしてDreamZeroやMotus、LingBot-VAなどが登場しました。その中でFast-WAMのように「学習時には未来動画を予測させるが、推論時には動画生成を行わず行動だけを出力する」アプローチが注目されており、InternW0-Δはこの思想を受け継ぎつつ、動画エキスパート自体を訓練可能に保ち、静止画VLMでシーン理解を補う新しい有向接続を提案しています。\n\n### ロボット制御のための視覚・幾何表現\nロボット操作では、潜在空間での予測（V-JEPAやVLA-JEPA）や、点群・軌跡フィールドなどの幾何・運動表現（Spatial Forcing、4D-WAM、Track4Action）を活用する研究が進んでいます。InternW0-Δは、Causal Imprintによって潜在空間の「未来との差分」を明示的に学習させると同時に、事前学習済みの4D基盤モデルTrack4Worldから特徴量を学習時のみ蒸留するハイブリッドな表現学習を採用しています。\n\n### オープンソースロボティクス基盤\nLeRobotやopenpi、StarVLAのように、再現可能なコードやデータパイプラインを公開する動きが加速しています。InternW0-Δもこの潮流を強く意識し、単にモデルの重みを公開するだけでなく、2万時間を超える異種混合データの標準化ツール、中間特徴のキャッシュ基盤、高速推論ランタイムまで含めた完全なエコシステムを提供しています。",
+   "figures": []
+  },
+  {
+   "heading": "3 InternW0- $\\Delta$ Model Design",
+   "heading_ja": "InternW0-Δの構造：推論時に未来を想像せず、変化の刻印を行動へ渡す",
+   "summary_ja": "動画エキスパートと行動エキスパートを30層の有向MoTで結合し、推論時は初期フレーム・直前フレーム・現在フレームの疎なメモリのみを入力します。Causal Imprintが未来の潜在差分と特徴整合を通じて変化を行動側に伝え、学習時限定の4D蒸留とあわせて、推論時はキャッシュを活用した1回の動画処理と高速な行動デノイジングのみで完結します。",
+   "details_ja": "### 3.1 & 3.2 全体構成とマルチモーダル入力のエンコード\nInternW0-Δの中核は、事前学習済み動画生成モデルWan2.2-TI2V-5Bをベースとする「動画エキスパート」と、拡散トランスフォーマーである「ActionDiT（行動エキスパート）」の組み合わせです。複数カメラの視覚入力は1枚のキャンバス画像に合成されてWanのVAEで潜在変数に変換されます。ロボットの状態や行動は、後述する共通の80次元ベクトルにマッピングされ、それぞれ線形層で埋め込まれます。言語指示に対しては、動画エキスパートにはWan2.2由来のT5埋め込みを与えて生成の文脈を保ちつつ、行動エキスパートには現在の視覚シーンと指示文を同時に理解できる固定されたVLM（RynnBrain1.1-2B）の出力特徴を入力します。\n\n### 3.3 疎なメモリコンテキスト（Sparse Memory Context）\n過去の全フレームを密に保持すると計算コストが爆発します。そこで本手法では、エピソード開始時の初期フレーム（Anchor: A）、前回の行動チャンク直前のフレーム（Recent: R）、現在のフレーム（Current: C）の3時点のみを保持する疎なメモリを採用しました。大域的なタスク文脈と直近の相互作用履歴を最小限の計算量でカバーできます。\n\n### 3.4 Causal Imprint（因果刻印）\n「未来動画を推論時に生成しないなら、どうやって未来予測の恩恵を行動に伝えるか？」に対する答えがCausal Imprint（Δ）です。動画エキスパートの自己注意機構に学習可能なトークンを追加し、直近と現在の特徴を集約させます。学習時、このトークンに対して「現在から未来への潜在変数の差分（$\\Delta Z_t = z_{t+\\rho_v} - z_t$ など）」を予測する損失 $\\mathcal{L}_\\Delta$ と、動画モデルの未来層の特徴と整合させる損失 $\\mathcal{L}_{\\mathrm{align}}$ の2つを課します。これにより、トークン自体は現在までの情報しか見られないにもかかわらず、「この後シーンがどう変化するか」の要約表現を獲得します。\n\n### 3.5 4D幾何・運動の蒸留\nさらに幾何・物理知識を強化するため、4D基盤モデルTrack4Worldを教師として利用します。学習時、正解の動画ウィンドウから抽出した1430次元の幾何・運動記述子に対し、動画エキスパートの中間層特徴（第15ブロック）から2層のTransformerデコーダを介して求めた生徒側の記述子をMSE損失 $\\mathcal{L}_{\\mathrm{4D}}$ で一致させます。推論時には教師も生徒デコーダも完全に切り離されるため、計算コストは増えません。\n\n### 3.6 有向MoTとアテンションマスク\n両エキスパートは共通のAttention層で相互作用しますが、アテンションマスクによって情報の流れが厳密に制限されています。未来トークンは過去や現在を参照して動画を学習できますが、Causal Imprintトークンや行動トークンが未来トークンへ直接アクセスすることは完全に遮断されています。行動エキスパートは、現在までの観測と、未来の教師信号によって鍛えられたCausal Imprintの表現のみを受け取ります。\n\n### 3.7 & 3.8 目的関数と超高速な推論手順\n全体の学習損失は、動画生成と行動生成のフローマッチング損失に、Causal Imprintの2つの損失、4D蒸留損失を組み合わせたものです。推論時は未来動画トークンを一切インスタンス化せず、観測トークン（A/R/C）とCausal Imprintトークンを動画エキスパートで1回だけ前処理（Prefill）し、そのKey/Value（K/V）キャッシュを保存します。行動エキスパートは、そのキャッシュを参照しながらノイズから行動チャンク（32ステップ分）を複数ステップのデノイジングで復元します。動画側の再計算が不要なため、極めて高速に動作します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "InternW0-Δの全体アーキテクチャです。初期（A）・直前（R）・現在（C）の観測をVAEでエンコードし、Wan2.2動画エキスパートとActionDiT行動エキスパートが30ブロックの有向MoTで協調します。T5と言語視覚モデル（VLM）が役割分担して指示とシーン文脈を提供し、Causal Imprintトークンが変化予測を担います。",
+     "caption": "Figure 1: Architecture overview of InternW0- $\\Delta$ . A frozen Wan VAE encodes sparse visual memory comprising anchor (A), recent (R), and current (C) observations. The pretrained Wan2.2-TI2V-5B video expert and the ActionDiT action expert are coupled through 30 directed Mixture-of-Transformers (MoT) blocks. T5 instruction embeddings condition the video expert, while a frozen VLM provides task-conditioned scene semantics to the action expert; current proprioception is independently projected for both experts. Causal Imprint tokens encode change-oriented predictive features from recent and current observations to guide action generation.",
+     "image": "details/2609.31394/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "4D幾何・運動表現の蒸留パイプラインです。Track4Worldからオフライン抽出した幾何・運動記述子（教師）に対し、動画エキスパートの中間層からクエリベースの生徒デコーダで特徴を近づけます。推論時にはこのブランチを丸ごと切り離すため、追加の計算負荷が生じません。",
+     "caption": "Figure 2: 4D-aware representation distillation. A query-based student branch aggregates clean A/R/C features from the video expert and aligns them with cached Track4World descriptors via an auxiliary MSE loss, transferring geometric and motion priors without additional policy inference cost.",
+     "image": "details/2609.31394/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "World-Action MoT層とアテンションマスクの構造です。(a)動画ストリームと行動ストリームのトークン種別、(b)結合注意機構の流れ、(c)アテンションマスクの可視性を示しています。未来（F）トークンへ行動（Act）やCausal Imprint（Δ）が直接アクセスできないよう制限され、推論時との整合性を保っています。",
+     "caption": "Figure 3: World-Action MoT layer and attention mask. (a) The video stream contains anchor (A), recent (R), current (C), future (F), and Causal Imprint ( $\\Delta$ ) tokens, while action tokens (Act) form a separate stream. (b) The two experts compute separate query, key, and value projections for joint masked self-attention, followed by expert-specific cross-attention, feed-forward, and residual pathways. (c) Rows and columns index query and key token groups, respectively.",
+     "image": "details/2609.31394/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "推論プロセスの効率化フローです。(1)観測をエンコード後、(2)動画エキスパートでA/R/CおよびΔトークンを1回だけPrefillしてK/Vをキャッシュします。(3)行動エキスパートは動画側を一切再計算せず、キャッシュを参照しながらNステップのデノイジングで32ステップの行動チャンクを即座に生成します。",
+     "caption": "Figure 5: Efficient inference with cached visual context. (1) Anchor (A), recent (R), and current (C) observations are encoded by the frozen Wan VAE. (2) Conditioned on the video context, the video expert processes the observation tokens and Causal Imprint tokens once, caching their key/value (K/V) projections at each MoT layer. Future-video tokens are omitted. (3) Starting from Gaussian noise, the action expert generates an action chunk through $N$ flow steps, reusing the cached A/R/C/ $\\Delta$ features and the action-side context. Only the action stream is recomputed during denoising. …",
+     "image": "details/2609.31394/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Data",
+   "heading_ja": "2万時間の異種データを統合：共通80次元表現と厳格な精査",
+   "summary_ja": "多種多様なロボット形態や一人称視点の人手動画を統一的に扱うため、固定スロットを持つ共通の80次元状態・行動空間を定義しました。急激な値飛びや静止区間のトリミング、VLMによる指示文整合性チェックなど徹底的なフィルタリングを行い、さらに人手動画を逆運動学と画像インペイントでロボット動作へ変換するEgo2Robotも統合して23,072時間の学習データを整備しました。",
+   "details_ja": "### 4.1 共通状態・行動表現（Canonical Representation）\n多種多様なデータセットをそのまま混ぜると、同じ次元に異なる関節や座標系が混ざり、学習が破綻してしまいます。そこで本研究では、固定された意味スロットを持つ80次元の標準空間を定義しました。状態側には各関節位置、手先（EEF）の3次元位置＋6次元連続回転表現、グリッパ開度や多自由度ハンドの関節角が格納されます。行動側では、関節角は絶対目標値、手先は現在のEEF座標系における相対移動量（3次元並進＋3次元回転ベクトル）として表現され、対象ロボットに存在しない次元はマスクされます。\n\n### 4.2 ロボットデータの収集と厳格なフィルタリング\nAgiBotWorld、InternData-A1、RoboMIND 2.0、ABC-130Kなど、双腕、人型、移動マニピュレーションを含む15種類の公開データセットを集約しました。これらに対し、(1)信号異常検知と状態-行動の方向一致性チェック（相関0.65未満や時間ズレを排除）、(2)エピソード前後の静止区間トリミング、(3)暗黒フレームやボケ、圧縮ノイズを弾く画質フィルタ、(4)ステップあたり移動0.2m・回転0.5radを超える暴走値を防ぐ行動ガード、(5)LLMによる指示文の文法精査とVLMによる「動画と指示が一致しタスクが完了しているか」の自動判定、(6)URDFを用いた描画目視チェックを順に適用しました。これにより、当初の13,867時間から品質の保証された11,302時間のロボットデータへと絞り込みました。\n\n### 4.3 一人称動画（Ego）とEgo2Robotの自動生成パイプライン\n人手の一人称動画（EgoDexやEgoVerse）を行動学習に生かすため、手指の幾何から手先位置とグリッパ開度を推定する行動アライメントを施しました。さらに「Ego2Robot」パイプラインでは、MuJoCo上でベース位置探索と逆運動学（IK）を連動させて干渉のないロボット関節軌道（Kinematic Alignment）を求め、SAM3で人間領域をセグメンテーションしてProPainterで消去、ロボットアームを描画合成（Visual Alignment）します。動作速度をロボットに合わせて半分にする調整も行い、約1,101時間の原動画から5,633時間分相当のロボット学習データを生成しました。\n\n### 4.4 & 4.5 UMIデータと統合データ規模\nHy-UMI-10K（手持ちカメラとグリッパの操作データ）約2,075時間も同様の基準でクレンジングして組み込みました。最終的に、ロボット実機11,302時間、UMI 2,075時間、生の人手一人称4,061時間、Ego2Robot 5,634時間を合わせ、合計で23,072時間（エピソード数約700万、フレーム数約23億）に及ぶ世界最大級のオープンコーパスを構築しました。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "Ego2Robotのデータ変換パイプラインです。3D手先位置と開度を推定する「行動アライメント」、ベース探索と軌道IKでロボットの実行可能動作を解く「運動学アライメント」、SAM3とProPainterで人間を消去しロボットを描画合成する「視覚アライメント」の3段階で、人手作業動画を高精度なロボット実機データへと変換します。",
+     "caption": "Figure 6: Ego and ego-to-robot data processing pipeline. Ego2Robot data undergo all stages, whereas egocentric data undergo only action alignment and action speed alignment. Action alignment maps hand motion to end-effector targets and gripper commands. Kinematic alignment couples base search with trajectory IK to obtain base poses and joint trajectories. Visual alignment combines the rendered robot with the human-removed scene using depth-aware compositing.",
+     "image": "details/2609.31394/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Training",
+   "heading_ja": "2段階の学習戦略：大規模事前学習から多様な実機・環境への適応",
+   "summary_ja": "事前学習では256台のA800 GPUを用いて異種混合データを14日間学習させ、動画ダイナミクスと行動生成の基礎を叩き込みます。下流のシミュレーションや実機実験に向けては、統一表現のおかげで同一の事前学習済み重みからわずか10〜15エポックのファインチューニング（事後学習）を行うだけで容易に適応できます。",
+   "details_ja": "### 5.1 大規模事前学習のセットアップ\n事前学習には256台のNVIDIA A800 GPUを使用し、バッチサイズ4,096、bfloat16混合精度で計245Kステップ（約14日間）実施しました。データの混合比率は実機ロボット80%、Ego2Robot 10%、UMI 8%、人手動画（Ego）2%とし、それぞれのデータ種別に応じて行動損失の重みを調整しています（実機1.0、UMI 0.5、Ego系0.1）。動画エキスパートはWan2.2-TI2V-5Bの重みで初期化し、行動エキスパートはランダム初期化、VLM（RynnBrain1.1-2B）は重みを固定して使用します。学習の最初の235Kステップは通常の損失で学習し、最後の10KステップでTrack4Worldからの4D蒸留損失を追加して仕上げます。\n\n### 5.2 シミュレーション向け事後学習\n事前学習済みチェックポイントから、各シミュレータのアダプターを介して事後学習を行います。移動双腕のEBench（10エポック）、長期記憶や精密さが求められるRoboDojo（10エポック）、Franka単腕のLIBERO（15エポック）、双腕ALOHAのRoboTwin 2.0（10エポック）の4環境で実施しました。いずれも同一のハイパーパラメータと事前学習モデルからスタートしており、共通表現の汎用性の高さが伺えます。\n\n### 5.3 実機ロボット向け事後学習とリアルタイム制御（RTC）\n実機では、グリッパ型2種（ARX AC-One双腕、Arx5単腕）と多自由度霊長類ハンド2種（Franka+XHand双腕、TianJi Marvin+Wuji Hand）の計4環境で展開しました。推論時の計算遅延に対処するため、「Training-time RTC（Real-Time Chunking）」を採用しています。これは学習時にあらかじめ実行済みのプレフィックス行動長 $d$（0〜16ステップ）をランダムに設定し、その区間の行動にはノイズをかけずクリーンな条件として与え、残りのサフィックス部分のみをデノイジング予測させる手法です。これにより、実機デプロイ時にも前回の計画と滑らかにつながる行動チャンクを生成できるようになります。",
+   "figures": []
+  },
+  {
+   "heading": "6 Infrastructure",
+   "heading_ja": "学習を3倍、推論を5倍に加速する実用的なインフラ最適化",
+   "summary_ja": "モデル探索を高速化するため、固定エンコーダ特徴のキャッシュ機構とPyTorch Inductorによる層単位のグラフコンパイルを導入し、学習スループットを最大3倍に改善しました。また実機デプロイでは、ROSから独立したプロセス分離とK/Vキャッシュ、CUDA Graphを駆使し、RTX 5090単体で152.8ミリ秒の往復レイテンシ（5.11倍の高速化）を達成しました。",
+   "details_ja": "### 6.1 モデル開発を支える学習インフラ\n研究開発で試行錯誤を繰り返す際、エポックごとに重い動画VAEや固定VLMを再計算するのは大きな無駄です。そこで著者らは、データセットや前処理のバージョンと結びついた「Cache Manager」を設計し、オンラインおよびオフラインでの特徴量キャッシュを実現しました。さらに、30層あるMoTバックボーンをPyTorch Inductorで層ごとに独立コンパイルし、FlexAttentionを活用することで、LIBEROで3.02倍、RoboTwinで2.11倍のエンドツーエンド学習高速化を達成しました。\n\n### 6.2 実機でのリアルタイム非同期実行と推論最適化\n実機では30Hzの制御周期で、16ステップ（約533ミリ秒）ごとにバックグラウンドで次の行動チャンク（32ステップ分）を推論・再計画する非同期パイプラインを構築しました。時間枠内に必ず推論を完了させるため、以下の徹底的な最適化を行っています：\n- ROS（rclpy）のコールバックやPythonのGILがCUDAのカーネル起動をブロックしないよう、ポリシー推論を別プロセスへ完全分離。\n- 観測条件と動画エキスパートのK/Vキャッシュは行動デノイジング中に変化しないため、1エピソードステップにつき1回だけ計算して固定再利用。\n- 固定テンソル形状を活かし、行動エキスパート層をグループ化してコンパイル＆CUDA Graph Treesで再生。\n\nこれらの最適化を施した結果、霊長類ハンドを用いた実機システム（NVIDIA RTX 5090 1枚）におけるコントローラ観測の往復レイテンシ（RTT）は、ベースラインの780.8ミリ秒から152.8ミリ秒へと短縮され、実に5.11倍の高速化を達成しました。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "特徴量キャッシングシステムの構成です。訓練データから得られるVAE潜在変数やVLM文脈特徴を、キャッシュマネージャー経由でインメモリおよびディスクに保存します。固定されたエンコーダの冗長な再計算をなくし、モデル開発のイテレーションを大幅に加速します。",
+     "caption": "Figure 8: Feature caching for exploratory training. The Cache Manager serves VAE latents and VLM contexts to training through a common interface for online and offline materialization, reducing repeated feature extraction during model development.",
+     "image": "details/2609.31394/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "7 Experiments",
+   "heading_ja": "実証：シミュレーションでの圧倒的頑健性と実機ハンドでの器用な操作",
+   "summary_ja": "シミュレーション評価では、摂動を加えたLIBERO-Plus（92.8%）やRoboTwin 2.0のClean2Random（71.9%）、RoboDojo、EBenchで最高記録を更新しました。実機実験でも事前学習により成功率が大幅に向上し、未学習の液面高さへの適応や、霊長類ハンドによる繊細なピペット操作・コップ重ねなどを実現しています。",
+   "details_ja": "### 7.1 & 7.2 シミュレーションベンチマークの結果\n- **LIBERO-Plus**: クリーン環境で学習後、照明・視点・ロボット初期位置・言語指示などに摂動を加えた頑健性評価において、全体成功率92.8%を達成しました。強力なベースラインであるQwen-RobotManip-Context（91.4%）や従来の最高峰WAMであるBeing-H0.7（84.8%）を大きく上回りました。\n- **RoboTwin 2.0**: クリーン環境のみで学習してランダム化環境で評価するClean2Randomにおいて、従来のWAMであるOpenWAM-α（48.7%）を圧倒する71.9%を記録し、クリーン環境での90.0%という高い性能を維持したまま環境変化への強さを示しました。\n- **EBench & RoboDojo**: 移動双腕タスクのEBenchでは長期タスクで76.5点を叩き出し総合スコア66.0で首位を獲得。極めて難易度の高いRoboDojoでも平均成功率23.91%を達成し、既存WAM（OpenWAM-αの11.92%）の約2倍の成績を収めました。\n\n### 7.3 実機ロボット実験\n4つの実機プラットフォームで計11種類のタスクを検証しました。事前学習の効果は劇的で、AC-Oneでの「トーストを焼く」タスクの成功率は20%から95%へ、「ルミノール反応実験」では0%から95%へと跳ね上がりました。また、給水タスクでは学習データに単一の水位マークしか含まれていなかったにもかかわらず、本番で異なる目標水位の線に合わせて注ぐ量を調整する定性的な汎化も見られました。さらに、多自由度ハンドを用いたスポイトでの試薬吸い上げやサンドイッチ作りなど、高度に協調した指先動作も滑らかに遂行できることが確認されました。\n\n### 7.4 アブレーション研究：何が効いたのか？\nLIBERO-Plusを用いた詳細なアブレーションにより、各コンポーネントの貢献度が明らかになりました：\n- 疎なメモリ（SMC）の導入：+3.88ポイント（49.59% → 53.47%）\n- VLM（RynnBrain）による意味理解の追加：+15.61ポイント（53.47% → 69.08%）\n- Causal Imprint（差分損失＋特徴整合）：+7.37ポイント（69.08% → 76.45%）\n- 4D幾何蒸留（Track4World）：+1.92ポイント（76.45% → 78.37%）\nまた事前学習データの種類を比較した実験では、ロボット実機データが最も大きく寄与し、人手の一人称動画はEgo2RobotやUMIのようにロボットの行動形式へ近づけるほど転移効果が高まることが示されました。\n\n### 7.5 GPTによる実行時アシストの探索\nRoboDojoの難関タスクにおいて、上位モデルGPT-6 Astraを実行時アシスタントとして併用し、大域的な推論や行動修正を指示させたところ、InternW0-Δ単体の平均成功率10.80%が47.20%へと急上昇しました。WAM単体でも高度な低レベル制御を行えますが、高度な言語・記号推論を外付けモデルで補うハイブリッド運用の可能性が示唆されています。",
+   "figures": []
+  },
+  {
+   "heading": "8 Conclusion",
+   "heading_ja": "まとめと今後の展望：物理世界に根ざしたAIのオープンな未来へ",
+   "summary_ja": "InternW0-Δは、推論時の生成負荷を排除しつつ動画ダイナミクスを行動に直結させる世界行動モデルの決定打となりました。膨大なデータと高速なインフラを含めてオープンソース化される本成果は、今後のフィジカルAI研究の重要な基盤となります。",
+   "details_ja": "InternW0-Δは、大規模動画モデルが持つ予測ダイナミクスと、ロボットの精密な行動生成を「Causal Imprint」と「有向MoT」によって無理なく融合させた画期的な世界行動モデルです。推論時に重い動画拡散プロセスを走らせる必要をなくしたことで、実用的なリアルタイム制御と高い環境汎化性能を両立させました。\n\nさらに、2万時間を超える公開データの標準化、特徴量キャッシュやコンパイルによる学習・展開の高速化など、実用面での貢献も極めて大きいです。コード、モデルの重み、レシピ、データ処理パイプラインはすべてオープンソースとして公開されます。\n\n論文では今後の課題（Limitations）として、人手の一人称動画の利用方法（スケールや最適な変換手法）についての更なる精査が必要である点や、GPTなどの外部エージェントとWAMを組み合わせた階層的プランニングの体系的な探求が未開拓である点を挙げています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「推論時に未来動画を生成しない」設計がWAMの実用化には不可欠であり、学習時のみ未来情報を教師として与えて現在特徴に変化を焼き付けるCausal Imprintは極めてスマートな解決策です。",
+  "動画モデルのT5埋め込み（言語のみ）だけでは不十分で、現在の視覚シーンと指示を同時に解釈するVLM（静止画）を結合することでタスク成功率が大幅に向上（+15%以上）します。",
+  "人手の一人称視点データは、生動画のまま使うよりもEgo2Robotのように運動学・視覚的にロボット形式へアライメント変換した方が転移効率が格段に良くなります。",
+  "モデルの工夫だけでなく、固定エンコーダのキャッシュや層単位コンパイル、プロセス分離といったシステム的な最適化が、研究の試行錯誤と実機デプロイ（150ms台RTT）の成否を分けます。"
+ ],
+ "limitations_ja": [
+  "人手の一人称視点（Ego）データが生のままでは現状のベンチマークにおいて劇的な改善をもたらしておらず、その真価を引き出すための変換戦略やスケーリング則の検証がまだ不十分です。",
+  "GPT等の上位VLMによる実行時アシスト（補正）の実験は限定的なタスク・試行回数にとどまっており、外部エージェントとの自律的・階層的な連携アーキテクチャの確立は今後の課題とされています。"
+ ],
+ "keywords": [
+  "World Action Model",
+  "Robotic Manipulation",
+  "Mixture-of-Transformers",
+  "Causal Imprint",
+  "Cross-Embodiment Learning",
+  "Open-Source Robotics"
+ ],
+ "id": "2609.31394",
+ "title": "InternW0-$\\Delta$: A World Action Model Bridging Predictive Dynamics and Actions with 20K+ Hours of Open Data",
+ "authors": [
+  "Xingyu Miao",
+  "Zizun Li",
+  "Baole Fang",
+  "Kaiwen Song",
+  "Tenghui Wang",
+  "Hanxue Zhang",
+  "Yating Wang",
+  "Xudong Li",
+  "Yuping He",
+  "Xueyuan Wei",
+  "Chao Gao",
+  "Xijie Yang",
+  "Yingxiang Xu",
+  "Kerui Ren",
+  "Wenqi Guo",
+  "Jianjun Zhou",
+  "Xinzhe Wang",
+  "Weiguang Zhao",
+  "Ni Yang",
+  "Zetao Cai",
+  "Yufei Xue",
+  "Hengjie Li",
+  "Zeyu He",
+  "Yuanzhen Zhou",
+  "Rong Fu",
+  "Jianyang Zhang",
+  "Siwei Cui",
+  "Fuxian Huang",
+  "Yunsong Zhou",
+  "Xing Gao",
+  "Yifei Yao",
+  "Qiaojun Yu",
+  "Kailin Li",
+  "Ming Zhou",
+  "Mu Huang",
+  "Xinyue Li",
+  "Wenze Cui",
+  "Bingqi Jiang",
+  "Xueyue Zhu",
+  "Junting Dong",
+  "Haoyu Guo",
+  "Tao Lu",
+  "Mulin Yu",
+  "Bowen Zhou",
+  "Bin Zhao",
+  "Tianfan Xue",
+  "Weinan Zhang",
+  "Chunhua Shen"
+ ],
+ "date": "2026-09-28",
+ "group": "general",
+ "tags": [
+  "world-model",
+  "manipulation",
+  "vision-language-action"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.31394",
+ "pdf_url": "https://arxiv.org/pdf/2609.31394",
+ "summary_ja": "一般化ロボット操作に向け、視覚動力学予測と行動生成を統合する世界行動モデルInternW0-Δを提案。Mixture-of-Transformers構造を採用し、2万時間超のデータから視覚ダイナミクス、4D幾何・運動事前分布、行動生成を共同学習して高精度な実機汎化を達成した。",
+ "generated": "2026-09-28",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.31394"
+}
