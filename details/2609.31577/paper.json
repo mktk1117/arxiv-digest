@@ -1,0 +1,167 @@
+{
+ "title_ja": "生成・追従・改善：強化学習で微調整された運動生成器による視覚認識型マルチスキル・ヒューマノイド歩行",
+ "tldr_ja": "生の深度画像から全身軌道を生成するFlow Matching生成器と高速追従ポリシーを組み合わせ、さらにオフポリシー強化学習（AWR）で生成器を微調整することで、ヒューマノイドがオドメトリなしで階段昇降や箱跳び、2 m/sの屋外疾走を実現しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "本手法のパイプライン全体像です。人間のMoCapデータを最適化して動作ライブラリを作り、CLF-RLで追従ポリシーを学習したあと、深度画像と連動するFlow Matching動作生成器を訓練し、最後にオフポリシー強化学習（AWR）で生成器の地形適応力を高めます。",
+  "caption": "Fig. 2: Overview of the presented method. First, human data is translated into motion clips to make a motion library through optimization and generative models. Secondly, a perceptive tracking policy is trained using CLF-RL to track the motion library. Then the motion library and the tracking policy are used to gather depth images that the robot sees at a given state. These depth images are paired with the commanded velocity and the motion library to generate the data for the flow matching generator training. The generator is trained with supervised learning using the flow MSE loss. Then lastly, the generator is fine tuned using off policy RL. …",
+  "image": "details/2609.31577/F2.jpg"
+ },
+ "overview_ja": "ヒューマノイドが現実世界の多様な環境を踏破するには、歩行や走行だけでなく階段の昇降や障害物の跳躍など、多彩なスキルを視覚情報に基づいて滑らかに切り替える能力が不可欠です。しかし、従来の視覚歩行コントローラの多くは平地専用であったり、高価な標高マップ（ハイトマップ）や正確なオドメトリ（自己位置推定）に依存しており、屋外への展開や全身制御への拡張に大きな壁がありました。\n\nそこで著者らは、「動作生成（Generator）」と「軌道追従（Tracker）」を完全に分離した階層型アーキテクチャを提案しました。上位の生成器は生の深度画像と目標速度からFlow Matchingを用いて0.24秒ごとに全身軌道を計画し、下位の追従器は50 Hzでその軌道を忠実に追従します。さらに本研究の最大の工夫は、追従器側を固定したまま、上位の動作生成器側をオフポリシー強化学習（AWR：優位性重み付け回帰）で直接微調整するループを構築した点です。1ステップあたり約3,000次元という膨大な軌道空間に対してナイーブな探索を行うのではなく、生成器の入力ノイズや条件付けを摂動させる構造化探索を取り入れました。\n\nシミュレーションと実機（Unitree G1）による実験の結果、強化学習微調整によって未知の地形での踏破成功率が最大25ポイント、適切なスキル選択率が最大80ポイントも向上しました。実機実験でも、標高マップやオドメトリを一切使わず、2台の深度カメラと搭載PCのみで、屋外の階段昇降や段差跳び、時速7 km超（2 m/s）の旋回疾走を安定して達成できることを実証しました。",
+ "contributions_ja": [
+  "生の深度画像から直接全身軌道を生成するFlow Matching生成器と、CLF-RLで学習した高精度追従器による階層型視覚歩行システムの構築",
+  "約3,000次元の軌道出力を持つ生成モデルを、構造化探索と優位性重み付け回帰（AWR）を用いてサンプル効率良く微調整するオフポリシー強化学習ループの提案",
+  "人間のMoCapデータを物理最適化とMotion Bricksで補間・変形し、周期性と速度精度を保証した10,000本の地形適応動作クリップを自動生成するデータパイプライン",
+  "オドメトリや標高マップを一切使わずに、2台の深度カメラ情報から障害物を先読みして自律的に加減速し、実機ヒューマノイドで屋外階段や跳躍、2 m/sの疾走を実現"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜヒューマノイドの視覚歩行は現実世界でつまずくのか",
+   "summary_ja": "ヒューマノイドが実世界で活躍するには、多様なスキルと視覚による地形認識の両立が欠かせません。本論文では、動作生成と追従を切り分けた階層型アプローチを採り、生の深度カメラ入力のみで屋外の多様な地形を走破できるシステムを目指します。",
+   "details_ja": "人間のようにどこへでも行けるヒューマノイドを作るには、歩行や走行だけでなく、階段を上り下りしたり障害物を跳び越えたりする多彩なスキルを、目の前の地形に合わせて瞬時に使い分ける必要があります。\n\nしかし、既存の地形適応型歩行ポリシーの多くは単一の速度や特定の移動形態に特化しており、全身の協調動作や自由な速度指令への拡張性に乏しいのが実情でした。一方で、何でも真似できる汎用的な全身追従コントローラも登場していますが、それらには視覚情報をもとに地形を認識して動作を適応させる機能が欠けていました。\n\nもうひとつの大きな障壁が「外界認識のやり方」です。先行研究でよく使われる標高マップ（ハイトマップ）は、正確なオドメトリ（自己位置推定）や複雑なスキャン処理が必要で、揺れが激しい実機ヒューマノイドを屋外に持ち出すと破綻しやすいという弱点がありました。\n\nそこで著者らは、「視覚に基づく動作生成器」と「視覚に基づく高速追従器」をペアで動かす階層構造を採用しました。さらに、未知の地形でも適切な動作を選べるように、生成器そのものを強化学習で賢く鍛え直す仕組みを提案しています。",
+   "figures": []
+  },
+  {
+   "heading": "I-A Related Works",
+   "heading_ja": "先行研究の限界と「生成器をRLで磨く」新しい立ち位置",
+   "summary_ja": "ヒューマノイド制御では模倣学習や拡散モデルを用いた動作生成が盛んですが、生成器と追従器の連携やオンライン適応には課題がありました。本研究は、生成器を直接オフポリシー強化学習で微調整する点で先行手法と一線を画します。",
+   "details_ja": "近年のヒューマノイド制御は強化学習（RL）が主流であり、人間のMoCapデータなどをリファレンスとして追従させる「Mimic系手法」が美しい動作の獲得に貢献してきました。\n\n### 動作追従と視覚認識のアプローチ\n追従コントローラに任意の速度指令を与える手法や、単純化モデルを組み込む工夫が進む一方で、視覚の統合には流派が分かれています。標高マップを用いる手法は正確な自己位置推定がボトルネックになりやすく、カメラの深度画像を直接使うエンドツーエンド手法は計算や観測性に課題を抱えていました。\n\n### 生成器＋追従器アーキテクチャの現状\n近年注目されているのが、上位で運動学的な軌道を生成し、下位でそれを物理追従する階層型です。しかし、先行研究のSONICは平地のみで視覚を持たず、PARCのような拡散モデルを用いる手法はシミュレーションのみで学習に1か月近くかかるなど、実機展開にはほど遠い状態でした。また、下位の追従器側を微調整する手法では、上位がそもそも間違った動作（例えば階段なのに平地歩行）を選んでしまった場合に対処できません。\n\n### 生成モデルの強化学習微調整\n拡散モデルやFlow Matchingを強化学習で微調整する試みはマニピュレーション分野で始まっていますが、その多くは行動空間が小さいアーム向けであったり、残差ポリシーを学習して元の生成器を固定する手法でした。本研究は、全身のダイナミックな歩行軌道という極めて高次元な出力に対して、生成器本体の重みを直接更新する世界初の試みです。",
+   "figures": []
+  },
+  {
+   "heading": "II Methods",
+   "heading_ja": "システム全体像：データの最適化からRL微調整までの4段構え",
+   "summary_ja": "提案システムは「データ生成」「追従器学習」「生成器学習」「生成器のRL微調整」の4段階で構成されます。実機では26.8MパラメータのFlow Matching生成器と軽量なMLP追従器が協調動作します。",
+   "details_ja": "提案手法のワークフローは図 F2 に示す4つのステップから成り立っています。\n\n- **全体の役割分担**: 上位の生成器（Generator）が0.24秒（12制御ステップ）ごとに先の1.24秒分の全身軌道を生成し、下位の追従器（Tracker）が50 Hz（0.02秒周期）で関節トルクを計算してロボットを駆動します。\n- **計算と認識の分離**: 追従器は自己受容感覚（関節角度など）と下向きカメラの深度画像を見て素早くバランスを取り、生成器は目標速度と2台のカメラ画像から大域的な動作計画を立てます。この計算分離のおかげで、重い生成モデルを使いながらもリアルタイム性を保つことができます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "提案システムの全体フローです。人間のMoCapデータを最適化して動作ライブラリを構築し、CLF-RLで追従器を学習します。その後、追従走行から集めた深度画像でFlow Matching生成器を訓練し、最後に生成器を強化学習（AWR）で微調整します。",
+     "caption": "Fig. 2: Overview of the presented method. First, human data is translated into motion clips to make a motion library through optimization and generative models. Secondly, a perceptive tracking policy is trained using CLF-RL to track the motion library. Then the motion library and the tracking policy are used to gather depth images that the robot sees at a given state. These depth images are paired with the commanded velocity and the motion library to generate the data for the flow matching generator training. The generator is trained with supervised learning using the flow MSE loss. Then lastly, the generator is fine tuned using off policy RL. …",
+     "image": "details/2609.31577/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II-B Motion Clip Creation",
+   "heading_ja": "人間の動きを物理的に洗練させるデータパイプライン",
+   "summary_ja": "人間のMoCapデータをそのままロボットに追従させることはできません。MuJoCoを用いた複数区間状態制約付き最適化とMotion Bricksを組み合わせ、物理的に整合した10,000本の動作クリップを作成しました。",
+   "details_ja": "良質な動作ライブラリの作成が、本フレームワーク全体の性能上限を決めます。\n\n### 物理最適化による周期軌道の抽出\nオープンソースの人体動作データセット（bones-seed）から、前進・後退・旋回・横歩き・疾走など平地用252種類、箱跳びや階段昇降用46種類の基準動作を抽出しました。MuJoCoの接触ダイナミクスを微分可能な形で組み込んだ「多重射撃（Multiple Shooting）法」により、接触スケジュールを微修正しつつ、初期状態と終了状態が完全に一致する周期制約と、平均速度制約を厳密に満たす軌道を解き直します。\n\n### 地形適応とMotion Bricksによるクリップ合成\n元のMoCapデータには正確な地形情報がありません。そこでシミュレーション内に地形を配置して接触力を閾値処理し、足先の接触情報を取得した上で、様々な段差の高さへ幾何学的にリターゲットしました。その後、再度物理最適化を回すことで、多様な段差に滑らかに適応する動作を作ります。\n\n最後に、これらの基本動作間を滑らかにつなぎ合わせるため、生成モデル「Motion Bricks」を用いて遷移クリップを合成しました。140種類の地形タイル上で10,000本（各6〜20秒）の動作ライブラリを自動構築しています。",
+   "figures": []
+  },
+  {
+   "heading": "II-C Tracker",
+   "heading_ja": "制御理論の知見を活かした頑健な追従ポリシーの学習",
+   "summary_ja": "生成された軌道を追従するため、制御Lyapunov関数（CLF）の理論を取り入れたCLF-RLを用います。自己受容感覚に加えて粗い深度画像を入力し、IsaacLab上で大規模並列学習を行いました。",
+   "details_ja": "追従器には、高い追従精度と安定性が実証されているCLF-RLを採用しました。\n\n### ネットワーク構造と入出力\n追従器は50 Hzで動作するフィードフォワードMLPです。目標軌道と指令速度を処理するサブネットワーク（中間層：[1024, 512, 512]）と、関節状態や下向きカメラの超低解像度深度画像（30×26ピクセル）を統合するメインネットワーク（中間層：[1024, 512, 256, 128]）で構成されます。出力は関節PD制御器の目標角度です。\n\n### Sim-to-Realと学習環境\n実機へそのまま移植できるよう、重心位置、関節摩擦、地面の反発係数、カメラの取り付け角度などに広範なドメインランダム化を施しました。NVIDIA IsaacLabを用い、1台のH100 GPU上で8,192並列環境・約48時間をかけてPPOにより学習させています。",
+   "figures": []
+  },
+  {
+   "heading": "II-D Generator",
+   "heading_ja": "Flow Matchingを用いた視覚駆動型全身軌道生成器",
+   "summary_ja": "上位の生成器は、2台のカメラ画像と速度指令から全身軌道を自己回帰的に予測するFlow Matching Transformerです。座標変換した3次元点群特徴を入力することで、オドメトリなしでの地形認識を実現しました。",
+   "details_ja": "上位の動作生成器は、全26.8Mパラメータを持つFlow Matching Transformerです。\n\n### 入力表現の工夫：重力アライン座標\n生成器にはオドメトリ（自己位置推定）や関節角度などの自己受容感覚を一切入力しません。その代わり、2台の深度カメラ画像（各ピクセルの生深度、およびロボットの胴体ルートを基準とした重力アライン3次元座標 $x, y, z$ 、有効フラグの計5チャンネル）をCNNで特徴トークン化して入力します。この「重力基準の3次元座標」を入力することが極めて重要で、これがないと「ロボットが前傾しているのか、それとも目の前に坂が迫っているのか」を区別できなくなります。\n\n### 学習と推論の高速化\n追従器を実際にシミュレータ内で走らせて得た20万点のデータセットを収集し、地形との相対位置をずらすデータ拡張を行いました。また、推論時には「プレフィックス・エンコーダ（Prefix Encoder）」の計算結果をキャッシュすることで、Flow Matchingの8ステップのオイラー積分をわずか11 msで完了させ、0.24秒ごとの再計画を余裕で間に合わせています。",
+   "figures": []
+  },
+  {
+   "heading": "II-E RL Fine Tuning for the Generator",
+   "heading_ja": "3,000次元の行動空間をどう探索するか：AWRによる生成器の微調整",
+   "summary_ja": "事前学習した生成器は未知の地形やスキルの組み合わせで失敗することがあります。追従器を固定した環境下で、条件付け摂動による構造化探索と優位性重み付け回帰（AWR）を用い、生成器を劇的に賢く進化させます。",
+   "details_ja": "事前学習を終えた生成器でも、見たことのない階段の幅や「箱に乗ってすぐ飛び降りる」といった複雑なタスクでは失敗することがあります。ここを改善するのが本論文の目玉であるRL微調整ループです（図 F3）。\n\n### 高次元行動空間と探索の工夫\n生成器が1回の計画で出力する全身軌道は、62ノード×44次元 ＝ 2,728次元（約3,000次元）という極めて巨大な空間です。ここにナイーブにガウシアンノイズを乗せる標準的なPPOを適用しても、関節がバラバラに振動するだけで意味のある探索ができません。\n\nそこで著者らは、出力ではなく「入力側（Flow Matchingの初期ノイズや、速度指令などの条件付けトークン）」に揺らぎを与える構造化探索を考案しました。これにより、物理的に破綻しない自然な動作候補の中から、異なる動作モード（例えば大股で跳ぶか、小刻みに登るか）を効率的に探索できます。\n\n### AWRによる教師あり型オフポリシー更新\n集めたロールアウトデータからFitted Value Iteration（FVI）で価値関数（Critic）を学習し、各ステップの優位性 $A(s, a) = R(s, a) - V(s)$ を計算します。そして、優位性が高い動作ほど大きな重み $w = \\min\\{\\exp(\\frac{1}{\\beta} \\tilde{A}), L\\}$ をかけて、Flow Matchingの損失関数で教師あり学習を行います。このループをわずか5反復（1反復あたり5エポック、H100で約6時間）回すだけで、劇的な性能向上が得られます。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "生成器の強化学習微調整（RL Fine Tuning）のアーキテクチャです。条件付けを摂動させてシミュレータ内で探索データを集め、Criticで優位性（Advantage）を推定した後、優位性重み付けFlow Matching損失により生成器の重みを直接更新します。",
+     "caption": "Fig. 3: Generator RL fine tuning architecture. The overall process is depicted here: collect data, train the critic, and update the generator. The transformer architectures are also depicted here, showing the prefix encoder and how it is frozen in critic training and updated in the generator. A value head is used for the critic while a velocity field action head is used for the generator.",
+     "image": "details/2609.31577/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II-F Deployment",
+   "heading_ja": "実機ヒューマノイドへの実装構成",
+   "summary_ja": "Unitree G1にNVIDIA Jetson ThorとJetson Orin、2台のZedカメラを搭載してオンボード完結の計算システムを構築しました。推論遅延を極小化し、Bluetoothジョイスティックから直接操縦します。",
+   "details_ja": "実験にはUnitree G1ヒューマノイドを用いました。\n\n- **車載計算機**: 主制御とポリシー推論にはNVIDIA Jetson Thorを用い、カメラの深度画像処理とダウンサンプリングにはNVIDIA Jetson Orinを使用しています。両ボードはROS2で通信し、すべてロボットの内蔵バッテリーで駆動します。\n- **カメラ配置**: 胸部上方に前方を見渡すZed X、胴体下部に足元と自らの脚を見下ろすZed X miniの2台を配置しました。\n- **推論速度**: Thor上での推論時間はFlow Matching生成器が約11 ms、追従器が1 ms未満と極めて高速で、センサ入力から動作出力までの遅延を最小限に抑えています。",
+   "figures": []
+  },
+  {
+   "heading": "III Results",
+   "heading_ja": "実験結果：未知の地形での大逆転と屋外実機走行の成功",
+   "summary_ja": "強化学習微調整により成功率は最大25ポイント、スキル選択の正確さは最大80ポイント向上しました。実機実験でも、オドメトリなしで6種類の異なる階段や段差の跳躍、時速7.2 km（2 m/s）の屋外疾走を達成しました。",
+   "details_ja": "シミュレーションと実機ハードウェアの両面から徹底的な検証を行いました。\n\n### III-A & III-B 強化学習微調整とアルゴリズムの比較\n未知の段差や壁に挟まれた階段など、分布外（OOD）の環境において微調整の効果を検証しました。\n- **性能向上**: 微調整により地形踏破の成功率が全体で最大25ポイント向上し、地形との接触ペナルティも大幅に低下しました。さらに「階段に対して箱跳び動作をしてしまう」といったモード選択の誤りが最大80ポイント改善しました。\n- **手法の比較**: 提案するAWRは、フィルタ付き行動模倣（Filtered BC）や単純な模倣学習（Plain BC）を大きく上回りました。また、PPOで残差ポリシー（Residual）を学習するベースラインと比較したところ、PPOは160倍以上のデータと30倍以上の実時間を消費しても成功率が13ポイント劣っており、本手法のサンプル効率の高さが際立つ結果となりました。\n\n### III-C & III-F 自律的な加減速と2台のカメラの必然性\nロボットは階段や段差を全速力で駆け抜けることはできません。図 F6 が示すように、ロボットは上部カメラで前方の障害物をいち早く捉え、操縦者が2.2 m/sの前進指令を出し続けていても、障害物の手前で自律的に0.8 m/s程度まで減速して踏破し、通過後に再び元の速度へ復帰します。上部カメラを取り外すアブレーション実験では、速度を落とせず箱に激突するなどして成功率が最大43%も激減しました。\n\n### III-D 実機ハードウェアでの実証\nUnitree G1を用いた実機走行（図 F7）では、研究室内の人工的な環境だけでなく、現実世界の屋外環境で実験を行いました。6つの異なる形状の屋外階段（連続15段を含む）の上り下り、箱への飛び乗り・飛び降り、そして舗装路での2 m/s（時速7.2 km）の旋回疾走を見事に成功させています。足裏を地面に叩きつけるようなバタつきがなく、極めて静かで滑らかな足さばきが確認されました。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "地形通過時の自律速度調整の様子です。人間が2.20 m/sなどの高速指令（破線）を与えていても、段差や階段の手前でロボットが自ら判断して安全な速度まで減速し、障害物を越えると元の指令速度へ滑らかに復帰します。",
+     "caption": "Fig. 6: Demonstration of the terrain traversal capabilities of the policies and their effect on the robot’s velocities when using a fine tuned policy. The robot autonomously slows down upon approaching terrain so that it can robustly traverse it. In general the policy shows accurate speed tracking and reliable terrain traversal. The percentages are measuring the successful trials over the 150 samples per terrain.",
+     "image": "details/2609.31577/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "実機ヒューマノイド（Unitree G1）による実証実験です。様々な幾何形状を持つ屋外の階段昇降、箱へのジャンプ、屋外舗装路での2 m/sの旋回疾走など、多彩な動的スキルを披露しています。",
+     "caption": "Fig. 7: Demonstration of the policy pair working in a variety of conditions. We demonstrate traversing a number of different stair cases that have unique geometry indicating the policy’s capability to adjust to different terrain. Then we also show running and walking of the robot on flat ground both in straight lines and while turning. We also demonstrate the robot jumping onto a variety of platforms including from a running start.",
+     "image": "details/2609.31577/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "Flow Matching生成器と追従器の連携、そしてAWRによる生成器の微調整により、真に実用的な視覚ヒューマノイド歩行が実現しました。今後は意味的理解（セマンティクス）の統合や実機データからの直接学習が期待されます。",
+   "details_ja": "本研究は、生成モデルと追従制御、そして強化学習による微調整を綺麗に噛み合わせることで、ヒューマノイドが現実世界の多様な地形を踏破できることを示しました。\n\n### 現状の限界（Limitations）\n微調整用の報酬関数は手動設計されており、あらゆる未知動作に汎用化できるわけではありません。また、生の深度画像のみに依存しているため、「飛び乗って良い箱」と「飛び乗ってはいけない障害物」を識別するような意味的（セマンティック）な判断はまだできません。\n\n### 将来の展望（Future Work）\n今後は、実機から得られたロールアウトデータを使って直接生成器を微調整するループの構築や、上位のナビゲーション・障害物回避スタックとの統合が目指されます。",
+   "figures": []
+  },
+  {
+   "heading": "V Appendix",
+   "heading_ja": "付録：安定性を保証するスケーリング付きCLF-RL",
+   "summary_ja": "追従器の学習に用いた制御Lyapunov関数（CLF）において、位置と速度の数値的なばらつきを調整するための新しいスケーリング行列を導入し、理論的な安定性が維持されることを証明しました。",
+   "details_ja": "追従器の報酬設計に用いられるCLF-RLでは、連続代数Riccati方程式（CARE）の解 $P$ を用いてリファレンスへの指数安定性を保証します。\n\nしかし実運用上、速度項は位置項に比べて分散が大きくなりやすく、標準的な重み付けでは学習が不安定になる問題がありました。そこで著者らは、対角スケーリング行列 $S$ を導入した新しいLyapunov関数 $\\bar{V}(\\eta) = \\eta^{\\top} S P S \\eta$ を定義しました。\n\n本付録では、$SPS$ が修正された重み行列 $(\\bar{Q}, \\bar{R})$ に対するCAREの正定値安定解であることを数式展開により厳密に証明し、数値的なチューニングの自由度を広げつつもCLFの指数安定性が崩れないことを数学的に裏付けています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「追従器側」ではなく「生成器側」を強化学習で微調整することで、地形に応じたスキルのモード選択エラーを劇的に解消できる",
+  "約3,000次元の巨大な軌道計画に対しては、出力へのガウシアンノイズではなく、生成モデルの初期ノイズや条件付けを揺らす構造化探索が極めて有効",
+  "前方を捉えるカメラと足元を見下ろすカメラの2台構成にすることで、目標速度に関係なく障害物を手前で察知して自律減速する知的な振る舞いが生まれる",
+  "オドメトリやハイトマップを捨てて重力アラインの生深度座標を入力に使う設計が、屋外の実機展開における頑健性の鍵となる"
+ ],
+ "limitations_ja": [
+  "深度情報のみを用いているため、飛び乗って安全な段差なのか壊れやすい物体なのかといった意味的・材質的な判断ができない",
+  "動作ライブラリ作成時の物理最適化や、強化学習微調整時の報酬設計に依然として人間の手動調整が残っている",
+  "実機上のオンラインデータから直接自己改善するループまではまだ実証されておらず、シミュレータ環境での微調整にとどまっている"
+ ],
+ "keywords": [
+  "Humanoid Locomotion",
+  "Flow Matching",
+  "Reinforcement Learning Fine-Tuning",
+  "Advantage-Weighted Regression",
+  "Perceptive Control",
+  "Sim-to-Real"
+ ],
+ "id": "2609.31577",
+ "title": "Generate, Track, Improve: Perceptive Multi-Skill Humanoid Locomotion with RL-Fine-Tuned Motion Generators",
+ "authors": [
+  "Zachary Olkin",
+  "William D. Compton",
+  "Aaron D. Ames"
+ ],
+ "date": "2026-09-28",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "locomotion",
+  "reinforcement-learning",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.31577",
+ "pdf_url": "https://arxiv.org/pdf/2609.31577",
+ "summary_ja": "ヒューマノイド向けにFlow Matchingによる全身軌道生成とRLによる追従方針を組み合わせた歩行制御手法を提案。動的最適化データで学習した動作ライブラリを活用し、オフポリシーRL微調整ループにより生深度画像からの視覚的かつ不整地適応性の高い多スキル歩行を実現した。",
+ "generated": "2026-09-28",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.31577"
+}
