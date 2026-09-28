@@ -1,6 +1,323 @@
 {
  "entries": [
   {
+   "date": "2026-09-28",
+   "rank": 0,
+   "id": "2609.31577",
+   "group": "focus",
+   "title": "Generate, Track, Improve: Perceptive Multi-Skill Humanoid Locomotion with RL-Fine-Tuned Motion Generators",
+   "title_ja": "生成・追従・改善：強化学習で微調整された運動生成器による視覚認識型マルチスキル・ヒューマノイド歩行",
+   "summary_ja": "ヒューマノイド向けにFlow Matchingによる全身軌道生成とRLによる追従方針を組み合わせた歩行制御手法を提案。動的最適化データで学習した動作ライブラリを活用し、オフポリシーRL微調整ループにより生深度画像からの視覚的かつ不整地適応性の高い多スキル歩行を実現した。",
+   "authors": [
+    "Zachary Olkin",
+    "William D. Compton",
+    "Aaron D. Ames"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.31577",
+   "image": "figures/2026-09-28/2609.31577.jpg"
+  },
+  {
+   "date": "2026-09-28",
+   "rank": 1,
+   "id": "2609.30951",
+   "group": "focus",
+   "title": "Bundled Contact Gradients: Stabilizing Differentiable Simulation for Deployable Dynamic Tasks",
+   "title_ja": "バンドル接触勾配：実機展開可能な動的タスクに向けた微分可能シミュレーションの安定化",
+   "summary_ja": "微分可能シミュレーションにおいて、接触剛性を高めた際に生じる勾配の不安定性を解消する手法「Bundled Contact Gradients」を提案。滑らかな解析的勾配と物理的忠実度を両立させ、ヒューマノイド等の動的タスクにおいて学習した方策の高精度な実機転移（sim-to-real）を可能にした。",
+   "authors": [
+    "Dyuman Aditya",
+    "Jin Cheng",
+    "Clemens Schwarke",
+    "Quan Nguyen",
+    "Gaurav Sukhatme",
+    "Stelian Coros",
+    "Gabriele Fadini"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "simulation",
+    "sim-to-real",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.30951",
+   "image": "figures/2026-09-28/2609.30951.jpg"
+  },
+  {
+   "date": "2026-09-28",
+   "rank": 2,
+   "id": "2609.30594",
+   "group": "focus",
+   "title": "HuGo: LLMs as Whole-Body Policy Code Designers for Humanoid Loco-Manipulation",
+   "title_ja": "HuGo：ヒューマノイドの全身移動マニピュレーション向け方針コード設計者としてのLLM",
+   "summary_ja": "ヒューマノイドの移動マニピュレーションにおいて、凍結された低レベル全身制御ポリシーの上にLLMを用いてタスク記述から閉ループ高レベル方針コードを生成する階層型枠組みHuGoを提案。タスクごとの実演収集や報酬設計を排し、多様な複合動作タスクへゼロショット適応させた。",
+   "authors": [
+    "Seoyeon Choi",
+    "Shizhao Ye",
+    "Nicholas Bui",
+    "Aayushi Shrivastava",
+    "Kanghyun Ryu",
+    "Dhruva Tirumala",
+    "Markus Wulfmeier",
+    "Negar Mehr"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.30594",
+   "image": "figures/2026-09-28/2609.30594.jpg"
+  },
+  {
+   "date": "2026-09-28",
+   "rank": 3,
+   "id": "2609.30530",
+   "group": "focus",
+   "title": "A Long-Legged, Direct-Drive Monopedal Robot Achieves Exceptional Jump Height",
+   "title_ja": "直動駆動の長脚単脚ロボットによる卓越した跳躍高の達成",
+   "summary_ja": "弾性ばね等のエネルギー蓄積機構を用いず、ダイレクトドライブ伝達機構を備えた単脚ロボットを開発。重量281gで新開発のファブリック巻き伝達機構により、電動・ばね無しシステムとして最高峰となる7.6mの跳躍高と190msの接地時間を達成し、空中でのプロペラ姿勢制御も実証した。",
+   "authors": [
+    "Gihyeok Na",
+    "Justin K. Yim"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "locomotion",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.30530",
+   "image": "figures/2026-09-28/2609.30530.jpg"
+  },
+  {
+   "date": "2026-09-28",
+   "rank": 4,
+   "id": "2609.31008",
+   "group": "focus",
+   "title": "Quadruped Obstacle Avoidance and Footstep Planning with Distributed Low-cost Time-of-Flight Sensors",
+   "title_ja": "分散配置された低コストToFセンサを用いた四足歩行ロボットの障害物回避と足先位置計画",
+   "summary_ja": "四足歩行ロボットANYmalにおいて、高価で死角がある深度カメラやLiDARの代替として分散配置型ToFセンサを活用するアーキテクチャを提案。近傍地形の3D再構成精度を評価し、足先計画および障害物回避において死角を排除しつつ低コスト・省電力に機能することを示した。",
+   "authors": [
+    "Giammarco Caroleo",
+    "Timoth\\'ee Mahamoodally",
+    "Matteo Manzardo",
+    "Jin Jin",
+    "Marco Pontin",
+    "Matias Mattamala",
+    "Renato Vidoni",
+    "Perla Maiolino",
+    "Maurice Fallon"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "planning",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.31008",
+   "image": "figures/2026-09-28/2609.31008.jpg"
+  },
+  {
+   "date": "2026-09-28",
+   "rank": 5,
+   "id": "2609.31025",
+   "group": "general",
+   "title": "Precision at Speed: Sample-Efficient Online Model-Based Reinforcement Learning for Hydraulic Excavator Control",
+   "title_ja": "速度と精度の両立：油圧ショベル制御のためのサンプル効率的なオンラインモデルベース強化学習",
+   "summary_ja": "複雑なアクチュエータ特性を持つ11.5トン実機油圧ショベルを対象に、高精度・高速制御を実現するオンラインモデルベース強化学習を提案。経路精度に応じて進行報酬を調整する目的関数を導入し、確率的モデルをゼロから学習してサンプリングMPCと統合することで高いサンプル効率を実証した。",
+   "authors": [
+    "Claudio Canales",
+    "Fang Nan",
+    "Marco Hutter",
+    "Javier Ruiz-del-Solar"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.31025",
+   "image": "figures/2026-09-28/2609.31025.jpg"
+  },
+  {
+   "date": "2026-09-28",
+   "rank": 6,
+   "id": "2609.30521",
+   "group": "general",
+   "title": "Aerial Manipulation in the Wild with Onboard Perception, Policy Learning, and Whole-Body Control",
+   "title_ja": "機上知覚・方策学習・全身制御による野外空中マニピュレーション",
+   "summary_ja": "野外環境での空中マニピュレーションのため、模倣学習、機上LiDAR-慣性状態推定、全身モデル予測制御（MPC）を統合した実機システムを提案。Diffusion Policyが機上知覚から手先目標を生成し、全身MPCで飛行機体とアームを協調させることで外乱下での安定把持を達成した。",
+   "authors": [
+    "Yuanzhu Zhan",
+    "Yufei Jiang",
+    "Zemu Zhang",
+    "Junyi Geng"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "drone",
+    "manipulation",
+    "control",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.30521",
+   "image": "figures/2026-09-28/2609.30521.jpg"
+  },
+  {
+   "date": "2026-09-28",
+   "rank": 7,
+   "id": "2609.31394",
+   "group": "general",
+   "title": "InternW0-$\\Delta$: A World Action Model Bridging Predictive Dynamics and Actions with 20K+ Hours of Open Data",
+   "title_ja": "InternW0-Δ：2万時間超のオープンデータで予測動力学と行動を架橋する世界行動モデル",
+   "summary_ja": "一般化ロボット操作に向け、視覚動力学予測と行動生成を統合する世界行動モデルInternW0-Δを提案。Mixture-of-Transformers構造を採用し、2万時間超のデータから視覚ダイナミクス、4D幾何・運動事前分布、行動生成を共同学習して高精度な実機汎化を達成した。",
+   "authors": [
+    "Xingyu Miao",
+    "Zizun Li",
+    "Baole Fang",
+    "Kaiwen Song",
+    "Tenghui Wang",
+    "Hanxue Zhang",
+    "Yating Wang",
+    "Xudong Li",
+    "Yuping He",
+    "Xueyuan Wei",
+    "Chao Gao",
+    "Xijie Yang",
+    "Yingxiang Xu",
+    "Kerui Ren",
+    "Wenqi Guo",
+    "Jianjun Zhou",
+    "Xinzhe Wang",
+    "Weiguang Zhao",
+    "Ni Yang",
+    "Zetao Cai",
+    "Yufei Xue",
+    "Hengjie Li",
+    "Zeyu He",
+    "Yuanzhen Zhou",
+    "Rong Fu",
+    "Jianyang Zhang",
+    "Siwei Cui",
+    "Fuxian Huang",
+    "Yunsong Zhou",
+    "Xing Gao",
+    "Yifei Yao",
+    "Qiaojun Yu",
+    "Kailin Li",
+    "Ming Zhou",
+    "Mu Huang",
+    "Xinyue Li",
+    "Wenze Cui",
+    "Bingqi Jiang",
+    "Xueyue Zhu",
+    "Junting Dong",
+    "Haoyu Guo",
+    "Tao Lu",
+    "Mulin Yu",
+    "Bowen Zhou",
+    "Bin Zhao",
+    "Tianfan Xue",
+    "Weinan Zhang",
+    "Chunhua Shen"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "world-model",
+    "manipulation",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.31394",
+   "image": "figures/2026-09-28/2609.31394.jpg"
+  },
+  {
+   "date": "2026-09-28",
+   "rank": 8,
+   "id": "2609.31323",
+   "group": "general",
+   "title": "See to Reach, Feel to Grasp: Learning A Blind Grasp Reflex for Anthropomorphic Robotic Hands",
+   "title_ja": "見て手を伸ばし、感じて掴む：多指義手ハンドのための視覚に頼らない反射把持学習",
+   "summary_ja": "多指ロボットハンドにおいて、視覚や物体姿勢情報を使わず固有受容覚のみで多様な物体を把持・安定化する強化学習ポリシー「ブラインド把持反射」を提案。大域的なアーム到達と局所的な接触制御を分離し、安定把持判定により後続操作へ滑らかに引き渡す機構を実現した。",
+   "authors": [
+    "Alexander Alexiev",
+    "Tzu-Yuan Lin",
+    "Sang Min Kim",
+    "Ho Jae Lee",
+    "Yonghyeon Lee",
+    "Sangbae Kim"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "grasping",
+    "manipulation",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.31323",
+   "image": "figures/2026-09-28/2609.31323.jpg"
+  },
+  {
+   "date": "2026-09-28",
+   "rank": 9,
+   "id": "2609.30404",
+   "group": "general",
+   "title": "POIL: Point-based One-Shot Imitation Learning with Stable Dynamical Systems",
+   "title_ja": "POIL：安定力学系を用いた点群ベースのワンショット模倣学習",
+   "summary_ja": "安定力学系と3D点群表現を融合したワンショット模倣学習フレームワークPOILを提案。物体の機能部位上の3D点群を共通表現として用い、1回の手本軌道を新規物体へ対応付け転移するとともに、閉ループ制御により外乱や把持位置のずれが存在しても頑健な操作を達成した。",
+   "authors": [
+    "Sang Min Kim",
+    "Jinwoo Seo",
+    "Hyeongjun Heo",
+    "Junho Lee",
+    "Yonghyeon Lee",
+    "Young Min Kim"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "imitation-learning",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.30404",
+   "image": "figures/2026-09-28/2609.30404.jpg"
+  },
+  {
    "date": "2026-09-27",
    "rank": 0,
    "id": "2609.30127",
