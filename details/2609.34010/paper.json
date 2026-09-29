@@ -1,0 +1,132 @@
+{
+ "title_ja": "ZeroBot: 生成型Real2Simにより数分でゼロから学習するロボットマニピュレーション",
+ "tldr_ja": "事前の人手デモ・事前学習・3Dモデルが一切ない状態から、単一視点画像から生成した3Dメッシュと接触アノテーション行動空間を活用し、シミュレーション上で強化学習をわずか数分（平均119秒）回すだけで実機マニピュレーションを87%の成功率で達成するフレームワークを提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "ZeroBotの全体パイプラインです。手先カメラによる単一視点画像からImage-to-3Dモデルで完全なメッシュを数秒で復元し、シミュレータ上で大規模並列強化学習を実行、学習した接触行動空間とポリシーをそのまま実機へゼロショット転移させます。",
+  "caption": "Fig. 1: From a single view of an object, our ZeroBot framework generates a complete object mesh using an image-to-3D model, which is used in simulation for massively parallel reinforcement learning with an efficient action space. The policy is learned in minutes, with no human demonstrations or policy pre-training, and deployed zero-shot on the real robot.",
+  "image": "details/2609.34010/F1.jpg"
+ },
+ "overview_ja": "未知の物体を目標姿勢へ動かすタスクを解く際、従来の強化学習は実機データの収集や安全管理に膨大な時間がかかり、シミュレータでの学習（Sim2Real）では高精度な3Dアセットの準備や人手によるスキャン作業が大きなボトルネックでした。\n\nそこで著者らは、ウェブ規模の視覚事前学習モデル（Image-to-3D生成モデル）を実環境からシミュレータへの橋渡し（Real2Sim）に組み込むことを着想しました。単一のRGB-D画像から見えない裏側まで含む完全な3Dメッシュを約10秒で生成し、深度情報から実スケールを復元してシミュレータ上に展開します。さらに、学習を劇的に高速化するため、生成メッシュ表面の法線に沿って接触状態をサンプリングし、強化学習の価値関数で有望な接触位置へ直接ワープして探索を開始する「接触行動空間」を開発しました。\n\n実機のFranka Research 3アームを用い、本をずらして把持するマルチステージ作業や缶を坂の上へ押し転がす作業、把手が隠れかけたタンブラーの把持など全6タスクで評価を実施しました。その結果、人手デモやポリシーの事前学習が全くない「ゼロスクラッチ」の状態から、平均119秒の学習時間で実機成功率87%を達成しました。単一視点からの生成メッシュが、検索ベースや部分点群メッシュよりもSim2Real転移に圧倒的に有利であることを実証しています。",
+ "contributions_ja": [
+  "人手デモ・事前学習済みポリシー・既知の3Dモデルを一切使わず、単一視点画像と目標姿勢のみから数分で実機マニピュレーションを学習する問題設定とフレームワークZeroBotを提案した点",
+  "InstantMeshによる単一視点メッシュ生成とFoundation Poseによる姿勢推定を組み合わせ、数秒で実機環境のデジタルツインを構築してゼロショットSim2Real転移を実現した点",
+  "生成メッシュ幾何と学習中の価値関数を活用し、自由空間の無駄な探索を省いて高価値な接触状態から即座に対話を開始する接触行動空間（Contact Action Space）を開発した点",
+  "把持・押し・転がし・関節物体・マルチステージ動作を含む実機実験により、メッシュ検索や部分点群よりも生成メッシュが高い成功率（87%）をもたらすことを示した点"
+ ],
+ "sections": [
+  {
+   "heading": "II Related Work",
+   "heading_ja": "強化学習の探索効率化とReal2Simの進化",
+   "summary_ja": "実機強化学習のデータ収集の遅さに対し、シミュレータの並列計算を活用するSim2RealやReal2Simが注目されています。従来のReal2Simは人手スキャンやモデル検索に頼っていましたが、本研究は2D拡散モデル由来の3D生成事前知識を取り入れることで、単一視点から即座にシミュレーション環境を自律生成します。",
+   "details_ja": "実機における強化学習（RL）は、データの収集効率や安全性、リセットの自動化が常に課題となってきました。これらを解決するために空間グラウンディングや離散化による効率的な行動空間が研究されてきましたが、汎化モデルの学習には数日単位の時間を要するのが普通でした。一方でシミュレーションを活用すれば、計算資源に応じて多数のエージェントを並列に走らせて学習を加速できます。\n\n実環境のシーンをシミュレータ内に再現するReal2Sim研究では、NeRFや3D Gaussian Splattingを用いたビジュアル再構成や、摩擦・質量・関節などの物理パラメータ同定が提案されています。しかし、従来手法の多くは人間が物体周囲を手動でスキャンするか、複数のカメラを事前に配置する必要があり、かつ隠れ面（オクルージョン）の補完ができませんでした。\n\n近年ブレイクスルーを迎えた2D画像拡散モデルに基づくImage-to-3D生成モデルは、ウェブ規模の強力な視覚事前知識を用いて、単一視点の部分的な観測から見えない裏側まで含む完全な3Dメッシュを予測できます。これまでオフラインでのシーン生成や人間デモ動画の再構成に主に使われていたこの生成技術を、ZeroBotはリアルタイムなオンライン学習パイプラインに統合し、ゼロからの即座なロボット学習を可能にしました。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "3Dメッシュ生成から接触行動空間による並列強化学習まで",
+   "summary_ja": "ZeroBotは3つのフェーズで構成されます。まず単一視点RGB-Dからメッシュを生成して実スケールへ合わせ、次に生成メッシュを活用した接触行動空間により大規模並列強化学習を数分で行い、最後に価値関数を用いた接触計画とポリシー実行を実機へゼロショット転移します。",
+   "details_ja": "### III-A 問題設定と前提条件\nロボットには対象物体の単一RGB-D画像 $\\mathcal{I}$ と、物体の初期姿勢からの相対的な目標姿勢 $\\mathcal{T}_{OG} \\in \\mathrm{SE}(3)$ のみが与えられます。人間のデモデータ、事前学習済みポリシー、事前のCADモデルは一切使用しません。背景（棚など）は物体配置前に手先カメラで自動スキャンして固定されているものと仮定し、対象物体が明瞭に見える視点からスタートします。\n\n### III-B 生成事前知識を用いたシミュレーション構築\nカメラ画像上の対象物体をSAM 2でセグメンテーションし、InstantMeshを用いてRGB画像からわずか10秒で3Dメッシュを生成します。InstantMesh単体では絶対スケールが定まらないため、同視点の深度点群と生成メッシュをバッチ化されたICP（Iterative Closest Point）で位置合わせし、メッシュの幾何スケールを正確に復元します。画像から直接行動を出力するエンドツーエンド学習は数分では収束しないため、生成メッシュを用いてFoundation Poseで物体の6D姿勢を追従し、状態ベース（State-based）のポリシーを学習・実行する設計にしています。\n\n### III-C 接触行動空間によるシミュレーション学習と実機展開\nシミュレータにはIsaac Gymを用い、PPOで256並列環境を使って学習します。報酬関数には、物体の各点から目標位置へのベクトルノルムを最小化する「Goal Flow」を一貫して採用し、位置と回転の重み調整を不要にしました。\n\nここでの最大の工夫が「接触行動空間（Contact Action Space）」です。通常のエンドエフェクタ制御では、ロボットが物体に触れるまでの空間移動にシミュレータ時間の多くを空費してしまいます。そこで、生成メッシュ表面から接触候補位置と法線に基づく姿勢を一括サンプリングし、cuRoboで干渉のない有効な状態 $s$ を抽出します。学習中の価値関数 $V(s)$ を用いて状態を評価し、高い価値を持つ接触状態へ直接ロボットを遷移させてからポリシー行動を開始します。\n\n学習時は温度パラメータ付きのSoftmaxとウォームアップを組み合わせた確率 $p(s)$ で探索を促し、接触後は目標へのGoal Flowベクトルに足し合わされる残差行動（Residual Actions）を学習します。実機展開時も、通常は捨てられる価値関数 $V(s)$ をそのまま再利用して最適な初期接触姿勢を決定し、cuRoboの動作計画で安全にアプローチした後に学習済みポリシーを実行します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "ZeroBotの全体フロー。(1) 単一視点RGB-DからInstantMeshで3Dモデルを生成し深度でスケール調整、(2) Isaac Gym上でGoal Flow報酬と接触行動空間により並列RLを実行、(3) 学習した価値関数 $V(s)$ で接触位置を選定し実機でゼロショット実行します。",
+     "caption": "Fig. 2: The three stages of our ZeroBot framework. First, the robot observes an object from a single view. It generates an object mesh from the RGB image using an image-to-3D model, and aligns it with the depth image to recover scale. Second, the generated mesh is used for simulation. The task is specified by providing a goal pose, which defines a dense reward function. Massively parallel RL is used to learn a policy which can manipulate the object into that goal pose. To accelerate training, we use a contact action space which selects a high-value contact state using the learned value function. During deployment, the robot moves into this state using motion planning. …",
+     "image": "details/2609.34010/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "接触行動空間の動作原理。メッシュ表面から接触姿勢候補をサンプリング（1）し、干渉チェック後に価値関数 $V(s)$ でスコアリング（2）。最高価値の接触位置へアプローチ後（3〜4）、残差行動ポリシー $\\pi(s)$ で物体を操作します（5）。",
+     "caption": "Fig. 3: An overview of our contact action space on a multi-stage nudge-and-grasp task. (1) First we uniformly sample contact locations from the surface of the generated mesh (a subset of contacts is shown here for visual clarity). Each point shows a sampled gripper pose for nudging (top row) or grasping (bottom row). (2) Then invalid contact states are eliminated, e.g. those colliding with the rest of the object, and the learned value function from RL is used to compute the value of each valid state. Purple states have lower value, and yellow states have higher value. (3) At execution, the max-value state is chosen. …",
+     "image": "details/2609.34010/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experimental Evaluation",
+   "heading_ja": "実機6タスクでの実証と高速学習のアブレーション",
+   "summary_ja": "Franka Research 3アームを用いて、複雑な把持・押し・転がしなど実機6タスクを検証しました。ZeroBotは平均学習時間119秒、実機成功率87%を記録し、メッシュ検索や部分点群ベースの手法を大きく凌駕しました。また接触行動空間が学習高速化の決定打であることが確認されました。",
+   "details_ja": "### IV-A 研究課題と実験設定\n評価では、7自由度アームFranka Research 3と手先カメラ（RealSense D435）、外部追従カメラ（D455）を使用しました。GPUはポリシー学習用と姿勢追従用にNVIDIA RTX A6000を各1基使用しています。タスクは以下の6種類です。\n- MultiStageBook: 箱の上の本を横に押して把持代を作り、持ち上げる2段階操作\n- PushUpRamp: コーラ缶を坂道の上まで転がし上げる動的バランス操作\n- SlideBowl: ボウルの見えない奥側を押して手前に引き寄せるスライド操作\n- NovelPoses: 20×20 cmの配置誤差があるお茶ボトルを把持・持ち上げ\n- PullFromShelf: 狭い棚の奥から干渉を避けてボトルを引き出す操作\n- GraspHandle: 把手が手前に隠れて部分的にしか見えないタンブラーの把持\n\n比較対象として、3D事前知識を持たず単一視点点群からPoisson再構成した部分メッシュを用いる「ZB-NoPrior」、画像から最近傍のCADモデルを検索・代用する「ACDC-NN」を用意しました。\n\n### IV-B 実機評価結果\nZeroBotは全体で87%の成功率を達成しました。ZB-NoPriorはPushUpRampで缶の裏側が欠落して転がらず、把持タスクでも実物体との干渉が生じて失敗しました。ACDC-NNはタンブラーのような特殊形状で把手形状が一致せず把持に失敗しました。ZeroBotは、ボウルの裏側や自己遮蔽されたタンブラーの把手など、直接見えていない部位の幾何形状も見事に補完し、高いSim2Real転移性能を示しました。\n\n### IV-C 学習速度と設計要素の検証\nSlideBowlタスクを用いたアブレーションでは、通常の直交空間制御（NoContAct）は30分経ってもほぼ成功率ゼロでした。接触を促す補助報酬（NoContAct-Rew）や軌道最適化（TrajOpt-Rew）も学習が遅いか途中で頭打ちになりました。八分木でズームイン探索するCRL-Octreeと比較しても、ZeroBotの接触行動空間は圧倒的に立ち上がりが早く、わずか数分で100%のシミュレーション成功率に達しました。\n\n### IV-D 関節物体への拡張\n電子レンジの扉を開けるタスクにおいて、多視点164枚から人手スキャンして作成したOracleメッシュ（Polycam使用、メッシュ作成443秒）と比較しました。ZeroBotの単一視点生成メッシュ（作成23秒）は、Oracleの100%成功率には届かないものの80%の成功率を達成し、圧倒的に短い所要時間で自律的に動作できる実用性を示しました。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "各手法による3Dメッシュ再構成の比較。ZB-NoPriorは裏面が欠落し、ACDC-NNは既製品との形状差（ボウルの深さやタンブラー把手）が残りますが、ZeroBot（右端）は単一画像から忠実な完全形状を生成しています。",
+     "caption": "Fig. 7: Qualitative results comparing mesh generation methods. ZeroBot generates a mesh which is complete and more accurate than the baselines, improving sim2real success rates.",
+     "image": "details/2609.34010/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "学習時間（秒）とシミュレーション成功率の比較（SlideBowlタスク）。提案する接触行動空間（ZeroBot-Res/Dir）は、通常のアクション空間や補助報酬、軌道最適化、Octree探索と比べて数倍〜数十倍の早さで成功率1.0に到達しています。",
+     "caption": "Fig. 8: Training times (wall-clock) for each method. Each checkpoint is evaluated in simulation across 256 parallel environments for 10 episodes. Each point on the curve shows the maximum success rate achieved by that run so far. This is averaged across 10 training runs, and the 95% confidence interval for the mean is plotted. Results show that ZeroBot’s action space significantly accelerates training.",
+     "image": "details/2609.34010/F8.jpg"
+    },
+    {
+     "key": "F9",
+     "caption_ja": "電子レンジ扉の開放タスクにおける生成メッシュと人手スキャンOracleの比較。左下のグラフの通り、ZeroBot（紫）はメッシュ作成（破線）が23秒と極めて短く、早期に実機成功（80%）を達成しています。",
+     "caption": "Fig. 9: Top: generated mesh and oracle mesh from manual scanning for the articulated object. Bottom: real-to-sim-to-real results, showing cumulative successes against time (left), where the dashed lines indicate the end of mesh creation, and the real robot successfully executing the policy (right).",
+     "image": "details/2609.34010/F9.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Limitations and Future Work",
+   "heading_ja": "現状の課題と今後の展望",
+   "summary_ja": "現行のImage-to-3Dモデルの幾何精度や静的背景の仮定、物体の質量や関節パラメータを既知としている点が主な制限です。今後はマルチビュー入力の導入や、物理特性・関節構造の自動推定技術との統合が期待されます。",
+   "details_ja": "ZeroBotは非常に強力な結果を示しましたが、いくつかの前提条件と限界が存在します。\n\n- 幾何精度の限界: 最新のImage-to-3Dモデルを使用しているもののミリ単位の完全な精度には至っておらず、極めて精密な噛み合わせを要する作業には課題が残ります。マルチビュー入力やオクルージョン対応生成モデルへの差し替えが有効な解決策となります。\n- 物理・関節パラメータの仮定: 本研究では物体の質量を一律固定とし、電子レンジの関節パラメータ（回転軸や可動域）は既知として扱っています。物理パラメータ推定や関節構造の自動同定手法を組み合わせることで、完全な自律化が期待されます。\n- 静的シーンの前提: 手先カメラによる事前背景スキャンを前提としており、動的な複数物体の散らかった環境への拡張が今後の重要な課題です。",
+   "figures": []
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "まとめ：生成モデルが拓く自律強化学習の新境地",
+   "summary_ja": "デモなし・事前学習なし・CADモデルなしの状態から、数分で実機マニピュレーションを学習できるZeroBotを提案しました。Image-to-3D生成モデルと接触行動空間の組み合わせが、ロボットの自律的なスキル獲得を大きく前進させました。",
+   "details_ja": "本論文では、単一視点の画像からImage-to-3D生成モデルを用いてシミュレーションを瞬時に立ち上げ、強化学習でポリシーを獲得するReal2Simフレームワーク「ZeroBot」を提示しました。完全な3D幾何情報を活用して探索の無駄を極限まで削ぎ落とす「接触行動空間」により、わずか平均119秒の学習で実機87%という高い成功率を実現しました。人手スキャンやモデル検索に依存せず、基底モデルの視覚的知識を活用して「その場で学んで即動く」ロボットシステムの有効性を明確に証明した画期的な成果です。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "2D画像拡散モデル由来の3D生成事前知識は、見えない裏面を補完し、ロボットのReal2Simにおける強力な幾何エンジンとして機能する",
+  "物体メッシュの表面から接触状態をサンプリングし、強化学習の価値関数で有望な位置を選択する接触行動空間が、強化学習の探索時間を劇的に短縮する",
+  "学習時に用いたPPOの価値関数は、実機展開時にも安全で効率的なアプローチ姿勢の選定評価関数としてそのまま再利用できる",
+  "部分点群メッシュや既存CADモデルの検索よりも、単一視点からのAd-hocな3Dメッシュ生成の方がSim2Realの成功率において優れている"
+ ],
+ "limitations_ja": [
+  "物体の重量や摩擦係数は一律の固定値として扱われており、物理パラメータの自動推定は含まれていない",
+  "関節物体の可動軸や可動域のパラメータは事前に与えられている前提である",
+  "背景環境が静的であり、事前に対象物体抜きの状態で背景スキャンを行う必要がある"
+ ],
+ "keywords": [
+  "Real-to-Sim",
+  "Reinforcement Learning",
+  "Sim-to-Real Transfer",
+  "Image-to-3D",
+  "Action Space Design"
+ ],
+ "id": "2609.34010",
+ "title": "ZeroBot: Learning from Scratch in Minutes with Generative Real2Sim",
+ "authors": [
+  "Ivan Kapelyukh",
+  "Xiaohan Zhang",
+  "Stephen James",
+  "Laura Herlant",
+  "Edward Johns"
+ ],
+ "date": "2026-09-29",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "sim-to-real",
+  "simulation",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.34010",
+ "pdf_url": "https://arxiv.org/pdf/2609.34010",
+ "summary_ja": "人間のデモや方策の事前学習、既知の3Dモデルを一切使わず、単一の物体画像と目標姿勢のみから数分で実機マニピュレーションを学習するReal2Sim基盤。画像から3D生成モデルでメッシュを復元し、シミュレータ上で大規模並列強化学習を実行する。幾何構造と価値関数を活用した行動空間設計により、把持や押し操作、関節物体操作を短時間で実機転移させた。",
+ "generated": "2026-09-29",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.34010"
+}
