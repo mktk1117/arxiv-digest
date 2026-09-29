@@ -1,6 +1,282 @@
 {
  "entries": [
   {
+   "date": "2026-09-29",
+   "rank": 0,
+   "id": "2609.33310",
+   "group": "focus",
+   "title": "CompliantWBC: Whole-Body Compliance for Heavy Humanoids via Force Latent Estimation and Residual Impedance Targets",
+   "title_ja": "CompliantWBC: 外力潜在表現推定と残差インピーダンス目標による重量級ヒューマノイドの全身コンプライアンス制御",
+   "summary_ja": "高ペイロードを持つ重量級ヒューマノイドにおいて、全身のコンプライアントな動作を実現する制御系を提案。RL訓練された基本方策が任意リンクの直交インピーダンス制御器を模倣し、有界残差方策が外乱に応じて平衡点を動的に補正する。脚部の踏ん張りや全身協調を保ちつつ、未知の身体部位への外力や負荷に頑健に適応可能な全身運動制御を達成した。",
+   "authors": [
+    "Tan-Dzung Do",
+    "Cuc T. Trinh",
+    "Tuan Dat Phuong",
+    "Chien Le",
+    "Thanh Ly",
+    "Vien Anh Ngo",
+    "An Thai Le"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.33310",
+   "image": "figures/2026-09-29/2609.33310.jpg"
+  },
+  {
+   "date": "2026-09-29",
+   "rank": 1,
+   "id": "2609.34486",
+   "group": "focus",
+   "title": "Model-Informed Safe Reinforcement Learning for Bipedal Locomotion via Step-to-Step Prediction",
+   "title_ja": "ステップ間予測による二足歩行のためのモデル情報を活用した安全強化学習",
+   "summary_ja": "二足歩行ロボットの適応性と安全性を両立するため、解析的ALIPモデルと離散時間指数型制御バリア関数（DECBF）を組み合わせた安全強化学習手法を提案。ステップ間安全証明を訓練時の報酬シェイピングと推論時の遊脚着地点フィルタに適用する。転倒リスクを大幅に抑えつつ、障害物環境下でもロバストな歩行動作の獲得を実現した。",
+   "authors": [
+    "Victor Paredes",
+    "Ayonga Hereid"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "humanoid",
+    "reinforcement-learning",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.34486",
+   "image": "figures/2026-09-29/2609.34486.jpg"
+  },
+  {
+   "date": "2026-09-29",
+   "rank": 2,
+   "id": "2609.31840",
+   "group": "focus",
+   "title": "Humanoid Badminton: Learning Dynamic Racket Skills from Limited Human Motion Data",
+   "title_ja": "ヒューマノイド・バドミントン: 限られた人間の運動データからの動的ラケットスキルの学習",
+   "summary_ja": "高速なシャトルに対して全身協調と高精度な打撃が要求されるヒューマノイドのバドミントン動作を学習する手法。少量の不完全な人間動作データを事前知識として活用し、多様な飛来軌道に対応可能な全身運動を強化学習で獲得する。極めて短い接触時間と広い3次元打撃空間において、自然なフォームを維持しながら正確な姿勢・速度での返球を実現した。",
+   "authors": [
+    "Jingzhi Cui",
+    "Zhexiong Wang",
+    "Bangjie Xu",
+    "Pengyu Zhao",
+    "Youyuan Li",
+    "Zhi Su",
+    "Peng Ren",
+    "Mengdi Xu",
+    "Chao Yu",
+    "Yi Wu",
+    "Luyang Wang",
+    "Zhongyu Li"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.31840",
+   "image": "figures/2026-09-29/2609.31840.jpg"
+  },
+  {
+   "date": "2026-09-29",
+   "rank": 3,
+   "id": "2609.34199",
+   "group": "focus",
+   "title": "WB-WAM: Heterogeneous Body-Hand Pre-training for Humanoid Loco-Manipulation",
+   "title_ja": "WB-WAM: ヒューマノイドの移動マニピュレーションに向けた身体・手の異種事前学習",
+   "summary_ja": "全身協調を要するヒューマノイドの移動マニピュレーションに対し、身体・ルート・巧緻手の動作を統合した世界行動モデル（WAM）を提案。動画生成の事前学習に明示的な全身行動の教師信号を組み込み、1880時間超の異種動画・モーションデータから事前学習を行う。順運動学補助教師信号を用いた適応により、複雑な全身動作の学習効率と精度を向上させた。",
+   "authors": [
+    "Chuan Qin",
+    "Shaoting Zhu",
+    "Siyuan Luo",
+    "Siqiao Huang",
+    "Hongyu Zhao",
+    "Hang Zhao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "manipulation",
+    "locomotion",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.34199",
+   "image": "figures/2026-09-29/2609.34199.jpg"
+  },
+  {
+   "date": "2026-09-29",
+   "rank": 4,
+   "id": "2609.33484",
+   "group": "focus",
+   "title": "AMBIT: Anticipatory Multimodal Body Recruitment for Bimanual Tracking on a Humanoid",
+   "title_ja": "AMBIT: ヒューマノイドの両腕追従のための予見的マルチモーダル身体運動動員",
+   "summary_ja": "5自由度腕を持つヒューマノイドにおいて、腕単独では届かない両腕手先軌道に追従するため、骨盤や腰の動的な動員戦略を生成する手法。実行可能な全身姿勢の連続多様体からCVAEにより候補戦略を予見的に提案し、非学習型セレクタでフィルタリングする。実機Unitree R1での検証にて、決定論的手法の有効率35%に対し、82%の高い追従成功率を達成した。",
+   "authors": [
+    "Hanlong Li",
+    "Sihan Tan",
+    "Takeshi Ashizawa",
+    "Benjamin Yen",
+    "Kazuhiro Nakadai"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.33484",
+   "image": "figures/2026-09-29/2609.33484.jpg"
+  },
+  {
+   "date": "2026-09-29",
+   "rank": 5,
+   "id": "2609.34010",
+   "group": "general",
+   "title": "ZeroBot: Learning from Scratch in Minutes with Generative Real2Sim",
+   "title_ja": "ZeroBot: 生成型Real2Simにより数分でゼロから学習するロボットマニピュレーション",
+   "summary_ja": "人間のデモや方策の事前学習、既知の3Dモデルを一切使わず、単一の物体画像と目標姿勢のみから数分で実機マニピュレーションを学習するReal2Sim基盤。画像から3D生成モデルでメッシュを復元し、シミュレータ上で大規模並列強化学習を実行する。幾何構造と価値関数を活用した行動空間設計により、把持や押し操作、関節物体操作を短時間で実機転移させた。",
+   "authors": [
+    "Ivan Kapelyukh",
+    "Xiaohan Zhang",
+    "Stephen James",
+    "Laura Herlant",
+    "Edward Johns"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "manipulation",
+    "sim-to-real",
+    "simulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.34010",
+   "image": "figures/2026-09-29/2609.34010.jpg"
+  },
+  {
+   "date": "2026-09-29",
+   "rank": 6,
+   "id": "2609.33973",
+   "group": "general",
+   "title": "FINGR: Learning Dexterous Hand Control for Real-World Rubik's Cube Solving",
+   "title_ja": "FINGR: 実機ルービックキューブ解決のための巧緻ロボットハンド制御の学習",
+   "summary_ja": "単一の多指ハンドを用いて実機のルービックキューブを解くための強化学習手法。各指先相対の点群表現と将来の接触相互作用予測を統合したネットワークを提案し、キューブを安定保持しながら特定層を回転・再把持する複雑な協調動作を可能にした。各ピースのインデックスに依存しない幾何的表現により、長時間の接触リッチな動的操作において高い実機性能を実現した。",
+   "authors": [
+    "Yutong Liang",
+    "Quanquan Peng",
+    "Matthew Kim",
+    "Xiaolong Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "control",
+    "reinforcement-learning",
+    "grasping"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.33973",
+   "image": "figures/2026-09-29/2609.33973.jpg"
+  },
+  {
+   "date": "2026-09-29",
+   "rank": 7,
+   "id": "2609.31924",
+   "group": "general",
+   "title": "HapticWorld: an Interactive World Simulator with Real-time Torque Feedback",
+   "title_ja": "HapticWorld: リアルタイムトルクフィードバックを備えた双方向ワールドシミュレータ",
+   "summary_ja": "接触リッチな操作において、視覚情報だけでなく関節トルクを同時に予測し操作者に力触覚として提示する双方向ワールドモデル。物理シミュレータの接触力誤差や実機データ収集の高コストを解決するため、大規模視覚シミュレータに関節トルク予測と触覚レンダリングを統合した。遠隔操作者が接触力を体感しながらデモを収集でき、トルク付きデータ生成を支援する。",
+   "authors": [
+    "Shaoting Peng",
+    "Litian Liang",
+    "Yixuan Wang",
+    "Ming Yang",
+    "Katherine Driggs-Campbell",
+    "Mark Cutkosky",
+    "James Jingxi Xu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "world-model",
+    "teleoperation",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.31924",
+   "image": "figures/2026-09-29/2609.31924.jpg"
+  },
+  {
+   "date": "2026-09-29",
+   "rank": 8,
+   "id": "2609.34666",
+   "group": "general",
+   "title": "On the Numerical Reliability of Differentiable Physics-Based Optimization for Robotic Material Manipulation",
+   "title_ja": "ロボットの材料操作における微分可能物理ベース最適化の数値的信頼性について",
+   "summary_ja": "材料操作のシステム同定や軌道最適化で用いられる微分可能物理シミュレータの勾配の数値的信頼性を検証した研究。物質点法（MPM）に基づく弾塑性・粉粒体操作ベンチマークを用い、GPUのスレッド順序に起因する長ホライズン勾配の変動や接触不連続性の影響を定量化。ロボット学習における勾配ベース最適化を安定・高精度に行うための基盤的知見を提示した。",
+   "authors": [
+    "Xintong Yang",
+    "Minglun Wei",
+    "Yu-Kun Lai",
+    "Ze Ji"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "simulation",
+    "benchmark",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.34666",
+   "image": "figures/2026-09-29/2609.34666.jpg"
+  },
+  {
+   "date": "2026-09-29",
+   "rank": 9,
+   "id": "2609.32471",
+   "group": "general",
+   "title": "GlowTact: Simple and Compact Vision-Based Tactile Sensing with High Sensitivity and Spatial Resolution",
+   "title_ja": "GlowTact: 高感度かつ高空間分解能を持つシンプルで小型な視覚型触覚センサ",
+   "summary_ja": "ヒューマノイドの指先など狭小部への実装に適した、超小型な視覚型触覚センサ機構。単色・非指向性の照明を用い、接触圧力を直接光学的なパターン変化として可視化することで、明示的な3D再構成なしに生の触覚画像から直接圧力分布を取得可能にした。複雑な光学系を排した小型設計でありながら、グラム単位の微小接触検知と高い空間分解能を両立した。",
+   "authors": [
+    "Yuxiang Ma",
+    "Megha Tippur",
+    "Pengfei Ye",
+    "Sandra Q. Liu",
+    "Haonan Chen",
+    "Francis Richard Cottrell",
+    "Edward Adelson"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "perception",
+    "humanoid"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.32471",
+   "image": "figures/2026-09-29/2609.32471.jpg"
+  },
+  {
    "date": "2026-09-28",
    "rank": 0,
    "id": "2609.31577",
