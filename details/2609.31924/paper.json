@@ -1,0 +1,128 @@
+{
+ "title_ja": "HapticWorld: リアルタイムトルクフィードバックを備えた双方向ワールドシミュレータ",
+ "tldr_ja": "生成モデルによる映像予測シミュレータにリアルタイムな関節トルク予測と力覚提示を統合し、操作者が画面の「手応え」を感じながらデータ収集と方策評価を行える世界初の対話型ワールドシミュレータを提案しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "HapticWorldのモデル全体像です。操作者の指令関節位置から映像の潜在表現を予測すると同時に、中間特徴量から関節トルクを読み出してリーダーロボットへリアルタイムに力覚としてフィードバックします。",
+  "caption": "Fig. 2: HapticWorld Model Architecture. At each step, the observation history is encoded into latents and fed to the consistency dynamics model together with the operator’s commanded joint positions $a_{t-1}$ and the noise level. The model generates the next latent, which is decoded into the next observation $\\hat{o}_{t}$ ; the torque head reads the widest intermediate features from the middle of the block stack and maps them to the joint torque $\\hat{\\tau}_{t}$ , which is rendered back to the leader arm.",
+  "image": "details/2609.31924/F2.jpg"
+ },
+ "overview_ja": "ロボットが物体の接触を伴う作業（ドアの開閉やホワイトボード拭きなど）を器用にこなすには、視覚情報だけでなく「どれくらいの力で触れているか」という力触覚（F/T: 力・トルク）の情報が欠かせません。しかし、力触覚ラベル付きのデータを集めるのは極めて困難でした。実機での収集はロボットや環境の破損リスクがあり手動リセットも大変です。一方の物理シミュレータは接触モデルの近似誤差（Sim-to-Realギャップ）が大きく、近年登場した動画生成ベースのワールドモデルは見た目がリアルな反面「視覚のみ」で力の手応えが一切ありませんでした。\n\nそこで著者らは、映像の予測と同時にロボットが受ける関節トルクを高精度に予測し、操作者の手元へ即座に力覚提示（ハプティックレンダリング）する対話型ワールドシミュレータ「HapticWorld」を開発しました。動画予測モデルの内部表現からトルクを直接読み出すことで、追加の計算コストなしに10 Hzでループを閉じ、人間が仮想空間の接触を感じながら操作できるようにしています。\n\n実験では、電子レンジのドア開け、ホワイトボード拭き、箱のピボット回転という接触が鍵となる3つのタスクを検証しました。トルクフィードバックがあることで操作者は適切な力を感覚的に把握でき、シミュレータ内での教示データ収集効率が平均1.6倍に向上しました。さらに、HapticWorld内で集めたデータのみで学習した方策を実機に移植したところ、60試行中54回成功（実機データのみの56回に迫る性能）を達成し、視覚のみ（19回）を圧倒しました。シミュレータ単体で力条件付き方策の正確な性能評価まで行えることも実証しています。",
+ "contributions_ja": [
+  "動画予測ワールドモデルの内部特徴量から関節トルクを同時に予測し、操作者の手元にリアルタイムで力覚提示する対話型シミュレータを世界で初めて実現したこと",
+  "トルクフィードバックによって仮想空間内の操作性が向上し、接触を伴うタスクの教示データ収集効率が平均1.6倍に向上したこと",
+  "HapticWorld内で生成されたトルク付きデータのみで学習した方策が、実機収集データと遜色ない高い成功率（54/60試行）で実ロボット上で動作することを実証したこと",
+  "実機を使わずに力条件付き方策の成功率を高い相関（誤差3試行以内）で予測できる、スタンドアロンな評価環境として機能することを示したこと"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜワールドモデルに「触覚」が必要なのか",
+   "summary_ja": "接触作業には力覚が不可欠ですが、実機収集はコストが高く、従来のワールドシミュレータは視覚のみで手応えを感じられませんでした。本論文は、関節トルクを同時に予測して操作者に返すことで、人間と生成モデルの間で力覚ループを閉じるHapticWorldを提案します。",
+   "details_ja": "部品のかみ合わせ、つかんだ物体の滑り、工具の押し当てなど、接触の多いタスクでは「目に見えない力」が成否を分けます。力覚を観測する方策（ポリシー）は視覚のみの方策を大きく上回ることが分かっていますが、学習には力データが付与された大量の教示が必要です。\n\nしかし、このデータの収集は極めて厄介です。実機でのテレオペレーションは毎回の環境リセットが重労働で、機材破損のリスクも付きまといます。物理シミュレータ（剛体接触エンジンなど）を使えば実機は不要になりますが、接触判定の緩和やソフト拘束による人工的なアーティファクトが含まれ、測定値と系統的なズレが生じます。一方、実写映像から訓練する対話型ワールドシミュレータ（IWSなど）はリアルで安全ですが、完全に「視覚のみ」でした。そのため、操作者は手応えを感じられず、仮想物体を突き抜けるような非現実的な動作をしてしまいデータが汚染される、力ラベルがないため力条件付き方策を訓練・評価できない、といった根本的な問題を抱えていました。\n\nそこで本研究は、映像生成とともに関節トルクを同時に予測し、操作者の手元（リーダーロボット）にリアルタイムでフィードバックする「HapticWorld」を提案します。物理エンジンやオブジェクトの3Dモデルは一切使わず、事前のプレイデータから学習するだけで、視覚と力覚の両方を備えた仮想空間を作り出します。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "映像生成・力触覚学習・データ収集の交差点",
+   "summary_ja": "ワールドモデル、力触覚付き模倣学習、実機・シミュレーションでの力データ収集という3つの文脈を整理します。本手法は、先行研究で欠けていた「人間と学習済みワールドモデルとの力覚フィードバックループ」を世界で初めて閉じた点に新規性があります。",
+   "details_ja": "### II-A ロボット操作のためのワールドモデル\n近年、動画予測モデルをロボットの学習や評価に使う試みが盛んです。事前学習済みモデルのファインチューニングや潜在空間でのプランニング、さらには評価環境としての活用が進んでいます。本研究がベースとする「Interactive World Simulator (IWS)」は単一GPUでリアルタイムに対話操作が可能な優れたモデルですが、視覚のみに限定されており、力やトルクを扱うことはできませんでした。\n\n### II-B 力・トルクおよび触覚を考慮した方策学習\n接触作業において力触覚（F/Tやタクタイル）を入力に用いる方策は、マルチモーダル融合やコンプライアンス制御、最新のVLA（Vision-Language-Action）モデルに至るまで目覚ましい成果を上げています。これらの方策は本研究のシステムの受け手となりますが、従来は実機センサでのデータ収集が前提となっており、データ収集のボトルネックに直面していました。\n\n### II-C 力データの収集手法：実機とシミュレータ\n力付き教示の獲得には、これまでバイラテラルテレオペレーション（実機フォロワーの力をリーダーに返す遠隔操作）などの実機手法か、物理シミュレータが使われてきました。近年では視覚と触覚を同時予測する触覚ワールドモデル（ViTacWorldなど）も登場していますが、それらは自律的なロールアウト生成にとどまり、人間の操作者にリアルタイムで触覚を提示してデータ収集自体をガイドする仕組みはありませんでした。HapticWorldは、人間をループに入れた力覚提示を実現した最初のシステムです。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "映像モデルからトルクを読み出し、手元へ返す仕組み",
+   "summary_ja": "HapticWorldは、プレイデータから学習した潜在ダイナミクスモデルの中間特徴量から関節トルクを読み出します。重力補償を引いたトルクを10 Hzでリーダーアームに提示することで、追加計算なしに人間とモデルの間で力覚ループを閉じます。",
+   "details_ja": "### III-A システムの全体像\nHapticWorldは2つのフェーズで構築・利用されます。第1フェーズでは、実機を大まかに動かす「プレイデータ」（特定の目的をもたない探索的な遠隔操作）を収集し、カメラ画像・指令関節位置・実測関節トルクを記録してモデルを学習します。第2フェーズでは、学習済みモデルの中で操作者がリアルタイムにトルクを感じながらタスクの成功教示データを収集し、下流の方策を訓練します。\n\n### III-B 問題設定と入力の工夫\nモデルの入力は過去のRGB観測 $o$、操作者の指令関節位置 $a$、そして目標とする出力は次のフレームの映像 $\\hat{o}$ とロボットが受ける関節トルク $\\hat{\\tau}$ です。ここで重要なのは、入力アクションに「実測位置」ではなく「指令位置（$a$）」を用いる点です。なぜこれが効くかというと、ロボットが壁などに接触しているとき、実測位置は止まっていても指令位置は壁の奥を指し続けます。位置制御器において接触力はこの「指令値と実測値のギャップ」で決まるため、指令位置を入力にすることで、接触力と映像のあいまいさを解消して学習を可能にしています。\n\n### III-C 視覚予測バックボーン\n映像生成部にはIWSを踏襲した整合性モデル（Consistency Model）を採用しています。第1段階でRGB画像を2D潜在表現に圧縮するオートエンコーダを訓練し、第2段階でアクション条件付きの3D畳み込み潜在ダイナミクスモデル $F_\\psi$ を学習します。これにより、リアルタイムな自己回帰的ロールアウトを実現します。\n\n### III-D ダイナミクスモデルからのトルク読み出し\n別個のトルク予測器を作るのではなく、$F_\\psi$ の最もチャンネル幅が広い中間ブロックの特徴量 $\\Phi_t$ から、プーリングと小型MLPで構成される「トルクヘッド $h_\\omega$」を介してトルクを直接読み出します。接触状態の推定は映像の変化を予測するうえでダイナミクス本体がすでに内部で行っているため、それを流用する形です。追加パラメータはわずか18.1万（全体の約0.5%）で済み、トルク予測の損失がダイナミクス本体にも逆伝播することで、接触を考慮した強固な内部表現が育ちます。\n\n### III-E 自己回帰インタラクションとハプティックレンダリング\n推論時は1つの順伝播で映像とトルクが同時に求まるため、10 Hzの対話ループを一切遅延させません。予測トルクからロボットモデルに基づく重力項 $g(q)$ を差し引き、低域通過フィルタとリミッターを通したうえで、リーダー装置（OpenArm 1）の全8軸（グリッパー含む）のモータを駆動します。グリッパーに手応えがあることで、取っ手をしっかり握れているかを指先で直感的に判断できます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "HapticWorldのモデル構成。過去の潜在表現と指令値から整合性ダイナミクスモデルが次の潜在状態を予測し、その中間層からトルクヘッドが関節トルクを読み出します。",
+     "caption": "Fig. 2: HapticWorld Model Architecture. At each step, the observation history is encoded into latents and fed to the consistency dynamics model together with the operator’s commanded joint positions $a_{t-1}$ and the noise level. The model generates the next latent, which is decoded into the next observation $\\hat{o}_{t}$ ; the torque head reads the widest intermediate features from the middle of the block stack and maps them to the joint torque $\\hat{\\tau}_{t}$ , which is rendered back to the leader arm.",
+     "image": "details/2609.31924/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "実験のセットアップと評価タスク。(a) 実機でのプレイデータ収集。(b) 電子レンジのドア開け、(c) ホワイトボード拭き、(d) 箱のピボット回転。水色矢印はフィードバックされる接触力の方向を表しています。",
+     "caption": "Fig. 3: Hardware setup and tasks. (a) Play data is collected by teleoperating the follower arm with a synchronized leader arm, recording the head camera view, the commanded joint positions, and the measured joint torques. (b–d) The three evaluated tasks: open the microwave, wipe the marks on the whiteboard, and flip the box against a fixture. Cyan arrows indicate the equivalent Cartesian force corresponding to the joint-torque feedback.",
+     "image": "details/2609.31924/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "トルクの精度、収集効率、実機での成功率を徹底検証",
+   "summary_ja": "3つの接触タスクで検証し、トルク予測誤差が最大トルクの3.5〜4.8%と極めて高精度であることを確認しました。力覚フィードバックによりデータ収集効率は1.6倍になり、生成データで学習した方策は実機で54/60の成功率を達成しました。",
+   "details_ja": "### IV-A 実験設定\n評価には接触が成否を分ける3つの卓上タスクを採用しました。\n- 電子レンジ開け：取っ手を滑らせずに把持し、ヒンジの円弧軌道に沿って引く。\n- ホワイトボード拭き：目視では接触圧が分かりにくく、適切な力でイレイサーを押し当てる必要がある。\n- 箱のピボット回転：摩擦円錐の内側に垂直抗力を維持しながら、箱を立て起こす。\n各タスク約20秒のプレイデータを500エピソード収集してシミュレータを学習させ、その後シミュレータ内で50エピソードの教示を集めてACT（Action Chunking with Transformer）方策を訓練しました。\n\n### IV-B トルク予測の精度（Q1）\n未知のテストデータに対するトルク予測のRMSEは0.26〜0.38 N・m、各関節の最大トルクで正規化した相対誤差はわずか3.5〜4.8%でした。図F4の通り、予測波形は実測値の急峻な変化にも綺麗に追従しています。\n\n### IV-C 力覚フィードバックがデータ収集に与える影響（Q2）\nシミュレータ内で10分間に収集できた有効な教示数は、力覚フィードバックを有効にすることでホワイトボードで2.4倍、全体平均で1.6倍に向上しました（表I）。手応えがないと、押し込み不足で失敗したり、逆に非現実的な力で押し込みすぎてシミュレータの予測が破綻したりしますが、力覚があることで適切な力加減を自然に維持できます。\n\n### IV-D 実機での方策成功率（Q3）\nHapticWorldの生成データで学習したトルク条件付き方策を実ロボットで動かしたところ、3タスク合計で54/60試行（レンジ19/20、ボード19/20、箱16/20）が成功しました。これは実機データで訓練した上限値（56/60）に肉薄しており、従来の視覚のみシミュレータで訓練したベースライン（19/60）を圧倒しています。\n\n### IV-E 単体評価プラットフォームとしての忠実度（Q4）\nHapticWorldシミュレータ内での方策評価スコアは、実機での評価結果と極めて高い一致を示しました（20試行中のズレは最大3試行）。視覚のみのシミュレータでは力観測値が存在しないため評価すら不可能でしたが、本モデルは実機を使わないスタンドアロンな評価環境としても機能します。\n\n### IV-F 追加タスクの定性評価\n重さの異なるケトルベル（5, 10, 15ポンド）の押し引きや、パチンコ（スリングショット）を引いて発射するタスクでも、物体の重量差やゴムの張力が操作者に正確に伝わることが確認されました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "未知のテストエピソードにおけるトルク予測結果。実測値（青実線）に対してHapticWorldの予測値（オレンジ破線）が各関節で極めて正確に一致しています。",
+     "caption": "Fig. 4: Torque prediction on held-out validation episodes. Predicted (dashed orange line) and measured (solid blue line) torque for three representative joints on each task.",
+     "image": "details/2609.31924/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "実機における方策の動作比較。左の視覚のみ（IWS）では把持滑りや押し当て不足で失敗しますが、右のHapticWorld学習方策は適切な力を維持して全タスクを成功させています。",
+     "caption": "Fig. 5: Real-world rollouts of policies trained without and with torque modality, using data collected from IWS and HapticWorld, respectively. Left: failure modes of policies trained without torque: the gripper grasps the microwave handle too weakly and slips, leaving the door unopened (Task 1); the eraser is not pressed hard enough, leaving marks on the whiteboard (Task 2); and the box is not pushed firmly enough and drops back during flipping (Task 3). Right: policies trained with HapticWorld data apply sufficient and consistent force and complete all three tasks. …",
+     "image": "details/2609.31924/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion & Limitation",
+   "heading_ja": "まとめと今後の課題：力触覚ループが拓く新展開",
+   "summary_ja": "HapticWorldは動画モデルの内部からトルクを読み出し、操作者に返すことで高品質なデータ収集と評価を可能にしました。一方で、衝撃などの高速な過渡現象への対応や、タスクごとの再学習が必要な点などが今後の改善課題です。",
+   "details_ja": "本研究は、人間と学習済みワールドモデルの間で力覚ループを閉じた初の対話型シミュレータ「HapticWorld」を提案しました。中間特徴量からの効率的なトルク読み出しにより、収集効率の向上、実機データに迫る高品質な方策学習、そして実機不要の忠実な方策評価を実現しました。\n\nただし、著者らはいくつかの限界も挙げています。\n- 10 Hzという制御周期のため、衝突時の衝撃や急激なスリップといった高周波な過渡現象をシャープに再現・提示することはできません。\n- タスク（シーン）ごとに個別のプレイデータ収集とモデル訓練が必要であり、汎用的な単一モデルにはなっていません。\n- トルク予測は映像ダイナミクスと一括で行われるため、映像予測の破綻が直接手元への不自然な力覚として伝わってしまいます。\n今後は、より高速な接触応答の実現やマルチタスク対応の基礎モデル化が期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "動画生成モデルの中間表現には接触ダイナミクスがすでに豊富に含まれており、わずか0.5%のパラメータ追加で高精度な関節トルクを読み出せる",
+  "シミュレータ内の教示収集において、力覚フィードバックは操作者の過剰入力や不足を防ぎ、データ収集速度と品質を劇的に高める",
+  "ワールドモデル内で生成された視覚・トルクの合成データだけで、実機データとほぼ同等の接触作業方策をゼロから学習できる",
+  "力観測を出力できるワールドシミュレータは、実機を動かすことなく力条件付きポリシーを事前評価できる極めて強力なベンチマーク環境になる"
+ ],
+ "limitations_ja": [
+  "更新レートが10 Hzにとどまるため、衝突や急な滑りといった高速な接触過渡現象を忠実に再現・提示できない",
+  "タスクや環境ごとに約500エピソードのプレイデータ収集と2日間のモデル訓練が必要であり、ゼロショットでの汎用性はない",
+  "トルク予測が映像ダイナミクスモデルの品質に直結しているため、映像生成が破綻した領域では手元の力覚も狂ってしまう"
+ ],
+ "keywords": [
+  "World Models",
+  "Interactive World Simulator",
+  "Haptic Rendering",
+  "Force/Torque Sensing",
+  "Imitation Learning",
+  "Contact-Rich Manipulation"
+ ],
+ "id": "2609.31924",
+ "title": "HapticWorld: an Interactive World Simulator with Real-time Torque Feedback",
+ "authors": [
+  "Shaoting Peng",
+  "Litian Liang",
+  "Yixuan Wang",
+  "Ming Yang",
+  "Katherine Driggs-Campbell",
+  "Mark Cutkosky",
+  "James Jingxi Xu"
+ ],
+ "date": "2026-09-29",
+ "group": "general",
+ "tags": [
+  "simulation",
+  "world-model",
+  "teleoperation",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.31924",
+ "pdf_url": "https://arxiv.org/pdf/2609.31924",
+ "summary_ja": "接触リッチな操作において、視覚情報だけでなく関節トルクを同時に予測し操作者に力触覚として提示する双方向ワールドモデル。物理シミュレータの接触力誤差や実機データ収集の高コストを解決するため、大規模視覚シミュレータに関節トルク予測と触覚レンダリングを統合した。遠隔操作者が接触力を体感しながらデモを収集でき、トルク付きデータ生成を支援する。",
+ "generated": "2026-09-29",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.31924"
+}
