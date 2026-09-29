@@ -1,0 +1,154 @@
+{
+ "title_ja": "GlowTact: 高感度かつ高空間分解能を持つシンプルで小型な視覚型触覚センサ",
+ "tldr_ja": "微細な凹凸をつけた透明ゲルの上に黒い薄膜を載せるだけで、接触圧力をカメラ画像の暗さとして直接捉えられる新しい触覚センサ「GlowTact」を開発しました。複雑な多色照明や形状再構成の計算を必要とせず、1グラム未満の微小荷重検出からM1ネジのねじ山形状の識別までを指先サイズで実現しています。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "LEAPハンドの指先に搭載されたGlowTactがネジを把持している様子（左）と、得られた触覚画像（右）です。単色照明のみを用いながら、ネジの接触圧力分布と細かいねじ山の幾何形状が、画像処理なしの生画像として明瞭に可視化されています。",
+  "caption": "Fig. 1: GlowTact is a pressure-responsive vision-based tactile sensing mechanism . A GlowTact-equipped LEAP hand grasps a screw (left), while the tactile images (right) directly visualize contact pressure and fine thread geometry. GlowTact combines sensitive low-force response with rich spatial detail using only single-color illumination.",
+  "image": "details/2609.32471/F1.jpg"
+ },
+ "overview_ja": "ロボットハンドが人間のように器用に物体を扱うためには、接触位置や微細な形状、加わっている力を高解像度に捉える触覚センサが欠かせません。この用途ではカメラでゲルの変形を観察する視覚型触覚センサ（VBTS）が有力ですが、代表格であるGelSightなどは3方向からの多色LED照明や光度ステレオ法による複雑な形状再構成計算を必要とします。そのため、指先の狭い空間への実装や、指先ごとにカメラを積むヒューマノイドでの計算負荷、さらにはゲルの剛性に起因する微小荷重への感度不足が大きな課題でした。\n\nそこで著者らは、ゲルの変形形状ではなく「接触圧力」そのものを光学的に直接画像化する、まったく新しいセンシング原理「GlowTact」を考案しました。仕組みは驚くほどシンプルです。微細な凹凸（マイクロテクスチャ）を形成した透明ゲルの上に、薄い黒色のニトリルゴム膜を接着せずに被せるだけです。無負荷状態では微小な空気層により光が境界面で乱反射して白っぽく見えますが、物体が触れて圧力がかかると黒い膜がゲルに密着し、光が吸収されてその部分だけが黒く沈み込みます。つまり、画像の画素の暗さがそのまま接触圧力を表すことになります。\n\n実験では、平坦型センサだけでなくヒューマノイドの指先サイズ（幅17 mm）の曲面センサも製作して性能を検証しました。その結果、わずか1.0 g（約9.8 mN）の物体の自重接触を明瞭に検出でき、M1ネジ（ピッチ0.25 mm）のねじ山まで識別できる高い空間分解能を示しました。さらに、市販のGelSight Miniと比較して低荷重域でのS/N比や法線力推定精度で大幅に優れていることを実証しました。",
+ "contributions_ja": [
+  "微細凹凸ゲルと黒色膜の光学結合（フルストレイテッド乱反射）を利用し、接触圧力を画像の局所的な暗さとして直接可視化する新しいセンシング原理を提案したこと。",
+  "単色・無指向性の単純な照明系とモノクロカメラのみで動作し、複雑な三次元復元計算を介さずに高い空間分解能と圧力分布を直接得られるようにしたこと。",
+  "市販の耐摩耗性ニトリルゴム膜を採用することで耐久性を高めつつ、サンドペーパーやパウダー転写を用いた安価で簡便な曲面・指先型センサの製作プロセスを確立したこと。",
+  "1.0 g（約9.8 mN）の極微小荷重の検出やM1ネジのねじ山解像を達成し、既存のGelSight Miniを上回る低荷重感度と法線力推定精度を実験で示したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "I INTRODUCTION",
+   "heading_ja": "なぜ今、触覚センサの原理そのものを見直すのか",
+   "summary_ja": "視覚型触覚センサは高解像度な接触情報を得られる反面、多色照明や形状再構成の計算負荷、微小な力に対する感度不足がヒューマノイドの手指への適用で壁となっていました。GlowTactは単色照明とモノクロカメラを用い、接触圧力を直接画像の明暗へと変換することで、これらの課題を一挙に解決します。",
+   "details_ja": "ロボットによる繊細なマニピュレーションにおいて、接触位置や物体の姿勢、滑りなどを検知できる触覚センサは不可欠です。なかでも弾性体の変形をカメラで捉える視覚型触覚センサ（VBTS）は、密で高解像度な情報を取得できるため広く研究されてきました。\n\nしかし、既存のVBTSをヒューマノイドの指先に組み込もうとすると、いくつかの深刻なトレードオフに直面します。\n\n- **計算負荷と配線**: 指先ごとにカメラとデータ処理系が必要になるため、画像から三次元形状を復元する重い計算処理はできる限り避けたいという事情があります。\n- **照明設計の難しさ**: 狭く立体的な指先空間の中で、三色以上のLEDを正確な角度から照射する光学系を組み込むのは極めて困難です。\n- **感度の限界**: 多くのセンサは「ゲルの変形」を測定するため、ゲルそのものが大きく歪まないような数グラム以下の微小な接触力（デリケートな作業に必要な力）を検出するのが苦手でした。\n\n本論文が提案するGlowTactは、これらのハードルを根本的な原理の転換でクリアします。ゲル表面に不透明な塗装を施すのではなく、微細な凹凸を持つ透明ゲルの上に黒いゴム膜を非接着で重ね合わせる構造を採用しました。物体が押されると、微小な空気層が押し潰されて黒色膜がゲルと光学的に結合し、接触部が黒く写ります。この原理により、単色照明かつ最小限の計算で、指紋の凹凸や1グラムの物体まで捉えられる圧倒的な高感度と高解像度を実現しています。",
+   "figures": []
+  },
+  {
+   "heading": "II RELATED WORK",
+   "heading_ja": "従来の視覚型触覚センサと何が違うのか",
+   "summary_ja": "従来のVBTSは、多色陰影（GelSight）やマーカー追跡、光減衰（9DTact）などを通じて「ゲルの変形形状」を測り、そこから接触力を間接的に推定していました。対するGlowTactは、接触圧力そのものを直接光学的にエンコードする点が本質的に異なります。",
+   "details_ja": "ロボット用触覚センサには、抵抗式、静電容量式、磁気式、気圧式など様々な方式がありますが、解像度や深層学習との親和性の高さからVBTSが注目を集めています。VBTSの既存研究は、変形をどのように光学的に符号化し、どう計算して復元するかというアプローチで分類できます。\n\n### II-A Vision-Based Tactile Sensors\n代表例であるGelSightは、透明ゲルの表面に金属調などの拡散反射塗装を施し、赤・緑・青のLEDを異なる方向から照射します。得られた画像の各カラーチャンネルの陰影情報から光度ステレオ法を用いて表面勾配を求め、それを空間積分して三次元ハイトマップ（高さ画像）を再構成します。また、ゲル内部にマーカーを埋め込んでその移動ベクトルからせん断力や滑りを検出する手法や、膨らませた膜を内視デプスカメラで見るSoft-bubbleのような手法も存在します。\n\n近年では、半透明ゲルの光減衰を利用してゲルの厚み変化を画像の明るさとして直接読み取るDTactや9DTactも登場しました。\n\nしかし、これらすべての従来センサに共通しているのは、「観察しているのはあくまで変形したゲルの幾何形状である」という点です。接触圧力や法線力そのものを直接見ているわけではなく、ゲルの力学モデルや機械学習によって形状から力を間接的に逆推定する必要がありました。GlowTactは、この前提を覆し、接触圧力を直接光学的なコントラストとして捉える新しいアプローチを切り拓いています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "代表的な視覚型触覚センサの原理比較です。(A) GelSightは方向の異なる多色照明と反射膜による陰影から幾何形状を復元します。(B) 9DTactは半透明ゲル内の光減衰から局所的な厚み変化を画像の明るさとして測定します。いずれもゲルの形状変形を測る仕組みです。",
+     "caption": "Fig. 2: Working principles of representative vision-based tactile sensors. (A) GelSight uses directional illumination and an opaque reflective membrane to encode surface geometry through shading. (B) 9DTact uses light attenuation in a translucent gel beneath a black membrane to encode local gel thickness in image intensity.",
+     "image": "details/2609.32471/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "III GlowTact Sensing Principle and Design",
+   "heading_ja": "光を「閉じ込める」か「吸わせる」か：GlowTactの動作原理",
+   "summary_ja": "GlowTactの核となる原理は、微細凹凸ゲルと黒色膜の間に生じる微小空気層の変形です。非接触時には空気とゲルの屈折率差で光が乱反射して明るく見え、接触圧力がかかると黒色膜がゲルに密着して光を吸収するため、圧力が高い場所ほど暗く写ります。",
+   "details_ja": "GlowTactのセンシング原理は、全反射減衰（FTIR: Frustrated Total Internal Reflection）の考え方に近いですが、全反射だけでなく広い角度の拡散反射を利用している点が特徴です。\n\n### III-A GlowTact Design Principles\nセンサの構造は、透明なアクリル支持板の上に透明なシリコーンゲルを載せ、その外側に微細なランダム凹凸（マイクロテクスチャ）を形成した構造になっています。そしてその上に、薄い黒色の弾性膜（市販のニトリル手袋から切り出したもの）を接着せずにピンと張った状態で被せます。\n\n- **非接触状態（No Contact State）**: 黒色膜はゲルの微細な突起の頂点にしか触れていないため、ゲルの大半の表面と膜の間にはごく薄い空気層が存在します。ゲル側から入った光がゲルと空気の界面に当たると、屈折率の違いによって光が強く拡散反射されます。その結果、カメラには全体が一様な薄いグレー（明るい面）として映ります。\n- **接触状態（In-Contact State）**: 外部から物体が押し付けられると、表面の微細な凹凸が押し潰され、黒い膜がゲルと光学的に完全に密着します。すると反射の境界となっていた空気層が消失し、光はそのまま黒い膜の中へと透過して吸収されます。光が戻ってこなくなるため、接触した領域が黒く暗くなります。\n\nここでの決定的な利点は、**「加わる局所圧力が高くなるほど密着面積が増え、より黒くなる」**という点です。つまり、画像の後処理や複雑な三次元復元アルゴリズムを一切通さなくても、カメラが撮影した生画像そのものが接触圧力の二次元分布図になっています。また、空気ギャップがマイクロスケールと極めて薄いため、ほんのわずかな接触力でも膜が密着し、明瞭な光学変化として現れます。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "GlowTactのセンシング原理図です。(A) 非接触時はゲルと微細凹凸上の空気層の界面で光が拡散反射し、カメラには均一な明るいグレーが見えます。(B) 物体が接触すると黒色膜がゲルに密着して反射界面が失われ、光が膜に吸収されて接触部が黒く写ります。",
+     "caption": "Fig. 3: GlowTact sensing principle. In the unloaded state (A) , a thin air gap separates the black membrane from the gel’s micro-textured surface, so light within the gel is diffusely reflected at the gel–air interface, and the camera sees a uniform light gray. When an indenter presses the membrane into optical contact with the gel (B) , the reflective interface is eliminated and light is instead absorbed by the black membrane, darkening the contact region as pressure increases.",
+     "image": "details/2609.32471/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Sensor Fabrication and Implementations",
+   "heading_ja": "指紋まで映る超高感度センサを身近な材料で作る方法",
+   "summary_ja": "耐水ペーパーを型にして微細凹凸を転写した平坦型センサに加え、パウダーコート法や薄膜転写を駆使してヒューマノイドの指先サイズ（曲面）のセンサも製作しました。黒色膜には市販のニトリル手袋を活用しており、優れた耐久性と容易な交換性を両立しています。",
+   "details_ja": "GlowTactの実装は、特殊で高価なコーティング設備を必要とせず、極めて実用的です。\n\n### IV-A Flat GlowTact Sensor\n平坦型センサのゲルパッドはオープンプラント型で製作します。型の底部にP2500の酸化アルミニウム耐水ペーパーを上向きに貼り付け、硬化阻害防止剤（Inhibit X）を塗布します。そこに真空脱泡した透明シリコーンゲル（Silicones Inc. XP-565、混合比10:1）を4 mm厚で流し込み、室温4時間硬化後に50℃で2時間ポストキュアを行います。これにより、サンドペーパーのランダムな微細粗さがゲル表面に完璧に転写されます。\n\nこのゲルを25.4 mm角・厚さ6.35 mmのアクリル板に接着し、周囲に単色LEDストリップを配置してアクリルを導光板として使います。表面の黒色膜には、薄手の黒色ニトリル手袋の手首部分を切り出して使用し、ホルダーの縁に瞬間接着剤で張力を保って固定します。この平坦センサに人間の指を押し付けると、0.3 Nという極めて軽い力から指紋の隆線一本一本がくっきりと黒いパターンとして浮かび上がります。\n\n### IV-B Fingertip GlowTact Sensors\nヒューマノイドの指先のような三次元曲面にマイクロテクスチャを形成するため、2種類の指先センサを開発しました。\n\n- **全方位型指先センサ（Omnidirectional Fingertip）**: 指先全周をセンシング領域とする設計です。SLA 3Dプリンタで凸型を出力して医療用接着剤を塗布し、$9\\,\\mathrm{\\mu m}$の酸化アルミニウム粉末の中に浸して粉末コーティングを施します。これをもとに凹型のシリコーン中間型を作成し、そこにXP-565ゲルを流し込むことで、曲面全体に均一な微細凹凸を形成しました。外皮にはニトリル手袋の指先を被せています。\n- **ヒューマノイド型指先センサ（Humanoid Fingertip）**: 成人の指先とほぼ同等となる幅17 mmの小型センサです。半円柱と球面を組み合わせた形状で、P2500サンドペーパー上で成型した厚さ100 $\\mu\\text{m}$の微細凹凸シリコーン薄膜を曲面ゲル（XP-565、15:1、厚さ3 mm）の上に接着して製作しました。小型広角カメラとU字型LEDを内蔵し、アメリカの25セント硬貨を押し付けると硬貨のエッジや浮き彫りの微細な文字まで明瞭に撮像できます。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "平坦型GlowTactセンサの分解図です。ニトリル膜、凹凸付きシリコーンゲル、アクリル導光板、単色LEDストリップ、魚眼カメラがコンパクトなハウジング内にシンプルに収まっています。",
+     "caption": "Fig. 4: Exploded view of the Flat GlowTact sensor. A black membrane cut from a nitrile glove is stretched across the textured silicone gel pad, which is supported by the gel holder, forming the pressure-sensitive optical interface. A perimeter LED strip illuminates the interface through an acrylic plate, while a fisheye camera mounted in the camera holder observes it from within the sensor shell.",
+     "image": "details/2609.32471/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "平坦型センサに指を押し当てたときの生の出力画像です。垂直荷重が0.3 N、1.0 N、2.0 Nと増えるにつれて接触領域が暗く拡大していきますが、微小な力でも指紋の細かな溝のパターンが潰れずに維持されています。",
+     "caption": "Fig. 5: Response of flat GlowTact sensor. Fingerprint images demonstrate high sensitivity and high resolution, shown for normal loads of 0.3 N, 1.0 N, and 2.0 N. Increasing force results in progressively stronger optical coupling and a larger contact area while preserving fine ridge patterns.",
+     "image": "details/2609.32471/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "ヒューマノイド指先サイズのGlowTactセンサです。(a) 広角カメラやU字型LEDなどの構成パーツ、(b) ニトリル膜装着前後の外観、(c) 25セント硬貨を押したときの生画像です。指先サイズでありながら、硬貨の微小な浮き彫り文字まで鮮明に捉えています。",
+     "caption": "Fig. 7: Humanoid GlowTact fingertip sensor. (a) Main components of the sensor: wide-angle camera, U-shaped LED strip, finger housing, and curved gel sensing body. (b) Assembled fingertip without and with the black nitrile contact membrane. (c) Raw tactile image produced by pressing a U.S. quarter against the sensor; dark regions indicate increased local pressure, while the coin edge and raised lettering remain visible.",
+     "image": "details/2609.32471/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V EXPERIMENTAL EVALUATION",
+   "heading_ja": "徹底検証：幾何形状の再現性、ミリニュートン級の高感度、正確な力推定",
+   "summary_ja": "CNCマシンを用いた厳密な実験により、GlowTactはM1ネジの微細ねじ山を解像できること、約1 g（9.8 mN）の微小荷重を明瞭に捉えられること、そしてGelSight Miniと比べて低荷重域でのS/N比および法線力推定精度で大きく上回ることを実証しました。",
+   "details_ja": "実験では、平坦型GlowTactセンサを用い、幾何形状復元、接触感度、法線力推定の3つの観点から詳細な定量評価を行いました。比較対象として、ロボティクス分野で標準的に使われている市販の「GelSight Mini」を採用しています。\n\n### V-A Experimental Setup\nCNCマシンに10種類の異なる接触形状を持つプローブを取り付け、ロードセル（HX711接続、80 Hzサンプリング）で法線力を計測しながら、センサ表面のランダムな位置に0〜20 Nの範囲で接触させました。カメラ画像（$640\\times 480$ピクセル、25/30 Hz）と力データをタイムスタンプで厳密に同期させ、センサごとに13,116サンプルの制御押し込みデータセットを構築しました。\n\n### V-B Contact Geometry\nGlowTactは圧力可視化を主目的としたセンサですが、得られる画像にどれだけの幾何情報が含まれているかを検証するため、既存手法（9DTact）の三次元再構成パイプラインを生画像に適用しました。その結果、M5ネジの頭部や配列されたスチールボールだけでなく、ピッチわずか0.25 mmの「M1ネジのねじ山」まで鮮明に再構成できることが分かりました。光減衰に基づく9DTactでは画像がぼやけるためM4ネジ（ピッチ0.7 mm）が限界でしたが、GlowTactは格段にシャープなコントラストを維持しています。\n\n### V-C Sensing Characteristics\n感度の検証では、質量1.0 g〜2.4 g（重力換算で9.8〜23.5 mN）の軽量な物体を追加荷重なしで自重のみでセンサ上に載せる実験を行いました。GelSight Miniではほとんど応答が埋もれてしまうのに対し、GlowTactはすべての物体に対して接触輪郭がはっきりと黒く可視化されました。また、S/N比（無負荷時の標準偏差に対する応答値の比）が3以上となる「最小検出可能力」を評価したところ、GlowTactはGelSight Miniに比べてはるかに小さな力から信号が立ち上がることが確認されました。\n\n### V-D Force Estimation\n触覚画像から法線力（0〜20 N）を連続的に予測できるかをテストするため、ImageNet学習済みのResNet-18を用いた回帰モデルを両センサで独立に学習させました。データセットには10種類のプローブに加えて日常物体4種（風船、電球、パイプ、ロープ）のデータも含め、接触位置の10%を未知の評価用として空間的に分離しました。その結果、特に低荷重領域においてGlowTactはGelSight Miniよりも一貫して低い推定誤差（N）を達成し、日常物体に対する平均誤差でも優れた汎化性能を示しました。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "GlowTactと9DTactの三次元幾何再構成の比較です。上段が対象物、中段が生の触覚画像、下段が復元形状です。9DTactがM4ネジで解像限界を迎えるのに対し、GlowTactはピッチ0.25 mmの極小M1ネジのねじ山までシャープに復元できています。",
+     "caption": "Fig. 8: 3D reconstruction of GlowTact, compared against 9DTact [ 8 ] . Top row: representative test objects. GlowTact is evaluated using an M5 Phillips screw head, threaded screws (M3, M2.5, M2, M1.5, and M1), and a steel-ball array. Representative 9DTact results [ 8 ] are included for reference, with set screws (M4, M6, and M8) and a steel-ball array. Middle row: corresponding tactile images. Bottom row: reconstructed contact geometries. Despite relying on a fundamentally different sensing mechanism, GlowTact retains sufficient spatial information to recover the overall contact geometry.",
+     "image": "details/2609.32471/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "まとめ：シンプルさがもたらす、次世代ロボットハンド触覚のブレークスルー",
+   "summary_ja": "GlowTactは、微細凹凸ゲルと黒色膜を組み合わせたシンプルな光学設計により、多色照明や重い計算を不要にしながら、高感度・高解像度・高耐久な触覚センシングを実現しました。カメラ出力をそのまま学習モデルに入力できるため、ロボットの器用な操作学習を加速させる実用的なプラットフォームとなります。",
+   "details_ja": "本研究では、視覚型触覚センサの新たな仕組み「GlowTact」を提案しました。従来のVBTSが抱えていた、多色照明の複雑さ、三次元復元に伴う計算負荷の高さ、ゲルの剛性に起因する感度不足といった課題を、接触圧力を直接画像の暗さへ変換する光学メカニズムによって見事に解決しています。\n\n指紋の溝を鮮明に映し出し、1グラムの重みを検知できる圧倒的な感度を持ちながら、外皮には破れにくく交換が容易な市販のニトリルゴムを採用しているため、過酷な把持・操作タスクにも耐えうる実用性を備えています。さらに、得られるカメラ画像そのものが物理的な接触圧力を直感的に表現しているため、触覚画像を直接入力とする模倣学習や強化学習などのロボット学習フレームワークとも極めて相性が良いと言えます。ヒューマノイドをはじめとする多指ロボットハンドの社会実装を大きく後押しする技術です。",
+   "figures": []
+  },
+  {
+   "heading": "VII Limitations",
+   "heading_ja": "実用化に向けた現在の課題と限界",
+   "summary_ja": "曲面や複雑形状の指先に対する微細凹凸型の精密な成型や、市販ニトリル膜の均一なフィッティングには製造上の工夫が必要です。また、シリコーンの硬化状態や油分の染み出しによる光学特性の変化にも注意が求められます。",
+   "details_ja": "魅力的な性能を持つGlowTactですが、著者らは現在の実装におけるいくつかの限界や改善点を挙げています。\n\n### VII-A Fabrication\n- **曲面への微細凹凸成型の難しさ**: 平坦面であれば耐水ペーパーを型に敷くだけで均一なテクスチャが得られますが、立体的な曲面や複雑な形状の指先モールドに対して均一なマイクロテクスチャを安定して施すには、パウダーコーティングなどの多段階の手作業が必要になります。\n- **膜のフィッティング**: 市販のニトリル手袋を流用しているため、指先が直方体に近い形状（LEAPハンドの角ばった指先など）の場合、シワや余計な初期張力を生じさせずに均一に膜を密着・固定することが難しくなります。\n\n### VII-B sensing mechanism\n- **材料の硬化と油分の影響**: 使用するシリコーンゲルが完全に架橋硬化していなかったり、ゲル内部のシリコーンオイルが表面に染み出してきたりすると、無負荷状態でも黒色膜がゲルに張り付いてしまい、初期の反射界面が損なわれるリスクがあります。長期的な安定性や温度変化に対する挙動の評価が今後の課題です。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「ゲルの変形形状を復元してから力を逆算する」という従来のVBTSの常識を覆し、光学的密着（FTIR的現象）によって「接触圧力を生画像として直接可視化する」発想の転換が極めて有効であること。",
+  "単色LEDとモノクロカメラという最小構成にできるため、指先ごとに重い光度ステレオ計算や複雑な多色配光を抱える必要がなく、多指ハンドへの組み込みが大幅に容易になること。",
+  "微小空気層の圧壊を利用するため、従来のゲル変形型では捉えにくかった1.0 g（約9.8 mN）クラスの極微小荷重を高感度に検出できること。",
+  "市販のニトリル手袋を外皮に使うアプローチは、繊細な反射塗装膜に頼っていた従来のGelSightと比べて耐摩耗性やメンテナンス性（破れても安価に貼り替え可能）の面で大きな実用的メリットがあること。"
+ ],
+ "limitations_ja": [
+  "角ばった指先形状や複雑な三次元曲面に対して、微細凹凸テクスチャを均一に成型し、膜をシワなく均一なテンションで張る製造プロセスに職人的な難しさがある点。",
+  "シリコーンゲルの未硬化成分やオイルブリード（油分の浮き出し）によって膜が意図せず貼り付き、コントラストが低下する恐れがある点。",
+  "本論文の実験では法線方向の力や形状評価が中心であり、せん断力（摩擦・滑り）の直接的な推定性能については詳細に評価されていない点。"
+ ],
+ "keywords": [
+  "Vision-Based Tactile Sensing",
+  "Tactile Perception",
+  "Humanoid Fingertips",
+  "Pressure Visualization",
+  "Robotic Manipulation"
+ ],
+ "id": "2609.32471",
+ "title": "GlowTact: Simple and Compact Vision-Based Tactile Sensing with High Sensitivity and Spatial Resolution",
+ "authors": [
+  "Yuxiang Ma",
+  "Megha Tippur",
+  "Pengfei Ye",
+  "Sandra Q. Liu",
+  "Haonan Chen",
+  "Francis Richard Cottrell",
+  "Edward Adelson"
+ ],
+ "date": "2026-09-29",
+ "group": "general",
+ "tags": [
+  "hardware",
+  "perception",
+  "humanoid"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2609.32471",
+ "pdf_url": "https://arxiv.org/pdf/2609.32471",
+ "summary_ja": "ヒューマノイドの指先など狭小部への実装に適した、超小型な視覚型触覚センサ機構。単色・非指向性の照明を用い、接触圧力を直接光学的なパターン変化として可視化することで、明示的な3D再構成なしに生の触覚画像から直接圧力分布を取得可能にした。複雑な光学系を排した小型設計でありながら、グラム単位の微小接触検知と高い空間分解能を両立した。",
+ "generated": "2026-09-29",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2609.32471"
+}
