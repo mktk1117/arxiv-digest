@@ -1,6 +1,293 @@
 {
  "entries": [
   {
+   "date": "2026-09-30",
+   "rank": 0,
+   "id": "2609.35935",
+   "group": "focus",
+   "title": "Passive-Dynamic-Walking-Inspired Dynamics Guidance for Energy-Efficient Humanoid Locomotion",
+   "title_ja": "省エネなヒューマノイド歩行に向けた受動歩行着想のダイナミクスガイダンス",
+   "summary_ja": "ヒューマノイドの省エネ歩行獲得に向け、受動歩行（PDW）に着想を得た強化学習フレームワークを提案。訓練初期に重力場を傾斜させて平地で下り坂相当の条件を一時的に再現し、力学的に効率的な歩行パターンの探索を促進する。公称ダイナミクスの最適化前にPDWガイダンスを除去することで、アクチュエータ努力のペナルティだけに頼らず力学的に経済的な歩行協調の発見を可能にした。",
+   "authors": [
+    "Hyeonjin Choi",
+    "Joongheon Kim",
+    "Daekyum Kim"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.35935",
+   "image": null
+  },
+  {
+   "date": "2026-09-30",
+   "rank": 1,
+   "id": "2609.37070",
+   "group": "focus",
+   "title": "Predictive Safety Curricula for Robust Legged Locomotion",
+   "title_ja": "ロバストな脚ロボット歩行のための予測的安全カリキュラム",
+   "summary_ja": "脚ロボットの歩行方策において致命的失敗を防ぐため、将来の安全コスト予測に基づき訓練経験を配分するPredictive Safety Curricula（PSC）を提案。方策ロールアウトから分布的安全Criticを学習し、その予測を用いて地形コンテキストや過去のランダム化イベントのサンプリング優先度を動的に調整する。タスク報酬を変更することなく、過酷な状況下でのロバスト性を大幅に向上させた。",
+   "authors": [
+    "Ivan Ovinnikov",
+    "Pascal Sutter",
+    "Christian Gehring",
+    "Jordis Herrmann"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "reinforcement-learning",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.37070",
+   "image": "figures/2026-09-30/2609.37070.jpg"
+  },
+  {
+   "date": "2026-09-30",
+   "rank": 2,
+   "id": "2609.36151",
+   "group": "focus",
+   "title": "KPI: A Promptable Kernel for Physical Interaction on Humanoids",
+   "title_ja": "KPI: ヒューマノイドの物理的インタラクションのためのプロンプタブルカーネル",
+   "summary_ja": "ヒューマノイドの全身軌道追従ポリシーを変更することなく、接触を伴う物理的インタラクションを可能にするプロンプタブルカーネルKPIを提案。軌道生成器と全身追従器の中間に位置し、シミュレーションでタスクごとにコントローラを同時最適化する従来法と異なり、柔軟な接触動作を実現する。全身追従の汎用性を損なわずに接触リッチなタスクへ適応させる基盤を提供する。",
+   "authors": [
+    "Yikai Wang",
+    "Honghao Zhu",
+    "Xiao Hu",
+    "Hao Zhang",
+    "Zelin Wang",
+    "Yip Fun Yeung",
+    "Ding Zhao",
+    "Lingfeng Sun"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "locomotion"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.36151",
+   "image": "figures/2026-09-30/2609.36151.jpg"
+  },
+  {
+   "date": "2026-09-30",
+   "rank": 3,
+   "id": "2609.37181",
+   "group": "focus",
+   "title": "EgoHumanoid-V2: Human-to-Humanoid Transfer of Coordinated Whole-Body Skills for Loco-Manipulation",
+   "title_ja": "EgoHumanoid-V2: 全身協調ロコマニピュレーションスキルの人間からヒューマノイドへの転移",
+   "summary_ja": "一人称視点の人間の動画からヒューマノイドへ協調的な全身ロコマニピュレーションスキルを転移するフレームワークを提案。粗密2段階のアクション整合により、運動学的参照の補正とダイナミクスを考慮した洗練を組み合わせ、エンドエフェクタの位置姿勢精度と全身協調性を両立。実機ヒューマノイドにおいて、移動と操作が密に結合した長時間の協調動作を実現した。",
+   "authors": [
+    "Jin Chen",
+    "Yiming Jiang",
+    "Chongyang Xu",
+    "Modi Shi",
+    "Shijia Peng",
+    "Li Chen",
+    "Tianyu Li",
+    "Mu Xu",
+    "Yilun Chen",
+    "Steven Hoi",
+    "Hongyang Li"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.37181",
+   "image": "figures/2026-09-30/2609.37181.jpg"
+  },
+  {
+   "date": "2026-09-30",
+   "rank": 4,
+   "id": "2609.38087",
+   "group": "focus",
+   "title": "CrossBFM: Distilling a Shared Latent Behavior Space Across Humanoid Embodiments",
+   "title_ja": "CrossBFM: 異種ヒューマノイド間における共有潜在行動空間の蒸留",
+   "summary_ja": "ヒューマノイド向けの行動基盤モデル（BFM）において、膨大なGPU時間を要する再訓練を回避し、異なるロボット間で転移可能な共有潜在行動空間を学習するCrossBFMを提案。リターゲティングにより得られるフレーム単位の対応関係を利用し、潜在行動空間を複数のヒューマノイド間で共有アセットとして蒸留する。これにより新たな機体への適応コストを大幅に低減した。",
+   "authors": [
+    "Tan-Dzung Do",
+    "Tuan Dat Phuong",
+    "Nico Bohlinger",
+    "Cuc T. Trinh",
+    "Siwei Ju",
+    "Vien Anh Ngo",
+    "Jan Peters",
+    "Xinchao Wang",
+    "An T. Le"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.38087",
+   "image": "figures/2026-09-30/2609.38087.jpg"
+  },
+  {
+   "date": "2026-09-30",
+   "rank": 5,
+   "id": "2609.36241",
+   "group": "general",
+   "title": "Design and Validation of an Antagonistic Tendon-Driven Dexterous Robotic Hand with Bidirectional Operation",
+   "title_ja": "双方向操作が可能な拮抗腱駆動型高巧緻ロボットハンドの設計と検証",
+   "summary_ja": "掌側だけでなく背側からも把持が可能な、双方向拮抗腱駆動機構を備えた17自由度の軽量（220g）・人間スケール（200mm）ロボットハンドを開発。3Dプリント構造を採用し、関節の屈曲/伸展および内外転を能動駆動する。手首や腕の向きを大きく変えることなく反対側からの対象物把持を可能にし、高巧緻マニピュレーションの作業空間を拡張した。",
+   "authors": [
+    "Chunghyeon Lee",
+    "Hyukjun Kwon",
+    "Sungeon Kim",
+    "Saehyun Moon",
+    "Seokhwan Jeong"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "grasping",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.36241",
+   "image": "figures/2026-09-30/2609.36241.jpg"
+  },
+  {
+   "date": "2026-09-30",
+   "rank": 6,
+   "id": "2609.37560",
+   "group": "general",
+   "title": "RoboFin3D: A Sim-to-Real Platform for Robotic Surface Finishing",
+   "title_ja": "RoboFin3D: ロボット表面仕上げのためのSim-to-Realプラットフォーム",
+   "summary_ja": "ワークピースを消費し高コストな産業用ロボットの研削・研磨作業を安価かつ再現可能にするSim-to-Real基盤RoboFin3Dを提案。Isaac SimおよびNewton物理エンジン上で構築され、符号付き距離場（SDF）を用いてワークピースの幾何形状変化を直接モデル化し、メッシュ生成なしで接触計算と外観変化を再現。実機への滑らかな転移を支援する。",
+   "authors": [
+    "Haowei Wen",
+    "Shangtao Li",
+    "Vaibhav Sanjay",
+    "Philip Huang",
+    "Jiaoyang Li",
+    "Changliu Liu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "sim-to-real",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.37560",
+   "image": "figures/2026-09-30/2609.37560.jpg"
+  },
+  {
+   "date": "2026-09-30",
+   "rank": 7,
+   "id": "2609.36993",
+   "group": "general",
+   "title": "All You Need Is Low Fidelity: Zero-Shot Sim-to-Real of Learned Robotic Fish Control",
+   "title_ja": "低忠実度で十分：学習型魚型ロボット制御のゼロショットSim-to-Real",
+   "summary_ja": "柔軟・過小駆動な魚型ロボットの閉ループ制御において、後流や付加質量履歴を省いたあえて低忠実度の準定常流体モデルでも実機転移が可能であることを実証。腱駆動型単一モータの魚型ロボットを用い、尾部ダイナミクスと同定流体モデルに基づく段階的パイプラインで学習。実機側のパラメータ微調整なしでゼロショットSim-to-Realを達成した。",
+   "authors": [
+    "Liam Maloney",
+    "Simon Ramchandani",
+    "Mike Y. Michelis",
+    "Ronan Hinchet",
+    "Robert K. Katzschmann"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "sim-to-real",
+    "control",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.36993",
+   "image": "figures/2026-09-30/2609.36993.jpg"
+  },
+  {
+   "date": "2026-09-30",
+   "rank": 8,
+   "id": "2609.36416",
+   "group": "general",
+   "title": "FineART: Fine-grained Annotated Robotic Trajectory Dataset and Vision-Language-Action Model for Bimanual Manipulation",
+   "title_ja": "FineART: 双腕マニピュレーションのための高密度注釈付き軌道データセットとVLAモデル",
+   "summary_ja": "長時間・複数ステップの双腕マニピュレーション向けに、40,543エピソード、1,718時間、533,913個の高密度サブタスク注釈を含む大規模データセットFineARTを構築。あわせて次のサブタスクを自己予測する基盤モデルFineART-VLAを提案し、サブタスク予測が複雑な双腕協調作業の成功率向上に大きく寄与することを実証した。",
+   "authors": [
+    "Jade Choghari",
+    "Pepijn Kooijmans",
+    "Mansi Agarwal",
+    "Yusuf Umut Ciftci",
+    "Aseem Doriwala",
+    "Catherine Weaver",
+    "Mouli Sivapurapu",
+    "Kai Yang",
+    "Jackson Lee",
+    "Thomas Wolf",
+    "Pragna Mannam"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "dataset",
+    "manipulation",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.36416",
+   "image": "figures/2026-09-30/2609.36416.jpg"
+  },
+  {
+   "date": "2026-09-30",
+   "rank": 9,
+   "id": "2609.36482",
+   "group": "general",
+   "title": "DQ-MPCC: Dual-Quaternion MPCC for Quadrotor Racing",
+   "title_ja": "DQ-MPCC: クアッドローターレーシングのための二重四元数MPCC",
+   "summary_ja": "アグレッシブな姿勢制御が要求されるドローンレース向けに、姿勢表現に単位二重四元数を用いたモデル予測輪郭制御（DQ-MPCC）を提案。輪郭誤差を二重四元数多様体の接空間に投影し、機体座標系で統一された姿勢・ねじれ座標系として定式化した。従来のMPCC定式化と比較して計算効率と追従精度を両立し、ソフトウェアインザループ検証で有効性を示した。",
+   "authors": [
+    "Bryan S. Guevara",
+    "Luis F. Recalde",
+    "Guanrui Li",
+    "Tiago Nascimento"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "drone",
+    "control",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.36482",
+   "image": "figures/2026-09-30/2609.36482.jpg"
+  },
+  {
    "date": "2026-09-29",
    "rank": 0,
    "id": "2609.33310",
