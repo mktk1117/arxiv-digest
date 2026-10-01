@@ -1,0 +1,284 @@
+{
+ "entries": [
+  {
+   "date": "2026-10-01",
+   "rank": 0,
+   "id": "2609.38852",
+   "group": "focus",
+   "title": "Locomotion-Grounded Humanoid Soccer: Task-Gated Reinforcement Learning of a Multi-Directional Kicking Library",
+   "title_ja": "ロコモーションを基盤としたヒューマノイドサッカー：多方向キックライブラリのタスクゲート型強化学習",
+   "summary_ja": "ボール追従動作から歩行を導出する従来手法とは逆に、汎用的なコマンド追従ロコモーション方策を土台とし、その上にタスクゲート層としてN個のキックスキルを強化学習で追加する手法を提案。動作クリップに拘束されず広範な歩行空間を維持したまま、走行動作品質を損なわずに多様なキックへの遷移と復帰を両立させた。",
+   "authors": [
+    "Abu Hanif Muhammad Syarubany",
+    "Jaehyun Jang",
+    "Hwanhee Kim",
+    "Kyuwon Kim",
+    "Seungyeon Ryu",
+    "Chang D. Yoo"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.38852",
+   "image": "figures/2026-10-01/2609.38852.jpg"
+  },
+  {
+   "date": "2026-10-01",
+   "rank": 1,
+   "id": "2609.38216",
+   "group": "focus",
+   "title": "Fiatlux: A Long-Horizon Benchmark for Humanoid Ladder Climbing and Light-Bulb Replacement",
+   "title_ja": "Fiatlux：ヒューマノイドによる脚立昇降と電球交換のための長周期ベンチマーク",
+   "summary_ja": "ヒューマノイドの垂直移動と壊れやすい物体の器用な作業を単一エピソードで評価するベンチマークFiatluxをIsaac Lab上に構築した。Unitree G1ロボットが脚立を配置・昇降し、電球を交換して廃棄箱に収めるまでの12のサブタスクで構成される。難易度重み付けゲートにより、長周期な全身運動制御とマニピュレーションを総合的に評価可能とした。",
+   "authors": [
+    "Pavel Bushuyeu",
+    "Yujin Chen",
+    "Anton Nikolaev",
+    "Brian Shu",
+    "Igor Molybog"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "benchmark",
+    "simulation",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.38216",
+   "image": "figures/2026-10-01/2609.38216.jpg"
+  },
+  {
+   "date": "2026-10-01",
+   "rank": 2,
+   "id": "2609.38709",
+   "group": "focus",
+   "title": "CEER2: Directional and Tunable End-Effector and Root Compliance for Humanoid Loco-Manipulation",
+   "title_ja": "CEER2：ヒューマノイドの移動マニピュレーションに向けた方向性および調整可能な手先・ルートコンプライアンス制御",
+   "summary_ja": "ヒューマノイドが接触環境で作業を行う際、特定方向の外力を受け流しつつ他方向の動作精度を保つためのコンプライアンス制御手法を提案。エンドエフェクタの方向別適応とベース（ルート）の選択的従順性を組み合わせ、全身のタスク要求と物理的接触の両立を実現した。実機およびシミュレーションでの検証により接触を伴う移動マニピュレーションの安定性を向上させた。",
+   "authors": [
+    "Xinyuan Luo",
+    "Chunyuan Yang",
+    "Boyuan Chen",
+    "Xianyi Cheng"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "locomotion",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.38709",
+   "image": "figures/2026-10-01/2609.38709.jpg"
+  },
+  {
+   "date": "2026-10-01",
+   "rank": 3,
+   "id": "2609.38617",
+   "group": "focus",
+   "title": "Dense Temporal Motion Retargeting for Legged Robots",
+   "title_ja": "脚ロボットのための高密度時間的モーションリターゲティング",
+   "summary_ja": "人間や動物の動的動作を脚ロボットの動力学特性に合わせて転移させるため、制御入力と時間伸縮を同時に最適化するDense Temporal Motion Retargeting（DTMR）を提案。制御ステップ毎に局所的な時間調整を行うことで、跳躍などの激しい動作において必要な区間のみ変形させることが可能となった。サンプリングベースMPCを用いて解き、動的整合性の高い動作生成を実現した。",
+   "authors": [
+    "Jaeryeong Kim",
+    "Taerim Yoon",
+    "Jin Cheng",
+    "Sungjoon Choi",
+    "Stelian Coros"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "control",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.38617",
+   "image": "figures/2026-10-01/2609.38617.jpg"
+  },
+  {
+   "date": "2026-10-01",
+   "rank": 4,
+   "id": "2609.39000",
+   "group": "focus",
+   "title": "NEXUS: Perceptive Whole-Body Control for Terrain-Adaptive Teleoperation",
+   "title_ja": "NEXUS：地形適応型遠隔操作のための知覚型全身制御",
+   "summary_ja": "操作者とロボットが存在する地形が異なる環境でも全身遠隔操作を可能にする知覚型全身制御フレームワークを提案。単純な動作の直写ではなく、搭載センサから局所地形を知覚し姿勢や接触状態を適応的に調整する。平地と不整地のペアデータ不足を克服する地形適応アルゴリズムを導入し、階段や斜面などの不整合な地形間でもロバストなヒューマノイド遠隔操作を実現した。",
+   "authors": [
+    "Xiangyu Miao",
+    "Junsong Wu",
+    "Jiyuan Shi",
+    "Weiji Xie",
+    "Jinrui Han",
+    "Xingyi Wang",
+    "Weinan Zhang",
+    "Chenjia Bai",
+    "Xuelong Li"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "teleoperation",
+    "control",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.39000",
+   "image": "figures/2026-10-01/2609.39000.jpg"
+  },
+  {
+   "date": "2026-10-01",
+   "rank": 5,
+   "id": "2609.38588",
+   "group": "general",
+   "title": "Drone Soccer: Learning to Manipulate with Multicopter Downwash",
+   "title_ja": "ドローンサッカー：マルチコプターの吹き下ろし気流を利用したマニピュレーションの学習",
+   "summary_ja": "従来は外乱として扱われがちだったプロペラの吹き下ろし気流（ダウンウォッシュ）を能動的なツールとして活用し、物体操作を行う手法を検証。簡略化したダウンウォッシュ動力学モデルを構築し、サッカーボールをドリブルする強化学習方策を訓練した。接触型マニピュレータを搭載せずに非接触で物体を操る新たな空中操作の可能性を実証した。",
+   "authors": [
+    "Neelay Joglekar",
+    "Bavin Saravanan",
+    "Yutong Wang",
+    "Varun Kandiyappan",
+    "Junyi Geng",
+    "Sebastian Scherer"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "drone",
+    "manipulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.38588",
+   "image": "figures/2026-10-01/2609.38588.jpg"
+  },
+  {
+   "date": "2026-10-01",
+   "rank": 6,
+   "id": "2609.38982",
+   "group": "general",
+   "title": "SimEX: Simulation-Integrated Robotics AutoResearch",
+   "title_ja": "SimEX：シミュレーション統合型ロボティクス自律研究フレームワーク",
+   "summary_ja": "LLMコーディングエージェントが物理環境で自律的に研究・改善を行う際の実機コストと安全性の課題を解決するため、シミュレーション実験を緊密に統合した自動研究基盤を提案。エージェントがシミュレーション内で試行錯誤と方策検証を繰り返すループを構築し、物理的なリスクを抑えつつタスク遂行能力を自律的に向上させる。",
+   "authors": [
+    "Jiaheng Hu",
+    "Roberto Martin-Martin",
+    "Peter Stone",
+    "Rocky Duan",
+    "Zhenyu Jiang",
+    "Guanya Shi"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "simulation",
+    "llm-agent",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.38982",
+   "image": "figures/2026-10-01/2609.38982.jpg"
+  },
+  {
+   "date": "2026-10-01",
+   "rank": 7,
+   "id": "2609.38418",
+   "group": "general",
+   "title": "PneuTac: Tactile Manipulation with Soft Pneumatic Robots via Unified MPM-Gaussian Splatting Simulation",
+   "title_ja": "PneuTac：統合MPM-Gaussian Splattingシミュレーションによる柔軟空気圧ロボットの触覚マニピュレーション",
+   "summary_ja": "柔軟空気圧ロボットと視覚型触覚センサのシミュレーションにおけるキャリブレーションギャップを解消するため、物質点法（MPM）と3D Gaussian Splattingを統合したフレームワークを提案。連続体ダイナミクスと高解像度触覚変形を同一物理モデル内で忠実にシミュレート可能にした。これにより、繊細な接触を伴う触覚フィードバック操作方策の学習を効率化した。",
+   "authors": [
+    "Shaohong Zhong",
+    "Marco Pontin",
+    "Joe Watson",
+    "Perla Maiolino",
+    "Ingmar Posner"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "manipulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.38418",
+   "image": "figures/2026-10-01/2609.38418.jpg"
+  },
+  {
+   "date": "2026-10-01",
+   "rank": 8,
+   "id": "2609.38443",
+   "group": "general",
+   "title": "BIND: Binding 3D Robot Actions to 2D Image Features",
+   "title_ja": "BIND：3Dロボット行動と2D画像特徴の結合",
+   "summary_ja": "視覚運動方策において、グローバル特徴からのMLP回帰に代わり、3D行動を対応する2D画像特徴に幾何学的に結びつける新しい行動表現手法BINDを提案。実世界でのデモデータ効率を大幅に向上させ、訓練分布外の物体位置やカメラ視点の変化に対しても極めて高い頑健性を達成した。",
+   "authors": [
+    "Cameron Smith",
+    "Arsh Tangri",
+    "Vitor Guizilini",
+    "Yue Wang",
+    "Zubair Irshad",
+    "Sergey Zakharov"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.38443",
+   "image": "figures/2026-10-01/2609.38443.jpg"
+  },
+  {
+   "date": "2026-10-01",
+   "rank": 9,
+   "id": "2609.39822",
+   "group": "general",
+   "title": "Toward Real-Time VLAs: Stage-Aware Two-Step Flow Denoising and System-Level Evaluation",
+   "title_ja": "実時間VLAに向けて：段階を考慮した2ステップFlow Denoisingとシステムレベルの評価",
+   "summary_ja": "Flow Matchingに基づくVLAの推論遅延とロボット実行チェーンのギャップを詳細に解析し、初期段階の安定性と終盤の修正特性に着目した段階認識型2ステップ非一様デノイジングを提案。計算コストの大半を占めるデノイジングステップ数を大幅に削減し、実機ロボットの制御周期に間に合うリアルタイムな閉ループ実行を実現した。",
+   "authors": [
+    "Di Wu",
+    "Rongtian Shen",
+    "Ping Liu",
+    "Yan Shen",
+    "Zhenhan Yin",
+    "Shun Zuo",
+    "Xuhua Chen",
+    "He Zheng",
+    "Lingfeng Zhang",
+    "Jianglin Zhang",
+    "Tao Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "control",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2609.39822",
+   "image": "figures/2026-10-01/2609.39822.jpg"
+  }
+ ]
+}
