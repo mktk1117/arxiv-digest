@@ -25,7 +25,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.38852",
-   "image": "figures/2026-10-01/2609.38852.jpg"
+   "image": "figures/2026-10-01/2609.38852.jpg",
+   "summary_en": "In contrast to conventional methods that derive walking from ball-tracking, this paper proposes an approach that builds upon a general command-conditioned locomotion policy by adding N kicking skills via a task-gated reinforcement learning layer. It maintains a broad locomotion space without being constrained to motion clips. The framework achieves seamless transitions to and recovery from diverse kicks without sacrificing running locomotion quality."
   },
   {
    "date": "2026-10-01",
@@ -52,7 +53,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.38216",
-   "image": "figures/2026-10-01/2609.38216.jpg"
+   "image": "figures/2026-10-01/2609.38216.jpg",
+   "summary_en": "The authors introduce Fiatlux, a benchmark built on Isaac Lab that evaluates humanoid vertical locomotion and fragile object manipulation in a single episode. It consists of 12 subtasks where a Unitree G1 robot positions and climbs a step ladder, replaces a light bulb, and deposits it into a disposal bin. Using difficulty-weighted gates, it provides a comprehensive evaluation of long-horizon whole-body dynamic control and manipulation."
   },
   {
    "date": "2026-10-01",
@@ -78,7 +80,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.38709",
-   "image": "figures/2026-10-01/2609.38709.jpg"
+   "image": "figures/2026-10-01/2609.38709.jpg",
+   "summary_en": "This paper proposes a compliance control method that yields to external forces in specific directions while preserving motion accuracy in others during contact-rich tasks. By combining directional end-effector adaptation with selective compliance at the base (root), it balances whole-body task demands with physical contact. Real-robot and simulation experiments demonstrate improved stability in contact-rich loco-manipulation."
   },
   {
    "date": "2026-10-01",
@@ -105,7 +108,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.38617",
-   "image": "figures/2026-10-01/2609.38617.jpg"
+   "image": "figures/2026-10-01/2609.38617.jpg",
+   "summary_en": "To retarget dynamic motions from humans and animals to the dynamics of legged robots, the authors propose Dense Temporal Motion Retargeting (DTMR), which simultaneously optimizes control inputs and time-warping. Applying local time adjustments at each control step allows warping only the necessary phases during high-intensity motions such as jumping. Solved via sampling-based MPC, it generates motions with high dynamic consistency."
   },
   {
    "date": "2026-10-01",
@@ -136,7 +140,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2609.39000",
-   "image": "figures/2026-10-01/2609.39000.jpg"
+   "image": "figures/2026-10-01/2609.39000.jpg",
+   "summary_en": "This paper presents a perceptive whole-body control framework for whole-body teleoperation when the operator and robot are on different terrains. Rather than directly copying motions, it perceives local terrain from onboard sensors to adaptively adjust posture and contact states. Introducing a terrain-adaptation algorithm to overcome paired data scarcity between flat and rough terrain, it achieves robust humanoid teleoperation across mismatched terrains like stairs and slope…"
   },
   {
    "date": "2026-10-01",
@@ -163,7 +168,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.38588",
-   "image": "figures/2026-10-01/2609.38588.jpg"
+   "image": "figures/2026-10-01/2609.38588.jpg",
+   "summary_en": "This work explores using propeller downwash—often treated as a disturbance—as an active tool for object manipulation. By developing a simplified downwash dynamics model, the authors train a reinforcement learning policy to dribble a soccer ball. The approach demonstrates the feasibility of novel aerial manipulation that manipulates objects non-prehensively without requiring contact-based onboard manipulators."
   },
   {
    "date": "2026-10-01",
@@ -192,7 +198,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.38982",
-   "image": "figures/2026-10-01/2609.38982.jpg"
+   "image": "figures/2026-10-01/2609.38982.jpg",
+   "summary_en": "To address hardware costs and safety issues when LLM coding agents autonomously conduct research in physical environments, this paper proposes an automated research framework tightly integrated with simulation experiments. The agent executes an iterative loop of trial-and-error and policy validation entirely in simulation. This autonomously improves task execution capabilities while minimizing physical risks."
   },
   {
    "date": "2026-10-01",
@@ -218,7 +225,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2609.38418",
-   "image": "figures/2026-10-01/2609.38418.jpg"
+   "image": "figures/2026-10-01/2609.38418.jpg",
+   "summary_en": "To bridge the calibration gap in simulating soft pneumatic robots and vision-based tactile sensors, this paper proposes a framework integrating the Material Point Method (MPM) with 3D Gaussian Splatting. It faithfully simulates continuum dynamics and high-resolution tactile deformation within a unified physical model. This facilitates efficient learning of tactile feedback manipulation policies involving delicate contact."
   },
   {
    "date": "2026-10-01",
@@ -246,7 +254,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.38443",
-   "image": "figures/2026-10-01/2609.38443.jpg"
+   "image": "figures/2026-10-01/2609.38443.jpg",
+   "summary_en": "This paper introduces BIND, an action representation method for visuomotor policies that geometrically binds 3D robot actions to 2D image features rather than relying on MLP regression from global features. It significantly enhances real-world demonstration data efficiency. BIND achieves strong robustness against out-of-distribution object locations and camera viewpoint variations."
   },
   {
    "date": "2026-10-01",
@@ -278,7 +287,8 @@
     "imitation-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.39822",
-   "image": "figures/2026-10-01/2609.39822.jpg"
+   "image": "figures/2026-10-01/2609.39822.jpg",
+   "summary_en": "The authors analyze the gap between Flow Matching VLA inference latency and the robot execution chain, proposing a stage-aware two-step non-uniform denoising approach based on early-stage stability and late-stage corrective behavior. This significantly reduces denoising steps, which dominate computation time. The method achieves real-time closed-loop execution matching the control cycle of physical robots."
   }
  ]
 }
