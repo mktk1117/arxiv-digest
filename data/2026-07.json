@@ -24,7 +24,8 @@
     "safety"
    ],
    "abs_url": "https://arxiv.org/abs/2607.28623",
-   "image": "figures/2026-07-31/2607.28623.jpg"
+   "image": "figures/2026-07-31/2607.28623.jpg",
+   "summary_en": "This paper proposes PAC-MAN to maintain whole-body safety for humanoid robots playing dodgeball. By integrating Control Barrier Functions (CBF) and reinforcement learning while recognizing incoming balls from head-mounted depth camera images, it acquires whole-body collision avoidance motions. In both real-world hardware and simulation, it achieves avoidance performance approaching a privileged-information oracle."
   },
   {
    "date": "2026-07-31",
@@ -50,7 +51,8 @@
     "sim-to-real"
    ],
    "abs_url": "https://arxiv.org/abs/2607.26434",
-   "image": "figures/2026-07-31/2607.26434.jpg"
+   "image": "figures/2026-07-31/2607.26434.jpg",
+   "summary_en": "This paper proposes a reinforcement learning method to address the sim-to-real gap caused by response delays over 50 ms and noise on low-cost quadrupedal robots like Mini Pupper 2. Biologically inspired delay and noise handling overcomes the partial observability problem. This substantially improves locomotion control performance on budget real-world hardware."
   },
   {
    "date": "2026-07-31",
@@ -79,7 +81,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2607.26985",
-   "image": "figures/2026-07-31/2607.26985.jpg"
+   "image": "figures/2026-07-31/2607.26985.jpg",
+   "summary_en": "To overcome the slow learning speed of on-robot reinforcement learning, this paper proposes SymmGrid, a data augmentation framework based on symmetry trees. By applying geometric transformations in parallel to augment state-action pairs, it substantially accelerates on-robot RL using camera vision and proprioception."
   },
   {
    "date": "2026-07-31",
@@ -110,7 +113,8 @@
     "hardware"
    ],
    "abs_url": "https://arxiv.org/abs/2607.27784",
-   "image": "figures/2026-07-31/2607.27784.jpg"
+   "image": "figures/2026-07-31/2607.27784.jpg",
+   "summary_en": "This paper proposes DexDirect, an efficient demonstration collection system for multi-fingered hand manipulation. The operator directly manipulates a gravity-compensated 6-DoF arm while tracking their other hand with a single webcam to map to a 13-DoF hand. Experiments demonstrate that it collects 17.2× and 3.2× more successful demonstrations than baseline methods."
   },
   {
    "date": "2026-07-31",
@@ -137,7 +141,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2607.28391",
-   "image": "figures/2026-07-31/2607.28391.jpg"
+   "image": "figures/2026-07-31/2607.28391.jpg",
+   "summary_en": "This paper proposes TacWAM, a mechanics-aware tactile world action model for contact-rich robot manipulation. Using spatially aligned tactile encoders, it integrates visual, tactile, and deformation information to predict future tactile images and dense force fields. This achieves more accurate action generation and mechanics prediction than vision-only models."
   },
   {
    "date": "2026-07-31",
@@ -164,7 +169,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2607.28416",
-   "image": "figures/2026-07-31/2607.28416.jpg"
+   "image": "figures/2026-07-31/2607.28416.jpg",
+   "summary_en": "This paper develops FasTac, a curved vision-based tactile sensor suited for dexterous manipulation. By combining multispectral photometric stereo using a single image sensor with FPGA hardware acceleration, it achieves high-speed, high-precision 3D surface shape reconstruction and 3-axis force estimation within a compact form factor."
   },
   {
    "date": "2026-07-30",
@@ -190,7 +196,8 @@
     "sim-to-real"
    ],
    "abs_url": "https://arxiv.org/abs/2607.26434",
-   "image": "figures/2026-07-30/2607.26434.jpg"
+   "image": "figures/2026-07-30/2607.26434.jpg",
+   "summary_en": "This paper proposes a reinforcement learning method to address the sim-to-real gap caused by response delays over 50 ms and noise on low-cost quadrupedal robots like Mini Pupper 2. Biologically inspired delay and noise handling overcomes the partial observability problem. This substantially improves locomotion control performance on budget real-world hardware."
   },
   {
    "date": "2026-07-30",
@@ -219,7 +226,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2607.26985",
-   "image": "figures/2026-07-30/2607.26985.jpg"
+   "image": "figures/2026-07-30/2607.26985.jpg",
+   "summary_en": "To overcome the slow learning speed of on-robot reinforcement learning, this paper proposes SymmGrid, a data augmentation framework based on symmetry trees. By applying geometric transformations in parallel to augment state-action pairs, it substantially accelerates on-robot RL using camera vision and proprioception."
   },
   {
    "date": "2026-07-30",
@@ -244,7 +252,8 @@
     "navigation"
    ],
    "abs_url": "https://arxiv.org/abs/2607.26460",
-   "image": "figures/2026-07-30/2607.26460.jpg"
+   "image": "figures/2026-07-30/2607.26460.jpg",
+   "summary_en": "This paper proposes RLMM-Flow for whole-body motion control in mobile manipulation, combining flow-based policies trained on expert trajectories with latent-space reinforcement learning. After acquiring multimodal motion priors through imitation learning, downstream RL training enables the generation of smoother, safer motions that surpass expert data."
   },
   {
    "date": "2026-07-30",
@@ -277,7 +286,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2607.27205",
-   "image": "figures/2026-07-30/2607.27205.jpg"
+   "image": "figures/2026-07-30/2607.27205.jpg",
+   "summary_en": "This paper revamps conventional LLM-mediated VLA architectures and proposes TurboVLA, a direct V+L->A mapping scheme that independently encodes vision and language before fusing them. This dramatically cuts computational costs, achieving real-time control at 32 Hz with under 1 GB VRAM on an RTX 4090."
   },
   {
    "date": "2026-07-30",
@@ -306,7 +316,8 @@
     "imitation-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2607.26579",
-   "image": "figures/2026-07-30/2607.26579.jpg"
+   "image": "figures/2026-07-30/2607.26579.jpg",
+   "summary_en": "This paper proposes Contact Flow, an embodiment-agnostic representation that encodes manipulation actions as trajectories of 3D contact points between the robot and objects. It provides a shared conditioning signal independent of specific gripper appearance or kinematics, improving action transfer from human demos to various robots and enhancing the controllability of video world models."
   },
   {
    "date": "2026-07-30",
@@ -334,7 +345,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2607.26855",
-   "image": "figures/2026-07-30/2607.26855.jpg"
+   "image": "figures/2026-07-30/2607.26855.jpg",
+   "summary_en": "To enhance reproducibility in control and autonomous driving research, this paper develops NeoRacer, an open-source 1:12 scale autonomous race car powered by NVIDIA Jetson Orin. It delivers a standardized experimental platform with modular software and high-quality hardware, offering powerful compute at an affordable cost."
   }
  ]
 }
