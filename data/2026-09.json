@@ -23,7 +23,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.35935",
-   "image": null
+   "image": null,
+   "summary_en": "We propose a reinforcement learning framework inspired by passive dynamic walking (PDW) to achieve energy-efficient humanoid locomotion. Tilting the gravity field early in training temporarily simulates downhill conditions on flat ground, promoting the exploration of dynamically efficient gaits. Removing the PDW guidance before optimizing nominal dynamics enables discovering economically coordinated gaits without relying solely on actuator effort penalties."
   },
   {
    "date": "2026-09-30",
@@ -51,7 +52,8 @@
     "safety"
    ],
    "abs_url": "https://arxiv.org/abs/2609.37070",
-   "image": "figures/2026-09-30/2609.37070.jpg"
+   "image": "figures/2026-09-30/2609.37070.jpg",
+   "summary_en": "To prevent catastrophic failures in legged locomotion policies, we propose Predictive Safety Curricula (PSC), which allocates training experience based on future safety cost predictions. It learns a distributional safety critic from policy rollouts to dynamically prioritize sampling of terrain contexts and past randomization events. This significantly improves robustness under harsh conditions without modifying the task reward."
   },
   {
    "date": "2026-09-30",
@@ -80,7 +82,8 @@
     "locomotion"
    ],
    "abs_url": "https://arxiv.org/abs/2609.36151",
-   "image": "figures/2026-09-30/2609.36151.jpg"
+   "image": "figures/2026-09-30/2609.36151.jpg",
+   "summary_en": "We propose KPI, a promptable kernel for physical interaction on humanoids that enables contact-rich interactions without modifying existing whole-body trajectory tracking policies. Situated between the trajectory generator and the whole-body tracker, it achieves compliant contact behaviors unlike methods that co-optimize task-specific controllers in simulation. It provides a foundation for adapting to contact-rich tasks while preserving tracking generality."
   },
   {
    "date": "2026-09-30",
@@ -114,7 +117,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.37181",
-   "image": "figures/2026-09-30/2609.37181.jpg"
+   "image": "figures/2026-09-30/2609.37181.jpg",
+   "summary_en": "We propose EgoHumanoid-V2, a framework to transfer coordinated whole-body loco-manipulation skills from egocentric human videos to humanoids. Through a coarse-to-fine two-stage action alignment combining kinematic reference correction and dynamics-aware refinement, it balances end-effector pose accuracy and whole-body coordination. This achieves long-horizon coordinated behaviors where locomotion and manipulation are tightly coupled on real humanoid robots."
   },
   {
    "date": "2026-09-30",
@@ -144,7 +148,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.38087",
-   "image": "figures/2026-09-30/2609.38087.jpg"
+   "image": "figures/2026-09-30/2609.38087.jpg",
+   "summary_en": "We propose CrossBFM to learn a shared latent behavior space transferable across different humanoid embodiments, avoiding massive GPU-hour retraining for behavior foundation models (BFMs). Leveraging frame-level correspondences from retargeting, it distills the latent behavior space as a shared asset among multiple humanoids. This drastically reduces adaptation costs for new robot embodiments."
   },
   {
    "date": "2026-09-30",
@@ -170,7 +175,8 @@
     "hardware"
    ],
    "abs_url": "https://arxiv.org/abs/2609.36241",
-   "image": "figures/2026-09-30/2609.36241.jpg"
+   "image": "figures/2026-09-30/2609.36241.jpg",
+   "summary_en": "We developed a 17-DoF, lightweight (220 g), human-scale (200 mm) robotic hand featuring a bidirectional antagonistic tendon-driven mechanism capable of grasping from both palmar and dorsal sides. Utilizing a 3D-printed structure, it actively drives joint flexion/extension and adduction/abduction. This enables grasping objects from the opposite side without major wrist or arm reorientations, expanding the workspace for dexterous manipulation."
   },
   {
    "date": "2026-09-30",
@@ -197,7 +203,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.37560",
-   "image": "figures/2026-09-30/2609.37560.jpg"
+   "image": "figures/2026-09-30/2609.37560.jpg",
+   "summary_en": "We propose RoboFin3D, a sim-to-real platform that makes costly, workpiece-consuming industrial robotic grinding and polishing low-cost and reproducible. Built on Isaac Sim and the Newton physics engine, it directly models workpiece geometry changes using signed distance fields (SDFs), reproducing contact dynamics and visual changes without remeshing. This facilitates seamless sim-to-real transfer to physical robots."
   },
   {
    "date": "2026-09-30",
@@ -223,7 +230,8 @@
     "hardware"
    ],
    "abs_url": "https://arxiv.org/abs/2609.36993",
-   "image": "figures/2026-09-30/2609.36993.jpg"
+   "image": "figures/2026-09-30/2609.36993.jpg",
+   "summary_en": "We demonstrate that zero-shot sim-to-real transfer is achievable for closed-loop control of compliant, underactuated robotic fish using a deliberately low-fidelity, quasi-steady hydrodynamic model that omits wakes and added-mass history. Using a tendon-driven single-motor robotic fish, learning is performed via a staged pipeline based on tail dynamics and an identified fluid model. Zero-shot sim-to-real transfer is achieved without real-world parameter fine-tuning."
   },
   {
    "date": "2026-09-30",
@@ -258,7 +266,8 @@
     "vision-language-action"
    ],
    "abs_url": "https://arxiv.org/abs/2609.36416",
-   "image": "figures/2026-09-30/2609.36416.jpg"
+   "image": "figures/2026-09-30/2609.36416.jpg",
+   "summary_en": "We construct FineART, a large-scale dataset for long-horizon, multi-step bimanual manipulation containing 40,543 episodes, 1,718 hours, and 533,913 densely annotated subtasks. We also propose FineART-VLA, a foundation model that self-predicts the next subtask, demonstrating that subtask prediction significantly improves success rates in complex bimanual cooperative tasks."
   },
   {
    "date": "2026-09-30",
@@ -285,7 +294,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.36482",
-   "image": "figures/2026-09-30/2609.36482.jpg"
+   "image": "figures/2026-09-30/2609.36482.jpg",
+   "summary_en": "We propose DQ-MPCC, a Model Predictive Contouring Control using unit dual quaternions for quadrotor racing demanding aggressive attitude maneuvers. It projects contouring errors onto the tangent space of the dual quaternion manifold, formulating a unified pose and twist representation in the body frame. It balances computational efficiency and tracking accuracy compared to conventional MPCC formulations, demonstrating its effectiveness in software-in-the-loop tests."
   },
   {
    "date": "2026-09-29",
@@ -313,7 +323,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.33310",
-   "image": "figures/2026-09-29/2609.33310.jpg"
+   "image": "figures/2026-09-29/2609.33310.jpg",
+   "summary_en": "We propose CompliantWBC, a control system to achieve whole-body compliance for heavy-payload humanoids. An RL-trained base policy mimics Cartesian impedance controllers on arbitrary links, while a bounded residual policy dynamically adjusts equilibrium targets under external disturbances. This achieves robust whole-body motion control against unexpected external forces and loads on arbitrary body parts while maintaining foot support and whole-body coordination."
   },
   {
    "date": "2026-09-29",
@@ -337,7 +348,8 @@
     "safety"
    ],
    "abs_url": "https://arxiv.org/abs/2609.34486",
-   "image": "figures/2026-09-29/2609.34486.jpg"
+   "image": "figures/2026-09-29/2609.34486.jpg",
+   "summary_en": "To balance adaptability and safety in bipedal locomotion, we propose a model-informed safe reinforcement learning approach combining an analytical ALIP model and discrete-time exponential control barrier functions (DECBFs). Step-to-step safety certificates are applied to reward shaping during training and swing foot landing position filtering during inference. This significantly reduces fall risks while acquiring robust walking behaviors in cluttered obstacle environments."
   },
   {
    "date": "2026-09-29",
@@ -370,7 +382,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.31840",
-   "image": "figures/2026-09-29/2609.31840.jpg"
+   "image": "figures/2026-09-29/2609.31840.jpg",
+   "summary_en": "We propose a method to learn humanoid badminton skills requiring whole-body coordination and precise hitting against high-speed shuttlecocks. Using limited, imperfect human motion data as prior knowledge, reinforcement learning acquires whole-body motions adaptable to diverse incoming trajectories. It achieves accurate return posture and velocity while maintaining natural form despite extremely short contact times and a wide 3D hitting workspace."
   },
   {
    "date": "2026-09-29",
@@ -398,7 +411,8 @@
     "world-model"
    ],
    "abs_url": "https://arxiv.org/abs/2609.34199",
-   "image": "figures/2026-09-29/2609.34199.jpg"
+   "image": "figures/2026-09-29/2609.34199.jpg",
+   "summary_en": "We propose WB-WAM, a world action model integrating body, root, and dexterous hand motions for humanoid loco-manipulation requiring whole-body coordination. It incorporates explicit whole-body action supervision into video generation pre-training, pre-training on over 1,880 hours of heterogeneous video and motion data. Adaptation via forward kinematics auxiliary supervision improves learning efficiency and accuracy for complex whole-body motions."
   },
   {
    "date": "2026-09-29",
@@ -424,7 +438,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.33484",
-   "image": "figures/2026-09-29/2609.33484.jpg"
+   "image": "figures/2026-09-29/2609.33484.jpg",
+   "summary_en": "We propose AMBIT, a method for a humanoid with 5-DoF arms to generate dynamic pelvis and waist recruitment strategies to track bimanual end-effector trajectories out of arm reach. A CVAE anticipatorily generates candidate strategies from a continuous manifold of feasible whole-body poses, which are filtered by an unlearned selector. In tests on a real Unitree R1, it achieved an 82% tracking success rate, outperforming a deterministic baseline at 35%."
   },
   {
    "date": "2026-09-29",
@@ -452,7 +467,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.34010",
-   "image": "figures/2026-09-29/2609.34010.jpg"
+   "image": "figures/2026-09-29/2609.34010.jpg",
+   "summary_en": "We present ZeroBot, a Real2Sim framework that learns real-world manipulation from scratch in minutes using only a single object image and target pose, without human demonstrations, policy pre-training, or known 3D models. It reconstructs meshes via 3D generative models and runs massively parallel RL in simulation. Geometric and value-guided action space design enables rapid real-world transfer for grasping, pushing, and articulated object manipulation."
   },
   {
    "date": "2026-09-29",
@@ -478,7 +494,8 @@
     "grasping"
    ],
    "abs_url": "https://arxiv.org/abs/2609.33973",
-   "image": "figures/2026-09-29/2609.33973.jpg"
+   "image": "figures/2026-09-29/2609.33973.jpg",
+   "summary_en": "We propose FINGR, a reinforcement learning method to solve a physical Rubik's Cube using a single multi-fingered hand. Integrating per-fingertip relative point cloud representations with future contact interaction predictions, the network enables complex coordination to rotate and regrasp specific layers while stably holding the cube. This piece-index-invariant geometric representation achieves high real-world performance in long-horizon, contact-rich dynamic manipulation."
   },
   {
    "date": "2026-09-29",
@@ -507,7 +524,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.31924",
-   "image": "figures/2026-09-29/2609.31924.jpg"
+   "image": "figures/2026-09-29/2609.31924.jpg",
+   "summary_en": "We present HapticWorld, an interactive world model that predicts joint torques alongside visual states to provide force-haptic feedback to operators during contact-rich manipulation. Addressing contact-force discrepancies in physics engines and the cost of real-world data collection, it integrates joint torque prediction and haptic rendering into a large-scale visual simulator. This allows teleoperators to feel contact forces while collecting demonstrations with torque label…"
   },
   {
    "date": "2026-09-29",
@@ -533,7 +551,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.34666",
-   "image": "figures/2026-09-29/2609.34666.jpg"
+   "image": "figures/2026-09-29/2609.34666.jpg",
+   "summary_en": "This study investigates the numerical reliability of gradients from differentiable physics simulators used in system identification and trajectory optimization for material manipulation. Using material point method (MPM) benchmarks on elastoplastic and granular manipulation, it quantifies long-horizon gradient variability from GPU thread scheduling and contact discontinuities. It provides foundational insights for stable, high-precision gradient-based optimization in robot l…"
   },
   {
    "date": "2026-09-29",
@@ -561,7 +580,8 @@
     "humanoid"
    ],
    "abs_url": "https://arxiv.org/abs/2609.32471",
-   "image": "figures/2026-09-29/2609.32471.jpg"
+   "image": "figures/2026-09-29/2609.32471.jpg",
+   "summary_en": "We introduce GlowTact, an ultra-compact vision-based tactile sensor suitable for confined spaces such as humanoid fingertips. Using monochromatic, non-directional illumination, it visualizes contact pressure directly as optical pattern changes, enabling direct pressure distribution extraction from raw tactile images without explicit 3D reconstruction. Its minimalist design achieves both gram-level contact sensitivity and high spatial resolution without complex optics."
   },
   {
    "date": "2026-09-28",
@@ -586,7 +606,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.31577",
-   "image": "figures/2026-09-28/2609.31577.jpg"
+   "image": "figures/2026-09-28/2609.31577.jpg",
+   "summary_en": "We propose a locomotion control framework for humanoids combining Flow Matching-based whole-body trajectory generation with an RL tracking policy. Leveraging a motion library trained on dynamically optimized trajectories, an off-policy RL fine-tuning loop achieves perceptive, highly terrain-adaptive multi-skill locomotion directly from raw depth images."
   },
   {
    "date": "2026-09-28",
@@ -615,7 +636,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.30951",
-   "image": "figures/2026-09-28/2609.30951.jpg"
+   "image": "figures/2026-09-28/2609.30951.jpg",
+   "summary_en": "We propose Bundled Contact Gradients to resolve gradient instabilities that arise when increasing contact stiffness in differentiable simulation. Balancing smooth analytical gradients with physical fidelity, it enables high-precision sim-to-real transfer of learned policies for dynamic tasks on humanoids and other robotic platforms."
   },
   {
    "date": "2026-09-28",
@@ -645,7 +667,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.30594",
-   "image": "figures/2026-09-28/2609.30594.jpg"
+   "image": "figures/2026-09-28/2609.30594.jpg",
+   "summary_en": "We propose HuGo, a hierarchical framework for humanoid loco-manipulation where an LLM generates closed-loop high-level policy code from task descriptions atop a frozen low-level whole-body control policy. Eliminating task-specific demonstrations and reward engineering, it achieves zero-shot adaptation to diverse compound manipulation tasks."
   },
   {
    "date": "2026-09-28",
@@ -668,7 +691,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.30530",
-   "image": "figures/2026-09-28/2609.30530.jpg"
+   "image": "figures/2026-09-28/2609.30530.jpg",
+   "summary_en": "We developed a direct-drive monopedal robot without energy storage mechanisms like elastic springs. Weighing 281 g and utilizing a newly developed fabric-wound transmission, it achieves a record 7.6 m jump height and a 190 ms ground contact time for an electric springless system, while also demonstrating in-flight propeller attitude control."
   },
   {
    "date": "2026-09-28",
@@ -699,7 +723,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2609.31008",
-   "image": "figures/2026-09-28/2609.31008.jpg"
+   "image": "figures/2026-09-28/2609.31008.jpg",
+   "summary_en": "We propose an architecture using distributed low-cost Time-of-Flight (ToF) sensors on the ANYmal quadruped robot as an alternative to expensive, blind-spot-prone depth cameras and LiDARs. We evaluate near-body 3D terrain reconstruction accuracy, showing effective blind-spot-free footstep planning and obstacle avoidance with low cost and power consumption."
   },
   {
    "date": "2026-09-28",
@@ -727,7 +752,8 @@
     "hardware"
    ],
    "abs_url": "https://arxiv.org/abs/2609.31025",
-   "image": "figures/2026-09-28/2609.31025.jpg"
+   "image": "figures/2026-09-28/2609.31025.jpg",
+   "summary_en": "We propose an online model-based reinforcement learning method for precise, high-speed control of a real 11.5-ton hydraulic excavator with complex actuator dynamics. By introducing an objective that modulates progress rewards based on path accuracy and learning a probabilistic model from scratch integrated with sampling-based MPC, it demonstrates high sample efficiency."
   },
   {
    "date": "2026-09-28",
@@ -753,7 +779,8 @@
     "imitation-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.30521",
-   "image": "figures/2026-09-28/2609.30521.jpg"
+   "image": "figures/2026-09-28/2609.30521.jpg",
+   "summary_en": "We present a physical system for aerial manipulation in the wild that integrates imitation learning, onboard LiDAR-inertial state estimation, and whole-body model predictive control (MPC). A Diffusion Policy generates end-effector targets from onboard perception, while whole-body MPC coordinates the aerial platform and arm, achieving stable grasping under disturbances."
   },
   {
    "date": "2026-09-28",
@@ -823,7 +850,8 @@
     "vision-language-action"
    ],
    "abs_url": "https://arxiv.org/abs/2609.31394",
-   "image": "figures/2026-09-28/2609.31394.jpg"
+   "image": "figures/2026-09-28/2609.31394.jpg",
+   "summary_en": "We propose InternW0-Δ, a world action model for generalized robotic manipulation that bridges visual predictive dynamics and action generation. Utilizing a Mixture-of-Transformers architecture, it co-trains on over 20,000 hours of open data across visual dynamics, 4D geometric and motion priors, and action generation, achieving high-accuracy real-world generalization."
   },
   {
    "date": "2026-09-28",
@@ -851,7 +879,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.31323",
-   "image": "figures/2026-09-28/2609.31323.jpg"
+   "image": "figures/2026-09-28/2609.31323.jpg",
+   "summary_en": "We propose a blind grasp reflex, a reinforcement learning policy for anthropomorphic robotic hands that grasps and stabilizes diverse objects using proprioception alone without vision or object poses. Decoupling global arm reaching from local contact control, it smoothly hands over to downstream manipulation upon detecting a stable grasp."
   },
   {
    "date": "2026-09-28",
@@ -878,7 +907,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.30404",
-   "image": "figures/2026-09-28/2609.30404.jpg"
+   "image": "figures/2026-09-28/2609.30404.jpg",
+   "summary_en": "We propose POIL, a point-based one-shot imitation learning framework integrating stable dynamical systems with 3D point cloud representations. Using 3D point clouds on functional object parts as a shared representation, it maps and transfers a single demonstration trajectory to novel objects while maintaining robust closed-loop operation against disturbances and grasping offsets."
   },
   {
    "date": "2026-09-27",
@@ -905,7 +935,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.30127",
-   "image": "figures/2026-09-27/2609.30127.jpg"
+   "image": "figures/2026-09-27/2609.30127.jpg",
+   "summary_en": "Policies based on diffusion or flow matching often ignore action space geometry and require multi-step numerical integration, hindering high-frequency control. We propose Riemannian MeanFlow Policy (RMFP), which respects Riemannian geometry in action spaces while enabling inference in fewer steps. This achieves efficient trajectory generation tailored to manipulator joint and SE(3) spaces."
   },
   {
    "date": "2026-09-27",
@@ -930,7 +961,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.30023",
-   "image": "figures/2026-09-27/2609.30023.jpg"
+   "image": "figures/2026-09-27/2609.30023.jpg",
+   "summary_en": "To address generalization failures in imitation learning, we propose Res-HIL, a human-guided residual reinforcement learning framework that learns corrective motions on top of a frozen base policy. It extracts both direct supervision and reward shaping for the residual policy from online human interventions, enabling sample-efficient acquisition of robust dexterous manipulation policies with few demonstrations and interventions."
   },
   {
    "date": "2026-09-27",
@@ -958,7 +990,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.30264",
-   "image": "figures/2026-09-27/2609.30264.jpg"
+   "image": "figures/2026-09-27/2609.30264.jpg",
+   "summary_en": "To address the lack of action discriminability in latent world models when evaluating counterfactual candidate actions, we propose AD-WM (Action-Discriminative World Models). By using inverse dynamics and normalized reconstruction losses, it retains action information within planned transitions. At inference, discarding auxiliary heads significantly improves action evaluation accuracy without increasing MPC computational overhead."
   },
   {
    "date": "2026-09-27",
@@ -984,7 +1017,8 @@
     "simulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.29908",
-   "image": "figures/2026-09-27/2609.29908.jpg"
+   "image": "figures/2026-09-27/2609.29908.jpg",
+   "summary_en": "We propose MorphIK, a flow-matching model that solves inverse kinematics even for revolute-joint robots unseen during training. A Transformer encodes the robot's kinematic morphology and target pose to generate joint configurations from noise. Trained entirely on synthetic data, it achieves approximately 5 cm accuracy on real robots ranging from 6 to 9 degrees of freedom."
   },
   {
    "date": "2026-09-27",
@@ -1011,7 +1045,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.30092",
-   "image": "figures/2026-09-27/2609.30092.jpg"
+   "image": "figures/2026-09-27/2609.30092.jpg",
+   "summary_en": "We propose a post-training method for Vision-Language-Action (VLA) models that self-adapts at test time using execution history as context against hardware changes such as wear or miscalibration. Trained on rollouts with intentional hardware variations, it enables adaptive deployment to unseen hardware discrepancies without manual recalibration."
   },
   {
    "date": "2026-09-27",
@@ -1040,7 +1075,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2609.30222",
-   "image": "figures/2026-09-27/2609.30222.jpg"
+   "image": "figures/2026-09-27/2609.30222.jpg",
+   "summary_en": "We propose TrackEverything, a 3D point tracking method that resolves the trade-off between tracking duration and point density in conventional point tracking. It represents videos as persistent 3D point trajectories in world coordinates, using a voxel-based deduplication mechanism to scale computational complexity with scene geometry rather than video length."
   },
   {
    "date": "2026-09-27",
@@ -1069,7 +1105,8 @@
     "simulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.30233",
-   "image": "figures/2026-09-27/2609.30233.jpg"
+   "image": "figures/2026-09-27/2609.30233.jpg",
+   "summary_en": "To tackle the high per-environment engineering burden in task and motion planning (TAMP), we propose a coding agent framework that automatically synthesizes programs generalizing across problem instances through simulator interactions. It demonstrates the automated generation of planners that account for geometric and kinematic constraints."
   },
   {
    "date": "2026-09-27",
@@ -1096,7 +1133,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.29382",
-   "image": "figures/2026-09-27/2609.29382.jpg"
+   "image": "figures/2026-09-27/2609.29382.jpg",
+   "summary_en": "To reduce inference costs in large VLA models, we propose a decoupled early-exit approach that dynamically allocates VLM backbone depth, action expert depth, and denoising steps based on task difficulty. This significantly reduces inference computation while maintaining control performance."
   },
   {
    "date": "2026-09-27",
@@ -1122,7 +1160,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2609.30056",
-   "image": "figures/2026-09-27/2609.30056.jpg"
+   "image": "figures/2026-09-27/2609.30056.jpg",
+   "summary_en": "We propose M3GD, a camera-LiDAR novel view synthesis method for robotics that integrates pre-trained foundation models for camera images and LiDAR point clouds without translators. Exploiting shared spatial structure after camera projection ensures geometric consistency, accurately fusing LiDAR's precise 3D structure with visual image representations."
   },
   {
    "date": "2026-09-27",
@@ -1146,7 +1185,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.29310",
-   "image": "figures/2026-09-27/2609.29310.jpg"
+   "image": "figures/2026-09-27/2609.29310.jpg",
+   "summary_en": "To address the issue where imitation learning inherits conservative execution speeds from demonstrations, we propose EgoSpeedUp, a framework that extracts phase-wise manipulation tempo from human videos and transfers it to robot policies. It prevents unnecessary slowdowns and achieves task-adaptive high-speed execution."
   },
   {
    "date": "2026-09-26",
@@ -1169,7 +1209,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.29945",
-   "image": "figures/2026-09-26/2609.29945.jpg"
+   "image": "figures/2026-09-26/2609.29945.jpg",
+   "summary_en": "This paper proposes a cerebellum-inspired control framework integrating multiplexed predictive representations and internal feedback for robust control under sensor delays. By jointly encoding kinematic variables and error signals, it achieves high-precision online corrections despite delays. The internal feedback within the cerebellar loop dramatically accelerates adaptation, reducing learning time by an order of magnitude."
   },
   {
    "date": "2026-09-26",
@@ -1193,7 +1234,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.28838",
-   "image": null
+   "image": null,
+   "summary_en": "This study analyzes the \"task collapse\" phenomenon, where performance on specific tasks deteriorates during online RL fine-tuning of flow-matching VLA policies with PPO. The authors propose an uncertainty-gated exploration noise controller that reallocates exploration across task streams based on novelty and uncertainty. This approach suppresses collapse and demonstrates stable learning even under constrained computational budgets."
   },
   {
    "date": "2026-09-26",
@@ -1217,7 +1259,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2609.30187",
-   "image": "figures/2026-09-26/2609.30187.jpg"
+   "image": "figures/2026-09-26/2609.30187.jpg",
+   "summary_en": "This paper presents a pipeline and dataset providing large-scale, dense 4D human mesh motion reconstructions for the Ego-Exo4D dataset, which contains egocentric and multi-view exocentric video. Overcoming the limitations of sparse 3D pose annotations, it offers high-quality full-body motion data suitable for skill learning, embodied AI, and humanoid motion retargeting."
   },
   {
    "date": "2026-09-26",
@@ -1244,7 +1287,8 @@
     "safety"
    ],
    "abs_url": "https://arxiv.org/abs/2609.28984",
-   "image": "figures/2026-09-26/2609.28984.jpg"
+   "image": "figures/2026-09-26/2609.28984.jpg",
+   "summary_en": "This paper introduces CrossSafe, a cross-embodiment safety filter that treats safety constraints as a shared latent representation across heterogeneous robots. Abstract safety decisions, such as obstacle avoidance, are shared across embodiments, while actual safe actions are executed according to each robot's specific kinematics and dynamics. The framework enables the generalization and transfer of safety policies across different robot morphologies."
   },
   {
    "date": "2026-09-26",
@@ -1269,7 +1313,8 @@
     "safety"
    ],
    "abs_url": "https://arxiv.org/abs/2609.30258",
-   "image": "figures/2026-09-26/2609.30258.jpg"
+   "image": "figures/2026-09-26/2609.30258.jpg",
+   "summary_en": "This paper proposes TRACE, a temporal gradient inversion attack in distributed embodied reinforcement learning that autoregressively reconstructs observation and action trajectories solely from client policy gradients. By formulating and exploiting temporal correlations across consecutive gradients, TRACE recovers private sensor and action histories of real-world agents far beyond single-frame attacks, revealing privacy vulnerabilities."
   },
   {
    "date": "2026-09-26",
@@ -1303,7 +1348,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.30247",
-   "image": "figures/2026-09-26/2609.30247.jpg"
+   "image": "figures/2026-09-26/2609.30247.jpg",
+   "summary_en": "To resolve response latency in closed-loop control for World Action Models (WAMs) that unify video and action generation, this paper proposes Rolling-WAM. It maintains video and action chunks across a sliding window at varying noise levels, fully denoising immediate actions while partially refining future predictions. This rolling schedule achieves both high-frequency replanning and robust control performance."
   },
   {
    "date": "2026-09-26",
@@ -1334,7 +1380,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.29171",
-   "image": "figures/2026-09-26/2609.29171.jpg"
+   "image": "figures/2026-09-26/2609.29171.jpg",
+   "summary_en": "This paper proposes the Representation World Model (RWM), which predicts state transitions and generates executable plans entirely within a latent representation space. By applying local inverse dynamics supervision to latent paths composed of endpoint representations, RWM embeds planning capabilities directly into the representation geometry, generating trajectories at inference time without explicit search or optimization."
   },
   {
    "date": "2026-09-26",
@@ -1362,7 +1409,8 @@
     "navigation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.29375",
-   "image": "figures/2026-09-26/2609.29375.jpg"
+   "image": "figures/2026-09-26/2609.29375.jpg",
+   "summary_en": "This paper proposes Free-Init, a high-frequency, robust initialization framework for FMCW Doppler LiDAR-inertial systems. By directly fusing point-wise Doppler velocities and inertial measurements under non-inertial kinematics, it achieves plug-and-play initialization. It completely eliminates the need for LiDAR deskewing, excitation motions, and correspondence search against environmental maps."
   },
   {
    "date": "2026-09-26",
@@ -1390,7 +1438,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.30249",
-   "image": "figures/2026-09-26/2609.30249.jpg"
+   "image": "figures/2026-09-26/2609.30249.jpg",
+   "summary_en": "This paper introduces RAPID, an agentic framework that automatically synthesizes, verifies, and refines robot programs from a single human demonstration video. RAPID automatically infers testable task specifications, robot motion primitives, and interactive verification environments from the demonstration. Through iterative loops of coding agents, it constructs robust and reusable robot programs."
   },
   {
    "date": "2026-09-26",
@@ -1420,7 +1469,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.29000",
-   "image": "figures/2026-09-26/2609.29000.jpg"
+   "image": "figures/2026-09-26/2609.29000.jpg",
+   "summary_en": "This paper proposes a method to learn robot manipulation policies from mixed-quality deployment experience naturally accumulated in real-world runs, without additional human interventions or active exploration. It avoids reinforcing undesirable behaviors common in imitation learning and prevents unstable value estimation in sparse-reward offline RL. The approach effectively utilizes imperfect deployment logs to improve policy performance."
   },
   {
    "date": "2026-09-25",
@@ -1448,7 +1498,8 @@
     "sim-to-real"
    ],
    "abs_url": "https://arxiv.org/abs/2609.28959",
-   "image": "figures/2026-09-25/2609.28959.jpg"
+   "image": "figures/2026-09-25/2609.28959.jpg",
+   "summary_en": "To mitigate landing impacts and unstable foot placements during humanoid parkour, this paper introduces TactileStep, a locomotion control framework utilizing sole pressure sensors. By aligning real pressure insoles with tactile simulation and regulating ground contact compliance, the method achieves compliant landings and stable support."
   },
   {
    "date": "2026-09-25",
@@ -1476,7 +1527,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.28960",
-   "image": "figures/2026-09-25/2609.28960.jpg"
+   "image": "figures/2026-09-25/2609.28960.jpg",
+   "summary_en": "This paper presents a perceptive humanoid parkour method using only onboard depth cameras to traverse sparse, narrow, and discontinuous terrains. By integrating a temporal perception module combining saliency priors with a gated memory, the system enables accurate foothold selection and alternating footsteps even during rapid transitions, achieving stable terrain traversal."
   },
   {
    "date": "2026-09-25",
@@ -1506,7 +1558,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.29092",
-   "image": "figures/2026-09-25/2609.29092.jpg"
+   "image": "figures/2026-09-25/2609.29092.jpg",
+   "summary_en": "To prevent locomotion degradation caused by depth sensor noise during real-world deployment, this paper proposes DAWN, a world-model-based perception framework. Instead of relying on empirical post-processing filters, DAWN directly learns depth feature denoising and alignment within the world model. This enables robust quadruped parkour even in highly noisy environments."
   },
   {
    "date": "2026-09-25",
@@ -1538,7 +1591,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.29850",
-   "image": "figures/2026-09-25/2609.29850.jpg"
+   "image": "figures/2026-09-25/2609.29850.jpg",
+   "summary_en": "This paper proposes BeyondRetarget, a method that resolves kinematic mismatches and error accumulation inherent in conventional retargeting when acquiring humanoid motions from human videos. Without relying on intermediate human representations, it directly learns executable motions end-to-end from monocular video while satisfying the robot's joint degrees of freedom and dynamic constraints."
   },
   {
    "date": "2026-09-25",
@@ -1563,7 +1617,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.30140",
-   "image": "figures/2026-09-25/2609.30140.jpg"
+   "image": "figures/2026-09-25/2609.30140.jpg",
+   "summary_en": "For legged loco-manipulation, this paper proposes Capability-Tradeoff Contact Selection (CTCS) to simultaneously optimize environmental support contacts and whole-body postures. By formulating tradeoffs among contact acquisition cost and three post-task capability metrics—residual wrench, reachability, and base mobility—CTCS reduces the computational burden of whole-body optimization to select optimal contacts."
   },
   {
    "date": "2026-09-25",
@@ -1587,7 +1642,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.28878",
-   "image": "figures/2026-09-25/2609.28878.jpg"
+   "image": "figures/2026-09-25/2609.28878.jpg",
+   "summary_en": "To address tracking errors caused by dynamics discrepancies, this paper introduces OSRAM, which adapts reference commands to existing controllers online. Treating the robot and its policy as a single closed-loop system, it bridges the sim-to-real gap in a data-efficient manner without requiring policy retraining or explicit system parameter identification."
   },
   {
    "date": "2026-09-25",
@@ -1610,7 +1666,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.28920",
-   "image": "figures/2026-09-25/2609.28920.jpg"
+   "image": "figures/2026-09-25/2609.28920.jpg",
+   "summary_en": "To alleviate the high computational cost of Model-Based Diffusion (MBD), this paper proposes Bilinear Koopman MBD (BK-MBD). By lifting states into a higher-dimensional space only once per control cycle, subsequent rollouts are rapidly propagated as matrix-vector products. This achieves real-time trajectory optimization directly on physical robot hardware."
   },
   {
    "date": "2026-09-25",
@@ -1644,7 +1701,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.28766",
-   "image": "figures/2026-09-25/2609.28766.jpg"
+   "image": "figures/2026-09-25/2609.28766.jpg",
+   "summary_en": "This paper presents TapeSim, a simulator that models adhesive tape dispensing for wire harnessing and packing tasks. By treating the bulk of the roll as a rigid cluster and concentrating deformation only on the dispensing region and peeled tape, it achieves low computational cost. It accurately reproduces continuous dispensing, adhesion, and peeling behaviors within practical tolerances."
   },
   {
    "date": "2026-09-25",
@@ -1673,7 +1731,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.30082",
-   "image": "figures/2026-09-25/2609.30082.jpg"
+   "image": "figures/2026-09-25/2609.30082.jpg",
+   "summary_en": "This paper proposes a real-time force regulation framework that maintains grasp stability under dynamic, hand-wide contact changes. It geometrically estimates contact locations across the whole hand using object tracking and proprioception without tactile sensors. It then rapidly recomputes target contact force distributions online to satisfy friction limits and actuator constraints."
   },
   {
    "date": "2026-09-25",
@@ -1703,7 +1762,8 @@
     "sim-to-real"
    ],
    "abs_url": "https://arxiv.org/abs/2609.28660",
-   "image": "figures/2026-09-25/2609.28660.jpg"
+   "image": "figures/2026-09-25/2609.28660.jpg",
+   "summary_en": "This paper proposes a framework to acquire dexterous manipulation policies from human-object interaction videos. It combines an optimization method that maps motions to diverse hand morphologies while preserving contacts with residual reinforcement learning to ensure dynamic feasibility. The approach enables zero-shot sim-to-real deployment of visuomotor policies."
   },
   {
    "date": "2026-09-24",
@@ -1733,7 +1793,8 @@
     "safety"
    ],
    "abs_url": "https://arxiv.org/abs/2609.28378",
-   "image": "figures/2026-09-24/2609.28378.jpg"
+   "image": "figures/2026-09-24/2609.28378.jpg",
+   "summary_en": "This paper proposes ForgetMimic, a motion unlearning framework for reinforcement learning-based humanoid control to remove undesirable behaviors for safety and copyright protection. It effectively suppresses targeted behaviors while preserving agile, natural whole-body motor skills on remaining tasks."
   },
   {
    "date": "2026-09-24",
@@ -1758,7 +1819,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.25687",
-   "image": "figures/2026-09-24/2609.25687.jpg"
+   "image": "figures/2026-09-24/2609.25687.jpg",
+   "summary_en": "This paper proposes SG-CPG, a central pattern generator framework that maintains adaptive quadruped locomotion under continuous actuator degradation and damage. By freezing the healthy nominal CPG, it uses a residual gate to recoordinate inter-leg dynamics based on damage severity and an amplitude gate to reduce the motion of impaired legs, sustaining locomotion without discrete mode switching."
   },
   {
    "date": "2026-09-24",
@@ -1794,7 +1856,8 @@
     "simulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.27547",
-   "image": "figures/2026-09-24/2609.27547.jpg"
+   "image": "figures/2026-09-24/2609.27547.jpg",
+   "summary_en": "This paper introduces EBRL, an asynchronous embodied reinforcement learning framework designed to resolve computational resource imbalances across environment simulation, policy inference, and model updates. By pipelining and overlapping rollouts and training across environment groups, it significantly reduces GPU idle time and enhances overall learning throughput."
   },
   {
    "date": "2026-09-24",
@@ -1825,7 +1888,8 @@
     "multi-robot"
    ],
    "abs_url": "https://arxiv.org/abs/2609.26520",
-   "image": "figures/2026-09-24/2609.26520.jpg"
+   "image": "figures/2026-09-24/2609.26520.jpg",
+   "summary_en": "This paper presents MATE, a multi-agent virtual teleoperation platform for collecting collaborative humanoid motion data. It allows multiple geographically distributed operators to simultaneously teleoperate whole-body humanoids within the same physics simulation. This setup eliminates the high hardware costs and tedious resetting burdens of real-world environments."
   },
   {
    "date": "2026-09-24",
@@ -1853,7 +1917,8 @@
     "simulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.25969",
-   "image": "figures/2026-09-24/2609.25969.jpg"
+   "image": "figures/2026-09-24/2609.25969.jpg",
+   "summary_en": "This paper presents LOOP, a local obstacle avoidance policy enabling legged robots to avoid dynamic obstacles under sparse waypoint guidance. Using past occupancy grids and ego-velocities, it forecasts occupancy up to one second ahead and outputs velocity commands to a fixed 50 Hz locomotion controller. It demonstrates high avoidance performance within Isaac Lab."
   },
   {
    "date": "2026-09-24",
@@ -1886,7 +1951,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.28258",
-   "image": "figures/2026-09-24/2609.28258.jpg"
+   "image": "figures/2026-09-24/2609.28258.jpg",
+   "summary_en": "This paper introduces a framework that generalizes robotic insertion across varied part geometries by training a world model integrating eye-in-hand camera views and proprioception. Trained on up to 90 distinct insertion tasks, a single world model achieves a 56% zero-shot success rate on previously unseen target geometries."
   },
   {
    "date": "2026-09-24",
@@ -1917,7 +1983,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2609.26795",
-   "image": "figures/2026-09-24/2609.26795.jpg"
+   "image": "figures/2026-09-24/2609.26795.jpg",
+   "summary_en": "This paper proposes \\phi-RIE, a pipeline that converts specified objects from photorealistic static scenes reconstructed with 3D Gaussian Splatting (3DGS) into interactive, movable assets in a physics simulator. By resolving occluded surface completion and background inpainting, it automates the creation of interactive simulation environments for robotics."
   },
   {
    "date": "2026-09-24",
@@ -1944,7 +2011,8 @@
     "grasping"
    ],
    "abs_url": "https://arxiv.org/abs/2609.25696",
-   "image": "figures/2026-09-24/2609.25696.jpg"
+   "image": "figures/2026-09-24/2609.25696.jpg",
+   "summary_en": "This paper introduces The Cartesian Hand, a 7-DOF robot hand built entirely with linear sliding-joint fingers. By avoiding the complexity of traditional multi-joint articulated hands, it combines independent grasping with relative linear finger motions. This design enables advanced in-hand manipulation, such as unscrewing bottle caps, using only a single end-effector."
   },
   {
    "date": "2026-09-24",
@@ -1971,7 +2039,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.26467",
-   "image": "figures/2026-09-24/2609.26467.jpg"
+   "image": "figures/2026-09-24/2609.26467.jpg",
+   "summary_en": "This paper proposes RouteRLT, a routing framework that delegates control from a general-purpose VLA policy to specialized reinforcement learning policies only during high-precision contact phases, such as connector insertion. It boosts success rates in precision manipulation without sacrificing broad task generalizability."
   },
   {
    "date": "2026-09-24",
@@ -1996,7 +2065,8 @@
     "safety"
    ],
    "abs_url": "https://arxiv.org/abs/2609.28364",
-   "image": "figures/2026-09-24/2609.28364.jpg"
+   "image": "figures/2026-09-24/2609.28364.jpg",
+   "summary_en": "This paper proposes LEAP-CBF, a control barrier function filter for nonlinear systems under disturbances and uncertainties based on Least-Effort Adversarial Potentials (LEAP), which quantifies the minimum disturbance effort needed to cause system failure. It provides rigorous safety guarantees under input constraints while avoiding excessive conservatism."
   },
   {
    "date": "2026-09-23",
@@ -2022,7 +2092,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.25754",
-   "image": "figures/2026-09-23/2609.25754.jpg"
+   "image": "figures/2026-09-23/2609.25754.jpg",
+   "summary_en": "This paper proposes PLAT, a humanoid control framework that generates whole-body motions from sparse future keyframes and target arrival times rather than dense trajectories. It introduces a three-stage approach that uses dense reference trajectories as privileged training information to learn stable whole-body tracking from sparse targets, enabling flexible integration with high-level planners."
   },
   {
    "date": "2026-09-23",
@@ -2048,7 +2119,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.25486",
-   "image": "figures/2026-09-23/2609.25486.jpg"
+   "image": "figures/2026-09-23/2609.25486.jpg",
+   "summary_en": "This paper proposes a Supporting Hand Strategy (SHS), where a humanoid braces itself against the environment with one arm while performing heavy-load tasks with the other. Combining environmental contact configuration optimization with two synchronized RL policies, the method demonstrates stable contact forces up to 60 N on a Unitree G1 robot, substantially exceeding the 13.5 N unbraced limit."
   },
   {
    "date": "2026-09-23",
@@ -2075,7 +2147,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.25363",
-   "image": "figures/2026-09-23/2609.25363.jpg"
+   "image": "figures/2026-09-23/2609.25363.jpg",
+   "summary_en": "This paper proposes HOTICE, a whole-body loco-manipulation framework for humanoid object transportation in cluttered environments. It incorporates decoupled potential fields to drive collision avoidance for both the robot and the object, alongside dual-agent reinforcement learning to manage the large whole-body action space. This yields coordinated, collision-free transport behavior."
   },
   {
    "date": "2026-09-23",
@@ -2103,7 +2176,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2609.25450",
-   "image": "figures/2026-09-23/2609.25450.jpg"
+   "image": "figures/2026-09-23/2609.25450.jpg",
+   "summary_en": "This paper proposes REDACT, a student-teacher framework for depth-camera-based legged locomotion under visual corruptions like unexpected occlusions and sensor noise during deployment. Featuring persistent feature memory and a corruption-robust visual encoder, it maintains stable traversal performance despite severe real-world sensor degradation."
   },
   {
    "date": "2026-09-23",
@@ -2127,7 +2201,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.26420",
-   "image": "figures/2026-09-23/2609.26420.jpg"
+   "image": "figures/2026-09-23/2609.26420.jpg",
+   "summary_en": "This paper presents a training-free framework that incorporates a physics simulator and a pretrained whole-body tracking controller into the text-to-motion loop for humanoids. Multiple candidate motions generated by a text-to-motion model are converted via inverse kinematics for the Unitree G1 robot, and the trajectory with the best tracking performance in rigid-body simulation is selected and executed."
   },
   {
    "date": "2026-09-23",
@@ -2154,7 +2229,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.24682",
-   "image": "figures/2026-09-23/2609.24682.jpg"
+   "image": "figures/2026-09-23/2609.24682.jpg",
+   "summary_en": "This paper proposes a distillation approach that transfers physical scene representations from a world model into a VLA policy while removing heavy future prediction rollouts from the control loop. Adding a single feature alignment loss to a frozen world model during standard training substantially improves manipulation robustness while maintaining high-frequency control."
   },
   {
    "date": "2026-09-23",
@@ -2180,7 +2256,8 @@
     "sim-to-real"
    ],
    "abs_url": "https://arxiv.org/abs/2609.25398",
-   "image": "figures/2026-09-23/2609.25398.jpg"
+   "image": "figures/2026-09-23/2609.25398.jpg",
+   "summary_en": "This paper proposes Norm2Tex, a plug-in method that enriches vision-based tactile simulations with high-frequency surface micro-structures derived from normal map textures. By directly modifying depth maps prior to rendering, it easily integrates into existing simulators and effectively narrows the domain gap between simulated and real tactile observations."
   },
   {
    "date": "2026-09-23",
@@ -2211,7 +2288,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.26292",
-   "image": "figures/2026-09-23/2609.26292.jpg"
+   "image": "figures/2026-09-23/2609.26292.jpg",
+   "summary_en": "This paper introduces RoboTwin-Phys, a benchmark that systematically varies 13 physical parameters—including mass, friction, and joint dynamics—to evaluate the physical generalization of VLAs and World Action Models. It facilitates comprehensive analysis of policy vulnerabilities to real-world physical changes beyond visual appearance and layout variations."
   },
   {
    "date": "2026-09-23",
@@ -2235,7 +2313,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.25322",
-   "image": "figures/2026-09-23/2609.25322.jpg"
+   "image": "figures/2026-09-23/2609.25322.jpg",
+   "summary_en": "This paper proposes JAMB, a diffusion policy for bimanual manipulation where one arm's actions alter the environment for the other. By jointly denoising actions and future 3D point tracking trajectories within a Transformer, future geometric changes and control actions mutually refine each other. This boosts the success rate of complex, coupled bimanual tasks."
   },
   {
    "date": "2026-09-23",
@@ -2265,7 +2344,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2609.24976",
-   "image": "figures/2026-09-23/2609.24976.jpg"
+   "image": "figures/2026-09-23/2609.24976.jpg",
+   "summary_en": "This paper proposes DexTacWAM, which integrates tactile representations capturing fingertip contact dynamics into a video diffusion world model. Using a finger-and-pose-aware tactile compressor, it encodes tactile signals into latent representations, achieving accurate state predictions and control performance in contact-rich tasks on a 22-DoF dual-arm hand system."
   },
   {
    "date": "2026-09-22",
@@ -2292,7 +2372,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.23666",
-   "image": "figures/2026-09-22/2609.23666.jpg"
+   "image": "figures/2026-09-22/2609.23666.jpg",
+   "summary_en": "UniPoint is a whole-body humanoid locomotion method that traverses challenging rough terrains by early fusing raw point clouds from an omnidirectional LiDAR and two depth cameras. It eliminates elevation map drift and limited fields of view in conventional approaches, directly learning a robust locomotion policy from point-level representations."
   },
   {
    "date": "2026-09-22",
@@ -2321,7 +2402,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.22274",
-   "image": "figures/2026-09-22/2609.22274.jpg"
+   "image": "figures/2026-09-22/2609.22274.jpg",
+   "summary_en": "CHOREO is a framework that unifies diverse humanoid skills learned via reinforcement learning or generative models into trajectory-based representations called SkillMotion, composing them without additional training. It enables seamless coordination across incompatible policies, achieving flexible whole-body motion generation on hardware."
   },
   {
    "date": "2026-09-22",
@@ -2352,7 +2434,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.23483",
-   "image": "figures/2026-09-22/2609.23483.jpg"
+   "image": "figures/2026-09-22/2609.23483.jpg",
+   "summary_en": "STRIDER is a hierarchical loco-manipulation framework for humanoid robots. It integrates terrain-aware 3D footstep placement, natural gait generation via Adversarial Motion Priors (AMP), and Cartesian-space upper-body control, demonstrating simultaneous stable locomotion and object transportation across challenging uneven terrains on real hardware."
   },
   {
    "date": "2026-09-22",
@@ -2378,7 +2461,8 @@
     "llm-agent"
    ],
    "abs_url": "https://arxiv.org/abs/2609.24145",
-   "image": "figures/2026-09-22/2609.24145.jpg"
+   "image": "figures/2026-09-22/2609.24145.jpg",
+   "summary_en": "MimicAgent generates reference trajectories directly from prompts using an LLM instead of manual reward engineering to acquire dynamic quadruped skills. Using these generated trajectories to guide imitation-based reinforcement learning, it bypasses tedious reward tuning and efficiently learns diverse, high-difficulty acrobatic skills."
   },
   {
    "date": "2026-09-22",
@@ -2406,7 +2490,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.23968",
-   "image": "figures/2026-09-22/2609.23968.jpg"
+   "image": "figures/2026-09-22/2609.23968.jpg",
+   "summary_en": "Opt2VLA is a force-aware Vision-Language-Action framework for contact-rich humanoid whole-body manipulation. By explicitly predicting target impedances and contact forces alongside geometric motion targets and coupling them with a whole-body controller (WBC), it achieves contact tasks robust to external disturbances and visual occlusions."
   },
   {
    "date": "2026-09-22",
@@ -2430,7 +2515,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.23252",
-   "image": null
+   "image": null,
+   "summary_en": "This paper investigates how robot action space definitions—such as absolute joint angles versus relative displacements—affect world models. It reveals that altering the action representation for the exact same physical trajectory severely degrades predictive performance in latent dynamics models, offering key insights for model-based RL and foundation models."
   },
   {
    "date": "2026-09-22",
@@ -2460,7 +2546,8 @@
     "grasping"
    ],
    "abs_url": "https://arxiv.org/abs/2609.24093",
-   "image": "figures/2026-09-22/2609.24093.jpg"
+   "image": "figures/2026-09-22/2609.24093.jpg",
+   "summary_en": "This work presents a method to transfer human hand demonstrations to multi-fingered robot hands by preserving contact structures rather than joint angles, resolving physical discrepancies via a single residual reinforcement learning phase. It enables stable, dexterous contact manipulation policies from large-scale human videos and demos lacking force data."
   },
   {
    "date": "2026-09-22",
@@ -2486,7 +2573,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.22462",
-   "image": "figures/2026-09-22/2609.22462.jpg"
+   "image": "figures/2026-09-22/2609.22462.jpg",
+   "summary_en": "VLPSA is a safety filter that synthesizes Control Barrier Functions (CBFs) online from Poisson Safety Functions (PSFs) to ensure full-body safety for learned VLA policies. Without retraining the policy, it strictly prevents collisions with dynamic obstacles using a quadratic program (CBF-QP) that accounts for both the robot's entire body and grasped objects."
   },
   {
    "date": "2026-09-22",
@@ -2519,7 +2607,8 @@
     "benchmark"
    ],
    "abs_url": "https://arxiv.org/abs/2609.24048",
-   "image": "figures/2026-09-22/2609.24048.jpg"
+   "image": "figures/2026-09-22/2609.24048.jpg",
+   "summary_en": "This paper presents a systematic empirical study of the design space for World Action Models (WAMs) in robot control. It comprehensively analyzes how the causal structure between world models and action policies, coupling architectures, and training strategies impact generalization and control accuracy, offering key guidelines for future WAM design."
   },
   {
    "date": "2026-09-22",
@@ -2551,7 +2640,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.24433",
-   "image": "figures/2026-09-22/2609.24433.jpg"
+   "image": "figures/2026-09-22/2609.24433.jpg",
+   "summary_en": "FoldQuantVLA is a post-training quantization method that compresses both weights and activations to 4-bit integers (W4A4) to reduce VLA inference latency. By leveraging channel scaling and Hadamard transforms, it suppresses accuracy degradation and achieves fast inference while maintaining task performance on edge devices such as NVIDIA Jetson."
   },
   {
    "date": "2026-09-21",
@@ -2584,7 +2674,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.21447",
-   "image": "figures/2026-09-21/2609.21447.jpg"
+   "image": "figures/2026-09-21/2609.21447.jpg",
+   "summary_en": "Perceptive humanoid locomotion on uneven terrain suffers from blind spots beneath the feet. FootQuery predicts upcoming touchdown locations and their uncertainties from proprioception, adaptively retrieving relevant terrain information from sparse past depth images. Backprojecting real touchdown locations onto historical frames provides supervision, preventing missteps under occlusions and enabling stable whole-body locomotion."
   },
   {
    "date": "2026-09-21",
@@ -2611,7 +2702,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.22075",
-   "image": "figures/2026-09-21/2609.22075.jpg"
+   "image": "figures/2026-09-21/2609.22075.jpg",
+   "summary_en": "LIMBO is a whole-body control (WBC) framework for simultaneous collision avoidance and balance maintenance under high-dimensional, nonlinear dynamics. It learns a model-free control barrier function (Q-CBF) over a fixed base controller's residual action space and distills its safety structure into a task policy. Risk-guided sampling with safety values provides robust safety guarantees and agile motions."
   },
   {
    "date": "2026-09-21",
@@ -2638,7 +2730,8 @@
     "imitation-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.21107",
-   "image": "figures/2026-09-21/2609.21107.jpg"
+   "image": "figures/2026-09-21/2609.21107.jpg",
+   "summary_en": "Moving Through Clutter (MTC) enables humanoid robots to traverse dense, geometrically constrained 3D environments. To avoid high real-world setup costs, immersive human demonstrations are collected in procedural VR environments to train a scene-aware locomotion policy via imitation learning. The framework demonstrates whole-body control skills that balance geometric obstacle avoidance and physical contact in confined spaces."
   },
   {
    "date": "2026-09-21",
@@ -2664,7 +2757,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.21761",
-   "image": "figures/2026-09-21/2609.21761.jpg"
+   "image": "figures/2026-09-21/2609.21761.jpg",
+   "summary_en": "CRISP is a physics engine designed for contact-rich robotic tasks like precision assembly. It addresses the geometric representation constraints and contact solver inaccuracies of existing simulators by integrating diverse 3D shape representations, accurate collision detection, and stable multi-contact numerical solvers. It provides high-fidelity simulation for motion control learning involving tight tolerances and locomotion."
   },
   {
    "date": "2026-09-21",
@@ -2692,7 +2786,8 @@
     "safety"
    ],
    "abs_url": "https://arxiv.org/abs/2609.21572",
-   "image": "figures/2026-09-21/2609.21572.jpg"
+   "image": "figures/2026-09-21/2609.21572.jpg",
+   "summary_en": "SABER is a reinforcement learning legged locomotion policy that integrates geometric information with semantic contact affordance to determine valid foot placements. In industrial settings, stepping on fragile pipes or materials can cause severe accidents. By encoding local 3D geometry and affordance labels into a unified terrain map, the policy reasons end-to-end without an explicit planner to achieve safe, adaptive locomotion."
   },
   {
    "date": "2026-09-21",
@@ -2721,7 +2816,8 @@
     "grasping"
    ],
    "abs_url": "https://arxiv.org/abs/2609.21045",
-   "image": "figures/2026-09-21/2609.21045.jpg"
+   "image": "figures/2026-09-21/2609.21045.jpg",
+   "summary_en": "DEXTERA automatically generates deployable dexterous manipulation policies from a single RGB image, bypassing costly real-world data collection. It decomposes the scene into a Gaussian representation for static backgrounds and interactive assets with physical parameters estimated by a VLM, enabling large-scale policy training in simulation. Gradually bridging visual, geometric, and dynamics gaps allows reliable zero-shot sim-to-real transfer."
   },
   {
    "date": "2026-09-21",
@@ -2749,7 +2845,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.21788",
-   "image": "figures/2026-09-21/2609.21788.jpg"
+   "image": "figures/2026-09-21/2609.21788.jpg",
+   "summary_en": "Addressing failures of pretrained foundation models on specific subtasks in long-horizon manipulation, PARTS introduces a real-world subtask RL framework. Instead of recollecting full-task demonstration data, it freezes the pretrained model and focuses RL practice solely on the bottleneck subtask. This drastically boosts task success rates under sparse rewards with minimal operator intervention."
   },
   {
    "date": "2026-09-21",
@@ -2774,7 +2871,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.21022",
-   "image": "figures/2026-09-21/2609.21022.jpg"
+   "image": "figures/2026-09-21/2609.21022.jpg",
+   "summary_en": "Diffusion-based VLAs execute action chunks open-loop, causing delays when objects move or contacts shift. VLA-Feedback fuses low-frequency diffusion planning with high-frequency visual feedback. Rather than fully denoising entire chunks before execution, its two-timescale architecture performs real-time noise removal using sequential feedback during runtime, significantly improving responsiveness in dynamic environments."
   },
   {
    "date": "2026-09-21",
@@ -2800,7 +2898,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.21818",
-   "image": "figures/2026-09-21/2609.21818.jpg"
+   "image": "figures/2026-09-21/2609.21818.jpg",
+   "summary_en": "LunaDrive is a GaN FET-based motor driver developed to maximize the performance of high-power flat BLDC motors beyond their standard ratings (≤48V). It overcomes the high-voltage, high-current trade-offs of conventional Si MOSFETs, incorporating delay-compensated control to deliver peak rotational speeds and sharp torque responses that enhance dynamic robot mobility."
   },
   {
    "date": "2026-09-21",
@@ -2822,7 +2921,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.21024",
-   "image": "figures/2026-09-21/2609.21024.jpg"
+   "image": "figures/2026-09-21/2609.21024.jpg",
+   "summary_en": "This paper extends first-order rigid-body dynamics derivative algorithms to closed-chain mechanisms. It removes the conventional assumption that joint velocity effects are independent of local configuration, generalizing the formulation to constraint-embedding closed-link models. This advancement enables fast, accurate trajectory optimization and control computations for parallel-link and closed-loop-driven robots."
   },
   {
    "date": "2026-09-20",
@@ -2848,7 +2948,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.20106",
-   "image": "figures/2026-09-20/2609.20106.jpg"
+   "image": "figures/2026-09-20/2609.20106.jpg",
+   "summary_en": "AnyviewMeter is an adaptation framework that eliminates evaluation variance caused by camera viewpoint changes and occlusions in visual robot reward models. By combining LoRA, Plücker ray embeddings, and synchronized block attention, it integrates camera geometry into visual features to output geometrically consistent scalar rewards, enabling robust reward estimation during policy learning."
   },
   {
    "date": "2026-09-20",
@@ -2873,7 +2974,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.20709",
-   "image": "figures/2026-09-20/2609.20709.jpg"
+   "image": "figures/2026-09-20/2609.20709.jpg",
+   "summary_en": "MoWAM is a world action model that explicitly predicts structured future robot motions rather than generating inference-heavy future video frames. By discarding full-scene reconstruction and modeling the robot's motion evolution as a compact abstraction, it significantly cuts computational costs, improves robustness to distribution shifts, and enhances policy learning efficiency."
   },
   {
    "date": "2026-09-20",
@@ -2898,7 +3000,8 @@
     "vision-language-action"
    ],
    "abs_url": "https://arxiv.org/abs/2609.20646",
-   "image": "figures/2026-09-20/2609.20646.jpg"
+   "image": "figures/2026-09-20/2609.20646.jpg",
+   "summary_en": "TraceFlow modifies pretrained, frozen Flow-Matching robot policies at test time using historical success and failure rollouts without additional training. By constructing a progress-conditioned correction field from the action densities of retrieved successes and failures, it adds bounded guidance to the frozen velocity field, leveraging failure trajectories as negative evidence for robust execution."
   },
   {
    "date": "2026-09-20",
@@ -2929,7 +3032,8 @@
     "imitation-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.20776",
-   "image": "figures/2026-09-20/2609.20776.jpg"
+   "image": "figures/2026-09-20/2609.20776.jpg",
+   "summary_en": "GeoAAC dynamically adjusts action chunk lengths based on prediction confidence in flow-matching VLA policies, replacing conventional fixed horizons. By capturing action uncertainty and phase-dependent precision requirements from the geometry of denoising trajectories, it assigns optimal execution horizons to balance closed-loop feedback with motion smoothness."
   },
   {
    "date": "2026-09-20",
@@ -2960,7 +3064,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2609.20680",
-   "image": "figures/2026-09-20/2609.20680.jpg"
+   "image": "figures/2026-09-20/2609.20680.jpg",
+   "summary_en": "This paper presents a synthetic data generation pipeline extending the IsaacSim-based OceanSim simulator for learning-based perception in underwater environments. Addressing the extreme difficulty of collecting real marine data, it generates large-scale photorealistic datasets with flexible appearances and automatic annotations to facilitate sim-to-real transfer."
   },
   {
    "date": "2026-09-20",
@@ -2988,7 +3093,8 @@
     "safety"
    ],
    "abs_url": "https://arxiv.org/abs/2609.20822",
-   "image": "figures/2026-09-20/2609.20822.jpg"
+   "image": "figures/2026-09-20/2609.20822.jpg",
+   "summary_en": "In coding-agent-based manipulation where LLMs generate control programs, this paper examines why obstacle collisions frequently occur even when forbidden in prompts. To prevent safety violations driven by task-completion bias, the authors introduce an obstacle-aware harness framework that strictly enforces safety constraints during program execution."
   },
   {
    "date": "2026-09-20",
@@ -3012,7 +3118,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.20673",
-   "image": "figures/2026-09-20/2609.20673.jpg"
+   "image": "figures/2026-09-20/2609.20673.jpg",
+   "summary_en": "FunArt reconstructs functional 3D scene graphs—including articulation kinematics models and moving-part segmentations—from a single static RGB-D observation. It converts target geometry into the sparse structural voxel representation of TRELLIS.2, directly recovering articulation joints and part structures from pretrained generative latents without requiring interaction history."
   },
   {
    "date": "2026-09-20",
@@ -3042,7 +3149,8 @@
     "llm-agent"
    ],
    "abs_url": "https://arxiv.org/abs/2609.20791",
-   "image": "figures/2026-09-20/2609.20791.jpg"
+   "image": "figures/2026-09-20/2609.20791.jpg",
+   "summary_en": "StageGuard is an agentic distillation framework that trains lightweight models to detect skill completion and trigger transitions to subsequent subtasks in hierarchical robot control. By efficiently distilling decision boundaries from large VLMs' reasoning capabilities, it provides a real-time, on-robot skill completion checker."
   },
   {
    "date": "2026-09-20",
@@ -3066,7 +3174,8 @@
     "hardware"
    ],
    "abs_url": "https://arxiv.org/abs/2609.20691",
-   "image": null
+   "image": null,
+   "summary_en": "This paper extends the PX4 firmware for hybrid aerial-marine drones capable of seamless flight and water surface navigation within a single mission. Retaining standard flight features and safety mechanisms, it integrates manual and autonomous surface modes to realize a navigation system that unifies aerial and aquatic waypoints via QGroundControl."
   },
   {
    "date": "2026-09-20",
@@ -3100,7 +3209,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2609.20388",
-   "image": "figures/2026-09-20/2609.20388.jpg"
+   "image": "figures/2026-09-20/2609.20388.jpg",
+   "summary_en": "Navi-Agent is a vision-language navigation agent for continuous environments that constructs a coordinate-free spatial state from monocular images and past action histories without explicit global coordinates or depth. It supports zero-shot place recognition, progress tracking, and recovery actions, enabling guidance robust to localization errors."
   },
   {
    "date": "2026-09-19",
@@ -3129,7 +3239,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.20575",
-   "image": "figures/2026-09-19/2609.20575.jpg"
+   "image": "figures/2026-09-19/2609.20575.jpg",
+   "summary_en": "SGPS accelerates visual policy learning for locomotion and manipulation. By alternating between sampling-based MPC for action target refinement and first-order policy gradient updates via differentiable simulation, it avoids local minima in undesirable contact patterns and learns robust policies with reduced computational cost."
   },
   {
    "date": "2026-09-19",
@@ -3158,7 +3269,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.20761",
-   "image": "figures/2026-09-19/2609.20761.jpg"
+   "image": "figures/2026-09-19/2609.20761.jpg",
+   "summary_en": "Agile-WAM is an inference-efficient tactile world action model for contact-rich robot control. It directly encodes visual and tactile observations into a shared latent space and unifies future state prediction with action generation via flow matching, enabling efficient real-robot deployment without relying on massive generative foundation backbones."
   },
   {
    "date": "2026-09-19",
@@ -3186,7 +3298,8 @@
     "simulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.20747",
-   "image": "figures/2026-09-19/2609.20747.jpg"
+   "image": "figures/2026-09-19/2609.20747.jpg",
+   "summary_en": "MILER is a zero-shot sim-to-real reinforcement learning framework using a semantic mid-level representation (MLR) for autonomous driving in unstructured environments. By training RL policies in a lightweight MLR simulator and taking camera-extracted MLRs as input on the physical vehicle, it enables direct real-world transfer."
   },
   {
    "date": "2026-09-19",
@@ -3217,7 +3330,8 @@
     "simulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.20756",
-   "image": "figures/2026-09-19/2609.20756.jpg"
+   "image": "figures/2026-09-19/2609.20756.jpg",
+   "summary_en": "OPTED is an on-policy fine-tuning method for end-to-end driving that improves closed-loop safety without costly sensor simulation. It trains a privileged teacher model via RL in a render-free state space and distills it into the sensor policy, significantly boosting closed-loop performance at low cost."
   },
   {
    "date": "2026-09-19",
@@ -3242,7 +3356,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.20648",
-   "image": "figures/2026-09-19/2609.20648.jpg"
+   "image": "figures/2026-09-19/2609.20648.jpg",
+   "summary_en": "SkipVLA is a hybrid policy framework designed to reduce inference latency in VLA models. The VLA handles coarse semantic understanding and goal setting, while a fast classical motion planner takes over obstacle-free movements, substantially reducing inference calls and task execution time while preserving instruction-following capabilities."
   },
   {
    "date": "2026-09-19",
@@ -3270,7 +3385,8 @@
     "dataset"
    ],
    "abs_url": "https://arxiv.org/abs/2609.20414",
-   "image": "figures/2026-09-19/2609.20414.jpg"
+   "image": "figures/2026-09-19/2609.20414.jpg",
+   "summary_en": "TouchSight predicts dense full-hand contact forces from egocentric RGB video. To bridge the appearance gap between pressure-sensing gloves and bare hands, the authors built TwinTouch-20H, a 20-hour paired dataset generated via visual augmentation, enabling contact force estimation during everyday manual tasks without expensive sensors."
   },
   {
    "date": "2026-09-19",
@@ -3294,7 +3410,8 @@
     "simulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.20034",
-   "image": "figures/2026-09-19/2609.20034.jpg"
+   "image": "figures/2026-09-19/2609.20034.jpg",
+   "summary_en": "Astronex-World 1.0 is an open, real-time interactive video world model foundation. Given text, images, camera trajectories, 64-dimensional continuous actions, and embodiment identifiers, it predicts future visual states. Utilizing block causal attention and KV caching, it achieves low-latency continuous generation."
   },
   {
    "date": "2026-09-19",
@@ -3329,7 +3446,8 @@
     "teleoperation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.20659",
-   "image": "figures/2026-09-19/2609.20659.jpg"
+   "image": "figures/2026-09-19/2609.20659.jpg",
+   "summary_en": "HIL-UMI is a human-in-the-loop post-training framework for Vision-Language-Action models using the handheld Universal Manipulation Interface (UMI). It efficiently collects and trains on human corrective interventions during autonomous policy rollouts, improving out-of-distribution robustness and task success rates without prolonged real-robot occupation."
   },
   {
    "date": "2026-09-19",
@@ -3359,7 +3477,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.20817",
-   "image": "figures/2026-09-19/2609.20817.jpg"
+   "image": "figures/2026-09-19/2609.20817.jpg",
+   "summary_en": "FAMOS is a feed-forward model that estimates moving-part segmentations and kinematic parameters from sparse, partial point clouds. Using a Multi-state Articulation Transformer to aggregate geometric changes across multiple states, it reconstructs diverse articulated objects without relying on category-specific shape priors."
   },
   {
    "date": "2026-09-18",
@@ -3386,7 +3505,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.19340",
-   "image": "figures/2026-09-18/2609.19340.jpg"
+   "image": "figures/2026-09-18/2609.19340.jpg",
+   "summary_en": "ViLoMan is an autonomous whole-body loco-manipulation framework for humanoid robots that integrates locomotion with physical interaction. It retargets partial human demonstrations into executable robot trajectories and uses teacher-student distillation to train a unified policy operating solely on onboard sensors, validating diverse loco-manipulation tasks on real hardware."
   },
   {
    "date": "2026-09-18",
@@ -3412,7 +3532,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.19272",
-   "image": "figures/2026-09-18/2609.19272.jpg"
+   "image": "figures/2026-09-18/2609.19272.jpg",
+   "summary_en": "This paper presents a two-stage reinforcement learning pipeline for humanoid navigation across multi-layered terrain such as stairs. A routing policy over complex terrain is first trained using reduced-order dynamics and 3D LiDAR. That knowledge then initializes and trains a full-order humanoid policy with whole-body dynamics, achieving stable locomotion."
   },
   {
    "date": "2026-09-18",
@@ -3442,7 +3563,8 @@
     "quadruped"
    ],
    "abs_url": "https://arxiv.org/abs/2609.20035",
-   "image": "figures/2026-09-18/2609.20035.jpg"
+   "image": "figures/2026-09-18/2609.20035.jpg",
+   "summary_en": "The authors propose DR-MPC, a model-predictive control formulation and custom interior-point solver for legged locomotion. Dynamics equalities and affine inputs are relaxed into quadratic penalties, transforming the problem into a box-constrained QP accelerated by Schur complement elimination. This guarantees structural feasibility and enables high-frequency real-time control on hardware."
   },
   {
    "date": "2026-09-18",
@@ -3466,7 +3588,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.20558",
-   "image": "figures/2026-09-18/2609.20558.jpg"
+   "image": "figures/2026-09-18/2609.20558.jpg",
+   "summary_en": "A task-semantic and scene-grounded whole-body locomotion framework is proposed for roofing construction tasks using the Unitree G1 humanoid. Human demonstrations are matched against geometric roof models to optimize foot and hand contact points. Reinforcement learning then achieves both slope-adaptive whole-body balance control and task execution."
   },
   {
    "date": "2026-09-18",
@@ -3500,7 +3623,8 @@
     "imitation-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.20566",
-   "image": "figures/2026-09-18/2609.20566.jpg"
+   "image": "figures/2026-09-18/2609.20566.jpg",
+   "summary_en": "This paper proposes OmniMimic, a method that learns omnidirectional quadruped locomotion policies from direction-constrained animal motion capture data. Using time-reversal, dynamics completion, and sagittal symmetrization, it augments physically plausible motions. The policy acquires natural, animal-like multi-style gaits in all directions, including backward walking and turning, without manual reward engineering."
   },
   {
    "date": "2026-09-18",
@@ -3531,7 +3655,8 @@
     "safety"
    ],
    "abs_url": "https://arxiv.org/abs/2609.18122",
-   "image": "figures/2026-09-18/2609.18122.jpg"
+   "image": "figures/2026-09-18/2609.18122.jpg",
+   "summary_en": "Focusing on geometric discrepancies between visual rendering meshes and physics collision meshes in simulators, this paper demonstrates a new vulnerability: Collision Mesh Poisoning (CMP) attacks. By tampering with the collision mesh of visually benign assets, the authors show that learned robotic manipulation policies can be intentionally forced to fail."
   },
   {
    "date": "2026-09-18",
@@ -3578,7 +3703,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.19194",
-   "image": "figures/2026-09-18/2609.19194.jpg"
+   "image": "figures/2026-09-18/2609.19194.jpg",
+   "summary_en": "The authors introduce AthenaZero, a bimanual manipulator employing quasi-direct drives and remote transmission to reduce effective endpoint mass to human levels—about one-tenth of conventional systems. Leveraging high torque transparency and backdrivability, dynamic tasks demanding human-like responsiveness, including pitching, batting, and catching baseballs, are demonstrated on the physical robot."
   },
   {
    "date": "2026-09-18",
@@ -3607,7 +3733,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.19480",
-   "image": "figures/2026-09-18/2609.19480.jpg"
+   "image": "figures/2026-09-18/2609.19480.jpg",
+   "summary_en": "Inspired by insect asynchronous muscle, which sustains self-excited flapping through stretch activation without neural commands, this paper develops the first asynchronously actuated flapping-wing robot. Flapping motion adapts mechanically and autonomously to disturbances like airflow shifts, achieving stable flight and resilience without high-rate control loops."
   },
   {
    "date": "2026-09-18",
@@ -3640,7 +3767,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2609.20649",
-   "image": "figures/2026-09-18/2609.20649.jpg"
+   "image": "figures/2026-09-18/2609.20649.jpg",
+   "summary_en": "This paper proposes DexTouch-WM, an action-conditioned tactile world model that simultaneously predicts future RGB images and bidirectional contact dynamics from human hand touch demonstrations. Flexible piezoelectric sensor arrays with identical layouts are placed on both human and multi-fingered robot hands. This transfers human tactile experience into the robot action space for dexterous manipulation."
   },
   {
    "date": "2026-09-18",
@@ -3666,7 +3794,8 @@
     "hardware"
    ],
    "abs_url": "https://arxiv.org/abs/2609.19196",
-   "image": "figures/2026-09-18/2609.19196.jpg"
+   "image": "figures/2026-09-18/2609.19196.jpg",
+   "summary_en": "The authors propose DITTO, a co-designed teleoperation system resolving visual gaps and lack of haptic feedback when collecting multi-DoF hand manipulation data. A motorized exoskeleton glove kinematically matched to a 7-DoF robot hand provides natural contact forces and seamless teleoperation through one-to-one actuator mapping."
   },
   {
    "date": "2026-09-17",
@@ -3699,7 +3828,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.18930",
-   "image": "figures/2026-09-17/2609.18930.jpg"
+   "image": "figures/2026-09-17/2609.18930.jpg",
+   "summary_en": "To expand the workspace of bipedal robots, this paper trains a whole-body controller using reinforcement learning that coordinates locomotion and arm motion solely from 6-DoF end-effector targets. Reaching, postural adaptation, and stepping are coordinated autonomously without explicit base velocity or gait commands."
   },
   {
    "date": "2026-09-17",
@@ -3741,7 +3871,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.18732",
-   "image": "figures/2026-09-17/2609.18732.jpg"
+   "image": "figures/2026-09-17/2609.18732.jpg",
+   "summary_en": "This paper presents PASSAGE, a perceptive whole-body locomotion framework for traversing obstacles by stepping over or crouching under them. Trained on 100 hours of human motion data gathered via VR and inertial MoCap, it pairs flow-matching local reference generation with a tracking controller to enable real-world traversal."
   },
   {
    "date": "2026-09-17",
@@ -3768,7 +3899,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.18869",
-   "image": "figures/2026-09-17/2609.18869.jpg"
+   "image": "figures/2026-09-17/2609.18869.jpg",
+   "summary_en": "The authors introduce KINO, a hierarchical framework inserting kinematic keyframes as an intermediate interface between high-level VLM planning and RL whole-body control. Keyframes selected by the VLM are retargeted and adapted to the environment, enabling stable execution of whole-body loco-manipulation tasks involving contact."
   },
   {
    "date": "2026-09-17",
@@ -3793,7 +3925,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.17946",
-   "image": "figures/2026-09-17/2609.17946.jpg"
+   "image": "figures/2026-09-17/2609.17946.jpg",
+   "summary_en": "Unlike standard policies that output joint commands directly, this paper proposes expressing joint trajectories as command-conditioned Fourier series adjusted online via state feedback. By explicitly embedding periodic structure, the feedback-modulated harmonic policy improves tracking performance and adaptability in simulated quadruped locomotion."
   },
   {
    "date": "2026-09-17",
@@ -3818,7 +3951,8 @@
     "sim-to-real"
    ],
    "abs_url": "https://arxiv.org/abs/2609.17832",
-   "image": "figures/2026-09-17/2609.17832.jpg"
+   "image": "figures/2026-09-17/2609.17832.jpg",
+   "summary_en": "To narrow the sim-to-real gap caused by unknown object and floor parameters, this paper proposes Adaptive-MHE, integrating parallel-rollout sampling-based system identification with Moving Horizon Estimation. The approach achieves adaptive control for contact-rich legged loco-manipulation."
   },
   {
    "date": "2026-09-17",
@@ -3843,7 +3977,8 @@
     "safety"
    ],
    "abs_url": "https://arxiv.org/abs/2609.19080",
-   "image": "figures/2026-09-17/2609.19080.jpg"
+   "image": "figures/2026-09-17/2609.19080.jpg",
+   "summary_en": "The authors propose ElastiQP, an always-feasible dual active-set solver that maintains equality constraints while relaxing inequality constraints using exact l1 penalties. By handling slack variables analytically, it preserves constant problem dimensions and ensures real-time performance without failure from infeasible QPs."
   },
   {
    "date": "2026-09-17",
@@ -3874,7 +4009,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2609.18685",
-   "image": "figures/2026-09-17/2609.18685.jpg"
+   "image": "figures/2026-09-17/2609.18685.jpg",
+   "summary_en": "This paper presents WeaveRL, an infrastructure that trains policies atop collision avoidance controllers while dynamically performing GPU-accelerated, surfel-based 3D geometric reconstruction across thousands of parallel simulation environments. This enables geometry-aware perceptive RL without relying on manual, static CAD meshes."
   },
   {
    "date": "2026-09-17",
@@ -3899,7 +4035,8 @@
     "benchmark"
    ],
    "abs_url": "https://arxiv.org/abs/2609.17745",
-   "image": "figures/2026-09-17/2609.17745.jpg"
+   "image": "figures/2026-09-17/2609.17745.jpg",
+   "summary_en": "Focusing on irreversible events in real-world manipulation, such as drops and liquid spills, the authors introduce REVERSAL-BENCH, a benchmark that governs environment reversibility along a continuous parameter axis. Across eight manipulation setups, a reset oracle evaluates the robustness and limits of autonomous reset-free RL policies."
   },
   {
    "date": "2026-09-17",
@@ -3925,7 +4062,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.18207",
-   "image": "figures/2026-09-17/2609.18207.jpg"
+   "image": "figures/2026-09-17/2609.18207.jpg",
+   "summary_en": "To address inference delays and stale observations inherent to large vision-language-action (VLA) models, this paper proposes an RL fine-tuning approach under asynchronous execution. Moving beyond imitation learning limits, it delivers reliable closed-loop control in real-time environments subject to computational latency."
   },
   {
    "date": "2026-09-17",
@@ -3952,7 +4090,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.17758",
-   "image": "figures/2026-09-17/2609.17758.jpg"
+   "image": "figures/2026-09-17/2609.17758.jpg",
+   "summary_en": "The authors propose CALOS, a runtime safety layer that casts tilt-angle inequalities and Lyapunov descent conditions into a single quadratic program for quadrotors without altering the base learning algorithm. Active-set enumeration efficiently computes minimal modifications to nominal control torques."
   },
   {
    "date": "2026-09-16",
@@ -3978,7 +4117,8 @@
     "safety"
    ],
    "abs_url": "https://arxiv.org/abs/2609.16405",
-   "image": "figures/2026-09-16/2609.16405.jpg"
+   "image": "figures/2026-09-16/2609.16405.jpg",
+   "summary_en": "This paper proposes RECAL, a humanoid whole-body control layer that avoids collisions while preventing falls even when tracking targets are geometrically unsafe due to perception or teleoperation errors. Cross-attention over point-cloud representations of the robot and environment dynamically arbitrates between target tracking and collision avoidance for the floating base, end-effectors, and grasped objects."
   },
   {
    "date": "2026-09-16",
@@ -4006,7 +4146,8 @@
     "world-model"
    ],
    "abs_url": "https://arxiv.org/abs/2609.16644",
-   "image": "figures/2026-09-16/2609.16644.jpg"
+   "image": "figures/2026-09-16/2609.16644.jpg",
+   "summary_en": "The authors propose WholeBodyWAM for humanoid loco-manipulation, simultaneously predicting future visual dynamics, manipulation actions, and whole-body control (WBC) intents. Grounding heterogeneous WBC semantics while preserving pre-trained visual-action priors coordinates whole-body behavior and generalizes across unseen tasks."
   },
   {
    "date": "2026-09-16",
@@ -4037,7 +4178,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.16683",
-   "image": "figures/2026-09-16/2609.16683.jpg"
+   "image": "figures/2026-09-16/2609.16683.jpg",
+   "summary_en": "This paper proposes Weave, a framework that learns coordinated whole-body balance, locomotion, and dexterous contacts for humanoids from human-object interaction data. Contact-aware retargeting and approach-motion completion generate executable references, enabling stable object interaction across differing morphologies and dynamics."
   },
   {
    "date": "2026-09-16",
@@ -4067,7 +4209,8 @@
     "hardware"
    ],
    "abs_url": "https://arxiv.org/abs/2609.17405",
-   "image": "figures/2026-09-16/2609.17405.jpg"
+   "image": "figures/2026-09-16/2609.17405.jpg",
+   "summary_en": "To traverse challenging terrains like slopes and scaffolding, this paper presents an accelerated algorithm evaluating the maximum wrench polytope under arbitrary multi-contact configurations. Joint torques are computed within a 49 Hz control cycle, validating posture control and stability maintenance in simulation and on a physical legged robot."
   },
   {
    "date": "2026-09-16",
@@ -4105,7 +4248,8 @@
     "benchmark"
    ],
    "abs_url": "https://arxiv.org/abs/2609.16443",
-   "image": "figures/2026-09-16/2609.16443.jpg"
+   "image": "figures/2026-09-16/2609.16443.jpg",
+   "summary_en": "To bridge the real-world evaluation gap for visual locomotion, the authors introduce The Neverwhere Visual Parkour Benchmark Suite, a closed-loop evaluation platform reconstructing over 60 indoor and outdoor urban environments with 3D Gaussian Splatting. It provides photo-realistic simulation for reproducible parkour benchmarking."
   },
   {
    "date": "2026-09-16",
@@ -4128,7 +4272,8 @@
     "benchmark"
    ],
    "abs_url": "https://arxiv.org/abs/2609.16745",
-   "image": "figures/2026-09-16/2609.16745.jpg"
+   "image": "figures/2026-09-16/2609.16745.jpg",
+   "summary_en": "This paper conducts a forensic re-run using original code to evaluate the claim that removing the CVAE encoder in Action Chunking Transformer (ACT) collapses success rates from 35% to 2%. The authors fail to reproduce this drastic drop, demonstrating that training duration and evaluation checkpoint selection significantly affect the outcome."
   },
   {
    "date": "2026-09-16",
@@ -4166,7 +4311,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2609.16074",
-   "image": "figures/2026-09-16/2609.16074.jpg"
+   "image": "figures/2026-09-16/2609.16074.jpg",
+   "summary_en": "This paper surveys World-Action Models (WAMs), which predict future environmental transitions while generating executable robot actions. It clarifies distinctions from model-based RL, video generation, and VLA models, summarizing latent variable designs, objectives, real-world deployment challenges, and future research directions."
   },
   {
    "date": "2026-09-16",
@@ -4208,7 +4354,8 @@
     "simulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.16705",
-   "image": null
+   "image": null,
+   "summary_en": "Arguing that progress in embodied AI requires closed-loop \"experience\" spanning perception, action, and outcome rather than passive data collection, this paper introduces The Robot Data Factory (RDF). The infrastructure continuously generates, validates, and reuses experience across heterogeneous robots and environments to bridge reproducible experimentation and physical deployment."
   },
   {
    "date": "2026-09-16",
@@ -4254,7 +4401,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.17210",
-   "image": "figures/2026-09-16/2609.17210.jpg"
+   "image": "figures/2026-09-16/2609.17210.jpg",
+   "summary_en": "The authors introduce FluxVLA Engine, an open platform consolidating fragmented data formats, training pipelines, inference runtimes, and robot-specific interfaces for embodied AI. Managing VLAs, world-action models, and offline RL through unified configuration-driven workflows, it enhances reproducibility from research to real-robot deployment."
   },
   {
    "date": "2026-09-16",
@@ -4279,7 +4427,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2609.17524",
-   "image": "figures/2026-09-16/2609.17524.jpg"
+   "image": "figures/2026-09-16/2609.17524.jpg",
+   "summary_en": "This paper proposes ModAR, a world-action model that sequentially and autoregressively denoises multi-modal predictions—such as depth and visual features alongside RGB images—before generating actions. It efficiently captures geometry, semantics, and motion, systematically evaluating how modality order and data mixtures affect policy performance."
   },
   {
    "date": "2026-09-15",
@@ -4303,7 +4452,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.15213",
-   "image": "figures/2026-09-15/2609.15213.jpg"
+   "image": "figures/2026-09-15/2609.15213.jpg",
+   "summary_en": "The authors propose X-WBC, a cross-embodiment foundation model for humanoid whole-body control that shares motion experience across diverse robots. It disentangles shared human motion semantics from robot-specific physical execution, learning temporal dynamics with a Causal Transformer and adapting to individual embodiments via lightweight modules."
   },
   {
    "date": "2026-09-15",
@@ -4331,7 +4481,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.13289",
-   "image": "figures/2026-09-15/2609.13289.jpg"
+   "image": "figures/2026-09-15/2609.13289.jpg",
+   "summary_en": "This paper introduces a framework to bridge the sim-to-real gap in high-speed quadrupedal locomotion. By establishing an actuator model that explicitly accounts for voltage coupling and magnetic saturation at high speeds, and combining it with adaptive command scheduling, the method achieves stable physical running near actuator limits."
   },
   {
    "date": "2026-09-15",
@@ -4358,7 +4509,8 @@
     "world-model"
    ],
    "abs_url": "https://arxiv.org/abs/2609.15770",
-   "image": "figures/2026-09-15/2609.15770.jpg"
+   "image": "figures/2026-09-15/2609.15770.jpg",
+   "summary_en": "The authors propose JEPLO, an elevation-map-free perceptive locomotion framework for legged robots using LiDAR. Introducing the PE-JEPA world model to predictively learn terrain representations from proprioception and LiDAR scans, a teacher-student reinforcement learning pipeline acquires robust locomotion policies in simulation."
   },
   {
    "date": "2026-09-15",
@@ -4387,7 +4539,8 @@
     "safety"
    ],
    "abs_url": "https://arxiv.org/abs/2609.15988",
-   "image": "figures/2026-09-15/2609.15988.jpg"
+   "image": "figures/2026-09-15/2609.15988.jpg",
+   "summary_en": "For humanoid control vulnerable to external disturbances and contact changes, this paper proposes ResSafe, an implicit safety filter using residual reinforcement learning. Separating learning into a nominal task policy and a safety-focused residual policy suppresses dangerous behaviors such as falling without degrading tracking performance."
   },
   {
    "date": "2026-09-15",
@@ -4411,7 +4564,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.13243",
-   "image": "figures/2026-09-15/2609.13243.jpg"
+   "image": "figures/2026-09-15/2609.13243.jpg",
+   "summary_en": "The authors present GzDRL, a single-process RL framework that eliminates non-determinism and throughput bottlenecks in middleware-based Gazebo integration. Directly synchronizing agent actions with physics engine steps delivers fast, deterministic parallel data collection and state-of-the-art throughput across benchmarks."
   },
   {
    "date": "2026-09-15",
@@ -4438,7 +4592,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.14878",
-   "image": "figures/2026-09-15/2609.14878.jpg"
+   "image": "figures/2026-09-15/2609.14878.jpg",
+   "summary_en": "To prevent early exploration inefficiencies and hardware failures in real-world reinforcement learning, this paper employs sampling-based MPC as scaffolding for dexterous manipulation. The policy pre-trains on MPC trajectories without human demonstrations, and MPC intermittently guides online exploration, safely and efficiently acquiring multi-fingered manipulation policies."
   },
   {
    "date": "2026-09-15",
@@ -4465,7 +4620,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.15162",
-   "image": "figures/2026-09-15/2609.15162.jpg"
+   "image": "figures/2026-09-15/2609.15162.jpg",
+   "summary_en": "To resolve trajectory discontinuities in Diffusion Policy, this paper proposes generating end-effector trajectories directly on SE(3) using B-splines. Sharing boundary control points across consecutive chunks strictly guarantees C^2 continuity throughout the full trajectory, achieving smooth, vibration-free physical manipulation."
   },
   {
    "date": "2026-09-15",
@@ -4489,7 +4645,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.13231",
-   "image": "figures/2026-09-15/2609.13231.jpg"
+   "image": "figures/2026-09-15/2609.13231.jpg",
+   "summary_en": "This paper introduces ShieldVLA, a safety alignment fine-tuning framework for vision-language-action models based on Hamilton-Jacobi (HJ) reachability theory, avoiding soft-penalty violations and excessive conservatism. It learns a model-free approximation of the HJ reachable value without dense step-wise safety annotations, guaranteeing safe action generation."
   },
   {
    "date": "2026-09-15",
@@ -4536,7 +4693,8 @@
     "simulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.15726",
-   "image": "figures/2026-09-15/2609.15726.jpg"
+   "image": "figures/2026-09-15/2609.15726.jpg",
+   "summary_en": "The authors introduce Bench2Dex, a simulated bimanual visuo-tactile manipulation benchmark spanning 12 multi-fingered hands with diverse morphologies and sensor placements. Mapping contact mechanics to a standardized tactile interface enables systematic, fair evaluation of visuo-tactile policy performance and cross-hand generalization."
   },
   {
    "date": "2026-09-15",
@@ -4562,7 +4720,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.13845",
-   "image": "figures/2026-09-15/2609.13845.jpg"
+   "image": "figures/2026-09-15/2609.13845.jpg",
+   "summary_en": "This paper addresses computational overhead from trajectory optimizers (CEM, MPPI) and contact multi-modality failure in single-pass policies for joint-embedding predictive world models. The authors introduce LePlanner, an amortized controller that iteratively generates and refines latent action sequences, achieving both rapid inference and accurate planning."
   },
   {
    "date": "2026-09-14",
@@ -4587,7 +4746,8 @@
     "world-model"
    ],
    "abs_url": "https://arxiv.org/abs/2609.12347",
-   "image": "figures/2026-09-14/2609.12347.jpg"
+   "image": "figures/2026-09-14/2609.12347.jpg",
+   "summary_en": "The authors propose DWMP (Dual World Model Policy) for humanoid traversal through cluttered obstacle environments. Combining a Koopman-operator-based dynamics world model for low-dimensional proprioception with another model for high-dimensional egocentric vision yields complementary latent representations, effectively fusing complex dynamics and visual inputs to learn locomotion."
   },
   {
    "date": "2026-09-14",
@@ -4619,7 +4779,8 @@
     "world-model"
    ],
    "abs_url": "https://arxiv.org/abs/2609.12036",
-   "image": "figures/2026-09-14/2609.12036.jpg"
+   "image": "figures/2026-09-14/2609.12036.jpg",
+   "summary_en": "This paper proposes a general world model simulator for embodied intelligence that predicts future observations from visual context and robot actions. It introduces a 28-dimensional unified action space covering mainstream robot morphologies and an Action-visual injection module connecting pixels and actions via URDF and camera rendering. It improves PSNR by +0.904 over baselines, achieving high-precision visual prediction across heterogeneous devices."
   },
   {
    "date": "2026-09-14",
@@ -4643,7 +4804,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.12749",
-   "image": "figures/2026-09-14/2609.12749.jpg"
+   "image": "figures/2026-09-14/2609.12749.jpg",
+   "summary_en": "This paper proposes SCQ for robot offline-to-online reinforcement learning to address policy update instability caused by standard log entropy terms turning negative. By bounding the entropy term with a strictly positive sigmoid function while preserving conservative Q regularization and return-based lower-bound calibration, it significantly improves value estimation and policy optimization stability during real-robot learning."
   },
   {
    "date": "2026-09-14",
@@ -4670,7 +4832,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.12758",
-   "image": null
+   "image": null,
+   "summary_en": "This paper proposes a method for learning quadrotor capture using a shipboard robotic arm in maritime environments with wind turbulence and deck motion. Implemented in NVIDIA Isaac Lab via Heterogeneous Agent PPO (HAPPO), HARL-AC combines curriculum learning with an adversarial wind disturbance agent, acquiring a robust coordinated control policy in simulation that outperforms domain randomization alone."
   },
   {
    "date": "2026-09-14",
@@ -4695,7 +4858,8 @@
     "simulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.12400",
-   "image": "figures/2026-09-14/2609.12400.jpg"
+   "image": "figures/2026-09-14/2609.12400.jpg",
+   "summary_en": "This paper proposes a decentralized evolutionary algorithm that independently optimizes each leg's controller for hexapod robot locomotion without centralized coordination. Validated in the Webots simulator and on the Mantis robot, it confirms that adaptive, stable gaits emerge from local inter-leg interactions, demonstrating reduced search complexity and effectiveness compared to cooperative coevolution."
   },
   {
    "date": "2026-09-14",
@@ -4726,7 +4890,8 @@
     "teleoperation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.12549",
-   "image": "figures/2026-09-14/2609.12549.jpg"
+   "image": "figures/2026-09-14/2609.12549.jpg",
+   "summary_en": "The authors construct a synchronized vision, tactile, and language dataset spanning 200 hours and 10,576 trajectories for bimanual multi-fingered dexterous manipulation. They propose STAR, a VTLA model that learns multimodal action policies by efficiently extracting spatial, temporal, and contact representations from sparse tactile signals, demonstrating its effectiveness across 65 tasks requiring multi-fingered coordination."
   },
   {
    "date": "2026-09-14",
@@ -4756,7 +4921,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.12498",
-   "image": "figures/2026-09-14/2609.12498.jpg"
+   "image": "figures/2026-09-14/2609.12498.jpg",
+   "summary_en": "This paper proposes ArtManip, the first category-level in-hand manipulation method for controlling the internal degrees of freedom of unseen articulated objects using a multi-fingered hand while maintaining a stable grasp. It adapts to diverse initial grasps and object instances. Extensive experiments, including real-world trials, show robust articulated manipulation alongside stable grasp retention on unseen objects."
   },
   {
    "date": "2026-09-14",
@@ -4780,7 +4946,8 @@
     "imitation-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.12316",
-   "image": "figures/2026-09-14/2609.12316.jpg"
+   "image": "figures/2026-09-14/2609.12316.jpg",
+   "summary_en": "This work addresses the issue where automatically generated trajectories from TAMP (Task and Motion Planning) yield limited fine-tuning gains because they diverge from the data distribution of pretrained VLA models. It proposes DATAFARM, which steers planner-generated trajectories to align with the VLA pretraining distribution, enabling efficient and effective data provision that improves robot foundation model performance."
   },
   {
    "date": "2026-09-14",
@@ -4804,7 +4971,8 @@
     "locomotion"
    ],
    "abs_url": "https://arxiv.org/abs/2609.12258",
-   "image": "figures/2026-09-14/2609.12258.jpg"
+   "image": "figures/2026-09-14/2609.12258.jpg",
+   "summary_en": "Inspired by biological leaky integrate-and-fire neural models, the authors develop pneumatic neurons (Pneu-rons) that autonomously generate rhythmic motions without centralized electronic controllers. The proposed hardware integrates low-boiling-point fluid, heaters, and mechanical switches, autonomously achieving periodic behaviors such as coordinated walking through local self-oscillation and mutual coupling."
   },
   {
    "date": "2026-09-14",
@@ -4831,7 +4999,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.12831",
-   "image": "figures/2026-09-14/2609.12831.jpg"
+   "image": "figures/2026-09-14/2609.12831.jpg",
+   "summary_en": "This paper proposes VertexCBF to learn scalable, interpretable neural control barrier functions (NCBFs) by leveraging control-affine systems and convex polytopic control input constraints. It approximates the stationary Hamilton-Jacobi value function using physics-informed neural networks and bounds the search over extreme points, systematically learning non-overly conservative safe sets for safe control."
   },
   {
    "date": "2026-09-12",
@@ -4856,7 +5025,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.11014",
-   "image": "figures/2026-09-12/2609.11014.jpg"
+   "image": "figures/2026-09-12/2609.11014.jpg",
+   "summary_en": "This paper proposes an approach to extract mechanism-invariant strategic subgoals for long-horizon goal-conditioned reinforcement learning. By identifying inevitable passage regions and route selections topologically from offline trajectories using homology, it achieves high-level control that generalizes across heterogeneous robot morphologies."
   },
   {
    "date": "2026-09-12",
@@ -4879,7 +5049,8 @@
     "benchmark"
    ],
    "abs_url": "https://arxiv.org/abs/2609.10873",
-   "image": "figures/2026-09-12/2609.10873.jpg"
+   "image": "figures/2026-09-12/2609.10873.jpg",
+   "summary_en": "This paper highlights the issue in continual embodied agents where validation gates reject harmful policy updates but also block beneficial learning. It proposes an update admission auditing method that uses paired binomial testing to guarantee behavioral performance on past tasks while preserving learning opportunities, demonstrating its effectiveness on diagnostic pushing tasks."
   },
   {
    "date": "2026-09-12",
@@ -4905,7 +5076,8 @@
     "vision-language-action"
    ],
    "abs_url": "https://arxiv.org/abs/2609.11308",
-   "image": "figures/2026-09-12/2609.11308.jpg"
+   "image": "figures/2026-09-12/2609.11308.jpg",
+   "summary_en": "This paper proposes 2AM, a framework for long-horizon manipulation that concentrates task memory into a multimodal agent and guides a stateless RGB-based Action Model. By avoiding excessive tooling on the policy side and expanding the bandwidth of language guidance, it achieves robust execution."
   },
   {
    "date": "2026-09-12",
@@ -4931,7 +5103,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.11737",
-   "image": "figures/2026-09-12/2609.11737.jpg"
+   "image": "figures/2026-09-12/2609.11737.jpg",
+   "summary_en": "This paper proposes ORCH, a coordination framework applying human organizational theory principles to large-scale heterogeneous agent groups tackling physical embodied tasks. It constructs dynamic hierarchical organizations combining concurrent execution and sequential dependencies, achieving coordination performance superior to fixed-structure multi-agent baselines."
   },
   {
    "date": "2026-09-12",
@@ -4958,7 +5131,8 @@
     "world-model"
    ],
    "abs_url": "https://arxiv.org/abs/2609.11172",
-   "image": "figures/2026-09-12/2609.11172.jpg"
+   "image": "figures/2026-09-12/2609.11172.jpg",
+   "summary_en": "This paper introduces EgoGenEval, a benchmark geometrically evaluating the physical consistency of visual generative models under ego-motion. Comprising 1,400 cases and 2,360 viewpoints, it measures physical fidelity essential for spatial reasoning and planning using two metrics: camera motion grounding and scene state maintenance."
   },
   {
    "date": "2026-09-11",
@@ -4991,7 +5165,8 @@
     "world-model"
    ],
    "abs_url": "https://arxiv.org/abs/2609.11553",
-   "image": "figures/2026-09-11/2609.11553.jpg"
+   "image": "figures/2026-09-11/2609.11553.jpg",
+   "summary_en": "To handle depth sensor failures and occlusions in real-world environments, this paper proposes CAP, a control method integrating perceptive and blind humanoid locomotion. A world model encoder is trained in a single stage as a denoiser to reconstruct corrupted depth inputs, enabling continuous, adaptive traversal over rough terrain and obstacles without explicit policy switching during sensor degradation."
   },
   {
    "date": "2026-09-11",
@@ -5021,7 +5196,8 @@
     "simulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.11733",
-   "image": "figures/2026-09-11/2609.11733.jpg"
+   "image": "figures/2026-09-11/2609.11733.jpg",
+   "summary_en": "This paper proposes a musculoskeletal locomotion control framework balancing physiological plausibility with disturbance adaptation. Using a phase-dependent reflex controller as the base mechanism, a reinforcement learning policy outputs four residual parameters that modulate reflex gains and thresholds, such as hip swing, achieving stable human-like gaits against muscle weakness and external disturbances."
   },
   {
    "date": "2026-09-11",
@@ -5045,7 +5221,8 @@
     "simulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.11357",
-   "image": null
+   "image": null,
+   "summary_en": "The authors develop a learning pipeline retargeting SMPLX human motion data into whole-body loco-manipulation for a wheeled-humanoid (Galaxea R1 Pro). By redistributing lower-body motion into base translation and torso posture, it generates coordinated whole-body movements in physics simulation without compromising arm manipulability."
   },
   {
    "date": "2026-09-11",
@@ -5069,7 +5246,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.11270",
-   "image": "figures/2026-09-11/2609.11270.jpg"
+   "image": "figures/2026-09-11/2609.11270.jpg",
+   "summary_en": "This paper proposes DLSRL, a reinforcement learning approach for pretrained generative policies that modulates internal representations beyond conventional initial noise steering. The policy network predicts two latent variables—one for initial noise and one for action representation—to steer a frozen generative model, achieving efficient, high-precision task adaptation without representation collapse."
   },
   {
    "date": "2026-09-11",
@@ -5094,7 +5272,8 @@
     "hardware"
    ],
    "abs_url": "https://arxiv.org/abs/2609.11059",
-   "image": "figures/2026-09-11/2609.11059.jpg"
+   "image": "figures/2026-09-11/2609.11059.jpg",
+   "summary_en": "This paper simulates and analyzes the coupled dynamics between impedance characteristics and gaits when a quadruped carries loads using a passive arm mechanism. It reveals that underdamped configurations amplify joint vibrations and reduce ZMP margins during a crawl gait, providing design guidelines for selecting stiffness and damping parameters suited for transport stability."
   },
   {
    "date": "2026-09-11",
@@ -5123,7 +5302,8 @@
     "hardware"
    ],
    "abs_url": "https://arxiv.org/abs/2609.11753",
-   "image": "figures/2026-09-11/2609.11753.jpg"
+   "image": "figures/2026-09-11/2609.11753.jpg",
+   "summary_en": "This paper presents SEED-UMI, a data collection platform for dexterous hand imitation learning where a human and robot wear an identical exoskeleton device. Directly sharing encoder values and wrist-camera viewpoints eliminates geometric and kinematic embodiment gaps, enabling contact-rich manipulation data to be fed directly into policy learning without retargeting errors."
   },
   {
    "date": "2026-09-11",
@@ -5155,7 +5335,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.10915",
-   "image": "figures/2026-09-11/2609.10915.jpg"
+   "image": "figures/2026-09-11/2609.10915.jpg",
+   "summary_en": "This paper replaces iterative diffusion sampling heads (e.g., 10 steps) in VLAs with a single-step generator based on conditional Implicit Maximum Likelihood Estimation (cIMLE). It resolves the inference bottleneck while preserving expressive multimodal action distributions, enabling smoother robot execution and reduced task completion times."
   },
   {
    "date": "2026-09-11",
@@ -5183,7 +5364,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.11697",
-   "image": "figures/2026-09-11/2609.11697.jpg"
+   "image": "figures/2026-09-11/2609.11697.jpg",
+   "summary_en": "This paper proposes ActSafeGuard for flow-matching policies in robotics to resolve train-test mismatches caused by test-time corrections and post-hoc penalties. By integrating strict hard constraints as differentiable layers directly into the policy training loop, it guarantees safety at inference time while improving learning efficiency."
   },
   {
    "date": "2026-09-11",
@@ -5211,7 +5393,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2609.11445",
-   "image": "figures/2026-09-11/2609.11445.jpg"
+   "image": "figures/2026-09-11/2609.11445.jpg",
+   "summary_en": "This paper proposes FARM, a lightweight monitoring layer that decodes task failure signs directly from the internal latent states of a pretrained robotic world model (VLA-JEPA). Adding a head with only ~34k parameters on top of frozen states achieves an AUROC of 85.68% across seven evaluation tasks, enabling highly accurate online failure monitoring."
   },
   {
    "date": "2026-09-11",
@@ -5242,7 +5425,8 @@
     "simulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.10895",
-   "image": null
+   "image": null,
+   "summary_en": "This paper introduces ReactHuman, a simulation benchmark evaluating the instant reactive capabilities of MLLMs against sudden physical hazards, such as catching a sliding plate or dodging falling objects. Unlike conventional passive video QA, it directly assesses the pipeline from perception to safety-critical physical action generation."
   },
   {
    "date": "2026-09-10",
@@ -5268,7 +5452,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2609.09918",
-   "image": "figures/2026-09-10/2609.09918.jpg"
+   "image": "figures/2026-09-10/2609.09918.jpg",
+   "summary_en": "This paper proposes an approach to post-integrate visual feedback into motion-tracking humanoid whole-body control (WBC), which often lacks disturbance adaptation and exteroception. Using a pretrained vision encoder and multi-query extractors, it directly interfaces visual features to tracker inputs via LoRA without teacher-student distillation, enabling efficient visually adaptive walking on real humanoids."
   },
   {
    "date": "2026-09-10",
@@ -5297,7 +5482,8 @@
     "simulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.10286",
-   "image": "figures/2026-09-10/2609.10286.jpg"
+   "image": "figures/2026-09-10/2609.10286.jpg",
+   "summary_en": "To model foot-ground interactions on granular media such as sand, the authors develop a physics-based contact model using 3D Resistive Force Theory (3D RFT) and build a fast reinforcement learning simulator. This enables humanoids to learn robust locomotion policies that adapt to sinking and slipping on sand, achieving higher simulation fidelity than overly simplified baseline models."
   },
   {
    "date": "2026-09-10",
@@ -5322,7 +5508,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.09492",
-   "image": "figures/2026-09-10/2609.09492.jpg"
+   "image": "figures/2026-09-10/2609.09492.jpg",
+   "summary_en": "This paper proposes a curriculum method for narrow-viability tasks where exploratory trajectories quickly fail and lack gradients, initializing joint stiffness high and annealing it to identified values based on episode length. Both theory and experiments show that higher natural frequencies under critical damping expand the Markov decision process viability kernel, substantially improving convergence on challenging legged robot tasks."
   },
   {
    "date": "2026-09-10",
@@ -5352,7 +5539,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.10283",
-   "image": "figures/2026-09-10/2609.10283.jpg"
+   "image": "figures/2026-09-10/2609.10283.jpg",
+   "summary_en": "This paper presents SwingBot, a reinforcement learning framework achieving whole-body brachiation for high-DoF humanoids traversing overhead monkey bars using passive hooks. Its structured learning pipeline coordinates long-horizon release-swing-grasp motions with whole-body momentum, acquiring policies robust to observation noise such as hook contact states."
   },
   {
    "date": "2026-09-10",
@@ -5377,7 +5565,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.09821",
-   "image": "figures/2026-09-10/2609.09821.jpg"
+   "image": "figures/2026-09-10/2609.09821.jpg",
+   "summary_en": "This paper presents InstantMimic, a high-performance system that drastically accelerates reinforcement learning pipelines for physics-based character and robot control. Its end-to-end design eliminates GPU kernel fragmentation and CPU memory bottlenecks outside the physics solver, maximizing hardware utilization to train agile, natural motor skills in seconds instead of hours or days."
   },
   {
    "date": "2026-09-10",
@@ -5404,7 +5593,8 @@
     "sim-to-real"
    ],
    "abs_url": "https://arxiv.org/abs/2609.10137",
-   "image": "figures/2026-09-10/2609.10137.jpg"
+   "image": "figures/2026-09-10/2609.10137.jpg",
+   "summary_en": "This work demonstrates in-hand assembly of two rigid parts using a single dexterous multi-fingered hand without a second arm or fixtures via reinforcement learning. Guided by target relative poses and combining functional auxiliary rewards, human reference pose regularization, and domain randomization, it enables real-robot deployment of fine inter-finger coordination, such as capping a pen."
   },
   {
    "date": "2026-09-10",
@@ -5431,7 +5621,8 @@
     "hardware"
    ],
    "abs_url": "https://arxiv.org/abs/2609.09612",
-   "image": "figures/2026-09-10/2609.09612.jpg"
+   "image": "figures/2026-09-10/2609.09612.jpg",
+   "summary_en": "The authors develop MuJoCable, a MuJoCo plugin that holistically solves cable routing over non-circular surfaces, unilateral tension, and segment friction—challenges previously difficult for rigid-body simulators. By optimizing ordered paths across mesh surfaces and solving the Capstan friction model, it simulates tendon-driven robot dynamics accurately and efficiently."
   },
   {
    "date": "2026-09-10",
@@ -5460,7 +5651,8 @@
     "world-model"
    ],
    "abs_url": "https://arxiv.org/abs/2609.09630",
-   "image": "figures/2026-09-10/2609.09630.jpg"
+   "image": "figures/2026-09-10/2609.09630.jpg",
+   "summary_en": "This paper presents JEPA Policy, a diffusion-free imitation learning method that pairs action chunks with predicted future latent representations as training targets. By allowing action and future representation tokens to interact and refine within a shared transformer, it avoids the heavy computational burden of diffusion models and outperforms baseline methods across nine simulated tasks."
   },
   {
    "date": "2026-09-10",
@@ -5485,7 +5677,8 @@
     "hardware"
    ],
    "abs_url": "https://arxiv.org/abs/2609.09380",
-   "image": "figures/2026-09-10/2609.09380.jpg"
+   "image": "figures/2026-09-10/2609.09380.jpg",
+   "summary_en": "This paper presents AccelMPC, an FPGA-accelerated model predictive control (MPC) system co-designing algorithms, numerical representations, and hardware mapping for resource-constrained tiny drones. Employing an FPGA-accelerated ADMM solver, it achieves high control rates and ultra-low power consumption, enabling agile edge flight control."
   },
   {
    "date": "2026-09-10",
@@ -5521,7 +5714,8 @@
     "vision-language-action"
    ],
    "abs_url": "https://arxiv.org/abs/2609.09250",
-   "image": "figures/2026-09-10/2609.09250.jpg"
+   "image": "figures/2026-09-10/2609.09250.jpg",
+   "summary_en": "This paper surveys approximately 150 verifiers (such as success detectors and safety filters) used for evaluating robot policies like VLAs and reward learning. It systematically categorizes and compares them along two trade-off axes—usability (evaluation cost and latency) and trustworthiness (whether scores reflect true task success)—providing future design guidelines."
   },
   {
    "date": "2026-09-09",
@@ -5548,7 +5742,8 @@
     "locomotion"
    ],
    "abs_url": "https://arxiv.org/abs/2609.05994",
-   "image": "figures/2026-09-09/2609.05994.jpg"
+   "image": "figures/2026-09-09/2609.05994.jpg",
+   "summary_en": "This paper proposes a closed-loop whole-body controller for humanoid loco-manipulation that balances preserving local reference motion structures with reducing accumulated drift in the global frame. Its GLoRI-Net fuses global corrections and local motion guidance via cross-attention, achieving highly accurate tracking."
   },
   {
    "date": "2026-09-09",
@@ -5583,7 +5778,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.06718",
-   "image": "figures/2026-09-09/2609.06718.jpg"
+   "image": "figures/2026-09-09/2609.06718.jpg",
+   "summary_en": "This paper proposes SkillX, a reinforcement learning framework for humanoid soccer that harmonizes balance, locomotion, object manipulation, and skill transitions within a single policy. Introducing skill-specific adversarial motion priors, distinct critics, and object-aware temporal modulation, it smoothly integrates and executes multiple foundational motor skills."
   },
   {
    "date": "2026-09-09",
@@ -5611,7 +5807,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.07096",
-   "image": "figures/2026-09-09/2609.07096.jpg"
+   "image": "figures/2026-09-09/2609.07096.jpg",
+   "summary_en": "This paper presents RoboDreamer, a teacher-student framework achieving stable humanoid locomotion under degraded sensing. Using a Mamba backbone and temporal masking, it imputes missing observations and anticipates future states from past history, enabling implicit closed-loop action correction and chunking during inference."
   },
   {
    "date": "2026-09-09",
@@ -5635,7 +5832,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.08800",
-   "image": "figures/2026-09-09/2609.08800.jpg"
+   "image": "figures/2026-09-09/2609.08800.jpg",
+   "summary_en": "This paper presents Ostrich, a GPU rigid-body simulator for contact-rich gradient-based optimization that solves stiff contacts and friction using nonsmooth Newton iterations at large time steps of ~0.1 s. Leveraging implicit differentiation, it computes gradients accurately and with low computational overhead while keeping memory usage independent of simulation step counts."
   },
   {
    "date": "2026-09-09",
@@ -5661,7 +5859,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.06958",
-   "image": "figures/2026-09-09/2609.06958.jpg"
+   "image": "figures/2026-09-09/2609.06958.jpg",
+   "summary_en": "This paper presents an approach to analyze the effective rank of the policy Jacobian in reinforcement learning policies for legged locomotion. Conditioning this analysis on gait phases reveals latent structures obscured by global metrics, providing an indicator that links real-world physical behavior with representation health during training."
   },
   {
    "date": "2026-09-09",
@@ -5728,7 +5927,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.05588",
-   "image": "figures/2026-09-09/2609.05588.jpg"
+   "image": "figures/2026-09-09/2609.05588.jpg",
+   "summary_en": "This paper proposes GE-Act 2.0, a World-Action Model pretrained from scratch specifically for manipulation tasks. Combining a control-oriented autoencoder, a single-step visual predictive planner, and an inverse dynamics model, it efficiently learns and scales manipulation policies using both video-only and action-labeled datasets."
   },
   {
    "date": "2026-09-09",
@@ -5753,7 +5953,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.05461",
-   "image": "figures/2026-09-09/2609.05461.jpg"
+   "image": "figures/2026-09-09/2609.05461.jpg",
+   "summary_en": "ARC-Bench is introduced to evaluate the assumption in reward-free latent world models that closer latent distances correspond to lower true costs. An in-depth audit of public JEPA models reveals that distance-based action ranking is structurally broken."
   },
   {
    "date": "2026-09-09",
@@ -5778,7 +5979,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.06882",
-   "image": "figures/2026-09-09/2609.06882.jpg"
+   "image": "figures/2026-09-09/2609.06882.jpg",
+   "summary_en": "To optimize continuous control diffusion policies with reinforcement learning, Noisy-Space Policy Gradient (NSPG) introduces a noisy-space Q-function. It directly optimizes noisy latents along the reverse diffusion process using only clean-action value estimates, providing theoretical guarantees."
   },
   {
    "date": "2026-09-09",
@@ -5811,7 +6013,8 @@
     "sim-to-real"
    ],
    "abs_url": "https://arxiv.org/abs/2609.07747",
-   "image": "figures/2026-09-09/2609.07747.jpg"
+   "image": "figures/2026-09-09/2609.07747.jpg",
+   "summary_en": "Dex-X is a framework that learns deployable visual-tactile dexterous manipulation policies from monocular human videos. By using simulation as a contact dynamics engine, it generates tactile signals unobtainable from video and enables policy learning without real-world robot data."
   },
   {
    "date": "2026-09-09",
@@ -5837,7 +6040,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.07534",
-   "image": "figures/2026-09-09/2609.07534.jpg"
+   "image": "figures/2026-09-09/2609.07534.jpg",
+   "summary_en": "For sub-millimeter contact-rich assembly, PACE aligns visual and force representations by using proprioception as a cross-modal anchor across simulation and reality. This closes domain gaps and enables zero-shot sim-to-real transfer of reinforcement learning policies."
   },
   {
    "date": "2026-09-08",
@@ -5863,7 +6067,8 @@
     "safety"
    ],
    "abs_url": "https://arxiv.org/abs/2609.05300",
-   "image": "figures/2026-09-08/2609.05300.jpg"
+   "image": "figures/2026-09-08/2609.05300.jpg",
+   "summary_en": "H2INT is a reinforcement learning method for safe robot navigation in dense pedestrian crowds that accounts for heterogeneous pedestrian responsiveness. By implicitly inferring each human's reaction level without explicit labels, it learns policies robust to interaction uncertainty."
   },
   {
    "date": "2026-09-08",
@@ -5886,7 +6091,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.05199",
-   "image": null
+   "image": null,
+   "summary_en": "This paper formulates safety-critical control under uncertainty with prioritized specifications as a lexicographic optimization problem over excess risk. It presents an anytime filtering and branch-and-bound algorithm that successively shrinks provable optimality gaps."
   },
   {
    "date": "2026-09-08",
@@ -5913,7 +6119,8 @@
     "world-model"
    ],
    "abs_url": "https://arxiv.org/abs/2609.04911",
-   "image": "figures/2026-09-08/2609.04911.jpg"
+   "image": "figures/2026-09-08/2609.04911.jpg",
+   "summary_en": "TourPhysics is a world model for long-horizon exploration and manipulation initialized from a single image and declarative physical settings. Decoupling and integrating a video generation model with deterministic physics simulation ensures both geometric consistency and dynamic fidelity over long horizons."
   },
   {
    "date": "2026-09-08",
@@ -5939,7 +6146,8 @@
     "grasping"
    ],
    "abs_url": "https://arxiv.org/abs/2609.05206",
-   "image": "figures/2026-09-08/2609.05206.jpg"
+   "image": "figures/2026-09-08/2609.05206.jpg",
+   "summary_en": "This work introduces a unified framework to analyze how kinematics and actuation in robotic hands affect controllability using task Jacobians and actuation matrix condition numbers. It quantitatively evaluates the inductive biases introduced by kinematic routing and finger geometries across two distinct multi-fingered hands."
   },
   {
    "date": "2026-09-08",
@@ -5964,7 +6172,8 @@
     "teleoperation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.04851",
-   "image": "figures/2026-09-08/2609.04851.jpg"
+   "image": "figures/2026-09-08/2609.04851.jpg",
+   "summary_en": "This paper proposes a remote robotic control method that maintains reliability while minimizing communication overhead under degraded wireless networks. A JEPA-style world model jointly predicts robot dynamics and channel variations from visual observations, enabling robust control against disturbances and bandwidth limits."
   },
   {
    "date": "2026-09-08",
@@ -5989,7 +6198,8 @@
     "vision-language-action"
    ],
    "abs_url": "https://arxiv.org/abs/2609.05282",
-   "image": "figures/2026-09-08/2609.05282.jpg"
+   "image": "figures/2026-09-08/2609.05282.jpg",
+   "summary_en": "This work integrates a Vision-Language-Action (VLA) model with compliant control for safe, reliable robot-to-human object handovers. Using RGB images, temporal tactile signals, and proprioception, the system infers handover intent, minimizes excessive contact forces, and releases the object at the appropriate moment."
   },
   {
    "date": "2026-09-08",
@@ -6018,7 +6228,8 @@
     "imitation-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.05178",
-   "image": "figures/2026-09-08/2609.05178.jpg"
+   "image": "figures/2026-09-08/2609.05178.jpg",
+   "summary_en": "LIBERO-RECOVER is a benchmark designed to evaluate failure recovery from realistic perturbations like slip and misgrasp rather than nominal initial states alone. Empirical evaluations reveal that state-of-the-art VLA and WAM models are vulnerable when attempting autonomous recovery from failure states."
   },
   {
    "date": "2026-09-08",
@@ -6049,7 +6260,8 @@
     "simulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.04921",
-   "image": "figures/2026-09-08/2609.04921.jpg"
+   "image": "figures/2026-09-08/2609.04921.jpg",
+   "summary_en": "This method employs a single pretrained diffusion model as both an ego-planner and a safety-critical scenario generator for autonomous driving. Powered by a context-aware Diffusion Transformer and posterior-sampling DAPSE, the unified model achieves closed-loop planning and stress-test generation."
   },
   {
    "date": "2026-09-08",
@@ -6078,7 +6290,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2609.05376",
-   "image": "figures/2026-09-08/2609.05376.jpg"
+   "image": "figures/2026-09-08/2609.05376.jpg",
+   "summary_en": "This paper analyzes imitation learning policy (ACT) failures in the presence of similar obstacles or trays as phase-dependent conditional visual grounding issues. It systematically characterizes visual sensitivity shifts between pick and place phases, offering actionable guidelines to improve discrimination."
   },
   {
    "date": "2026-09-08",
@@ -6110,7 +6323,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2609.05416",
-   "image": "figures/2026-09-08/2609.05416.jpg"
+   "image": "figures/2026-09-08/2609.05416.jpg",
+   "summary_en": "WorldSculpt reconstructs compositional 3D representations by placing individual object meshes into a unified coordinate frame from monocular videos of heavily occluded scenes. Combining geometric reconstruction and generative models, it outputs complete mesh collections ready for robotics simulation."
   },
   {
    "date": "2026-09-07",
@@ -6132,7 +6346,8 @@
     "hardware"
    ],
    "abs_url": "https://arxiv.org/abs/2609.04817",
-   "image": "figures/2026-09-07/2609.04817.jpg"
+   "image": "figures/2026-09-07/2609.04817.jpg",
+   "summary_en": "This work proposes a theoretical framework that designs a potential field compatible with geodesic flows, filling the configuration space of mechanical systems with strict nonlinear normal modes. Leveraging nonlinear springs allows efficient execution of diverse periodic orbits with minimal actuator torque for dynamic control."
   },
   {
    "date": "2026-09-07",
@@ -6161,7 +6376,8 @@
     "simulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.05161",
-   "image": "figures/2026-09-07/2609.05161.jpg"
+   "image": "figures/2026-09-07/2609.05161.jpg",
+   "summary_en": "APEX-RBD is a mixed-precision quantization exploration framework that accelerates rigid body dynamics (RBD) while reducing power consumption based on variable sensitivities. It enables optimized hardware accelerator design for whole-body control and MPC, facilitating fast control loops on high-DoF edge robots."
   },
   {
    "date": "2026-09-07",
@@ -6196,7 +6412,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.04355",
-   "image": "figures/2026-09-07/2609.04355.jpg"
+   "image": "figures/2026-09-07/2609.04355.jpg",
+   "summary_en": "VLA-Precision addresses policy drift caused by unreliable value estimates and high latency in real-world online RL of VLA models. With Asymmetric Co-Bootstrapping (ACoB) and a streaming execution architecture, it substantially boosts sample efficiency and control throughput in precise real-world tasks."
   },
   {
    "date": "2026-09-07",
@@ -6227,7 +6444,8 @@
     "benchmark"
    ],
    "abs_url": "https://arxiv.org/abs/2609.05401",
-   "image": "figures/2026-09-07/2609.05401.jpg"
+   "image": "figures/2026-09-07/2609.05401.jpg",
+   "summary_en": "This paper highlights the paraphrase fragility of Vision-Language Models (VLMs) used as reward models, where trajectory progress scores fluctuate or invert under text paraphrasing. It introduces ROBORMBENCH, containing 2,390 robot trajectories and over 20,000 paraphrases, showing widespread lack of paraphrase invariance across models."
   },
   {
    "date": "2026-09-07",
@@ -6255,7 +6473,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.05361",
-   "image": "figures/2026-09-07/2609.05361.jpg"
+   "image": "figures/2026-09-07/2609.05361.jpg",
+   "summary_en": "A humanoid robot prototype is developed for multimodal human-robot interaction, featuring 12-DoF dual arms and a 2-DoF head with an LCD display. It integrates custom control electronics with on-board Jetson AI modules for skeletal pose estimation, LSTM-based gesture recognition, and object detection."
   },
   {
    "date": "2026-09-07",
@@ -6281,7 +6500,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.05266",
-   "image": "figures/2026-09-07/2609.05266.jpg"
+   "image": "figures/2026-09-07/2609.05266.jpg",
+   "summary_en": "TacPAC addresses the execution-time feedback mismatch in World-Action Models (WAMs) by coupling planned contact-prediction caches with a tactile expert. By enabling real-time action corrections during contact-rich manipulation, it significantly improves task success rates over prediction-only baselines."
   },
   {
    "date": "2026-09-07",
@@ -6308,7 +6528,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.04893",
-   "image": "figures/2026-09-07/2609.04893.jpg"
+   "image": "figures/2026-09-07/2609.04893.jpg",
+   "summary_en": "Latent Semantic Scaffolding (LSS) equips VLA policies with physical reasoning capabilities without adding inference latency. By aligning latent representations with reasoning traces during imitation learning and discarding the projection head at deployment, it improves long-horizon policy robustness at zero runtime cost."
   },
   {
    "date": "2026-09-07",
@@ -6336,7 +6557,8 @@
     "simulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.04602",
-   "image": "figures/2026-09-07/2609.04602.jpg"
+   "image": "figures/2026-09-07/2609.04602.jpg",
+   "summary_en": "NavArena automatically generates goal-oriented visual navigation benchmarks directly from static 3D Gaussian Splatting (3DGS) reconstructions. It derives an occupancy costmap from Gaussian density and height statistics and samples semantic goals from open-vocabulary masks to enable photorealistic closed-loop evaluation."
   },
   {
    "date": "2026-09-07",
@@ -6365,7 +6587,8 @@
     "dataset"
    ],
    "abs_url": "https://arxiv.org/abs/2609.04958",
-   "image": "figures/2026-09-07/2609.04958.jpg"
+   "image": "figures/2026-09-07/2609.04958.jpg",
+   "summary_en": "MINT is a unified foundation model that estimates world-space camera trajectories and bimanual hand motions from monocular egocentric RGB video. Predicting motions directly from a single spatiotemporal video representation replaces multi-stage pipelines and yields accurate 3D reconstructions with lower computational cost."
   },
   {
    "date": "2026-09-07",
@@ -6394,7 +6617,8 @@
     "safety"
    ],
    "abs_url": "https://arxiv.org/abs/2609.05325",
-   "image": "figures/2026-09-07/2609.05325.jpg"
+   "image": "figures/2026-09-07/2609.05325.jpg",
+   "summary_en": "FIRE-LIVWO is designed for underground mines where heavy smoke, dust, and geometric self-similarity cause sensor degeneracy. It tightly couples 4D mmWave radar, LiDAR, camera, and wheel odometry using an integrated voxel map and iterated error-state Kalman filter (IESKF) for drift-free localization."
   },
   {
    "date": "2026-09-06",
@@ -6422,7 +6646,8 @@
     "dataset"
    ],
    "abs_url": "https://arxiv.org/abs/2609.03557",
-   "image": "figures/2026-09-06/2609.03557.jpg"
+   "image": "figures/2026-09-06/2609.03557.jpg",
+   "summary_en": "This pipeline uses Unreal Engine to automatically generate large-scale multi-view video datasets temporally synchronized with action labels by separating physics simulation from high-quality offline rendering. It provides state-action pairs difficult to capture in the real world to serve as pretraining data for world models."
   },
   {
    "date": "2026-09-06",
@@ -6446,7 +6671,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.04066",
-   "image": "figures/2026-09-06/2609.04066.jpg"
+   "image": "figures/2026-09-06/2609.04066.jpg",
+   "summary_en": "PreferenceEKF formulates uncertainty estimation in active reward learning from preferences (RLHF) as subspace inference using an extended Kalman filter. Tracking uncertainty within a low-dimensional parameter subspace rather than full networks yields high computational efficiency and superior sample efficiency."
   },
   {
    "date": "2026-09-06",
@@ -6477,7 +6703,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.03906",
-   "image": "figures/2026-09-06/2609.03906.jpg"
+   "image": "figures/2026-09-06/2609.03906.jpg",
+   "summary_en": "This work re-formulates continuous Vision-and-Language Navigation as a hierarchical Markov decision process, decoupling high-level planning from low-level continuous control in closed-loop RL. Extracting macro actions from topological graphs overcomes sparse-reward sample inefficiency and ensures robustness to trajectory deviations."
   },
   {
    "date": "2026-09-06",
@@ -6504,7 +6731,8 @@
     "hardware"
    ],
    "abs_url": "https://arxiv.org/abs/2609.03794",
-   "image": "figures/2026-09-06/2609.03794.jpg"
+   "image": "figures/2026-09-06/2609.03794.jpg",
+   "summary_en": "This comparative study evaluates the static positioning and trajectory accuracy of five commercial mobile robots (including Boston Dynamics Spot, KUKA, MiR, and Husky) for non-destructive evaluation using a laser tracker (~6 µm accuracy). It quantifies distinct geometric and motion error profiles to establish selection criteria."
   },
   {
    "date": "2026-09-06",
@@ -6533,7 +6761,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2609.03142",
-   "image": "figures/2026-09-06/2609.03142.jpg"
+   "image": "figures/2026-09-06/2609.03142.jpg",
+   "summary_en": "Evidence-Gated Regularization (EGR) prevents Vision-Language-Action (VLA) policies from suffering modality confounding caused by spurious sensor correlations without inference overhead. Estimating task-relevance signals across frames and sensors provides robust sensing selectivity under occlusions and noise, improving manipulation performance."
   },
   {
    "date": "2026-09-06",
@@ -6564,7 +6793,8 @@
     "dataset"
    ],
    "abs_url": "https://arxiv.org/abs/2609.03199",
-   "image": "figures/2026-09-06/2609.03199.jpg"
+   "image": "figures/2026-09-06/2609.03199.jpg",
+   "summary_en": "RoboTok is a data engine that retrieves similar human manipulation demonstrations from internet videos given a query video to train dexterous robot policies. Learning a motor latent space from hand-centric 3D trajectories enables robust matching and transfer across varying viewpoints and visual backgrounds."
   },
   {
    "date": "2026-09-06",
@@ -6599,7 +6829,8 @@
     "vision-language-action"
    ],
    "abs_url": "https://arxiv.org/abs/2609.04193",
-   "image": "figures/2026-09-06/2609.04193.jpg"
+   "image": "figures/2026-09-06/2609.04193.jpg",
+   "summary_en": "GIFT bridges the gap between pretrained vision-language features and physical control by supervising three control-centric structures in intermediate features: geometry, affordance, and goal regions. Eliminating task-irrelevant visual redundancy improves the generalization and success rates of imitation learning policies."
   },
   {
    "date": "2026-09-06",
@@ -6624,7 +6855,8 @@
     "navigation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.03758",
-   "image": "figures/2026-09-06/2609.03758.jpg"
+   "image": "figures/2026-09-06/2609.03758.jpg",
+   "summary_en": "This paper presents a tip-growing multi-vine soft robot combining an internal working channel for instrument delivery with active tendon steering while preserving lumens. It facilitates low-friction navigation through confined, tortuous paths such as the colon to deploy medical instruments."
   },
   {
    "date": "2026-09-06",
@@ -6649,7 +6881,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.04158",
-   "image": null
+   "image": null,
+   "summary_en": "This work proposes an energy-based control method for autonomous planar multi-robot systems that balances collision avoidance and formation keeping by modeling inter-agent interactions as spring-damper systems via bond graphs. A formation matrix capturing relative states guarantees target shape convergence and safe transit."
   },
   {
    "date": "2026-09-05",
@@ -6685,7 +6918,8 @@
     "benchmark"
    ],
    "abs_url": "https://arxiv.org/abs/2609.03565",
-   "image": "figures/2026-09-05/2609.03565.jpg"
+   "image": "figures/2026-09-05/2609.03565.jpg",
+   "summary_en": "This paper integrates an Inverse Dynamics Model (IDM) and State Alignment (SA) into non-reconstructive, pixel-free JEPA world models for visual goal reaching. Grounding latent representations in physical configurations and motions prevents representation collapse and achieves state-of-the-art success across four benchmarks."
   },
   {
    "date": "2026-09-05",
@@ -6712,7 +6946,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.03774",
-   "image": "figures/2026-09-05/2609.03774.jpg"
+   "image": "figures/2026-09-05/2609.03774.jpg",
+   "summary_en": "This work argues that high-likelihood world models do not guarantee safe decision-making in embodied systems, introducing Risk-Informed World Models (RIWM). By structuring models around consequence severity, intervention, and epistemic uncertainty, it provides a research framework for safety-critical robot control."
   },
   {
    "date": "2026-09-05",
@@ -6750,7 +6985,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.04096",
-   "image": "figures/2026-09-05/2609.04096.jpg"
+   "image": "figures/2026-09-05/2609.04096.jpg",
+   "summary_en": "AdaRoboVLG is a grasping framework adaptable to diverse robot hands. It combines a generalizable base policy performing kinematic mapping and force-closure evaluation with contextual priors from vision-language foundation models to achieve flexible grasp synthesis across distinct end-effector morphologies."
   },
   {
    "date": "2026-09-05",
@@ -6773,7 +7009,8 @@
     "llm-agent"
    ],
    "abs_url": "https://arxiv.org/abs/2609.04030",
-   "image": "figures/2026-09-05/2609.04030.jpg"
+   "image": "figures/2026-09-05/2609.04030.jpg",
+   "summary_en": "IRWOZ 2.0 is a cleaned and expanded dialogue dataset for industrial collaborative robots. Combining LLM-driven generation with human refinement, it expands coverage across four domains (including assembly and transfer) over 390 dialogues, improving accuracy on dialogue state tracking benchmarks."
   },
   {
    "date": "2026-09-05",
@@ -6805,7 +7042,8 @@
     "hardware"
    ],
    "abs_url": "https://arxiv.org/abs/2609.03621",
-   "image": "figures/2026-09-05/2609.03621.jpg"
+   "image": "figures/2026-09-05/2609.03621.jpg",
+   "summary_en": "This paper presents a computable representation of the physical laboratory for autonomous research robots, binding object types to executable skills. Formalizing experimental protocols with dependencies and concurrency as programs establishes a verifiable foundation for autonomous execution of scientific workflows."
   },
   {
    "date": "2026-09-04",
@@ -6834,7 +7072,8 @@
     "hardware"
    ],
    "abs_url": "https://arxiv.org/abs/2609.03497",
-   "image": "figures/2026-09-04/2609.03497.jpg"
+   "image": "figures/2026-09-04/2609.03497.jpg",
+   "summary_en": "BRIDGE is an open-source humanoid platform that co-designs hardware morphology and whole-body control (WBC) to effectively leverage human motion data. Introducing a unified metric for retargeting fidelity and dynamic trackability enables fluid, agile, and human-like locomotion."
   },
   {
    "date": "2026-09-04",
@@ -6864,7 +7103,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.03984",
-   "image": "figures/2026-09-04/2609.03984.jpg"
+   "image": "figures/2026-09-04/2609.03984.jpg",
+   "summary_en": "MulDP is a multimodal diffusion policy for autonomous quadruped parkour navigation across complex terrains, integrating vision, proprioception, and goal inputs. By tightly coupling perception and embodied control to generate temporally coherent, predictive velocity commands, it enables robust autonomous traversal."
   },
   {
    "date": "2026-09-04",
@@ -6896,7 +7136,8 @@
     "vision-language-action"
    ],
    "abs_url": "https://arxiv.org/abs/2609.03889",
-   "image": "figures/2026-09-04/2609.03889.jpg"
+   "image": "figures/2026-09-04/2609.03889.jpg",
+   "summary_en": "This paper proposes FWBC-VLA, coupling a VLA model with whole-body control (WBC) for contact-rich loco-manipulation. Without additional force sensors, it distinguishes task-induced contact forces from disturbances and integrates force compensation into whole-body control. This enables robust execution of contact-rich tasks."
   },
   {
    "date": "2026-09-04",
@@ -6919,7 +7160,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.03623",
-   "image": null
+   "image": null,
+   "summary_en": "The authors develop QLAUN, a low-cost, agile, torque-controlled quadruped robot. Featuring 12 degrees of freedom powered by fully 3D-printed quasi-direct-drive actuators on a 15 kg body, its modular legs are easily replaceable. It provides a robust experimental platform for real-world robotics research."
   },
   {
    "date": "2026-09-04",
@@ -6947,7 +7189,8 @@
     "benchmark"
    ],
    "abs_url": "https://arxiv.org/abs/2609.03276",
-   "image": "figures/2026-09-04/2609.03276.jpg"
+   "image": "figures/2026-09-04/2609.03276.jpg",
+   "summary_en": "To eliminate the high burden and poor reproducibility of real-robot evaluations, this paper proposes R2S-Eval, an evaluation framework based on Real-to-Sim calibration via VLMs. Moving beyond binary success/failure judgments, it calibrates and reproduces real-world behavior within simulation to accurately assess the execution quality of manipulation policies."
   },
   {
    "date": "2026-09-04",
@@ -6971,7 +7214,8 @@
     "imitation-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.03715",
-   "image": "figures/2026-09-04/2609.03715.jpg"
+   "image": "figures/2026-09-04/2609.03715.jpg",
+   "summary_en": "This paper investigates the lower bound of model capacity needed to solve the LIBERO manipulation benchmark and proposes MINERVA, an ultra-small policy. With only 0.54M parameters, the policy achieves an average success rate of 95.1% over 2,000 trials, performing on par with models that have 7,700 times more parameters."
   },
   {
    "date": "2026-09-04",
@@ -7002,7 +7246,8 @@
     "dataset"
    ],
    "abs_url": "https://arxiv.org/abs/2609.03591",
-   "image": "figures/2026-09-04/2609.03591.jpg"
+   "image": "figures/2026-09-04/2609.03591.jpg",
+   "summary_en": "The authors release a diverse 1,500-hour human demonstration dataset for household bimanual manipulation and propose XR-2, a VLA model trained on it. Through high-throughput data collection and a multi-stage training paradigm, it achieves high data efficiency and robust manipulation performance."
   },
   {
    "date": "2026-09-04",
@@ -7028,7 +7273,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.03681",
-   "image": "figures/2026-09-04/2609.03681.jpg"
+   "image": "figures/2026-09-04/2609.03681.jpg",
+   "summary_en": "This paper proposes WISE to effectively apply imagined rollouts during the post-training of VLA models using world models. By scheduling the extent of imagination according to the manipulation task's execution stage, it suppresses compounding prediction errors while providing reliable policy update signals."
   },
   {
    "date": "2026-09-04",
@@ -7053,7 +7299,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2609.03611",
-   "image": "figures/2026-09-04/2609.03611.jpg"
+   "image": "figures/2026-09-04/2609.03611.jpg",
+   "summary_en": "This paper introduces FailBench, a benchmark to evaluate how reliably VLMs can judge robot manipulation task success. Evaluating 13 VLMs across 2,197 trials from 14 open-source datasets (75% of which are natural failures), it reveals that even the best model achieves a mean balanced accuracy of only 0.77."
   },
   {
    "date": "2026-09-04",
@@ -7081,7 +7328,8 @@
     "multi-robot"
    ],
    "abs_url": "https://arxiv.org/abs/2609.03483",
-   "image": "figures/2026-09-04/2609.03483.jpg"
+   "image": "figures/2026-09-04/2609.03483.jpg",
+   "summary_en": "This paper proposes AGC-VLN, a training-free baseline for air-ground collaborative vision-and-language navigation (VLN) between a UAV and a UGV. By integrating the UAV's wide bird's-eye perspective and the UGV's first-person view through a shared bird's-eye map, it achieves stable cooperative exploration and language-instruction following."
   },
   {
    "date": "2026-09-03",
@@ -7109,7 +7357,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.02542",
-   "image": "figures/2026-09-03/2609.02542.jpg"
+   "image": "figures/2026-09-03/2609.02542.jpg",
+   "summary_en": "This paper proposes WM-LOCO, integrating a recurrent world model with PPO for foothold-constrained terrain such as stepping stones and narrow stairs. By predicting near-future observations and rewards from proprioception and depth, it enables anticipatory foot placement for stable dynamic walking on harsh terrain where miss-stepping is not tolerated."
   },
   {
    "date": "2026-09-03",
@@ -7132,7 +7381,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.02237",
-   "image": "figures/2026-09-03/2609.02237.jpg"
+   "image": "figures/2026-09-03/2609.02237.jpg",
+   "summary_en": "This paper proposes DCRL, a method for offline goal-conditioned RL (GCRL) that mitigates error propagation and value overestimation. By recursively decomposing trajectory segments into a balanced binary tree and updating value functions from leaves to root, it stabilizes long-horizon value learning while avoiding inaccurate policy evaluation."
   },
   {
    "date": "2026-09-03",
@@ -7163,7 +7413,8 @@
     "safety"
    ],
    "abs_url": "https://arxiv.org/abs/2609.02358",
-   "image": "figures/2026-09-03/2609.02358.jpg"
+   "image": "figures/2026-09-03/2609.02358.jpg",
+   "summary_en": "This paper proposes Safe-Stop, which infers whether a humanoid can safely stop from its current state rather than executing a fixed emergency motion. By combining a stoppability estimator learned from stop policy rollouts with a reachability/recoverability estimator based on Hamilton-Jacobi analysis, it achieves safe, adaptive stopping during dynamic humanoid walking."
   },
   {
    "date": "2026-09-03",
@@ -7188,7 +7439,8 @@
     "locomotion"
    ],
    "abs_url": "https://arxiv.org/abs/2609.02003",
-   "image": "figures/2026-09-03/2609.02003.jpg"
+   "image": "figures/2026-09-03/2609.02003.jpg",
+   "summary_en": "This paper presents the design of a powered knee prosthesis utilizing quasi-direct-drive (QDD) actuation for high torque density and backdrivability. Featuring an 18:1 two-stage transmission and thermal/structural FEA optimization, it achieves a lightweight (2.6 kg) and low-profile (24.5 cm build height) commercial-grade design, validating active assistive control."
   },
   {
    "date": "2026-09-03",
@@ -7223,7 +7475,8 @@
     "imitation-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.02134",
-   "image": "figures/2026-09-03/2609.02134.jpg"
+   "image": "figures/2026-09-03/2609.02134.jpg",
+   "summary_en": "This paper proposes a retargeting method that bridges human and robot morphological differences by learning geometric correspondences on point clouds to generate reference motions. Without relying on manually defined sparse keypoints, it produces high-quality motion trajectories suitable for humanoid whole-body control from diverse motion data."
   },
   {
    "date": "2026-09-03",
@@ -7250,7 +7503,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.02079",
-   "image": "figures/2026-09-03/2609.02079.jpg"
+   "image": "figures/2026-09-03/2609.02079.jpg",
+   "summary_en": "This paper proposes a Koopman-based stochastic MPC for nonlinear systems subject to stochastic intermittent sensor measurements. Using a Lipschitz-constrained deep Koopman model to build a linear latent predictor and modeling state transitions as a Markov chain, it guarantees closed-loop stability while enabling fast online optimization."
   },
   {
    "date": "2026-09-03",
@@ -7279,7 +7533,8 @@
     "simulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.02222",
-   "image": "figures/2026-09-03/2609.02222.jpg"
+   "image": "figures/2026-09-03/2609.02222.jpg",
+   "summary_en": "This paper proposes FOCUS, which predicts continuous confidence weights instead of binary contact classifications for foot forward-kinematics-based leg odometry. Trained on simulation data, it mitigates excessive drift under dynamic locomotion involving partial support, slipping, and dragging, achieving accurate state estimation over long-distance trajectories."
   },
   {
    "date": "2026-09-03",
@@ -7305,7 +7560,8 @@
     "simulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.01823",
-   "image": "figures/2026-09-03/2609.01823.jpg"
+   "image": "figures/2026-09-03/2609.01823.jpg",
+   "summary_en": "This paper proposes Kirin, a framework that reconstructs large-scale animal motion data from in-the-wild videos to learn motion priors where motion capture is challenging. By combining accurate 3D motion recovery from video with diffusion-based motion generation, it enables natural locomotion assets for imitation learning and motor control in quadruped robots."
   },
   {
    "date": "2026-09-03",
@@ -7334,7 +7590,8 @@
     "hardware"
    ],
    "abs_url": "https://arxiv.org/abs/2609.02306",
-   "image": "figures/2026-09-03/2609.02306.jpg"
+   "image": "figures/2026-09-03/2609.02306.jpg",
+   "summary_en": "This paper proposes a lower-limb joint-offset calibration method using only onboard joint encoders and a pelvis IMU, without external motion capture. Utilizing geometric constraints during static double support and eigenstructure analysis of the Hessian, it formulates a 12-dimensional nonlinear least-squares problem, achieving high kinematic consistency on real humanoids."
   },
   {
    "date": "2026-09-03",
@@ -7363,7 +7620,8 @@
     "autonomous-driving"
    ],
    "abs_url": "https://arxiv.org/abs/2609.01609",
-   "image": "figures/2026-09-03/2609.01609.jpg"
+   "image": "figures/2026-09-03/2609.01609.jpg",
+   "summary_en": "This paper proposes DiDrive, integrating a hierarchical diffusion model with 3DICE policy optimization to prevent distribution shifts and safety violations in offline RL for autonomous driving. A low-level risk-gated encoder and high-level context module eliminate environmental redundancy, generating safe actions under safety-critical conditions."
   },
   {
    "date": "2026-09-03",
@@ -7401,7 +7659,8 @@
     "benchmark"
    ],
    "abs_url": "https://arxiv.org/abs/2609.02546",
-   "image": "figures/2026-09-03/2609.02546.jpg"
+   "image": "figures/2026-09-03/2609.02546.jpg",
+   "summary_en": "This paper proposes ZETA, a controlled benchmark systematically evaluating zero-shot cross-embodiment transfer of VLA models for tabletop manipulation. By isolating completely unseen embodiments from those seen only during pre-training, it reveals how hardware differences impact model generalization performance."
   },
   {
    "date": "2026-09-03",
@@ -7426,7 +7685,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.02531",
-   "image": "figures/2026-09-03/2609.02531.jpg"
+   "image": "figures/2026-09-03/2609.02531.jpg",
+   "summary_en": "This paper proposes SA-WAM, which extends a pretrained video diffusion model to jointly predict robot actions, RGB images, and depth within a single diffusion backbone. By incorporating 3D geometric information into latent diffusion, it achieves accurate spatial awareness and closed-loop policy learning while retaining strong physical priors from video models."
   },
   {
    "date": "2026-09-03",
@@ -7452,7 +7712,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.02159",
-   "image": "figures/2026-09-03/2609.02159.jpg"
+   "image": "figures/2026-09-03/2609.02159.jpg",
+   "summary_en": "This paper proposes World-Coherent Decoding, a test-time self-verifying planning framework for World Action Models (WAMs) that forecast visual futures and decode actions. It evaluates candidate trajectories using optical-flow-based surprise and action path stability, auditing predictions against real execution observations to improve planning accuracy."
   },
   {
    "date": "2026-09-03",
@@ -7480,7 +7741,8 @@
     "grasping"
    ],
    "abs_url": "https://arxiv.org/abs/2609.01938",
-   "image": "figures/2026-09-03/2609.01938.jpg"
+   "image": "figures/2026-09-03/2609.01938.jpg",
+   "summary_en": "This paper proposes DemoMimic, a multi-fingered manipulation policy that generalizes from a single human demonstration to unseen objects. By designing rewards focused on local contact geometry around contact points, it achieves precise, robust real-world manipulation across objects of unseen shapes and poses via sim-to-real reinforcement learning."
   },
   {
    "date": "2026-09-03",
@@ -7506,7 +7768,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.02020",
-   "image": "figures/2026-09-03/2609.02020.jpg"
+   "image": "figures/2026-09-03/2609.02020.jpg",
+   "summary_en": "This paper proposes an MPPI-based task-space control framework that explicitly handles rigid-body dynamics and safety constraints within real-time MPC. By constructing a GPU-parallelized torque-sampling control scheme to solve nonlinear dynamics at high speed, it demonstrates compliant and force-aware manipulation in unstructured environments on real hardware."
   },
   {
    "date": "2026-09-03",
@@ -7539,7 +7802,8 @@
     "dataset"
    ],
    "abs_url": "https://arxiv.org/abs/2609.01899",
-   "image": "figures/2026-09-03/2609.01899.jpg"
+   "image": "figures/2026-09-03/2609.01899.jpg",
+   "summary_en": "The authors introduce TAPVid-MV, the first benchmark for evaluating long-term 3D tracking of any point from synchronized multi-view videos under moving cameras. Containing 284 sequences across indoor, outdoor, and robotics domains with 1,142 camera streams and roughly 110,000 point trajectories, it enables thorough evaluation of visual tracking robustness."
   },
   {
    "date": "2026-09-03",
@@ -7562,7 +7826,8 @@
     "benchmark"
    ],
    "abs_url": "https://arxiv.org/abs/2609.02811",
-   "image": "figures/2026-09-03/2609.02811.jpg"
+   "image": "figures/2026-09-03/2609.02811.jpg",
+   "summary_en": "This paper experimentally investigates the gap between open-loop prediction error and closed-loop control performance for robotic world models. Evaluating trajectory tracking under conditions such as missing sensor data, it shows that trajectory playback RMSE correlates more strongly with closed-loop tracking error than long rollout error, prompting a rethink of model evaluation metrics."
   },
   {
    "date": "2026-09-03",
@@ -7592,7 +7857,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2609.02413",
-   "image": "figures/2026-09-03/2609.02413.jpg"
+   "image": "figures/2026-09-03/2609.02413.jpg",
+   "summary_en": "This paper proposes WildFab, a computational framework that directly generates spatial toolpaths and global collision-free trajectories from flawed real-world meshes—such as non-manifold or hollow models—without manual repair. Using a hybrid representation combining neural unsigned distance functions (UDFs), it automates multi-axis 3D printing with a robot arm."
   },
   {
    "date": "2026-09-03",
@@ -7617,7 +7883,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.02046",
-   "image": "figures/2026-09-03/2609.02046.jpg"
+   "image": "figures/2026-09-03/2609.02046.jpg",
+   "summary_en": "This paper proposes a sparse, residual world model that updates only changing objects via a change-detection gate and residual heads, unlike conventional models that predict full scenes. In MuJoCo tabletop pushing tasks, it reduces parameters to about 1/10th compared to dense MLPs while improving next-state pose prediction accuracy by 2.5x to 4.6x."
   },
   {
    "date": "2026-09-03",
@@ -7642,7 +7909,8 @@
     "safety"
    ],
    "abs_url": "https://arxiv.org/abs/2609.01731",
-   "image": "figures/2026-09-03/2609.01731.jpg"
+   "image": "figures/2026-09-03/2609.01731.jpg",
+   "summary_en": "This paper systematically evaluates task allocation and reactive collision avoidance for a five-UAV team in a Gazebo-simulated earthquake-damaged urban environment. Combining genetic algorithms, greedy task assignment, and local trajectory control, it quantitatively reveals the impact of these strategies on mission efficiency and safety."
   },
   {
    "date": "2026-09-02",
@@ -7666,7 +7934,8 @@
     "safety"
    ],
    "abs_url": "https://arxiv.org/abs/2609.01418",
-   "image": "figures/2026-09-02/2609.01418.jpg"
+   "image": "figures/2026-09-02/2609.01418.jpg",
+   "summary_en": "To address discrepancies when deploying simulation-trained policies to the real world, this paper proposes an RL framework that safely explores and collects data on the real system under safety constraints. It establishes a sim-to-real transfer method with provable safety guarantees."
   },
   {
    "date": "2026-09-02",
@@ -7699,7 +7968,8 @@
     "dataset"
    ],
    "abs_url": "https://arxiv.org/abs/2608.28693",
-   "image": "figures/2026-09-02/2608.28693.jpg"
+   "image": "figures/2026-09-02/2608.28693.jpg",
+   "summary_en": "This paper proposes RoboGesture, a framework for humanoids to generate and execute semantically aligned co-speech gestures in real time. By constructing a dataset spanning over 300 categories and integrating a sim-to-real control scheme ensuring physical safety, it achieves interactive gesture execution on real humanoid hardware."
   },
   {
    "date": "2026-09-02",
@@ -7732,7 +8002,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2608.31167",
-   "image": "figures/2026-09-02/2608.31167.jpg"
+   "image": "figures/2026-09-02/2608.31167.jpg",
+   "summary_en": "This paper proposes SUN, an executable persistent program representation that seamlessly bridges model predictive control (MPC) and reinforcement learning (RL). It automatically compiles geometric and contact relations into MPC costs, RL rewards, and diagnostic guards, preventing behavioral discrepancies from language instructions to real-robot execution in long-horizon manipulation."
   },
   {
    "date": "2026-09-02",
@@ -7763,7 +8034,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2609.01596",
-   "image": "figures/2026-09-02/2609.01596.jpg"
+   "image": "figures/2026-09-02/2609.01596.jpg",
+   "summary_en": "This paper proposes Facet-0, a robotic foundation model for sub-millimeter precision assembly that predicts and evaluates contact wrenches alongside actions. Integrating multimodal representation learning with RL post-training, it concurrently generates actions and wrist-wrench profiles via Flow Matching to achieve highly accurate force-controlled manipulation."
   },
   {
    "date": "2026-09-02",
@@ -7787,7 +8059,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2608.29061",
-   "image": null
+   "image": null,
+   "summary_en": "This paper proposes PathBridger, an offline goal-conditioned RL (GCRL) method that explicitly bridges state-space paths between subgoals for long-horizon tasks. It efficiently propagates sparse reward signals across fixed datasets, enabling accurate goal reaching without requiring additional environment interactions."
   },
   {
    "date": "2026-09-02",
@@ -7818,7 +8091,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2608.28995",
-   "image": "figures/2026-09-02/2608.28995.jpg"
+   "image": "figures/2026-09-02/2608.28995.jpg",
+   "summary_en": "To eliminate high-dimensional pixel decoding bottlenecks during real-time world-model control, this paper proposes Hydra, integrating an internal sampler and evaluator. It combines tree search in a discrete latent space with continuous trajectory execution via flow matching."
   },
   {
    "date": "2026-09-02",
@@ -7845,7 +8119,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2608.29432",
-   "image": "figures/2026-09-02/2608.29432.jpg"
+   "image": "figures/2026-09-02/2608.29432.jpg",
+   "summary_en": "This paper proposes SMILE, an interface that predicts B-spline coefficients and decodes them into smooth trajectories to suppress jitter and outliers in VLA action chunks. Without increasing model scale, it improves long-horizon execution accuracy and inference efficiency."
   },
   {
    "date": "2026-09-02",
@@ -7874,7 +8149,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2608.29080",
-   "image": "figures/2026-09-02/2608.29080.jpg"
+   "image": "figures/2026-09-02/2608.29080.jpg",
+   "summary_en": "This paper proposes a VR teleoperation system that enables a single operator to intuitively control two mobile manipulators simultaneously. By integrating RGB-D point clouds in real time to build an exocentric workspace, it provides low-latency, direct low-level control using only onboard sensors."
   },
   {
    "date": "2026-09-02",
@@ -7900,7 +8176,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2608.30368",
-   "image": "figures/2026-09-02/2608.30368.jpg"
+   "image": "figures/2026-09-02/2608.30368.jpg",
+   "summary_en": "The authors develop SpectraTac, a compact, low-compute optical tactile sensor combining RGB illumination with spatially distributed color sensors. Without cameras or imaging optics, it captures contact-induced elastomer deformation directly as low-dimensional spatial-spectral features."
   },
   {
    "date": "2026-09-02",
@@ -7925,7 +8202,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2609.00555",
-   "image": "figures/2026-09-02/2609.00555.jpg"
+   "image": "figures/2026-09-02/2609.00555.jpg",
+   "summary_en": "This paper proposes an inference-time framework that generates grasp poses respecting avoidance regions from language instructions with negation constraints, such as grasping a handle while avoiding the body, without additional training. It achieves constraint-satisfying dexterous grasping through potential-guided particle steering."
   },
   {
    "date": "2026-09-01",
@@ -7953,7 +8231,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2608.29769",
-   "image": "figures/2026-09-01/2608.29769.jpg"
+   "image": "figures/2026-09-01/2608.29769.jpg",
+   "summary_en": "This paper proposes an RL-based perceptual control system using a head-mounted solid-state LiDAR for humanoids leaping and landing across sparse 3D structures like monkey bars. An attention encoder with recurrent memory extracts geometric features from sparse point clouds, while a staged teacher-student pipeline achieves agile and accurate whole-body motions."
   },
   {
    "date": "2026-09-01",
@@ -7979,7 +8258,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2608.29487",
-   "image": "figures/2026-09-01/2608.29487.jpg"
+   "image": "figures/2026-09-01/2608.29487.jpg",
+   "summary_en": "This paper proposes a whole-body humanoid policy for the Unitree G1 that achieves both locomotion and manipulation using purely proprioceptive sensing, without cameras or force/tactile sensors. Using joint responses from deliberate compliant contact as whole-body tactile feedback, it demonstrates IMU-free robust bipedal walking, trapping soccer balls, and explorative suitcase grasping."
   },
   {
    "date": "2026-09-01",
@@ -8008,7 +8288,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2608.30883",
-   "image": null
+   "image": null,
+   "summary_en": "This paper proposes SWAQ, an end-to-end reinforcement learning framework that reframes blind locomotion in legged robots under partial observability as an information retention problem of internal states. Instead of explicitly estimating missing physical parameters, it effectively bakes privileged information into internal representations. This achieves highly robust locomotion control without relying on long observation histories or complex architectures."
   },
   {
    "date": "2026-09-01",
@@ -8032,7 +8313,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2608.29768",
-   "image": "figures/2026-09-01/2608.29768.jpg"
+   "image": "figures/2026-09-01/2608.29768.jpg",
+   "summary_en": "To reconcile inference latency and execution smoothness when deploying large policies on physical robots, this paper proposes SmoothRL, an online reinforcement learning framework operating under asynchronous action chunking execution. By overlapping policy computation with chunk execution, it hides latency while achieving high sample efficiency and adaptability in real-world environments."
   },
   {
    "date": "2026-09-01",
@@ -8056,7 +8338,8 @@
     "control"
    ],
    "abs_url": "https://arxiv.org/abs/2608.30832",
-   "image": "figures/2026-09-01/2608.30832.jpg"
+   "image": "figures/2026-09-01/2608.30832.jpg",
+   "summary_en": "To enhance torque capacity and energy efficiency in humanoid ankles, this paper proposes a 2-DOF parallel elastic actuator (PEA) combining a single gas spring with a dual-cam mechanism. It achieves two-axis torque compensation for pitch and roll using a shared elastic element. The proposed design features a more compact structure than conventional systems and a derived coupled kinematic model, demonstrating high assistance performance."
   },
   {
    "date": "2026-09-01",
@@ -8082,7 +8365,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2608.29601",
-   "image": "figures/2026-09-01/2608.29601.jpg"
+   "image": "figures/2026-09-01/2608.29601.jpg",
+   "summary_en": "Toward achieving tactile-enabled embodied intelligence, this paper proposes a framework integrating hardware, large-scale data, representation learning, and evaluation. Using proprietary vision-based tactile sensors and a collection system, the authors construct NeoData, a synchronized visuo-tactile demonstration dataset of over 30,000 hours across 6 embodiment configurations and 450 tasks, enabling general-purpose tactile manipulation."
   },
   {
    "date": "2026-09-01",
@@ -8125,7 +8409,8 @@
     "reinforcement-learning"
    ],
    "abs_url": "https://arxiv.org/abs/2608.30237",
-   "image": "figures/2026-09-01/2608.30237.jpg"
+   "image": "figures/2026-09-01/2608.30237.jpg",
+   "summary_en": "This paper proposes Motus2, a self-evolving general world model that integrates perception, prediction, action, and evaluation within a single shared-weight model for dexterous manipulation. By unifying three interfaces—policy (action generation), simulator (state transition prediction), and evaluator (value estimation)—it closes the self-improvement loop, improving adaptability to unseen contact-rich manipulation tasks."
   },
   {
    "date": "2026-09-01",
@@ -8151,7 +8436,8 @@
     "manipulation"
    ],
    "abs_url": "https://arxiv.org/abs/2608.29078",
-   "image": "figures/2026-09-01/2608.29078.jpg"
+   "image": "figures/2026-09-01/2608.29078.jpg",
+   "summary_en": "This paper proposes DREAM, a Real-to-Sim framework that generates fine-tuning data without human teleoperated demonstrations when adapting VLA models to new environments. By reconstructing the target environment and using an LLM to automatically define task goals and success criteria from instructions, it synthesizes data in simulation, enabling highly efficient policy adaptation."
   },
   {
    "date": "2026-09-01",
@@ -8182,7 +8468,8 @@
     "perception"
    ],
    "abs_url": "https://arxiv.org/abs/2608.30821",
-   "image": "figures/2026-09-01/2608.30821.jpg"
+   "image": "figures/2026-09-01/2608.30821.jpg",
+   "summary_en": "This paper proposes Lucida, a method that reconstructs individually manipulable 3D object assets and scene layouts from real indoor scenes for robot simulators. By relaxing the constraints of traditional parse-generate-place pipelines, it enables the construction of high-quality digital twin environments even from cluttered or occluded, incomplete real-world data."
   },
   {
    "date": "2026-09-01",
@@ -8207,7 +8494,8 @@
     "planning"
    ],
    "abs_url": "https://arxiv.org/abs/2608.28723",
-   "image": "figures/2026-09-01/2608.28723.jpg"
+   "image": "figures/2026-09-01/2608.28723.jpg",
+   "summary_en": "This paper proposes Boundary Exploration Learning Model Predictive Control (BE-LMPC), which autonomously emerges a continuous transition from grip driving to drifting within a lap-time minimization task without explicit drift targets or rewards. By iteratively improving safe sets and local terminal costs from driving data, it successfully acquires drifting behavior near the vehicle's physical handling limits."
   }
  ]
 }
