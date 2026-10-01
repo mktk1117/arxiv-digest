@@ -2,110 +2,89 @@
 <html lang="ja">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>論文まとめ</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>arXiv Digest · Takahiro Miki</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@400..900&family=Geist+Mono:wght@400;500&family=Noto+Sans+JP:wght@400;600;800&display=swap">
+<link rel="stylesheet" href="digest.css">
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css">
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.js"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/contrib/auto-render.min.js"></script>
+<script>try{if(localStorage.getItem("tm2-mode")==="dark")document.documentElement.setAttribute("data-mode","dark")}catch(e){}</script>
 <style>
-  :root {
-    --bg: #f6f7f9;
-    --card: #ffffff;
-    --text: #1a1d21;
-    --muted: #6b7280;
-    --line: #e3e6ea;
-    --accent: #3b6fd4;
-    --focus: #eef3fd;
-    --warn: #fff7e6;
-    --warn-line: #f2d9a6;
+  main { padding: 112px var(--side) 0; }
+  .wrap { max-width: 780px; }
+  .back { display: inline-block; color: var(--ink-2); text-decoration: none; margin-bottom: 28px; }
+  .back:hover { color: var(--ink); }
+  .kicker { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--mute); margin-bottom: 14px; }
+  .kicker .grp { color: var(--tag); }
+  h1 { margin: 0; font: 800 clamp(30px, 3.9vw, 46px)/1.05 var(--display); letter-spacing: -.04em; text-wrap: balance; }
+  :lang(ja) h1 { font-size: clamp(28px, 3.8vw, 44px); line-height: 1.3; letter-spacing: -.01em; }
+  .sub { margin: 12px 0 0; color: var(--mute); font-size: 15px; }
+  .auth { margin: 16px 0 0; color: var(--ink-2); font-size: 15px; }
+  .tags { display: flex; flex-wrap: wrap; gap: 5px; margin: 16px 0 0; }
+  .tags .chip { cursor: default; }
+  .links { display: flex; flex-wrap: wrap; gap: 10px; margin: 24px 0 0; }
+  .notice {
+    margin: 28px 0 0; padding: 12px 16px; border: 1px dashed var(--line); border-radius: 6px;
+    color: var(--ink-2); font-size: 14px; background: rgba(var(--g-rgb), .7);
   }
-  @media (prefers-color-scheme: dark) {
-    :root {
-      --bg: #14171b; --card: #1c2027; --text: #e8eaed; --muted: #9aa3ad;
-      --line: #2c323a; --accent: #7aa2f7; --focus: #1e2734;
-      --warn: #2a2418; --warn-line: #4d4022;
-    }
+  .tldr {
+    margin: 40px 0 0; padding: 4px 0 4px 22px; border-left: 3px solid var(--tag);
+    font-size: clamp(19px, 2vw, 22px); line-height: 1.5; text-wrap: pretty;
   }
-  * { box-sizing: border-box; }
-  body {
-    margin: 0; background: var(--bg); color: var(--text);
-    font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", sans-serif;
-    line-height: 1.75; font-size: 15px;
-  }
-  a { color: var(--accent); }
-  .wrap { max-width: 760px; margin: 0 auto; padding: 16px 16px 64px; }
-  .top { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 14px; }
-  .top a { text-decoration: none; font-size: 13px; }
-  .group {
-    font-size: 11px; font-weight: 700; padding: 2px 10px; border-radius: 999px;
-    background: var(--card); border: 1px solid var(--line); color: var(--muted);
-  }
-  .group.focus { background: var(--focus); border-color: var(--accent); color: var(--accent); }
-  h1 { font-size: 22px; line-height: 1.4; margin: 0 0 6px; }
-  .title-en { color: var(--muted); font-size: 14px; margin: 0 0 10px; }
-  .meta { font-size: 13px; color: var(--muted); margin: 0 0 10px; }
-  .tags { display: flex; flex-wrap: wrap; gap: 5px; margin: 0 0 12px; }
-  .tag {
-    font-size: 11px; padding: 2px 9px; border-radius: 999px;
-    color: var(--accent); border: 1px solid var(--line); background: var(--card);
-  }
-  .links { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 18px; }
-  .links a {
-    font-size: 13px; text-decoration: none; padding: 7px 14px; border-radius: 8px;
-    border: 1px solid var(--accent); color: var(--accent); background: var(--card);
-  }
-  .links a.primary { background: var(--accent); color: #fff; }
-  .box {
-    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
-    padding: 14px 16px; margin: 0 0 18px;
-  }
-  .box.tldr { border-color: var(--accent); background: var(--focus); }
-  .box h2 { font-size: 13px; margin: 0 0 6px; color: var(--muted); font-weight: 700; letter-spacing: .02em; }
-  .box p { margin: 0; }
-  .box p + p { margin-top: 8px; }
-  .box ul { margin: 0; padding-left: 20px; }
-  .box li { margin: 3px 0; }
-  .toc { font-size: 13px; }
-  .toc ol { margin: 0; padding-left: 20px; columns: 2; column-gap: 24px; }
-  .toc li { break-inside: avoid; margin: 2px 0; }
+  .tldr p { margin: 0; }
+  .tldr .eyebrow { font-size: 11px; margin-bottom: 10px; }
+  figure { margin: 36px 0 0; }
+  figure .figbox { display: block; }
+  figure img { display: block; width: 100%; height: auto; }
+  figcaption { margin-top: 14px; font-size: 14px; color: var(--ink-2); line-height: 1.6; }
+  figcaption .key { color: var(--tag); margin-right: 8px; }
+  figcaption .orig { display: block; color: var(--mute); font-size: 12.5px; margin-top: 4px; }
+  .layer { margin: 64px 0 0; padding-top: 18px; border-top: 1px solid var(--line); }
+  .layer > .eyebrow { margin-bottom: 18px; }
+  .prose { font-size: 16.5px; line-height: 1.75; }
+  :lang(ja) .prose { font-size: 16px; line-height: 1.9; }
+  .prose p { margin: 0 0 14px; }
+  .prose ul { margin: 0 0 14px; padding-left: 22px; }
+  .prose li { margin: 5px 0; }
+  .prose h3 { font: 600 17px/1.4 var(--body); margin: 26px 0 8px; }
+  h2.box-title { margin: 0 0 12px; font: 800 26px/1.1 var(--display); letter-spacing: -.04em; }
+  :lang(ja) h2.box-title { font-size: 22px; letter-spacing: -.01em; }
+  .toc ol { list-style: none; margin: 0; padding: 0; counter-reset: c; columns: 2; column-gap: 32px; }
+  .toc li { counter-increment: c; break-inside: avoid; padding: 8px 0; border-bottom: 1px solid var(--line); font-size: 14.5px; display: flex; gap: 12px; }
+  .toc li::before { content: counter(c, decimal-leading-zero); font: 500 11px/1.9 var(--mono); color: var(--tag); }
   .toc a { text-decoration: none; }
-  @media (max-width: 520px) { .toc ol { columns: 1; } }
-  section.chapter { margin: 30px 0 0; }
-  section.chapter h2 { font-size: 18px; margin: 0; line-height: 1.4; }
-  section.chapter h2 small { display: block; font-size: 12px; color: var(--muted); font-weight: normal; }
-  section.chapter .lead { margin: 8px 0 10px; padding: 10px 14px; border-left: 3px solid var(--accent); background: var(--card); border-radius: 0 10px 10px 0; }
+  .toc a:hover { text-decoration: underline; text-underline-offset: 3px; }
+  @media (max-width: 620px) { .toc ol { columns: 1; } }
+  section.chapter { margin: 56px 0 0; scroll-margin-top: 88px; }
+  section.chapter .num { color: var(--tag); font-size: 11px; }
+  section.chapter h2 { margin: 8px 0 0; font: 800 clamp(24px, 2.8vw, 32px)/1.12 var(--display); letter-spacing: -.04em; text-wrap: balance; }
+  :lang(ja) section.chapter h2 { font-size: clamp(21px, 2.4vw, 26px); line-height: 1.4; letter-spacing: -.01em; }
+  section.chapter .orig { margin: 6px 0 0; color: var(--mute); font-size: 13px; }
+  section.chapter .lead { margin: 18px 0 18px; padding-left: 18px; border-left: 2px solid var(--ink); color: var(--ink); font-size: 17px; line-height: 1.65; }
   section.chapter .lead p { margin: 0; }
-  section.chapter .body { margin-top: 8px; }
-  .layer { font-size: 11px; color: var(--muted); font-weight: 700; letter-spacing: .04em; margin: 26px 0 8px; text-transform: uppercase; }
-  section.chapter .body p { margin: 0 0 10px; }
-  section.chapter .body h3 { font-size: 15px; margin: 18px 0 6px; padding-left: 10px; border-left: 3px solid var(--line); }
-  .box h3 { font-size: 14px; margin: 12px 0 4px; }
-  section.chapter .body ul { margin: 0 0 10px; padding-left: 22px; }
-  section.chapter .body li { margin: 3px 0; }
-  code { font-size: 90%; background: var(--focus); padding: 0 4px; border-radius: 4px; }
-  figure {
-    margin: 14px 0 16px; background: var(--card); border: 1px solid var(--line);
-    border-radius: 12px; overflow: hidden;
-  }
-  figure img { display: block; width: 100%; background: #fff; }
-  figcaption { padding: 10px 14px 12px; font-size: 13px; }
-  figcaption .orig { display: block; color: var(--muted); font-size: 11px; margin-top: 4px; }
-  figcaption .key { font-weight: 700; color: var(--accent); margin-right: 6px; }
-  figure.hero { border-color: var(--accent); }
+  ul.points { list-style: none; margin: 0; padding: 0; }
+  ul.points li { position: relative; padding: 12px 0 12px 28px; border-bottom: 1px solid var(--line); line-height: 1.6; }
+  ul.points li::before { content: "→"; position: absolute; left: 0; top: 12px; color: var(--tag); font-family: var(--mono); }
+  ul.points.warn li::before { content: "!"; color: var(--warn); font-weight: 700; left: 6px; }
+  code { font: 90% var(--mono); background: var(--ground-2); padding: 1px 5px; border-radius: 3px; }
   .katex { font-size: 1.02em; }
   .katex-display { overflow-x: auto; overflow-y: hidden; padding: 4px 0; }
-  .box.limits { background: var(--warn); border-color: var(--warn-line); }
-  .footer { margin-top: 36px; font-size: 12px; color: var(--muted); border-top: 1px solid var(--line); padding-top: 12px; }
-  .note { color: var(--muted); font-size: 14px; padding: 48px 0; text-align: center; }
+  .colophon { margin: 56px 0 0; color: var(--mute); font-size: 13px; }
 </style>
 </head>
 <body>
-<div class="wrap" id="app"><p class="note">読み込み中…</p></div>
+<main><div class="wrap" id="app"><p class="note" data-ja="読み込み中…" data-en="Loading…"></p></div></main>
 
+<script src="digest.js"></script>
 <script>
-const GROUPS = { focus: "専門分野", general: "ロボティクス全般" };
-const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => (
-  { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const { esc } = Digest;
+const T = (ja, en) => Digest.t({ ja, en });
+const GROUPS = { focus: { ja: "専門分野", en: "Focus" }, general: { ja: "ロボティクス全般", en: "General" }, manual: { ja: "リクエスト", en: "On request" } };
+let doc = null;   // paper.json（日本語。図や著者などのメタ情報もここ）
+let en = null;    // paper.en.json（英語版。まだ無い論文もある）
 
 // **太字** と `コード` だけ解釈する
 function inline(s) {
@@ -114,7 +93,7 @@ function inline(s) {
     .replace(/`([^`]+)`/g, "<code>$1</code>");
 }
 
-// 空行で段落、行頭の「- 」で箇条書きにする
+// 空行で段落、行頭の「- 」で箇条書き、「### 」で小見出しにする
 function renderBody(text) {
   const out = [];
   let para = [], list = [];
@@ -137,64 +116,106 @@ function renderBody(text) {
 // 図の番号は論文のキャプション（Figure 5: …）から取る。無ければ抽出時のキー
 function figureLabel(f) {
   const m = String(f.caption || "").match(/^(?:Figure|Fig\.?)\s*(\d+)/i);
-  if (m) return `図 ${m[1]}`;
-  if (/^P\d+$/.test(f.key)) return `p.${f.key.slice(1)} の図`;
-  return `図 ${f.key.replace(/^F/, "")}`;
+  const n = m ? m[1] : (/^P\d+$/.test(f.key) ? null : f.key.replace(/^F/, ""));
+  if (n === null) return T(`p.${f.key.slice(1)} の図`, `Figure on p.${f.key.slice(1)}`);
+  return T(`図 ${n}`, `Fig. ${n}`);
 }
 
-function figure(f, cls = "") {
-  return `<figure class="${cls}">
-    <a href="${esc(f.image)}" target="_blank" rel="noopener"><img src="${esc(f.image)}" alt="${esc(f.caption || f.key)}" loading="lazy"></a>
-    <figcaption><span class="key">${esc(figureLabel(f))}</span>${inline(f.caption_ja)}
+function figure(f, text) {
+  return `<figure>
+    <a class="figbox" href="${esc(f.image)}" target="_blank" rel="noopener"><img src="${esc(f.image)}" alt="${esc(f.caption || f.key)}" loading="lazy"></a>
+    <figcaption><span class="key mono">${esc(figureLabel(f))}</span>${inline(text)}
       ${f.caption ? `<span class="orig">${esc(f.caption)}</span>` : ""}</figcaption>
   </figure>`;
 }
 
+const list = (items, cls = "") => `<ul class="points ${cls}">${items.map((t) => `<li>${inline(t)}</li>`).join("")}</ul>`;
+
+// 今の言語で読む文章。英語版が無い（または一部欠けた）ところは日本語を出す
+function view(d) {
+  const e = Digest.lang === "en" ? en : null;
+  const pick = (a, b) => (e && a ? a : b);
+  const pickList = (a, b) => (e && a && a.length ? a : b || []);
+  return {
+    english: !!e,
+    title: Digest.lang === "en" ? d.title : (d.title_ja || d.title),
+    sub: Digest.lang === "en" ? "" : (d.title_ja ? d.title : ""),
+    tldr: pick(e?.tldr, d.tldr_ja),
+    heroCaption: pick(e?.hero_caption, d.hero_figure?.caption_ja),
+    overview: pick(e?.overview, d.overview_ja),
+    contributions: pickList(e?.contributions, d.contributions_ja),
+    takeaways: pickList(e?.takeaways, d.takeaways_ja),
+    limitations: pickList(e?.limitations, d.limitations_ja),
+    sections: (d.sections || []).map((s, i) => {
+      const es = e?.sections?.[i];
+      return {
+        heading: pick(es?.heading, s.heading_ja) || s.heading,
+        orig: s.heading,
+        summary: pick(es?.summary, s.summary_ja),
+        details: pick(es?.details, s.details_ja),
+        figures: (s.figures || []).map((f) => ({ f, text: pick(es?.captions?.[f.key], f.caption_ja) })),
+      };
+    }),
+  };
+}
+
 function render(d) {
-  document.title = `${d.title_ja || d.title} | 論文まとめ`;
-  const authors = (d.authors || []).slice(0, 4).join("、") + ((d.authors || []).length > 4 ? " ほか" : "");
-  const sections = d.sections || [];
+  const v = view(d);
+  const enMode = Digest.lang === "en";
+  document.title = `${v.title} · arXiv Digest`;
+  const authors = d.authors || [];
+  const who = authors.slice(0, 6).join(", ") + (authors.length > 6 ? (enMode ? " et al." : " ほか") : "");
+  const group = GROUPS[d.group] ? Digest.t(GROUPS[d.group]) : "";
+  const sections = v.sections;
 
   return `
-    <div class="top">
-      <a href="./">← 論文アーカイブ</a>
-      <span class="group ${d.group === "focus" ? "focus" : ""}">${esc(GROUPS[d.group] || "")}</span>
+    <a class="back mono" href="${esc(Digest.href("./"))}">← ${T("ダイジェスト一覧", "All papers")}</a>
+    <div class="kicker mono">
+      ${group ? `<span class="grp">${esc(group)}</span>` : ""}
+      ${d.date ? `<span>${T("配信", "Picked")} ${esc(d.date)}</span>` : ""}
+      <span>${esc((d.categories || [])[0] || "")}</span><span>${esc(d.id)}</span>
     </div>
-    <h1>${esc(d.title_ja || d.title)}</h1>
-    <p class="title-en">${esc(d.title)}</p>
-    <p class="meta">${esc(authors)}${d.date ? ` · 配信 ${esc(d.date)}` : ""} · ${esc((d.categories || [])[0] || "")} · ${esc(d.id)}</p>
-    <div class="tags">${[...(d.tags || []), ...(d.keywords || [])].map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>
+    <h1>${esc(v.title)}</h1>
+    ${v.sub ? `<p class="sub">${esc(v.sub)}</p>` : ""}
+    <p class="auth">${esc(who)}</p>
+    <div class="tags">${[...(d.tags || []), ...(d.keywords || [])].map((t) => `<span class="chip small">${esc(t)}</span>`).join("")}</div>
     <div class="links">
-      <a class="primary" href="${esc(d.abs_url)}">arXiv で読む</a>
-      <a href="${esc(d.pdf_url)}">PDF</a>
-      ${d.html_url ? `<a href="${esc(d.html_url)}">HTML 版</a>` : ""}
+      <a class="btn solid" href="${esc(d.abs_url)}">${T("arXiv で読む", "Read on arXiv")} ↗</a>
+      <a class="btn" href="${esc(d.pdf_url)}">PDF</a>
+      ${d.html_url ? `<a class="btn" href="${esc(d.html_url)}">HTML</a>` : ""}
     </div>
+    ${enMode && !v.english ? `<p class="notice">The English summary of this paper isn't ready yet, so the text below is the Japanese version.
+      The figures and their original captions are in English.</p>` : ""}
 
-    ${d.tldr_ja ? `<div class="box tldr"><h2>ひとことで</h2>${renderBody(d.tldr_ja)}</div>` : ""}
-    ${d.hero_figure && d.hero_figure.image ? figure(d.hero_figure, "hero") : ""}
+    ${v.tldr ? `<div class="tldr"><div class="eyebrow mono">${T("ひとことで", "In one breath")}</div>${renderBody(v.tldr)}</div>` : ""}
+    ${d.hero_figure && d.hero_figure.image ? figure(d.hero_figure, v.heroCaption) : ""}
 
-    ${d.overview_ja ? `<p class="layer">全体像</p><div class="box"><h2>概要</h2>${renderBody(d.overview_ja)}</div>` : ""}
-    ${(d.contributions_ja || []).length ? `<div class="box"><h2>主な貢献</h2>
-      <ul>${d.contributions_ja.map((t) => `<li>${inline(t)}</li>`).join("")}</ul></div>` : ""}
+    ${v.overview ? `<div class="layer"><div class="eyebrow mono">${T("全体像", "The big picture")}</div>
+      <div class="prose">${renderBody(v.overview)}</div></div>` : ""}
+    ${v.contributions.length ? `<div class="layer"><div class="eyebrow mono">${T("主な貢献", "What is new")}</div>
+      ${list(v.contributions)}</div>` : ""}
 
-    ${sections.length ? `<p class="layer">章ごとのまとめ</p><div class="box toc"><h2>目次</h2><ol>${sections.map((s, i) =>
-      `<li><a href="#sec-${i + 1}">${esc(s.heading_ja || s.heading)}</a></li>`).join("")}</ol></div>` : ""}
+    ${sections.length ? `<div class="layer toc"><div class="eyebrow mono">${T("章ごとのまとめ", "Chapter by chapter")}</div><ol>${sections.map((s, i) =>
+      `<li><a href="#sec-${i + 1}">${esc(s.heading)}</a></li>`).join("")}</ol></div>` : ""}
 
     ${sections.map((s, i) => `
       <section class="chapter" id="sec-${i + 1}">
-        <h2>${esc(s.heading_ja || s.heading)}${s.heading && s.heading_ja ? `<small>${esc(s.heading)}</small>` : ""}</h2>
-        ${s.summary_ja ? `<div class="lead">${renderBody(s.summary_ja)}</div>` : ""}
-        ${s.details_ja ? `<div class="body">${renderBody(s.details_ja)}</div>` : ""}
-        ${(s.figures || []).map(figure).join("")}
+        <div class="num mono">${T("章", "Chapter")} ${String(i + 1).padStart(2, "0")}</div>
+        <h2>${esc(s.heading)}</h2>
+        ${s.orig && s.orig !== s.heading ? `<p class="orig">${esc(s.orig)}</p>` : ""}
+        ${s.summary ? `<div class="lead">${renderBody(s.summary)}</div>` : ""}
+        ${s.details ? `<div class="prose">${renderBody(s.details)}</div>` : ""}
+        ${s.figures.map(({ f, text }) => figure(f, text)).join("")}
       </section>`).join("")}
 
-    ${(d.takeaways_ja || []).length ? `<div class="box" style="margin-top:30px"><h2>持ち帰るポイント</h2>
-      <ul>${d.takeaways_ja.map((t) => `<li>${inline(t)}</li>`).join("")}</ul></div>` : ""}
-    ${(d.limitations_ja || []).length ? `<div class="box limits"><h2>限界・気になる点</h2>
-      <ul>${d.limitations_ja.map((t) => `<li>${inline(t)}</li>`).join("")}</ul></div>` : ""}
+    ${v.takeaways.length ? `<div class="layer"><div class="eyebrow mono">${T("持ち帰るポイント", "Takeaways")}</div>
+      ${list(v.takeaways)}</div>` : ""}
+    ${v.limitations.length ? `<div class="layer"><div class="eyebrow mono">${T("限界・気になる点", "Limitations and open questions")}</div>
+      ${list(v.limitations, "warn")}</div>` : ""}
 
-    <p class="footer">このまとめは ${esc(d.model || "Gemini")} が論文の${d.source === "pdf" ? "PDF" : "HTML 版"}から自動生成したものです（${esc(d.generated || "")}）。
-      正確な内容は <a href="${esc(d.abs_url)}">原文</a> を確認してください。</p>`;
+    <p class="colophon">${enMode
+      ? `This summary was written automatically by ${esc(d.model || "Gemini")} from the paper's ${d.source === "pdf" ? "PDF" : "HTML version"} (${esc(d.generated || "")})${v.english ? ", then translated from the Japanese edition" : ""}. Check <a href="${esc(d.abs_url)}">the paper</a> for the exact details.`
+      : `このまとめは ${esc(d.model || "Gemini")} が論文の${d.source === "pdf" ? "PDF" : "HTML 版"}から自動生成したものです（${esc(d.generated || "")}）。正確な内容は <a href="${esc(d.abs_url)}">原文</a> を確認してください。`}</p>`;
 }
 
 // $...$ と $$...$$ を KaTeX で描く。CDN が読めない環境では素の文字列のまま
@@ -212,25 +233,36 @@ function renderMath(root) {
   else window.addEventListener("load", go, { once: true });
 }
 
+function show() {
+  const app = document.getElementById("app");
+  app.innerHTML = render(doc);
+  renderMath(app);
+}
+
 async function load() {
   const id = new URLSearchParams(location.search).get("id");
   const app = document.getElementById("app");
   if (!id || !/^[\w.\-/]+$/.test(id)) {
-    app.innerHTML = '<p class="note">論文が指定されていません。<a href="./">アーカイブへ戻る</a></p>';
+    app.innerHTML = `<p class="note">${T("論文が指定されていません。", "No paper selected.")} <a href="./">${T("一覧へ戻る", "Back to the digest")}</a></p>`;
     return;
   }
   try {
-    const res = await fetch(`details/${id}/paper.json`, { cache: "no-cache" });
+    const [res, resEn] = await Promise.all([
+      fetch(`details/${id}/paper.json`, { cache: "no-cache" }),
+      fetch(`details/${id}/paper.en.json`, { cache: "no-cache" }).catch(() => null),
+    ]);
     if (!res.ok) throw new Error(res.status);
-    app.innerHTML = render(await res.json());
-    renderMath(app);
+    doc = await res.json();
+    if (resEn && resEn.ok) { try { en = await resEn.json(); } catch { en = null; } }
+    show();
     if (location.hash) document.querySelector(location.hash)?.scrollIntoView();
   } catch {
-    app.innerHTML = `<p class="note">この論文のまとめはまだありません。<br>
-      <a href="https://arxiv.org/abs/${esc(id)}">arXiv で読む</a> · <a href="./">アーカイブへ戻る</a></p>`;
+    app.innerHTML = `<p class="note">${T("この論文のまとめはまだありません。", "There is no summary for this paper yet.")}<br>
+      <a href="https://arxiv.org/abs/${esc(id)}">${T("arXiv で読む", "Read it on arXiv")}</a> · <a href="./">${T("一覧へ戻る", "Back to the digest")}</a></p>`;
   }
 }
 
+Digest.onLang(() => { if (doc) show(); });
 load();
 </script>
 </body>
