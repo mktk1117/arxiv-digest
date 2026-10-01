@@ -1,0 +1,121 @@
+/* takahiromiki.com と同じ見た目（Graphite · blue）。トークンはホームページの themes.css の gb / cobalt と同じ値 */
+:root {
+  color-scheme: light;
+  --ground: #fafafa; --ground-2: #eeeeee; --paper: #ffffff;
+  --ink: #111111; --ink-2: #474747; --mute: #8a8a8a;
+  --g-rgb: 250, 250, 250; --i-rgb: 17, 17, 17; --grid: 60, 60, 60;
+  --tag: #1d4ed8; --warn: #b45309;
+  --line: color-mix(in srgb, rgb(var(--grid)) 26%, var(--ground));
+  --display: "Geist", "Helvetica Neue", Arial, "Noto Sans JP", sans-serif;
+  --body: "Geist", system-ui, "Hiragino Sans", "Noto Sans JP", sans-serif;
+  --mono: "Geist Mono", ui-monospace, monospace;
+  --gutter: clamp(16px, 4vw, 48px);
+  --content: 1160px;
+  --side: max(var(--gutter), calc((100% - var(--content)) / 2));
+}
+[data-mode="dark"] {
+  color-scheme: dark;
+  --ground: #111214; --ground-2: #1a1b1e; --paper: #f4f4f2;
+  --ink: #eeeeec; --ink-2: #a6a7a3; --mute: #76777a;
+  --g-rgb: 17, 18, 20; --i-rgb: 238, 238, 236; --grid: 255, 255, 255;
+  --line: #2a2c30; --tag: #6f9bff; --warn: #f0a35e;
+}
+* { box-sizing: border-box; }
+html { background: var(--ground); }
+body {
+  margin: 0; color: var(--ink); font: 400 16px/1.6 var(--body);
+  -webkit-font-smoothing: antialiased; overflow-x: clip;
+  background:
+    linear-gradient(rgba(var(--grid), .11) 1px, transparent 1px) 0 0/120px 120px,
+    linear-gradient(90deg, rgba(var(--grid), .11) 1px, transparent 1px) 0 0/120px 120px,
+    linear-gradient(rgba(var(--grid), .05) 1px, transparent 1px) 0 0/24px 24px,
+    linear-gradient(90deg, rgba(var(--grid), .05) 1px, transparent 1px) 0 0/24px 24px,
+    var(--ground);
+}
+[data-mode="dark"] body {
+  background:
+    linear-gradient(rgba(255, 255, 255, .055) 1px, transparent 1px) 0 0/120px 120px,
+    linear-gradient(90deg, rgba(255, 255, 255, .055) 1px, transparent 1px) 0 0/120px 120px,
+    linear-gradient(rgba(255, 255, 255, .022) 1px, transparent 1px) 0 0/24px 24px,
+    linear-gradient(90deg, rgba(255, 255, 255, .022) 1px, transparent 1px) 0 0/24px 24px,
+    var(--ground);
+}
+a { color: inherit; }
+[hidden] { display: none !important; }
+:focus-visible { outline: 2px solid var(--tag); outline-offset: 3px; border-radius: 2px; }
+.mono { font-family: var(--mono); font-size: 12px; letter-spacing: .08em; text-transform: uppercase; }
+.eyebrow { color: var(--tag); margin-bottom: 14px; }
+.eyebrow::before { content: ""; display: inline-block; width: 28px; height: 1px; background: var(--tag); vertical-align: middle; margin-right: 10px; }
+/* 日本語の見出しは、英字用の詰め（-0.05em）だと窮屈なので緩める */
+:lang(ja) :is(h1, h2, h3) { letter-spacing: -.01em; }
+
+/* ---------- nav（ホームページと同じ） ---------- */
+.nav {
+  position: fixed; inset: 0 0 auto 0; z-index: 20; display: flex; align-items: center; gap: 16px;
+  padding: calc(14px + env(safe-area-inset-top, 0px)) var(--side) 14px;
+  background: rgba(var(--g-rgb), .9); backdrop-filter: blur(8px); border-bottom: 1px solid var(--line);
+}
+.nav .name { font: 800 15px/1 var(--display); letter-spacing: -.05em; text-decoration: none; white-space: nowrap; }
+.nav ul { display: flex; gap: clamp(12px, 2.4vw, 28px); list-style: none; margin: 0 0 0 auto; padding: 0; }
+.nav ul a { font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase; text-decoration: none; color: var(--ink-2); }
+.nav ul a:hover, .nav ul a[aria-current="page"] { color: var(--ink); }
+.nav-tools { display: flex; align-items: center; gap: 10px; }
+.menu-btn {
+  display: none; appearance: none; background: none; border: 1px solid rgba(var(--i-rgb), .3); color: var(--ink);
+  border-radius: 999px; padding: 8px 12px; cursor: pointer;
+}
+.mode-btn {
+  appearance: none; width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
+  border-radius: 999px; border: 1px solid rgba(var(--i-rgb), .22); background: none; color: inherit; cursor: pointer; padding: 0;
+}
+.mode-btn svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; }
+.mode-btn .sun, [data-mode="dark"] .mode-btn .moon { display: none; }
+[data-mode="dark"] .mode-btn .sun { display: block; }
+/* 言語の切り替え: EN | 日本語 */
+.lang { display: inline-flex; border: 1px solid rgba(var(--i-rgb), .22); border-radius: 999px; padding: 2px; }
+.lang button {
+  appearance: none; border: 0; background: none; color: var(--ink-2); cursor: pointer; border-radius: 999px;
+  padding: 7px 10px; font: 500 11px/1 var(--mono); letter-spacing: .06em;
+}
+.lang button[aria-pressed="true"] { background: var(--ink); color: var(--ground); }
+@media (max-width: 860px) {
+  .menu-btn { display: inline-flex; margin-left: auto; }
+  .nav ul {
+    display: none; position: absolute; top: 100%; left: 0; right: 0; flex-direction: column; gap: 0;
+    padding: 8px var(--gutter) 16px; background: var(--ground); border-bottom: 1px solid var(--line);
+  }
+  .nav.open ul { display: flex; }
+  .nav ul a { display: block; padding: 12px 0; font-size: 13px; }
+}
+@media (max-width: 420px) { .nav .name { font-size: 13px; } .lang button { padding: 7px 8px; } }
+
+/* ---------- buttons, chips ---------- */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; padding: 11px 16px; border: 1px solid rgba(var(--i-rgb), .28);
+  border-radius: 999px; font: 500 12px/1 var(--mono); letter-spacing: .08em; text-transform: uppercase;
+  text-decoration: none; background: none; color: inherit;
+}
+.btn:hover { border-color: var(--ink); background: rgba(var(--i-rgb), .06); }
+.btn.solid { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+.chip {
+  appearance: none; border: 1px solid var(--line); background: none; color: var(--ink-2); border-radius: 999px;
+  padding: 8px 13px; cursor: pointer; font: 500 11px/1 var(--mono); letter-spacing: .06em; text-transform: uppercase;
+  font-variant-numeric: tabular-nums;
+}
+.chip:hover { color: var(--ink); border-color: var(--ink-2); }
+.chip[aria-pressed="true"] { background: var(--ink); color: var(--ground); border-color: var(--ink); }
+.chip.small { padding: 5px 9px; font-size: 10.5px; text-transform: none; letter-spacing: .02em; }
+.figbox {
+  position: relative; background: var(--paper); border-radius: 2px;
+  outline: 1px solid rgba(var(--grid), .55); outline-offset: 3px;
+}
+[data-mode="dark"] .figbox { outline-color: rgba(255, 255, 255, .22); }
+
+/* ---------- footer ---------- */
+footer {
+  padding: 32px var(--side) calc(40px + env(safe-area-inset-bottom, 0px)); display: flex; flex-wrap: wrap;
+  justify-content: space-between; gap: 16px; color: var(--mute); border-top: 1px solid var(--line); margin-top: 72px;
+}
+footer a { color: var(--ink-2); }
+.foot-links { display: flex; flex-wrap: wrap; gap: 18px; }
+.note { color: var(--ink-2); padding: 48px 0; }
