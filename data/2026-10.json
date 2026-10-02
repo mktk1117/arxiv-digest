@@ -1,6 +1,296 @@
 {
  "entries": [
   {
+   "date": "2026-10-02",
+   "rank": 0,
+   "id": "2610.01397",
+   "group": "focus",
+   "title": "Continue, Abort, or Fall: Viability-Aware Policy Selection (VAPS) for Safe Humanoid Acrobatics",
+   "title_ja": "継続・中止・転倒：安全なヒューマノイド・アクロバットのための実行可能性認識方策選択（VAPS）",
+   "summary_ja": "ヒューマノイドの動的宙返りなどでは外乱やsim-to-realギャップによる転倒リスクが伴う。本研究は、名目追従・安全着地中止・保護的転倒の各方策の実行可能性を予測器により評価し、モデル予測制御的に切り替えるVAPSを提案した。シミュレーションと実機検証により、ハードウェア破損リスクを最小化しながら限界領域でのアクロバティック動作を実現した。",
+   "summary_en": "Dynamic humanoid acrobatics carry high risks of hardware damage from disturbances and sim-to-real gaps. The authors propose Viability-Aware Policy Selection (VAPS), a receding-horizon framework that evaluates the viability of nominal tracking, landing abort, and protective fall policies using learned predictors. VAPS enables safe execution of aggressive maneuvers while minimizing hardware damage when departures from reference trajectories occur.",
+   "authors": [
+    "Siwei Ju",
+    "Lu Liu",
+    "Jan Peters",
+    "Oleg Arenz"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.01397",
+   "image": "figures/2026-10-02/2610.01397.jpg"
+  },
+  {
+   "date": "2026-10-02",
+   "rank": 1,
+   "id": "2610.01612",
+   "group": "focus",
+   "title": "ReCo: Response-Consistent Locomotion with Policy-Aware MPC for Legged Manipulation",
+   "title_ja": "ReCo: 脚式マニピュレーションのためのポリシー認識MPCと応答一貫性歩行",
+   "summary_ja": "脚式マニピュレータにおいて、歩行しながらの手先追従にはRL歩行方策の予測困難な応答遅れや変動が課題となる。提案手法ReCoは、ダイナミクスを乱択化した環境で指令に対する応答が一貫するようRL歩行を訓練し、その既知の応答特性をモデル化したMPCでベースとアームを統合制御する。これにより外乱下でもベースの揺れを相殺し、高精度な手先軌道追従を達成した。",
+   "summary_en": "In legged manipulation, accurate end-effector tracking during walking is hindered by unpredictable base responses from learned locomotion policies. ReCo addresses this by training a response-consistent locomotion policy under randomized dynamics and coupling it with a policy-aware MPC that models this characteristic. This tight coordination allows the MPC to anticipate base motions and accurately compensate for disturbances during manipulation.",
+   "authors": [
+    "Kuankuan Sima",
+    "Yichao Gao",
+    "Chenxi Gu",
+    "Kefan Zhao",
+    "Lin Zhao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "manipulation",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.01612",
+   "image": "figures/2026-10-02/2610.01612.jpg"
+  },
+  {
+   "date": "2026-10-02",
+   "rank": 2,
+   "id": "2610.00823",
+   "group": "focus",
+   "title": "Reactive Humanoid Multi-Contact Using Learned Stability Models",
+   "title_ja": "学習済み安定性モデルを用いたヒューマノイドのリアクティブ・マルチコンタクト",
+   "summary_ja": "足裏接触のみでは転倒する低安定度な状況において、手を用いた接触により姿勢を安定化させる計画・制御手法を提案。衝突前後の重心ダイナミクスを展開し、衝突後圧力中心（CoP）の制御権を学習済みモデルで高速評価することで接触候補点を選定する。最適化ベースの従来法に比べ劇的な計算高速化を達成し、ヒューマノイドの突発的な転倒回避を可能にした。",
+   "summary_en": "The paper presents a planning and control framework that reactively utilizes hand contacts to stabilize a humanoid when feet-only contact is insufficient to prevent falls. By deploying a learned model of the post-impact Center of Pressure (CoP) control authority, the system rapidly evaluates candidate hand contacts and rolls out centroidal dynamics. This achieves fast computation compared to traditional optimization, enabling real-time reactive fall prevention.",
+   "authors": [
+    "Stephen McCrory",
+    "Beomyeong Park",
+    "Nicholas Kitchel",
+    "Nehar Poddar",
+    "Robert Griffin"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "locomotion",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.00823",
+   "image": "figures/2026-10-02/2610.00823.jpg"
+  },
+  {
+   "date": "2026-10-02",
+   "rank": 3,
+   "id": "2610.01260",
+   "group": "focus",
+   "title": "PROMO: Preference-conditioned Multi-Objective Reinforcement Learning for Quadrupedal Robots",
+   "title_ja": "PROMO: 四足歩行ロボットのための選好条件付き多目的強化学習",
+   "summary_ja": "四足歩行における指令追従性、安定性、省エネルギー性などの相反する要求に対し、単一の方策へ実行時に選好重みを入力可能な多目的強化学習手法PROMOを提案。歩行生成に必要な共通事前知識と操作者の意図を分離して学習させることで、再学習なしにオペレータの要求に応じた動的な歩行特性の切り替えを可能にし、実環境での適応性を大幅に向上させた。",
+   "summary_en": "Balancing conflicting goals like command tracking, stability, and energy efficiency in quadrupedal locomotion typically requires hardcoding reward weights. PROMO introduces a preference-conditioned multi-objective reinforcement learning framework that takes trade-off preferences as real-time semantic inputs to a single policy. By decoupling operator intent from core gait priors, it enables seamless runtime switching of locomotion behavior without retraining.",
+   "authors": [
+    "Amr Mousa",
+    "Rifny Rachman",
+    "Neil Karavis",
+    "Michele Caprio",
+    "Richard Allmendinger"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.HC",
+    "cs.LG",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.01260",
+   "image": "figures/2026-10-02/2610.01260.jpg"
+  },
+  {
+   "date": "2026-10-02",
+   "rank": 4,
+   "id": "2610.01102",
+   "group": "focus",
+   "title": "MASkillBlender: Decentralized Whole-Body Coordination for Multi-Humanoid Loco-Manipulation via Skill Blending",
+   "title_ja": "MASkillBlender: スキルブレンディングによる複数ヒューマノイドの全身協調移動マニピュレーション",
+   "summary_ja": "高次元な全身制御が要求される複数ヒューマノイドによる協調的移動マニピュレーションに対し、分散型強化学習フレームワークMASkillBlenderを提案。各ロボットが事前学習済みの単一ヒューマノイドスキルを再利用し、共有された上位方策がそれらをブレンドすることで、複雑な報酬設計なしに協調動作を獲得できる。大規模な物体の共同運搬等のタスクで有効性を実証した。",
+   "summary_en": "Coordinated multi-humanoid loco-manipulation is challenging due to high-dimensional whole-body control and decentralized coordination. MASkillBlender introduces a multi-agent RL framework where a shared decentralized high-level policy blends reusable, pre-trained single-humanoid skills. This approach eliminates the need for extensive reward engineering and successfully demonstrates complex cooperative behaviors such as collaborative heavy load transportation.",
+   "authors": [
+    "Yifan Hu",
+    "Luhang Hong",
+    "Mingkang Long",
+    "Danning Wang",
+    "Chengfeng Jia",
+    "Rong Su",
+    "Junjie Fu",
+    "Guanghui Wen"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG",
+    "cs.MA"
+   ],
+   "tags": [
+    "humanoid",
+    "multi-robot",
+    "reinforcement-learning",
+    "locomotion"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.01102",
+   "image": "figures/2026-10-02/2610.01102.jpg"
+  },
+  {
+   "date": "2026-10-02",
+   "rank": 5,
+   "id": "2610.00864",
+   "group": "general",
+   "title": "Kinematic MeanFlow: One-Step Action Generation Policy for Robotic Foundation Models",
+   "title_ja": "Kinematic MeanFlow: ロボット基盤モデルのための1ステップ行動生成方策",
+   "summary_ja": "Flow matchingによるロボット行動生成は推論遅延が大きいため、1ステップ生成を実現するKinematic MeanFlow（K-MF）を提案。RFMの速度場において除雑音後半に局所加速度が急増・拡散する崩壊要因を特定し、運動学的に整合した定式化によって克服した。複数ステップの従来拡散・フローモデルと同等の精度を保ちながら、大幅な推論高速化を達成した。",
+   "summary_en": "Robotic Foundation Models relying on multi-step flow matching suffer from high inference latency. To achieve one-step action generation, the authors analyze failure modes in MeanFlow—specifically late-stage surges and dispersion in local acceleration within velocity fields—and propose Kinematic MeanFlow (K-MF). K-MF resolves these dynamics, matching the performance of multi-step diffusion/flow models while drastically speeding up inference for real-time control.",
+   "authors": [
+    "Jiawei Fan",
+    "Sifeng Wang",
+    "Yuqing Hou",
+    "Anbang Yao"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CL",
+    "cs.CV"
+   ],
+   "tags": [
+    "control",
+    "vision-language-action",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.00864",
+   "image": "figures/2026-10-02/2610.00864.jpg"
+  },
+  {
+   "date": "2026-10-02",
+   "rank": 6,
+   "id": "2610.00781",
+   "group": "general",
+   "title": "DITTO-X: Forward and Reverse Teleoperation for Dexterous Manipulation and Human Intervention",
+   "title_ja": "DITTO-X: 巧緻マニピュレーションと人間介入のための順方向・逆方向遠隔操作",
+   "summary_ja": "共有自律制御において、自律方策の失敗時に人間が物体把持状態からシームレスに介入可能なハンド非依存の遠隔操作システムDITTO-Xを提案。関節トルクや指先接触イベントをリアルタイムに操作者へ触覚提示する順方向・逆方向インタフェースを構築した。視覚オクルージョン下でも高精度な把持引き継ぎとリカバリーを実現し、遠隔デモ収集と方針修正を効率化した。",
+   "summary_en": "In shared autonomy, taking over control during dexterous manipulation failures is difficult when relying solely on occluded visual feedback. DITTO-X introduces an embodiment-agnostic dexterous teleoperation interface supporting forward and reverse human-robot intervention, rendering joint forces and fingertip contact events in real time. This bidirectional haptic-aware loop enables seamless intervention even when grasping objects mid-task, improving demonstration and recover…",
+   "authors": [
+    "Zhanpeng He",
+    "Joaquin Palacios",
+    "Zhangyu Wang",
+    "Chenhao Li",
+    "Katelyn Lee",
+    "Matei Ciocarlie",
+    "C. Karen Liu",
+    "Jiajun Wu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "teleoperation",
+    "manipulation",
+    "grasping",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.00781",
+   "image": "figures/2026-10-02/2610.00781.jpg"
+  },
+  {
+   "date": "2026-10-02",
+   "rank": 7,
+   "id": "2610.01959",
+   "group": "general",
+   "title": "Training-Free Diffusion Planning with Analytical Local Scores",
+   "title_ja": "解析的局所スコアによる学習不要な拡散プランニング",
+   "summary_ja": "複雑な幾何拘束下でのロボット軌道計画に対し、デモデータによる事前学習を一切必要としない拡散プランナーを提案。従来の手法が環境依存の軌道データセットを要したのに対し、解析的に計算可能な局所スコア（滑らかさ、ゴール指向性、障害物回避）をサンプリング過程に直接統合する。未知のマップやマルチロボット環境でも追加学習なしに滑らかで衝突のない軌道を生成できる。",
+   "summary_en": "Diffusion-based trajectory planners typically require large datasets of feasible trajectories, limiting generalization across new environments. This paper presents a training-free diffusion-based motion planning method that integrates analytical local scores—governing smoothness, goal attraction, and collision avoidance—directly into the sampling dynamics. It generates smooth, collision-free paths in complex and multi-robot settings without pretraining demonstrations.",
+   "authors": [
+    "Michael Y. Fatemi",
+    "Jinhao Liang",
+    "Ferdinando Fioretto"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "planning",
+    "control",
+    "multi-robot"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.01959",
+   "image": "figures/2026-10-02/2610.01959.jpg"
+  },
+  {
+   "date": "2026-10-02",
+   "rank": 8,
+   "id": "2610.01072",
+   "group": "general",
+   "title": "quARtet Marker: A 3D-Printable Multi-Tag Fiducial for Robust Near-Frontal Pose Estimation",
+   "title_ja": "quARtet Marker: 正対時のロバストな姿勢推定を実現する3Dプリント可能なマルチタグ視覚マーカー",
+   "summary_ja": "透明・鏡面器具の多い実験室環境でのマニピュレーションに向け、カメラ正対時の姿勢推定精度を大幅に改善する新規マーカーquARtetを提案。単一平面タグが正対時に幾何学的手がかりを失う問題に対し、平行グリッパーの把持面を平坦に保ちつつ内部で4つのタグを傾斜配置する設計を考案した。小型フットプリントを維持しながら、広角・正面からの推定誤差を大幅に低減させた。",
+   "summary_en": "Fiducial markers are widely used for manipulating specular or transparent objects, but single planar tags suffer from severe pose ambiguity when viewed near-frontally. The authors introduce quARtet Marker, a 3D-printable fiducial that tilts four micro-tags at complementary angles within a compact footprint while maintaining a graspable flat surface. This passive geometric design provides strong perspective cues at all angles, substantially reducing pose estimation errors.",
+   "authors": [
+    "Araki Wakiuchi",
+    "Hikaru Sasaki",
+    "Takamitsu Matsubara"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "perception",
+    "hardware",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.01072",
+   "image": "figures/2026-10-02/2610.01072.jpg"
+  },
+  {
+   "date": "2026-10-02",
+   "rank": 9,
+   "id": "2610.00220",
+   "group": "general",
+   "title": "Real-Time Whole-Body Safe Motion Generation for Multi-Segment Tendon-Driven Continuum Robots",
+   "title_ja": "多セクション腱駆動連続体ロボットのリアルタイム全身安全運動生成",
+   "summary_ja": "腱駆動連続体ロボットの非均一な曲げと障害物回避を両立するため、アクチュエータ空間における統合運動生成フレームワークを提案。可変曲率モデルから解析的ヤコビアンを導出し、決定変数がセクション数のみに依存するマルチポイントCBF-QPを構築した。これにより動的障害物環境下でも低計算負荷で全身の干渉回避とアクチュエータ速度制約を満たす実時間安全制御を実現した。",
+   "summary_en": "Real-time safe motion planning for tendon-driven continuum robots is hindered by complex nonlinear bending and whole-body collision risks. This work proposes an actuation-space framework using an energy-based variable-curvature model with analytical Jacobians. A multi-point Control Barrier Function QP (CBF-QP) whose dimensionality scales only with the number of actuated segments enforces whole-body clearance and actuator limits in real time against dynamic obstacles.",
+   "authors": [
+    "Fangju Yang",
+    "Siyi Ma",
+    "Tonghao Guan",
+    "Tingcong Liu",
+    "Hang Yang",
+    "Zhengqiang Zhang",
+    "Jian S. Dai",
+    "Ke Wu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "safety",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.00220",
+   "image": "figures/2026-10-02/2610.00220.jpg"
+  },
+  {
    "date": "2026-10-01",
    "rank": 0,
    "id": "2609.38852",
