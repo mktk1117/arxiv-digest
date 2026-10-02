@@ -1,0 +1,138 @@
+{
+ "title_ja": "Kinematic MeanFlow: ロボット基盤モデルのための1ステップ行動生成方策",
+ "tldr_ja": "画像生成で注目の1ステップ生成手法MeanFlowをロボット基盤モデル（RFM）に適用すると破綻する原因を突き止め、運動学の恒等式に基づいて時間微分を2分割することで、1ステップでありながら多ステップFlow Matchingを超える性能と最大55%の遅延削減を達成しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "画像生成（青）とロボット基盤モデル（赤）における局所加速度ダイナミクスの比較、および損失地形の違いです。ロボットではデノイズ終盤に局所加速度が急増して標準MeanFlowの損失が激しくスパイクしますが、提案手法K-MFでは安定した滑らかな学習が実現できています。",
+  "caption": "Figure 1: Illustrations of our key observations. In (a), we calculate the change in average velocity $\\Delta\\mathbf{u}$ over a time interval of $\\Delta t=0.05$ and compare the dynamics of image generation (DiT-B on ImageNet) and action generation (SimVLA-S paired with DiT-B on LIBERO). To highlight the trend, we use the relative value to the initial value of each domain. The shaded area is bounded by the standard 1.5-IQR fences. In (b), we compare the loss landscapes of standard MeanFlow and our proposed K-MF, both applied to SimVLA-S on LIBERO. More examples are shown in Figure 5 .",
+  "image": "details/2610.00864/F1.jpg"
+ },
+ "overview_ja": "ロボット基盤モデル（RFM）は、画像や言語の指示からロボットの連続動作を予測する強力なモデルですが、実機制御における大きなボトルネックが推論遅延です。現在の主流であるFlow Matchingは、ノイズから行動を復元するために何度もネットワークを実行する多ステップのデノイズ処理（サンプリング）を必要とし、行動決定ヘッドだけで全体の計算時間の40〜50%を消費してしまいます。\n\nそこで注目されるのが、1回の推論（1ステップ）でノイズから直接行動を生成できる「MeanFlow」という新しい枠組みです。しかし、画像生成で大成功したMeanFlowをそのままRFMに適用すると、学習が発散して性能が完全に崩壊してしまいます。著者らが速度場を詳しく調べたところ、ロボット特有の2つの現象を発見しました。1つは、デノイズの終盤（きれいな行動に近づく段階）で「局所加速度」が初期値の76倍にも跳ね上がること、もう1つはタスクの多様性に伴ってサンプルのばらつきが急拡大することです。この急変のせいで、モデル自身の予測値を使って次の目標を作るブートストラップ学習が破綻していたのです。\n\nこの問題を解決するため、著者らは運動学の恒等式に着想を得た「Kinematic MeanFlow（K-MF）」を提案しました。時間区間を中間点で2つに分割し、時間微分項を前半と後半に分離することで、急峻な変化と誤差の増幅を抑え込む仕組みです。GR00TやSimVLAといった最新のRFMを用い、4つの大規模・中規模データセットで検証した結果、K-MFはわずか1ステップの推論でありながら従来の多ステップFlow Matchingと同等以上の成功率を達成し、行動ヘッドの計算遅延を最大74.4%、全体の遅延を最大54.9%も削減できることを実証しました。",
+ "contributions_ja": [
+  "ロボット基盤モデル（RFM）の速度場において、デノイズ終盤に局所加速度が初期値の76倍に急増し、タスク多様性に応じてばらつきが拡大するという特有のダイナミクスを初めて解明しました。",
+  "運動学の恒等式を用いて時間微分項を前半・後半の2区間に分離し、学習を安定化させる1ステップ行動生成手法「Kinematic MeanFlow（K-MF）」を提案しました。",
+  "区間を分割する中間点を動的かつ最適に決定する軽量な学習可能ジェネレータ（3層MLP）を設計しました。",
+  "GR00TやSimVLAなどの実用的なRFMにおいて、1ステップ生成でありながら多ステップFlow Matchingを上回るタスク成功率を達成し、エンドツーエンドの推論遅延を30.3%〜54.9%削減しました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "画像では動くMeanFlowが、なぜロボットでは破綻するのか？",
+   "summary_ja": "ロボット基盤モデル（RFM）のリアルタイム制御を阻む多ステップ推論の遅延を解消するため、1ステップ生成手法MeanFlowの適用を試みました。しかし、RFMの速度場ではデノイズ終盤に局所加速度が76倍に跳ね上がり、誤差が増幅して学習が崩壊することが分かりました。そこで運動学の恒等式に基づいて微分項を分離するK-MFを着想しました。",
+   "details_ja": "### ロボット基盤モデルの推論遅延という壁\nロボット基盤モデル（RFM）は、視覚と言語を統合して多様なタスクをこなす汎用ポリシーとして急速に発展しています。しかし、現在の主流であるFlow Matching（ノイズから行動への連続的な変換場を学習する枠組み）は、行動を生成するために複数回のネットワーク呼び出し（デノイズステップ）を必要とします。例えば代表的なRFMであるGR00T-N1.6では、デスクトップGPU（NVIDIA L40）で推論全体の約40%、車載・ロボット向けエッジ端末（NVIDIA Jetson Orin）では最大50%もの時間をこの行動生成ヘッドが消費しています。実機をリアルタイムで安全に動かすには、このサンプリングステップ数を極限まで減らす必要があります。\n\n### MeanFlowの魅力とRFMでの学習崩壊\n画像生成の世界では最近、蒸留や複雑な正則化なしで1ステップ生成を可能にする「MeanFlow」が登場しました。これは瞬間速度 $\\mathbf{v}_t$ ではなく、任意の2時刻間の「平均速度 $\\mathbf{u}_{t,r}$」を学習する手法です。もしこれがロボットで動けば、1回のフォワードパスでノイズから行動を出力できます。しかし、RFMにそのままMeanFlowを適用すると、学習損失が激しくスパイクして性能が完全に崩壊してしまいます。\n\n### 速度場に見られた2つの特異なダイナミクス\n著者らが画像生成（ImageNet上のDiT）とロボット（LIBERO上のSimVLA）の速度場を比較したところ、ロボット特有の決定的な違いが浮き彫りになりました。\n- **局所加速度の急増**: デノイズ終盤（$t < 0.3$）において、平均速度の変化率（局所加速度）が急激に跳ね上がり、初期値（$t=1$）の実に76倍に達します。局所的な観測から大域的な傾向を推測する微分項の推定が極めて難しくなります。\n- **ばらつきの拡大**: デノイズが進むにつれてサンプルの加速度の散らばり（分散）が拡大します。これはタスクの多様性が高まるほど顕著になります。\n\nMeanFlowは自身の予測微分を用いて教師信号を作る「ブートストラップ」構造を持つため、この2つの要因によって初期のわずかな推定誤差が指数関数的に増幅され、学習が破綻していました。この課題を解決するため、著者らは運動学の恒等式を用いて時間区間を分割する「Kinematic MeanFlow（K-MF）」を考案しました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "左図(a)はデノイズ進行に伴う局所加速度の変化率です。画像生成（青）が平坦なのに対し、ロボット（赤）は終盤に76倍へと急増し分散も拡大しています。右図(b)はその結果生じる損失地形であり、MeanFlow（中央）の激しいスパイクをK-MF（右）が完全に平滑化しています。",
+     "caption": "Figure 1: Illustrations of our key observations. In (a), we calculate the change in average velocity $\\Delta\\mathbf{u}$ over a time interval of $\\Delta t=0.05$ and compare the dynamics of image generation (DiT-B on ImageNet) and action generation (SimVLA-S paired with DiT-B on LIBERO). To highlight the trend, we use the relative value to the initial value of each domain. The shaded area is bounded by the standard 1.5-IQR fences. In (b), we compare the loss landscapes of standard MeanFlow and our proposed K-MF, both applied to SimVLA-S on LIBERO. More examples are shown in Figure 5 .",
+     "image": "details/2610.00864/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Works",
+   "heading_ja": "高速生成技術の系譜と、ロボット特有の未踏課題",
+   "summary_ja": "拡散モデルやフローモデルの高速化には蒸留やConsistency Models、MeanFlowなどのアプローチが存在します。しかし、これまでの試みは画像生成や単一タスクのロボット専用ポリシーが中心であり、多様なタスクを扱う汎用RFM特有のダイナミクスに着目した1ステップ化手法は未開拓でした。",
+   "details_ja": "### 画像生成における高速サンプリング手法\n拡散モデルやフローモデルの推論ステップ削減は、主に画像生成分野で盛んに研究されてきました。代表的な手法として、多ステップモデルの出力を少数ステップで模倣させるスコア/フロー蒸留や、同じ軌道上の点から同一の終点を直接予測させるConsistency Modelsがあります。近年提案されたMeanFlowは、2点間の平均速度を直接学習することで、事後蒸留を必要とせず最初から1ステップ生成を可能にする画期的な枠組みとして注目を集めています。区間分割を利用する試みも一部ありますが、それらは画像の学習効率改善やカリキュラム学習が目的であり、ロボットの速度場が持つ課題とは背景が異なります。\n\n### ロボティクスにおける行動生成ポリシーの進化\nロボティクス分野では、Diffusion Policyが先駆けとなって拡散モデルの導入が進み、模倣学習や強化学習においてConsistency PolicyやFlowPolicyといった高速化手法が提案されてきました。MeanFlowを行動生成に適用する試み（MP1、MVP、MeanflowQLなど）も現れていますが、これらは特定の単一タスクを解く「専門家ポリシー（Specialist Policy）」に限定されていました。単一タスクではデータの分散が小さいため単純なMeanFlowでもなんとか動きますが、多様なデータセットを扱う「汎用基盤モデル（Generalist RFM）」では全く通用しませんでした。RFMにおける極端な速度場ダイナミクスを解明し、汎用モデルで1ステップ生成を成立させた研究は本作が初めてです。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "運動学の恒等式で微分を分離する「Kinematic MeanFlow」",
+   "summary_ja": "平均速度の定義とMeanFlowの数理を整理した上で、時間区間を中間点で2分割する運動学の恒等式を導入しました。これにより時間微分項を前半と後半に分離し、誤差の増幅を根本から防ぎます。中間点を動的に決める軽量な学習可能ジェネレータも導入し、学習効率と安定性を両立させました。",
+   "details_ja": "### 3.1 準備：Flow MatchingとMeanFlowの定式化\n一般的なRFMは、視覚・言語特徴量と現在のロボット状態を受け取り、将来の行動シーケンス（アクションチャンク $\\mathbf{a}$）を出力します。Flow Matchingでは、ノイズ $\\bm{\\epsilon}$ と行動 $\\mathbf{a}$ を結ぶ直線軌道 $\\mathbf{z}_t = (1-t)\\mathbf{a} + t\\bm{\\epsilon}$ 上の瞬間速度 $\\mathbf{v}_t = \\bm{\\epsilon} - \\mathbf{a}$ を予測するように学習します。\n\n一方、MeanFlowは任意の2時刻 $r, t$ （$0 \\le r \\le t \\le 1$）の間の「平均速度 $\\mathbf{u}(\\mathbf{z}_t, r, t)$」を扱います。運動学の基本関係式から、平均速度は瞬間速度と時間微分項を用いて次のように表せます。\n$$\\mathbf{u}(\\mathbf{z}_t, r, t) = \\mathbf{v}(\\mathbf{z}_t, t) + (t-r)\\frac{d}{dt}\\mathbf{u}(\\mathbf{z}_t, r, t)$$\n学習時は、右辺にストップグラディエント演算子 $\\text{sg}(\\cdot)$ を適用した値を回帰ターゲットとしてモデル $\\pi_\\theta$ を最適化します。推論時は $t=1, r=0$ と置くだけで、1回の計算 $\\hat{\\mathbf{a}} = \\mathbf{z}_1 - \\pi_\\theta(\\mathbf{z}_1, 0, 1)$ で行動が得られます。\n\n### 3.2 Kinematic MeanFlow（K-MF）の核となるアイデア\nMeanFlowの学習が崩壊する原因は、終盤の加速度急増とばらつき拡大によって、右辺の時間微分項 $\\frac{d}{dt}\\mathbf{u}_{t,r}$ の推定が激しく狂う点にあります。そこで著者らは、任意の中間点 $c \\in (r, t)$ において平均速度が2つの部分区間の凸結合で厳密に表せるという「運動学の恒等式」を利用しました。\n$$\\mathbf{u}_{t,r} = \\frac{t-c}{t-r}\\mathbf{u}_{t,c} + \\frac{c-r}{t-r}\\mathbf{u}_{c,r}$$\n時間比率を $\\lambda = (c-r)/(t-r)$ と定義すると、全体の時間微分項は前半と後半の2つの微分項へと綺麗に分離されます。\n$$\\frac{d}{dt}\\mathbf{u}_{t,r} = (1-\\lambda)^2\\frac{d}{dt}\\mathbf{u}_{t,c} + \\lambda^2\\frac{d}{dc}\\mathbf{u}_{c,r}$$\nなぜこれが効くかというと、前半の微分項 $\\frac{d}{dt}\\mathbf{u}_{t,c}$ は加速度が安定している初期ステージを捉え、後半の微分項 $\\frac{d}{dc}\\mathbf{u}_{c,r}$ は終盤の変化のみに専念できるからです。中間点 $c$ がアンカーとなって誤差の雪だるま式な増幅を食い止めます。\n\n### 中間点 $c$ をどう決めるか？\n区間の分割位置を決める比率 $\\lambda$ について、3つの戦略を比較検討しました。\n- **ランダムサンプリング**: 一様分布 $\\lambda \\sim \\mathcal{U}(0, 1)$ から抽出。分割の多様性を評価する基準。\n- **中点固定**: 常に $\\lambda = 0.5$ に固定。余計な分散を完全に排除する素直な設計。\n- **学習可能戦略（LS）**: わずか3層の軽量MLP $G_\\phi(t, r)$ で $\\lambda$ を動的に予測。学習初期は分離推定を大域推定から離してブートストラップ誤差を減らし、学習終盤には両者を一致させて自己整合性を高める損失関数 $\\mathcal{L}_{\\text{gen}}$ で最適化します。\n\n### 高速な実装の工夫\n時間微分の計算には、ヤコビアンベクトル積（JVP）をフォワードモード自動微分（二重数）で実行し、逆伝播グラフを作らず1回のフォワードパスで処理します。さらに、2つの部分区間は互いに独立しているためバッチ次元で結合して並行計算し、Flow Matching比で学習時間の増加を33%以内に抑えています。",
+   "figures": []
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "1ステップで多ステップ超え：実機模倣・シミュレーションでの徹底検証",
+   "summary_ja": "GR00TとSimVLAを用い、シミュレータ環境LIBEROや実機実データを含むFractal、BridgeData V2、ナビゲーション環境で評価しました。K-MFは1ステップ推論でありながら従来の多ステップFlow Matchingと同等以上の成功率を記録し、アクションヘッドの遅延を最大74.4%削減しました。",
+   "details_ja": "### 実験設定とベースライン\n検証には、事前学習済みモデルのファインチューニング用に「GR00T-N1.6」、スクラッチ学習用に「SimVLA-S」を採用しました。データセットは、卓上操作シミュレーションのLIBERO（2,000軌道）、実機GoogleロボットのFractal（87,000軌道）、WidowX実機のBridgeData V2（53,000軌道）、四足歩行ロボットUnitree G1のPointNav（658軌道）という、規模も形態も異なる4種類を用意しました。比較対象は、多ステップFlow Matching（FM）、標準MeanFlow、および既存の改良版である$\\alpha$-FlowとMVPです。\n\n### 予備実験：既存手法の限界\nLIBERO-10での予備実験において、標準MeanFlowは勾配クリッピングや時間刻みのプログレッシブサンプリングなど極めて繊細なチューニングを施しても、2ステップ生成が関の山でFMに及びませんでした。また、$\\alpha$-Flowは1ステップにすると性能が大幅に低下し、MVPにいたっては行動を全く生成できなくなりました。これに対し、提案手法K-MFだけが1ステップでFMと同等の成功率を軽々と達成しました。\n\n### 主要なベンチマーク結果\n- **LIBERO（ファインチューニング＆スクラッチ）**: GR00Tのファインチューニングでは、FMが平均95.9%のところ、1ステップのK-MFが97.9%を達成しました。SimVLAのスクラッチ学習でも、FMの88.4%に対してK-MFが88.7%と、多ステップと同等以上の性能を示しました。\n- **大規模実機データ（Fractal & BridgeData V2）**: SimplerEnvを用いた実機転移シミュレーション評価において、Fractal（GoogleX）ではFMの61.5%に対しK-MFは68.0%、BridgeData V2（WidowX）ではFMの50.5%に対しK-MFは52.9%と、いずれも1ステップ生成でありながらFMを上回る成功率を収めました。\n- **ロボットナビゲーション（PointNav）**: 分布内データで100%、未知環境（病院シーン）の分布外データでもFMの70.5%に対してK-MFは76.5%を記録し、高い汎化性能を実証しました。\n\n### 推論速度と学習コスト\n推論効率の測定では、アクションヘッドの遅延がL40 GPUやJetson Orin上で67.5%〜74.4%も削減されました。これによりモデル全体のエンドツーエンド遅延も30.3%〜54.9%短縮され、制御周波数の大幅な向上が確認されました。学習時間についても、FMに対する増加分はGR00Tで33%、SimVLAで27%と、実用上十分許容できるオーバーヘッドに収まっています。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "学習可能戦略（LS）において、中間点の比率 $\\lambda$ と時間区間の幅 $(t-r)$ の関係を示したグラフです。区間幅が広がるにつれて $\\lambda$ が滑らかに小さくなっており、モデルが区間の長さに応じて最適な分割位置を賢く適応させていることが分かります。",
+     "caption": "Figure 4: Distribution of $\\lambda$ for LS on GR00T-N1.6 across different datasets.",
+     "image": "details/2610.00864/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "RFMの速度場ダイナミクスを深掘りした図です。(a)モデルが違っても終盤の加速度急増トレンドは共通していること、(b)単純なLIBEROより複雑なFractalの方がばらつきが広いこと、(c)タスク数が増えるほど局所加速度の分散が対数・ベキ乗則に従って拡大することを示しています。",
+     "caption": "Figure 5: More illustrations of the RFM velocity field. (a) Comparison of dynamics between SimVLA-S and GR00T-N1.6 on LIBERO. (b) Dynamics of GR00T-N1.6 on LIBERO vs. Fractal. (c) Relative spread of local acceleration magnitudes as the number of tasks increases.",
+     "image": "details/2610.00864/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "ロボット基盤モデルにおける1ステップ行動生成の難しさを速度場の特異なダイナミクスから解明し、運動学に基づき時間微分を分離するK-MFによって克服しました。学習コストのわずかな増加や全身協調制御への拡張といった課題はあるものの、実機適応に向けた大きな一歩となります。",
+   "details_ja": "### 結論\n本研究では、汎用ロボット基盤モデル（RFM）のための1ステップ行動生成ポリシー「Kinematic MeanFlow（K-MF）」を提案しました。従来のFlow Matchingが抱えていた推論遅延を解消すべく、速度場の詳細な解析からデノイズ終盤の加速度急増とばらつき拡大という根本課題を特定し、運動学の恒等式による微分項の分離というエレガントな数理的アプローチで解決しました。多様なモデル、データ規模、ロボット形態にまたがる広範な実験により、K-MFが1ステップ推論でありながら多ステップモデルを凌駕する性能と、大幅な遅延削減をもたらすことが証明されました。\n\n### 限界と今後の課題\n論文では以下の限界が挙げられています。\n- **学習オーバーヘッド**: Flow Matchingと比較して計算グラフの工夫により抑えられてはいるものの、学習時間は約3割増加します。\n- **未検証の制御領域**: 本研究の検証はマニピュレーションと車輪型ナビゲーションが中心であり、人型ロボットの全身協調制御（ホールボディコントロール）や多指ハンドによる極めて器用な操作（デクスタラスマニピュレーション）のような、自由度が極端に高いタスクへの適用は今後の課題として残されています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：なぜ誤差が増幅するのか？速度場の物理的メカニズム",
+   "summary_ja": "付録では、デノイズ終盤における誤差増幅のシミュレーション検証や、ロボットモデルと画像生成モデルの速度・角度変化率の違いを分析しています。また、中間状態を予測値ではなく正解軌道からサンプリングする「完全デカップリング」の重要性を解説しています。",
+   "details_ja": "### 終盤の誤差増幅シミュレーション\nデノイズの各ステップで潜在変数 $\\mathbf{z}_t$ にわずか1%の微小ノイズを加えたとき、最終的な時間微分項にどれほど影響が出るかを測定しました。その結果、デノイズ初期に加えた微小ノイズは、終盤に至る過程でなんと元の120倍もの誤差に増幅されることが判明しました。K-MFが時間区間を2分割し、独立に計算することで、この乗法的な誤差蓄積を加法的な小さな誤差に抑え込めていることが理論と実験の両面から裏付けられました。\n\n### なぜ画像生成よりロボットの1ステップ化が難しいのか？\n一般的なFlow Matchingでは、ロボットの方が画像よりも少ないステップ数でサンプリングできることが知られています。それなのに、なぜ1ステップ化になるとロボットの方がはるかに困難なのでしょうか？\n\n著者らが速度ベクトルの「速さ（大きさ）の変化率」と「角度（方向）の変化率」を分解して解析したところ、ロボットの速度場はデノイズ初期には方向も大きさもほとんど変化せず、ほぼ直線的な軌跡を描いていました。これが、粗いステップでも多ステップなら簡単に解けた理由です。しかし、デノイズ終盤の目標行動に到達する直前になると、速さと角度の両方が極端かつ急激に変化します。この急峻な非線形性により、局所的な観測から大域的な積分値を当てるMeanFlowの微分推定が致命的な誤差を生んでいたのです。\n\n### 正解軌道上サンプリングによる完全デカップリング\n中間状態 $\\mathbf{z}_c$ を取得する際、モデル自身の予測軌道を使うのではなく、教師データに基づく条件付きフロー軌道 $\\mathbf{z}_c = (1-c)\\mathbf{a} + c\\bm{\\epsilon}$ から直接サンプリングしています。もしモデルの予測軌道を使うと、前半の予測誤差が中間状態を狂わせ、後半の微分計算を直撃してしまいます。正解データにアンカーを打つことで、2つの部分区間を完全に独立させ、誤差の連鎖を断ち切るとともに並列計算による高速化を可能にしています。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "デノイズステップごとの相対誤差増幅率です。初期ステップ（$t=1.0$付近）で混入したわずか1%のノイズが、デノイズ終盤（$r \\to 0$）に向かうにつれて約120倍にまで急激に増幅されていく様子が明瞭に示されています。",
+     "caption": "Figure D: Relative error amplification across denoising timesteps. On SimVLA-S, we introduce a 1% random perturbation on $\\mathbf{z}_{t}$ , where $t\\in\\{1,0.9,\\ldots,0.1\\}$ , and measure the relative amplification to the initial perturbation in $\\frac{d\\mathbf{u}_{t,r}}{dt}$ at $r\\leq t$ . The curve shows the mean value over 50 random trials.",
+     "image": "details/2610.00864/F8.jpg"
+    },
+    {
+     "key": "F9",
+     "caption_ja": "ロボットモデル（上段：SimVLA-S）と画像生成モデル（下段：DiT-B）における局所加速度、速さ変化率、角度変化率の比較です。ロボットでは終盤に速さも角度も爆発的に変化しているのに対し、画像生成では全域で穏やかに推移しています。",
+     "caption": "Figure E: The absolute rate of velocity change (local acceleration), rate of speed change, and rate of angular change for models trained on LIBERO and ImageNet (top: SimVLA-S; bottom: DiT-B) . Throughout the denoising process, we compute the average velocity over uniform timesteps, maintaining a constant interval $\\Delta t=0.05$ . We visualize the spread of magnitudes using the interval $[Q_{1}-1.5\\mathrm{IQR},Q_{3}+1.5\\mathrm{IQR}]$ , defined by the standard 1.5-IQR rule for identifying potential outliers. Here, $\\mathrm{IQR}=Q_{3}-Q_{1}$ is the interquartile range, with $Q_{1}$ and $Q_{3}$ denoting the 25th and 75th percentiles, respectively. …",
+     "image": "details/2610.00864/F9.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "画像分野で流行している手法（MeanFlow等）をロボティクスへ持ち込む際は、終盤の急激な速度・角度変化という「ロボット特有の速度場ダイナミクス」への配慮が不可欠です。",
+  "ブートストラップ形式の学習で生じる誤差増幅は、運動学的な恒等式を用いて区間を分割し、アンカーを設けて中間状態を正解軌道上に拘束することで効果的に防ぐことができます。",
+  "1ステップ生成ポリシーを採用することで、性能を犠牲にすることなくエンドツーエンド推論遅延を3〜5割削減でき、エッジデバイスでの高周波リアルタイム制御が現実的になります。"
+ ],
+ "limitations_ja": [
+  "ヤコビアンベクトル積（JVP）を複数回評価する必要があるため、学習時間がFlow Matching比で約3割長くなります。",
+  "評価が卓上マニピュレーションと移動ロボットのナビゲーションに留まっており、ヒューマノイドの全身運動制御や多指ハンドの複雑な接触タスクでの有効性は未検証です。"
+ ],
+ "keywords": [
+  "Robotic Foundation Models",
+  "Flow Matching",
+  "MeanFlow",
+  "One-Step Action Generation",
+  "Kinematic Identity"
+ ],
+ "id": "2610.00864",
+ "title": "Kinematic MeanFlow: One-Step Action Generation Policy for Robotic Foundation Models",
+ "authors": [
+  "Jiawei Fan",
+  "Sifeng Wang",
+  "Yuqing Hou",
+  "Anbang Yao"
+ ],
+ "date": "2026-10-02",
+ "group": "general",
+ "tags": [
+  "control",
+  "vision-language-action",
+  "planning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.CL",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.00864",
+ "pdf_url": "https://arxiv.org/pdf/2610.00864",
+ "summary_ja": "Flow matchingによるロボット行動生成は推論遅延が大きいため、1ステップ生成を実現するKinematic MeanFlow（K-MF）を提案。RFMの速度場において除雑音後半に局所加速度が急増・拡散する崩壊要因を特定し、運動学的に整合した定式化によって克服した。複数ステップの従来拡散・フローモデルと同等の精度を保ちながら、大幅な推論高速化を達成した。",
+ "generated": "2026-10-02",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.00864"
+}
