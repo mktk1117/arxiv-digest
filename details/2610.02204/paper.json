@@ -1,0 +1,126 @@
+{
+ "title_ja": "Reconstruct, Practice, Go Real: 身体性エージェントのための誘導型自己改善",
+ "tldr_ja": "モデルの重みを一切更新せず、シミュレーション内での自律的な練習を通じて共有スキルコードとシステムプロンプトを進化させることで、ロボットの操作成功率を飛躍的に高めるフレームワーク「RPG」を提案しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "RPGフレームワークの全体フロー。オフラインデータセットから練習タスクを再構築（Reconstruct）し、シミュレータの内部状態を受け取る特権エージェントと実機互換のランタイムエージェントの比較動画から失敗を診断して、共有スキルライブラリを自律的に洗練・更新（Practice）します。",
+  "caption": "Fig. 2: RPG uses privileged execution and video analysis to guide skill development. The top row shows source scenes alongside representative simulation practice tasks. The Runtime Agent and Privileged Agent share the same model and skill library, but only the latter receives simulator state $S_{t}$ in addition to robot observations $O_{t}$ . For development tasks, the Video Analyzer compares the two agents’ execution records with available videos from the offline dataset to diagnose failures. The Implementor develops new skills, refines existing skills, and revises the system prompt. Candidate changes are evaluated across tasks. …",
+  "image": "details/2610.02204/F2.jpg"
+ },
+ "overview_ja": "ロボットに多様な作業を行わせる際、タスクごとに手動でスキルを作り直したり、報酬関数を調整したり、認識と制御を繋ぎ合わせたりするのは非常に骨が折れます。Code-as-Policyのようなプログラム生成型は高速かつ確実に動きますが、柔軟な知覚判断が難しく、逆にMLLM（マルチモーダル大規模言語モデル）を常時ループに回すAgent-as-Policyでは推論の遅延が問題になります。\n\nそこで著者らは「モデルの重みをファインチューニングするのではなく、共有のスキルコードとシステムプロンプトを自律的に改善していけばよいのでは？」と考え、RPG（Reconstruct, Practice, Go Real）を開発しました。まずオフラインデータセットから練習タスクをシミュレーション環境として再構築し、そこで実機互換の観測だけで動く通常エージェントと、シミュレータの完全な真値状態を知る特権エージェントを走らせます。両者の実行結果と失敗動画を比較・診断することで、不足しているスキルの追加やバグ修正、システムプロンプトの調整をLLMエージェントが自動で行います。\n\nシミュレーション内の22種類のマニピュレーションタスク（未見の初期配置）で検証したところ、練習前の成功率28.6%から15ラウンドの自律練習を経て95.0%へと劇的に向上し、GPT-6 Astra Proを使った最新ベースライン（60.0%）を大きく凌駕しました。さらに、共通のハードウェアキャリブレーションを行っただけで、改善後のシステムを一切追加学習や手動調整なしで実機の双腕ロボットへそのまま展開した結果、評価した3タスクの計30試行すべてで100%の成功を収めました。",
+ "contributions_ja": [
+  "モデルの重みを一切変更せずに、共有コードライブラリとプロンプトの自律更新のみでロボットの実行性能を底上げする枠組み「RPG」を提案した点",
+  "シミュレータ真値を受け取る特権エージェント（Privileged Agent）と通常エージェントの実行軌跡・動画を比較して失敗要因を特定する診断機構を開発した点",
+  "個別のスキル修正やプロンプト更新が他タスクへ悪影響（リグレッション）を及ぼさないよう、タスク横断テストと統合再テストによる検証ゲートを導入した点",
+  "シミュレーションで練習・固定したシステムを実機双腕ロボットにゼロショット展開し、3タスク×10回の全試行で100%成功を達成した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "モデルの重みを変えずにコードを進化させる新発想",
+   "summary_ja": "ロボット制御においてプログラム実行の速さとMLLMの柔軟な推論を両立するため、自己改善型のフレームワークRPGを提案します。シミュレーションでの練習を通じて共有スキルライブラリとプロンプトを自律的に磨き上げ、実機展開を可能にします。",
+   "details_ja": "マルチモーダルLLMの発展により、視覚から環境を理解して推論したりコードを生成したりする能力が飛躍的に向上しました。しかし、ロボットの制御に使う場合、「コードとして書き出して実行する（Code-as-Policy）」アプローチと「LLMを制御ループ内に常駐させる（Agent-as-Policy）」アプローチの間にはトレードオフが存在します。前者は反復的な動作を高速に処理できますが「物体をしっかり把持できたか」といった視覚的な判定をロジックで書くのが難しく、後者は柔軟な判断ができる反面、頻繁なモデル呼び出しによって動作が遅くなってしまいます。\n\n理想的なシステムは、反復可能で決まり切った実行処理は再利用可能なコードに任せ、視覚や意味的な判断が必要な場面にのみMLLMの推論を使うハイブリッドな形です。\n\n本研究では、モデルの重み（パラメータ）を一切更新することなく、シミュレーション環境での自律的な練習を通じて共有スキルライブラリとシステムプロンプトを段階的に進化させる枠組み「RPG（Reconstruct, Practice, Go Real）」を提案しています。オフラインデータから練習タスクを再構築し、実行結果を詳細に診断しながらコードを自動改訂することで、シミュレーションでの成功率を28.6%から95.0%へと大幅に向上させることに成功しました。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "先行研究との違い：特権エージェントによる診断とコードの横断検証",
+   "summary_ja": "ロボットプログラムの生成やスキルの蓄積、オフラインデータの活用に関する従来研究を整理します。RPGはニューラルネットの学習ではなく、特権情報を用いた失敗診断と回帰テスト付きのコード改訂を行う点が独自です。",
+   "details_ja": "### II-A ロボットプログラムとスキルの改善\nLLMを用いて実行可能なロボットコードを生成する研究（Code as Policies、ProgPrompt、CaP-Xなど）や、実行フィードバックを利用して計画を修正する研究（Inner Monologue、REFLECTなど）が活発に行われてきました。また、試行錯誤を通じて再利用可能なスキルをライブラリに蓄積していく手法（Voyager、LRLL、ASPIRE、RATsなど）も提案されています。本研究のRPGがこれらと決定的に異なるのは、「シミュレータの真値を知る特権エージェント」と「通常エージェント」の差分に着目して失敗を診断し、共有スキルコードとシステムプロンプトの両方を更新したうえで、他タスクへの悪影響がないかを固定スイート全体で厳密にテストして統合する点です。\n\n### II-B オフラインデータとシミュレーション練習\nデモ動画や軌跡からコードやポリシーを学習する研究（Demo2Code、Uni-Skillなど）や、シミュレータ内でデータ拡張やタスク生成を行う試み（MimicGen、GenSim、Eurekaなど）も進んでいます。RPGはオフラインデータセット（本論文では193タスクを含むABCデータセットを使用）から操作能力の目標を抽出してシミュレーション練習環境を構築しますが、軌跡をそのまま模倣したりニューラルネットワークを学習したりするのではなく、「実行コードそのもののデバッグと改善」のためにシミュレーションを活用する点が新しいアプローチです。",
+   "figures": []
+  },
+  {
+   "heading": "III Reconstruct, Practice, Go Real",
+   "heading_ja": "RPGの3つのステージ：再構築・練習・実機展開の仕組み",
+   "summary_ja": "システムは6つの専門エージェントで構成されます。オフラインデータからタスクを作り（Reconstruct）、特権情報と動画診断でスキルを改良・テストし（Practice）、キャリブレーションを経て実機へ固定展開（Go Real）します。",
+   "details_ja": "### III-A Agent-as-Policyの構成と初期化\nRPGでは、環境構築やコード改訂を分担する6つの特化エージェント（Constructor、Runtime Agent、Privileged Agent、Video Analyzer、Implementor、Merger）が連携します。実行システム $S_r = (\\mathcal{L}_r, \\rho_r)$ は、共有スキルライブラリ $\\mathcal{L}_r$ とシステムプロンプト $\\rho_r$ から成り、モデルの重み自体は固定です。初期ライブラリ $\\mathcal{L}_0$ には、低レベルツール9個と、デモから生成した6個の基本マニピュレーションスキル（pick, place, pushなど）の計15個が含まれます。\n\n### III-B Reconstruct: 練習タスクの構築と固定\nConstructorはデータセットから多様な能力をカバーするタスクを選び、MuJoCo環境上に練習タスクを構築します。元シーンを完全再現する必要はなく、本質的な操作（例: サングラスの片付けを「開いたケースを閉じるタスク」にする）をシミュレーション化します。タスクの成否を判定する評価関数 $e_i(\\tau)$ も自動作成され、人間による事前確認を経て固定されます。\n\n### III-C Practice: 実行結果からのシステム改善\n各ラウンドの練習では、通常のエージェント（Runtime Agent）と、シミュレータの完全な内部状態 $S_t$（物体の正確な位置・速度など）も受け取れる特権エージェント（Privileged Agent）が同じ初期状態からタスクを実行します。失敗した際、Video Analyzerが両エージェントの軌跡や動画、データセットの参考動画を比較し、「どこで動作が破綻したのか」を特定して具体的な修正提案を出します。これを受けてImplementorが新しいスキルコードやプロンプト改訂案を作成します。\n\n### III-D システム改訂の検証と統合\nあるタスクを直すためのコード変更が、別のタスクを壊してしまう「リグレッション」を防ぐため、全タスク（22タスク×各5シード）で改訂候補 $\\widetilde{S}$ をテストします。平均成功率 $\\Delta\\widehat{J} > 0$ かつ個別タスクの悪化が1/5（20ポイント）以内という条件をクリアした候補のみをMergerがマージし、統合後にもう一度全タスクテストをパスして初めて正式なライブラリとして採用されます。\n\n### III-E Go Real: 実機への適応と固定\n改善を終えた最終システムは、グリッパのオフセット調整など最低限の座標キャリブレーションを施した上で実機に展開されます。実機上では特権エージェントや診断機構は使わず、固定されたシステムコードとプロンプトのまま推論を行います。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "ボトルをゴミ箱へ入れるタスクでの自己改善の具体例。(1) 既存スキルでゴミ箱の縁に衝突して失敗、(2) 診断機構が進入軌跡の検証不足を指摘して修正案を提示、(3) 改訂スキルがタスク横断テストを通過してライブラリに統合されるまでの流れを示しています。",
+     "caption": "Fig. 3: Case study of self-improvement on bottle placement. (1) The Runtime Agent attempts the task by calling the shared skill pick_and_place_tall_object() , but the rollout fails when the bottle collides with the bin wall. (2) Failure diagnosis attributes the error to insufficient placement-path validation and proposes a more robust procedure: validate the full trajectory, release only after the bottle is safely inside the bin, and verify the final placement. (3) The revised skill improves task success from 1/5 to 5/5 on the development trials. The candidate is eligible for merging only if mean task success increases while no individual task drops by more than 20 percentage points. …",
+     "image": "details/2610.02204/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Evaluation",
+   "heading_ja": "圧倒的な性能向上：シミュレーション95%達成と実機30試行パーフェクト",
+   "summary_ja": "シミュレーション22タスクにおいて、15ラウンドの練習で成功率が28.6%から95.0%に達し、先行手法やGPT-6 Astra Proを大幅に超えました。アブレーションにより特権診断の重要性が実証され、実機テストでも3タスク計30試行すべてで成功しました。",
+   "details_ja": "### IV-A 評価設定とプロトコル\n双腕6自由度ロボット（YAM）を用い、ABC由来やCaP-X由来の計22タスクで評価しました。位置やカメラ姿勢、デプスノイズなどの外乱を加え、改善用（5シード）とは完全に切り離した評価用ホールドアウト（10シード、計220エピソード）でテストを行いました。\n\n### IV-B Q1: 練習によってどれだけ改善するか？\nRPG（実行モデル: Gemini 3.8 Flash、オフライン改訂: Fable 5.1）は、最終的に209/220（95.0%）の成功率を達成しました。ベースラインであるASPIRE（75.5%）や、強力なGPT-6 Astra Proを載せたCaP-Agent0（60.0%）、RATs（41.8%）を大きく引き離しています。ラウンド推移を見ると、第1ラウンド時点の28.6%から第4〜5ラウンドでプロンプト改訂（知覚と行動のループ制御）が入り一気に70%台後半まで跳ね上がり、その後のラウンドでスキルの不具合修正が積み重なって95.0%に到達しました。\n\n### IV-C Q2: 何が改善を牽引しているのか？（診断入力のアブレーション）\n「Video Analyzer抜き（51.8%）」「特権エージェント抜き（50.9%）」「両方抜き（50.9%）」のいずれも、完全版RPG（5ラウンド時: 78.2%）から26ポイント以上低下しました。特権エージェントが提供する「正解の参照軌跡」と、Video Analyzerによる「動画ベースの失敗分析」が揃って初めて効果的なコード修正ができることが分かります。\n\n### IV-D Q3: ライブラリ単体の修正に価値はあるか？\nプロンプトや推論モデルを固定し、スキルのコード変更前後だけで比較したところ、対象タスクの成功率が26/40（65.0%）から37/40（92.5%）へと明確に向上しました。例えば「持ち上げ（lift）」スキルでは、指令値に対して実際には4.6〜5.1 cmしか上がっていないのに完了扱いしていたバグが修正され、持ち上げ成功率が1/13から11/11へと改善していました。\n\n### IV-E Q4: 実機ロボットへ転移できるか？\n実機YAMロボットでの3つの定量的タスク（引き出しにボールを入れて閉める、タオル折り、ボウルを手渡しする）において、各10試行の計30試行を行ったところ、RPGは30/30（100%）の完全成功を収めました。GPT-6 Astra Proを用いたCaP-Agent0がボール入れ4/10、ボウル手渡し1/10にとどまったのに対し、複数ステージからなる複雑な作業でも安定した実行力を発揮しました。さらに「ハサミを開く」「マーカーのキャップを外す」などの未見の5タスクでもゼロショット展開に成功しています。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "実機双腕ロボットによるタスク実行の様子。上3段が定量評価を行った「ボール収納と引き出し閉め」「タオル折り」「ボウル手渡し」で、下3段は追加の定性デモ（円柱挿入、フルーツ配膳、カトラリー仕分け）です。",
+     "caption": "Fig. 5: Physical task execution. Representative execution sequences on the physical YAM robot. The first three rows show the quantitatively evaluated tasks: Store Ball in Drawer, Fold Towel, and Transfer Bowl. Bowl transfer uses table-supported staging. The remaining rows show additional qualitative deployments on Insert Cylinder, Serve Fruit onto Plate, and Sort Utensils. Table V reports outcomes for the three quantitative tasks.",
+     "image": "details/2610.02204/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望：自律改善のボトルネックと可能性",
+   "summary_ja": "モデルパラメータを触らなくても、共有スキルコードとプロンプトの自律的リファクタリングによってロボット性能を劇的に引き上げられることが示されました。APIの並列制限やスキルの依存関係管理が今後の課題です。",
+   "details_ja": "本研究は、特権エージェントによる失敗診断と横断的な回帰テストを組み合わせることで、モデルの重みをファインチューニングすることなく、共有コードとプロンプトの更新だけでロボットシステムを自律改善できることを実証しました。\n\n実機での100%成功という結果は、高品質に保守された共有スキルライブラリが物理環境への適応において極めて強力な基盤になることを示しています。\n\n一方で課題（Limitation）として、全22タスクについて2種類のエージェントを走らせるためのAPIレート制限が改善速度のボトルネックになることや、タスク数が増えるにつれてスキル同士のコード依存関係が複雑化し、マージの難易度が上がることが挙げられています。今後はクォータを考慮したスケジュール管理や依存関係を把握した統合プロセスの導入が期待されます。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "実機におけるゼロショット定性展開の様子。「ハサミを開く」「マーカーのキャップを外す」「ティッシュを引き出す」「ホワイトボードを消す」「ボトルのキャップを回して開ける」の5つの未見タスクを、追加学習なしで実行しています。",
+     "caption": "Fig. 6: Qualitative zero-shot real-world deployment. Representative execution sequences for five additional physical tasks: Open Scissors, Uncap Marker, Pull out Tissue, Erase Whiteboard, and Unscrew Bottle Cap. The frozen RPG system receives the task instruction and executes each task without task-specific real-world tuning, demonstrations, or retry-based adaptation. These examples are qualitative and are not included in the quantitative baseline comparison.",
+     "image": "details/2610.02204/F6.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "モデルの重み更新（LoRAやファインチューニング）を行わなくても、コード化されたスキルライブラリとプロンプトの自律的な改訂・デバッグだけで劇的な性能向上が可能であること",
+  "シミュレータならではの特権情報（真値状態）を持つエージェントを走らせ、通常エージェントとの差分を動画ベースで比較する失敗診断が極めて有効であること",
+  "共有ライブラリの改訂では他タスクへの悪影響（リグレッション）が起きやすいため、固定スイートを用いた横断的な合否判定ゲートが不可欠であること"
+ ],
+ "limitations_ja": [
+  "タスク数が増えるにつれてAPI呼び出しの回数とコスト、並列実行時のレート制限が改善サイクルのボトルネックになる点",
+  "複数のスキル改訂案が同時に出た際、コードの依存関係が衝突しマージに失敗するリスクが高まる点",
+  "シミュレーション環境や成功判定関数（check_success）の作成・検証において、最初のセットアップ段階ではまだ人間のチェックを必要としている点"
+ ],
+ "keywords": [
+  "Agent-as-Policy",
+  "Multimodal Large Language Models (MLLMs)",
+  "Robot Skill Library",
+  "Privileged Execution",
+  "Autonomous Self-Improvement"
+ ],
+ "id": "2610.02204",
+ "title": "Reconstruct, Practice, Go Real: Guided Self-Improvement for Embodied Agents",
+ "authors": [
+  "Yen-Jen Wang",
+  "Haozhe Jiang",
+  "Shuying Deng",
+  "Haoru Xue",
+  "Weirui Ye",
+  "Rocky Duan",
+  "Nika Haghtalab",
+  "S. Shankar Sastry",
+  "Pieter Abbeel",
+  "Haozhi Qi"
+ ],
+ "date": "2026-10-03",
+ "group": "focus",
+ "tags": [
+  "manipulation",
+  "sim-to-real",
+  "simulation",
+  "llm-agent"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "eess.SY"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.02204",
+ "pdf_url": "https://arxiv.org/pdf/2610.02204",
+ "summary_ja": "モデル重みを再学習せずにロボット実行系を自律改善するフレームワークRPGを提案。オフラインデータからスキルを抽出してシミュレーション練習タスクを構築し、失敗診断と特権状態を活用して記号スキルやプロンプトを洗練させることで実機タスクの信頼性を向上させます。",
+ "generated": "2026-10-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.02204"
+}
