@@ -1,0 +1,140 @@
+{
+ "title_ja": "InterEvolve: ヒューマノイドの移動マニピュレーションに向けた報酬プログラムのテスト時進化",
+ "tldr_ja": "学習済みコントローラを一切再学習させることなく、LLMとシミュレータの試行錯誤を通じて「段階的な報酬プログラム」をテスト時に進化させ、未知の全身操作タスクを解かせる革新的なフレームワークです。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "InterEvolveのコンセプト。箱の持ち上げや運搬しか学んでいない固定の全身コントローラに対して、「その場で箱を回転させる」という訓練データにないタスクを与えると、人間が設計した報酬では失敗する一方、InterEvolveが進化した報酬プログラムは身体を使って箱を引き寄せる斬新な全身運動を生み出して成功します。",
+  "caption": "Figure 1: InterEvolve adapts a frozen whole-body controller with novel use. The controller trained on human-object interaction (HOI), such as lifting and pushing a box, is asked to rotate a box around in place, a behavior absent from its training data (Sec. D.7 and Figure 11 ). A human-designed reward tries to hack this behavior but fails. The reward program that InterEvolve evolves compensate with novel body used to succeed. Bottom: InterEvolve can achieve versatile evolved skills in simulation and on a real robot. More demos are on the project page .",
+  "image": "details/2610.02196/F1.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットに様々な全身操作（ロコマニピュレーション）をさせたいとき、従来は新しいタスクごとに強化学習（RL）で方策を一から学習し直す必要がありました。しかし、人間の実演データなどで大規模に事前学習されたコントローラには、実は未知のタスクを解くのに必要な運動能力がすでに潜在的に備わっています。問題は、その潜在能力をどうやって引き出すかという点にありました。\n\nそこで著者らは、コントローラ自体を再学習するのではなく、タスク仕様を表す「報酬プログラム」をテスト時に進化（Test-Time Evolution）させるアプローチ「InterEvolve」を提案しました。この手法では、LLMエージェントが複数ステージからなる報酬プログラムを書き、CMA-ES（進化戦略アルゴリズム）で数値定数を微調整しながら、並列シミュレータ上で何回も実行して検証します。さらに、任意の報酬を即座に潜在プロンプトへ射影して行動に変換する「物体対応Forward-Backward（FB）行動基盤モデル」をコントローラに採用することで、追加学習ゼロでの報酬実行を可能にしました。\n\n検証実験では、箱の運搬や障害物回避、箱を倒す・蹴るといった8種類のタスク群で評価を行いました。その結果、人間が手作業で設計した固定の報酬に比べて成功率が2倍以上に向上し、ロボットが自律的に新しい接触戦略を発見できることが示されました。さらに、過去に成功したプログラムを「スキルライブラリ」として再利用することで長時間の複合タスクも難なく達成し、実機のUnitree G1でも車載カメラの視覚情報から完全自律で動作することを確認しました。",
+ "contributions_ja": [
+  "方策の再学習を行わず、テスト時計算（LLMとシミュレーションの試行錯誤）によって全身コントローラの潜在能力を引き出す適応フレームワークの確立",
+  "凍結した身体事前モデルに物体残差モジュールを付加し、任意の報酬をゼロショットで全身-物体インタラクションへ変換する物体対応Forward-Backward行動基盤モデルの開発",
+  "LLMによるプログラム構造の論理的修正と、CMA-ESによる数値パラメータ最適化を組み合わせた効率的な二重ループ進化機構の提案",
+  "獲得したタスク解法をスキルライブラリとして蓄積・再利用する仕組みにより、長時間の複合タスクの達成および実機ヒューマノイド（Unitree G1）での完全自律実行を実証"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "コントローラを再学習させずに、未知のタスクをどう引き出すか？",
+   "summary_ja": "大規模なデータで学習したヒューマノイドコントローラは高い潜在能力を持ちますが、訓練に含まれない新しいタスクに直面するとそのままでは動けません。本論文は、コントローラの重みを固定したまま、テスト時に報酬プログラムを進化させてタスクを解く新しい枠組みを提案します。",
+   "details_ja": "人間の動作データから学習した近年のヒューマノイドコントローラは、箱を押す・持ち上げる・運ぶといった豊かな動作を実行できます。しかし、例えば「箱を別の面に倒す（チップする）」というタスクを課されたとき、訓練データにそのデモが含まれていなければ失敗してしまいます。ここで重要な洞察は、「箱を倒すために必要な体の動かし方は、コントローラがすでにできることの範囲内に眠っている」ということです。\n\n従来のアプローチでは、目標軌道を与えるか、タスクごとに強化学習（RL）で方策を再学習していました。しかし、接触が頻繁に切り替わる複雑な操作タスクでは、詳細な参照軌道を人間が設計するのは至難の業です。また、報酬を少し手直しするたびにRLを回していては、膨大な計算時間とコストがかかってしまいます。\n\nそこで本研究が提案するのが「InterEvolve」です。これは言語モデル（LLM）の「テスト時スケーリング（推論時により多くの計算資源を使って思考・探索する手法）」の考え方をロボット制御に持ち込んだものです。タスクを「ステージごとの報酬と完了条件からなるプログラム」として記述し、コントローラを一切更新することなく、シミュレータからのフィードバックをもとにLLMがプログラムを進化させていきます。さらに、解けたタスクは「スキルライブラリ」に蓄積され、将来のより複雑なタスクへ再利用されます。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "全身操作、行動基盤モデル、そして報酬自動設計の流れ",
+   "summary_ja": "ヒューマノイドの全身操作、後続測定値を分解する行動基盤モデル、LLMによるコード生成や報酬設計の先行研究を整理しています。InterEvolveはこれらを融合し、方策の再学習なしにテスト時計算でタスク仕様そのものを探索する点で独自性を持っています。",
+   "details_ja": "本研究の基盤には、大きく分けて3つの先行研究の流れがあります。\n\n- **ヒューマノイドのロコマニピュレーション**\n  近年、模倣学習や強化学習を用いて全身の移動操作を学習し、実機ヒューマノイドへ転移させる研究が盛んです。しかし、従来の多くの手法は人間が与えた参照動作の追従や、事前に定義されたスキルをプランナーで並べるアプローチにとどまっており、未知の接触モードへの柔軟な適応には限界がありました。\n\n- **行動基盤モデルと報酬推論**\n  後続状態の占有度を分解する「Forward-Backward（FB）表現」を用いると、任意の報酬関数を潜在プロンプトに射影するだけで、再学習なしに単一の方策から対応する振る舞いを引き出すことができます。しかし、従来のヒューマノイド向けFBモデル（BFM-Zeroなど）はロボット自身の身体状態しか観測しておらず、対象物体の状態が変わっても同じ行動に縮退してしまうという重大な制約がありました。\n\n- **LLMによる報酬設計とテスト時探索**\n  LLMに強化学習の報酬関数を書かせる試み（Eurekaなど）は注目を集めていますが、報酬の候補を1つ評価するたびにRL学習ループを回す必要があり、反復に数時間から数日を要していました。InterEvolveは、固定されたFBモデル上で並列シミュレーションのロールアウトを実行するだけで評価できるため、高速なフィードバックループを実現しています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "InterEvolveの仕組み：報酬プログラムの進化と物体対応FBモデル",
+   "summary_ja": "タスクを複数ステージの「報酬プログラム」として定義し、物体観測を組み込んだFB行動基盤モデルで即座に実行します。探索は「LLMによる構造修正（外側ループ）」と「CMA-ESによる定数調整（内側ループ）」の二重構造で行われます。",
+   "details_ja": "InterEvolveの全体像は、タスク仕様を「編集可能な戦略」として表現し、それを評価・進化させるパイプラインから構成されています。\n\n### 3.1 問題設定\nタスクは自然言語指示 $\\ell$（例:「足だけで箱をマークまで蹴る」）とシーンの文脈 $c$（障害物や物体の位置）として与えられます。評価器（Verifier）$\\mathcal{C}$ は複数の判定基準 $C_i$（転倒しない、手を使わない、目標位置への到達など）を持っており、LLMパーサーによってタスクから一度生成された後は固定されます。これにより、エージェントが評価基準を勝手に緩めてタスクを誤魔化すことを防いでいます。\n\n### 3.2 編集可能な戦略としての報酬プログラム\n戦略は $P=\\big(\\boldsymbol{\\theta}, \\{(r_j, g_j)\\}_{j=1}^J\\big)$ というプログラムで表現されます。ここで各ステージ $j$ は報酬関数コード $r_j$ と遷移条件 $g_j$ を持ち、$\\boldsymbol{\\theta}$ は重みや閾値などの調整可能な数値定数です。例えば「物体に接近する」「接触して押す」「離れる」といった局面ごとに報酬と完了条件を明示的に分けることで、LLMがどの段階で失敗したかを把握しやすくなっています。\n\n### 3.3 再学習なしで報酬を実行する物体対応FBモデル\n報酬プログラムを実行するため、FB（Forward-Backward）行動基盤モデルをコントローラ $\\pi$ として使用します。任意の報酬 $r$ は、事前に収集された身体-物体状態の固定バンク $\\mathcal{B}$ 上で評価され、潜在プロンプト $\\boldsymbol{z}$ へと即座に射影されます。\nここでの大きな工夫が「物体対応（Object-aware）」への拡張です。従来の身体特化型モデル（BFM-Zero）の身体ネットワークを凍結したまま、物体の相対位置・姿勢・速度や、ロボットの各リンクから物体表面への距離ベクトルを読み込む学習可能な「物体残差モジュール」を付加しました。これにより、身体の安定性を損なうことなく、物体を意図通りに操作する能力を獲得しています。\n\n### 3.4 報酬プログラムの二重ループ進化\nプログラムの最適化は、性質の異なる2つのループで行われます。\n- **外側ループ（LLMによる構造修正）**: LLMエージェントがプロンプトから得られる実行フィードバック（どの判定基準で何割失敗したか、どのステージで詰まったか）を読み、ステージの追加・削除や報酬項の書き換えをコンテキスト内学習で提案します。\n- **内側ループ（CMA-ESによる数値調整）**: LLMが提案した構造に対し、進化戦略アルゴリズムであるCMA-ESを用いて重みや閾値などの定数 $\\boldsymbol{\\theta}$ を自動調整します。\n候補プログラムは複数の並列シミュレーション環境で検証され、現在最良のプログラムを統計的に上回った場合のみ採用されます。成功したプログラムはスキルライブラリ $\\mathcal{H}$ に記録され、以降のタスクで参照されます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "InterEvolveのシステム概要。(a) LLMがスキルライブラリを参照しながら段階的な報酬プログラムを作成。(b) 物体対応FBモデルが状態バンク上で報酬を計算して潜在プロンプトへ射影し、再学習なしでコントローラを実行。(c) 並列環境での検証結果をフィードバックし、CMA-ESによる定数チューニング（内側）とLLMによる構造修正（外側）を回します。",
+     "caption": "Figure 2: InterEvolve overview. (a) Given a task and scene, an LLM agent writes a staged reward program, drawing on verified programs in the skill library. (b) The forward-backward model scores the active stage’s reward over a fixed state bank and projects it into a latent prompt, which a frozen body prior and a pretrained object residual execute without retraining. (c) A fixed verifier scores parallel rollouts, and criterion-level feedback drives the next structural revision (outer loop), while CMA-ES tunes the program constants (inner loop).",
+     "image": "details/2610.02196/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "驚きの適応能力：固定報酬の2倍以上の成功率と実機デプロイ",
+   "summary_ja": "8種類のタスク群で評価を行い、InterEvolveが進化したプログラムは人間が設計した報酬の2倍以上の成功率を達成しました。また、スキルの蓄積による複合タスクの達成や、実機ヒューマノイド（Unitree G1）での完全自律走行も確認されました。",
+   "details_ja": "シミュレータ（Isaac Lab）および実機ヒューマノイド（Unitree G1）を用いて、提案手法の有効性を検証しました。\n\n### 4.1 実験設定とベースライン\n大規模な人間-物体インタラクションデータ（OMOMO、GRAB）を用いてFBモデルを事前学習しました。ロボットにはUnitree G1（ゴム手首、およびInspire製5指ハンド）を使用。評価タスクとして「マークへの押し出し」「様々な高さでの運搬」「箱の面反転（チップ）」「足だけでの操作（キック）」「台への持ち上げ」「ゲートや障害物の回避」など8つのタスクファミリーを用意しました。比較対象として、追従専門モデル（ULTRA）、身体のみのFBモデル（BFM-Zero）、人間が書いたプログラム、LLMの初期提案プログラムなどを設定しました。\n\n### 4.2 参照動作追従における有効性\nまず、参照軌道を追従するタスクにおいて、本手法の物体対応FBモデルは追従専用モデル（ULTRA）に迫る成功率を示しました。さらに、ワールド座標系でのドリフトを打ち消す報酬項をエージェントに設計させたところ、追従誤差が大幅に低減し、ULTRAを上回る成功率を記録しました。\n\n### 4.3 報酬プログラムの進化による汎用タスクの達成\n参照動作を与えずタスクの達成条件のみを与えた実験では、人間が設計した報酬プログラム（CMA-ES調整後）の平均成功率が約27%にとどまったのに対し、InterEvolveは58%以上と2倍以上の性能を叩き出しました。\nアブレーション実験により、以下の点が明らかになりました：\n- **ステージ分割の重要性**: ステージを1つに強制すると性能が最も大きく低下しました。接触が豊富なタスクでは、段階的な目標設定が不可欠です。\n- **数値調整の役割**: CMA-ESによる定数チューニングを省くと、優れた構造のプログラムでも重みの不均衡によって失敗してしまいます。\n- **テスト時計算の効果**: ラウンド（試行回数）を重ねるごとに合格基準（Earned tiers）は単調に増加し、ロボットは「箱の角を足で引っ掛けて回す」といった人間が想定しなかった独自の戦略を獲得しました。\n\n### 4.4 スキルの再利用と実機デプロイ\n過去のタスクで得られたプログラムをスキルライブラリに保存しておくことで、「台の間での物体移載」や「箱のスタッキング」、「運んで・置いて・蹴る」といった長時間の複合タスクの成功率が飛躍的に向上しました（ライブラリ無しではほぼ0%だったタスクが約50%達成可能に）。また、散らばった6個の箱を順番にリング状に並べる長大タスクも、リセットを挟まずに単一のコントローラで完遂しました。\nさらに、シミュレーションで進化したプログラムをそのまま実機のUnitree G1へ転移させ、頭部車載カメラからの物体姿勢推定（FoundationPose）のみを用いた完全自律の「押し」および「キック」動作に成功しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "器用な手先操作と長時間のスキル合成。(a) Inspire製5指ハンドを搭載したG1が、キャリブレーションされた報酬により小さなボトルの把持・持ち上げを安定して実行。(b) 進化した押しスキルと歩行スキルを連結し、散らばった6つの箱を所定の円周上に並べるタスクを途切れることなく完遂しています。",
+     "caption": "Figure 3: Dexterous hands and long-horizon composition. (a) The G1 with Inspire hands, tracking a reference with the tracking reward calibrated by InterEvolve. Left : whole-body view at the moment of lift; Right : close-ups of the manipulation phases. (b) Arranging six boxes by the evolution. Left : top-down trace of the robot (gray) and each box from its start (outlined square) to its target cell (dashed circle); numbers give the push order. Right : the robot pushing each box.",
+     "image": "details/2610.02196/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "実機Unitree G1での完全自律実行の様子。シミュレーションで進化したプログラムをそのまま実機にデプロイし、車載カメラのRGB-D画像とFoundationPoseによる物体姿勢推定を用いて、箱へのキック（上段）と押し出し（下段）を安定して成功させています。",
+     "caption": "Figure 4: Autonomous execution of real-world G1 with onboard camera and task intent of kicking a box (top) and pushing a box (bottom). Each row runs a program evolved in simulation. The first four columns show the run from a third-person view, left to right in time. The last two columns are the robot’s onboard color and depth images as it approaches the box, overlaid with the FoundationPose estimate (yellow) and the filtered pose that the controller receives (green).",
+     "image": "details/2610.02196/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Discussion and Conclusion",
+   "heading_ja": "「知能」と「身体制御」の役割分担がもたらす新しいロボット知能",
+   "summary_ja": "本研究は、低レベルの身体制御と高レベルのタスク推論の役割分担を明確に切り離す新しいパラダイムを提示しました。言語モデルの推論時計算と同じように、ロボットも実行結果からテスト時に思考・試行することで自己進化できる道を開きました。",
+   "details_ja": "InterEvolveが提示したのは、ヒューマノイド知能における新しい「分業」のあり方です。行動基盤モデルは「基本的な体の動かし方」を一度だけ大規模に学び、その重みは凍結します。一方で、「何をどう達成するか」というタスク固有の知識は、モデルの重みの外側にある「報酬プログラム」という検査可能で再利用可能なコードとして保持されます。\n\nこの構成により、2つの異なるタイムスケールでの進化が可能になります。コントローラはより大規模なインタラクションデータによってじっくりと強化され、LLMエージェントはテスト時の探索とスキルの蓄積によって素早く賢くなっていきます。お互いに再学習を強いることはありません。\n\nまた、物理シミュレーションによる実行フィードバックがエージェントの推論を現実世界に接地（グラウンディング）させるため、単なる言葉の妄想ではなく、実行可能で堅牢な戦略へと収束します。推論時計算の拡大によってロボットが自律的に問題解決能力を高めていく未来を感じさせる成果です。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：物体対応FBモデルの実装詳細と報酬探索の裏側",
+   "summary_ja": "コントローラの残差ネットワーク構造、状態バンクのサンプリング手法、報酬チルト機構、そしてLLMに与えられるプロンプト設計などの詳細をまとめています。",
+   "details_ja": "付録では、本文で触れきれなかった技術的な詳細が豊富に記載されています。\n\n### A. 物体対応モジュールの設計\nロボットが物体を捉えるための特徴量として、物体の位置・姿勢・速度に加え、ロボットの30箇所（5指ハンドの場合は54箇所）のリンクから物体表面の最近傍点への変位ベクトルを入力しています。これらは接触力そのものではなく近接度（Proximity）を表現しており、凍結された身体事前モデルに対する残差として機能します。アブレーション実験では、表面変位ベクトルを抜くと物体追従誤差が跳ね上がることが確認されています。\n\n### B. 報酬インフェレンスと「チルト」機構\n状態バンク $\\mathcal{B}$ は訓練時のリプレイバッファから収集された数千〜数万の状態で構成され、探索中は固定されます。報酬から潜在プロンプト $\\boldsymbol{z}$ を計算する際、単純な平均ではなく重み付け係数 $\\beta$ を用いた「報酬チルト（Reward-tilted aggregation）」を導入しています。これにより、キックのような訓練データ内で出現頻度の低い特殊な状態に対しても、高い報酬を得られる状態へプロンプトを強く集中させることができます。\n\n### C. プロンプトと失敗からの学習\nLLMエージェントには、単に「失敗した」と伝えるだけでなく、192個の並列環境のうち「何個の環境でどの判定基準を落としたか」「中央値はクリアしているが分散で落ちているのか」といった詳細な統計情報が渡されます。これにより、エージェントは運悪く失敗した外れ値の対処なのか、戦略そのものの破綻なのかを正確に識別して的確な修正コードを記述できます。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "キックタスクにおける報酬プログラムの進化過程。初期提案（最上段）では足が箱に届かず空振りしていますが、ラウンドを重ねるごとに「助走して足を振り抜く」「手を使わずにバランスを保つ」といった修正が加わり、最終ラウンド（最下段）では的確に箱を蹴り飛ばす戦略を獲得しています。",
+     "caption": "Figure 7: Reward-program evolution on the kick task. Each row shows the current best program after the initial proposal, rounds 1–3, and the final round (top to bottom), the kick programs evaluated in Table 5 ; frames run left to right. Revised objectives change the contact strategy across rounds.",
+     "image": "details/2610.02196/F7.jpg"
+    },
+    {
+     "key": "F9",
+     "caption_ja": "スキルライブラリを活用して達成された3つの長大複合タスク。上段：台から台への物体の持ち上げと運搬・配置。中段：2つの箱の持ち上げとスタッキング。下段：箱を運んで床に置き、そのまま足で蹴り出す一連のシークエンス。すべて同一のコントローラで実現されています。",
+     "caption": "Figure 9: Composite tasks. The three composite tasks of Table 5 : relocating a box between supports, stacking one box on another, and carrying, placing, then kicking a box. Frames run left to right.",
+     "image": "details/2610.02196/F9.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "方策の重みを再学習しなくても、表現力の高い行動基盤モデルとテスト時の報酬進化を組み合わせることで、未知の接触タスクを十分に解くことができる。",
+  "タスクを複数ステージの「報酬プログラム」に分解し、構造（LLM）とパラメータ（CMA-ES）を切り分けて探索することが、接触リッチな操作の成否を分ける。",
+  "検証済みの報酬プログラムをスキルライブラリとしてテキストベースで蓄積することで、長時間の複合タスクへのゼロからの探索コストを大幅に削減できる。"
+ ],
+ "limitations_ja": [
+  "基盤となるコントローラが訓練時に一度も獲得していない、完全に物理的限界を超えた運動能力（全く学習していない特殊な運動など）を後から引き出すことはできない。",
+  "探索の各ラウンドで並列シミュレーションを回す必要があり、1つのタスクを解くのにGPU数時間単位の計算時間とLLMの推論遅延がかかるため、実機動作中のリアルタイムな即時適応には使えない。",
+  "テスト時に獲得した新しいスキルや知識は報酬プログラム（コード）として蓄積されるのみで、低レベルコントローラ自体のニューラルネットワークの重みへ逆流して学習される仕組みにはなっていない。"
+ ],
+ "keywords": [
+  "Humanoid Loco-Manipulation",
+  "Test-Time Evolution",
+  "Reward Programs",
+  "Forward-Backward Representations",
+  "Behavioral Foundation Models"
+ ],
+ "id": "2610.02196",
+ "title": "InterEvolve: Test-Time Evolution of Reward Programs for Humanoid Loco-Manipulation",
+ "authors": [
+  "Zhuo Lin",
+  "Sirui Xu",
+  "Liuyu Bian",
+  "Yu-Xiong Wang",
+  "Liang-Yan Gui"
+ ],
+ "date": "2026-10-03",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "locomotion",
+  "manipulation",
+  "planning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV",
+  "cs.GR"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.02196",
+ "pdf_url": "https://arxiv.org/pdf/2610.02196",
+ "summary_ja": "未学習のヒューマノイド移動マニピュレーション課題に対し、モデル再学習を行わずに既存スキルを進化させる手法InterEvolveを提案。計画と制御を結ぶ物体認識型インターフェースと、実行フィードバックに基づく報酬プログラムの自己進化により、多段階の接触を伴う複雑な相互作用を実現します。",
+ "generated": "2026-10-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.02196"
+}
