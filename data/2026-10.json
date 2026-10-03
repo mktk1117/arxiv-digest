@@ -1,6 +1,304 @@
 {
  "entries": [
   {
+   "date": "2026-10-03",
+   "rank": 0,
+   "id": "2610.02196",
+   "group": "focus",
+   "title": "InterEvolve: Test-Time Evolution of Reward Programs for Humanoid Loco-Manipulation",
+   "title_ja": "InterEvolve: ヒューマノイドの移動マニピュレーションに向けた報酬プログラムのテスト時進化",
+   "summary_ja": "未学習のヒューマノイド移動マニピュレーション課題に対し、モデル再学習を行わずに既存スキルを進化させる手法InterEvolveを提案。計画と制御を結ぶ物体認識型インターフェースと、実行フィードバックに基づく報酬プログラムの自己進化により、多段階の接触を伴う複雑な相互作用を実現します。",
+   "summary_en": "InterEvolve is a test-time evolution framework that enables humanoids to solve unseen loco-manipulation tasks without retraining. By bridging planning and control via an object-aware interface, it evolves reward programs using execution feedback to coordinate contact-rich, multi-stage interactions.",
+   "authors": [
+    "Zhuo Lin",
+    "Sirui Xu",
+    "Liuyu Bian",
+    "Yu-Xiong Wang",
+    "Liang-Yan Gui"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV",
+    "cs.GR"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.02196",
+   "image": "figures/2026-10-03/2610.02196.jpg"
+  },
+  {
+   "date": "2026-10-03",
+   "rank": 1,
+   "id": "2610.02089",
+   "group": "focus",
+   "title": "HumanoidToolBench: Benchmarking Humanoid Tool Use from Selection to Mobile Execution",
+   "title_ja": "HumanoidToolBench: 選択から移動実行までを包括評価するヒューマノイド道具使用ベンチマーク",
+   "summary_ja": "ヒューマノイドによる道具使用を、適切なツールの選択から操作、移動を伴う実行まで一気通貫で評価するHumanoidToolBenchを構築。3シナリオ・18タスクから構成され、シミュレーションおよびUnitree G1実機で収集した3,100件のデモデータToolBookも提供します。",
+   "summary_en": "HumanoidToolBench is a benchmark for evaluating humanoid tool-use capabilities spanning tool selection, manipulation, and mobile execution across 18 tasks. It is accompanied by ToolBook, a dataset of 3.1k demonstrations collected in simulation and on a physical Unitree G1 humanoid.",
+   "authors": [
+    "Kyochul Jang",
+    "Seohyeon Park",
+    "Ohchul Kwon",
+    "Sangjun Park",
+    "Junhyeok Choi",
+    "Seungyeop Yi",
+    "Chaeyun Kim",
+    "Sangkyu Lee",
+    "Idan Szpektor",
+    "Avi Caciularu",
+    "Jongmin Park",
+    "Youngjae Yu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "humanoid",
+    "benchmark",
+    "dataset",
+    "locomotion"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.02089",
+   "image": "figures/2026-10-03/2610.02089.jpg"
+  },
+  {
+   "date": "2026-10-03",
+   "rank": 2,
+   "id": "2610.02198",
+   "group": "focus",
+   "title": "FERPO: Forward Entropy-Regularized Policy Optimization",
+   "title_ja": "FERPO: 前方向エントロピー正則化による方策最適化",
+   "summary_ja": "連続値制御のオンライン強化学習において、Criticの行動微分を用いずに方策改善を行う手法FERPOを提案。Criticによる行動微分が不正確になりやすい問題に着目し、エントロピー正則化された目的関数から最適目標分布を導出することで、Criticの予測値のみから安定した方策更新を実現します。",
+   "summary_en": "FERPO is an on-policy maximum entropy RL algorithm that improves continuous control policies using critic values without differentiating the critic with respect to actions. By deriving an optimal target action distribution from an entropy-regularized objective, it avoids unreliable updates caused by inaccurate action gradients.",
+   "authors": [
+    "Sebastian Sanokowski",
+    "Alireza Sarmadi",
+    "Majid Khadiv"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.AI",
+    "cs.RO",
+    "stat.ML"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.02198",
+   "image": null
+  },
+  {
+   "date": "2026-10-03",
+   "rank": 3,
+   "id": "2610.02204",
+   "group": "focus",
+   "title": "Reconstruct, Practice, Go Real: Guided Self-Improvement for Embodied Agents",
+   "title_ja": "Reconstruct, Practice, Go Real: 身体性エージェントのための誘導型自己改善",
+   "summary_ja": "モデル重みを再学習せずにロボット実行系を自律改善するフレームワークRPGを提案。オフラインデータからスキルを抽出してシミュレーション練習タスクを構築し、失敗診断と特権状態を活用して記号スキルやプロンプトを洗練させることで実機タスクの信頼性を向上させます。",
+   "summary_en": "RPG is a framework for autonomous improvement of robot execution systems without updating model weights. It extracts manipulation capabilities from offline data, builds practice tasks in simulation, and refines symbolic skills and prompts using execution feedback before deploying them to the real robot.",
+   "authors": [
+    "Yen-Jen Wang",
+    "Haozhe Jiang",
+    "Shuying Deng",
+    "Haoru Xue",
+    "Weirui Ye",
+    "Rocky Duan",
+    "Nika Haghtalab",
+    "S. Shankar Sastry",
+    "Pieter Abbeel",
+    "Haozhi Qi"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "eess.SY"
+   ],
+   "tags": [
+    "manipulation",
+    "sim-to-real",
+    "simulation",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.02204",
+   "image": "figures/2026-10-03/2610.02204.jpg"
+  },
+  {
+   "date": "2026-10-03",
+   "rank": 4,
+   "id": "2610.01849",
+   "group": "focus",
+   "title": "FlashDexRetarget: Accelerating Dexterous Manipulation Data Generation through Multi-Motion Retargeting",
+   "title_ja": "FlashDexRetarget: 複数動作リターゲティングによる多指マニピュレーションデータ生成の加速",
+   "summary_ja": "人間の手と物体のデモから多指ロボットハンドへの動作転送を効率化する強化学習手法FlashDexRetargetを提案。点群観測や手と物体の距離特徴、未来軌道情報と相補的な報酬関数を組み合わせ、物理的整合性を保ちながら高成功率かつ高効率なリターゲティングを実現します。",
+   "summary_en": "FlashDexRetarget is an RL-based framework for transferring human hand-object demonstrations to multi-fingered robot hands efficiently. By combining point-cloud observations, distance features, future trajectories, and complementary rewards, it achieves physically feasible retargeting with high success and efficiency.",
+   "authors": [
+    "Kyungmin Lee",
+    "Sibeen Kim",
+    "Dongyoon Hwang",
+    "Yoonsang Oh",
+    "Donghu Kim",
+    "Youngdo Lee",
+    "I Made Aswin Nahrendra",
+    "Jaegul Choo",
+    "Hojoon Lee"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "reinforcement-learning",
+    "grasping"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.01849",
+   "image": "figures/2026-10-03/2610.01849.jpg"
+  },
+  {
+   "date": "2026-10-03",
+   "rank": 5,
+   "id": "2610.01742",
+   "group": "general",
+   "title": "World Motion Models: Flexible Sequence Modeling of SE(3) Trajectories",
+   "title_ja": "World Motion Models: SE(3)軌道の柔軟な系列モデリング",
+   "summary_ja": "動的3D世界の予測に向け、剛体のSE(3)姿勢軌道の集合として動的シーンを表現する世界運動モデルWMMを提案。多関節物体、人体、手先と物体の相互作用、ロボット状態と行動を単一の空間で統一的に系列モデル化し、高精度な4Dダイナミクス生成を実現します。",
+   "summary_en": "World Motion Models (WMMs) represent dynamic scenes as sets of sparse rigid SE(3) pose trajectories. This formulation unifies articulated objects, human bodies, interactions, and robot states into a single sequence modeling framework to serve as a comprehensive generative prior for dynamic 4D environments.",
+   "authors": [
+    "Jiahui Lei",
+    "Qianqian Wang",
+    "Trevor Darrell",
+    "Angjoo Kanazawa"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "world-model",
+    "perception",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.01742",
+   "image": "figures/2026-10-03/2610.01742.jpg"
+  },
+  {
+   "date": "2026-10-03",
+   "rank": 6,
+   "id": "2610.02110",
+   "group": "general",
+   "title": "GlassGuard: Verified Glass Plane Mapping for Robot Navigation",
+   "title_ja": "GlassGuard: ナビゲーションのための検証付き平面ガラスマッピング",
+   "summary_ja": "LiDAR光が透過して地図から抜け落ちやすい建築用ガラスを正確に復元するナビゲーション向け手法GlassGuardを提案。視覚情報とLiDAR測定を統合し、ガラスの検出漏れ防止と走行可能空間の誤遮断防止を両立させた頑健な平面マッピングを実現します。",
+   "summary_en": "GlassGuard is a navigation-oriented mapping framework that reconstructs planar architectural glass by combining complementary visual and LiDAR evidence. It balances glass coverage with the prevention of free-space contamination, resolving critical mapping failures caused by transparent surfaces.",
+   "authors": [
+    "Hanwen Guo",
+    "Zhengzhi Lin",
+    "Yusen Xie",
+    "Ji Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "navigation",
+    "perception",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.02110",
+   "image": "figures/2026-10-03/2610.02110.jpg"
+  },
+  {
+   "date": "2026-10-03",
+   "rank": 7,
+   "id": "2610.01910",
+   "group": "general",
+   "title": "Robot Learning on Discrete Surfaces: Theory and Applications",
+   "title_ja": "離散曲面上でのロボット学習: 理論と応用",
+   "summary_ja": "CADや3D再構成の標準形式であるポリヘドラルメッシュの幾何構造を直接ロボット学習に組み込む離散リーマン幾何フレームワークを提案。面やエッジをまたぐ指数写像や並行移動を定義し、曲面拘束を伴う動作学習や軌道生成を高精度化します。",
+   "summary_en": "This work introduces a unified discrete Riemannian framework for robot learning directly on polyhedral surface meshes. By employing discrete differential geometry for parallel transport and mappings across faces and edges, it enables accurate motion generation on complex geometric surfaces.",
+   "authors": [
+    "Matteo Dalle Vedove",
+    "Fares J. Abu-Dakka",
+    "Luigi Palopoli",
+    "Daniele Fontanelli",
+    "Matteo Saveriano"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "planning",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.01910",
+   "image": "figures/2026-10-03/2610.01910.jpg"
+  },
+  {
+   "date": "2026-10-03",
+   "rank": 8,
+   "id": "2610.02161",
+   "group": "general",
+   "title": "DuoMind: Enabling Distributed Multi-Robot Coordination with Semantic Communication",
+   "title_ja": "DuoMind: セマンティック通信による分散マルチロボット協調の実現",
+   "summary_ja": "意味通信を通じて複数ロボットを協調させる分散階層フレームワークDuoMindを提案。各ロボットが低レベル実行用のVLAモデルと高レベル推論・協調用のVLMを備え、長期間タスクにおいて高精度かつ柔軟なマルチエージェント協調を実現します。",
+   "summary_en": "DuoMind is a distributed hierarchical framework for multi-robot coordination using semantic communication. Each robot integrates a VLA model for low-level execution and a VLM-based orchestrator for high-level reasoning, facilitating effective long-horizon collaborative behaviors.",
+   "authors": [
+    "Hanchu Zhou",
+    "Dechen Gao",
+    "Hang Wang",
+    "Brendan Lynch",
+    "Boqi Zhao",
+    "Qiyao Ma",
+    "Raman Goyal",
+    "Junshan Zhang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "multi-robot",
+    "vision-language-action",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.02161",
+   "image": "figures/2026-10-03/2610.02161.jpg"
+  },
+  {
+   "date": "2026-10-03",
+   "rank": 9,
+   "id": "2610.01943",
+   "group": "general",
+   "title": "TouchTherm: Building Multimodal Digital Twins of Objects for Tactile and Thermal Rendering",
+   "title_ja": "TouchTherm: 触覚および熱レンダリングのためのマルチモーダルデジタルツイン構築",
+   "summary_ja": "物体の視覚形状だけでなく微細表面構造や過渡的な熱ダイナミクスを再現するシミュレーション資産生成手法TouchThermを提案。構造化光スキャンとマルチビュー法線マップ、熱モデリングを統合し、触覚・熱覚相互作用が可能なデジタルツインを構築します。",
+   "summary_en": "TouchTherm is a framework for creating simulation-ready visuo-tactile-thermal object assets from physical objects. By combining structured-light scanning, photometric normals, and transient thermal modeling, it captures microscale surface details and dynamic temperature cues for multimodal interaction.",
+   "authors": [
+    "Yitao Zhang",
+    "Hong Ying",
+    "Haoran Guo",
+    "Xiaoying Zhou",
+    "Guanyu Chen",
+    "Chenxi Xiao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "perception",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.01943",
+   "image": "figures/2026-10-03/2610.01943.jpg"
+  },
+  {
    "date": "2026-10-02",
    "rank": 0,
    "id": "2610.01397",
