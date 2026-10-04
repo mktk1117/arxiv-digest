@@ -1,0 +1,164 @@
+{
+ "title_ja": "UniWAM: 物理推論・動画生成・行動予測を統合した世界行動モデル",
+ "tldr_ja": "高レベルな言語推論を行うVLM、物理世界の時間発展を予測する動画生成モデル、精密な制御を担う行動予測器を単一のMoT構造で統合し、人間とロボットのマルチソースデータを用いた事前学習と独自のポストトレーニングによって、未知環境への高い汎化性能と実機での長大タスク遂行能力を達成した論文です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "UniWAMの全体像です。左のマルチソース事前学習データ（VQA、人間主観視点動画、ロボット実機データ）を入力とし、中央のMixture-of-Transformers（MoT）構造で推論・生成・行動を共同学習します。右上のレーダーチャートが示すように、シミュレーション（LIBERO、RoboTwin）および実機評価においてSOTAを達成しています。",
+  "caption": "Figure 1 : UniWAM unifies physical reasoning, visual generation, and action prediction in a unified architecture and pretrains on robot and human egocentric data as well as VQA data. The resulting model exhibits strong robustness, generalization, instruction-following, and reasoning abilities.",
+  "image": "details/2610.02054/F1.jpg"
+ },
+ "overview_ja": "近年のロボット基盤モデルでは、大規模な視覚言語モデル（VLM）を行動出力に直結させるVLA（Vision-Language-Action）が注目を集めています。しかし、行動ラベルだけで学習すると、物理世界の動力学（ダイナミクス）への接地が不十分になりがちです。一方で動画生成モデル（VGM）をベースにした世界行動モデル（WAM）は、優れた時空間ダイナミクスを理解できるものの、タスクの言語的推論や未知の分布に対する意味的な理解力に課題を抱えていました。\n\nそこで著者らは、「VLMの持つ意味推論力」と「VGMの持つ世界ダイナミクス予測能」を融合させた統合モデル「UniWAM」を提案しました。アーキテクチャにはMixture-of-Transformers（MoT）を採用し、物理推論器（VLM）、世界生成器（VGM）、行動予測器（Action Predictor）の3エキスパートが共同注意（Joint Attention）機構を介して協調します。\n\n学習面では、VLMの言語能力を壊さずに低レベル行動を学習させるため、動作差分を自然言語で表す「物理言語（Physical Language）」を導入しました。さらに、ロボット操作データ、人間の一人称視点（エゴセントリック）動画、VQAデータを各コンポーネントへ相補的に割り振る事前学習レシピと、行動履歴でフローマッチングを初期化するポストトレーニング技術を確立しました。\n\n検証の結果、シミュレーション環境（LIBEROやRoboTwin 2.0）において従来手法を上回る頑健性と汎化性を実証しました。実機ロボットでも指示追従と多段階タスクで高い成功率を示し、データ規模と損失の間に綺麗な対数線形スケーリング則が成り立つことを明らかにしました。",
+ "contributions_ja": [
+  "VLMベースの物理推論器、動画生成ベースの世界生成器、フローマッチング行動予測器をMoT構造で統合したUniWAMを提案したこと。",
+  "低レベル動作を自然言語化する「物理言語」を導入し、VLMの事前学習知識を維持しながら人間・ロボット間のドメインギャップを解消したこと。",
+  "VQAデータ、約5,000時間の人間主観視点データ、約4,363時間のロボットデータを最適配分する事前学習パイプラインを構築したこと。",
+  "未来画像潜在変数へのノイズ付加と行動履歴によるフローマッチング初期化により、推論ステップ数を大幅に削減しつつ制御性能を向上させたこと。",
+  "人間とロボットの共同事前学習において、データ規模に対する綺麗な対数線形スケーリング則を実験的に見出したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜVLMと世界モデルを合体させる必要があるのか？",
+   "summary_ja": "ロボット制御において意味推論に強いVLAと、物理ダイナミクスに強い世界行動モデル（WAM）の双方の強みを統合するUniWAMを提案しています。異種データ間の学習衝突を防ぎつつ、VLMの言語能力を保持したまま具現化タスクに適応させる全体設計が述べられています。",
+   "details_ja": "近年のロボティクス分野では、VLM（Vision-Language Model）をベースに構築されたVLA（Vision-Language-Action Model）が大きな成功を収めています。しかし、ロボットの動作ラベル（Action）だけで教師あり学習を行うと、モデルが環境の物理的変化や世界のダイナミクスを十分に理解できません。一方で、大規模動画生成モデル（VGM）に基づく世界行動モデル（WAM）は、次のフレームを予測することで物理現象の事前知識を獲得できるものの、指示の複雑な推論や分布外（OOD）環境への適応力に弱点がありました。\n\nそこで本研究では、「意味推論と物理予測をひとつの枠組みに統合できないか」という問いを立て、UniWAMを設計しました。モデル構造にはMixture-of-Transformers（MoT）を採用し、物理推論器、世界生成器、行動予測器という3つのエキスパートを統合しています。\n\nこのハイブリッドモデルを事前学習するにあたり、論文では3つの主要な課題を解決しています。第1に、VLMにロボット動作を学ばせると事前学習時の言語能力が損なわれやすい問題です。これに対し、低レベルなロボット動作を自然言語のテキストに変換する「物理言語（Physical Language）」表現を導入し、VLMの入出力分布を保ちながら動作意味を学習させました。第2に、異種データ（VQA、人間動画、ロボット軌跡）の最適配分です。VLMの知識維持にはVQA、物理法則の学習には人間動画、精密な行動出力にはロボットデータというように、各エキスパートに適した教師信号を割り当てました。第3に、大規模な人間動画から自動でサブタスクを切り出しアノテーションを行うパイプライン（EgoANT）を開発し、データ品質を担保しました。\n\nさらにポストトレーニング（事後学習）では、未来画像の不完全さに頑健にするノイズ付加と、過去の動作履歴を活用して行動フローマッチングの初期値を設定する工夫により、推論ステップを劇的に削減しながら高い性能を維持することに成功しました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "VLAと世界行動モデル、そして人間動画学習の系譜",
+   "summary_ja": "ロボットの大規模事前学習、世界行動モデル（WAM）、および人間主観視点（エゴセントリック）動画活用の3つの研究動向を整理しています。先行手法が言語と行動、あるいは動画と行動の2者間統合にとどまっていたのに対し、UniWAMは意味推論・世界生成・行動予測の3者を真に統合した点に新規性があります。",
+   "details_ja": "### ロボティクスにおける大規模事前学習\nRT-2やOpenVLAなどのVLAモデルは、Web規模の画像・言語データで事前学習した知識をロボット制御に適応させてきました。さらに最近では、$\\pi_{0}$や$\\pi_{0.5}$のようにフローマッチングを組み合わせる手法や、UMI（Unified Manipulation Interface）データを用いて物理感覚をスケールさせる試み（GEN-0など）が登場しています。しかし、これらは基本的に言語理解と行動生成の結びつきに主眼を置いており、将来状態の密な視覚ダイナミクス予測までは組み込めていませんでした。\n\n### 世界行動モデル（World-Action Models）\n動画生成バックボーンを利用するWAM（DreamZero、Motus、Cosmos Policyなど）は、動画の時空間事前知識を活かして次のピクセルや幾何特徴を予測することで、行動生成ポリシーを強化します。推論時には動画生成を省いて潜在特徴のみを使う手法（Fast-WAMなど）や4次元幾何に拡張する試みもありますが、依然として言語に基づく高次推論や未知の指示への汎化には限界がありました。\n\n### 一人称視点（エゴセントリック）動画からの学習\n人間の一人称視点データ（Ego4D、EPIC-KITCHENSなど）は、高価なロボット実機データを補うスケーラブルな情報源です。近年では潜在行動（Latent Action）の導入や人間の手先軌跡の再構成を通して、ロボットの行動空間とアライメントする研究が盛んに行われています。UniWAMは、これらの動画から物理的知見を抽出し、言語・世界予測・行動の3要素を結合した単一アーキテクチャの事前学習に直接組み込んだ点で、従来研究と一線を画しています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Data",
+   "heading_ja": "人間とロボットのビッグデータをどうクレンジングし、揃えたか",
+   "summary_ja": "ロボット操作データ約4,363時間、人間主観視点データ約5,000時間、そしてVQAデータを統合したデータセットを構築しました。ロボット軌跡の幾何・統計的フィルタリングと、人間動画を自動でサブタスク分割・命名するVLMパイプライン「EgoANT」によって高品質な学習データを実現しています。",
+   "details_ja": "### 3.1 データソース\n事前学習データは主に以下の3系統から構成されています。\n- **ロボットデータ（約4,363時間）**: AgiBotWorld2026、Bridge、Droid、Fractal、Robocoin、Interdata-a1など、単腕および双腕の操作軌跡を網羅的に収集しました。\n- **人間エゴセントリックデータ（約5,000時間）**: テーブルトップの手先トラッキングを含むEgoDex、多様な実環境タスクを収めたEgoVerse、そしてEgo4DやEPIC-KITCHENSをベースにしたVITRAを活用しました。\n- **VQAデータ**: 空間推論（RoboPointなど）、幾何関係（CLEVR、GRiD-3D）、時間変化・動的相互作用（RoboVQAなど）を含む多様な質問応答ペアを採用し、推論器の事前学習知識を維持します。\n\n### 3.2 データ処理とクレンジング\nプラットフォームごとに信号品質が異なるため、厳格な品質管理を行いました。\n- **ロボットデータの処理**: メディアンフィルタとSavitzky-Golay平滑化による残差から急激な非物理的スパイクを除去し、状態と行動の相互相関分析による遅延補正を行いました。さらに順運動学（FK）を用いて関節角と手先ポーズの幾何学的整合性を検証し、座標系をロボット前方（+x軸）基準に統一しました。\n- **人間動画の自動分割・アノテーション（EgoANT）**: 人間の未編集動画を学習に使うため、VLMを用いた2段階パイプライン「EgoANT」を開発しました。まず0.5秒ごとにサンプリングした画像をコンタクトシート化し、物体の状態変化（掴む、置く、開けるなど）が起きた境界を粗く抽出します。次にその境界周辺を拡大して精密な時間区間を決定し、最後に操作内容を「動詞・対象物・配置先」の簡潔な自然言語テキストとして自動付与しました。両手首の軌跡は頭部カメラ座標系における14次元のポーズ系列として正規化されています。",
+   "figures": []
+  },
+  {
+   "heading": "4 Method",
+   "heading_ja": "UniWAMのコア構造：MoTアーキテクチャとハイブリッド学習法",
+   "summary_ja": "Qwen3-VL、Wan2.2動画生成モデル、フローマッチング行動予測器を統合したMoT構造を採用しています。動作をテキスト化してVLMに学ばせる「物理言語」事前学習と、未来画像ノイズ付加および過去動作履歴を活用した高速な事後学習設計が特徴です。",
+   "details_ja": "### 4.1 モデルアーキテクチャ\nUniWAMはMixture-of-Transformers（MoT）として構築されています。具体的には、Qwen3-VL-2B-Instructをベースとする「物理推論器（Physical Reasoner）」、Wan2.2-TI2V-5Bをベースとする「世界生成器（World Generator）」、そして「行動予測器（Action Predictor）」の3つのエキスパートから成ります。各エキスパートは30層で構成され、層ごとにトークンが共通の注意機構（Joint Multimodal Attention）を通じて相互作用します。これにより、行動トークンは高レベルな意味文脈と動的な未来画像予測の双方を参照しながら洗練されます。\n\n### 4.2 事前学習\n- **物理言語（Physical Language）の導入**: ロボットの低レベルな手先変位（cm単位の並進や10度単位の回転）を「move forward 3 cm, open gripper」のような構造化テキストに変換し、VLMの自己回帰言語モデル損失で学習させます。これにより、VLMの言語生成能力を損なわずに動作の意味的理解を獲得させます。\n- **学習損失**: 未来の画像潜在変数と行動チャンク（長さ16）に対してフローマッチング損失（$\\mathcal{L}_v, \\mathcal{L}_a$）を適用し、物理言語やVQAに対して言語自己回帰損失（$\\mathcal{L}_u$）を適用します。総損失は $\\mathcal{L} = \\mathcal{L}_a + w_v \\mathcal{L}_v + w_u \\mathcal{L}_u$（重み比率は $1 : 1 : 0.1$）として同時に最適化されます。\n\n### 4.3 ポストトレーニング\n下流環境への適応段階では、以下の2つの工夫を施しています。\n- **未来画像ノイズ付加**: 推論時に生成される未来画像はノイズを含みやすいため、学習時に50%の確率で未来画像の潜在変数にガウスノイズを注入します。これにより、行動予測器が粗い視覚表現からでも重要な制御特徴を抽出できるようにします。\n- **履歴条件付きフローマッチング**: 行動生成の始点を標準ガウスノイズから生成する代わりに、直前に実行された過去行動チャンクに微小ノイズ（$\\eta=0.02$）を加えた潜在表現からフローマッチングを開始します。直前の運動連続性が初期値として与えられるため、わずか2〜4ステップのデノイジングでも高精度な行動軌跡を生成可能になります。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "UniWAMのアーキテクチャ（a）と事前学習データの構成比率（b）です。物理推論器、世界生成器、行動予測器が共通のアテンション層（Joint Multimodal Attention）を介して接続されています。データは人間動画（約5,072時間）、ロボット操作（約4,959時間）、VQA（約830万サンプル）から成り立っています。",
+     "caption": "Figure 3 : Overview of our UniWAM. (a) UniWAM comprises a physical reasoner, a world generator, and an action predictor interconnected through joint multimodal attention. Robot data and human egocentric data are jointly used to train all three experts, with supervision for the physical reasoner provided in the form of physical language. General VQA and Embodied Question Answering (EQA) data are additionally used to train the physical reasoner. (b) Overview of the pretraining data: Human and robot data are measured in hours; vision–language data are measured in millions of samples. Percentages are computed within each data category.",
+     "image": "details/2610.02054/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Experiments",
+   "heading_ja": "実証結果：SOTAの達成、未知環境への耐性、そしてスケーリング則",
+   "summary_ja": "LIBEROおよびRoboTwin 2.0において従来モデルを上回る成功率を記録し、特に環境変動への頑健性を示しました。実機ロボット実験でも高い指示追従性と長大タスク遂行能力を確認したほか、人間・ロボット共同学習における対数線形スケーリング則を明らかにしています。",
+   "details_ja": "### 5.1 シミュレーション評価\n- **分布内（In-distribution）**: LIBEROベンチマークにおいて平均成功率99.2%を達成し、従来の最良モデル（Xiaomi-Robotics-0）の98.7%を上回りました。RoboTwin 2.0のClean2Clean（C2C）でも75.14%の成功率を示しました。\n- **分布外（OOD）と頑健性**: LIBERO-Plusにおける7種類の外乱（背景、視点、言語、照明など）評価では全体成功率92.6%で最高性能を記録しました。またRoboTwin 2.0のClean2Rand（C2R）環境では68.32%を達成しました。C2CからC2Rへの性能低下はわずか6.82ポイントにとどまり、$\\pi_{0.5}$（24.70ポイント低下）やSpatial Forcing（50.46ポイント低下）と比較して圧倒的な耐性を示しました。\n\n### 5.2 実機ロボット評価\nAgileX Piper（双腕6自由度アーム＋グリッパー）を用いて評価を実施しました。\n- **指示追従タスク**: Pick-Anything、Diverse-Interaction、Place-Relative、Drawer-Storageの4タスクにおいて、平均タスク成功率67.5%、指示追従率82.5%を達成し、$\\pi_{0.5}$をそれぞれ13.1ポイント、21.9ポイント引き離しました。\n- **長大（Long-horizon）タスク**: 「机を片付ける（Tidy up the desk）」という単一の指示から、カップ配置、引き出し操作、ペン立てへの収納など6段階のマイルストーンを自律遂行させました。平均進捗スコアは5.0（満点6）に達し、$\\pi_{0.5}$（4.8）やMotus（3.2）を上回りました。\n\n### 5.3 スケーリング則とアブレーション研究\nロボットデータ（250〜5,000時間）と人間動画の比率を変えたスケーリング実験では、検証損失とデータ規模の間に対数線形の関係（$R^2 \\approx 0.983$）が確認されました。データ量が1,000時間を超えると人間動画の追加による性能向上が明確に現れるようになります。また、物理言語による事前学習を施すことで、t-SNE上で人間とロボットの潜在表現が綺麗に重なり合うことが視覚的にも示されました。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "事前学習データのスケーリング比較です。左図は検証損失（MSE）、右図はRoboTwin Clean2Randの成功率を示しています。データ規模が約1,000時間を超えたあたりから人間動画（青線）の恩恵がロボット単体（灰色線）を明確に上回り、綺麗な対数線形スケーリングが確認できます。",
+     "caption": "Figure 7 : Data scaling comparison between Robot and Robot + Human. Left: validation MSE. Right: RoboTwin clean2rand success rate. The x-axis reports the number of robot-data hours on a logarithmic scale. Robot + Human augments the robot data with a fixed proportion of human data. At the final data point, the training set comprises 4958 hours of robot data and 5072 hours of human data. All settings use mixed training with VQA data.",
+     "image": "details/2610.02054/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "物理言語（Physical Language）の有無による潜在表現のt-SNE可視化です。物理言語がない場合（左）はロボット（紫）と人間（灰）が分離していますが、物理言語を導入した場合（右）は両者の分布が大きく重なり合い、ドメインギャップが縮小していることが分かります。",
+     "caption": "Figure 8 : Human–robot transfer emerges with physical-language pretraining. t-SNE visualization of physical reasoner representations from robot (purple) and human (gray) data without (left) and with (right) physical language supervision. The representations exhibit greater overlap with supervision.",
+     "image": "details/2610.02054/F8.jpg"
+    },
+    {
+     "key": "F9",
+     "caption_ja": "RoboTwin 2.0におけるアブレーション研究です。（a）事前学習データソースの比較、（b）VLM学習戦略の影響、（c）過去行動初期化（A2A）や視覚ノイズ付加による行動生成戦略の有効性をそれぞれ示しています。",
+     "caption": "Figure 9 : Ablation studies on RoboTwin 2.0.",
+     "image": "details/2610.02054/F9.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "実機ロボットによる評価タスクの概要です。上段は指示追従タスク（物体選択、多様な相互作用、相対配置、引き出し収納）の実行シーケンス、下段は「机の片付け」という高レベル指示に基づく6段階の長大タスクの遂行風景を示しています。",
+     "caption": "Figure 5 : Overview of our real-world evaluation tasks. The top panel shows representative execution sequences for four instruction-following tasks: Pick-Anything, Diverse-Interaction, Place-Relative, and Drawer Storage. The bottom panel presents a long-horizon task, where the robot sequentially completes multiple manipulation stages.",
+     "image": "details/2610.02054/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめ：物理世界を理解する汎用ロボットへの大きな一歩",
+   "summary_ja": "UniWAMは、意味推論・世界生成・行動予測をひとつのアーキテクチャにまとめ上げた世界行動モデルです。適切なデータクレンジング、物理言語の導入、ポストトレーニング手法により、未知環境への優れた汎化と効率的な推論を実現し、具現化AIのスケーラビリティを証明しました。",
+   "details_ja": "本研究では、物理世界の意味的推論、世界モデリング、そして精密な行動予測をひとつのフレームワークで同時に学習するUniWAMを提案しました。\n\n人間およびロボットの大規模な異種データを活用するため、厳格なデータクレンジングと自動アノテーションパイプライン（EgoANT）を開発しました。また、物理言語による教師信号と、モデルコンポーネントごとの相補的な事前学習設計によって、VLMの事前学習知識を維持しつつ身体性を持った物理知識を獲得させることに成功しました。事後学習においては、未来視覚ノイズ付加と行動履歴に基づくフローマッチングにより、推論速度と頑健性を飛躍的に高めています。\n\n一連のシミュレーションおよび実機実験によって、イン・ドメイン性能、対外乱耐性、OOD汎化、指示追従性、長大タスク遂行のあらゆる側面でSOTA性能を実証しました。さらに、人間・ロボット共同学習における対数線形スケーリング則を明らかにしたことは、将来の大規模ロボット基盤モデル開発に向けた強力な指針となります。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：実機実験のセットアップと推論ステップ短縮の秘密",
+   "summary_ja": "実機実験で使用された双腕ロボット環境とタスクの詳細、および動作生成時の推論ステップ数に関する分析をまとめています。過去行動で初期化するA2A生成により、わずか2〜4ステップのデノイジングで高精度な制御が達成可能であることが示されています。",
+   "details_ja": "### 実機タスクとハードウェア構成\n実機評価はAgileX Piperアーム2台（各6自由度、パラレルグリッパー付き）と3台のカメラ（手首カメラ2台、全体俯瞰カメラ1台）で構成されています。卓上には計算機、ティッシュ箱、引き出し、色違いのマーカー、時計、カップなど日常的な小物が多数配置され、各タスク40試行ずつ検証されました。単腕操作では対象物に近い側のアームが自動的に割り当てられ、引き出しを開けながら物を入れるような協調動作では双腕が連動します。\n\n### 動作生成の効率化（A2A vs N2A）\n行動予測器のデノイジングにおいて、通常のガウスノイズから生成するNoise-to-Action（N2A）と、直前の過去行動チャンクに微小ノイズを加えて開始するAction-to-Action（A2A）の比較が行われました。結果として、A2Aはわずか2〜4ステップの推論で、N2Aが10ステップかけて到達する精度を上回ることが確認されました。このためUniWAMの実機運用では4ステップのA2Aがデフォルト設定として採用され、リアルタイム制御に耐えうる推論速度を実現しています。",
+   "figures": [
+    {
+     "key": "F10",
+     "caption_ja": "実機実験のセットアップです。2台のロボットアーム、俯瞰カメラおよびリストカメラ、そして実験に用いられた多彩な日常物品（計算機、引き出し、時計、カップなど）が配置されています。",
+     "caption": "Figure 10 : Real-world experimental setup. Our setup consists of two robot arms, three cameras for observation, and a diverse set of everyday objects used in the manipulation experiments.",
+     "image": "details/2610.02054/F10.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "VLMの推論力と動画生成モデルのダイナミクス予測をMoT構造で結びつけることで、外乱や未知環境に極めて強いポリシーが作れる。",
+  "低レベルなロボット動作を自然言語（物理言語）として記述することで、VLMの事前学習重みを壊さずに人間とロボットのドメインギャップを埋めることができる。",
+  "人間動画はデータ量が1,000時間を超える大規模領域で初めてロボット制御の汎化性能に大きく寄与し、損失とデータ量には綺麗な対数線形スケーリング則が成り立つ。",
+  "過去の行動履歴をノイズ初期値として使う（A2A）ことで、フローマッチングの推論ステップ数を2〜4回まで減らしつつ制御性能を高められる。"
+ ],
+ "limitations_ja": [
+  "動画生成モデル（Wan2.2 5B）を含む超大規模なマルチモーダル構造であるため、事前学習には32基のNVIDIA H800 GPUで7日間を要するなど、極めて高い計算資源が必要とされる。",
+  "人間エゴセントリック動画はデータ規模が小さい段階（1,000時間未満）ではドメインギャップが勝ち、逆に制御性能を低下させてしまう現象が見られる。",
+  "実機での評価タスクは卓上マニピュレーションに限定されており、移動台車を伴う全身協調制御（モバイルマニピュレーション）における有効性は今後の検証課題である。"
+ ],
+ "keywords": [
+  "World-Action Models",
+  "Vision-Language-Action Models",
+  "Mixture-of-Transformers",
+  "Flow Matching",
+  "Egocentric Video Pretraining",
+  "Scaling Laws"
+ ],
+ "id": "2610.02054",
+ "title": "UniWAM: Unified World-Action Model",
+ "authors": [
+  "Jiayi Chen",
+  "Wenxuan Song",
+  "Jingbo Wang",
+  "Shuai Zhou",
+  "Xicheng Gong",
+  "Zehua Fan",
+  "Ziyang Zhou",
+  "Junwu E",
+  "Haodong Yan",
+  "Fuhao Li",
+  "Qize Yu",
+  "Xu Huang",
+  "Pengwei Wang",
+  "Wen Chen",
+  "Shunbo Zhou",
+  "Haoang Li"
+ ],
+ "date": "2026-10-04",
+ "group": "general",
+ "tags": [
+  "world-model",
+  "vision-language-action",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.02054",
+ "pdf_url": "https://arxiv.org/pdf/2610.02054",
+ "summary_ja": "視覚言語行動（VLA）モデルの意味推論力と世界行動モデル（WAM）のダイナミクス事前知識を融合した統合アーキテクチャUniWAMを提案。物理推論器、世界生成器、行動予測器を統合し、物理世界の理解と将来視覚予測、制御出力を両立する。厳密なデータアノテーション基盤とともにロバストな汎化性能を達成した。",
+ "generated": "2026-10-04",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.02054"
+}
