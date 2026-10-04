@@ -1,0 +1,121 @@
+{
+ "title_ja": "SkeleWAM: 効率的なロボットマニピュレーションのための骨格世界行動モデリング",
+ "tldr_ja": "ロボット関節と物体の中心・把持点を結ぶスパースな3D骨格で環境を表現し、行動生成と未来骨格予測を共同学習することで、わずか57.1Mの小型モデルながらLIBERO-PlusベンチマークでCosmos-Policyを上回る85.9%の成功率を達成しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "従来の高コストな動画予測や視覚特徴予測と、スパースな3D骨格を用いるSkeleWAMの対比です。RGB-D画像とロボット状態から骨格を抽出し、未来の骨格予測を学習時の補助教師信号として活用することで、高いタスク成功率と高速・省メモリな推論を両立しています。",
+  "caption": "Figure 1 : Sparse skeleton states enable efficient world action modeling. Existing world action models represent future states as videos, visual latents, or dense 3D dynamics. In contrast, SkeleWAM converts RGB-D observations and robot states into a sparse 3D skeleton comprising robot joints, object centers, and interaction points. During training, it jointly learns robot action generation and future skeleton prediction. This explicit geometric representation achieves a favorable trade-off among task success, inference speed, model size, and computational cost.",
+  "image": "details/2610.02120/F1.jpg"
+ },
+ "overview_ja": "ロボットが自律的に作業を計画・実行する際、自分の行動によって世界がどう変化するかを予測する「ワールド・アクションモデル（WAM）」が注目を集めています。しかし、従来のWAMの多くは未来の状態を動画そのものや、高次元な画像潜在特徴量として予測していました。これらは計算コストが非常に重い上、色や背景などの制御に不要な情報まで保持してしまい、肝心なロボットと物体との幾何学的関係が埋もれてしまうという弱点がありました。\n\nそこで著者らは、「操作に本当に必要なのは、ロボットの関節と物体の相互作用点からなる3Dの骨格情報だけなのではないか」という仮説を立てました。提案手法のSkeleWAMは、RGB-D画像とロボットの内受容感覚からオンラインでスパースな3D骨格を抽出し、共通の幾何状態として扱います。学習時には行動生成と未来骨格の予測をマルチタスクで行い、幾何学的なダイナミクス予測を行動学習の補助信号として使います。推論時には未来予測ブランチを切り離し、現在の骨格と指示文からダイレクトに行動を生成します。さらに、確率的なサンプリングのばらつきを抑える軽量な選択機構「Medoid Action Consensus（MAC）」を導入しました。\n\n検証として、視点や背景、配置などの摂動を含む大規模シミュレータベンチマークLIBERO-Plusと実機実験を実施しました。その結果、わずか57.1Mパラメータという小型サイズでありながら、巨大なモデルであるCosmos-Policyを上回る85.9%の成功率を記録し、特にカメラ位置の変化に対して圧倒的な堅牢性を示しました。制御に必要な幾何構造を陽に抽出してモデル化することの有効性を鮮やかに実証した研究です。",
+ "contributions_ja": [
+  "ロボット関節、物体の中心、および相互作用点からなる統一されたスパース3D骨格状態空間を用いたワールド・アクションモデリングの定式化。",
+  "視覚再構成を行わずに未来の骨格予測を行動学習の補助的な幾何教師信号として活用し、推論時には切り離して高速化するコンパクトなモデル「SkeleWAM」の提案。",
+  "報酬モデルや軌道平均化を必要とせず、複数生成された行動軌道候補から中央値に近い代表軌道を安定して選択する「Medoid Action Consensus（MAC）」の導入。",
+  "LIBERO-Plusの大規模摂動環境および実機環境において、既存の大規模VLAや世界モデル系手法を上回るゼロショット耐性とパラメータ効率の実証。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "ピクセルを捨てて「骨格」を見る：なぜスパース幾何表現なのか",
+   "summary_ja": "従来のワールド・アクションモデルは動画や潜在特徴量を予測するため、計算負荷が高く制御に必要な幾何関係が埋もれがちでした。本論文は、ロボット関節と物体の相互作用点からなるスパースな3D骨格で環境を表現する「SkeleWAM」を提案し、軽量でありながら高い堅牢性を実現できることを示しています。",
+   "details_ja": "近年、ACTやDiffusion Policy、さらにはRT-2や$\\pi_{0}$などの大規模なVision-Language-Action（VLA）モデルが目覚ましい成果を上げています。さらに一歩進んで、ロボットの行動生成と「行動によって世界がどう変化するか」という未来予測を同時に学習するワールド・アクションモデル（WAM）が盛んに研究されています。\n\nしかし、既存のWAMには大きな課題がありました。未来の状態を高解像度な動画として予測したり、学習済みエンコーダの潜在空間（Latent）で予測したりする手法が主流ですが、これらは計算コストが膨大です。また、ピクセルや潜在空間には照明やテクスチャなど制御に関係のない外観情報が混ざり込んでおり、肝心な「ロボットと物体の位置関係や接触関係」という幾何学的な構造が明示的に抽出されていません。\n\nそこで著者らは、「マニピュレーションに本質的な情報は、ロボットと物体のまばらな3D骨格（ランドマーク）だけで十分表現できる」という着想を得ました。ロボットの関節位置と、対象物体の中心および相互作用点（把持候補点など）をノードとし、それらを結ぶ骨格を状態表現として定義します。この統一骨格を用いることで、外観の再構成に計算資源を割くことなく、行動生成と未来状態予測を効率的に共同学習できるようになります。\n\n提案手法のSkeleWAMは、わずか57.1Mパラメータのコンパクト設計でありながら、LIBERO-Plusベンチマークで85.9%の成功率を達成し、有力なベースラインであるCosmos-Policyを3.7ポイント上回りました。特にカメラ位置が変わる外乱に対しては93.4%と、Cosmos-Policyを17.6ポイントも引き離す頑健性を示しています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "稠密な世界予測モデルとSkeleWAMの比較です。ピクセルや密な点群の未来を予測する代わりに、ロボットと物体の要所を結ぶ3D骨格のみを扱うことで、モデルパラメータ数と計算量を劇的に削減しながら高い成功率を達成しています。",
+     "caption": "Figure 1 : Sparse skeleton states enable efficient world action modeling. Existing world action models represent future states as videos, visual latents, or dense 3D dynamics. In contrast, SkeleWAM converts RGB-D observations and robot states into a sparse 3D skeleton comprising robot joints, object centers, and interaction points. During training, it jointly learns robot action generation and future skeleton prediction. This explicit geometric representation achieves a favorable trade-off among task success, inference speed, model size, and computational cost.",
+     "image": "details/2610.02120/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "視覚行動方策からワールドモデルへ：幾何の明示化という新潮流",
+   "summary_ja": "VisuomotorポリシーやVLAは行動生成のみを最適化し、環境の変化をモデル化していませんでした。一方、既存のワールドモデルは動画や潜在特徴に依存して幾何構造が暗黙的だったのに対し、SkeleWAMは3D骨格という明示的な幾何空間で状態を直接扱います。",
+   "details_ja": "### 2.1 視覚運動ポリシーとVLAモデル\nロボット操作では、観測画像から直接行動を出力するエンドツーエンド学習が発展してきました。ACTは時間的に一貫した行動チャンク（ひとかたまりの連続行動）を予測し、Diffusion PolicyやDP3はそれぞれ2D画像や3D点群を用いて表現力の高い行動分布をモデル化します。さらに言語指示に従う汎用基底モデルとしてRT-2やOpenVLA、フローマッチングを活用した$\\pi_{0}$や$\\pi_{0.5}$などが登場しました。しかし、これらの手法は観測から行動への写像を直接最適化するだけで、自分の行動によって物体や環境がどう遷移するかというダイナミクスを陽に学習していません。\n\n### 2.2 ワールド・アクションモデル（WAM）\n環境の遷移を捉えるため、行動生成と未来状態予測を同時に行うWAMが注目されています。WorldVLAやCosmos-Policyのように動画生成モデルを活用するものや、VLA-JEPAのようにピクセル再構成を避けて潜在特徴量を予測するアプローチ、Fast-WAMのように学習時のみ動画予測を補助タスクとして推論時には切り離す手法が提案されてきました。\n\nしかし、動画や潜在特徴量は相互作用の幾何を「暗黙的」にしか表現できません。潜在表現の中身は画像エンコーダの学習目的に左右され、外観情報に引きずられてしまいます。これに対しSkeleWAMは、現在状態も未来状態もスパースな3D骨格という「明示的な幾何パラメータ」として定義します。未来の幾何変化を予測するタスクを補助教師として活用することで、余計な視覚再構成を一切行わずに強力な幾何表現を獲得できる点が、既存研究との明確な違いです。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "骨格抽出からフロー予測、MACによる選別まで：SkeleWAMの仕組み",
+   "summary_ja": "RGB-D画像と順運動学から3D骨格を抽出し、ワールドエキスパートとアクションエキスパートの2系統トランスフォーマーでフロー予測を行います。推論時には未来予測を省略し、生成された複数候補から中心軌道を選ぶ「MAC」により安定した行動を出力します。",
+   "details_ja": "### 3.1 問題設定\n言語指示 $\\ell$、RGB-D観測 $o_t$、ロボットの関節角度などの内受容感覚 $q_t$ から、未来 $H_a$ ステップ分の行動チャンク $\\mathbf{A}_t$ を生成します。本手法では、シーンを $N$ 個のノードからなるスパース3D骨格 $\\mathbf{S}_t \\in \\mathbb{R}^{N \\times 3}$ として表現します。学習時には、未来 $H_s$ ステップの骨格シーケンス $\\mathbf{S}^+_t$ の予測も同時に行います。\n\n### 3.2 骨格による世界表現\nシーンの骨格は、ロボットのキーポイント $\\mathbf{J}_t \\in \\mathbb{R}^{N_r \\times 3}$（関節位置やエンドエフェクタ位置）と、物体のランドマーク $\\mathbf{O}_{t,m}$ で構成されます。各物体は「物体の中心」と「相互作用点（把持や接触に関わる点）」の集合として表されます。ロボットの関節座標は順運動学（FK）によって正確に計算され、物体のランドマークは事前学習済みの固定（Frozen）視覚認識ネットワークを用いてRGB-D点群から推定されます。これらはすべて共通のロボット基準座標系に変換・正規化されます。\n\n### 3.3 ネットワーク構造\n言語指示、現在の骨格、ノイズが付加された行動チャンク、ノイズが付加された未来骨格シーケンスをそれぞれトークン化します。Fast-WAMの構造を踏襲し、モデルは「ワールドエキスパート」と「アクションエキスパート」の2系統で構成されます。ブロックアテンションマスクにより、行動予測トークンと未来骨格予測トークンはお互いを直接参照せず、どちらも現在の骨格トークンのみを参照するように分離されています。\n\n### 3.4 フローマッチングによる学習\n行動生成と未来骨格予測の両方にフローマッチング（Flow Matching）を採用しています。標準ガウスノイズと真の軌道との間を線形補間し、ターゲットとなるベクトル場を行動損失と骨格損失の和として学習します。どちらの損失も現在の骨格トークンを通じてバックプロパゲーションされるため、未来予測タスクがワールドエキスパートの幾何表現学習を強力にガイドします。\n\n### 3.5 推論と Medoid Action Consensus (MAC)\n推論時には計算負荷を下げるため、未来骨格トークンを完全に省き、現在の骨格と指示文から行動ベクトル場のみを積分（10ステップ）して行動を生成します。ここで生成モデル特有のサンプリングのばらつきを抑えるため、「Medoid Action Consensus（MAC）」という新戦略を導入しました。独立なノイズから $K$ 個（デフォルトは $K=3$）の行動候補をサンプリングし、最初の $h$ ステップにおける連続動作次元の平均距離が最も小さい候補（メディアン的な中心軌道）を選択します。評価用の報酬モデルを用意する必要がなく、また複数軌道を平均して動作が破綻するリスクも防ぐことができます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "SkeleWAMの全体パイプラインです。左側でRGB-Dとロボット状態からスパースな3D骨格を抽出し、右上のトランスフォーマーで行動と未来骨格を共同学習します。推論時（右下）は未来予測を省略し、複数生成した行動候補からMACを用いて最適な軌道を1本選出します。",
+     "caption": "Figure 2 : Overview of SkeleWAM. Frozen visual perception and forward kinematics construct the current skeleton. Action generation and future skeleton prediction are jointly trained with shared current-skeleton context. At inference, future skeleton prediction is omitted, and Medoid Action Consensus (MAC) selects a representative sampled action chunk. The robot executes its first $H_{e}$ actions before observing and replanning.",
+     "image": "details/2610.02120/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "わずか57Mで巨大モデル超え：シミュレータと実機での実力検証",
+   "summary_ja": "LIBERO-Plusの全10,030通りに及ぶ摂動環境で評価し、SkeleWAMは85.9%の成功率でCosmos-Policyを上回りました。実機のアーム操作実験でも89%の平均成功率を達成し、アブレーションにより相互作用点や未来骨格学習の重要性が実証されました。",
+   "details_ja": "### 4.1 シミュレーション設定\n評価には、視点・背景・言語・配置・ノイズなど7系統の摂動を含む「LIBERO-Plus」（計10,030バリアント）を使用しました。テスト環境に対する追加のファインチューニングは行わず、ゼロショット性能を測定しています。比較対象はOpenVLAや$\\pi_{0.5}$などの最先端VLA、およびCosmos-PolicyやFast-WAMなどの世界モデル系手法です。\n\n### 4.2 シミュレーション結果\n- **ゼロショット堅牢性**: SkeleWAMは全体成功率85.9%を記録し、比較した観測ベースのベースライン中最強のCosmos-Policy（82.2%）を3.7ポイント上回りました。特にカメラ位置が変わる摂動では93.4%を達成し、Cosmos-Policy（75.8%）に17.6ポイントの大差をつけました。背景（96.0%）やノイズ（93.9%）に対しても極めて強靭です。3D幾何をロボット座標系で明示的に扱っているため、カメラ画角や外観の変化に惑わされないことが実証されました。\n- **特権情報（sim-state）との比較**: シミュレータから直接物体の3D座標を取得する理想環境「SkeleWAM (sim-state)」は87.7%であり、観測ベースとの差はわずか1.8ポイントでした。これはRGB-Dからの骨格抽出が実用上十分高精度に機能していることを示しています。\n- **配置摂動の課題**: 一方で、物体の初期配置が大きく変わる摂動に対しては66.6%にとどまり、$\\pi_{0.5}$（84.1%）に後れを取りました。特権情報を用いても69.0%であったため、認識の問題というよりは、まばらな幾何情報だけでは未知の配置関係への汎化が難しいという課題が浮き彫りになりました。\n\n### 4.3 実機実験\nARX R5ロボットアームとRealSenseカメラを用い、「引き出しを開ける」「引き出しにブロックを入れる」「お椀を重ねる」など5種類のタスク（各20試行）を実施しました。SkeleWAMは平均89%の成功率を収め、Cosmos-Policy（87%）、Fast-WAM（83%）、$\\pi_{0.5}$（76%）を上回りました。\n\n### 4.4 アブレーション研究\n- **骨格の構成要素**: 物体表現を「中心のみ」にすると82.3%、「相互作用点のみ」にすると77.7%に低下し、両方を組み合わせた場合（85.9%）が最も高くなりました。位置の基準点と接触点の両方が不可欠です。\n- **未来予測の補助効果**: 学習時の未来骨格予測タスクを取り除くと、成功率は80.1%へと5.8ポイントも急落しました。推論時に使わないとしても、未来予測を解かせることが特徴表現の獲得に決定的な役割を果たしています。\n- **MACの設計**: 候補数 $K=3$ で85.9%となり、単一サンプリング（$K=1$ の84.2%）から明確に改善しました。ただし候補を5や10に増やしても性能は頭打ち（85.2%、84.1%）になるため、$K=3$ が計算コストと精度の最良のバランスです。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "実機における代表的なロールアウト例です。引き出し開け、ブロック収納、お椀のスタッキングにおいて、各タスクの初期・相互作用・完了段階で抽出されたスパース3D骨格が、複雑な姿勢変化をコンパクトに追従できていることが分かります。",
+     "caption": "Figure 3 : Qualitative real-world results. Representative rollouts for opening a drawer, placing a block in a drawer, and stacking bowls. Each row shows the early, interaction, and late stages of a successful rollout, together with the corresponding sparse 3D skeleton. Success rates are computed over 20 trials per task.",
+     "image": "details/2610.02120/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "実機実験のセットアップです。卓上に引き出しやブロック、お椀が配置され、外付けカメラと手先（手首）カメラの2台のRealSenseを用いてRGB-D点群を取得しています。",
+     "caption": "Figure 4 : Real-world experimental setup. An ARX R5 robot with external and wrist-mounted RealSense cameras operates in a tabletop workspace containing a drawer unit, blocks, and bowls.",
+     "image": "details/2610.02120/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめと今後の展望：幾何ワールドモデルが切り拓く高効率ロボット制御",
+   "summary_ja": "3D骨格を用いたSkeleWAMは、パラメータ効率と視点外乱への頑健性を両立する新しい世界モデルの方向性を示しました。極端な物体配置の変化への対応など残された課題に対しては、不確実性を考慮した知覚や適応的なランドマーク設計が今後の鍵となります。",
+   "details_ja": "本研究では、ロボット関節と物体の相互作用点からなるスパース3D骨格を環境状態として採用した、コンパクトなワールド・アクションモデル「SkeleWAM」を提案しました。行動生成と未来骨格予測をフローマッチングでマルチタスク学習させることで、画像再構成という重い処理を回避しながら強力な幾何表現を学習できることを実証しました。さらに、軽量な軌道選定メカニズムであるMACにより、推論の安定化にも成功しています。\n\nLIBERO-Plusおよび実機での検証を通じて、何十億ものパラメータを持つ巨大なVLAや動画予測型WAMと比較しても、わずか57.1Mの小型モデルが視点や背景のノイズに対してより高い堅牢性を発揮できることが確認されました。\n\n一方で、物体の空間レイアウトが大幅に変わった場合の汎化性能には依然として課題が残っています。著者らは今後の展望として、知覚の不確実性の考慮、タスクに応じた適応的な相互作用点の選択、物体間のより豊かな関係構造の導入などを挙げており、骨格表現の簡潔さを保ちながらさらなる汎化性能の向上を目指すとしています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "画像ピクセルや潜在特徴の未来を無理に予測しなくても、スパースな3D骨格の未来を補助タスクとして予測させるだけで、行動生成の表現学習には十分効果的である。",
+  "ロボット基準の3D幾何空間で状態を陽に扱うことで、カメラの配置変更や視野角のズレに対して圧倒的なゼロショット頑健性を得ることができる。",
+  "拡散モデルやフローマッチング特有のサンプリングのブレは、報酬モデルを使わなくても、複数サンプルの距離に基づくメディアン選択（MAC）で手軽に抑えられる。"
+ ],
+ "limitations_ja": [
+  "物体の初期レイアウトが大幅に変わる配置摂動に対しては成功率が66.6%まで落ち込み、巨大なデータで事前学習された$\\pi_{0.5}$などの大規模VLAに及ばない。",
+  "物体ランドマークの検出を固定された外部の事前学習済み視覚モデルに依存しているため、認識器が未対応の未知物体や極端なオクルージョンに弱い可能性がある。",
+  "物体の相互作用点が静的またはヒューリスティックに決まっており、変形物や複雑な形状の物体に対して柔軟にランドマークを再定義する仕組みは含まれていない。"
+ ],
+ "keywords": [
+  "World Action Model",
+  "Robotic Manipulation",
+  "Sparse 3D Skeleton",
+  "Flow Matching",
+  "Medoid Action Consensus"
+ ],
+ "id": "2610.02120",
+ "title": "SkeleWAM: Skeleton World-Action Modeling for Efficient Robotic Manipulation",
+ "authors": [
+  "Juyi Sheng",
+  "Hua Wang",
+  "Mengyuan Liu"
+ ],
+ "date": "2026-10-04",
+ "group": "general",
+ "tags": [
+  "world-model",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.02120",
+ "pdf_url": "https://arxiv.org/pdf/2610.02120",
+ "summary_ja": "操作シーンをロボット関節、物体中心、接触点で構成される疎な3D骨格として表現する世界行動モデルSkeleWAMを提案。高次元動画予測の代わりにRGB-Dと自己受容感覚から骨格状態をオンライン構築・予測することで、外見情報への依存を排除し、行動学習に追加の幾何学的監視を与えることで高精度かつ効率的な方策学習を実現する。",
+ "generated": "2026-10-04",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.02120"
+}
