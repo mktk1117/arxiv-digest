@@ -1,6 +1,184 @@
 {
  "entries": [
   {
+   "date": "2026-10-04",
+   "rank": 0,
+   "id": "2610.01863",
+   "group": "focus",
+   "title": "LiteReality-Agent: An Agentic System for Interactable 3D Indoor Scene Reconstruction",
+   "title_ja": "LiteReality-Agent: 対話可能かつシミュレーション対応の3D屋内シーン再構成エージェントシステム",
+   "summary_ja": "実環境のRGB-Dスキャンから、可動関節（アーティキュレーション）を含みシミュレータで即座に利用可能な3Dシーンを構築するエージェントシステムを提案。3D再構成をコーディング課題として定式化し、専用ツールを用いてPythonスクリプトを反復編集・検証する。ロボットの学習用デジタルツイン環境の自動生成を高品質に実現する。",
+   "summary_en": "This paper presents LiteReality-Agent, an agentic system that reconstructs real indoor RGB-D scans into interactable, articulated, and simulation-ready 3D digital twins. Formulating 3D reconstruction as a coding problem, the agent iteratively gathers evidence, edits a scene generation script, and verifies simulation readiness. This enables high-quality, automated generation of simulation environments for robotic learning.",
+   "authors": [
+    "Zhening Huang",
+    "Yueyan Li",
+    "Johnathan Chiu",
+    "Xiaoyang Lyu",
+    "Matt Zhou",
+    "Yuxin Yao",
+    "Joan Lasenby",
+    "Shangzhe Wu"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.GR",
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "llm-agent",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.01863",
+   "image": "figures/2026-10-04/2610.01863.jpg"
+  },
+  {
+   "date": "2026-10-04",
+   "rank": 1,
+   "id": "2610.01820",
+   "group": "focus",
+   "title": "Finite-Data Safety Informativity Under Dynamic Asymmetric Actuation",
+   "title_ja": "動的非対称アクチュエーション下での有限データ安全性情報性",
+   "summary_ja": "モデル不確実性と非対称な入力制限が存在するシステムにおいて、制御入力が安全不等式を満たせるかを判定する有限データ証明書を提案。観測残差が有界な線形パラメータ化安全性チャネルに対し、データと整合する全モデルの最悪ケース寄与を導出する。安全な制御行動が実行可能かをデータ駆動で厳密に評価できる。",
+   "summary_en": "This paper develops a finite-data certificate to determine whether a control command can enforce safety constraints under model uncertainty and asymmetric actuator limits. For linearly parameterized safety channels with bounded residual errors, it derives support formulas for the worst-case safety contribution across all data-consistent models, enabling rigorous data-driven assessment of safe control actions.",
+   "authors": [
+    "Abhinav Sinha",
+    "Praveen Kumar Ranjan",
+    "Yongcan Cao"
+   ],
+   "categories": [
+    "eess.SY",
+    "cs.RO",
+    "math.DS"
+   ],
+   "tags": [
+    "control",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.01820",
+   "image": "figures/2026-10-04/2610.01820.jpg"
+  },
+  {
+   "date": "2026-10-04",
+   "rank": 2,
+   "id": "2610.02054",
+   "group": "general",
+   "title": "UniWAM: Unified World-Action Model",
+   "title_ja": "UniWAM: 物理推論・動画生成・行動予測を統合した世界行動モデル",
+   "summary_ja": "視覚言語行動（VLA）モデルの意味推論力と世界行動モデル（WAM）のダイナミクス事前知識を融合した統合アーキテクチャUniWAMを提案。物理推論器、世界生成器、行動予測器を統合し、物理世界の理解と将来視覚予測、制御出力を両立する。厳密なデータアノテーション基盤とともにロバストな汎化性能を達成した。",
+   "summary_en": "The paper introduces UniWAM, a unified world-action model combining the semantic reasoning of vision-language-action models with the physical dynamics priors of video generation models. It integrates a physical reasoner, world generator, and action predictor to jointly perform physical scene understanding, future visual synthesis, and action prediction, demonstrating robust generalization across distribution shifts.",
+   "authors": [
+    "Jiayi Chen",
+    "Wenxuan Song",
+    "Jingbo Wang",
+    "Shuai Zhou",
+    "Xicheng Gong",
+    "Zehua Fan",
+    "Ziyang Zhou",
+    "Junwu E",
+    "Haodong Yan",
+    "Fuhao Li",
+    "Qize Yu",
+    "Xu Huang",
+    "Pengwei Wang",
+    "Wen Chen",
+    "Shunbo Zhou",
+    "Haoang Li"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "vision-language-action",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.02054",
+   "image": "figures/2026-10-04/2610.02054.jpg"
+  },
+  {
+   "date": "2026-10-04",
+   "rank": 3,
+   "id": "2610.02120",
+   "group": "general",
+   "title": "SkeleWAM: Skeleton World-Action Modeling for Efficient Robotic Manipulation",
+   "title_ja": "SkeleWAM: 効率的なロボットマニピュレーションのための骨格世界行動モデリング",
+   "summary_ja": "操作シーンをロボット関節、物体中心、接触点で構成される疎な3D骨格として表現する世界行動モデルSkeleWAMを提案。高次元動画予測の代わりにRGB-Dと自己受容感覚から骨格状態をオンライン構築・予測することで、外見情報への依存を排除し、行動学習に追加の幾何学的監視を与えることで高精度かつ効率的な方策学習を実現する。",
+   "summary_en": "This paper presents SkeleWAM, a compact world-action model that represents manipulation scenes as sparse 3D skeletons consisting of robot joints, object centers, and interaction points. By constructing and predicting future skeletons from RGB-D and proprioception instead of heavy video latents, it provides unified geometric supervision for action generation, enabling efficient and accurate manipulation policy learning.",
+   "authors": [
+    "Juyi Sheng",
+    "Hua Wang",
+    "Mengyuan Liu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.02120",
+   "image": "figures/2026-10-04/2610.02120.jpg"
+  },
+  {
+   "date": "2026-10-04",
+   "rank": 4,
+   "id": "2610.02170",
+   "group": "general",
+   "title": "Watch, Infer, Coordinate: Inferring Robot Partner Constraints for Zero-Shot Coordination",
+   "title_ja": "Watch, Infer, Coordinate: ゼロショット協調のためのパートナーロボットの制約推定",
+   "summary_ja": "ハードウェア劣化や故障等によるパートナーロボットの未知の物理制約を第三者との協調観察から推論し、未知のタスクでゼロショット協調を実現する手法を研究。実演軌跡から相手が『行わなかった』潜在的制約を同定し、推定された能力制約を考慮して協調マニピュレーションなどの共同作業を円滑に遂行可能にする。",
+   "summary_en": "This work explores how a robot helper can infer a partner robot's hidden physical constraints (e.g., hardware degradation or actuator faults) by observing it coordinate with another robot, enabling zero-shot coordination on novel tasks. By deducing underlying limitations from demonstrated interactions, the helper effectively adapts its coordination strategy in collaborative manipulation settings.",
+   "authors": [
+    "Suyu Ye",
+    "Zheyuan Zhang",
+    "Vaishnav Tadiparthi",
+    "Hossein Nourkhiz Mahjoub",
+    "Ehsan Moradi Pari",
+    "Tianmin Shu",
+    "Homanga Bharadhwaj",
+    "Nakul Agarwal"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.MA"
+   ],
+   "tags": [
+    "multi-robot",
+    "manipulation",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.02170",
+   "image": "figures/2026-10-04/2610.02170.jpg"
+  },
+  {
+   "date": "2026-10-04",
+   "rank": 5,
+   "id": "2610.01927",
+   "group": "general",
+   "title": "CLoSeR: Closing the Loop for Long-Context Streaming Reconstruction",
+   "title_ja": "CLoSeR: 長文脈ストリーミング3D再構成のためのループ閉じ込み",
+   "summary_ja": "大規模なストリーミング3D再構成モデルにおける累積追跡ドリフトを解消するループ閉じ込み手法を提案。大域記述子検索により候補を検出し、相対姿勢推定ウィンドウを構築した上で、一貫したスケール特性を活かしてSE(3)多様体上で全フレームの姿勢を大域最適化する。キロメートル規模でもドリフトのない高精度な幾何再構成を可能にした。",
+   "summary_en": "This paper introduces CLoSeR, a loop closure framework designed for feedforward streaming 3D reconstruction models that suffer from tracking drift. It detects loop candidates via global descriptors, constructs relative pose estimation windows, and performs global pose graph optimization on the SE(3) manifold, achieving accurate, drift-free 3D reconstruction at kilometer scale.",
+   "authors": [
+    "Moyang Li",
+    "Zihan Zhu",
+    "Wei Zhang",
+    "Marc Pollefeys",
+    "Daniel Barath"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.RO"
+   ],
+   "tags": [
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.01927",
+   "image": "figures/2026-10-04/2610.01927.jpg"
+  },
+  {
    "date": "2026-10-03",
    "rank": 0,
    "id": "2610.02196",
