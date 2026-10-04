@@ -1,0 +1,141 @@
+{
+ "title_ja": "CLoSeR: 長文脈ストリーミング3D再構成のためのループ閉じ込み",
+ "tldr_ja": "ストリーミング型の3D再構成基底モデルにループクローズ機構を統合し、キロメートル規模の単眼カメラ動画からドリフトのない幾何整合性の高い3D再構成を実現した研究です。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "CLoSeRの全体パイプラインです。ストリーミング処理中にSALAD特徴量で過去フレームとの類似度を調べてループを検出し、現在と過去のフレームを混ぜた「ループ条件付きウィンドウ」を入力して相対姿勢を推定します。スケールが一貫しているため、シンプルなSE(3)ポーズグラフ最適化だけで軌跡のズレを綺麗に解消できます。",
+  "caption": "Figure 2 : System overview. Given a streaming monocular sequence, our method processes it in a sliding-window manner. For each window, we first tokenize the frames with a DINO-based encoder and then apply a stack of attention layers, comprising frame attention, sliding-window attention, and TTT layers, to maintain global consistency across the sequence. Upon the arrival of each new window, we additionally extract SALAD descriptors to identify potential loop closures against prior windows. …",
+  "image": "details/2610.01927/F2.jpg"
+ },
+ "overview_ja": "最近の深層学習ベースの3D再構成モデル（DUSt3RやVGGTなど）は、画像から直接カメラ姿勢と密な点群を出力できる強力なツールとして注目を集めています。しかし、ロボットを走らせてオンラインで処理するストリーミング設定では、移動距離が長くなるにつれて誤差が蓄積し、軌跡が大きくドリフトしてしまう問題がありました。\n\n従来のサブマップ分割型アプローチ（VGGT-SLAMなど）では、区間ごとに独立して予測するためスケールがバラバラになり、複雑な幾何変換（Sim(3)やSL(4)多様体）を用いたノイズの多い点群位置合わせに頼らざるを得ませんでした。そこで本論文の著者らは、「そもそもスケールが一貫したストリーミングモデルを使えば、古典的で確実なSE(3)のポーズグラフ最適化だけでループクローズできるのではないか？」という点に着目しました。\n\n提案手法のCLoSeRは、長距離でも大域スケールが保たれるストリーミングモデルLoGeRを土台にしています。画像特徴量検索で過去の再訪箇所を見つけたら、現在のフレームと過去のフレームを1つのウィンドウにまとめてモデルに入力し、正確な相対姿勢を推定します。そして、推定されたループ制約と時系列の制約をまとめてSE(3)上で最適化します。\n\n実験では、数キロメートルに及ぶ市街地走行（KITTIやVBR）や屋内・屋外の複合データ（Oxford Spires）で評価を行い、既存のストリーミングモデルやビジュアルSLAMを大幅に上回る推定精度と、建物の二重化（ゴースト）がない美しい3D点群の復元を実証しました。",
+ "contributions_ja": [
+  "フィードフォワード型のストリーミング3D再構成モデルにループクローズ機構を統合し、キロメートル規模の単眼動画から高精度な再構成を実現しました。",
+  "過去と現在のフレームを束ねて一度の順伝播で高精度な相対姿勢を導く「ループ条件付きウィンドウ」の仕組みを提案しました。",
+  "バックボーンが持つ大域的なスケール一貫性を活かし、不安定な点群位置合わせや高次元多様体（Sim(3)やSL(4)）を使わずに、剛体変換SE(3)上のポーズグラフ最適化だけで十分であることを示しました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ長距離のストリーミング再構成でループが閉じないのか？",
+   "summary_ja": "単眼カメラからの3D再構成において、近年急速に発展した基底モデルは長距離走行時のドリフト蓄積という課題を抱えています。本章では、既存のサブマップ型手法が抱えるスケール不整合の弱点を指摘し、大域スケールを維持できるストリーミングモデル上でループクローズを完結させるCLoSeRの着想を述べています。",
+   "details_ja": "自動運転や自律ロボットにとって、カメラ映像から自己位置と環境の3D形状を同時に復元する技術は必須です。従来のSfM（Structure-from-Motion）やビジュアルSLAMは、幾何学的な拘束と最適化を駆使してループクローズ（以前訪れた場所に戻ったときのズレの補正）を行い、長距離でもマップの整合性を保ってきました。\n\nここ最近は、画像をTransformerに入力するだけでカメラ姿勢と密な点群を丸ごと一発で予測する基底モデル（VGGTなど）が登場し、大きなパラダイムシフトが起きています。しかし、これらのモデルは計算量が画像のフレーム数の2乗 $O(n^2)$ で増えるため、数千〜数万フレームに及ぶ長い動画を逐次処理（ストリーミング推論）することが困難でした。\n\nこの制約を突破するため、動画を短い区間（サブマップ）に分割してVGGTを実行し、あとから点群同士を貼り合わせる手法（VGGT-SLAMやVGGT-Long）が提案されました。しかし、独立した処理を行うとサブマップごとに縮尺（スケール）が狂ってしまいます。その結果、スケール変化を許容する相似変換 $\\mathrm{Sim}(3)$ や、さらに高次元の射影変換 $\\mathrm{SL}(4)$ といった多様体上でポーズグラフ最適化（PGO）を解かなければならず、点群のノイズに引きずられて最適化が破綻しやすいという深刻な問題がありました。\n\nそこで著者らは、最新のストリーミング再構成モデル「LoGeR」に着目しました。LoGeRはスライディングウィンドウとTest-Time Training（TTT: テスト時訓練層による長期記憶の保持）を組み合わせることで、時系列全体で一貫したスケールを保ったまま順次推論できます。「スケールが最初から揃っているなら、難しい点群位置合わせをしなくても、シンプルな剛体変換 $\\mathrm{SE}(3)$ 上のポーズグラフ最適化だけで綺麗にループが閉じるはずだ」というのが、本研究の根幹にあるアイデアです。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Works",
+   "heading_ja": "幾何ベースSLAMからフィードフォワード型3D基底モデルへの進化",
+   "summary_ja": "従来の幾何学ベースのSfM/SLAM、学習ベースのビジュアルSLAM、そして近年登場したフィードフォワード型3D基底モデルの流れを整理しています。CLoSeRは、最新のストリーミング型基底モデルにSLAMの要であるループクローズをエレガントに組み込んだ位置づけとなります。",
+   "details_ja": "本章では、関連する3つの研究潮流を整理しています。\n\n### 幾何ベースのSfMとビジュアルSLAM\n伝統的なSfM（COLMAPなど）やSLAM（ORB-SLAM、DSOなど）は、特徴点マッチングや輝度勾配の一致を手がかりに幾何制約を解いてきました。これらは長距離走行で必ず生じるドリフトを抑えるため、場所認識によるループ検出とポーズグラフ最適化を洗練させてきました。近年はDROID-SLAMやDPV-SLAMのように、オプティカルフロー推定にディープラーニングを組み込んだ強力なシステムも登場しています。しかし、これらは複雑な反復最適化パイプラインに依存しており、計算コストや初期化の難しさが残ります。\n\n### フィードフォワード型3D再構成モデル\nDUSt3RやMASt3Rの登場により、反復最適化を行わずにニューラルネットワークの1パス順伝播だけで密な3D点群とカメラ姿勢を同時に予測するパラダイムが確立されました。さらにVGGTや $\\pi^3$ は多視点入力に対応し、非常に高品質な形状を復元できるようになりました。しかし、自己注意機構（Self-Attention）の性質上、入力フレーム数が増えるとメモリが爆発するため、オンラインのロボット制御に必要なストリーミング処理にはそのまま使えません。\n\n### ストリーミング再構成と本研究の位置づけ\n長いシーケンスを扱うため、大域的なメモリ状態を逐次更新する手法（CUT3R、TTT3R）や、線形計算量で過去情報を伝えるTTT層を組み込んだモデル（LoGeRなど）が開発されました。しかし、これらは前進し続ける動画では良く機能するものの、以前通った場所に戻ってきたときに過去の記憶と明示的に照合する仕組みがありませんでした。一方でサブマップ結合型の手法はスケール不整合に苦しんでいます。CLoSeRは、ストリーミング型モデルの利点（一貫したスケール）を活かしつつ、明示的なループクローズを極めて自然な形で導入した初のシステムです。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "過去と現在を混ぜて流し込む：ループ条件付きウィンドウとSE(3)最適化",
+   "summary_ja": "大域記述子SALADでループ候補を検出し、過去と現在のフレームを半々に束ねた「ループ条件付きウィンドウ」をLoGeRに入力して相対姿勢を求めます。バックボーンのおかげでスケールが統一されているため、最後にHuber損失付きのSE(3)ポーズグラフ最適化を実行するだけで軌跡全体を補正できます。",
+   "details_ja": "CLoSeRのパイプラインは、ベースとなるストリーミング骨格、ループ検出と相対姿勢推定、そして大域ポーズグラフ最適化の3段階で構成されています。\n\n### 3.1 準備：ストリーミング骨格（LoGeR）の特徴\n入力動画をサイズ $N_{\\text{win}}$ の重複するチャンク（ウィンドウ）に分割して処理します。各ウィンドウ内の画像はDINOベースのエンコーダでトークン化され、フレーム間注意機構、スライディングウィンドウ注意機構（SWA）、そしてTest-Time Training（TTT）層を通過します。SWAがウィンドウ境界の局所的な位置合わせを担い、TTT層の重みが過去の全体状態を蓄積することで、推論全体を通じて一貫した世界座標系と共通のスケールでカメラ姿勢 $\\mathbf{T}_t \\in \\mathrm{SE}(3)$ が出力されます。さらに重要なのは、LoGeRの順伝播処理は「入力画像が時間的に連続していること」を数学的に仮定していない点です。\n\n### 3.2 ループ検出とアライメント\n- **ループ検出**: 新しいウィンドウが到着するたび、SALADと呼ばれる画像検索用の大域特徴量を抽出し、過去フレームとのコサイン類似度を計算します。類似度がしきい値 $\\tau_{\\text{sim}}$ を超え、かつ時間的に十分離れている（$j - i > \\tau_{\\text{time}}$）候補から、上位 $k$ 件をループペアとして選び出します。\n- **ループ条件付きウィンドウの構築**: 検出された過去フレームが属する過去のウィンドウ $\\mathcal{W}^{\\text{prev}}_m$ ごとに、現在のフレームから $N_{\\text{win}}/2$ 枚、過去のフレームから $N_{\\text{win}}/2$ 枚を選び出し、合計 $N_{\\text{win}}$ 枚の特別なウィンドウ $\\tilde{\\mathcal{W}}_m$ を合成します。\n- **相対姿勢の推定**: この合成ウィンドウをそのままLoGeRに入力して一度順伝播させるだけで、現在フレーム $\\mathbf{I}_j$ と過去フレーム $\\mathbf{I}_i$ の共通座標系での姿勢が得られます。ここからループ間の相対姿勢制約 $\\mathbf{T}_{ji}^{\\text{loop}} = (\\mathbf{T}_j^{(m)})^{-1} \\mathbf{T}_i^{(m)}$ を直接導き出します。別のモデルを用意したり、点群マッチングを解く必要は一切ありません。\n\n### 3.3 SE(3) ポーズグラフ最適化（PGO）\n時系列の隣接フレーム間の制約 $\\mathcal{E}_{\\text{seq}}$ と、得られたループ制約 $\\mathcal{E}_{\\text{loop}}$ を合わせ、全フレームの姿勢 $\\{\\mathbf{T}_t\\}_{t=1}^N \\subset \\mathrm{SE}(3)$ を最適化します。コスト関数は以下の通りです:\n$$\n\\min_{\\{\\mathbf{T}_t\\}} \\sum_{(q,p)\\in\\mathcal{E}_{\\text{seq}}} \\left\\| \\text{Log}_{\\mathrm{SE}(3)}\\left( (\\mathbf{T}_q^{\\text{seq}})^{-1} \\mathbf{T}_q^{-1} \\mathbf{T}_p \\right) \\right\\|^2 + \\sum_{(j,i)\\in\\mathcal{E}_{\\text{loop}}} \\rho_\\delta \\left( \\left\\| \\text{Log}_{\\mathrm{SE}(3)}\\left( (\\mathbf{T}_{ji}^{\\text{loop}})^{-1} \\mathbf{T}_j^{-1} \\mathbf{T}_i \\right) \\right\\| \\right)\n$$\nここで $\\text{Log}_{\\mathrm{SE}(3)}$ は姿勢誤差を6次元の接空間ベクトルに変換する写像、$\\rho_\\delta$ は誤検出されたループ制約（外れ値）の影響を抑えるHuber損失です。Levenberg-Marquardt法によりマニホールド上で安定して解くことができます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "CLoSeRのシステム詳細図。入力フレームからDINOとTTT層を経て姿勢を予測しつつ、SALADでループ候補を探索。過去と現在のフレームを半々にしたLoop Windowを再度モデルに通してループ相対姿勢を出し、最終的にSE(3) PGOで軌跡全体を一発補正します。",
+     "caption": "Figure 2 : System overview. Given a streaming monocular sequence, our method processes it in a sliding-window manner. For each window, we first tokenize the frames with a DINO-based encoder and then apply a stack of attention layers, comprising frame attention, sliding-window attention, and TTT layers, to maintain global consistency across the sequence. Upon the arrival of each new window, we additionally extract SALAD descriptors to identify potential loop closures against prior windows. …",
+     "image": "details/2610.01927/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "キロメートル規模の走行実験：二重化する建物がピタリと重なる",
+   "summary_ja": "KITTI、VBR、Oxford Spires、DROID-Wの4大ベンチマークで評価を行いました。既存のストリーミング基底モデルやビジュアルSLAMと比較して軌跡誤差を半減させ、再訪箇所で建物が二重に分裂してしまうゴースト現象を完全に解消しています。",
+   "details_ja": "提案手法の有効性を検証するため、長距離かつループを含む多様な実環境データセットで徹底的な比較を行っています。\n\n### 実験設定とデータセット\n- **VBR**: ローマ市街地で撮影された、1シーケンスあたり最長5.2 km（最大約1.8万フレーム）に及ぶ超長距離データセットです。\n- **KITTI Odometry**: 自動運転の標準ベンチマークで、最大5.1 kmの直線・ループ走行を含みます。\n- **Oxford Spires**: 屋内外が混在し、急激な旋回や複雑なループを含む難関データセットです。\n- **DROID-W**: 動く歩行者などが多数存在する動的環境データセットです。\n評価指標には軌跡の絶対誤差（ATE RMSE [m]）を使用し、真値軌跡との間でSim(3)アライメントを行って比較しています。\n\n### 定量評価とベースライン比較\nKITTIおよびVBRの評価において、CLoSeRは既存のフィードフォワード型ストリーミングモデル（LoGeR、CUT3R、TTT3Rなど）を圧倒しました。例えばKITTIにおいて、ベースモデルであるLoGeRの平均ATE RMSEは25.44 mでしたが、CLoSeRは12.66 mへと約半分に削減しています。また、最適化ベースの代表格であるDROID-SLAMやDPV-SLAMに対しても、単眼特有の前進運動に伴うスケール喪失に悩まされることなく、安定して高精度を維持しました。動的環境のDROID-Wでも、動的物体専用の除去モジュールを持たないにもかかわらず、極めて頑健に追従しています。\n\n### 定性評価：点群と軌跡の比較\n点群の可視化（コロッセオ周辺のシーケンスなど）では、LoGeR単体だと一周して戻ってきた際に建物が2つに分裂してズレてしまう「二重化ゴースト」が発生していました。CLoSeRを適用すると、ループが正確に閉じて単一の綺麗な幾何構造に統合されることが確認できます。サブマップ結合型のVGGT-SLAMやVGGT-Longが点群アライメント失敗により軌跡が破綻しているのに対し、CLoSeRは滑らかで真値に極めて近い軌跡を描いています。\n\n### アブレーション研究\nアブレーション実験から、重要な知見がいくつも得られています。時系列制約の近傍数 $N_{\\text{seq}}$ を1に減らすと軌跡の剛性が落ちて精度が悪化すること、Huber損失を外すと外れ値ループに引っ張られて破綻することが示されました。さらに決定的なのは、ポーズグラフを $\\mathrm{Sim}(3)$ や $\\mathrm{SL}(4)$ に拡張した場合です。大域スケールが既に揃っているCLoSeRの環境下では、最適化にスケールや射影の自由度を追加するとかえって解の曖昧性が増し、$\\mathrm{SE}(3)$ より性能が明確に低下することが証明されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "点群再構成の定性比較。ベースラインのLoGeR（左側）ではループが閉じず、コロッセオなどの歴史的建造物が2つにズレて二重化してしまっていますが、CLoSeR（右側）では1つの整合した建造物として美しく復元できています。",
+     "caption": "Figure 3 : Reconstruction comparison. LoGeR ( Zhang et al., 2026 ) fails to close loops and produces misaligned duplicate geometry, whereas our method recovers globally consistent reconstructions. Key regions are highlighted with red dashed boxes.",
+     "image": "details/2610.01927/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "KITTI、VBR、DROID-W、Oxford Spiresにおけるカメラ軌跡の比較（点線が真値、実線が推定）。他の手法がドリフトや歪みを生じさせているのに対し、CLoSeRは長距離ループ走行後も真値にピタリと追従しています。",
+     "caption": "Figure 4 : Trajectory comparison on KITTI Odometry ( Geiger et al., 2013 ) , VBR ( Brizi et al., 2024 ) , DROID-W ( Li et al., 2026 ) , and Oxford Spires ( Tao et al., 2024 ) datasets. Groundtruth trajectories ( coral , dashed) are overlaid with the estimates from each method ( gray-blue , solid) after Sim(3) Umeyama alignment ( Umeyama, 1991 ) .",
+     "image": "details/2610.01927/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Limitations",
+   "heading_ja": "オドメトリ自体の完全なロストには対処できない限界",
+   "summary_ja": "本手法は累積ドリフトを補正する仕組みであるため、激しいカメラの急制動や過度な動的物体によってフロントエンドの推論自体が完全にトラッキング失敗（ロスト）した場合には復帰できないという制約があります。",
+   "details_ja": "CLoSeRは長距離走行に伴う緩やかな誤差蓄積（ドリフト）を解消する上では絶大な効果を発揮します。しかし、ベースとなっているストリーミングモデル（LoGeR）が許容動作範囲を逸脱し、トラッキングが完全に破綻してしまった場合には、正しい軌跡を復元できません。\n\n例えば、視界の大半が動的物体で遮られた場合や、極端に激しいカメラのブレ・高速回転、長時間のテクスチャ喪失などが発生すると、フロントエンドの出力する姿勢推定自体が無意味な値になってしまいます。本手法はあくまで「信頼できる局所・大域オドメトリの上に成立するループ制約の最適化」であるため、フロントエンド自体の致命的な失敗をバックエンド側だけでリカバリーすることは困難です。",
+   "figures": []
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめと今後の展望：マルチエージェントや実機オンライン展開へ",
+   "summary_ja": "追加の再学習を一切行わず、スケールの一貫性をテコにしてSE(3)多様体上でスマートにループを閉じる新しいフレームワークを提示しました。今後は劣悪な視認環境への耐性強化や、複数ロボット協調による分散再構成への応用が期待されます。",
+   "details_ja": "本研究では、フィードフォワード型の3Dストリーミング再構成基底モデルにループクローズを統合した新手法「CLoSeR」を提案しました。モデルの再学習（ファインチューニング）を一切必要とせず、事前学習済みLoGeRの「時間的連続性に依存しないウィンドウ推論」と「大域的なスケール一貫性」を巧みに利用することで、シンプルな剛体変換 $\\mathrm{SE}(3)$ ポーズグラフ最適化だけでキロメートル規模のドリフトなし再構成を達成しました。\n\nこの成果は、重厚な点群位置合わせや複雑なSim(3)/SL(4)最適化に頼っていた従来のサブマップ型アプローチに対する明快な回答となっています。\n\n今後の展望として著者らは、モーションブラー、低テクスチャ、急激な露出変化といった過酷環境下でのロバスト性向上を挙げています。さらに、複数のロボットが協調して広大な未知環境の地図を作成するマルチエージェント再構成や、エッジデバイスでのリアルタイム・オンライン展開への拡張を目指しています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix A Technical appendices and supplementary material",
+   "heading_ja": "付録：わずか6%の速度低下で誤差を半減させる驚異的な効率性",
+   "summary_ja": "付録では、RTX 4090を用いた詳細な実行速度とGPUメモリの消費量、およびウィンドウ間のスケール誤差の精密な解析結果が示されています。処理速度の低下をわずか6.3%に抑えつつ、大幅な精度向上を実現していることが分かります。",
+   "details_ja": "付録では、システムの計算効率とスケール一貫性に関する詳細な実験データが報告されています。\n\n### 実行速度とGPUメモリ解析（Table 6）\n単一のNVIDIA RTX 4090 GPUとAMD EPYC CPU環境でKITTIシーケンスを処理した際の内訳を調査しています。\n- **スループット**: ベースモデルLoGeRの7.60 FPSに対し、CLoSeRは7.12 FPSを達成しました。速度低下はわずか6.3%にとどまります。\n- **メモリ消費**: ピークGPUメモリ使用量はLoGeRの16.65 GiBから15.69 GiBへと、むしろ5.8%削減されています。これは効率的なバッチ処理と最適化の実装による恩恵です。\n- **コスト対効果**: ループ検出と追加ウィンドウ推論というわずかなオーバーヘッドを支払うだけで、軌跡誤差（ATE RMSE）を25.44 mから12.66 mへと半減させており、実用上極めて魅力的なトレードオフを実現しています。\n\n### ウィンドウ間のスケール一貫性解析（Table 7）\n真値とのSim(3)アライメントから各ウィンドウの局所スケール $s_i$ を抽出し、全域スケールからのズレ $|s_i / s_{\\mathrm{global}} - 1|$ を評価しました。VGGT-LongやVGGT-SLAM 2.0では、ループ用サブマップのスケール誤差が0.1〜0.3以上と大きくばらつくのに対し、CLoSeRは通常ウィンドウ・ループウィンドウの双方で極めて低いスケール誤差を維持していました。これは、別個の姿勢推定器を使わず、LoGeRのストリーミング機構の中にループウィンドウをそのまま組み込んだ設計が正しかったことを実証しています。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "追加の点群比較結果。左側のCLoSeRは長距離走行後も廊下や部屋の接続部が破綻せず整合していますが、右側のLoGeR単体では姿勢推定のドリフトによる深刻なゴースト歪みが発生しています。",
+     "caption": "Figure 5 : Point clouds comparison. Our method delivers more accurate geometry, while LoGeR exhibits noticeable ghosting artifacts caused by inaccurate pose estimation.",
+     "image": "details/2610.01927/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "追加シーケンスにおける推定軌跡の比較（赤破線が真値、青実線が推定）。複数回ループする複雑な経路でも、CLoSeR（左端）は真値軌跡の形状を狂いなく維持し続けています。",
+     "caption": "Figure 6 : Additional trajectory comparison. Groundtruth trajectories ( coral , dashed) are overlaid with the estimates from each method ( gray-blue , solid) after Sim(3) Umeyama alignment ( Umeyama, 1991 ) . Our approach robustly yields the most accurate trajectories across all sequences.",
+     "image": "details/2610.01927/F6.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "基底モデル自体が持つ大域スケールの一貫性を活用すれば、ノイズに弱い点群位置合わせや複雑なSim(3)/SL(4)最適化を避け、古典的で信頼性の高いSE(3) PGOだけで長距離ループを美しく閉じられる。",
+  "過去フレームと現在フレームを1つのウィンドウに混ぜて順伝播させる「ループ条件付きウィンドウ」は、追加の学習なしで相対姿勢を高精度に導き出せるスマートな設計パターンである。",
+  "ループ検出と追加ウィンドウ推論に伴う計算オーバーヘッドはわずか6%程度であり、実用的なフレームレート（約7 FPS）を維持しながら軌跡誤差を劇的に半減できる。"
+ ],
+ "limitations_ja": [
+  "フロントエンドのストリーミングモデル（LoGeR）が急激なカメラ回転や激しい動的物体によって完全にトラッキングを見失った場合、バックエンドのループ補正だけでは復帰できない。",
+  "ループ候補の検出を大域画像特徴量（SALAD）の見えの一致に頼っているため、極端な照明変化や季節変化、テクスチャレス環境ではループを見逃すリスクがある。"
+ ],
+ "keywords": [
+  "Streaming 3D Reconstruction",
+  "Loop Closure",
+  "Pose Graph Optimization",
+  "Foundation Models",
+  "Visual SLAM"
+ ],
+ "id": "2610.01927",
+ "title": "CLoSeR: Closing the Loop for Long-Context Streaming Reconstruction",
+ "authors": [
+  "Moyang Li",
+  "Zihan Zhu",
+  "Wei Zhang",
+  "Marc Pollefeys",
+  "Daniel Barath"
+ ],
+ "date": "2026-10-04",
+ "group": "general",
+ "tags": [
+  "perception"
+ ],
+ "categories": [
+  "cs.CV",
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.01927",
+ "pdf_url": "https://arxiv.org/pdf/2610.01927",
+ "summary_ja": "大規模なストリーミング3D再構成モデルにおける累積追跡ドリフトを解消するループ閉じ込み手法を提案。大域記述子検索により候補を検出し、相対姿勢推定ウィンドウを構築した上で、一貫したスケール特性を活かしてSE(3)多様体上で全フレームの姿勢を大域最適化する。キロメートル規模でもドリフトのない高精度な幾何再構成を可能にした。",
+ "generated": "2026-10-04",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.01927"
+}
