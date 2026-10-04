@@ -1,0 +1,142 @@
+{
+ "title_ja": "LiteReality-Agent: 対話可能かつシミュレーション対応の3D屋内シーン再構成エージェントシステム",
+ "tldr_ja": "スマホやタブレットで撮影したRGB-Dスキャンから、物理シミュレーションで動かせるインタラクティブな3D室内環境を丸ごと再構成するAIエージェントシステム「LiteReality-Agent」が提案されました。部屋全体を実行可能な単一のPythonスクリプト（Room.py）として定義し、コーディングエージェントが「観察・編集・検証」を繰り返すことで、貫通や浮きの少ない高品質なデジタルツインを自動構築します。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "LiteReality-Agentの全体パイプラインです。スキャンデータから初期レイアウトの破綻を修復して初期のRoom.pyを生成し、その後コーディングエージェントが画像観察・計測・レンダリング比較・検証ゲートを通じてPythonコードを反復的にブラッシュアップしていきます。",
+  "caption": "Figure 2: End-to-end LiteReality-Agent pipeline. RGB–D scans and detections guide layout repair and object reconstruction to produce an executable initial room. The authoring agent refines Room.py through an observe–edit–verify loop, using capture views, measurements, materials, and rendered comparisons. Control gates bound authoring and check geometry and support. The editable scene and physical metadata support MuJoCo export.",
+  "image": "details/2610.01863/F2.jpg"
+ },
+ "overview_ja": "ロボット学習やデジタルツインのために「現実の部屋を丸ごとシミュレータに持ち込みたい」という需要は非常に高いですが、既存の3D復元技術には大きな課題がありました。NeRFや3D Gaussian Splattingのような手法は見た目が美しくてもメッシュや物理特性を持たず、従来のメッシュ復元では家具同士がめり込んだり空中に浮いてしまったりして、そのまま物理シミュレーションにかけることが難しかったのです。\n\nそこで著者らは、部屋の3D復元を「プログラムのコーディングタスク」として定式化することを思いつきました。部屋全体を「Room.py」という1本の実行可能なBlender/Pythonスクリプトとして表現し、LLMベースのコーディングエージェントに編集させるアプローチです。エージェントは実測スキャン画像を参照しながら、家具の配置、壁のテクスチャ、照明などをコードとして書き込み、レンダリング結果と実写真を比較（レンダリング・インスペクション）しながらコードを直していきます。さらに、家具のめり込みや接地状態を厳密にチェックする品質ゲートを設けることで、物理的な破綻を自動で防ぎます。\n\n実験では、オフィスやキッチンなどの実環境10シーンで検証を行いました。最先端フロンティアモデル（GPT-6やClaude Fable 5.1）を素で動かしたエージェントベースラインや従来手法（LiteReality）と比較したところ、レンダリングの視覚的忠実度（PSNRやLPIPS）だけでなく、幾何学的な深さ誤差や家具の接地率、表面交差数といった物理的妥当性の指標でもベースラインを大きく上回る結果を示しました。作成された環境はMuJoCoシミュレータに直接エクスポートでき、ロボットアームによるマニピュレーション実験までそのまま実行できる完成度を誇っています。",
+ "contributions_ja": [
+  "部屋全体の3D復元を実行可能なPythonコード（Room.py）の継続的なリファクタリング問題として定式化し、人間にもAIにも読みやすく編集しやすいワークスペースを実現したこと。",
+  "実測RGB-D画像からの証拠収集、局所・広域のレンダリング比較、メートル単位の壁面グリッド計測などを統合した「観察・編集・検証（observe-edit-verify）」ツール群とワークフローを開発したこと。",
+  "家具同士のめり込みや空中浮遊を防ぐ幾何的・物理的整合性ゲート（衝突・接地チェック）を導入し、手作業の修正なしでMuJoCo等のシミュレータへ即時エクスポートできる仕組みを確立したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "ロボットを動かせる3D室内復元はなぜ難しいのか？",
+   "summary_ja": "現実空間から物理シミュレーション対応のデジタルツインを自動構築することは、ロボティクスにおける長年の夢でした。しかし、家具の可動部（アーティキュレーション）の再現や物理特性の推定、配置の整合性を一気通貫で満たすのは極めて困難でした。本論文は、部屋全体を実行可能なPythonコードとして扱うことで、この課題を解決します。",
+   "details_ja": "点群やNeRF、3Dガウシアンによる復元は見た目が綺麗ですが、ロボットが触ったり物理挙動を計算したりするための「構造化された環境」にはなりません。一方、CADモデルを検索して並べる手法や単一の生成パイプラインでは、定型外の複雑な部屋や家具の多様性に対応しきれないという限界がありました。\n\n近年、LLMを活用して3Dレイアウトを生成する研究や、可動家具をコードとして出力する研究（Articraftなど）が登場しています。さらに最新のプロプライエタリLLM（GPT-6やClaude Fableなど）は3D空間の理解やコーディングにおいて高い能力を見せ始めています。しかし、それらのモデルをそのまま使っても、実世界のRGB-D観測データに忠実にグラウンディングさせ、破綻のない物理シミュレーション環境を一貫して出力させるオーケストレーションの仕組みが存在しませんでした。\n\nこの課題に対して提案されたのが「LiteReality-Agent」です。核となるアイデアは、部屋の構築を「Room.py」というPythonスクリプトを書き上げるプログラミング問題とみなすことです。システムは大きく「シーン初期化（Scene Initialisation）」と「エージェントによるオーサリング（Agentic Authoring）」の2段階で構成され、後者では専用ツールを備えたコーディングエージェントが観察・編集・検証のループを回します。コードとして表現されているため、後から自然言語で「机の上にノートPCを追加して」といった追加の指示を与えて部屋を再編集することも極めて容易です。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "3D復元、シーン生成、エージェント型逆強化学習の流れ",
+   "summary_ja": "本研究は、屋内の実世界スキャンからシミュレーション環境を作る「Real-to-Sim」技術、画像からの3D物体・可動部生成、そしてLLMを活用したシーン構築・逆グラフィクスの流れを汲んでいます。本手法はこれらを統合し、RGB-D観測に裏打ちされた検証ループを持つ初の本格的なシステムです。",
+   "details_ja": "関連する先行研究は大きく4つの系統に分かれます。\n\n### 室内復元とReal-to-Sim\n従来のCAD検索・配置手法やニューラルレンダリング（NeRF/3DGS）に加え、動画から対話環境を再構成する手法（DRAWERなど）やロボット学習向けのデジタルツイン構築（Phone2Proc、RialTo、PolaRiSなど）が盛んに研究されています。しかし、大まかなメッシュにとどまったり、可動部や物理プロパティの再現性に課題がありました。\n\n### 単一物体の3D生成とアーティキュレーション\n画像から3Dメッシュを生成する技術（TRELLIS.2など）や、可動パーツと関節（ヒンジやスライド）をコードとして生成する研究（Real2Code、Articraftなど）が発展してきました。本研究でもこれらのアプローチを家具単位の復元に取り入れています。\n\n### 言語誘導型の3Dオーサリングとエージェント型逆グラフィクス\nLLMにBlenderスクリプトを書かせてシーンを組み立てる手法（SceneCraft、SceneSmithなど）や、画像を観察しながらコードを修正する逆グラフィクス（SceneScript、Thinking in Blenderなど）が急速に注目を集めています。\n\nLiteReality-Agentの位置づけは、これら個別の進歩を統合し、民生用の正確なRGB-Dスキャンデータをグラウンディングの拠り所としながら、マルチビューの厳密な照合と物理的接地・干渉チェックを組み込んだ実用的なエンドツーエンド・オーケストレーションシステムを実現した点にあります。",
+   "figures": []
+  },
+  {
+   "heading": "3 LiteReality-Agent",
+   "heading_ja": "観察・編集・検証を繰り返す：システムの全体構造と仕組み",
+   "summary_ja": "LiteReality-Agentは「シーン初期化」で部屋の枠組みと家具の初期配置を整え、「エージェントによるオーサリング」で細部をコード編集していきます。証拠収集ツール、レンダリング照合、幾何・支持の品質判定ゲートを組み合わせることで、破綻のない物理環境（Room.py）を仕上げます。",
+   "details_ja": "### 3.1 & 3.2 シーン初期化（Scene Initialisation）\n専用アプリ「LiteReality Scan」で取得したRGB-Dスキャンと3Dバウンディングボックスの検出結果を入力とします。まず「Layout Agent」が、スキャン特有のノイズ混じりな検出結果を整理します。具体的には、壁へのめり込みや空中に浮いた箱、不自然な重なりを幾何チェックで検出し、確定的な最適化アルゴリズムや画像推論によって配置を微修正します。ここで重要なのは、机の下に収まる椅子のような「妥当な重なり」と「異常な衝突」を区別するシーングラフ表現を持っている点です。\n\n次に各家具の復元です。可動部を持つ家具や幾何学的な家具はプロシージャル生成（Articraft準拠のPythonコード生成）にルーティングされ、複雑な外観を持つ静的家具は画像生成ベースの3D復元モデル（TRELLIS.2）に送られます。プロシージャル家具には質量、慣性テンソル、摩擦係数、凸包（Convex）コリジョンメッシュなどの物理情報が自動付与されます。これらが組み合わされ、初期の「Room.py」がコンパイルされます。\n\n### 3.3 エージェントによるオーサリング（Agentic Authoring）\nここが本手法の真骨頂です。エージェントは以下のツールを使いながら、Room.pyを繰り返し編集します。\n- **3階層の画像選択・レンダリング照合**: 部屋全体、特定の壁面、特定物体の3つのスコープで、実写スキャン画像と現在のBlenderレンダリング画像を同一カメラ視点から並べて比較できます。\n- **壁面ステッチと実測グリッド**: 壁の画像を歪み補正して正面から繋ぎ合わせ、メートル単位の目盛（グリッド）を表示するツールです。これにより「ホワイトボードの左端が床から1.2m、壁の端から0.8m」といった正確な座標をコードに反映できます。\n- **モジュール順の進行**: オーサリングは「壁素材の調整」→「設備・照明の追加」→「小物類の配置」→「プロシージャル家具の細部調整」の順序で体系的に進められます。\n\n### 3.3.2 制御と品質ゲート（Quality Gates）\nLLMが無限ループに陥らないよう、ツール呼び出し回数に上限を設け、残り10%のターンでは探索を停止して保存と仕上げに専念させます。さらに、メッシュ同士の厳密な交差判定（衝突ゲート）と、家具の底面が床や机に正しく接しているかの確認（支持ゲート）を自動実行し、浮いている家具やめり込んだ家具があれば強制的に補正します。\n\n### 3.4 シミュレーション出力\n完成した環境はMuJoCo形式にエクスポートされます。静止壁や設備は固定され、可動家具にはヒンジやスライド関節、可動オブジェクトには自由関節（Free joint）が割り当てられ、即座に物理挙動の計算が可能です。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "システムの全体パイプラインです。左から入力スキャン、Part Iのレイアウト修復と物体復元、Part IIのエージェントによるRoom.pyの反復編集ループ、そして最終出力（3Dシーンおよび上面フロアプラン）への流れが整理されています。",
+     "caption": "Figure 2: End-to-end LiteReality-Agent pipeline. RGB–D scans and detections guide layout repair and object reconstruction to produce an executable initial room. The authoring agent refines Room.py through an observe–edit–verify loop, using capture views, measurements, materials, and rendered comparisons. Control gates bound authoring and check geometry and support. The editable scene and physical metadata support MuJoCo export.",
+     "image": "details/2610.01863/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Results",
+   "heading_ja": "既存のLLMやパイプラインと比べて何がどこまで優れているのか？",
+   "summary_ja": "オフィス、キッチン、会議室など10種類の室内環境（計620視点）でベンチマークを実施しました。LiteReality-Agentは、GPT-6やClaude Fable 5.1といった最先端モデルを用いたエージェントベースラインや従来手法に対し、画像忠実度、幾何学的精度、人間の主観評価のすべてで最高スコアを記録しました。",
+   "details_ja": "### 実験設定とベースライン\n実環境10シーン（合計620視点）を対象に評価しました。比較対象は、従来手法の「LiteReality」に加え、Codex上で動作する「GPT-6 Astra」およびClaude Code上で動作する「Fable 5.1」です。汎用エージェントベースラインは、写真のみを与える「RGB-only」と、本手法と同じ点群・深度・RoomPlanを与える「+Scan」の両条件で比較しました。\n\n### 視覚的忠実度（Visual Fidelity）\n撮影時の実カメラ姿勢からレンダリングした画像と実写写真を比較しました。LiteReality-AgentはPSNR、SSIM、RMSE、LPIPSの全指標で最高値を達成しました。最も強力な対抗馬であるGPT-6 (+Scan)と比較してもPSNRが1.162 dB向上し、LPIPS（知覚的距離）は13.7%低減しました。従来手法のLiteRealityに対してはPSNRで2.248 dBの大幅な改善を示しています。\n\n### 幾何学的整合性と物理的妥当性\nシミュレーションにとって決定的な幾何指標でも顕著な差がつきました。\n- **深度MAE（平均絶対誤差）**: LiteReality-Agentは10.50 cmを達成し、GPT-6 (+Scan)の13.33 cmより21.2%小さく、LiteReality（15.03 cm）を大きく引き離しました。\n- **底面接地率（Bottom near-contact）**: 全86個の家具において、底面が支持面から1 cm以内にある割合が100%を維持しました（GPT-6 +Scanは63.0%）。\n- **家具同士のメッシュ交差（Intersections）**: 検出された家具同士の表面交差ペア数が「0件」でした（LiteRealityは43件、GPT-6 +Scanは24件、Fable 5.1 +Scanは54件）。汎用エージェントはスキャンデータを与えると見た目のPSNRは上がりますが、家具同士のめり込みはむしろ増えてしまう弱点があり、本手法の品質ゲートの重要性が証明されています。\n\n### 主観評価とシミュレーション動作\n人間13名による評価（5点満点）において、レイアウト精度4.60、物体類似度4.58、全体類似度4.54を獲得し、いずれもベースライン（GPT-6 +Scanは各2.9〜3.1程度）を大差で上回りました。また、MuJoCo上でFrankaロボットアームが復元されたキッチンの物を掴んで移動させるタスクや、部屋を振動させて家具が自然に静止するテストなども実証されています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "ベースラインとの定性比較です。左から実写真、LiteReality-Agent、GPT-6（Scanあり/なし）、Fable 5.1（Scanあり/なし）、従来手法LiteRealityです。本手法は壁面の棚やエアコン、テーブルの配置や色合いを極めて正確に再現しています。",
+     "caption": "Figure 3: Qualitative comparison with reconstruction baselines. Three representative scenes compare the RGB input and RGB–D scan with LiteReality-Agent, GPT-6 Astra and Fable 5.1 with and without scan input, and LiteReality. All reconstruction results are rendered from the same calibrated camera viewpoint.",
+     "image": "details/2610.01863/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "キッチン（上段）と会議室（下段）の復元結果です。実写真（RGB scan）と復元レンダリング（Our reconstruction）、および上空からの上面図を対比しており、机の上のコードや小物まで構造的に再現されていることが分かります。",
+     "caption": "Figure 4: Representative reconstruction comparisons. A kitchen (top) and meeting room (bottom), with captured RGB photographs, reconstructed views, and point-cloud/scene plan views.",
+     "image": "details/2610.01863/F4.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "復元されたシーンの再編集とシミュレーションへの応用例です。自然言語指示やコード変更で照明や家具を柔軟に入れ替えられるほか、MuJoCo環境に展開してFrankaロボットアームによるPick-and-Place動作を実行できます。",
+     "caption": "Figure 6: Simulation and interaction. The reconstructed kitchen in MuJoCo, after shaking, and in a Franka pick-and-place example.",
+     "image": "details/2610.01863/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめ：Real-to-Simの標準基盤へ向けた大きな一歩",
+   "summary_ja": "LiteReality-Agentは、3D室内復元をコーディング問題として解くことで、視覚的・幾何学的に高品質かつ物理シミュレーションに即座に投入できる部屋の再現を実現しました。コーディングエージェントの進化をそのまま取り込める強固なオーケストレーション基盤として、Embodied AIの発展に大きく貢献する成果です。",
+   "details_ja": "本研究の意義は、単一のブラックボックスモデルに頼るのではなく、「実行可能なPythonスクリプト（Room.py）」「専用の計測・比較ツール群」「衝突や浮きを許さない検証ゲート」を組み合わせた堅牢なシステムを構築した点にあります。\n\n今後LLMやコーディングエージェントの基本性能が向上していけば、このオーケストレーションフレームワークに乗せるだけで、復元される3D環境の品質も自動的に底上げされます。ソースコードとデータ取得用アプリがオープンソースとして公開されているため、ロボット研究コミュニティにとって実用的な「Real-to-Sim」の基盤ツールとなることが期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：レイアウト修復と物体復元の実装ディテール",
+   "summary_ja": "付録では、初期化段階で行われるレイアウト修復の具体的な制約ルールや、家具単位の復元（プロシージャルと3D生成の分岐）の詳細が記載されています。体系的な幾何グラフと制約付き探索により、初期段階の箱の破綻を完全に解消しています。",
+   "details_ja": "### レイアウト修復の具体的な制約\nスキャン直後のバウンディングボックスには大きなズレが含まれるため、Layout Agentはシーングラフを活用して以下のような制約付き探索を行います。\n- **移動・変形の許容量**: 水平方向の移動は最大0.6 m、垂直方向は最大0.08 mに制限。サイズ変更は机・椅子・ベッドなど主要家具では各軸15%以内、その他の小物等は35%以内に制限されます。\n- **機能的グループの連動**: 例えばオフィス空間では、テーブルとその周囲の椅子が同一の水平移動量（例: 14.5 cm）で連動して平行移動し、椅子の配置関係を保ったまま壁との干渉を解消します。\n- **修復実績**: 実験した107個の入力バウンディングボックスのうち、29個が移動、4個がリサイズされ、レイアウトチェッカーのエラー数は30件から0件へと完全に解消されました。\n\n### オブジェクト復元の2系統\n家具の復元では、スキャン画像から反射やノイズを取り除いた綺麗な参照画像を画像生成モデルで作成します。その後、シンクや収納棚のような可動構造を持つ家具はプロシージャルコード生成に回され、ソファのような複雑な形状を持つ静的家具はTRELLIS.2によるメッシュ生成に送られます。生成されたメッシュに破綻がある場合は自動で再生成ループが回る設計になっています。",
+   "figures": [
+    {
+     "key": "F10",
+     "caption_ja": "家具復元の2つのルートを示した図です。左側の流し台キャビネットは可動部（扉の開閉）を含むためプロシージャル生成（Pythonコード）され、右側の赤いソファは外観重視の画像to 3D生成（TRELLIS.2）によって高品質に復元されています。",
+     "caption": "Figure A5: Object reconstruction from capture references. Each row shows captured views, the cleaned reference, and a reconstructed asset. The sink cabinet uses procedural geometry with articulated parts; the sofa uses image-to-3D generation.",
+     "image": "details/2610.01863/F10.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "3Dシーン復元を「1本の実行可能なPythonコードを書き換えるプログラミング課題」と捉える設計は、LLMエージェントの長所を最大限に引き出す極めて強力なパラダイムである。",
+  "視覚的な美しさ（PSNRなど）と物理的な妥当性（衝突・接地）はトレードオフになりやすいため、衝突判定や支持面チェックなどの「厳格な品質ゲート」をパイプラインに組み込むことがシミュレーション用途には不可欠である。",
+  "壁面の正射投影ステッチ画像にメートル単位の目盛を重ねるなど、エージェントが実世界スケールを認識できる「グラウンディング用ツール」の設計が再構成の精度を左右する。"
+ ],
+ "limitations_ja": [
+  "質量や摩擦係数などの物理プロパティはカテゴリや素材の事前分布（LLMの知識）に基づく推定値であり、実世界での実測値に基づいた動特性のキャリブレーションまでは行われていない点。",
+  "レイアウト修復によって幾何的整合性は保証されるものの、元のスキャン検出（RoomPlan）に大きな誤りがあった場合に真のレイアウトと食い違ってしまうリスクが残る点。",
+  "評価が10部屋（620視点）にとどまっており、さらに巨大な複数部屋の住宅や複雑な構造を持つビル環境などへのスケーラビリティは今後の検証課題である点。"
+ ],
+ "keywords": [
+  "Real-to-Sim",
+  "Agentic System",
+  "3D Scene Reconstruction",
+  "Physics Simulation",
+  "Inverse Graphics",
+  "Digital Twin"
+ ],
+ "id": "2610.01863",
+ "title": "LiteReality-Agent: An Agentic System for Interactable 3D Indoor Scene Reconstruction",
+ "authors": [
+  "Zhening Huang",
+  "Yueyan Li",
+  "Johnathan Chiu",
+  "Xiaoyang Lyu",
+  "Matt Zhou",
+  "Yuxin Yao",
+  "Joan Lasenby",
+  "Shangzhe Wu"
+ ],
+ "date": "2026-10-04",
+ "group": "focus",
+ "tags": [
+  "simulation",
+  "llm-agent",
+  "perception"
+ ],
+ "categories": [
+  "cs.CV",
+  "cs.GR",
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.01863",
+ "pdf_url": "https://arxiv.org/pdf/2610.01863",
+ "summary_ja": "実環境のRGB-Dスキャンから、可動関節（アーティキュレーション）を含みシミュレータで即座に利用可能な3Dシーンを構築するエージェントシステムを提案。3D再構成をコーディング課題として定式化し、専用ツールを用いてPythonスクリプトを反復編集・検証する。ロボットの学習用デジタルツイン環境の自動生成を高品質に実現する。",
+ "generated": "2026-10-04",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.01863"
+}
