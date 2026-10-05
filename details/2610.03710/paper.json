@@ -1,0 +1,159 @@
+{
+ "title_ja": "EyeRobot 2.0: 手首カメラを用いない高精度マニピュレーションのためのアクティブゲイズ",
+ "tldr_ja": "人間の視線移動（固視）に着想を得て、固定ステレオカメラ1台のみで手先カメラと同等以上の精密両腕マニピュレーションを可能にするフレームワーク「EyeRobot 2.0」を提案した論文です。視線を向けて中心窩画像を切り出し、行動空間を注視点基準に正規化することで、手先カメラの死角や遮蔽に強い高精度な操作を実現しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "EyeRobot 2.0のタスク実行の様子です。ボバ（タピオカ）のストロー挿入のような精密タスクにおいて、カップ、ストロー、挿入開口部へと注視点（Fixation point）を自律的に切り替え、その中心領域を高解像度で切り出して処理しています。",
+  "caption": "Figure 1: EyeRobot 2.0 enables fine-grained bimanual manipulation like inserting a straw into a boba cup using only a fixed stereo camera. It coordinates a sequence of gaze targets, for example here first at the boba cup, then the straw, then the insertion point. Gaze targets are output from a semantic object selector, which conditions a low-level gaze policy to servo precisely. Its design draws inspiration from human foveated vision by leveraging multi-resolution image crops to provide high detail where the policy gazes.",
+  "image": "details/2610.03710/F1.jpg"
+ },
+ "overview_ja": "双腕ロボットによる精密な作業では、手先（グリッパー）に取り付けたリストカメラが長年デファクトスタンダードとして使われてきました。しかし、手先カメラには「把持した物体自身で視界が遮られる（オクルージョン）」「ツール使用時に視点が制限される」「配線や重量でグリッパー設計が制約される」といった根本的な問題があります。一方で、頭部などに固定した単一カメラ（エゴ視点）だけでは解像度や奥行き精度が足りず、ピンポイントの精密作業で成功率が大きく低下してしまうのが現状でした。\n\nそこで著者らは、人間の「固視（Fixation）」に着想を得た能動的視線制御フレームワーク「EyeRobot 2.0」を開発しました。固定された1組のステレオカメラの視線をソフトウェア的に旋回させ、作業対象の3D空間上の1点に収束させます。さらに、その注視点を中心とする中心窩（フォベア）画像として多解像度処理し、ロボットの行動や自己受容感覚（固有感覚）も注視点基準の座標系に正規化して学習させました。視線の動かし方や切り替えタイミングは、人間の視線データを使わずに強化学習（RL）と模倣学習（BC）の協調ループで獲得します。\n\n実機7種類・シミュレータ6種類のタスク（計1000回以上の実機試行、1800回以上のシミュレーション試行）で検証した結果、固定ステレオカメラ単体と比べて実機成功率が $40\\%$ 向上しました。さらに、手先カメラが遮蔽されない設定では従来の手先カメラ付きSOTAと同等（$69\\%$ vs. $64\\%$）の性能を達成し、把持物体によって手先カメラが隠れるタスクでは $48\\%$ vs. $22\\%$ と2倍以上の大差をつけて圧勝しました。",
+ "contributions_ja": [
+  "固定ステレオカメラの視線を動的に旋回・収束させ、中心窩（フォベア）パッチを抽出して関心領域に計算資源を集中させる能動的視線固視（Active Visual Fixation; AVF）を提案した点",
+  "人間の視線アノテーションを使わず、幾何学的報酬による低レベル注視追従と、BC方策の予測精度を報酬とする高レベル目標選択器を組み合わせた2段階強化学習系を構築した点",
+  "グリッパーの固有感覚と行動チャンクを注視点基準の回転座標系（SE(3)）へ正規化し、模倣学習の探索空間と過学習を大幅に抑えた点",
+  "実機1000回以上の実験により、手先カメラなしで同等性能を達成しつつ、把持物体の遮蔽環境では手先カメラベースラインの2倍以上の成功率を示した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜロボットの手先にカメラを付けたくないのか？",
+   "summary_ja": "人間が精密作業を行う際、視線を行動に先んじて動かし、重要な領域に高解像度な視野を集中させています。本研究はこの仕組みを模倣し、手先カメラに依存せずに固定ステレオカメラ1台で高度な双腕操作を実現するアプローチを提案します。",
+   "details_ja": "フタの付いたカップにストローを差し込む作業を想像してみてください。人間は手先を動かす前に、まずカップを見つめ、ストローを見つめ、最後にフタの小さな穴を凝視します。この視線の集中は「固視（Fixation）」と呼ばれ、必要な領域に高解像度な中心窩視野を向けつつ、3D空間内のアンカー（基準点）を提供して脳の空間推論を劇的に単純化しています。\n\nロボット工学において、これまでこの「局所的な高解像度」を担ってきたのはグリッパー手首のリストカメラでした。しかし、リストカメラには無視できない弱点があります。掴んだ物体がカメラの目の前を塞いでしまうオクルージョン（遮蔽）や、激しい動きによるブレ、そしてグリッパーをスマートに設計できない配線や重量の制約です。もし頭部のカメラだけで同等の精度が出せれば、人間の主観映像データセットからの学習や、狭小空間へのアクセスがずっと容易になります。\n\nここで提案する「EyeRobot 2.0」は、固定ステレオカメラ1台から仮想的に視線を動かして3D空間内の目標点にフォーカスを合わせる「能動的視線固視（AVF: Active Visual Fixation）」を導入しました。これにより、マーカーのキャップ閉めやジッパー閉め、トースターからトレイを取り出すといった複雑な双腕作業を、手先カメラなしで鮮やかにこなすことができます。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "人間の視線データを集めずに、どうやって視線を学ばせるか",
+   "summary_ja": "模倣学習の発展や手先カメラの限界、能動視覚の先行研究を整理し、本研究の独自性を明確にしています。特に、アイトラッカー等による人間の視線正解ラベルを必要とせず、強化学習と模倣学習の協調ループで自然な注視行動を獲得する点が大きな違いです。",
+   "details_ja": "### 模倣学習とエゴセントリック視点のギャップ\n遠隔操作デモから方策を学ぶBehavior Cloning（BC）は双腕ロボットで標準的になりましたが、人間の一次情報（一人称視点動画）を活用しようとすると、既存ロボットが依存している「手先カメラ」の映像が存在しないという大きなドメインギャップに突き当たります。EyeRobot 2.0は、人間の固視行動を再現することで、手先カメラのない一人称視点のみでの精密操作を目指しています。\n\n### 能動視覚と視線学習の既存アプローチ\n首を振って視野を変えるアクティブビジョンは古くから研究されていますが、本研究が着目するのは「視点そのものの移動」ではなく、「与えられた視点からいかに両眼の焦点を精密に合わせるか」という微細な視線制御です。従来手法では、人間のアイトラッカーを用いて視線予測を学習させたり、シミュレーションのタスク報酬で強化学習したりしていましたが、データ収集コストや実機転移（Sim-to-Real）の難しさが課題でした。EyeRobot 2.0は、先行研究（EyeRobot 1.0）の枠組みを発展させ、ステレオ合成によるデータ拡張と、BC方策の予測誤差を報酬とする強化学習ループを用いることで、人間の視線データを使わずに実環境のデモデータから視線戦略を直接学習します。",
+   "figures": []
+  },
+  {
+   "heading": "3 Manipulation with Active Visual Fixation",
+   "heading_ja": "能動的注視（AVF）のアーキテクチャと学習のカラクリ",
+   "summary_ja": "AVFは、低レベルの視線サーボ方策と高レベルの目標選択器からなる階層的構造を持ちます。ステレオ画像を中心窩クロップとして処理し、行動空間を注視点基準の回転座標系に正規化することで、学習の効率と精度を飛躍的に高めています。",
+   "details_ja": "### 3.1 強化学習による視線パターンの獲得\n視線の制御は2段階の階層構造で学習されます。まず「どの物体を見るか」が決まった際に、両眼の視線を3D空間でその物体へ高速に収束させる低レベルの「固視方策（Fixation Policy）」を訓練します。SAM3による物体検出マスクとFoundationStereoによるステレオ深度から物体の3D重心 $p_{gt}$ を求め、現在の注視点 $p_{cur}$ とのユークリッド距離の負値 $r = -\\|p_{cur} - p_{gt}\\|_{2}$ を密な報酬としてPPOで強化学習します。これにより、30 Hzで動く軽量な視線追従器が完成します。\n\n次に、作業の進行に応じて「いつ、何を見るべきか」を切り替える高レベルの「目標選択器（Target Selector）」を学習します。ここが非常に巧妙で、グリッパーを動かすBC方策をゼロから同時に訓練（Co-train）し、BC方策の行動予測精度を目標選択器の報酬とします。具体的には、操作が活発な腕（Active Arm）を特定し、正解軌道 $A_{gt}$ と予測軌道 $A_{pred}$ の間のフレシェ距離（Fréchet distance）の負値をステップ報酬として与えます。つまり、「グリッパーが最も迷わずに行動を予測できる場所を凝視する」ように視線選択器が自律学習されるわけです。\n\n### 3.2 注視点基準のアクションチャンキング\n視線が合ったら、その情報をどう行動方策に渡すかが重要です。EyeRobot 2.0では、ロボットの固有感覚（手先位置など）と予測する行動チャンク（SE(3)軌道）を、注視点方向を向いた仮想的な中心眼フレーム（Fixation Frame）に幾何変換して正規化します。\n\nなぜこれが効くかというと、作業対象が画像中央に固定されるだけでなく、手先の動作空間そのものが注視点相対のローカルな領域にギュッと圧縮されるからです。ワールド座標系のまま学習すると初期配置の違いでデータが散らばって過学習しやすいのに対し、注視点基準にすることで極めてコンパクトなデータ分布で学習できるようになります。画像入力にはDINOv3を用い、注視点を中心とする解像度の異なるマルチスケールクロップ（中心窩パッチ）をTransformerに入力しています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "低レベルの視線サーボ方策の学習フローです。遠隔操作時のステレオ画像からSAM3とFoundationStereoで物体の3D重心を特定し、その位置との空間的距離を幾何報酬としてPPOで強化学習します。",
+     "caption": "Figure 3: Learning gaze control . EyeRobot 2.0 trains a goal-conditioned gaze policy to continuously servo two eyes’ gaze in 3D. We train this behavior via RL, with a spatial reward derived from detecting the object and estimating its 3D centroid with stereo depth.",
+     "image": "details/2610.03710/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "目標選択器（Target Selector）とグリッパーBC方策の協調学習（左）および注視点基準の座標系（右）です。BC方策の行動予測誤差が小さくなるように目標選択器を強化学習し、行動は注視点に向いたSE(3)座標系へと正規化されます。",
+     "caption": "Figure 4: Sequencing fixation for manipulation. ( Left ) EyeRobot 2.0 trains a lightweight per-task target selector to switch between objects in the scene. This target selector is trained with RL to maximize the prediction accuracy of a gripper BC policy, which is co-trained from scratch at the same time on viewpoints generated from the fixation rollout. Action chunks are supervised with teleop demos, and negative prediction error is supplied as the reward for the selector to optimize. ( Right ) Action chunks are represented as SE(3) chunks in the eye frame, aligned with the current fixation point.",
+     "image": "details/2610.03710/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "実機7タスク＋シミュレータ6タスクでの徹底検証環境",
+   "summary_ja": "14自由度の双腕ロボットYAMと固定ステレオカメラを用い、実機7タスクとシミュレータ6タスクを構築しました。全手法で同一の遠隔操作デモデータを共有し、ゼロからの学習を行って厳密な公平性を担保しています。",
+   "details_ja": "### 実機とシミュレータのセットアップ\n実機システムには、14自由度を持つ双腕ロボット「I2RT YAM」を採用し、平行開口グリッパーを搭載しています。両腕の間の基部から35 cm上方、45度下向きの角度で対角視野角120度の固定ステレオカメラを設置しました。遠隔操作デモの収集にはGELLOおよびTRLCを改造したリーダーアームを用い、実機では1タスクあたり10〜53分のデータを収集しています。\n\nまた、膨大な試行回数をこなすためにMuJoCoによるデジタルツイン環境も構築しました。ピンホール画像を歪ませることで実カメラの光学特性を忠実に再現し、Quest 3を使ったVR遠隔操作システムで同一の操作データを収集しています。\n\n### 評価対象タスク\n実機タスク（7種類）は、テープの受け渡し、鍋のフタ閉め、工具箱からのレンチ取り出し、マーカーのキャップ閉め＆ポーチ収納、ボバのストロー挿入、トースターからトレイを取り出してドアを閉める多段階作業、白いテーブル上のティーバッグ掴みなど、ミリ単位の精度や両腕の協調、多段階の長期タスクを網羅しています。シミュレータ（6タスク）では、食器棚への皿立てやスプーン掛けなど、再現性の高い基本ピック＆プレースを中心としています。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "実験で用いた実機7タスク（上段）とシミュレータ6タスク（下段）のステレオ左目視点です。ミリ単位の精度が求められる挿入や、複数段階に及ぶ長期タスクなど、多彩な難関作業が含まれています。",
+     "caption": "Figure 5: We collect teleop demonstrations for 7 real and 6 simulated tasks. Selected images show the raw perspective of the left stereo camera. Real-world tasks contain precise manipulation requirements, multi-stage behavior, articulated object interaction, and manipulation across the entire workspace. See the Appendix for a full breakdown of task stages and success criteria.",
+     "image": "details/2610.03710/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Results",
+   "heading_ja": "手先カメラなしでSOTAと同等、遮蔽環境では2倍以上の圧勝",
+   "summary_ja": "1000回以上の実機試行において、受動的な固定ステレオベースラインを $40\\%$ 上回り、手先カメラ付き手法と同等の性能を達成しました。さらに手先カメラが把持物体で遮蔽されるタスクでは、手先カメラ付きベースラインの2倍以上の成功率を記録しています。",
+   "details_ja": "### 注視なしステレオ（No Gaze）との比較\n同じステレオカメラ入力を持ちながら視線を動かさない「No Gaze」ベースラインと比較すると、EyeRobot 2.0は実機で平均 $+40\\%$、シミュレータで $+20\\%$ の大幅な性能向上を記録しました。固定カメラのポリシーは訓練時の位置に激しく過学習しやすく、マーカー挿入（$4\\%$）やストロー挿入（$8\\%$）といった精密作業でほぼ壊滅しました。これに対し、EyeRobot 2.0は中心窩注視によってそれぞれ $68\\%$、$44\\%$ のエンドツーエンド成功率を叩き出しています。\n\n### 手先カメラ付きSOTA（Ego + Wrist）との比較\n手首の視界がクリアな作業（マーカー、お茶、トースター、レンチ）では、EyeRobot 2.0は手先カメラ付きモデルとほぼ互角（$69\\%$ vs. $64\\%$）の性能を発揮しました。そして決定的な差が出たのが、掴んだ物体で手先カメラが遮られるタスク（ボバ、鍋）です。手先カメラ付きモデルの成功率は $22\\%$ にまで崩壊したのに対し、EyeRobot 2.0は頭上からのクリアな注視を維持して $48\\%$ と、2倍以上の大差をつけて圧倒しました。\n\n### 視覚的ディストラクターへの頑健性と視線分析\nテーブル上に無関係なカラフルな物体（ディストラクター）を散乱させた実験でも、EyeRobot 2.0は高い頑健性を示しました。手先カメラ手法は視界に飛び込んできた目立つ物体に誤って手を伸ばしてしまい失敗しますが、EyeRobot 2.0は必要な物体だけに物理的アテンション（注視）を向けているため、余計な物体を文字通り「無視」できます。学習された視線遷移を可視化すると、人間のように「作業直前に対象に視線を移し、把持が完了するまで凝視し続ける」という直感的なシーケンスを自然に獲得していることが分かりました。\n\n### 5.1 アブレーション実験から分かったこと\n- **中心窩パッチの除去**: 周辺視野のみを与えると実機性能が $20\\%$ 低下し、微細な画像特徴の解像度が不可欠であることが判明しました。\n- **注視点基準アクションの除去**: ワールド座標系のアクションに戻すと、性能が $21\\%$ 低下して注視なしベースラインと同等になりました。注視点基準への正規化が過学習防止に極めて重要です。\n- **単眼への変更**: 単眼＋深度情報なしにすると平均 $18\\%$ 性能が低下し、両眼視差による奥行き情報の重要性が裏付けられました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "マーカーをキャップに差し込み、ポーチに入れてジッパーを閉める自律試行中の視線目標確率の推移です。キャップ掴み→マーカー掴み→キャップ締め→ポーチ掴みといった各段階の進行に合わせて、目標選択器が適切な対象へと視線を切り替えている様子が分かります。",
+     "caption": "Figure 2: Gaze target outputs over an autonomous physical trial which picks up a marker cap and body, caps it, repositions a bag, inserts the marker, and zips the bag. The target selector outputs goals that are relevant to the current stage of the task: for example the policy looks at the marker when capping or the bag when repositioning. Wrist cameras are present but unused.",
+     "image": "details/2610.03710/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Limitations and Future Work",
+   "heading_ja": "現状の制約とマルチタスク化への課題",
+   "summary_ja": "現時点ではタスク個別に方策を訓練している点や、首（カメラ台座）自体の移動を含んでいない点、物体の一部（サブパート）への注視に未対応である点が今後の課題として挙げられています。",
+   "details_ja": "EyeRobot 2.0は非常に魅力的な結果を示していますが、著者らはいくつかの限界を率直に認めています。\n\n第一に、現在のシステムはシングルタスクごとに方策と目標選択器をスクラッチで訓練しています。汎用的なマルチタスクに対応させるには、目標プロンプトの生成にVLM（Vision-Language Model）などを導入し、より広範なデータで注視選択器を事前学習させる必要があります。\n第二に、本研究で扱っているのは「良好なカメラ位置が確保されている前提での眼球運動」のみであり、首やロボットベースを動かして視点を根本的に変える制御は行っていません。\n第三に、低レベルの視線方策はSAM3による「物体単位」の検出に基づいているため、例えば「マーカーのペン先」や「ジッパーの持ち手」といった、物体の一部分（サブパーツ）をピンポイントで凝視する制御はまだ実現できていません。",
+   "figures": []
+  },
+  {
+   "heading": "7 Conclusion",
+   "heading_ja": "まとめ：手先カメラに代わる能動注視の可能性",
+   "summary_ja": "人間の固視を模倣した能動的視線制御（AVF）により、固定ステレオカメラ1台だけで手先カメラと同等以上の精密双腕操作が可能であることを示しました。手先カメラの物理的制約からロボット設計を解放する有望な道筋を切り開いています。",
+   "details_ja": "本論文では、人間の視覚システムに学び、単一の固定ステレオカメラのみで高精度な双腕マニピュレーションを可能にする「EyeRobot 2.0」を提案しました。能動的な3D注視、中心窩画像処理、そして注視点基準の座標系変換を組み合わせることで、従来の固定カメラで見られた深刻な過学習や精度不足を一掃しました。\n\n特に、これまで精密作業に不可欠と信じられてきた手先カメラを完全に撤廃しながら、手先カメラ付きSOTAと同等、遮蔽下ではそれを凌駕する結果を残した意義は絶大です。グリッパーの軽量化・小型化や、人間の一人称視点データセットからの直接学習など、これからのロボットマニピュレーション研究に新たな選択肢を提示する重要な成果と言えます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：実装の詳細、座標系選定、そしてエラー分析",
+   "summary_ja": "モデル構造や強化学習のハイパーパラメータ、各タスクの厳密な成功判定基準、そしてベースラインの行動空間選定に関するアブレーション結果が詳述されています。",
+   "details_ja": "### アクション空間の選定（シミュレーション評価）\nベースラインを最も公平に比較するため、シミュレーション5タスクにおいてエンドエフェクタ（EE）相対SE(3)、ワールド絶対SE(3)、関節相対チャンク、関節絶対チャンクの4通りの行動空間をグリッドサーチしました。その結果、EE相対SE(3)が最も高い性能を示したため、実機の全ベースラインでもこの行動空間を採用しています。\n\n### 3D注視精度と失敗モードの詳細\n事前学習後の3D注視誤差は、800フレームのランダム評価において平均3.5 cmと非常に高精度でした。静止画のみで訓練されたにもかかわらず、実機動作中の動く物体もスムーズに追従できています。サンキーダイアグラムを用いた失敗モード分析では、注視なしモデルは初期の単純なピック段階でも失敗が多いのに対し、AVFは初期ピックをほぼ完璧に成功させ、失敗の大半が「ストローの開口部へのミリ単位の位置合わせ」のような極限精度の最終段階に集中していることが示されています。\n\n### アーキテクチャの仕様\nTransformerは6ブロック、トークン次元384、アテンションヘッド数12で構成され、位置埋め込みには時空間に対応したRoPE（Rotary Position Embedding）を採用しています。画像トークンは凍結されたDINOv3（ViT-S/16）から抽出され、中心窩クロップの多解像度ピラミッドがシーケンス方向に結合されて入力されます。",
+   "figures": [
+    {
+     "key": "F12",
+     "caption_ja": "シミュレーション5タスクにおけるベースラインの行動空間グリッドサーチ結果です。薄いバーが訓練分布、濃いバーがテスト分布を示しており、一貫してEE相対SE(3)（各ブロックの一番右）が最も高い汎化性能を示したことが分かります。",
+     "caption": "Figure 12: Baseline action space grid-search over all options in 5 simulated tasks. Note that faded bars are evaluated on the exact same positional distributions as the training set to understand train-test overfitting in the simulated environments. Main-paper results are reported with the “Test Set” distribution, which is a different random seed from teleop demonstrations. Across the board, EE-relative (rightmost in each section) outperforms other action spaces, so we use it for all real-world baselines. All baseline models exhibit signs of overfitting to the train positions on some tasks (particularly tape and plate ), even for tasks where teleop positions were randomly initialized.",
+     "image": "details/2610.03710/F12.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "手先カメラを増やす代わりに「固定カメラの視線をソフトウェア的に注視・中心窩処理する」ことで、同等以上の局所解像度とロバスト性を得られる",
+  "行動空間や固有感覚を注視点基準（Fixation Frame）の相対座標に正規化することで、模倣学習の空間的過学習を劇的に緩和できる",
+  "人間の視線データを手動アノテーションしなくても、幾何学的追従RLとBC方策の予測精度向上RLの2段階で、合理的な視線移動パターンを自己教師あり的に獲得できる",
+  "把持物体による手先カメラの遮蔽（オクルージョン）は実タスクにおいて極めて致命的であり、手先とカメラを物理的に分離（Decoupling）するアプローチが極めて有効である"
+ ],
+ "limitations_ja": [
+  "タスクごとに視線方策と目標選択器をスクラッチで学習する必要があり、汎用的なゼロショットマルチタスクへの対応は今後の課題である点",
+  "視線追従の単位が物体全体（SAM3マスクの重心）に限られており、工具の先端やボトルの口など「物体の一部分（パーツ）」を狙って凝視することがまだできない点",
+  "カメラ台座（首やベース）自体の移動を含んでおらず、適切な視点位置があらかじめ得られている前提のアルゴリズムである点"
+ ],
+ "keywords": [
+  "Active Vision",
+  "Bimanual Manipulation",
+  "Behavior Cloning",
+  "Foveated Vision",
+  "Reinforcement Learning"
+ ],
+ "id": "2610.03710",
+ "title": "EyeRobot 2.0: Active Gaze for Precise Manipulation without Wrist Cameras",
+ "authors": [
+  "Kush Hari",
+  "Justin Kerr",
+  "Nidhya Shivakumar",
+  "Samarth Mahapatra",
+  "Carmelo Sferrazza",
+  "Jiahui Lei",
+  "Jitendra Malik",
+  "C. Karen Liu",
+  "Ken Goldberg",
+  "Angjoo Kanazawa"
+ ],
+ "date": "2026-10-05",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "perception",
+  "control"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.03710",
+ "pdf_url": "https://arxiv.org/pdf/2610.03710",
+ "summary_ja": "手首カメラを用いず、単一のステレオカメラの能動的な視線制御（アクティブゲイズ）によって精密な両腕マニピュレーションを実現するフレームワークを提案。注視点へのカメラ方向制御と中心窩視覚（中心部にトークンを多く割り当てる処理）を階層的に組み合わせ、高精度な作業を可能にした。",
+ "generated": "2026-10-05",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.03710"
+}
