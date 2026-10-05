@@ -1,6 +1,280 @@
 {
  "entries": [
   {
+   "date": "2026-10-05",
+   "rank": 0,
+   "id": "2610.02341",
+   "group": "focus",
+   "title": "Filter-Aware Fine-Tuning for Safe Humanoid Whole-Body Tracking",
+   "title_ja": "安全なヒューマノイド全身追従のためのフィルタ認識型ファインチューニング",
+   "summary_ja": "ヒューマノイドの全身追従において、強化学習方策と実行時の安全性フィルタ（CBF等）を独立に扱うことで生じる行動や状態分布のミスマッチを解決する手法を提案。フィルタの介入を考慮したファインチューニングにより、動的実現可能性と安全制約の厳格な遵守を両立した。",
+   "summary_en": "This paper addresses distribution mismatches caused by treating RL tracking policies and runtime safety filters (such as CBFs) independently in humanoid whole-body control. By proposing filter-aware fine-tuning, the framework reconciles dynamically feasible tracking with strict adherence to newly introduced safety constraints.",
+   "authors": [
+    "Pranit Mohnot",
+    "Christian Helten",
+    "Daniele Gammelli",
+    "Marco Pavone"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.02341",
+   "image": "figures/2026-10-05/2610.02341.jpg"
+  },
+  {
+   "date": "2026-10-05",
+   "rank": 1,
+   "id": "2610.03388",
+   "group": "focus",
+   "title": "KungfuAthleteBot: learning high-dynamic humanoid motion from video with unified robust recovery",
+   "title_ja": "KungfuAthleteBot: 動画からの高力学ヒューマノイド運動学習と統一的な転倒回復",
+   "summary_ja": "単眼動画からヒューマノイドロボットが高力学な武術動作とその転倒回復を一貫して学習するフレームワークKABを提案。物理誘導型の放物線補正による軌道修正、アクチュエータ限界を考慮した強化学習方策、回復動作の統合により、実機での高難度運動の再現に成功した。",
+   "summary_en": "This work introduces KungfuAthleteBot (KAB), a framework enabling humanoid robots to learn high-dynamic martial arts motions and robust fall recovery directly from monocular video. By employing physics-guided parabolic trajectory correction, actuation-aware RL policy training, and integrated recovery behaviors, it reliably demonstrates dynamic skills on physical hardware.",
+   "authors": [
+    "Zhongxiang Lei",
+    "Lulu Cao",
+    "Xuyang Wang",
+    "Tianyi Qian",
+    "Jinyan Liu",
+    "Xuesong Li"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.03388",
+   "image": "figures/2026-10-05/2610.03388.jpg"
+  },
+  {
+   "date": "2026-10-05",
+   "rank": 2,
+   "id": "2610.02728",
+   "group": "focus",
+   "title": "Around the World: Unified Learned Locomotion on a 270 g Continuous-Rotation Quadruped",
+   "title_ja": "Around the World: 270g連続回転四足ロボットにおける統一学習型移動制御",
+   "summary_ja": "連続回転脚を持つ270gの超小型四足ロボットMiNI-Q向けに、全計算をオンボードで実行する単一の強化学習移動方策を開発。トーラス幾何上の連続関節空間基準と重力適応変換により、通常歩行・背面逆立ち歩行・着地回復を状態遷移機械なしにシームレスに統一した。",
+   "summary_en": "This paper presents a unified, fully onboard reinforcement learning locomotion policy for MiNI-Q, a 270g quadruped with continuous-rotation legs. Using a continuous joint reference on the torus T^8 and gravity-conditioned transformations, it seamlessly unifies upright walking, inverted walking, and landing recovery without explicit state machines.",
+   "authors": [
+    "Arturo Flores Alvarez",
+    "Nathan Lintu",
+    "Dennis Hong"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.02728",
+   "image": "figures/2026-10-05/2610.02728.jpg"
+  },
+  {
+   "date": "2026-10-05",
+   "rank": 3,
+   "id": "2610.03196",
+   "group": "focus",
+   "title": "Beyond Reward Hacking: Proxy Divergence Across Four Layers of a Staged Humanoid Learning Pipeline",
+   "title_ja": "報酬ハッキングを超えて: 段階的ヒューマノイド学習パイプラインにおける4層のプロキシ乖離",
+   "summary_ja": "脚ロボットのRLパイプラインにおいて、報酬だけでなくカリキュラム判定、評価統計、参照動作の全4層がプロキシ（代理指標）として機能し乖離を生む構造を形式化。従来の「報酬ハッキング」を超えた各層固有の乖離機構を導出し、それらを解消する定式化を示した。",
+   "summary_en": "This paper formalizes proxy divergence across four sequential layers in legged robot RL pipelines: rewards, curriculum gates, evaluation statistics, and reference motions. Beyond conventional reward hacking, it mathematically analyzes divergence mechanisms at each stage and proposes revised formulations to resolve them.",
+   "authors": [
+    "Arunabh Bora"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.03196",
+   "image": "figures/2026-10-05/2610.03196.jpg"
+  },
+  {
+   "date": "2026-10-05",
+   "rank": 4,
+   "id": "2610.03395",
+   "group": "focus",
+   "title": "Bidirectional Voronoi-biased Exploration Curriculum for Reinforcement Learning",
+   "title_ja": "強化学習のための双方向ボロノイバイアス探索カリキュラム",
+   "summary_ja": "長期ホライズンかつ疎な報酬環境において、双方向RRTに着想を得て初期状態側と目標状態側の双方から同時に状態空間を拡大するRLカリキュラムBVERを提案。ボロノイバイアスを用いて探索の先端を効率的に押し広げることで、複雑な運動タスクでの探索停滞を打破した。",
+   "summary_en": "Inspired by bidirectional RRT, this paper proposes BVER, a reinforcement learning curriculum that concurrently expands exploration from both initial and goal states. By utilizing Voronoi bias to push exploration frontiers into uncovered regions, it effectively overcomes exploration bottlenecks in sparse-reward, long-horizon control tasks.",
+   "authors": [
+    "Juri Pfammatter",
+    "Kaixian Qu",
+    "Clemens Schwarke",
+    "Victor Klemm",
+    "Marco Hutter"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.03395",
+   "image": "figures/2026-10-05/2610.03395.jpg"
+  },
+  {
+   "date": "2026-10-05",
+   "rank": 5,
+   "id": "2610.02338",
+   "group": "general",
+   "title": "SoTa: Soft Tactile Skins for Dexterous Manipulation",
+   "title_ja": "SoTa: 巧緻マニピュレーションのためのソフト触覚スキン",
+   "summary_ja": "人間とロボットハンドの双方に装着可能な、低コストで全表面を覆える容量式ソフト触覚スキンSoTaを提案。手全体の幾何形状に追従しつつ共通のセンサ配置を共有することで、人間の実演からロボットの巧緻マニピュレーション方策への触覚データのスケーラブルな転移を可能にした。",
+   "summary_en": "The paper presents SoTa, a low-cost capacitive tactile skin providing full-hand coverage across human and robot hands. By preserving tactile correspondence and layout across embodiments, it bridges the embodiment gap and enables scalable transfer of rich visuo-tactile demonstrations from humans to dexterous robotic manipulators.",
+   "authors": [
+    "Jingyun Yang",
+    "Baiyu Shi",
+    "Timothy Yu",
+    "Haitian Liu",
+    "Alberta Longhini",
+    "Weichen Wang",
+    "Rika Antonova",
+    "Zhenan Bao",
+    "Jeannette Bohg"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "manipulation",
+    "hardware",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.02338",
+   "image": "figures/2026-10-05/2610.02338.jpg"
+  },
+  {
+   "date": "2026-10-05",
+   "rank": 6,
+   "id": "2610.02811",
+   "group": "general",
+   "title": "Learning Reflexive Behavior for Contact-Rich Manipulation",
+   "title_ja": "接触豊富なマニピュレーションのための反射行動学習",
+   "summary_ja": "接触豊富なマニピュレーションにおいて、環境との物理的相互作用から局所幾何を反映した追従を行う固有受容反射方策を提案。バネ、平面、レールといった単純な接触プリミティブ上でシミュレーション学習した反射方策が、複雑な幾何形状の接触作業へゼロショットで適応することを実証した。",
+   "summary_en": "This paper proposes a proprioceptive reflex policy that uses contact interactions to adapt to local constraints during contact-rich manipulation. Trained in simulation on simple geometric primitives like springs, planes, and rails, the policy maps task-space commands to compliant joint actions and generalizes zero-shot to complex unseen tasks.",
+   "authors": [
+    "Quan Nguyen",
+    "Yunho Kim",
+    "Joonho Lee"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.02811",
+   "image": "figures/2026-10-05/2610.02811.jpg"
+  },
+  {
+   "date": "2026-10-05",
+   "rank": 7,
+   "id": "2610.02339",
+   "group": "general",
+   "title": "NEEDLEWORK: Offline Rewriting of Robot Data with Verified Local Stitches",
+   "title_ja": "NEEDLEWORK: 検証済み局所ステッチによるロボットデータのオフライン再構築",
+   "summary_ja": "高次元なロボット実演データの中から、非効率な迂回経路をバイパスしつつ物理的に検証された局所的な行動ブリッジを生成・挿入するオフラインデータ拡張手法NEEDLEを提案。失敗や非効率な実演をつなぎ直して高品質な学習データを合成し、模倣学習の性能を向上させた。",
+   "summary_en": "This paper introduces NEEDLE, an offline dataset augmentation framework that generates short, verified action bridges across recorded demonstrations in high-dimensional state spaces. By connecting disjointed behaviors and bypassing suboptimal detours, it enriches training datasets and substantially enhances imitation learning performance.",
+   "authors": [
+    "Juntao Ren",
+    "Yifan Hou",
+    "Shuran Song"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "imitation-learning",
+    "manipulation",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.02339",
+   "image": "figures/2026-10-05/2610.02339.jpg"
+  },
+  {
+   "date": "2026-10-05",
+   "rank": 8,
+   "id": "2610.03710",
+   "group": "general",
+   "title": "EyeRobot 2.0: Active Gaze for Precise Manipulation without Wrist Cameras",
+   "title_ja": "EyeRobot 2.0: 手首カメラを用いない高精度マニピュレーションのためのアクティブゲイズ",
+   "summary_ja": "手首カメラを用いず、単一のステレオカメラの能動的な視線制御（アクティブゲイズ）によって精密な両腕マニピュレーションを実現するフレームワークを提案。注視点へのカメラ方向制御と中心窩視覚（中心部にトークンを多く割り当てる処理）を階層的に組み合わせ、高精度な作業を可能にした。",
+   "summary_en": "This work introduces EyeRobot 2.0, enabling high-precision bimanual manipulation using only a single stereo camera via active visual fixation. A hierarchical controller actively centers the camera gaze on target 3D fixation points while allocating visual tokens foveally, focusing perceptual resolution dynamically on fine-grained interaction points.",
+   "authors": [
+    "Kush Hari",
+    "Justin Kerr",
+    "Nidhya Shivakumar",
+    "Samarth Mahapatra",
+    "Carmelo Sferrazza",
+    "Jiahui Lei",
+    "Jitendra Malik",
+    "C. Karen Liu",
+    "Ken Goldberg",
+    "Angjoo Kanazawa"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "manipulation",
+    "perception",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.03710",
+   "image": "figures/2026-10-05/2610.03710.jpg"
+  },
+  {
+   "date": "2026-10-05",
+   "rank": 9,
+   "id": "2610.03453",
+   "group": "general",
+   "title": "I2CD: Direct Image-to-Convex Decomposition for Simulation-Ready Collision Geometry",
+   "title_ja": "I2CD: シミュレーション対応衝突形状のための単一画像直接凸分解",
+   "summary_ja": "単一のRGB画像からシミュレーションや運動計画に必要な凸幾何分解を直接予測する手法I2CDを提案。事前学習済み3D拡散モデルを固定し軽量なアテンションヘッドのみを訓練することで、従来のメッシュ再構成と分解に伴う破綻を回避し、シミュレーション即応の衝突形状を高速生成する。",
+   "summary_en": "This paper presents I2CD, a direct approach to predicting convex collision geometries from a single RGB image for simulation and planning. By freezing a pretrained 3D diffusion model and training only a lightweight attention head, it bypasses slow, brittle reconstruct-then-decompose pipelines to directly output simulation-ready shapes in seconds.",
+   "authors": [
+    "Qian Wang",
+    "Liam Merz Hoffmeister",
+    "Brian Scassellati",
+    "Daniel Rakita"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "simulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.03453",
+   "image": "figures/2026-10-05/2610.03453.jpg"
+  },
+  {
    "date": "2026-10-04",
    "rank": 0,
    "id": "2610.01863",
