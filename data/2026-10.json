@@ -1,6 +1,312 @@
 {
  "entries": [
   {
+   "date": "2026-10-06",
+   "rank": 0,
+   "id": "2610.04238",
+   "group": "focus",
+   "title": "Humanoid Rickshaw Pulling: Whole-Body Locomotion under Coupled Wheeled Loads",
+   "title_ja": "ヒューマノイドによる人力車牽引：連結された車輪付き負荷下での全身ロコモーション",
+   "summary_ja": "受動的な車輪付き台車を引くことで自重を大幅に超える荷物を運搬するヒューマノイドの全身制御フレームワークを提案。上半身での把持維持と未知の外乱力に適応するため、負荷情報を持つ特権的な教師方策を学習し、その行動と潜在表現をオンボード観測のみを用いる学生方策へ蒸留した。シミュレーションおよび実機検証において、不均一な地形や未知の荷重下で安定した牽引歩行を実現した。",
+   "summary_en": "This paper presents a whole-body control framework enabling humanoid robots to pull passive wheeled vehicles carrying loads far exceeding their own mass. The framework trains a privileged teacher policy conditioned on vehicle states and interaction forces, distilling it into a student policy relying only on onboard observations. The method achieves robust, balanced locomotion under uncertain load dynamics and uneven terrain.",
+   "authors": [
+    "Yangzhi Yang",
+    "Xiansheng Lin",
+    "Zhaoming Xie",
+    "Xiaobin Xiong"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.04238",
+   "image": "figures/2026-10-06/2610.04238.jpg"
+  },
+  {
+   "date": "2026-10-06",
+   "rank": 1,
+   "id": "2610.04231",
+   "group": "focus",
+   "title": "Continual Humanoid Motion Learning",
+   "title_ja": "ヒューマノイド運動の継続学習",
+   "summary_ja": "ヒューマノイドの全身運動制御において、過去データを再訪せずに一連の新規タスクを逐次習得する継続学習フレームワーク「Similarity-guided LoRA-PNN」を提案。Progressive Neural Network構造で構造的に破滅的忘却を防ぎつつ、DTWに基づく運動類似度指標を用いて関連スキルの知識を軽量なLoRAで再利用する。新スキルの獲得効率を向上させながら過去の運動追従性能を維持することを実証した。",
+   "summary_en": "This paper introduces Similarity-guided LoRA-PNN for continual humanoid whole-body motion learning without revisiting past data. It uses a progressive neural network architecture to prevent catastrophic forgetting by design, while transferring knowledge across skills via lightweight LoRA guided by a dynamic-time-warping motion-similarity metric. The approach demonstrates effective retention of prior skills alongside efficient acquisition of new motions.",
+   "authors": [
+    "Zhewen He",
+    "Hao Huang",
+    "Geeta Chandra Raju Bethala",
+    "Chong Yu",
+    "Tao Chen",
+    "Anthony Tzes",
+    "Yi Fang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.04231",
+   "image": "figures/2026-10-06/2610.04231.jpg"
+  },
+  {
+   "date": "2026-10-06",
+   "rank": 2,
+   "id": "2610.05678",
+   "group": "focus",
+   "title": "Dataset-Free Compliant Humanoid Loco-Manipulation with Dynamic Online Posture",
+   "title_ja": "動的オンライン姿勢生成による人間のデータセットを用いない柔軟なヒューマノイド・ロコマニピュレーション",
+   "summary_ja": "人間の動作データに依存せず、エンドエフェクタ目標値のみから全身協調動作を学習するヒューマノイド制御系OCLOを提案。到達可能性事前情報と方策ループ内サンプリングを用いて骨盤高さと体幹姿勢をオンライン生成する。さらに外力に応じて目標軌道をずらすことで全身コンプライアンスを実現し、シミュレーションおよび実機での未知の質量や外乱に対する適応的な移動マニピュレーションを達成した。",
+   "summary_en": "This paper presents OCLO, a humanoid loco-manipulation framework trained without human motion data and guided solely by end-effector targets. OCLO online-generates whole-body postures using an analytic reachability prior refined through policy-in-the-loop sampling. It achieves compliant whole-body behavior under external forces and shows robust sim-to-real transfer across various manipulation tasks under load uncertainties.",
+   "authors": [
+    "Seungho Yeom",
+    "Zhenyu Wu",
+    "Jaeyoung Huh",
+    "Diego Williams",
+    "Yuheng Zhi",
+    "Soofiyan Atar",
+    "Michael Yip"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.05678",
+   "image": "figures/2026-10-06/2610.05678.jpg"
+  },
+  {
+   "date": "2026-10-06",
+   "rank": 3,
+   "id": "2610.06129",
+   "group": "focus",
+   "title": "I-BFM: Reward-Conditioned Robust Humanoid Interaction via Unsupervised Reinforcement Learning",
+   "title_ja": "I-BFM: 非教師あり強化学習による報酬条件付け頑健ヒューマノイド相互作用",
+   "summary_ja": "単一の方策で多様な物体との物理的相互作用タスクをこなすヒューマノイド向け行動基盤モデルI-BFMを提案。参照動作やタスク固有方策に頼る代わりに、前進・後退表現と非教師あり強化学習を用いてロボット・物体・接触の結合ダイナミクス表現を事前学習する。下流タスクの報酬が与えられた際は、潜在コマンドを条件付けることでファインチューニングなしに閉ループの相互作用制御を実行可能にした。",
+   "summary_en": "This paper introduces I-BFM, a behavioral foundation model for humanoid-object interaction. Instead of task-specific tracking, it learns shared representations of coupled humanoid-object-contact dynamics using forward-backward representations and unsupervised reinforcement learning. At test time, the policy directly executes diverse closed-loop interaction tasks conditioned on downstream reward representations without fine-tuning.",
+   "authors": [
+    "Ziqi Han",
+    "Yitang Li",
+    "Junhan Sun",
+    "Fanrong Dong",
+    "Yaojie Shen",
+    "Lei Ye",
+    "Zetong Jing",
+    "Yongqi Zhang",
+    "Yiming Zhang",
+    "Xue Wang",
+    "Hao Zhao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.06129",
+   "image": "figures/2026-10-06/2610.06129.jpg"
+  },
+  {
+   "date": "2026-10-06",
+   "rank": 4,
+   "id": "2610.05819",
+   "group": "focus",
+   "title": "Transporting Unsecured Stacked Payloads with a Quadrupedal Robot via Multi-Objective Reinforcement Learning",
+   "title_ja": "多目的強化学習を用いた四足歩行ロボットによる固定されていない積載物の運搬",
+   "summary_ja": "胴体上の板に積まれた非固定の荷物を不整地で運搬するため、多目的強化学習手法PAMORTを提案。移動性能と積載物安定性の重みを条件付けたベース方策を学習した後、走行中にリアルタイムで重みを調整する適応モジュールを訓練する。追加の専用センサや固定具なしに、急激な加減速や地形の起伏による荷崩れを防ぎながら高い踏破性を両立することを実機検証で確認した。",
+   "summary_en": "This paper proposes PAMORT, a multi-objective reinforcement learning framework for quadrupedal transport of unsecured stacked payloads on an edgeless torso board. It trains a base policy conditioned on preference weights balancing locomotion and payload stability, paired with a dynamic weight adjuster. Real-world experiments demonstrate stable transport across uneven terrain without dedicated payload sensors or active clamping.",
+   "authors": [
+    "Nobuo Namura",
+    "Masayuki Hiromoto",
+    "Kento Uemura",
+    "Hironobu Sasaki",
+    "Kanata Suzuki"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.05819",
+   "image": "figures/2026-10-06/2610.05819.jpg"
+  },
+  {
+   "date": "2026-10-06",
+   "rank": 5,
+   "id": "2610.04432",
+   "group": "general",
+   "title": "Video2World: Benchmarking Coding Agents for Interactive World Modeling from Embodied Videos",
+   "title_ja": "Video2World: 身体性動画からの対話型世界モデリングに向けたコーディングエージェントのベンチマーク",
+   "summary_ja": "実世界の動画から対話型シミュレータ環境を自動構築するタスクをソフトウェアエンジニアリング問題として定式化し、基盤モデルとコーディングエージェントを評価するベンチマークVideo2Worldを提案。189本の動画からなる222の再構築課題を用意し、環境メッシュの生成からロボット挙動の再現、実行フィードバックによる反復修正能力を包括的に測定・分析した。",
+   "summary_en": "This paper introduces Video2World, a benchmark designed to evaluate frontier coding agents in automatically constructing interactive simulation environments directly from real-world embodied videos. Formulated as a software engineering task with 222 reconstruction instances, the benchmark evaluates an agent's ability to create scenes, program robot interactions, and iteratively refine simulation fidelity based on execution feedback.",
+   "authors": [
+    "Jinzhou Tang",
+    "Zijun Zhang",
+    "Jing Yang",
+    "Yuchen Yan",
+    "Kun Zhou",
+    "Lingjun Mao",
+    "Ruobing Han",
+    "Jinglin Cao",
+    "Wenpeng Xu",
+    "Lukun He",
+    "Minghao Fu",
+    "Fan Feng",
+    "Biwei Huang"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "benchmark",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.04432",
+   "image": "figures/2026-10-06/2610.04432.jpg"
+  },
+  {
+   "date": "2026-10-06",
+   "rank": 6,
+   "id": "2610.04009",
+   "group": "general",
+   "title": "SUAVE: Unified Video-Action Models via Masked Diffusion",
+   "title_ja": "SUAVE: マスク拡散を用いたビデオ・アクション統一モデル",
+   "summary_ja": "言語指示のもとで未来の視覚観察予測と行動予測を同一語彙・単一アーキテクチャで行うモデルSUAVEを提案。連続的な潜在表現や自己回帰的生成に頼る従来手法と異なり、マスク拡散トランスフォーマーを用いて離散トークン化された映像と行動を柔軟に生成する。シミュレーションおよび実機マニピュレーションにおいて、未来の視覚的想像を行動計画に直結させ高い成功率を達成した。",
+   "summary_en": "This paper presents SUAVE, a single-vocabulary unified video-action model using masked diffusion transformers. Unlike prior unified models relying on continuous video latents or autoregressive token decoding, SUAVE models discrete video and action tokens simultaneously within a unified diffusion backbone, enabling robots to imagine future visual states before acting and improving manipulation performance across simulation and real platforms.",
+   "authors": [
+    "Rhythm Syed",
+    "Jean Mercat",
+    "Sedrick Keh",
+    "Kushal Arora",
+    "Paarth Shah",
+    "Aykut Onol",
+    "Mengchao Zhang",
+    "Tony Dear"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "vision-language-action",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.04009",
+   "image": "figures/2026-10-06/2610.04009.jpg"
+  },
+  {
+   "date": "2026-10-06",
+   "rank": 7,
+   "id": "2610.04364",
+   "group": "general",
+   "title": "A Bird's-Eye View of Iterative Reward Design",
+   "title_ja": "反復的報酬設計の全体像：BIRDベンチマーク",
+   "summary_ja": "LLMを用いてRLの報酬関数コードを反復生成・改善する手法群を公正に比較するための統合評価ベンチマークBIRDを提案。これまで実装差異や環境の違いによって曖昧だった各手法の設定を統一空間に整理し、フィードバックの種類や反復プロンプティング設計の影響を厳密にアブレーション評価できるようにした。",
+   "summary_en": "This paper introduces BIRD (Benchmark for Iterative Reward Design), a unified framework for benchmarking LLM-based automatic reward design in reinforcement learning. By standardizing configuration, feedback modalities, and evaluation environments across existing methods, BIRD enables direct comparisons and modular ablation of design choices, providing clearer guidance for automating RL reward specification.",
+   "authors": [
+    "Logan Mondal Bhamidipaty",
+    "Lauren Robson",
+    "Linda Petrini",
+    "Shengrui Lyu",
+    "Kamal Ndousse"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "benchmark",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.04364",
+   "image": "figures/2026-10-06/2610.04364.jpg"
+  },
+  {
+   "date": "2026-10-06",
+   "rank": 8,
+   "id": "2610.03861",
+   "group": "general",
+   "title": "GOTT: Object-centric Dexterous Manipulation with a Reusable Cross-Embodiment Primitive",
+   "title_ja": "GOTT: 再利用可能なクロスエンボディメント・プリミティブによる物体中心の器用なマニピュレーション",
+   "summary_ja": "多指ハンド向けに、エンボディメントに非依存な閉ループ接触獲得プリミティブを中核とするreach-acquire-moveフレームワークGOTTを提案。物体軌道と接近指示から接触領域へ手を誘導した後、共有プリミティブで安定した接触を確立し、目標軌道を追従する。異なるハンド構造間での高い再利用性と多様な接触リッチタスクへの汎化性を実機実験で示した。",
+   "summary_en": "This paper proposes GOTT, an object-centric manipulation framework built around a reusable, cross-embodiment contact-acquisition primitive for multi-fingered hands. GOTT navigates the hand toward task-relevant contacts, establishes stable physical grasp using a shared closed-loop primitive, and tracks desired object motions, showing high transferability across different robotic hands and challenging manipulation tasks.",
+   "authors": [
+    "Yulin Liu",
+    "Lai Wei",
+    "Yen-Jen Wang",
+    "Akash Sharma",
+    "Pieter Abbeel",
+    "Henrik I. Christensen",
+    "Haozhi Qi"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "manipulation",
+    "grasping",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.03861",
+   "image": "figures/2026-10-06/2610.03861.jpg"
+  },
+  {
+   "date": "2026-10-06",
+   "rank": 9,
+   "id": "2610.04910",
+   "group": "general",
+   "title": "GJK-CBF: Control Barrier Functions for Convex Rigid Body Collision Avoidance on SE(3)",
+   "title_ja": "GJK-CBF: SE(3)上の凸剛体衝突回避のための制御バリア関数",
+   "summary_ja": "凸剛体間の衝突回避をリアルタイムに保証する制御バリア関数（CBF）手法「GJK-CBF」を提案。従来の微分可能最適化による計算負荷を回避し、GJKアルゴリズムによって最小距離や貫通深度を実現するwitness pointのペアを直接抽出してCBFを構築する。SE(3)上の厳密な安全制約を低計算コストで満たし、高周波数の制御ループに組み込み可能であることを示した。",
+   "summary_en": "This paper proposes GJK-CBF, a control barrier function formulation for real-time collision avoidance of convex rigid bodies on SE(3). By directly extracting witness points from the Gilbert-Johnson-Keerthi (GJK) algorithm rather than relying on computationally heavy differentiable optimization, GJK-CBF achieves rigorous safety guarantees with significantly reduced computational latency for high-frequency control loops.",
+   "authors": [
+    "Yi-Hsuan Chen",
+    "Shuo Liu",
+    "Wei Xiao",
+    "Michael Otte",
+    "Calin Belta"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "control",
+    "safety",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.04910",
+   "image": "figures/2026-10-06/2610.04910.jpg"
+  },
+  {
    "date": "2026-10-05",
    "rank": 0,
    "id": "2610.02341",
