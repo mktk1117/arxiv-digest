@@ -1,0 +1,162 @@
+{
+ "title_ja": "Video2World: 身体性動画からの対話型世界モデリングに向けたコーディングエージェントのベンチマーク",
+ "tldr_ja": "実世界や人間の作業動画から、動かして遊べる物理シミュレータ環境とロボット動作をコーディングエージェントが自律構築できるかを検証するベンチマーク「Video2World」を提案しました。最新モデルはシミュレータとして動作するコードは書けるものの、タスクの完全達成率は15〜37%程度にとどまり、見た目の幾何的忠実度とタスク達成の成否が必ずしも一致しないことが明らかになりました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "Video2Worldの全体像です。実世界のRGB動画からコーディングエージェントが対話型シミュレータを構築し、幾何学的忠実度・動力学的忠実度・機能的正確さ（タスク達成度）の3つの軸で評価されます。最新モデルの登場によってタスク達成率が急上昇している様子も示されています。",
+  "caption": "Figure 1: Video2World benchmarks the conversion of embodied videos into simulated worlds. Given an RGB video and simulator tools, a coding agent constructs the environment and robot behavior, then revises its implementation using execution feedback. Evaluation examines geometric fidelity, physically generated object motion, and task completion.",
+  "image": "details/2610.04432/F1.jpg"
+ },
+ "overview_ja": "実世界でロボットを学習させるためのデータ収集はコストが高く、シミュレータを活用したReal-to-Sim技術が注目されています。しかし、従来の手法では3Dアセットの配置、物理パラメータの調整、座標系のキャリブレーションなどに多大な人手が必要でした。\n\nそこで著者らは、最新のフロンティア基盤モデルとコーディングエージェントを活用し、動画をインプットとして環境構築コードとロボット制御コードを丸ごと自動生成・対話的デバッグさせる「ソフトウェアエンジニアリング課題」として定式化することを思いつきました。この能力を正しく測定するため、人間やロボットの作業動画189本から222の評価インスタンスを構成した新ベンチマーク「Video2World」を開発しました。\n\n実験では9種類の主要なコーディングエージェントを同一インターフェース上で評価しました。評価軸には、初期配置の「幾何学的忠実度」、物体の軌道を捉える「動力学的忠実度」、そして実際に物理インタラクションを経て作業が完遂できたかを判定する「機能的正確さ」を用意しました。\n\nその結果、最新モデル（Claude Fable 5.1など）はシミュレータが起動する実行可能コードを高い確率で出力できるようになった一方、タスクの完全成功率は37%台にとどまることが分かりました。さらに、「見た目の幾何形状が正確なモデルほどタスクを達成できるわけではない」という、生成モデルにおける知覚的リアリズムと事実的正しさの乖離が物理シミュレーションの世界でも顕著に現れることが示されました。",
+ "contributions_ja": [
+  "動画から対話型シミュレータとロボット動作を end-to-end で自動構築するタスクを、実行フィードバックを伴うソフトウェア工学課題として定式化しました。",
+  "人間とロボットの操作動画189本から、39のタスクファミリーと222の評価インスタンスを含む大規模ベンチマーク「Video2World」を構築しました。",
+  "シミュレータ構築の成否を「幾何学的忠実度」「動力学的忠実度」「機能的正確さ（タスク達成）」の3つの直交する観点から分離して測定する評価プロトコルを設計しました。",
+  "9種類のフロンティアコーディングエージェントを同一基準で評価し、モデルの世代進化による急激な性能向上と、見た目の美しさとタスク実行可能性の間に存在する乖離を明らかにしました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "動画を見せるだけで、遊べるシミュレータは作れるか？",
+   "summary_ja": "実世界の多様なインタラクションデータを集めるため、動画から物理シミュレータを丸ごと自動生成する需要が高まっています。本論文はそれをコーディングエージェントの自律的なソフトウェア開発課題として捉え、総合的に評価するためのベンチマーク「Video2World」を提案しています。",
+   "details_ja": "ロボットが物理世界で器用に動くためには大量のインタラクションデータが不可欠ですが、実機でのデータ収集は時間もコストもかかります。そこでシミュレータをデータ生成エンジンとして使う試みが盛んですが、従来のReal-to-Sim（実世界の現象をシミュレータ上に再現する技術）は、3Dモデルの配置や摩擦・質量のキャリブレーションに人間の多大なエンジニアリング労力を必要としていました。\n\n近年の基盤モデルやコーディングエージェントは、空間知覚や推論、コード生成能力が急速に進化しています。もしエージェントが動画を見るだけで、環境定義コードとロボットの動作スクリプトを自動で書き、エラーが出れば実行ログを見て修正できるようになれば、このデータ作成パイプラインは一気に自動化されます。\n\nしかし、既存の評価ベンチマークは「物体の3D形状復元」や「物理法則の理解」といった個別の能力を部分的に測るものばかりでした。そこで本研究では、エージェントが動画から環境とロボット制御をend-to-endでコード化し、実行フィードバックを受けながら修正していく総合的なベンチマーク「Video2World」を立ち上げました。形状が合っているか（幾何）、物体の動きが再現できているか（動力学）、そして物理的にタスクが成功したか（機能）の3軸から、エージェントの実力を徹底検証します。",
+   "figures": []
+  },
+  {
+   "heading": "2 Preliminary: Autonomous Video-to-Sim via Coding Agents",
+   "heading_ja": "動画からシミュレータを作る：問題の定式化",
+   "summary_ja": "Video-to-Simタスクを、動画からシミュレータ環境定義とロボット制御の双方をコードとして記述するプログラム合成問題として定式化しました。エージェントはサンドボックス環境で試行錯誤を繰り返しながらコードを洗練させます。",
+   "details_ja": "本研究では、動画からシミュレータを構築するタスクを、実行可能なプログラム $P = (\\eta, \\pi)$ を合成する問題として定義しています。ここで $\\eta$ は物体の形状や初期姿勢、衝突モデル、質量などの環境仕様を表し、$\\pi$ はシミュレータのインターフェースに応じたロボットの行動仕様を表します。\n\nこのプログラムを実行すると、環境の動力学 $F_\\eta$ とロボットの行動 $a_t$ に従って状態遷移 $s_{t+1} = F_\\eta(s_t, a_t)$ が進み、シミュレータ内の一連の軌道（ロールアウト）が生成されます。動画に映っていた作業がシミュレータ内のロボットによって実際に再現できたとき、そのプログラムは「機能的に正しい」とみなされます。\n\nエージェントの作業フローは完全な反復的コーディングです。エージェントにはRGB動画 $v$ とシミュレータAPI、汎用的なコーディングツールが与えられます。エージェントはコードを書き、ローカルでシミュレータを走らせてレンダリング画像やログを確認し、不整合があればプログラムを修正します。予算時間またはツール呼び出しの上限に達するか、エージェントが完成を宣言した時点で提出コードが固定され、最終評価に回されます。",
+   "figures": []
+  },
+  {
+   "heading": "3 Video2World: Benchmarking Coding Agent Video-to-Sim",
+   "heading_ja": "Video2Worldベンチマークの設計と3つの評価軸",
+   "summary_ja": "ロボットや人間の作業動画を含む222の評価インスタンスを構築しました。評価はエージェントの内部実装に依存せず、実行可能性、幾何学的忠実度、動力学的忠実度、機能的正確さの4つの視点から客観的に行われます。",
+   "details_ja": "### 3.1 プロパティの構築\n評価データセットには、FurnitureBench、DROID、RoboDojo、HOI4D、HOT3D、DexYCB、OakInk2、および独自の実機家庭環境データなどから、189本の動画クリップ（222インスタンス、39タスクファミリー）を集めました。ロボットの手先動画だけでなく、一人称・三人称の人間の手作業動画も含まれます。各インスタンスには、物体の3D形状・初期姿勢（幾何）、物体の時系列変化（運動）、タスク達成に必要な事前条件・イベント順序・最終ゴール（仕様）がアノテーションされています。人間動画の場合は、手先軌道をロボットのエンドエフェクタにマッピングしても物理的に成立するかどうかを事前に検証しています。\n\n### 3.2 エージェントプロトコルの設計\nエージェントは隔離されたサンドボックス環境で作業します。動画ファイル、API仕様書、3Dアセット、一般的なシェルツールが提供され、ローカルでシミュレーションを回しながらコードを自律デバッグできます。ただし、正解の3Dメッシュや軌道データ、隠された評価スクリプトを見ることは厳格に遮断されています。\n\n### 3.3 評価指標の設計\n生成された世界は、以下の観点で厳密にスコアリングされます。\n- **実行可能性（Build Rate）**: 出力されたコードがエラーなくシミュレータ上で起動し、ステップ実行できる割合です。\n- **幾何学的忠実度（Geometric Fidelity）**: 物体の形状、サイズ、初期配置、およびシーン全体の整合性をChamfer Distance（点群間の最近傍距離）などで測定します。操作対象や受け皿など、タスクに関わる物体には高い重みを付けて評価します。\n- **動力学的忠実度（Dynamic Fidelity）**: シミュレーション実行時の物体の並進・回転軌道が、動画中の実物体の動きとどれくらい一致しているかを絶対姿勢誤差（APE: Absolute Pose Error）や相対姿勢誤差（RPE）で評価します。\n- **機能的正確さ（Functional Correctness）**: 最も重要な指標で、物理シミュレータ上でロボットがタスクを完遂できたか（Task Success）と、途中のマイルストーンをどこまで踏めたか（Task Progress）を判定します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "Video2Worldの評価パイプラインの概要です。エージェントが動画を見てサンドボックス内でコードを生成・修正し、提出後に幾何（Geometry）・動力学（Dynamics）・機能（Functionality）の各観点から自動スコアリングされます。",
+     "caption": "Figure 2: Overview of Video2World. A coding agent constructs the scene and robot behavior in a sandbox, using video inspection, simulator APIs, asset resources, and execution feedback. Submitted reconstructions are evaluated against hidden scene geometry, demonstrated object motion, and task requirements. Evaluation separately measures geometric fidelity, dynamic fidelity of object motion, and functional correctness under physical execution.",
+     "image": "details/2610.04432/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "最新エージェントの実力と「見た目と機能のズレ」",
+   "summary_ja": "9種類の最新コーディングエージェントを評価した結果、Claude Fable 5.1やGPT-6 Astraなどの最新モデルで急激なタスク成功率の向上が見られました。一方で、物体の3D形状が綺麗に復元できていることと、タスクが物理的に成功することは別問題であることが判明しました。",
+   "details_ja": "### 4.1 実験設定\n実験では、Claude Fable 5.1、GPT-6 Astra、Claude Opus 5、GPT-5.6 Sol、Kimi K3、Qwen 3.8-Max、DeepSeek V4.1 Flash、Gemini 3.8 Flash、GLM-5.3 Flashの9システムを比較しました。各エージェントには1インスタンスあたり最大180分の実行時間が与えられます。また、人間がGT情報を参考にしながら手動でチューニングした「Human-Assisted Reference (HAR)」を上限値の目安として用意しました。\n\n### 4.2 主な結果\n- **実行可能だがタスク達成は難しい**: ほとんどのエージェントが高いBuild Rate（コードの実行可能性）を示し、エラーのないシミュレータ環境を立ち上げることには成功しました。しかし、タスクを最後まで完遂するTask Successは、Claude Opus 5以前のモデルでは5%未満にとどまり、最新のClaude Fable 5.1でも37.67%でした。途中のマイルストーンを表すTask Progressの方が一貫して高いスコアとなっており、作業の途中まではできても最後まで完了しきれない難しさが浮き彫りになりました。\n- **見た目の良さと機能のズレ**: 物体の形状やサイズの幾何学的精度でトップだったのはGPT-6 Astraでしたが、タスク成功率ではClaude Fable 5.1が上回りました。つまり、「見た目が元の動画そっくりに作れたからといって、ロボットが正しく掴んで動かせるわけではない」ということです。逆に、多少初期配置や形状がズレていても、ロボットの動作軌道側がうまく適応してタスクを成功させているケースも見られました。\n- **人間のリファレンスでも完全ではない**: 人間がアノテーションを見ながら調整したHARですら、タスク成功率は58.8%にとどまりました。接触物理を含む挙動の再現がいかに困難であるかを示しています。\n- **手先の運動特性の再現**: 成功したシミュレーション実行では、ロボットの手先の移動距離や最高速度、回転量などの統計値が元動画とSpearman相関0.74〜0.99という高い一致を示しており、結果だけでなく途中のダイナミクスも忠実に再現できていることが確認されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "(a) 人間による忠実度評価の選好スコア（HPR）と、(b) 代表的なタスクにおける動画とシミュレータ実行の比較です。最新エージェントでも途中で失敗するケース（赤枠）が見られます。",
+     "caption": "Figure 3: Human in the loop reference and evaluation (a) Human preference ratings of coding models and the human-assisted reference, based on 243 judgments from 12 raters across 39 cases. Error bars indicate 95% confidence intervals. (b) Source demonstrations and simulated executions for two representative tasks. Each method executes its own behavior in its reconstructed environment. Outcomes and task progress are reported below each simulated sequence; red boxes highlight failed executions.",
+     "image": "details/2610.04432/F3.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "元動画とシミュレータ再現におけるロボット手先の運動統計（所要時間、移動距離、最高速度、持ち上げ高さなど）の比較です。成功例では強い相関（相関係数0.74〜0.99）を示しています。",
+     "caption": "Figure 5: Robot Effector Motion Beyond Object-Centric Evaluation. (a) Source versus simulated effector statistics for 40 human-assisted reference instances from 35 videos, selected by task success in the original evaluation and colored by source. We compare gripper TCPs on DROID and human wrists with robot hand roots on human-video sources. Diagonals indicate equality; $\\rho$ is Spearman correlation. (b) Simulated-minus-source differences normalized by the source sample SD. Boxes show median/IQR; whiskers use $1.5\\times$ IQR. Shading marks $\\pm 0.25$ SD; arrows count off-scale points; the right column gives median absolute differences. See Appendix 9.6 for definitions.",
+     "image": "details/2610.04432/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Related Work",
+   "heading_ja": "先行研究との違い：部分的な3D復元から統合的な世界構築へ",
+   "summary_ja": "従来のReal-to-Sim研究やロボット向けLLMエージェント、コーディングベンチマークを概観し、環境構築と行動制御の双方を実行フィードバック込みでend-to-endに解く本ベンチマークの独自性を整理しています。",
+   "details_ja": "本研究は、大きく3つの研究領域の交差点に位置しています。\n\n1つ目は「ロボット操作のためのReal-to-Sim技術」です。RialToやRe3Simのように方策学習のために環境を再構築する研究や、GenSim、Video2Policyのように基盤モデルでタスクや報酬を生成する研究が存在します。しかし、これらは一部の特化パイプラインに頼っていたり、動画からの完全な自動構築・検証には至っていませんでした。\n\n2つ目は「身体性タスクのための基盤モデルエージェント」です。Code as PoliciesやVoxPoserのようにコードを介してロボットを動かす手法や、Voyagerのように実行フィードバックでスキルを獲得する研究が発展してきました。本研究はこの発想を一歩進め、「ロボットの制御コード」だけでなく「ロボットが動く物理シミュレータ環境そのもの」をコードとして作らせる点に踏み込んでいます。\n\n3つ目は「コーディングおよび構築ベンチマーク」です。ソフトウェア工学のSWE-benchや、3Dプロシージャル生成を測る3DCodeBench、Blenderシーンを復元するBVBなどがありますが、ロボットが物理的にインタラクションを行ってタスクを達成できるか（物理エンジンと制御の統合）を直接測るベンチマークはこれまで存在しませんでした。",
+   "figures": []
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "動画から対話型シミュレーションを自律構築するベンチマークVideo2Worldを提示しました。幾何学的な見た目の忠実度だけでは測れない「物理的に動作する世界」の難しさと、統合的評価の重要性を結論づけています。",
+   "details_ja": "本論文では、身体性動画から対話型の物理シミュレータ環境を自律構築する能力を評価する新しいベンチマーク「Video2World」を提案しました。動画からシミュレータコードを生成・修正するプロセスをソフトウェア工学課題として定式化し、幾何、動力学、タスク機能の3軸で包括的に評価しました。\n\n実験の結果、最新のコーディングエージェントは構文的に正しくシミュレータで動く世界を作れるようになってきたものの、物理インタラクションを伴うタスクの完全達成にはまだ大きな壁があることが浮き彫りになりました。特に、「見た目が正しい世界」が必ずしも「物理的に機能する世界」を意味しないという発見は、今後の世界モデル研究や動画からのデータ生成研究において、単なるピクセルの一致を超えた実行ベースの評価が必須であることを強く示唆しています。",
+   "figures": []
+  },
+  {
+   "heading": "付録",
+   "heading_ja": "付録：評価の詳細仕様とケーススタディ",
+   "summary_ja": "エージェントに与えられる入出力インターフェースの詳細、物体ごとの厳密なタスク判定条件、そして「見た目と機能の乖離」を裏付ける具体的な失敗・成功例を解説します。",
+   "details_ja": "### インターフェースとサンドボックス環境\nエージェントは動画、カメラ仕様、対象ロボットのURDF、シミュレータAPIドキュメントを受け取ります。シミュレータ環境にはSAPIEN（剛体マニピュレーション）、MuJoCo（ロープやぬいぐるみなどの変形体）、Isaac Sim（実機家庭タスク）が用いられています。ロボットの制御インターフェースとしては、単腕のデカルト空間TCP制御（位置・クォータニオン・グリッパー開閉）、五指を持つWujiハンドの関節角制御、双腕ロボットの関節角制御などがタスクに応じて指定されます。\n\n### タスク達成の厳密な判定ルール\n各タスクファミリーには、物理的な状態に基づく厳格な判定条件が定められています。例えば「ペン立てからペンを取り出す」タスクでは、ペンの頂点の95%以上が容器の水平フットプリントの外に出て静止している必要があります（ロボットがペンを掴んで引き上げても、容器内に残っていれば失敗と判定されます）。また、「倒れたボトルを起こす」タスクでは、ボトルの長軸が机の法線に対して30度以内かつ机に支持されて静止している必要があります。\n\n### ケーススタディ：見た目と機能のズレ\n図F8や図F9に示すように、エージェントが生成した物体のサイズや形状が元動画から数cmずれていたり、回転角度が大きくずれていても、ロボットの軌道がその配置に合っていればブロックの積み上げやボトルの直立に成功します。逆に、物体の3Dメッシュがどれだけ高精度に復元されていても、グリッパーの引き抜き量が足りずにペンが容器内に残って失敗する例が確認されています。このように、幾何学的な誤差とタスクの成否は独立して評価しなければならないことが具体例からも裏付けられています。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "DROIDのボトル起立タスクにおけるGPT-6 Astraの実行例です。元動画との間で物体の軌道や高さ変化に時間的・幾何学的な誤差（平均APE 7.77 cm）があっても、ボトルを直立させて静止させるというタスク判定条件は見事にクリアしています。",
+     "caption": "Figure A3: A complete evaluated reconstruction. Top: three frames from the agent’s RGB input. Middle: three frames of its submitted controls executed in its reconstructed scene; the displayed times use the recorded observation clock. Bottom left: annotated and executed bottle-height changes after the object-frame correspondence used for scoring. The shaded tail lies beyond the demonstration’s motion-comparison window, while functional evaluation still uses its release and terminal state. Bottom right: per-frame translation discrepancy on the demonstration clock, whose mean is 7.77 cm. The recorded interaction succeeds despite temporal and geometric discrepancies. …",
+     "image": "details/2610.04432/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "幾何学的忠実度とタスク達成の乖離を示す例です。(a)ではロボットが動いてもマーカーが容器から完全に出きっておらず失敗判定となりますが、(b)では形状やサイズの誤差が大きいにもかかわらずボトルの起立タスクに成功しています。",
+     "caption": "Figure A5: Evaluating the requested interaction separately from geometric fidelity. Each row shows the demonstrated outcome and three frames from the scored Astra visual-feedback execution, with manually drawn endpoint outlines identifying the manipulated object. (a) The marker remains partly in the container; robot withdrawal does not establish object extraction. (b) The bottle is reoriented and placed upright, satisfying the task predicate despite the reported shape and size errors. Execution frames are 0, 36, and 72 for (a), and 0, 48, and 96 for (b). Judgments use the complete saved rollout; frames are cropped for visibility and are not temporally aligned with the source endpoint.",
+     "image": "details/2610.04432/F8.jpg"
+    },
+    {
+     "key": "F9",
+     "caption_ja": "物体の姿勢（回転角）が大きくズレていてもタスクが成功した事例です。ブロックの絶対姿勢角に大きな誤差があるものの、シミュレータ内での掴みと配置の相対関係が整合していたため、ブロックのスタッキングに成功しています。",
+     "caption": "Figure A7: Task completion despite pose disagreement. DROID block stacking with a Panda–Robotiq embodiment. The source and candidate execution are shown at three task phases. The top-view inset compares the submitted and annotated block orientations. Successful stacking coexists with a large object-frame rotation error; the rigidly aligned shape score does not measure the submitted world orientation.",
+     "image": "details/2610.04432/F9.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "動画からシミュレータと制御プログラムを同時に書き下ろすVideo-to-Simにおいて、最新エージェントは「動くコード」を出力できるようになってきている。",
+  "モデルのタスク成功率はClaude Opus 5以降で急上昇（5%未満から37%超へ）したが、依然として人間による手動調整（約59%）には及ばない。",
+  "「見た目の3D幾何形状が正確であること」と「物理インタラクションが成立すること」は別問題であり、視覚的な生成品質だけでシミュレータの有効性を判断してはならない。",
+  "シミュレータによるデータ拡張を自動化するためには、環境の見た目だけでなく、接触物理やロボット制御との整合性を同時にデバッグできるエージェント能力が不可欠である。"
+ ],
+ "limitations_ja": [
+  "人間がアノテーションを参照しながら作成したリファレンス（HAR）でも成功率が約59%にとどまっており、接触物理シミュレーション自体のシビアさがスコアの天井を制限している側面がある。",
+  "エージェントの試行には最大180分・API費用最大60ドルという潤沢なリソースが与えられており、リアルタイムな現場での即時再構築にはまだコストが高い。",
+  "タスクの成功判定が幾何学的な状態遷移（相対位置や接地状態）に基づいており、ネジの締結力や接触力そのものの忠実性までは完全に担保できていない。"
+ ],
+ "keywords": [
+  "Video-to-Sim",
+  "Coding Agents",
+  "World Modeling",
+  "Embodied AI",
+  "Real-to-Sim",
+  "Benchmark"
+ ],
+ "id": "2610.04432",
+ "title": "Video2World: Benchmarking Coding Agents for Interactive World Modeling from Embodied Videos",
+ "authors": [
+  "Jinzhou Tang",
+  "Zijun Zhang",
+  "Jing Yang",
+  "Yuchen Yan",
+  "Kun Zhou",
+  "Lingjun Mao",
+  "Ruobing Han",
+  "Jinglin Cao",
+  "Wenpeng Xu",
+  "Lukun He",
+  "Minghao Fu",
+  "Fan Feng",
+  "Biwei Huang"
+ ],
+ "date": "2026-10-06",
+ "group": "general",
+ "tags": [
+  "simulation",
+  "benchmark",
+  "llm-agent"
+ ],
+ "categories": [
+  "cs.CV",
+  "cs.AI",
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.04432",
+ "pdf_url": "https://arxiv.org/pdf/2610.04432",
+ "summary_ja": "実世界の動画から対話型シミュレータ環境を自動構築するタスクをソフトウェアエンジニアリング問題として定式化し、基盤モデルとコーディングエージェントを評価するベンチマークVideo2Worldを提案。189本の動画からなる222の再構築課題を用意し、環境メッシュの生成からロボット挙動の再現、実行フィードバックによる反復修正能力を包括的に測定・分析した。",
+ "generated": "2026-10-06",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.04432"
+}
