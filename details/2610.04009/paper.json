@@ -1,0 +1,116 @@
+{
+ "title_ja": "SUAVE: マスク拡散を用いたビデオ・アクション統一モデル",
+ "tldr_ja": "離散トークンのマスク拡散モデルを用いることで、言語・動画・ロボット行動を1つの語彙と共通シーケンスで統一し、推論時のマスク位置を変えるだけで世界モデルとしても高精度な行動方策としても動作する基盤モデル「SUAVE」を提案しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "SUAVEの全体アーキテクチャです。言語指示、文脈動画、予測対象のサブゴール画像、行動チャンクが単一のトークン列として並び、ブロック因果的アテンションを持つ単一のマスク拡散トランスフォーマーによって、未来の画像と行動が並列かつ同時にデノイジング（復元）されます。",
+  "caption": "Fig. 2: Architecture. Left: The instruction is tokenized by the LLaDA tokenizer, and the video context is encoded by a MAGViT-v2 tokenizer. The goal and action tokens start fully masked, and a masked diffusion transformer, initialized from LLaDA with MMaDA’s image-token embeddings plus a new action vocabulary, denoises them into the imagined goal frame and the action chunk. Middle: Each of the 32 layers is a standard LLaDA block whose self-attention uses a block-causal mask. Right: Each cell in the mask is one block. Attention is bidirectional within a block and causal across blocks. …",
+  "image": "details/2610.04009/F2.jpg"
+ },
+ "overview_ja": "近年のロボット学習では、言語視覚基盤モデルを行動予測に転用するVLA（Vision-Language-Actionモデル）と、動画生成モデルから物理ダイナミクスを学ぶWAM（World Action Model）という2大潮流があります。しかし、前者は「未来を想像せずにいきなり行動を決める」傾向があり、行動ラベルのない大量の動画から学習できません。後者は未来を想像できますが、動画と行動で出力ヘッドが分かれていたり、言語条件付けが固定されていたりと、統一的な扱いが困難でした。\n\nそこで著者らは、言語・動画フレーム・ロボット行動のすべてを単一の離散ボキャブラリ（トークン集合）にまとめ、離散マスク拡散（Masked Diffusion）トランスフォーマーで同時にモデリングする手法「SUAVE」を考案しました。推論時にどのトークンをマスク（隠蔽）するかを選ぶだけで、同じモデルの重みが「世界モデル（未来動画予測）」「ロボット方策（行動生成）」「動画-行動モデル（未来画像と行動を同時生成）」へと切り替わります。また、行動ラベルのない人間の動画は行動位置をマスクして損失計算から除外するだけで、ロボットの行動データと全く同じバッチ・同じ損失で共訓練できます。\n\n実機の7自由度アームおよび複数のシミュレーションベンチマークで検証した結果、SUAVEは静的マニピュレーションで既存の専用方策に匹敵し、動的マニピュレーションではすべてのベースラインを凌駕しました。さらに実機上では、1秒先のサブゴール画像2枚と5ステップの行動チャンクをRTX 5090 GPU上でわずか1,030ミリ秒で並列生成し、2.5Hzでの閉ループ制御を実現しています。",
+ "contributions_ja": [
+  "言語・動画・ロボット行動の3つのモダリティを単一の離散語彙で統一し、単一のトランスフォーマーとマスク拡散目的関数で同時に扱う枠組みを提案したこと。",
+  "推論時にマスクする位置を切り替えるだけで、同一のモデル重みを世界モデル・方策・サブゴール付き行動予測モデルとして機能させる柔軟性を実現したこと。",
+  "行動ラベルのない動画をマスク位置の損失除外によって同一バッチ内で共訓練する機構を導入し、人間動画を活用した事前学習・共訓練の有効性を示したこと。",
+  "実機およびシミュレーションにおいて、専用の世界モデルや行動方策に匹敵・凌駕する性能を達成し、RTX 5090上で2.5Hzの実機閉ループ制御を実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "II Introduction",
+   "heading_ja": "「見てから動く」だけでなく「想像してから動く」統合モデルへ",
+   "summary_ja": "従来のVLAモデルは未来の観察を明示的に予測せず、WAMモデルは動画と行動の表現が分離しているという課題がありました。本研究は離散マスク拡散を用いることで、言語・動画・行動を1本の共通シーケンスで表現し、数ステップの並列デノイジングで高速に未来動画と行動を生成するアプローチを提案します。",
+   "details_ja": "ロボット学習は近年、大規模データセットでエンドツーエンド学習を行う方向へとシフトしています。これを牽引するのがVLAとWAMの2つのアプローチです。\n\nしかし、VLAは現在の観察から直接行動を出力するため「行動の結果として視覚的に何が起きるか」を明示的に予測しません。行動ラベルのない動画データを活用できないのも大きな弱点です。一方のWAMは未来動画を予測することで環境の物理ダイナミクスを理解できますが、連続潜在空間で動作し、動画予測と行動予測で独立した出力ヘッドや表現を持つことが多く、真に統合されているとは言えません。\n\n最近の研究では、行動する前に中間目標となるサブゴール画像を予測する「視覚的思考の連鎖（Visual Chain of Thought）」が有効だと分かってきました。つまり、優れた方策は「行動する前に未来を想像できるべき」なのです。ただし、これを自己回帰（1トークンずつ順番に生成する方式）で行うと推論が遅すぎて実機のリアルタイム制御に間に合いません。\n\nそこでSUAVEは、離散マスク拡散モデルを採用しました。全トークンを並列に復元できるため、わずか数ステップのデノイジングでサブゴール画像と行動を同時に予測できます。さらに、推論時にマスクするトークンを変えるだけで、1つの重みが世界モデルにもロボット方策にも変化します。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "先行するVLAや世界モデルと、SUAVEは何が違うのか",
+   "summary_ja": "自己回帰型VLA、連続拡散ベースのWAM、ハイブリッド型などの既存手法を整理し、SUAVEが「単一の離散語彙」「単一のマスク拡散目的関数」「並列デコード」という第4の設計思想に位置づけられることを示します。",
+   "details_ja": "本章では関連研究を4つの観点から整理しています。\n\n### II-A Vision-language-action models\nRT-2やOpenVLAのように行動を離散トークン化して自己回帰に予測するモデルや、$\\pi_{0}$のようにフローマッチング（連続拡散の一種）を行動ヘッドに用いるモデルがあります。CoT-VLAはサブゴール画像を予測してから行動を出力しますが、トークンごとの自己回帰生成のため制御ループが7倍遅くなるという課題がありました。\n\n### II-B World models and world action models\nCosmosやiVideoGPTのような動画生成ベースの世界モデルや、DreamZeroのようなWAMは、強力な未来予測能力を持ちます。しかし、これらは連続潜在空間で動作し、言語は固定エンコーダからの条件付けにとどまり、行動は別ヘッドで生成されるため、各要素が分断されていました。\n\n### II-C Unified video-action and unified multimodal models\n動画と行動を合同で生成する試みとしてUWMやUVA（連続拡散モデル）、UniVLA（離散トークンの自己回帰）があります。SUAVEは言語・動画・行動のすべてを単一の離散語彙で扱い、全モダリティの相互作用を単一の目的関数と並列デコードで実現する点で、これらと明確に一線を画しています。\n\n### II-D Pretraining and co-training on video for robot policies\n行動ラベルのない動画の活用法として、UniVLAのような事前学習後のファインチューニングや、UWMのような拡散ノイズ最大化による同時学習があります。SUAVEは離散空間において「行動位置をマスクして損失から除外する」という極めて自然な形で、人間動画とロボット教示データの共訓練を実現しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "単一語彙とマスク拡散で、画像と行動を同時に紡ぎ出すアーキテクチャ",
+   "summary_ja": "言語、画像（MAGViT-v2）、行動を共通のトークン列として結合し、ブロック因果的アテンションを適用します。動画と行動で独立にマスク率をサンプリングしてクロスエントロピー損失で学習し、Prefix KVキャッシュを活用して高速な並列推論を実現しています。",
+   "details_ja": "SUAVEの具体的なモデル設計と学習・推論手順は次の通りです。\n\n### III-A Background\nマスク拡散は、元のトークン列に対して確率 $t$ で独立に特殊トークン $[\\mathrm{M}]$ に置き換える前方プロセスと、マスク予測ネットワーク $p_{\\theta}$ でクリーンなトークンを段階的に復元する逆プロセスから構成されます。全トークンを並列に予測できるため、少ないステップ数でシーケンス全体を生成可能です。\n\n### III-B Tokenization and Sequence Layout\n- バックボーン：LLaDAアーキテクチャに基づく32層のトランスフォーマー（MMaDA-8B）をベースとし、アテンションマスクをブロック因果構造に変更しています。\n- トークナイザ：言語はLLaDA、動画はMAGViT-v2（256×256ピクセルを16×16=256個の離散トークンに変換、重み固定）、行動は各次元を一様ビンで256段階に離散化して表現します。これらはすべて単一のトークン埋め込みテーブルと出力ヘッドを共有します。\n- シーケンス配置：$[\\mathtt{BOS}]$、言語指示、過去の文脈動画フレーム列（正面視点と手先視点）、予測対象のゴール画像フレーム（正面・手先）、そして $K \\times D$ 個の未来行動チャンクの順に一列に並べます。\n- ブロック因果的アテンション：各ブロック内（1枚の画像内など）では双方向アテンション、ブロック間では過去から未来への因果アテンションを適用します。これにより、行動トークンは未来のゴール画像を参照して生成されます。\n\n### III-C Training Objective\nゴール画像と行動トークンに対して、それぞれ独立にマスク率 $r_v, r_a \\sim \\mathcal{U}(0,1)$ をサンプリングしてマスクします。損失関数はマスクされた位置の平均クロスエントロピーです。行動ラベルのない動画（人間の作業動画など）を学習する場合、行動ブロックを $[\\mathrm{M}]$ で埋めて損失計算から除外するだけで、同一バッチ内で共訓練が完結します。\n\n### III-D Inference\n推論時は文脈動画と言語を入力し、目的のモードに応じてターゲット位置をマスクします。ロボット制御時は動画-行動モード（ゴール画像と行動を同時にマスク）を用います。過去の確定トークンに対するPrefix Key-Value（KV）キャッシュを利用することで、4ステップのデノイジングを行い、1秒分の動作（正面・手先画像と5ステップの行動チャンク）をRTX 5090 GPU上で1,030ミリ秒で生成できます。これは実機上で約2.5Hzの閉ループ制御が可能な速度です。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "SUAVEのトークン配置とアテンション構造です。左側でテキスト、過去文脈動画、予測対象のゴール画像、行動チャンクが並び、右側のアテンション行列に示す通り、各ブロック内は双方向、ブロック間は因果的になっており、行動が想像された未来画像を参照できる設計になっています。",
+     "caption": "Fig. 2: Architecture. Left: The instruction is tokenized by the LLaDA tokenizer, and the video context is encoded by a MAGViT-v2 tokenizer. The goal and action tokens start fully masked, and a masked diffusion transformer, initialized from LLaDA with MMaDA’s image-token embeddings plus a new action vocabulary, denoises them into the imagined goal frame and the action chunk. Middle: Each of the 32 layers is a standard LLaDA block whose self-attention uses a block-causal mask. Right: Each cell in the mask is one block. Attention is bidirectional within a block and causal across blocks. …",
+     "image": "details/2610.04009/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "実機アームからシミュレータまで：世界モデルとしての予測力と方策としての強さ",
+   "summary_ja": "実機xArm7、静的ベンチマークLIBERO、動的ベンチマークDOMINOで評価しました。世界モデルとして専用モデルCosmosに匹敵する予測品質を示し、方策としては動的環境でベースラインを圧倒、さらに動画共訓練が分布シフト耐性を大幅に高めることが実証されました。",
+   "details_ja": "実験では、専用方策に対する競争力（Q1）、世界モデルとしての動画予測精度（Q2）、動画事前学習・共訓練の貢献度（Q3）を検証しました。\n\n### IV-A Experimental Setup\n評価バリアントとして、ゼロから学習した「SUAVE-Scratch」、ロボット動画で事前学習した「SUAVE-Pretrain」、人間動画（Something-Something v2）を1:1で混ぜて事前学習した「SUAVE-Cotrain」を用意しました。実機では7自由度のxArm7を使用し、3つのタスク（野菜のピッキング、靴の整頓、ブラシでのゴミ集め）を通常条件と分布シフト条件（未知の障害物、未知の靴、照明変化）で評価しました。\n\n- 実機結果：通常条件での平均タスクスコアはScratchの0.31から、Pretrainで0.67、Cotrainで0.69へと倍増しました。分布シフト下ではScratchが0.15に急落したのに対し、Pretrainは0.49、Cotrainは0.55を維持し、約3倍のスコアを保ちました。\n- 動画予測精度：同一データで学習した専用動画モデルCosmos（2Bパラメータ）と比較し、PSNRで上回り、LPIPSでも肉薄しました。定性的にも（図F4）、ロボット位置の破綻や色ドリフトを起こすベースラインに比べ、SUAVEは正しいシーン構造を維持した未来予測ができています。\n\n### IV-B LIBERO and LIBERO-Plus for Static Manipulation\n静的マニピュレーションベンチマークLIBEROでは、SUAVE-Cotrainが平均成功率95.9%を記録し、LIBERO-Longタスクでは95.4%でトップとなりました。さらに外乱を加えたLIBERO-Plusのゼロショット評価において、SUAVE-Cotrainは71.3%を達成し、Scratch（61.8%）から9.5ポイント向上、ロボット初期姿勢の変動に対しては$\\pi_{0.5}$を上回る82.5%の最高精度を示しました。\n\n### IV-C DOMINO for Dynamic Manipulation\n動いている物体を操作する動的ベンチマークDOMINOでは、SUAVEの強さが際立ちました。物体の速度が不連続に変化する最も過酷なLevel 3において、SUAVE-Cotrainは成功率8.2%、SUAVE-Scratchは次点の成績を収めました。LIBEROで首位だった$\\pi_{0.5}$が1.7%に沈む中、未来の画像を想像してから行動するSUAVEの設計が動的環境で極めて有効であることが証明されました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "実機タスクにおける長時間の未来動画予測の比較です。ベースライン手法（Cosmos, UniVLA, UVA, UWM）ではロボットアームの余分なアーティファクトや位置の誤り、激しい色ドリフトが発生しているのに対し、SUAVE（赤枠）は初期段階のわずかなモーフィングを除き、正解（GT）に近い正確なシーン構造と最終状態を維持できています。",
+     "caption": "Fig. 4: Qualitative Comparison of Long-Horizon Video Prediction. Rows show the ground-truth rollout (GT), SUAVE (red), and four baselines. Left: predicted frames for the Sweep Pile task at the indicated times (in seconds). Right: final predicted frame for Pick Vegetables and Organize Shoes. White circles mark failure modes.",
+     "image": "details/2610.04009/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の課題：1つのモデルでロボット制御と未来予測を両立する道筋",
+   "summary_ja": "離散マスク拡散による統合モデルSUAVEが、実機閉ループ制御、高品質な未来動画予測、そして動的タスクにおける高い走破性を単一の重みで達成できることを確認しました。トークナイザの表現力や系列長の固定といった限界点にも言及されています。",
+   "details_ja": "SUAVEは、言語・動画・行動を単一の語彙とマスク拡散トランスフォーマーで統合することで、同一のモデル重みを「世界モデル」「方策」「動画-行動モデル」として自在に使い分けられることを実証しました。実機ロボットにおいてサブゴール画像と行動チャンクをリアルタイムに同時生成できる実用性を示した意義は非常に大きいです。\n\n一方で、論文では以下の限界点も挙げられています。\n- 人間動画の共訓練効果：事前学習単独に比べてスコアは向上したものの、今回のデータ規模では統計的有意差を明確に分離するには至りませんでした。\n- 固定トークナイザの制約：重みを固定したMAGViT-v2を使用しているため、生成される動画フレームの再構成品質に上限が存在します。\n- 固定長シーケンス：トークン列の長さが固定されているため、タスクの長さに応じて動的に生成ホライズンを適応させることができません。\n- 言語生成の未対応：言語モデルをバックボーンに持ちながら、テキスト自体の生成や言語的な汎化性能の踏み込んだ評価は今後の課題とされています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「未来を想像してから動く」統合モデルは、離散マスク拡散を用いることで並列デコードが可能になり、実機で実用的な制御周波数（2.5Hz）を達成できる。",
+  "推論時のマスク位置を変えるだけで、同一の重みが「動画予測の世界モデル」にも「制御を行う方策」にもなる柔軟な単一語彙アーキテクチャが実現可能である。",
+  "行動ラベルのない動画データも、行動位置をマスクして損失から外すだけで同一バッチ・同一損失関数で共訓練でき、分布シフトに対する頑健性が大幅に向上する。",
+  "未来のサブゴール画像を生成する機構は、特に移動物体を扱う動的マニピュレーション（DOMINOベンチマーク等）で専用方策を大きく凌駕する効果を発揮する。"
+ ],
+ "limitations_ja": [
+  "現在のデータ規模では、ロボット動画事前学習に対する人間動画共訓練の上乗せ効果が統計的に完全に有意とは言い切れない点。",
+  "画像トークナイザ（MAGViT-v2）の重みが固定されているため、予測画像の初期フレームにモーフィングなどの再構成アーティファクトが生じる点。",
+  "トークン系列長が固定されており、タスクの難易度や長さに応じた可変長のホライズン予測に対応していない点。"
+ ],
+ "keywords": [
+  "Masked Diffusion",
+  "Vision-Language-Action (VLA)",
+  "World Action Model",
+  "Robot Manipulation",
+  "Discrete Tokenization"
+ ],
+ "id": "2610.04009",
+ "title": "SUAVE: Unified Video-Action Models via Masked Diffusion",
+ "authors": [
+  "Rhythm Syed",
+  "Jean Mercat",
+  "Sedrick Keh",
+  "Kushal Arora",
+  "Paarth Shah",
+  "Aykut Onol",
+  "Mengchao Zhang",
+  "Tony Dear"
+ ],
+ "date": "2026-10-06",
+ "group": "general",
+ "tags": [
+  "vision-language-action",
+  "world-model"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.04009",
+ "pdf_url": "https://arxiv.org/pdf/2610.04009",
+ "summary_ja": "言語指示のもとで未来の視覚観察予測と行動予測を同一語彙・単一アーキテクチャで行うモデルSUAVEを提案。連続的な潜在表現や自己回帰的生成に頼る従来手法と異なり、マスク拡散トランスフォーマーを用いて離散トークン化された映像と行動を柔軟に生成する。シミュレーションおよび実機マニピュレーションにおいて、未来の視覚的想像を行動計画に直結させ高い成功率を達成した。",
+ "generated": "2026-10-06",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.04009"
+}
