@@ -1,0 +1,140 @@
+{
+ "title_ja": "ヒューマノイド運動の継続学習",
+ "tldr_ja": "ヒューマノイドロボットが過去に覚えた全身運動を一切忘れずに、新しい動作を順番に習得し続ける「継続学習」の仕組みを提案した論文です。動作間の類似度に基づいて LoRA（低ランク適応）のパラメータ割り当てと知識の引き継ぎを自動制御することで、学習時間を最大 40.8%、学習パラメータを最大 94.5% 削減しながら高い転移性能を達成し、実機 Unitree G1 での動作にも成功しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "提案手法「Similarity-guided LoRA-PNN」の全体パイプラインです。新しい運動タスクが来るたびに過去のネットワーク列を固定して忘却を防ぎつつ、最も似た親タスクから重みを受け継ぎ、運動類似度に応じた LoRA アダプタを追加して効率的に学習します。最終的に教師ポリシーから単一の生徒ポリシーへと蒸留し、実機ヒューマノイドで動かします。",
+  "caption": "Figure 2: Overview of the continual whole-body locomotion learning pipeline. A collection of retargeted motions Harvey et al. (2020) is organized into a sequential stream of tasks ( e.g . , jumping, dancing, and fighting) and learned using a teacher–student framework. The teacher policy, with access to privileged information, is expanded for each new task by adding a trainable column (solid blue) via similarity-guided LoRA, while previously learned columns (dashed orange) are kept frozen to preserve earlier skills. The teacher’s actions supervise the student policy through a distillation loss, and the student is deployed in the real world",
+  "image": "details/2610.04231/F2.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットに歩行、走行、ダンス、格闘といった多様な全身動作を学習させる研究は大きく進展していますが、従来の強化学習コントローラは一度オフラインでまとめて学習した後に固定されるのが一般的でした。もし後から「新しいスキルを追加したい」と微調整（ファインチューニング）を行うと、過去に覚えたスキルを壊滅的に忘れてしまう「破滅的忘却」が発生してしまいます。\n\nそこで著者らは、過去のデータを再学習（リプレイ）することなく、スキルを順番に追加し続けるヒューマノイドの「継続学習（Continual Learning）」パイプラインを構築しました。核となるアイデアは、タスクごとにネットワークの列（カラム）を拡張し過去の列を完全に凍結する Progressive Neural Networks（PNN）の構造的忘却ゼロ保証と、大規模言語モデル等で使われる軽量な追加学習手法 LoRA の融合です。\n\nさらに、新しい運動と過去の運動の「類似度」を動的タイムワーピング（DTW）と最適輸送（OT）を組み合わせて事前に定量化しました。最も似ている過去タスクから重みを引き継ぎ（親カラム継承）、類似度が高いタスクには小さな LoRA ランク、似ていないタスクには大きな LoRA ランクを割り振る仕組みを考案しました。\n\n6 種類のスキルカテゴリ（walk, run, jump, dance, fight, fall_and_up）を用いた実験の結果、過去の忘却を完全に防ぎつつ、新規タスクへの正の転移（Forward Transfer）で既存ベースラインを上回る 0.125 を記録しました。さらに訓練可能パラメータを最大 94.5%、学習時間を最大 40.8% 削減することに成功しました。最終的に学習されたコントローラは、Isaac Gym から MuJoCo へのシミュレータ間転移で 96.13%、実機ヒューマノイド Unitree G1 でも 90.33% の成功率を達成し、実機での連続スキル実行能力を実証しました。",
+ "contributions_ja": [
+  "ヒューマノイドの全身運動学習において、過去の動作を忘れることなく順次スキルを追加する「継続学習」の枠組みを初めて定式化しベンチマークを整備した。",
+  "DTW と最適輸送（OT）を組み合わせた 2 段階の運動類似度指標を提案し、最適な親タスクの選定と適応的な LoRA ランク割り当てを自動化した。",
+  "PNN の構造による忘却ゼロ保証と LoRA のパラメータ効率性を両立し、学習パラメータを最大 94.5%、学習時間を最大 40.8% 削減した。",
+  "特権情報を持つ継続学習教師から単一の生徒ポリシーへの蒸留を経て、実機ヒューマノイド Unitree G1 上で 6 カテゴリ 30 種類の動作の実行を実証した。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜヒューマノイドに「継続学習」が必要なのか？",
+   "summary_ja": "全身運動コントローラはオフライン訓練後に固定されるのが一般的で、新しい動作を追加しようとすると過去の動作を忘れてしまう問題がありました。本論文はこの安定性と可塑性のジレンマを解消するため、PNN の忘却ゼロ構造と類似度誘導型 LoRA を組み合わせた新しい継続学習フレームワークを提案します。",
+   "details_ja": "ヒューマノイドロボットの全身制御は、脚・胴体・腕を協調させてバランスと運動量を保ちながらタスクを実行する非常に難度の高いタスクです。近年、大規模な人体モーションデータを模倣する強化学習によって、単一のポリシーで俊敏な動作を追従できるようになってきました。\n\nしかし、既存のコントローラは基本的に「オフラインでまとめて学習して固定（フリーズ）して使う」運用が前提です。もしロボットに新しいスキルを後から教えようとして微調整（ファインチューニング）を行うと、以前習得した動作が壊れてしまう「破滅的忘却（Catastrophic Forgetting）」が起こります。これは、新しいスキルを次々と身につけながら過去のスキルも保ち続ける人間の学習プロセスとは大きくかけ離れています。\n\nこの問題に取り組むのが「継続学習（Continual Learning）」ですが、これまでのロボティクスにおける継続学習はマニピュレーションや車輪型ナビゲーションが中心で、自由度の高い二足歩行ヒューマノイドの全身運動では体系的な研究がなされていませんでした。\n\nそこで著者らは、過去のタスク用ネットワーク列を凍結して忘却を構造的に防ぐ Progressive Neural Networks（PNN）に着目しました。しかし PNN はタスクが増えるたびにネットワークが肥大化し、スクラッチから学習するため効率が悪いという課題があります。本研究では、過去の動作との「類似度」を計算して最も近いスキルから重みを引き継ぎ、LoRA（Low-Rank Adaptation）によって小さな追加パラメータだけを学習させる「Similarity-guided LoRA-PNN」を提案し、この課題を解決しました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "本研究で継続的に学習される代表的な全身運動スキル（walk, run, jump, dance, fight）です。単一のコントローラが過去の移動や運動能力を保持したまま、新しい動的スキルを順次獲得していきます。",
+     "caption": "Figure 1: Representative whole-body motion skills (a subset of the six skill categories) learned sequentially in a continual-learning setting, where the policy must acquire new behaviors while retaining previously learned locomotion and athletic motion skills",
+     "image": "details/2610.04231/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "全身歩行制御と継続学習の交差点",
+   "summary_ja": "大規模モーションデータを模倣するヒューマノイド制御の発展と、破滅的忘却を防ぐ継続学習の歴史を整理しています。ロボティクスでの継続学習は操作系が中心だったため、ヒューマノイド全身運動への適用は未踏の領域でした。",
+   "details_ja": "### ヒューマノイドの全身ロコモーション\n強化学習を用いたヒューマノイド制御は近年急速に進歩しています。固有受容感覚（プロプリオセプション）の履歴を用いたロバストな歩行制御や、上半身と下半身の協調制御、さらには数千クリップもの参照モーションをトラッキングするジェネラリスト・コントローラが登場しています。しかし、これらはすべて静的なモデルとして配備され、後からスキルを追加するには再学習が必要でした。\n\n### 継続学習（Continual Learning）\n継続学習では、非定常なタスクストリームから知識を獲得しつつ「安定性と可塑性のトレードオフ」をいかに取るかが長年議論されてきました。主なアプローチには以下の 3 つがあります：\n- 重要な重みの変化を抑制する正則化型（EWC など）\n- 重みをタスクごとに隔離・マスクするパラメータ分離型（PackNet など）\n- ネットワーク構造を動的に拡張する構造拡張型（PNN など）\n\n近年では大規模基底モデルに LoRA などの軽量モジュールを適用して干渉を防ぐ手法も現れています。ロボティクス分野でも移動マニピュレーションや言語指示によるスキル合成などで継続学習が模索されていますが、ヒューマノイドの全身運動制御に挑んだ例はこれまでありませんでした。本研究はこの空白を埋めるものです。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "類似度で導く軽量ネットワーク拡張：Similarity-guided LoRA-PNN",
+   "summary_ja": "PNN の「過去のカラムを凍結する」仕組みで忘却を原理的にゼロにしつつ、タスク間の運動類似度を DTW と最適輸送で測定します。最も似ている親タスクから初期値をコピーし、類似度に応じて LoRA のランク（容量）を変えることで、高効率かつ高精度な学習を実現します。",
+   "details_ja": "### 3.1 問題設定\nロボットは一連のタスク $\\{\\mathcal{D}_1, \\dots, \\mathcal{D}_K\\}$ を 1 つずつ順に学習します。過去のデータは再訪できません。本手法では忘却を構造的にゼロにするため、「過去のスキルを忘れないか」ではなく「いかに速く新しいスキルへ転移し、パラメータを効率的にスケールさせるか」が焦点になります。\n\n### 3.2 継続学習ポリシーの骨格（PNN）\n各タスクは関節空間でのゴール条件付き強化学習（PPO）として解きます。タスク $k$ の学習時には新しい MLP の列（カラム）を追加し、過去のカラム（$1 \\dots k-1$）の出力から横方向の接続（lateral connection）を受け取ります。過去のカラムは完全に凍結されるため、干渉による忘却は原理的に発生しません。\n\n### 3.3 パラメータ効率の良い学習（LoRA と類似度誘導）\nPNN は素朴に実装するとタスクごとに巨大なネットワークを新規学習するため計算コストがかさみます。そこで以下の 2 段階で工夫します：\n- **親カラムの継承**: 事前に計算した運動類似度 $S(l, k)$ に基づき、最も動作が似ている過去タスク $p(k)$ の重みをコピーして初期値（ウォームスタート）とします。\n- **類似度に基づく LoRA ランク選定**: 線形層の重み更新を低ランク行列分解 $W + W_B W_A$ で行います。さらに「よく似た動作なら小さなランク（$r=4$）で十分、全く新しい動作なら大きなランク（$r=16$）を与える」という逆相関のルールを導入しました。\n\n### 3.4 運動類似度の計算（DTW ＋ 最適輸送）\nタスク間の類似度を測るため、局所的な時間窓内のアライメントには動的タイムワーピング（DTW）を、時間窓同士やモーション全体の集合比較には最適輸送（Optimal Transport: OT）を用いる 2 段階の階層的距離を設計しました。フレームごとの特徴量には、並進不変・方位不変な局所速度、ヨーレート、関節回転変化量を用いています。事前に計算された距離行列（図 F3）を見ると、走る動作（run）は他のどのタスクとも距離が離れており特異である一方、歩行（walk）はダンスや起き上がり動作と近い距離にあり、共通の足踏み協調構造を持っていることが定量的に裏付けられています。\n\n### 3.5 教師・生徒蒸留\nシミュレータ環境（Isaac Gym）で特権情報（ベース速度や接触状態など）を使って学習した教師ポリシーを、実機で取得可能な固有受容感覚の履歴だけを入力とする単一の生徒ポリシーへと DAgger を用いて蒸留します。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "6 つのスキルカテゴリ間の運動距離行列です（色が明るいほど類似度が高い）。walk は他スキルとの距離が近く知識の供給源になりやすいのに対し、run は他のすべてのタスクから遠く独立性が高いことが定量的に示されています。",
+     "caption": "Figure 3: Motion-set distance matrix over the six categories (lighter = more similar)",
+     "image": "details/2610.04231/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "忘却ゼロと高効率転移の実証、そして実機 G1 への展開",
+   "summary_ja": "6 つの全身運動タスクを用いた検証で、提案手法は忘却率ほぼ 0 を維持しつつ最高の正の転移性能（0.125）を達成しました。パラメータを 94.5%、学習時間を 40.8% 削減し、最終的には実機 Unitree G1 で 90.33% の成功率で動作することを示しました。",
+   "details_ja": "### 4.1 実験設定\n評価には LAFAN1 データセットおよびカンフー動作データセットから選定した 6 タスク（walk $\\rightarrow$ run $\\rightarrow$ jump $\\rightarrow$ dance $\\rightarrow$ fight $\\rightarrow$ fall_and_up）を用いました。比較対象として、ヒューマノイド模倣学習ベースライン（KungfuBot2, ASAP, HumanoidVerse）を継続学習プロトコルに適合させたものと、代表的継続学習手法（EWC, PackNet）を用意しました。評価指標には平均精度（AA）、忘却度（FM）、後方転移（BWT）、前方転移（FWT）などを用いています。\n\n### 4.2 主要な結果\n提案手法（sim-LoRA）は構造上、過去タスクの忘却度 $\\text{FM} \\approx 0$ を達成しています。特筆すべきは前方転移（FWT）で、最高ベースラインの KungfuBot2 が $0.079$ だったのに対し、提案手法は $0.125$ と大幅に向上しました。平均精度（AA）も $0.945$ と全手法中トップです。EWC や PackNet は動作構造を考慮した転移ができないため、AA がそれぞれ $0.488$、$0.586$ に沈みました。\n\n### 4.3 アブレーションと効率性\nPNN を外して単一バックボーンにすると忘却が発生し（FM が $0.000 \\rightarrow 0.137$）、PNN の列分離が必須であることが確認されました。また、LoRA ランク割り当てを固定（fixed: 0.895）からビン分割（binned: 0.928）、線形割り当て（linear: 0.945）へと運動類似度に連動させるほど精度が単調に向上しました。\nLoRA の導入により、PNN のフルファインチューニングと比較して訓練可能パラメータを最大 $94.5\\%$（2.4M $\\rightarrow$ 132K）、5k イテレーションあたりの学習時間を最大 $40.8\\%$（2.94h $\\rightarrow$ 1.74h）削減できました。\n\n### 4.4 シミュレータ間転移と実機配備\nIsaac Gym から MuJoCo へのシミュレータ間転移（sim-to-sim）では $96.13\\%$ の成功率を記録しました。さらに 23 自由度の実機ヒューマノイド Unitree G1 に単一の蒸留済み生徒モデルを搭載し、6 カテゴリにわたる 30 種類の動作をテストしたところ、実機成功率 $90.33\\%$（1 動作あたり 10 回試行）を達成しました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "継続学習指標のレーダーチャートです。左が成功率、右がトラッキング精度（-MPJPE）を示します。提案手法（青線）は忘却（FM）や後方劣化（BWT）をほぼゼロに抑えつつ、平均精度（AA）と新規タスクへの前方転移（FWT）で外側に大きく広がっています。",
+     "caption": "Figure 4: Radar plots of CL metrics. (Left) Success rate. (Right) Negative MPJPE score. Polygons show min–max normalized values with square-root transformation for visual separation; numbers denote original metric values",
+     "image": "details/2610.04231/F4.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "Isaac Gym（左）と MuJoCo（右）における蒸留済み生徒ポリシーの定性比較です。dance、fall_and_up、fight、run の各スキルにおいて、物理エンジンの違いを越えて一貫した運動が再現されています。",
+     "caption": "Figure 6: Qualitative sim-to-sim comparison of the single distilled student on dance , fall_and_up , fight , and run : the same policy executed in Isaac Gym (left, with reference key-body markers) and MuJoCo (right)",
+     "image": "details/2610.04231/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "実機 Unitree G1 による連続学習ポリシーの実行スナップショットです。スキルごとの微調整を一切行わずに、同一の単一コントローラが歩行、走行、ダンス、キックや馬歩（カンフーの構え）を実環境で成功させています。",
+     "caption": "Figure 7: Real-robot execution of the single continually trained student on the Unitree G1. Each panel shows one motion, with frames ordered left to right in time: (a) walk, (b) run, (c)–(d) two dance motions, and (e)–(f) two fight motions (a side kick and a horse-stance sequence). All six motions are executed by the same controller without any per-skill fine-tuning",
+     "image": "details/2610.04231/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "PNN の忘却ゼロ特性と運動類似度に基づく適応的 LoRA を融合することで、高効率かつ高精度に全身動作を蓄積できる継続学習システムを確立しました。実機ヒューマノイドへの展開にも成功し、進化し続けるジェネラリスト・コントローラへの道筋を示しました。",
+   "details_ja": "本論文では、ヒューマノイドが破滅的忘却を起こさずに多様な全身スキルを順次獲得できる継続学習フレームワークを提案しました。\n\nPNN による構造的な忘却ゼロの保証を土台にしつつ、DTW と最適輸送による運動類似度ガイドを用いて「どの親から知識を受け継ぐか」「LoRA にどれだけのランクを割り当てるか」を決定することで、パラメータ数と計算時間の劇的な節約（最大 94.5% のパラメータ削減、40.8% の時間短縮）と優れた前方転移を両立させました。\n\n最終的に単一の生徒ポリシーとして蒸留し、実機 Unitree G1 上で歩行から格闘技に至る多彩な動作を安定して実行できることを確認しました。この成果は、新しいスキルを学ぶたびに最初から訓練し直す必要のない、真にスケール可能なヒューマノイド制御の基盤技術として期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "6 Motion Data Format and Implementation Notes",
+   "heading_ja": "付録：運動類似度計算と学習の実装詳細",
+   "summary_ja": "運動データのフォーマット、DTW と最適輸送（Sinkhorn）のパラメータ設定、および PPO 強化学習の報酬・ドメインランダム化のハイパーパラメータをまとめています。",
+   "details_ja": "### 運動データ形式と特徴量\nリターゲティングされたモーションデータは 30Hz にリサンプリングされ、ルート位置、クォータニオン回転、関節の軸・角度表現、接地マスク（ソフトラベル許容）を保持しています。これらから局所並進速度、旋回角速度、関節角の測地線距離変化量を計算し、並進・ヘディング不変な特徴ベクトルを構成します。\n\n### 最適輸送と DTW の計算\n窓長とストライドの組み合わせとして $(3, 2), (5, 3), (10, 7), (15, 10)$ 秒の 4 設定を平均化してスケール頑健性を確保しています。窓内の DTW には Sakoe-Chiba バンド幅制約を適用し、窓間・動作間の最適輸送問題は Sinkhorn 反復法により高速に解かれます。この類似度計算はオフラインで一度だけ行われるため、強化学習自体の時間消費には影響しません。\n\n### 報酬設計とドメインランダム化\nPPO の報酬にはルート速度、キーボディの位置・姿勢・速度トラッキングの指数関数項に加え、アクション変化率、関節加速度、足の滑り（スリップ）、衝突に対する正則化ペナルティが共通して設定されています。また実機転移のため、質量、摩擦係数、PD ゲイン、モータ強度などのドメインランダム化が施されています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「忘却を防ぐために正則化で頑張る」のではなく、「PNN のように構造的に忘却をゼロにして、拡張コストを LoRA で最小化する」アプローチがロボット制御において極めて実用的で強力である。",
+  "動作データの類似度を DTW と最適輸送（OT）で事前定義することで、強化学習のウォームスタート元や LoRA ランクを賢く制御し、学習効率と転移性能を大幅に引き上げられる。",
+  "継続学習した教師ポリシーを単一の生徒ポリシーへ DAgger 蒸留することで、アーキテクチャの複雑さを配備時に持ち込まず、実機ヒューマノイド（Unitree G1）で高い成功率を維持できる。"
+ ],
+ "limitations_ja": [
+  "タスクが増えるにつれて PNN の横方向接続（lateral connections）が $O(K^2)$ で増加するため、タスク数が数十〜数百へと極端に増えた場合の長期的なスケーラビリティには追加の工夫（接続の枝刈りやルーティングなど）が必要になる可能性がある。",
+  "タスク境界が既知である「タスク増分型（task-incremental）」を前提としており、現在どのタスクを実行しているか分からない状況（タスクフリーやクラス増分型）への対応は今後の課題である。",
+  "運動類似度を計算するために、あらかじめリターゲティングされた参照モーションデータが手元にあることが前提となっている。"
+ ],
+ "keywords": [
+  "Continual Learning",
+  "Humanoid Whole-Body Control",
+  "Low-Rank Adaptation (LoRA)",
+  "Progressive Neural Networks",
+  "Optimal Transport",
+  "Sim-to-Real Transfer"
+ ],
+ "id": "2610.04231",
+ "title": "Continual Humanoid Motion Learning",
+ "authors": [
+  "Zhewen He",
+  "Hao Huang",
+  "Geeta Chandra Raju Bethala",
+  "Chong Yu",
+  "Tao Chen",
+  "Anthony Tzes",
+  "Yi Fang"
+ ],
+ "date": "2026-10-06",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "control",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.04231",
+ "pdf_url": "https://arxiv.org/pdf/2610.04231",
+ "summary_ja": "ヒューマノイドの全身運動制御において、過去データを再訪せずに一連の新規タスクを逐次習得する継続学習フレームワーク「Similarity-guided LoRA-PNN」を提案。Progressive Neural Network構造で構造的に破滅的忘却を防ぎつつ、DTWに基づく運動類似度指標を用いて関連スキルの知識を軽量なLoRAで再利用する。新スキルの獲得効率を向上させながら過去の運動追従性能を維持することを実証した。",
+ "generated": "2026-10-06",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.04231"
+}
