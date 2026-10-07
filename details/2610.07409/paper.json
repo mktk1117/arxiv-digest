@@ -1,0 +1,131 @@
+{
+ "title_ja": "RACER: 装輪四足ロボットのレース向けサンプリングベース計画における残差適応閉ループ推定",
+ "tldr_ja": "車輪型四脚ロボットの高速走行において、簡略化モデルと下位強化学習トラッカーの追従誤差を残差動力学で補正し、さらにLoRAに着想を得た低ランク適応（LoRRA）により極小の実機データで安全に適応させる階層型制御フレームワークRACERを提案しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "RACERのシステム全体像です。上位のDIAL-MPCプランナー（10 Hz）が簡略化キネマティクスに残差動力学を足したモデル上で軌道をサンプリングし、下位の強化学習トラッカー（50 Hz）が16自由度の関節指令に変換して機体を制御します。実機への適応時は残差モデルのみを低ランク制約付きで微調整します。",
+  "caption": "Fig. 2 : System overview. An DIAL-MPC planner samples velocity commands at 10 Hz and rolls them out under $f=f_{\\mathrm{uni}}+g_{\\phi^{*}}$ . An RL tracker realises the chosen command at 50 Hz, producing 16-D joint targets for the Go2-W’s 12 leg joints and 4 wheel motors. Hardware adaptation refines only $g_{\\phi^{*}}$ to compensate domain shift, leaving the planner and tracker untouched.",
+  "image": "details/2610.07409/F2.jpg"
+ },
+ "overview_ja": "車輪型四脚ロボットは、不整地も走れる脚機構と高効率なタイヤ駆動を兼ね備えた魅力的なプラットフォームです。しかし、レースのようにタイヤのグリップ限界近くで高速走行させようとすると、途端に制御が破綻します。四脚の高次元な全身ダイナミクスと、タイヤの強い非線形な横滑りが複雑に絡み合うためです。\n\n古典的なモデル予測制御（MPC）でこの高次元系を長い予測ホライズンにわたって解くのは計算が追いつかず、逆にエンドツーエンドの強化学習（RL）で挑むと報酬の疎さから学習が極めて不安定になります。そこで著者たちは「階層型アプローチ」を採用しました。下位層のRLに速度追従を任せて全身ダイナミクスを単純な速度インターフェースに集約し、上位層のサンプリング型MPC（MPPI）で長期的なコース取りを計画する仕組みです。\n\nしかし、ここには大きな落とし穴がありました。上位プランナーが「理想的な一輪車モデル（ユニサイクル）」を前提に軌道を予測していると、高速コーナリング時にタイヤの滑りやアクチュエータの飽和でRLの追従遅れが爆発し、予測と実挙動が乖離してコースアウトしてしまうのです。著者らはこの追従誤差を補正する「残差動力学モデル」を上位プランナーに組み込みました。\n\nさらに、実機データが約400遷移しかないという厳しい条件下でも、シミュレーションで広範に事前学習した知識を忘却せずに実機適応させるため、低ランク制約（LoRAの着想）を用いた学習手法「LoRRA」を開発しました。実機実験（Unitree Go2-W）とシミュレーション検証により、従来手法がクラッシュする高速域（3.2 m/s）でも安定してラップを完走できることを実証しました。",
+ "contributions_ja": [
+  "サンプリング型MPCと下位RL速度トラッカーの間に残差動力学を挟み込み、閉ループ追従誤差を直接補正する階層型制御フレームワーク「RACER」を提案した点",
+  "大量のシミュレーションデータで事前学習した残差モデルを、極小の実機データで破滅的忘却を起こさずにファインチューニングする「LoRRA」を提案した点",
+  "高速コーナリングにおけるRLトラッカーの非線形な誤差蓄積メカニズムを解明し、残差補正によって実機レースでの完走率とラップタイムを大幅に改善した点",
+  "摩擦係数や関節ゲインのドメインギャップが拡大しても、低ランク制約が事前学習の知識を強固に保持し適応性能を高めることを理論と実験で示した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "車輪型四脚ロボットを限界速度で走らせる難しさ",
+   "summary_ja": "車輪型四脚ロボットの高速レーシングは、高次元ダイナミクスとタイヤの滑りが絡み合い、古典的MPCやエンドツーエンドRL単体では困難です。階層制御が有望ですが、下位RLトラッカーの追従誤差を上位プランナーが考慮できないと高速旋回時に破綻します。著者らはこの課題に対し、残差動力学と低ランク適応（LoRRA）を組み合わせたRACERを提案します。",
+   "details_ja": "車輪型四脚ロボットのレース走行は、制御工学的に非常にチャレンジングな課題です。四脚ロボットの持つ複雑で高次元な全身ダイナミクスと、レーシングカー特有の強いタイヤ非線形性が同時に現れるためです。長距離の将来軌道を最適化したいレースにおいて、この高次元系をそのまま古典的なモデル予測制御（MPC）で解くのは計算負荷が高すぎて現実的ではありません。かといって、エンドツーエンドの強化学習（RL）で直接関節トルクを解こうとすると、計画ホライズンが長いせいで報酬が極めて疎になり、学習が発散するか汎化性能を失ってしまいます。\n\nそこで自然な選択肢となるのが階層制御です。下位層のRLポリシーに並進速度と旋回速度の追従タスクを任せることで、16自由度もある脚・車輪の関節空間をシンプルな低次元の速度インターフェースへと抽象化します。そして上位層のサンプリング型プランナー（DIAL-MPC）が、その抽象化されたインターフェース上で長いホライズンの軌道を探索するのです。\n\nところが、これを素直に実装すると高速度域で必ず失敗します。上位プランナーがロボットを単純な一輪車キネマティクスモデルとして扱っていると、ハードウェアの通信遅延、アクチュエータのトルク飽和、そして高速旋回時のタイヤスリップによって生じる「RLの追従遅れ」を予測できないからです。結果としてプランナーの計画と実際の車体挙動が大きく乖離してしまいます。\n\nこのギャップを埋めるため、著者らは解析的な一輪車モデルに残差ニューラルネットワークを付加し、下位RLトラッカーの閉ループ挙動を正確に予測する仕組みを構築しました。しかし、実機でのデータ収集は破損リスクが高くわずか400ステップ程度しか集められません。そこで、シミュレータ上の1,000万遷移で広範な状態空間を事前学習し、実機データで低ランク制約（LoRAの技術）をかけて微調整する2段階の学習パイプライン「LoRRA」を導入しました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "RACERフレームワークを用いてL字型テストコースを高速旋回しながら疾走するUnitree Go2-W実機です。残差補正によって限界速度域でもコースアウトせずに滑らかな走行軌跡を描いています。",
+     "caption": "Fig. 1 : A Go2W Wheeled Quadruped racing along L-shape track using RACER framework. The low-level controller is a velocity RL-tracking policy; the high level planner is a DIAL-MPC controller equipped with residual dynamics trained with LoRRA.",
+     "image": "details/2610.07409/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "先行研究との違い：どこに残差を入れ、どう適応させるか",
+   "summary_ja": "車輪脚ロボットの移動制御、サンプリング型MPCにおける残差学習、Sim-to-Real適応技術を整理しています。本研究は、ロボットの生の状態ではなく「下位RLトラッカーの指令インターフェース上」に残差を定義し、さらにポリシーではなく「残差動力学モデルそのものを低ランク制約で実機適応させる」点で独自性を持っています。",
+   "details_ja": "本研究の立ち位置を理解するために、関連する3つの研究潮流と本手法の相違点を整理します。\n\n### 車輪脚ロボットの移動とレース\nANYmal-on-wheelsに代表されるハイブリッド歩行・走行では、全身MPCや単一剛体モデルを用いたオンライン軌道最適化、あるいは大規模なRLによる都市ナビゲーションが研究されてきました。しかし、これらは低中速での移動や段差踏破が中心であり、タイヤのグリップ限界を攻める「高速レーシング」はほぼ未開拓の領域でした。先行する数少ない研究も車両運動力学寄りのアプローチであり、残差動力学を活用した本アプローチとは相補的な関係にあります。\n\n### サンプリング型MPCと学習型残差モデル\nMPPI（Model Predictive Path Integral）に代表されるサンプリング型MPCは、順シミュレーションさえできれば勾配が不要なため、学習済み動力学モデルと非常に相性が良いです。四脚ロボットのナビゲーションや小型フォークリフトの制御で残差学習を組み合わせる先行例は存在します。しかし、従来研究の多くはロボットの全身状態空間でダイナミクスを学習していました。対照的に本研究の残差モデルは「プランナーの指令インターフェース（下位RLトラッカーの閉ループ挙動）」に特化して定式化されており、学習と探索の効率を大幅に高めています。\n\n### 動力学モデルのSim-to-Realと低ランク適応\nシミュレータと実機のギャップを埋める研究は盛んですが、そのほとんどは「RLポリシー」の適応を対象としており、「残差動力学モデルのSim-to-Real転移」を掘り下げた研究はこれまでありませんでした。また、LLMの分野で定着したLoRA（低ランク適応）を四脚の運動制御ポリシーに適応させた先行研究はありますが、プランナー内部の「残差動力学ネットワークのファインチューニング」に低ランク制約を適用し、シミュレーション事前知識の忘却を防ぐ試みは本研究が初めてです。",
+   "figures": []
+  },
+  {
+   "heading": "III Hierarchy Overview: RACER",
+   "heading_ja": "RACERの構造：下位RLトラッカーと低ランク残差適応（LoRRA）",
+   "summary_ja": "RACERは上位のDIAL-MPCプランナーと下位のRL速度トラッカーで構成されます。プランナーは解析的一輪車モデルに残差ニューラルネット $g_\\phi$ を足したモデルを用います。$g_\\phi$ の学習には、大量のシミュレーションで事前学習した後に実機データで低ランク更新を行う「LoRRA」を採用し、破滅的忘却を防ぎます。",
+   "details_ja": "RACERの全体アーキテクチャと、中核技術である残差動力学の学習法を解説します。\n\n### システム構成と定式化\n上位のDIAL-MPCプランナーは、状態 $s_t = [x_t, y_t, \\psi_t, v_{x,t}, \\omega_{z,t}]^\\top$（位置、ヨー角、前後速度、旋回角速度）と、制御入力 $a_t = [v_{x,t}^{\\mathrm{des}}, \\omega_{z,t}^{\\mathrm{des}}]^\\top$（目標並進・旋回速度）を扱います。次状態の予測式は次のようにモデル化されます：\n$s_{t+1} = f_{\\mathrm{uni}}(s_t, a_t) + g_\\phi(s_t, a_t)$\nここで $f_{\\mathrm{uni}}$ は公称の一輪車キネマティクスモデルであり、$g_\\phi$ は5層のMLPで構成された学習型残差動力学です。$g_\\phi$ は下位RLトラッカーの追従誤差そのものを予測する役割を持ちます。\n\n### III-A 下位RL速度トラッカー\n下位のトラッカーは50 Hzで動作するPPOベースの強化学習ポリシーです。機体の固有受容感覚（関節角度・角速度・ベース姿勢）と上位からの速度指令を受け取り、16次元の関節目標値（脚の12関節位置＋4輪の目標車輪速度）を出力します。報酬関数は機体が一輪車モデル $f_{\\mathrm{uni}}$ にできるだけ忠実に追従するよう設計されています。\n\n### III-B 残差動力学の学習：LoRRA\n残差ネットワーク $g_\\phi$ を実機だけで学習しようとするとデータ不足で汎化せず、シミュレーションと実機データを単純に混ぜて学習すると、データの不均衡（シミュレーション1,000万遷移 vs 実機400遷移）や物理特性の衝突によって勾配が干渉し、不正確な平均モデルを学習してしまいます。\n\nそこで提案されたのが「LoRRA（Low-Rank Residual Adaptation）」です。まず広範な速度や角速度をカバーするシミュレーションデータ $\\mathcal{D}_s$ で $g_\\phi$ を事前学習します。その後、事前学習済みの重みを固定（フリーズ）し、極小の実機データ $\\mathcal{D}_t$ による更新幅をランク $r$ の低ランク行列に制限して微調整します。これにより、実機固有の補正を柔軟に吸収しつつ、シミュレーションで獲得した広範な状態空間の事前知識が失われる「破滅的忘却」を数学的に防ぐことができます。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "ターゲットドメインのデータ $\\mathcal{D}_t$ で適応学習を進めた際の、ソースドメイン（シミュレーション）損失の推移です。フルファインチューニング（緑）は忘却が進んで損失が増加しますが、LoRRA（青）は低ランク制約によりソースドメインの知識を強固に保持し続けます。",
+     "caption": "Fig. 3 : The Source-Domain loss of residual dynamics $\\mathcal{L}(\\phi,\\mathcal{D}_{s})$ through the training with target-domain data $\\mathcal{D}_{t}$ . See Sec. IV-B for definition of each training recipe: LoRRA, Full Tune, and From Scratch. Source and target environments are defined to be two simulation dynamics with different tire frictions, $|\\mu|=0.4$ . See Sec. IV-B1 for more details about domain definition. LoRRA(dual-phase training with low-rank constraint) helps preserve the most source-domain posterior with lowest source-domain loss after target-domain adaptation.",
+     "image": "details/2610.07409/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "実験結果：残差モデルの必然性とLoRRAの圧倒的な適応力",
+   "summary_ja": "シミュレーションおよびGo2-W実機で網羅的な実験を行いました。残差補正がない単純な一輪車モデルは高速度域で追従誤差が爆発してクラッシュしますが、RACERは速度上限を引き上げても完走を維持しました。また、ドメインギャップが大きい環境ほど、LoRRAがスクラッチ学習や全パラメータ調整を大きく上回る性能を示しました。",
+   "details_ja": "実験では、 autonomous racing の標準指標である「ラップ平均速度（接触時は0にリセット）」「基準軌道からの最大逸脱量」「一定時間内の無衝突・境界遵守ラップ数」の3つで評価しています。\n\n### IV-A 残差動力学のアブレーション評価\n残差を取り除いた「ナイーブ一輪車（Naive Unicycle）」とRACERを比較しました。\n- **シミュレーション結果**：速度制限を2.0 m/sから4.0 m/sまで段階的に引き上げたところ、ナイーブ一輪車は低速（2.0 m/s）では完走できるものの、速度を上げるにつれて軌道逸脱が増大し、3.5 m/s以上では1周も完走できなくなりました（平均速度0 m/sに転落）。一方、RACERは上限を引き上げるほどラップ平均速度が素直に向上し、高い完走数を維持しました。\n- **誤差要因の分析**：線形速度と旋回角速度の変化量が大きくなるほど、RLトラッカーの追従誤差は非線形に急増します。ナイーブ一輪車はコーナリング時に次状態予測誤差が爆発してコースアウトしますが、RACERは残差モデルがその非線形な遅れを先読みするため、予測誤差を終始低く抑えられます。\n- **実機実験結果**：Unitree Go2-W実機での実験（表I）でも全く同じ傾向が確認されました。制限速度1.5 m/sではナイーブ一輪車も完走可能（1.57 m/s）でしたが、2.0 m/sおよび3.2 m/sに引き上げるとナイーブ一輪車は3走すべてでコースアウトして完走数0に終わりました。対照的にRACERは3.2 m/s設定時でも全ラップを完走し、2.06 m/sの平均速度を叩き出しました。\n\n### IV-B LoRRAの適応性能評価\n残差モデルの学習方法として、(1) LoRRA、(2) 全パラメータ微調整（Full-tune）、(3) 実機データのみで最初から学習（From-scratch）の3つを比較しました。\n- **摩擦係数ギャップの検証**：シミュレーションの摩擦係数を $\\mu_s=0.85$ からターゲット $\\mu_t=0.30\\sim 0.65$ へ変化させた実験において、From-scratchは終始低い性能と激しいばらつきを示しました（事前学習の重要性）。また、ドメインギャップ $\\Delta\\mu$ が広がるほど、Full-tuneはシミュレーションの事前知識を忘却して完走率が急落したのに対し、LoRRAは安定して高い完走ラップ数と平均速度を維持しました。\n- **実機での関節ゲイン不一致実験**：実機ロボットの低レベル関節ゲイン $K_p$ を意図的に変動させ、シミュレーション（$K_{p,s}=70$）とのギャップ $\\Delta K_p \\in \\{0, 30, 50\\}$ を作ったハードウェア検証（表II）でも、ギャップが50に達した極限環境でFull-tuneが完走率を大きく落とす中、LoRRAのみが全試行で安定したラップ完走を達成しました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "シミュレーションにおける速度制限ごとの性能比較です。ナイーブ一輪車（青）は速度上限が上がるにつれて軌道逸脱が急増して完走数がゼロになりますが、残差を備えたRACER（赤）は逸脱を抑えたまま平均速度を順調に伸ばしています。",
+     "caption": "Fig. 4 : Simulation performance of Naive Unicycle (Blue) and RACER (Red) v.s. Capped velocity. RACER has stable performances independent of the velocity cap while the performance of naive unicycle is downgraded as the cap becomes higher. Horizontal axis: cap velocity. Vertical Axis: the performance metrics. See Sec. IV-A for the definition of naive unicycle. See Sec. IV-A1 for interpretations.",
+     "image": "details/2610.07409/F4.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "コース走行時の次状態予測誤差のヒートマップです。ナイーブ一輪車（右）は急カーブで予測誤差が激増して×印のクラッシュに至りますが、RACER（左）はコーナーでも一貫して低い誤差を保ち続けています。",
+     "caption": "Fig. 6 : Next-State Prediction Errors of RACER(left) and Naive Unicycle(right). Naive Unicycle’s prediction errors explode while cornering while RACER keeps the next-state prediction errors consistenly low. Heat Bar: next-state prediction errors. The brighter the points, the larger the prediction errors. Left: $\\|s_{t+1}-(f_{\\text{uni}}(s_{t})+g_{\\phi}(s_{t}))\\|$ . Right: $\\|s_{t+1}-f_{\\text{uni}}(s_{t})\\|$ . The trajectories of left are collected using RACER; The trajectories of right are collected using naive unicycle. A cross dot represents a lap failure.",
+     "image": "details/2610.07409/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "摩擦係数のドメインギャップ（横軸）に対する各手法の走行性能です。ギャップが大きくなるほど、事前学習を忘却しないLoRRA（青）の優位性が顕著になり、全パラメータ微調整（緑）やスクラッチ学習（黄）を大きく引き離します。",
+     "caption": "Fig. 7 : Performance(Vertical Axis) of RACER using residual dynamics trained with LoRRA(blue), From Scratch(Yellow), Full-Tune(Green) under various domain gaps in terms of friction coefficient(horizontal Axis). The larger the domain gaps, the greater the advantages hold by LoRRA. Shaded Area: variance across seeds. For the definition of each training recipe, see Sec. IV-B",
+     "image": "details/2610.07409/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "車輪型四脚ロボットの自律レーシング向け階層制御フレームワークRACERを提案し、残差動力学とLoRRAの有効性を実証しました。今後の課題として、走行中にオンラインで安全に残差モデルを適応させる手法や、未知の未舗装路などの野生環境への適応が挙げられています。",
+   "details_ja": "本論文では、車輪型四脚ロボットの高速自律走行を実現する階層型制御フレームワーク「RACER」を提案しました。解析的キネマティクスモデルに残差動力学を融合させることで、下位RLトラッカーの非線形な追従遅れを上位プランナーが正確に予測できるようにし、さらに低ランク適応手法「LoRRA」によって極小の実機データから安全かつ効果的にSim-to-Real転移を成功させました。\n\n今後の研究課題として、著者らは以下の2点を挙げています：\n- **走行中の安全なオンライン適応（On-the-fly Adaptation）**：現在は走行後にオフラインで残差モデルをファインチューニングしていますが、走行中にリアルタイムかつ転倒リスクを冒さずに自己適応できる仕組みへの拡張が期待されます。\n- **野生環境（In-the-wild）への適応**：制御されたテストトラックだけでなく、路面摩擦や凹凸が刻一刻と変化する不整地や屋外環境において、残差モデルをいかに頑健に適応させるかが次の重要なステップとなります。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "階層制御で上位プランナーに簡略化モデルを使う場合、下位RLトラッカーの閉ループ追従誤差を残差モデルとして学習・補正することが限界走行での成否を分ける。",
+  "シミュレーションで広範な状態遷移を事前学習し、実機データで低ランク（LoRA形式）微調整を行うアプローチは、ロボティクスの動力学モデル学習でも破滅的忘却の防止に極めて有効である。",
+  "シミュレータと実機のドメインギャップが大きいほど、全パラメータ更新よりも低ランク制約付き更新の方が性能劣化を防ぎ、高い安全マージンをもたらす。"
+ ],
+ "limitations_ja": [
+  "実機適応のデータ収集はオフラインで行われており、走行中にリアルタイムかつ安全に適応するオンライン学習機構は未実装である点。",
+  "実験環境が摩擦や路面状態の揃った平坦な屋内テストコースに限定されており、起伏の激しい屋外不整地での検証は今後の課題である点。"
+ ],
+ "keywords": [
+  "Wheeled-Quadruped Racing",
+  "Model Predictive Path Integral (MPPI)",
+  "Residual Dynamics",
+  "Low-Rank Adaptation (LoRA)",
+  "Hierarchical Control",
+  "Sim-to-Real Transfer"
+ ],
+ "id": "2610.07409",
+ "title": "RACER: Residual-Adaptive Closed-Loop Estimation for Sampling-Based Planning in Wheeled-Quadruped Racing",
+ "authors": [
+  "Yuxiang Liu",
+  "Marla Eisman",
+  "Lizhi Yang",
+  "Aaron Ames",
+  "Francesco Borrelli"
+ ],
+ "date": "2026-10-07",
+ "group": "focus",
+ "tags": [
+  "quadruped",
+  "reinforcement-learning",
+  "sim-to-real",
+  "planning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.07409",
+ "pdf_url": "https://arxiv.org/pdf/2610.07409",
+ "summary_ja": "装輪四足ロボットの高速走行に向け、MPPIプランナと学習型残差ダイナミクス、低レベルRL速度トラッカを統合した階層的制御則RACERを提案。シミュレーションで事前学習後に実機データで低ランク適応を行うLoRRAにより、少数の実走行データから高精度な残差モデルを獲得し、追従性能と走行速度を大幅に向上させた。",
+ "generated": "2026-10-07",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.07409"
+}
