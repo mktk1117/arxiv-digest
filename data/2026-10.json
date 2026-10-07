@@ -1,6 +1,298 @@
 {
  "entries": [
   {
+   "date": "2026-10-07",
+   "rank": 0,
+   "id": "2610.07052",
+   "group": "focus",
+   "title": "BRACE: Adapting Whole-Body References for Force and Terrain Aware Humanoid Motion Tracking",
+   "title_ja": "BRACE: 外力と地形を考慮したヒューマノイド全身動作追従のための参照適応",
+   "summary_ja": "平地・無負荷を前提とした動作参照を実環境に適応させるヒューマノイド全身トラッカーBRACEを提案。手先への指令外力の発揮や補償を多様な姿勢で行いつつ、傾斜地でも平地参照動作を追従可能にした。実機Unitree H1で最大75Nの外力負荷や最大10度の傾斜面でのロバストな歩行と作業を実証した。",
+   "summary_en": "This paper presents BRACE, a humanoid whole-body tracking framework that adapts flat-ground, load-free reference motions to force and terrain variations. BRACE simultaneously tracks references on slopes and compensates for or exerts commanded hand forces across diverse poses. Experiments on a Unitree H1 humanoid validate robust locomotion and task execution under external loads up to 75 N and on inclinations up to 10 degrees.",
+   "authors": [
+    "Sudarshan Harithas",
+    "Chen Yu",
+    "Juan Borbon",
+    "Shubhankar Mondal",
+    "Winston Zha",
+    "Srinath Sridhar",
+    "Dingqi Zhang",
+    "Jiuguang Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.07052",
+   "image": "figures/2026-10-07/2610.07052.jpg"
+  },
+  {
+   "date": "2026-10-07",
+   "rank": 1,
+   "id": "2610.08320",
+   "group": "focus",
+   "title": "Humanoid Horizon: Extending Task Horizon in Whole-Body Loco-Manipulation via Parallel Training, Dynamic Starting, and Reward Gating",
+   "title_ja": "Humanoid Horizon: 並列訓練と動的開始によるヒューマノイド全身ロコマニピュレーションの長期間タスク拡張",
+   "summary_ja": "散乱した重量物の把持・運搬・配置を一連で行うヒューマノイドの長期間全身ロコマニピュレーション手法を提案。初期段階の偏重（easy-reward bias）や破滅的忘却を防ぐため、動的開始と報酬ゲーティングを導入した並列訓練フレームワークを構築した。実機Unitree G1において長距離移動を伴う連続運搬タスクを成功させた。",
+   "summary_en": "This paper introduces Humanoid Horizon, a unified reinforcement learning framework for long-horizon whole-body loco-manipulation in humanoids. To mitigate easy-reward bias and catastrophic forgetting, it combines dynamic starting states with reward-gating mechanisms during parallel training. Real-world experiments on a Unitree G1 humanoid demonstrate successful uninterrupted navigation, grasping, transport, and precise placement of heavy objects.",
+   "authors": [
+    "Haozhuo Zhang",
+    "Qiang Zhang",
+    "Jian Tang",
+    "Mingzhe Ni",
+    "Michele Caprio",
+    "Angelo Cangelosi",
+    "Wei Pan"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.GR"
+   ],
+   "tags": [
+    "humanoid",
+    "reinforcement-learning",
+    "locomotion",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.08320",
+   "image": "figures/2026-10-07/2610.08320.jpg"
+  },
+  {
+   "date": "2026-10-07",
+   "rank": 2,
+   "id": "2610.07594",
+   "group": "focus",
+   "title": "BiGym 2.0: Benchmarking Learned and Agent-Developed Policies for Humanoid Household Manipulation",
+   "title_ja": "BiGym 2.0: ヒューマノイド家庭内マニピュレーションのための学習および自律生成ポリシーのベンチマーク",
+   "summary_ja": "ヒューマノイドUnitree G1向けに刷新された家庭内操作ベンチマークBiGym 2.0を提案。統合された全身コントローラのもとで、20タスク・各60本のVR実演データとマルチカメラ映像を提供。VLAファインチューニング、模倣学習、実演駆動型RL、コード生成エージェントを同一条件で網羅的に評価した。",
+   "summary_en": "The authors introduce BiGym 2.0, a household manipulation benchmark adapted for the Unitree G1 humanoid using a unified whole-body controller across 20 tasks. It provides 60 native VR human demonstrations per task alongside synchronized multi-camera views. The suite comprehensively benchmarks vision-language-action fine-tuning, imitation learning, demo-driven RL, and cold-start coding agents under standardized observation and control setups.",
+   "authors": [
+    "Zexi Zhang",
+    "Zecheng Zhu",
+    "Zidong Chen",
+    "Zulkhuu Tuya",
+    "Stephen James"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "benchmark",
+    "simulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.07594",
+   "image": "figures/2026-10-07/2610.07594.jpg"
+  },
+  {
+   "date": "2026-10-07",
+   "rank": 3,
+   "id": "2610.07409",
+   "group": "focus",
+   "title": "RACER: Residual-Adaptive Closed-Loop Estimation for Sampling-Based Planning in Wheeled-Quadruped Racing",
+   "title_ja": "RACER: 装輪四足ロボットのレース向けサンプリングベース計画における残差適応閉ループ推定",
+   "summary_ja": "装輪四足ロボットの高速走行に向け、MPPIプランナと学習型残差ダイナミクス、低レベルRL速度トラッカを統合した階層的制御則RACERを提案。シミュレーションで事前学習後に実機データで低ランク適応を行うLoRRAにより、少数の実走行データから高精度な残差モデルを獲得し、追従性能と走行速度を大幅に向上させた。",
+   "summary_en": "This paper presents RACER, a hierarchical control framework for wheeled-quadruped racing combining an MPPI planner, a learned residual dynamics model, and a low-level RL velocity tracker. Through Low-Rank Residual Adaptation (LoRRA), large-scale simulation priors are fine-tuned with minimal real-world data to capture closed-loop tracking dynamics. Real-world and simulation experiments demonstrate significant improvements in tracking accuracy and agility.",
+   "authors": [
+    "Yuxiang Liu",
+    "Marla Eisman",
+    "Lizhi Yang",
+    "Aaron Ames",
+    "Francesco Borrelli"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "reinforcement-learning",
+    "sim-to-real",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.07409",
+   "image": "figures/2026-10-07/2610.07409.jpg"
+  },
+  {
+   "date": "2026-10-07",
+   "rank": 4,
+   "id": "2610.07772",
+   "group": "focus",
+   "title": "Model-Based Geometry-Aware Generative Optimization for Constrained Locomotion Planning",
+   "title_ja": "制約付きロコモーション計画のためのモデルベース幾何配慮型生成最適化",
+   "summary_ja": "四足およびヒューマノイドの衝突回避や接触維持、支持多角形などの制約を伴う歩行軌道最適化を拡散モデルの後験確率サンプリングとして定式化。既知の運動モデルとモンテカルロロールアウトからスコア関数を解析的に推定し、実時間で実行可能な拘束条件充足軌道をデモデータなしで生成することに成功した。",
+   "summary_en": "This paper addresses Constrained Locomotion Planning (CLP) for quadrupeds and humanoids using a model-based diffusion framework that reformulates trajectory optimization as posterior sampling. By leveraging analytical dynamics and Monte Carlo rollouts, the method estimates denoising scores without requiring demonstration data. The approach generates dynamically feasible and contact-consistent trajectories across non-convex environments.",
+   "authors": [
+    "Zhilin He",
+    "Xinyuan Wang",
+    "Changliu Liu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "planning",
+    "quadruped",
+    "humanoid"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.07772",
+   "image": "figures/2026-10-07/2610.07772.jpg"
+  },
+  {
+   "date": "2026-10-07",
+   "rank": 5,
+   "id": "2610.07056",
+   "group": "general",
+   "title": "Behavioral Cloning Mystery",
+   "title_ja": "行動クローニングの謎: OCBenchによる反直感的現象の解明とベンチマーク",
+   "summary_ja": "過学習による性能向上やアクションチャンキング非使用時の破綻など、実機行動クローニング（BC）で頻発する反直感的現象を検証するシミュレーションベンチマークOCBenchを提案。スクリプト動作と人間デモの乖離を埋め、実機特有の課題をシミュレーション上で再現・体系的に評価可能にした。",
+   "summary_en": "This work explores counterintuitive phenomena in behavioral cloning (BC)—such as policy improvements despite overfitting and failures without action chunking—by introducing the OCBench manipulation benchmark. By bridging the gap between scripted policies and human demonstrations, OCBench reproduces real-world BC idiosyncrasies in simulation, enabling controlled and reproducible investigations into imitation learning dynamics.",
+   "authors": [
+    "Seohong Park",
+    "Sergey Levine"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "imitation-learning",
+    "manipulation",
+    "benchmark",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.07056",
+   "image": "figures/2026-10-07/2610.07056.jpg"
+  },
+  {
+   "date": "2026-10-07",
+   "rank": 6,
+   "id": "2610.07525",
+   "group": "general",
+   "title": "ReDex: Repairing Sim-to-Real Dexterous Policies by Finger-Level Compliant Interaction",
+   "title_ja": "ReDex: 指単位のコンプライアント対話による器用な手先方策のSim-to-Real修復",
+   "summary_ja": "シミュレーション訓練された多指ハンド方策を、実機での局所的な接触失敗の修正により適応させるReDexを提案。ベース方策の指協調動作を維持しながら、操作者が一部の指を柔軟に外力介入して接触タイミングを修正し、触覚フィードバックを組み込んだ方策へと迅速に適応させる。",
+   "summary_en": "The authors propose ReDex, a framework to transfer simulation-trained dexterous manipulation policies to the real world by resolving contact discrepancies. While freezing functional fingers to preserve coordination, human operators physically guide failing fingers under compliant control during real rollouts. Incorporating tactile feedback from these interventions successfully repairs base policies for robust multi-fingered grasping.",
+   "authors": [
+    "Jinzhou Li",
+    "Hadi Tabatabaee",
+    "Kelin Yu",
+    "Yuyin Sun",
+    "Cheng-Hao Kuo",
+    "Roberto Mart\\'in-Mart\\'in",
+    "Nima Fazeli",
+    "X. Alice Wu",
+    "Xianyi Cheng"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "sim-to-real",
+    "control",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.07525",
+   "image": "figures/2026-10-07/2610.07525.jpg"
+  },
+  {
+   "date": "2026-10-07",
+   "rank": 7,
+   "id": "2610.07922",
+   "group": "general",
+   "title": "OpenWAM: An Open Framework for Composable World-Action Models",
+   "title_ja": "OpenWAM: 構成可能なワールド・アクションモデルのためのオープンフレームワーク",
+   "summary_ja": "映像生成とロボット制御を統合するWorld-Action Model（WAM）のオープン基盤OpenWAMを構築。Wan2.2-5Bをベースに1万時間以上のロボット動画で因果事前学習を行い、Mixture-of-Transformersにより映像生成と行動生成の柔軟な結合（同時・順次・分離生成）を可能にした。",
+   "summary_en": "This paper presents OpenWAM, an open world-action modeling framework built on a causal robot-video foundation pretrained on over 10,000 hours of video using Wan2.2-5B. Featuring a shared Mixture-of-Transformers architecture, it allows modular exploration of joint, interleaved, and decoupled video-action generation pipelines to systematically compare unified manipulation policies.",
+   "authors": [
+    "Heng Yu",
+    "David D. Yuan",
+    "Juze Zhang",
+    "Changan Chen",
+    "Yao Feng",
+    "Michelle Baldonado",
+    "Steve Cousins",
+    "Li Fei-Fei",
+    "Jiajun Wu",
+    "Ehsan Adeli"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "world-model",
+    "manipulation",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.07922",
+   "image": "figures/2026-10-07/2610.07922.jpg"
+  },
+  {
+   "date": "2026-10-07",
+   "rank": 8,
+   "id": "2610.07217",
+   "group": "general",
+   "title": "RoboCap: A New Platform for Egocentric Robot Learning",
+   "title_ja": "RoboCap: 自己中心視点ロボット学習のための新型ハードウェア・アルゴリズム基盤",
+   "summary_ja": "実環境での自己中心視点操作データ収集のため、250gの帽子型デバイス（6カメラ・2IMU）と専用3D処理APIからなるRoboCapを開発。高精度な頭部SLAMと単眼深度推定を垂直統合し、ロボット学習に向けた高品質な人間デモデータ収集基盤を実現した。",
+   "summary_en": "This work introduces RoboCap, an open 250 g hat equipped with six cameras and dual IMUs designed for scalable, in-the-wild egocentric data capture. Paired with the device-agnostic Grounded API for centimeter-accurate SLAM and metric depth estimation, RoboCap provides an end-to-end hardware-software pipeline to collect high-fidelity human demonstration data for robot learning.",
+   "authors": [
+    "Grounded Superintelligence",
+    "BitRobot"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV",
+    "cs.HC"
+   ],
+   "tags": [
+    "hardware",
+    "perception",
+    "dataset",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.07217",
+   "image": "figures/2026-10-07/2610.07217.jpg"
+  },
+  {
+   "date": "2026-10-07",
+   "rank": 9,
+   "id": "2610.08183",
+   "group": "general",
+   "title": "Compact Robot Policies Need Fine-Grained Visual Representations",
+   "title_ja": "コンパクトなロボット方策における細粒度視覚表現の重要性",
+   "summary_ja": "大規模VLAが持つパラメータ規模や生成事前学習の寄与を検証し、性能の大部分が視覚表現の質に依存することを実証。わずか48.9Mパラメータの小型ポリシーCoRPを構築し、LIBEROで97.0%を達成するなど、40倍以上巨大なベースラインと同等以上の操作成功率を示した。",
+   "summary_en": "This paper demonstrates that the success of multi-task manipulation policies stems primarily from visual representation quality rather than excessive parameter scale or generative priors. The authors introduce CoRP, a compact policy of only 48.9M parameters, which achieves 97.0% on LIBERO and matches the performance of models up to 160 times larger while operating at low compute.",
+   "authors": [
+    "Nanhe Chen",
+    "Runqiu Yang",
+    "Jiawei Tang",
+    "Sichao Liu",
+    "Yuquan Wang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "manipulation",
+    "imitation-learning",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.08183",
+   "image": "figures/2026-10-07/2610.08183.jpg"
+  },
+  {
    "date": "2026-10-06",
    "rank": 0,
    "id": "2610.04238",
