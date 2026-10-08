@@ -1,0 +1,129 @@
+{
+ "title_ja": "HULK: ヒューマノイドのための高負荷全身ロコマニピュレーション学習",
+ "tldr_ja": "重い荷物の運搬やカート押しのような全身に大きな負荷がかかるタスク向けに、モデル予測制御（MPC）の予測軌道を強化学習の報酬ガイドとし、キャプチャポイントに基づく安全障壁関数（CBF）を学習時に組み込むことで、推論時はニューラルネットワーク単体で動く頑健な全身制御フレームワーク「HULK」を提案しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "HULKの3段階トレーニングパイプラインです。手首への外力下で腕姿勢を追従する教師（Stage 1）と、体全体で多様な物体を抱えながら歩行する教師（Stage 2）をそれぞれ学習し、DAggerによって単一の生徒ポリシー（Stage 3）へと蒸留します。",
+  "caption": "Fig. 2: Training overview. We decompose training into 3 stages. In stage 1, we train a teacher $\\boldsymbol{\\pi}_{\\theta}^{\\text{wf}}$ that follows high-level commands $\\mathbf{c}_{t}$ while undergoing force perturbations at the wrists. High-level commands include upper body joint targets $\\mathbf{q}^{\\text{upper},c}_{t}$ , commanded linear velocity $\\mathbf{v}_{t}^{c}$ , commanded angular velocity in z direction $\\boldsymbol{\\omega}_{t}^{c}$ , and height command $h^{c}_{t}$ . In stage 2, the teacher $\\boldsymbol{\\pi}_{\\psi}^{\\text{wbg}}$ follows these commands while maintaining whole-body grasps across multiple object geometries. …",
+  "image": "details/2610.08970/F2.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットが人間と同じ空間で重労働をこなすには、重い箱を抱えて歩いたり、台車を押したりといった「高負荷な全身ロコマニピュレーション」が欠かせません。しかし、重い物体を保持するとロボットの重心（CoM）が大きくずれ、上半身に持続的な外力レンチ（力とトルク）がかかり続けるため、歩行バランスの維持と指令値の追従が極めて難しくなります。\n\n既存の強化学習ベースの全身制御器は、手首への瞬間的な外力や水平方向の押し引きにしか対応できず、胴体に物体を押し当てて運ぶような接触や、継続的な重力負荷への適応は不十分でした。そこで本研究では、負荷ダイナミクスを考慮した重心MPC（モデル予測制御）を強化学習の報酬ガイドとして活用するフレームワーク「HULK」を提案しています。MPCが生成する重心軌道や接触力を強化学習の報酬として追従させることで、重い負荷に対して無理に抵抗するのではなく、負荷の方向へ適切に体を傾けて釣り合いを取る動作を自然に獲得させます。\n\nさらに学習時には、転倒限界を表すキャプチャポイントに基づいた制御障壁関数（CP-CBF）を導入し、負荷によるバランス崩れを訓練中に補正・ペナルティ化しました。これにより、実行時には追加のQPソルバーを動かすことなく、軽量なニューラルネットワーク単体で高い復元力を発揮できます。Unitree G1を用いたシミュレーションおよび実機実験により、手首への力だけでなく胴体への押し当て接触を伴う運搬（小型冷蔵庫やキャニスターの運搬）や、最大300 kgの台車の牽引をゼロショットで達成できることを実証しました。",
+ "contributions_ja": [
+  "外力や重い負荷が手首だけでなく胴体など上半身全体に持続的にかかる状況に対応した、ヒューマノイド全身制御器を学習ベースで実現しました。",
+  "負荷状態を組み込んだ重心MPCの予測を強化学習の報酬ガイドとして用い、持続的な荷重下でも破綻しない歩行・操作動作を獲得させました。",
+  "訓練時のみキャプチャポイント制御障壁関数（CP-CBF）による介入とペナルティを与え、実行時の計算負荷を増やすことなく負荷耐性とバランス復元力を大幅に向上させました。",
+  "手首負荷特化型と全身把持特化型の2つの教師ポリシーを単一の生徒ポリシーに蒸留し、Unitree G1実機での多様な高負荷タスク（冷蔵庫抱え運び、300 kgカート牽引など）を成功させました。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜ重い荷物を抱えて歩くのは難しいのか？",
+   "summary_ja": "ヒューマノイドによる物流や製造現場での実作業には、全身で重い負荷を支え続ける能力が不可欠です。本研究では、負荷による重心の移動と持続的な外力に対応するため、MPCによる報酬ガイダンスと学習時CBFを組み合わせた全身制御フレームワーク「HULK」を提案します。",
+   "details_ja": "ヒューマノイドが人間向けに作られた空間で働く最大の魅力は、人を模した単一の身体で様々な肉体労働をこなせる点にあります。荷物の入った箱を持ち上げたり、台車を押したり、大きな荷物を胸に抱えて運ぶといった動作がその典型です。しかし、これらに共通する課題は「負荷が一過性の外乱ではなく、タスク中ずっと持続する」という点です。荷物の重みによってロボット全体の重心が大きくズレてしまい、歩行バランスを保つための関節トルクが奪われてしまいます。\n\n現在の主流アプローチでは、歩行速度や腕目標を関節トルク指令に変換する強化学習ベースの全身制御器（WBC: Whole-Body Controller）を下位層に置き、上位のプランナがバランスを意識せずに指令を出す階層構造をとっています。近年の敏捷性や視覚適応の進化は目覚ましいものの、「全身で強い力を受け止め続ける」制御はいまだ発展途上でした。従来のコンプライアンス制御では荷物の重力に負けて姿勢が崩れてしまい、既存の力適応制御も手首のみ、あるいは水平方向の押し引きに限定されていました。\n\nそこで本研究「HULK」では、モデル予測制御（MPC）を用いて負荷ダイナミクスを予測し、それを強化学習の報酬ガイダンスとして与えるアプローチをとります。さらに、キャプチャポイント（転倒を阻止するために足を着くべき位置）に基づく制御障壁関数（CBF）を学習時に組み込むことで、ニューラルネットワーク単体の推論でありながら、重い負荷にも負けない頑健なバランス維持を実現しました。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Works",
+   "heading_ja": "全身制御、力適応、そして制御障壁関数の交差点",
+   "summary_ja": "強化学習によるヒューマノイド制御は主に運動学的追従で発展してきましたが、力への適応は手首や水平方向に限られていました。本研究は、低次元MPCによる報酬ガイドと、学習時のみ適用する制御障壁関数（CBF-RL）を拡張・融合することで、先行研究の限界を突破します。",
+   "details_ja": "### 全身制御（Whole-body Control）の潮流\n近年、シミュレータ上での大規模並列強化学習によって、人間の動きを模倣したり遠隔操作に追従したりする全身制御器が大きく進歩しました。SONICのように大規模データセットを用いて自然な全身運動を実現するモデルも登場していますが、これらは主に幾何学的な運動追従（キネマティクス）に焦点を当てており、持続的な荷重を支えることは想定されていません。\n\n### 力適応型全身制御（Forceful Whole-body Control）の限界\n力を扱える制御器として、手首への外乱に耐えるFALCONや、上体を傾けて自重を利用し水平方向の押し引きを行うThorなどが提案されています。しかし、FALCONは力を受けると目標姿勢を維持しにくく、Thorは鉛直方向の大きな重力負荷には対応できません。また、どちらも「胴体に物体を押し当てる」ような全身接触を考慮していませんでした。MPCを用いた先行研究（Liら）も手首の力のみを扱っており、胴体との接触や全身把持は未解決のままでした。\n\n### 学習型制御におけるバランス制約\n制御障壁関数（CBF）は通常、実行時に二次計画法（QP）を解いて安全な制御入力を計算します。しかしこれを実機に組み込むと、実行時に低次元モデルやQPソルバーを常時回す必要があり計算負荷が跳ね上がります。そこで本研究では、学習中のみCBFで行動を補正し、その差分をペナルティとして与える「CBF-RL」の考え方を採用しました。これにより、デプロイ時には追加の計算コストなしで、負荷下でのキャプチャポイント制約を内面化したポリシーを動かすことができます。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "重心MPCによる力の推論の様子です。(a) 前方への角運動量によってロボットが倒れそうになった際、MPCが重心軌道と床反力を計画して上体を立て直します。(b) と (c) では、外乱押しに対して手ぶら時および小型冷蔵庫把持時のそれぞれで安定化する様子を示しています。",
+     "caption": "Fig. 3: Centroidal MPC Force Reasoning. In (a), we show the G1 about to fall over with forward angular momentum. The MPC generates a plan of the CoM trajectory and ground reaction forces to re-stabilize the angular momentum of the robot and keep an upright posture. The green annotations correspond to left foot while the blue ones correspond to right foot. The light blue ghosts illustrate the G1 following the MPC plan. (b) and (c) showcase the G1 stabilizing from an external pushes in a hands-free and minifridge grasp scenario.",
+     "image": "details/2610.08970/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "III Methodology",
+   "heading_ja": "HULKのアーキテクチャ：MPCガイドとCBFによる2人の教師の育成",
+   "summary_ja": "手首外力に耐える教師と、体全体で多様な荷物を抱える教師の2つを訓練し、単一の生徒ポリシーへDAggerで蒸留します。両教師とも重心MPCの予測軌道を報酬ガイドとして使い、手首教師には学習時キャプチャポイントCBF（CP-CBF）を導入して限界バランスからの復元力を高めています。",
+   "details_ja": "### III-A 問題設定\n本研究では、ベース速度、ベース高さ、胴体姿勢、腕関節角度の指令値を受け取り、全身の接触力に耐えながら追従する全身制御を部分観測マルコフ決定プロセス（POMDP）として定式化します。\n\n### III-B & III-C MPCによる報酬ガイダンスと重心ダイナミクス\n強化学習にゼロから荷重下のダイナミクスを学ばせるのではなく、12次元の重心状態（重心位置 $\\mathbf{c}$、オイラー角 $\\boldsymbol{\\Theta}$、線形運動量 $\\mathbf{l}$、角運動量 $\\boldsymbol{\\kappa}$）を扱う重心MPCを解き、その最適軌道と床反力・接触力を報酬の追従対象として与えます（MPC Reward Guidance）。\n\n荷物の重みやモーメントはモデルの外乱項 $\\mathbf{e}_k$ に直接組み込まれるため、MPCは負荷に対して「無理に押し返す」のではなく、「負荷の方向へ自重を傾けて釣り合わせる」ダイナミカルに整合した軌道を生成します。\n\n### III-D 荷重を考慮した足配置（Force-Aware References）\n従来の歩行生成で使われるライバート（Raibert）則は外力を考慮しないため、持続的な荷重を受けると速度誤差が生じます。そこで、高さ $z_j$ に作用する外力 $\\mathbf{f}^e_{j,xy}$ によるモーメントを打ち消すため、着地足の目標位置に $\\sum z_j \\mathbf{f}^e_{j,xy} / (mg)$ に比例するオフセット項を追加しました。これにより、負荷に合わせた踏み出しが可能になります。\n\n### III-E 2人の専門家教師の学習\n- **手首外力教師（Wrist-force teacher）**: 多様な腕の静止姿勢をサンプリングし、手首に最大40 N（水平）および-50〜+5 N（垂直）の独立した3D外力を印加しながら訓練します。\n- **全身把持教師（Whole-body-grasp teacher）**: 13万通りの多様な物体把持姿勢データセットを用い、胴体や前腕で物体を抱え込みながら歩行するスキルを学習します。手首教師の重みからウォームスタートします。\n\n### III-F キャプチャポイントCBFによるバランス誘導（CP-CBF）\n外部レンチによってズレた重心を考慮した力適応型キャプチャポイント $\\boldsymbol{\\xi}_f$ を定義し、許容支持領域 $\\mathcal{S}_{\\mathrm{tol}}$ に対するマージン $h_{\\mathrm{cp}}$ を制約とするCBFを構築します。学習中にポリシーの行動をCBF-QPで補正し、その修正量を報酬でペナルティ化することで、推論時はネットワーク単体でありながら限界領域でのステップ回復動作を身につけさせます。\n\n### III-G 生徒ポリシーへの蒸留\nこれら2人の教師を固定し、モード条件付け（手首外力モードか把持モードか）を与えた単一の生徒ポリシーに対してDAggerを用いて行動を模倣・蒸留します。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "キャプチャポイント制御障壁関数（CP-CBF）の仕組みです。学習時のみCBFによって指令値を補正し、支持領域からの逸脱を防ぐリカバリーステップを踏ませつつ、補助報酬でその補正量をペナルティ化します。実機デプロイ時はCBFフィルタなしで動作します。",
+     "caption": "Fig. 4: CP-CBF guidance. The ghost illustrates a recovery step into a separate admissible footprint; the dashed boundary marks $h_{\\mathrm{cp}}=0$ . The inset shows command correction and reward feedback during training only.",
+     "image": "details/2610.08970/F4.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "全身把持教師の初期化に用いられた、多様な形状の物体に対する全身把持姿勢の例です。腕だけでなく胸や腹部に物体を押し当てる接触配置が網羅されています。",
+     "caption": "Fig. 6: Example whole-body grasp configurations. Authored torso-and-arm postures and object transforms are restored together at reset. These illustrate initialization geometry, not cross-object policy evaluation.",
+     "image": "details/2610.08970/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "シミュレーションと実機実験：重い冷蔵庫を抱え、300 kgの台車を引く",
+   "summary_ja": "シミュレーション評価では、片腕10 kg負荷時においてCP-CBF教師が最も低い速度追従誤差と優れたバランス復元力を示しました。Unitree G1実機では、手首負荷タスクに加えて、ベースラインが全滅した胴体押し当て運搬タスク（冷蔵庫・キャニスター）を100%の成功率で完遂しました。",
+   "details_ja": "### IV-A 実験セットアップ\n比較対象として、FALCON（手首外力耐性）、Thor（上体傾斜による押し引き）、AMO（接触適応）を用いました。実機にはUnitree G1を使用し、シミュレーションで学習した生徒ポリシーをゼロショット（追加学習なし）でデプロイしています。\n\n評価タスクは、手首に負荷がかかる「カート押し引き」「前方ペイロード運搬」と、胴体への接触を伴う「小型冷蔵庫運搬（胸の前で抱える）」「キャニスター運搬（脇に抱える）」の4種類です。\n\n### IV-B シミュレーション結果\n片腕10 kgを前腕部に負荷した歩行テスト（TABLE I）において、Ours + CP-CBFはベースライン中で最も低い並進速度追従誤差を達成しました。特に横方向の追従性が大きく改善しており、外力印加点が手首から前腕へと変わっても汎化することを示しました。\n\nさらに胴体への押し外乱テスト（50〜130 N）では、CP-CBFを導入した教師はDCM（発散運動成分）の逸脱量が最も小さく、外乱を受けた後の体勢立て直し（リカバリー品質）が大幅に向上していることが確認されました。\n\n### IV-C 実機実験結果\n実機テスト（TABLE III）において、HULKは圧倒的な性能差を見せつけました。\n- **カート押し引き**: 共通負荷150 kgにおいて、最良ベースライン（FALCON: 3/6回）を上回る5/6回の成功を達成。負荷スイープでは最大300 kgの牽引に成功しました（ベースライン最大は200 kg）。\n- **前方ペイロード運搬**: 11 kgの負荷で経路逸脱閾値内に収まる成功率100%（4/4回）を達成し、最大12.25 kgまで運搬可能でした。\n- **胴体接触運搬（冷蔵庫 & キャニスター）**: 胸に抱える冷蔵庫運搬（6 kg）ではHULKが4/4回成功したのに対し、AMOは2/4回、ThorとFALCONは0回（転倒またはトルク制限停止）。さらに脇に抱えるキャニスター運搬（5 kg）では、ベースラインが全滅（全て0/4回）する中、HULKのみが4/4回完全成功しました。最大可搬重量も冷蔵庫で7.0 kg、キャニスターで6.1 kgと最高値を記録しました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "Unitree G1実機で行われた4つのタスクです。上段の手首に負荷がかかるペイロード運搬やカート押し引きだけでなく、下段の冷蔵庫やキャニスターのように胴体に強く押し当てて保持するタスクも歩行しながら見事にこなしています。",
+     "caption": "Fig. 5: Real-world tasks. Cart push/pull, payload carry, fridge carry, and canister carry on the Unitree G1. Together they span the upper body: force acts at the wrists in the first two and against the torso in the last two, and every task is performed while walking.",
+     "image": "details/2610.08970/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Discussion and Limitations",
+   "heading_ja": "考察と限界：見えてきた課題と今後の展望",
+   "summary_ja": "MPCの負荷予測とCBFの境界誘導が相補的に機能することが実証されましたが、重心モデルによる関節自由度の近似限界や、把持の「持ち替え・掴み取り」といった動的な接触遷移の学習は今後の課題として残されています。",
+   "details_ja": "### 成功の理由とトレードオフ\n物体を支える位置によって重心まわりのモーメントが変化し、腕の姿勢と必要な支持脚の踏ん張りが強く結合します。荷重を組み込んだMPCを報酬ガイドとすることで、この結合関係を強化学習が効率よく捉えられるようになりました。また、MPCがダイナミクスに即した参照軌道を与える一方で、CP-CBFはバランス限界付近での振る舞いを整形するという、相補的な役割を果たしています。\n\n一方で、バランス復元を重視すると瞬間的なベース速度追従誤差が大きくなるというトレードオフも見られました。これは転倒を防ぐためにあえて指令値から外れるステップを踏んでいることを意味しており、実用上は妥当な妥協点といえます。\n\n### 本手法の限界（Limitations）\n- **関節トルク制約の近似**: ガイダンスに使っている重心MPCは低次元の剛体近似モデルであるため、各関節のトルク限界や可動域を厳密には解いていません。そのため、MPCが計画した軌道が関節レベルで常に実現可能とは限りません。\n- **接触遷移（Contact Transitions）の欠如**: 本研究では「すでに荷物を持った状態」からタスクを開始しており、床にある荷物を持ち上げる（Grasp acquisition）動作や、持ち替える（Regrasping）動作などの動的な接触変化は学習対象外となっています。これらをシームレスに行うには、より詳細なダイナミクスモデルと接触遷移のカリキュラム学習が必要です。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "持続的な荷重を受けるロコマニピュレーションでは、無理に外乱を押し返すのではなく、負荷の方向へ自重を預ける重心計画（MPC）が不可欠である。",
+  "制御障壁関数（CBF）を推論時ではなく学習時のみ適用（CBF-RL）することで、実行時の計算コストを一切増やさずにリカバリーステップ能力をポリシーに内面化できる。",
+  "手首負荷特化型と全身把持特化型の教師を個別に学習させ、DAggerで蒸留するパイプラインは、極端に異なる接触モーダルを単一ポリシーに統合する上で非常に有効である。"
+ ],
+ "limitations_ja": [
+  "重心低次元モデルに基づくMPCを用いているため、関節レベルのアクチュエーション限界やキネマティクス制約を完全には保証できない。",
+  "訓練・評価はすでに把持が成立している状態から開始されており、床からの持ち上げや持ち替えといった動的な接触遷移は扱えていない。",
+  "推論時にはCBFフィルタを通していないため、理論的な安全保証（Safety Guarantee）が実行時に担保されているわけではない。"
+ ],
+ "keywords": [
+  "Humanoid Loco-Manipulation",
+  "Whole-Body Control",
+  "Model Predictive Control",
+  "Control Barrier Functions",
+  "Reinforcement Learning"
+ ],
+ "id": "2610.08970",
+ "title": "HULK: Learning Whole-Body Forceful Loco-Manipulation for Humanoids",
+ "authors": [
+  "An Dang",
+  "Arturo Flores Alvarez",
+  "Yu-Ming Chen",
+  "Conor Mc Gartoll",
+  "Helen Sun",
+  "Aaron Ames",
+  "Nima Fazeli",
+  "Manikantan Nambi"
+ ],
+ "date": "2026-10-08",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "locomotion",
+  "manipulation",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.08970",
+ "pdf_url": "https://arxiv.org/pdf/2610.08970",
+ "summary_ja": "重量物を運搬するヒューマノイドの全身ロコマニピュレーション枠組みHULKを提案。MPCの動力学予測に誘導された強化学習により、手首負荷に耐える腕追従と物体保持歩行の2つの教師ポリシーを訓練し、CP-CBFで転倒を防ぐ。実機・シミュレーションで高負荷時も安定した全身協調動作を実現した。",
+ "generated": "2026-10-08",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.08970"
+}
