@@ -1,6 +1,344 @@
 {
  "entries": [
   {
+   "date": "2026-10-08",
+   "rank": 0,
+   "id": "2610.08970",
+   "group": "focus",
+   "title": "HULK: Learning Whole-Body Forceful Loco-Manipulation for Humanoids",
+   "title_ja": "HULK: ヒューマノイドのための高負荷全身ロコマニピュレーション学習",
+   "summary_ja": "重量物を運搬するヒューマノイドの全身ロコマニピュレーション枠組みHULKを提案。MPCの動力学予測に誘導された強化学習により、手首負荷に耐える腕追従と物体保持歩行の2つの教師ポリシーを訓練し、CP-CBFで転倒を防ぐ。実機・シミュレーションで高負荷時も安定した全身協調動作を実現した。",
+   "summary_en": "The authors propose HULK, a whole-body loco-manipulation framework for humanoids handling heavy objects. Using MPC to guide reinforcement learning with loaded dynamics predictions, it trains two teacher policies for wrist-force arm tracking and loaded locomotion, incorporating capture-point control barrier functions for balance. It achieves stable whole-body coordination under sustained payloads.",
+   "authors": [
+    "An Dang",
+    "Arturo Flores Alvarez",
+    "Yu-Ming Chen",
+    "Conor Mc Gartoll",
+    "Helen Sun",
+    "Aaron Ames",
+    "Nima Fazeli",
+    "Manikantan Nambi"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.08970",
+   "image": "figures/2026-10-08/2610.08970.jpg"
+  },
+  {
+   "date": "2026-10-08",
+   "rank": 1,
+   "id": "2610.09117",
+   "group": "focus",
+   "title": "Workhorse: Learning Robust Whole-Body Humanoid Loco-Manipulation from Human Data",
+   "title_ja": "Workhorse: 人間データからの頑健なヒューマノイド全身ロコマニピュレーション学習",
+   "summary_ja": "実機ヒューマノイドUnitree G1において、リターゲティングを介さず人間の動作データから頑健な全身ロコマニピュレーションを学習するWorkhorseを提案。体幹・両手首・両足の5点目標を予測する視覚プランナと、それを追従するRL全身トラッカーを分離学習し、相互の誤差を模倣するデータ拡張を施した。箱のキック仕分けや飛来する箱のキャッチを実機実証した。",
+   "summary_en": "Workhorse learns contact-rich whole-body humanoid loco-manipulation from human demonstrations without retargeting. It separates a visual planner predicting five-link keypoint targets from an RL whole-body tracker, cross-augmenting training data to handle mutual execution errors. On a real Unitree G1, the system successfully sorts boxes using hands and kicks and catches thrown objects.",
+   "authors": [
+    "Songbo Hu",
+    "Qiayuan Liao",
+    "Yufeng Chi",
+    "Kevin Zakka",
+    "Yakun Sophia Shao",
+    "Pieter Abbeel",
+    "Koushil Sreenath"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.09117",
+   "image": "figures/2026-10-08/2610.09117.jpg"
+  },
+  {
+   "date": "2026-10-08",
+   "rank": 2,
+   "id": "2610.09479",
+   "group": "focus",
+   "title": "Precise SE(3) End-Effector Tracking in Whole-Body Humanoid Control",
+   "title_ja": "ヒューマノイド全身制御における高精度なSE(3)手先追従",
+   "summary_ja": "ヒューマノイドの歩行運動中に生じる外乱や浮動ベースの揺れに対し、手先を高精度にSE(3)追従させる制御器ResGACを提案。幾何学的アドミタンス制御（GAC）が生成するノミナル関節指令に対し、残差強化学習が未モデル化動力学の補償と歩行・バランス維持を協調制御する。操作基準座標系に依存せず精密な追従と安定性を両立した。",
+   "summary_en": "The authors propose ResGAC, a whole-body humanoid controller for precise end-effector SE(3) pose tracking during dynamic motion. Geometric admittance control (GAC) provides task-space feedback for nominal arm targets, while residual RL compensates for unmodeled dynamics and coordinates balance and locomotion. The formulation ensures robust, accurate manipulation across diverse reference frames.",
+   "authors": [
+    "Joohwan Seo",
+    "Xiaofeng Guo",
+    "Jinkun Cao",
+    "Roberto Horowitz",
+    "Rocky Duan",
+    "Guanya Shi",
+    "Koushil Sreenath"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning",
+    "locomotion"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.09479",
+   "image": "figures/2026-10-08/2610.09479.jpg"
+  },
+  {
+   "date": "2026-10-08",
+   "rank": 3,
+   "id": "2610.10465",
+   "group": "focus",
+   "title": "LLA-MPPI: Rapidly Adaptive Whole-body Control of Legged Robots with GPU-Accelerated Parallel Simulations",
+   "title_ja": "LLA-MPPI: GPU並列シミュレーションによる脚ロボットの高速適応全身制御",
+   "summary_ja": "脚ロボットの接触ダイナミクス変化に即座に適応する全身制御手法LLA-MPPIを提案。GPU並列接触シミュレータ群を用いて異なる物理パラメータ候補を同時実行し、直近の運動予測誤差から最適なモデルを選択してLook-ahead MPPIで制御入力を最適化する。事前のモデル同定や大量のオフライン学習なしに、突発的な環境変化に高速適応する。",
+   "summary_en": "The authors present LLA-MPPI for rapidly adaptive whole-body control of legged robots under changing contact dynamics. By maintaining a bank of GPU-batched parallel contact simulators with varied parameters, it selects the best-fitting model via windowed prediction errors and optimizes controls via MPPI. This allows rapid online adaptation without complex offline training.",
+   "authors": [
+    "Sebin Jung",
+    "Maitham F. AL-Sunni",
+    "Juan Alvarez-Padilla",
+    "Zachary Manchester",
+    "Changliu Liu",
+    "John M. Dolan"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "quadruped",
+    "control",
+    "simulation",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.10465",
+   "image": "figures/2026-10-08/2610.10465.jpg"
+  },
+  {
+   "date": "2026-10-08",
+   "rank": 4,
+   "id": "2610.10489",
+   "group": "focus",
+   "title": "HuMBLE: Human Motion-Driven Behavior Learning for Embodied Locomotion",
+   "title_ja": "HuMBLE: 人間動作駆動型行動学習による身体化ロコモーション",
+   "summary_ja": "人間データから指令追従性と生体模倣性を両立するヒューマノイド歩行方策学習手法HuMBLEを提案。多種多様な速度・方向を含む人間歩行データセットから教師生徒蒸留と強化学習を用いて事前方策を獲得し、機械的な歩行を防ぎつつ未知の速度指令にも頑健に汎化するリアルタイム操縦可能な自然なロコモーションを実現した。",
+   "summary_en": "HuMBLE synthesizes steerable, robust, and biomimetic humanoid locomotion policies from human motion data. Through teacher-student distillation and reinforcement learning on a diverse human walking dataset, it balances command tracking against natural motion priors. The resulting controller achieves human-like gaits that generalize well beyond the training distribution in real time.",
+   "authors": [
+    "Mike Zhang",
+    "Dongho Kang",
+    "Kevin Bergamin",
+    "Nicola Burger",
+    "Robin Deits",
+    "Jonathan Foster",
+    "Bilal Hammoud",
+    "Katie Hughes",
+    "Francesco Iacobelli",
+    "Twan Koolen",
+    "M. Eva Mungai",
+    "Zach Nobles",
+    "Shane Rozen-Levy",
+    "Jean Pierre Sleiman",
+    "Fangzhou Yu",
+    "Yunbo Zhang",
+    "Alfred Rizzi",
+    "Jessica Hodgins",
+    "Scott Kuindersma",
+    "Yeuhi Abe",
+    "Sylvain Bertrand",
+    "Farbod Farshidian"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.10489",
+   "image": "figures/2026-10-08/2610.10489.jpg"
+  },
+  {
+   "date": "2026-10-08",
+   "rank": 5,
+   "id": "2610.09130",
+   "group": "general",
+   "title": "FlashNeRD: Performance-First Contact-Rich Neural Robot Dynamics",
+   "title_ja": "FlashNeRD: 高性能かつ接触リッチなニューラルロボットダイナミクス",
+   "summary_ja": "ロボットのシミュレーション高速化に向け、接触を含む神経動力学モデルFlashNeRDを提案。既存手法NeRDに対し、並列ストリーミング構造による推論の高速・高精度化、事前定義箇所に限定されない任意点接触の入力、操作対象物との双方向結合を実現した。微分可能かつ実データに適応可能な高速シミュレーション環境を提供する。",
+   "summary_en": "FlashNeRD introduces a fast neural robot dynamics model for contact-rich simulation. It improves upon NeRD by adopting a parallel streaming architecture for speed and accuracy, an encoder accepting arbitrary contact points, and two-way coupling with manipulated objects. It provides an inherently differentiable and accelerated alternative to analytical physics engines.",
+   "authors": [
+    "Mohammadmehdi Ataei",
+    "Mohammad Amin Nabian",
+    "Jie Xu",
+    "Miles Macklin",
+    "Yashraj Narang",
+    "Eric Heiden",
+    "Octi Zhang",
+    "Yunrong Guo",
+    "Ruben D'Sa",
+    "Oliver Hennigh",
+    "Gavriel State",
+    "Sanjay Choudhry"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "control",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.09130",
+   "image": "figures/2026-10-08/2610.09130.jpg"
+  },
+  {
+   "date": "2026-10-08",
+   "rank": 6,
+   "id": "2610.09369",
+   "group": "general",
+   "title": "Immiscible Diffusion Policy: Preserving Multimodal Robot Actions through Label-Free Noise Assignment",
+   "title_ja": "非混和拡散ポリシー: ラベル不要ノイズ割り当てによるロボット行動の多峰性保持",
+   "summary_ja": "ロボット操作における拡散ポリシーが多峰性行動分布を単一モードに縮退させてしまう問題を分析し解決策を提案。アクションとノイズの独立な組み合わせが拡散経路の交差を招き平均化が生じることを示し、ラベル不要なノイズ割り当てにより経路の混合を防ぐことで、多峰性かつ精度の高い行動生成を実現した。",
+   "summary_en": "This paper investigates the mode collapse problem where diffusion policies collapse to a single mode despite multimodal demonstration data. The authors show that independent noise-action pairing causes paths to cross and average out, and propose an immiscible diffusion policy with label-free noise assignment to preserve multimodal robot action distributions effectively.",
+   "authors": [
+    "Xiao Zhang",
+    "Yuxin Chen",
+    "Zhixuan Liang",
+    "Guojian Zhan",
+    "Chenran Li",
+    "Chenfeng Xu",
+    "Masayoshi Tomizuka",
+    "Yiheng Li"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "imitation-learning",
+    "manipulation",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.09369",
+   "image": "figures/2026-10-08/2610.09369.jpg"
+  },
+  {
+   "date": "2026-10-08",
+   "rank": 7,
+   "id": "2610.10515",
+   "group": "general",
+   "title": "RoboJEPA: Scaling Robotic Latent World Models",
+   "title_ja": "RoboJEPA: ロボット潜在世界モデルのスケーリング則",
+   "summary_ja": "12種類の異なるロボット構成・データから構成される大規模データセットを用いて訓練されたJEPA型潜在世界モデルRoboJEPAを提案。潜在ロールアウトの予測誤差が計算量に対して2次のべき乗則に従うスケーリング則を解明し、モデル規模やデータ量の増加に伴う性能向上を予測可能にした。ダウンストリームのロボット計画タスクでも有効性を実証した。",
+   "summary_en": "The authors present RoboJEPA, a latent world model based on JEPA trained across 12 distinct robotic embodiments. The study reveals that latent rollout errors follow a second-order power law with respect to compute, enabling principled prediction of model performance scaling. Downstream planning performance also confirms the benefits of scaling latent world models.",
+   "authors": [
+    "Artem Zholus",
+    "Nicolas Beltran-Velez",
+    "Jianhao Yuan",
+    "Sarath Chandar",
+    "Tushar Nagarajan",
+    "Daniel Severo",
+    "Koustuv Sinha",
+    "Michal Drozdzal",
+    "Adriana Romero Soriano",
+    "Jeannette Bohg",
+    "Nicolas Ballas",
+    "Mahmoud Assran"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "dataset",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.10515",
+   "image": "figures/2026-10-08/2610.10515.jpg"
+  },
+  {
+   "date": "2026-10-08",
+   "rank": 8,
+   "id": "2610.09178",
+   "group": "general",
+   "title": "CAP: Codebook-Aligned Prediction for Tokenized Robot Policies",
+   "title_ja": "CAP: トークン化ロボットポリシーのためのコードブック整合予測",
+   "summary_ja": "行動を離散トークン化して自己回帰的に予測するロボット方策において、失われていた潜在コード構造を活用する手法CAPを提案。既存手法がトークンを単なるクラスIDとして扱い分類器を新規学習していたのに対し、量子化器のコードベクトルをクラスプロトタイプとして直接再利用する。アーキテクチャを変えずにシミュレーションと実機で性能向上を達成した。",
+   "summary_en": "The authors introduce Codebook-Aligned Prediction (CAP) for tokenized robot policies. While standard policies treat tokens as arbitrary class indices, CAP directly reuses the tokenizer's learned code vectors as policy class prototypes without modifying model backbones. Experiments across multiple benchmarks and real-robot setups demonstrate consistent performance gains.",
+   "authors": [
+    "Haoran Chen",
+    "Jingtian Ji",
+    "Samuel Wheeler",
+    "Kaylene Caswell Stocking",
+    "Matthew Walter"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "imitation-learning",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.09178",
+   "image": "figures/2026-10-08/2610.09178.jpg"
+  },
+  {
+   "date": "2026-10-08",
+   "rank": 9,
+   "id": "2610.10384",
+   "group": "general",
+   "title": "OpenViTac: Learning and Benchmarking Visuo-Tactile Policies in a Unified Sim-and-Real Framework",
+   "title_ja": "OpenViTac: 統一Sim-and-Realフレームワークによる視覚触覚ポリシーの学習とベンチマーク",
+   "summary_ja": "触覚を活用したマニピュレーションポリシーを評価するための、シミュレーションと実機が統合された初のベンチマークOpenViTacを提案。接触リッチな操作タスクを4つの触覚能力次元に体系化し、ペアとなったSim/Real環境を提供することで、VTLA（視覚・触覚・言語・行動）モデルの性能評価とSim-to-Real転移の検証を一貫して行える環境を構築した。",
+   "summary_en": "OpenViTac is a unified visuo-tactile manipulation benchmark for evaluating robot policies across paired simulation and real-world environments. It categorizes contact-rich manipulation into four tactile capability dimensions, providing standardized testbeds to benchmark vision-tactile-language-action policies and analyze their sim-to-real transfer consistency.",
+   "authors": [
+    "Yifan Wu",
+    "Qin Li",
+    "Nan Min",
+    "Guojin Zhong",
+    "Haoyu Zhao",
+    "Zhiyuan Li",
+    "Houze Xu",
+    "Shengqi Xu",
+    "Xingyao Lin",
+    "Zijie Diao",
+    "Zhaoxiang Liu",
+    "Shiguo Lian",
+    "Shunlin Lu",
+    "Shihao Zhao",
+    "Ziyi Ye",
+    "Zuxuan Wu",
+    "Yu-Gang Jiang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "benchmark",
+    "sim-to-real",
+    "manipulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.10384",
+   "image": "figures/2026-10-08/2610.10384.jpg"
+  },
+  {
    "date": "2026-10-07",
    "rank": 0,
    "id": "2610.07052",
