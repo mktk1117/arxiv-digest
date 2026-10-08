@@ -1,0 +1,150 @@
+{
+ "title_ja": "HuMBLE: 人間動作駆動型行動学習による身体化ロコモーション",
+ "tldr_ja": "人のモーションキャプチャデータから蒸留した歩行スタイル事前分布をマルチタスク強化学習で拡張することで、自然な全身協調と高追従・頑健なステアリング制御を軽量な単一MLPで両立しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "HuMBLEによる実機での移動知能のデモ結果です。Boston Dynamics Atlas R1での公開ライブデモ（A）や連続した速度・旋回ステアリング（B）、Atlas D1の後退・旋回・横歩き（C）、Unitree G1での歩行からスプリントへの滑らかな歩容遷移（D）、上位ナビゲーションやパルクール制御との階層的統合（E）を実現しています。",
+  "caption": "Figure 1 : Summary of hardware results from HuMBLE . (A) Human-like steerable locomotion on the Boston Dynamics Atlas R1 was demonstrated live to the public on stage. (B) The Atlas R1 robot following real-time user steering commands that vary continuously in speed and direction while maintaining stylistic consistency with the human reference motion dataset. (C) The Atlas D1 robot performs backward walking, circling, and sidestepping (from left to right) to demonstrate the HuMBLE policy’s coverage of the SE(2) steering command space. (D) Transition from walking to high-speed sprinting on the Unitree G1 robot. The gait transition emerges in response to an increasing in the commanded speed. …",
+  "image": "details/2610.10489/F1.jpg"
+ },
+ "overview_ja": "ヒューマノイドの歩行制御において、「人のような自然で滑らかな動き」と「広範な速度指令に対する俊敏で頑健な追従」を両立させることは長年の難問でした。強化学習（RL）でタスク追従だけを最適化すると機械的で硬い歩容になりがちですし、人のモーションキャプチャデータをそのまま模倣させると、データに含まれない速度や急旋回の指令に対して転倒したり応答できなくなったりする「分布外問題」が生じるためです。\n\nそこで著者らは、スタイル獲得と指令空間の拡張を2段階に分離した学習フレームワーク「HuMBLE」を提案しました。まず第1段階では、全身の参照軌道を見ながら模倣するTeacher方策を訓練し、これを固有受容感覚と平面速度指令のみを入力とするStudent方策（Prior方策）へ蒸留します。続く第2段階では、このPriorをベースに並列環境を「短ホライゾンの参照軌道模倣タスク」と「長ホライゾンの任意速度追従タスク」に半々に分割するマルチタスク強化学習を実施。人の歩行スタイルを正則化として維持しつつ、データセット外の速度域まで頑健に適応させました。\n\n検証はシミュレーションのみならず、Boston DynamicsのAtlas R1、Atlas D1、Unitree G1の3種類の全く異なるヒューマノイド実機で行われました。その結果、腕振りの同期、膝の伸展、踵着地（ヒールストライク）から爪先へのローリングといったバイオミメティックな特徴を保ちながら、データなしで速度追従のみを最適化したTabula Rasa RLと同等の指令追従精度と外乱耐性（Atlas R1で最大1400 Nの押しに耐える性能）を達成しました。推論時間はJetson Orin CPU上でわずか1.1 msと極めて軽量で、実環境でのジョイスティック操作や階層制御への組み込みにも成功しています。",
+ "contributions_ja": [
+  "約3時間・52万フレームにおよぶ多様な速度・全方向の移動動作を含むヒューマノイド向け動作データセットの構築と公開",
+  "スタイル獲得（Teacher-Student蒸留）と指令空間拡張（マルチタスクRL）を分離し、自然さと操作性を両立する2段階学習フレームワークの提案",
+  "目標速度指令に応じた状態からロールアウトを開始するGC-RSIと、タスク文脈を分離するCritic設計による学習安定化手法の開発",
+  "Atlas R1、Atlas D1、Unitree G1の3種の実機ヒューマノイドによる、ゼロショットでの高品質かつ頑健なステアリング走行の実証"
+ ],
+ "sections": [
+  {
+   "heading": "INTRODUCTION",
+   "heading_ja": "なぜ人のような歩行と自在な操縦の両立は難しいのか？",
+   "summary_ja": "人のような歩行は親しみやすさや予測しやすさをもたらしますが、既存のモデル予測制御やタスク特化型強化学習では機械的な動きになりがちです。一方でデータ模倣型手法はデータセット外の指令に弱いため、HuMBLEではスタイル学習と指令空間拡張を明確に切り分けるアプローチをとります。",
+   "details_ja": "人間と協調するロボットにおいて、歩行は周囲の人間が次の行動を予測し、信頼感を抱くための極めて重要な視覚的・社会的シグナルになります。しかし、実機ヒューマノイドで人間らしい歩行を実現しようとすると、根本的なトレードオフに直面します。\n\n従来のモデル予測制御（MPC）やタスク報酬を設計した強化学習（RL）は、指令追従や転倒回復には優れていますが、腕の振りや歩行周期、踵から爪先への接地といった繊細な全身協調を数式で設計しきることは困難で、結果としてぎこちない機械的な歩容になりがちです。一方で、人のモーションキャプチャデータを利用する敵対的模倣学習（AMPなど）や深層生成モデル（Diffusion、Flow-Matching）は自然な動作を生み出せるものの、min-max学習の不安定さや、実機オンボードの低レイテンシ計算に耐えられないという制約を抱えています。さらに、学習データに存在しない急旋回や斜め移動などの指令を与えると破綻しやすいという問題もありました。\n\nそこでHuMBLEでは、この課題を部分観測マルコフ決定過程（POMDP）として定式化しました。訓練時には全身の目標姿勢を特権情報として用いるTeacher-Student蒸留によって「動作スタイルの事前分布」を獲得し、その後のファインチューニングでスタイルを崩さずに指令範囲を広げる2段階パイプラインを採用しています。これにより、実行時には生成モデルのサンプリング処理や参照軌道の入力を一切必要とせず、固有受容感覚と平面速度指令だけから関節目標角を出力する極めて軽量な制御ポリシーを実現しました。",
+   "figures": []
+  },
+  {
+   "heading": "MATERIALS AND METHODS",
+   "heading_ja": "HuMBLEの全体構成：蒸留からマルチタスクファインチューニングまで",
+   "summary_ja": "HuMBLEは、人の動作データをロボット向けにリターゲティングして指令ラベルを付与した後、Teacher-Student蒸留による事前方策の学習（Stage I）と、スタイル維持と指令拡張を両立するマルチタスク強化学習（Stage II）の2段階で方策を訓練します。",
+   "details_ja": "### データセット収集と指令アノテーション\nViconモーションキャプチャシステムを用いて約3時間（528,214フレーム）の人体歩行データを取得しました。これを2段階の時空間最適化によりロボット骨格へリターゲティングし、自己衝突や地面貫通を防いでいます。各フレームには、胴体の線速度・角速度から未来の移動意図を考慮して推定した平面速度指令（長手方向 $v_{\\text{long}}$、横方向 $v_{\\text{lat}}$、旋回速度 $\\omega_{\\text{turn}}$ の $SE(2)$ 指令）をアノテーションしました。左右対称性を担保するため、矢状面でのデータ反転拡張も適用しています。\n\n### 方策の入出力構成\n最終的な配備方策 $\\pi_{\\text{deploy}}$ は、全結合型のシンプルな多層パーセプトロン（MLP）です。入力は機体の固有受容感覚 $\\bm{o}_{\\text{prop}}$（IMUの線速度・角速度、重力ベクトル、関節角度・速度、前回の行動）とユーザー指令 $\\bm{o}_{\\text{cmd}}$ のみで構成され、50 Hzで推論されます。出力は関節PD制御器の目標角度オフセットです。\n\n### Stage I: 蒸留による事前方策（Prior）の獲得\n全身の参照関節姿勢 $\\bm{o}_{\\text{ref}}$ を直接観測できるTeacher方策 $\\pi_{\\text{teacher}}$ をPPO（Asymmetric Actor-Critic）で訓練し、参照軌道に追従させます。その後、DAgger形式の蒸留を用いて、参照軌道を見ずに $\\bm{o}_{\\text{deploy}}$ だけを見るStudent方策 $\\pi_{\\text{prior}}$ に行動を模倣させます。これにより、部分観測下でも自然な全身協調運動を復元する事前分布を獲得します。\n\n### Stage II: マルチタスク強化学習による指令拡張\nPrior方策をそのまま任意指令でファインチューニングすると歩行スタイルが崩壊（スタイルコラプス）してしまいます。これを防ぐため、並列シミュレーション環境を2つに分割するマルチタスクRLを導入しました。\n- 短ホライゾン参照誘導模倣タスク（$\\mathbb{E}_{\\text{ref}}$）: データセットの参照軌道を短時間追従させ、人間らしいスタイルを忘れないための正則化として機能させます。\n- 長ホライゾン目標追従タスク（$\\mathbb{E}_{\\text{goal}}$）: ランダムにサンプリングされた任意の速度指令を長時間追従させ、データセット外の指令に対する頑健性と応答性を高めます。\n\nさらに、目標指令に近い姿勢からエピソードを開始する「目標条件付き参照状態初期化（GC-RSI）」を導入して転倒を防ぐとともに、Criticにタスク判別フラグ $o_{\\text{sup}} \\in \\{0, 1\\}$ を与えることで、2つの異なる報酬系を安定して評価できるようにしています。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "HuMBLEの全体フレームワークです。Stage Iでは全身参照軌道を見るTeacherから固有受容感覚とSE(2)指令のみを見るPrior方策へと蒸留し、Stage IIでは短ホライゾンの参照模倣と長ホライゾンの目標追従を同時に行うマルチタスクRLにより指令拡張とスタイル維持を両立します。",
+     "caption": "Figure 6 : Overview of the HuMBLE framework. Our approach trains the final control policy $\\bm{\\pi}_{\\text{deploy}}$ through a two-stage process. Stage I employs a teacher–student distillation pipeline to extract a natural locomotion prior $\\bm{\\pi}_{\\text{prior}}$ . Specifically, a teacher policy $\\bm{\\pi}_{\\text{teacher}}$ trained to track full-body reference motions is distilled into the student policy $\\bm{\\pi}_{\\text{prior}}$ , which maps only proprioceptive observations and a SE(2) command to joint-level actions. …",
+     "image": "details/2610.10489/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "Atlas R1向けにリターゲティングされた動作データセットのSE(2)指令分布です。低速・通常・高速歩行や横歩きが網羅されていますが、高速斜め移動などは疎であるため、Stage IIによる分布外指令への拡張が必要になります。",
+     "caption": "Figure 7 : Distribution of the human reference motion dataset. We illustrate the distribution of the annotated commands for our in-house curated human motion dataset, retargeted to Atlas R1. While the dataset also contains high-speed sprinting maneuvers, this visualization focuses exclusively on the standard walking command distribution to clearly illustrate the most densely populated region. (A) Scatter plots illustrating the distribution of annotated velocity commands across four locomotion regimes (fast, normal, slow walk and sidestep). For visual clarity, the number of data points is decimated by a factor of 10. …",
+     "image": "details/2610.10489/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "RESULTS",
+   "heading_ja": "実験結果：自然なスタイルを保ちながら、どこまで自在に動けるか？",
+   "summary_ja": "HuMBLEは、腕振りや踵着地などの人間特有の歩行スタイルを高い精度で再現しつつ、指令追従精度や外乱耐性においてデータなしの強化学習ベースラインと同等の性能を達成しました。実機実験でもシミュレーションとの誤差が極めて小さいことが確認されています。",
+   "details_ja": "### 定性的な歩行特徴の比較\nAtlas R1において、ボストン・ダイナミクス標準のMPC、および人間データなしで学習したTabula Rasa RLと比較しました。MPCは腕が固定されてぎこちなく、Tabula Rasa RLも不自然な姿勢になりやすいのに対し、HuMBLEは腕の同期したスイング、接地時の膝ロック、そして顕著な「踵着地から爪先へのローリング（ヒール・トゥ・トウ）」を実現しました。低速時のすり足歩行から高速時のダイナミックな歩行への滑らかな遷移も自動的に創発しています。\n\n### 動作データへの忠実度（定量評価）\nUnitree G1において、参照動作との動的時間伸縮法（DTW）アライメント誤差を計測しました。HuMBLE配備方策の平均絶対誤差（MAE）は胴体線速度で0.058 m/s、角速度で0.127 rad/s、関節位置で0.055 radであり、データセット標準偏差に対してそれぞれ0.149倍、0.257倍、0.184倍という極めて小さな誤差に収まっています。特権情報を持つTeacher方策に近いレベルで全身運動を復元できていることが確認されました。\n\n### 指令追従性・応答性・頑健性\n平面速度空間全体のステップ応答を評価したところ、HuMBLEの定常追従誤差はTabula Rasa RLとほぼ同等でした。特にゼロ近傍の微小速度指令では、データセット内のすり足動作が効いてベースライン以上の追従精度を示しました。また、Atlas R1の胴体に0.2秒間の外乱力を加えるプッシュテストでは、主方向で最大1400 Nの衝撃に耐える頑健性を示しました。前後歩行時は前後方向、横歩き時は横方向の踏ん張りが強くなるという、歩容に応じた自然な安定性特性も現れています。\n\n### Sim-to-Real転移と実機応用\n3機種すべてにおいて、実機とシミュレーションの追従誤差の差は線速度で0.05 m/s、角速度で0.10 rad/s以内に収まり、高い転移精度を示しました。Unitree G1のオンボードJetson AGX Orin CPU上での推論時間はわずか1.1 msでした。屋外・屋内でのジョイスティック操作に加え、障害物回避ナビゲーションや箱を登り降りするパルクール制御の下位モジュールとしても問題なく動作することが実証されました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "Atlas R1の前進歩行のストロボ写真比較です。HuMBLE（A）は、MPC（B）やTabula Rasa RL（C）と比べて、同期した腕振り、自然な膝の伸び、そして踵着地から爪先への接地ローリングが明確に現れていることが分かります。",
+     "caption": "Figure 2 : Stroboscopic snapshot of Atlas R1 walking forward under different controllers. We contrast the forward walking gaits, initiated from a standing configuration, across three different locomotion controllers: (A) the HuMBLE policy, (B) an MPC controller, and (C) a Tabula Rasa RL policy. Each frame captures the transition from swing phase to ground contact to highlight the synchronized arm swinging, heel-strike, and knee-lock.",
+     "image": "details/2610.10489/F2.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "Atlas R1における定量的性能評価です。定常指令追従誤差（A）と立ち上がり時間（B）はTabula Rasa RLと同等の広範なカバー率を示し、外力プッシュ耐性（C）でも最大1400 Nに耐え、歩容の支持基底面に応じた方向依存性を示しています。",
+     "caption": "Figure 4 : Atlas R1 quantitative performance analysis. We evaluate and compare the command responsiveness, command-tracking accuracy, and robustness to external pushes for the HuMBLE and the Tabula Rasa policies. (A) Relative command-tracking error in steady-state. The SE(2) command space (longitudinal velocity, lateral velocity, and turning rate) is visualized using three 2D slices, zeroing one dimension per column, from left to right: $\\omega_{\\text{turn}}=0$ , $v_{\\text{lat}}=0$ and $v_{\\text{long}}=0$ . …",
+     "image": "details/2610.10489/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Ablation Studies",
+   "heading_ja": "アブレーション検証：なぜこの2段階設計が必要だったのか？",
+   "summary_ja": "1段階のみの模倣学習では横歩きなどの複雑な全身協調に失敗すること、そしてStage IIの並列環境分割比率がスタイル維持と指令追従性能の明確なパレートトレードオフを形成していることが実験から明らかになりました。",
+   "details_ja": "### Teacher-Student蒸留の必然性\nStage Iにおいて、Teacherを経由せずに最初から部分観測空間で模倣学習を行うベースライン（Single-stage baseline）と比較しました。単純な前後歩行ではある程度追従できるものの、ベースラインは誤差が最大70%以上悪化しました。さらに、高度な全身協調と横方向バランスが求められる「横歩き（Sidestep）」では、ベースラインは数歩歩いた後に直立姿勢で固まってしまい、追従に完全に失敗しました（線速度誤差が240%以上増大）。物理制約の解決と観測制限の解決を2段階に分ける蒸留パイプラインが不可欠であることが分かります。\n\n### マルチタスク強化学習の環境比率\nStage IIにおいて、参照誘導環境（Ref）と目標追従環境（Goal）の比率を「0:100」から「100:0」まで変化させて比較しました。\n- Goal 100%（0:100）: 指令追従誤差は最小になりますが、胴体が不自然に揺れ、腕の振りが崩れて人間らしさが即座に失われました。\n- Ref 100%（100:0）: 動作忠実度は最も高くなりますが、データセットに少ない横歩き指令を与えると転倒してしまいました。\n\nこの比率がスタイル忠実度と指令追従性の明確なパレートトレードオフを形成しており、本研究で採用した50:50の比率が、人間らしい歩容を崩さずに未知指令へ適応する最適なバランス点であることが示されました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "アブレーション実験の結果です。（A）蒸留なしの単段ベースライン（グレー）はHuMBLE事前方策（オレンジ）に比べ追従誤差が大きく、特にSidestepで破綻します。（B）Ref環境とGoal環境の配分比率を変化させると、スタイル忠実度と速度追従誤差の間に明確なトレードオフ曲線が現れます。",
+     "caption": "Figure 5 : Ablation study. We conducted ablation studies of three crucial design choices within HuMBLE . (A) Role of Teacher–Student Distillation. We compare the data fidelity of the HuMBLE prior policy obtained from the Teacher–Student distillation stage (orange) against a single-stage RL baseline (gray) that directly trains a command-conditioned policy. The DTW-aligned reference motion tracking errors are visualized as a stacked bar chart of the component-wise Mean Absolute Error (MAE). (B) Efficacy of Multi-Task RL. …",
+     "image": "details/2610.10489/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "DISCUSSION",
+   "heading_ja": "まとめと今後の展望：身体知能の汎用基盤に向けて",
+   "summary_ja": "HuMBLEは、スタイル学習と指令拡張を分離することで、軽量なMLP単体で人間らしい動きと実用的な頑健性を両立させました。現在は平地歩行に限定されていますが、全身マニピュレーションや遠隔操作への応用可能性を秘めています。",
+   "details_ja": "HuMBLEの最大の成果は、「人間らしさ」を保つことと「指令に対する俊敏・頑健な追従」という相反する目標を、小細工なしの解釈しやすい強化学習フレームワークとしてまとめ上げた点にあります。潜在変数空間のサンプリングや複雑な生成モデルを使わず、単一の小型MLPでこれが実現できたことは、実機への組み込みという観点で大きな強みです。\n\n一方で、現状のフレームワークにはいくつかの限界も存在します。\n- 平地歩行への制限: 現状は平坦な地面での歩行に特化しており、階段昇降や飛び越えといったアクロバティックな運動には、地形認識（外受容感覚）とそれに対応した新たな動作データが必要です。\n- アノテーションの拡張性: 各フレームへの速度指令ラベル付けは自動差分計算で行えましたが、自然言語指示などより抽象的なセマンティクスを導入する場合にはラベリングの難易度が上がります。\n- ネットワーク容量の限界: 3時間の歩行データは単一MLPに収まりましたが、全身マニピュレーション（Loco-manipulation）や遠隔操作など、さらに多様で高次元な行動レパートリーへスケールさせた際に同一のアーキテクチャで破綻しないかは今後の検証課題です。\n\nとはいえ、HuMBLEが示した「動作データから事前分布を蒸留し、マルチタスクRLで指令空間を拡張する」というレシピは、移動だけでなく身体知能全般に広く応用できる汎用的なアプローチといえます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "動作模倣（スタイル獲得）と指令追従（分布外拡張）を同時に解こうとせず、Teacher-Student蒸留とマルチタスクRLの2段階に分離することが極めて有効",
+  "並列シミュレーション環境を参照模倣用とタスク追従用に50:50で割り振ることで、スタイルコラプスを防ぐ正則化として機能する",
+  "生成モデルや潜在変数を使わなくても、単一の軽量MLP（推論時間約1 ms）だけで十分な全身協調運動の表現と実機展開が可能",
+  "指令に応じた参照状態からロールアウトを開始するGC-RSIと、Criticへのタスク判別フラグ付与がマルチタスクRLの学習を安定させる鍵"
+ ],
+ "limitations_ja": [
+  "平坦な地形での歩行に限定されており、段差や階段などの不整地を歩くための外受容感覚（カメラやLiDAR）の統合が未検証である点",
+  "フレームごとの指令アノテーションが胴体速度の差分計算に依存しており、言語指示など高次の指示モダリティへの拡張には追加の工夫が必要な点",
+  "単一の小型MLPがどこまで大規模・多様なデータセット（全身作業や格闘動作など）の容量に耐えられるか、スケーラビリティの限界が未解明である点"
+ ],
+ "keywords": [
+  "Humanoid Locomotion",
+  "Reinforcement Learning",
+  "Teacher-Student Distillation",
+  "Motion Retargeting",
+  "Multi-Task Learning",
+  "Sim-to-Real Transfer"
+ ],
+ "id": "2610.10489",
+ "title": "HuMBLE: Human Motion-Driven Behavior Learning for Embodied Locomotion",
+ "authors": [
+  "Mike Zhang",
+  "Dongho Kang",
+  "Kevin Bergamin",
+  "Nicola Burger",
+  "Robin Deits",
+  "Jonathan Foster",
+  "Bilal Hammoud",
+  "Katie Hughes",
+  "Francesco Iacobelli",
+  "Twan Koolen",
+  "M. Eva Mungai",
+  "Zach Nobles",
+  "Shane Rozen-Levy",
+  "Jean Pierre Sleiman",
+  "Fangzhou Yu",
+  "Yunbo Zhang",
+  "Alfred Rizzi",
+  "Jessica Hodgins",
+  "Scott Kuindersma",
+  "Yeuhi Abe",
+  "Sylvain Bertrand",
+  "Farbod Farshidian"
+ ],
+ "date": "2026-10-08",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "locomotion",
+  "reinforcement-learning",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.10489",
+ "pdf_url": "https://arxiv.org/pdf/2610.10489",
+ "summary_ja": "人間データから指令追従性と生体模倣性を両立するヒューマノイド歩行方策学習手法HuMBLEを提案。多種多様な速度・方向を含む人間歩行データセットから教師生徒蒸留と強化学習を用いて事前方策を獲得し、機械的な歩行を防ぎつつ未知の速度指令にも頑健に汎化するリアルタイム操縦可能な自然なロコモーションを実現した。",
+ "generated": "2026-10-08",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.10489"
+}
