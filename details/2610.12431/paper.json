@@ -1,0 +1,151 @@
+{
+ "title_ja": "SCOPE: 軌道拡散モデルのための制御即応型不確実性推定",
+ "tldr_ja": "拡散モデルのスコア曲率（ヘッセ行列）を蒸留することで、高コストなモンテカルロ抽出を行わずに制御へ直結する解析的不確実性チューブを高速推定する手法SCOPEを提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "上段：SCOPEはスコア曲率を利用して、軌道予測をリアルタイム制御に即応したガウシアンチューブへと変換します。下段：推定された不確実性は、MPPIの探探索共分散を調整するポリシー事前分布として、また他者（人間）の将来占有を予測するワールドモデルとしてロボット制御に統合されます。",
+  "caption": "Figure 1: ( Top ) SCOPE leverages score curvature to augment diffusion predictions with precision tubes that are suitable for control. It provides uncertainty estimates at low computation cost, enabling real-time control. ( Bottom ) We apply SCOPE as a robot policy prior in MPPI and also to predict the trajectories of other agents.",
+  "image": "details/2610.12431/F1.jpg"
+ },
+ "overview_ja": "拡散モデルはマルチモーダルで複雑な軌道分布を捉える強力な生成モデルとして、ロボティクスのプランニングや歩行者予測で急速に普及しています。しかし、モデルが持つ「予測の不確実性（確率的な広がり）」をリアルタイム制御で扱おうとすると、大きな壁にぶつかります。従来の拡散モデルから不確実性を明示的に取り出すには、何度も逆拡散プロセスを実行するモンテカルロサンプリングが必要であり、計算が重すぎて閉ループ制御の周期に間に合わないためです。\n\nそこで著者らは、「学習済みスコアモデルの幾何学的曲率（対数密度のヘッセ行列）に局所的な不確実性（精度行列）がそのまま埋め込まれている」という点に着目しました。ラプラス近似の考え方に基づき、予測軌道周辺の急峻な尤度低下は高い確信度（細いチューブ）を、平坦な低下は大きな不確実性（太いチューブ）を意味します。本研究が提案する「SCOPE」は、ヘッセ・ベクトル積（HVP）を用いてスコア曲率情報を軽量なニューラルネットワークへ学習時に蒸留し、推論時には1回の順伝播とブロック帯状＋低ランクの構造化ソルバーによって、わずか1ミリ秒未満で時間ステップごとの共分散を持つガウシアンチューブを出力します。\n\n検証実験では、歩行者軌道予測におけるNLL評価で多数回サンプリングするアンサンブル手法に匹敵する精度を極めて低い計算コストで達成しました。さらに、MPPI（サンプリング型MPC）に組み込むことで、迷路ナビゲーション、混雑交差点での歩行者回避、実機Franka Pandaアームによる棚内部のピック＆プレースにおいて、適応的な探索制御と衝突リスク評価の両面で優れた閉ループ性能を実証しました。",
+ "contributions_ja": [
+  "拡散モデルから追加のサンプリングなしで制御即応型の時間ステップ別不確実性を1ミリ秒未満で抽出する軽量モジュールSCOPEを提案したこと。",
+  "軌道精度行列を「ブロック帯状＋低ランク」に構造化し、効率的なHVP学習と制御時の線形時間での周辺共分散計算を両立したこと。",
+  "SCOPEの不確実性チューブをワールドモデル（衝突リスク評価）とポリシー事前分布（MPPIの適応的探索共分散）の双方に統合し、実機マニピュレーションを含む多様なタスクで制御性能の向上を実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ拡散モデルの不確実性をリアルタイム制御で取り出したいのか",
+   "summary_ja": "ロボット制御において拡散モデルの予測不確実性を把握することは衝突リスク評価に必須ですが、従来のモンテカルロサンプリングは計算が遅すぎます。本論文ではスコア関数の曲率情報を蒸留し、1回の順伝播で制御可能な不確実性チューブを出力するSCOPEを提案します。",
+   "details_ja": "拡散モデルは、高次元かつマルチモーダルな分布を表現できることから、ロボット制御のポリシー（動作生成）やワールドモデル（周囲環境や他エージェントの予測）として広く使われています。しかし、人と協調・混在するインタラクティブなロボティクス環境では、単に最もありそうな1本の軌道を予測するだけでは不十分です。将来の行動に固有の偶発的不確実性（aleatoric uncertainty）を把握し、「どの進路を通りそうか」だけでなく「その進路の周りにどれくらいのバラつきがあるか」を見積もって安全マージンを確保する必要があります。\n\n問題は、拡散モデルが不確実性を生成分布の中に暗黙的に保持している点にあります。これを取り出す標準的な手法は、逆拡散プロセスを何十回〜何百回も回すモンテカルロサンプリングですが、GPUでバッチ処理をしても計算遅延が大きく、リアルタイムな閉ループ制御の周期には間に合いません。サンプル数を減らせば高速化できますが、推定精度が劣化してしまいます。\n\nここがポイントです。著者らは、学習済み拡散モデルのスコア関数（対数密度の勾配）が、軌道空間における局所的な幾何構造をすでに捉えていることに着目しました。対数密度の負のヘッセ行列（曲率）は、ラプラス近似においてそのまま「精度行列（共分散の逆行列）」に対応します。SCOPEはこのスコア曲率を軽量な精度推定ヘッドに学習時蒸留することで、推論時は拡散モデルの1パス＋軽量ヘッドの評価だけで、制御器がそのまま利用できる「ガウシアンチューブ」を瞬時に生成します。",
+   "figures": []
+  },
+  {
+   "heading": "2 Preliminaries",
+   "heading_ja": "拡散モデルによる軌道生成とMPPI制御の基本",
+   "summary_ja": "軌道生成を行う離散時間拡散モデルの定式化と、サンプリングベースの非線形最適制御器であるMPPIの基礎を整理します。特に終端ステップにおけるスコア関数がデータ対数密度の勾配を表す点と、MPPIの性能が探索共分散の設計に依存する点が背景となります。",
+   "details_ja": "本研究の基盤となる二つの技術について確認しておきましょう。\n\n一つ目は軌道予測モデルとしての拡散モデルです。きれいな軌道 $\\mathbf{y}_0$ にノイズを段階的に加えていく前方向プロセスに対し、ニューラルネットワークはノイズ除去を行う逆方向プロセスを学習します。これは実質的に、各ノイズレベルにおける対数密度の勾配であるスコア関数 $s_\\theta(\\mathbf{y}, \\mathsf{s}) = \\nabla_\\mathbf{y} \\log p_\\mathsf{s}(\\mathbf{y})$ を学習していることと同義です。特に終端ステップ（$\\mathsf{s}=0$）において、スコア $s_\\theta(\\mathbf{y}, 0)$ はノイズのないクリーンなデータの対数密度勾配 $\\nabla_\\mathbf{y} \\log p(\\mathbf{y})$ を近似しており、この曲率が不確実性抽出の鍵となります。\n\n二つ目はMPPI（Model Predictive Path Integral）制御です。MPPIは非線形ダイナミクスを扱えるサンプリングベースの制御手法で、公称制御入力系列に対してガウスノイズ摂動 $\\delta\\mathbf{u}_t \\sim \\mathcal{N}(\\mathbf{0}, \\mathbf{\\Sigma}^\\mathbf{u})$ を加え、ダイナミクスに沿って展開した多数のロールアウトのコストに基づいて重要度重み付け更新を行います。微分不可能なコストも柔軟に扱える反面、探索ノイズの共分散 $\\mathbf{\\Sigma}^\\mathbf{u}$ が固定されていると、障害物の多い狭所や凹状の環境で局所解に捕まりやすいという大きな課題がありました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "SCOPEの全体構成図。マルチモーダル拡散バックボーン（左）がモード確率付きの代表軌道を出力し、スコア曲率精度ヘッド（右）がHVP蒸留に基づき構造化精度行列を予測して制御即応型ガウシアンチューブを生成します。",
+     "caption": "Figure 2: SCOPE overview. Our method extracts control-ready Gaussian tubes from a diffusion predictor. Here, we use a multimodal diffusion backbone (left) that produces $K$ nominal trajectories with explicit mode probabilities. The SCOPE Precision Head (right) wraps each trajectory in a structured precision matrix $\\boldsymbol{\\Lambda}_{k}$ , learned by distilling the score model’s terminal curvature via Hessian-vector products at training time. At inference, Gaussian tubes are produced with low overhead after diffusion decoding.",
+     "image": "details/2610.12431/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "3 Score-Curvature for Online Precision Estimation (SCOPE)",
+   "heading_ja": "スコア曲率の蒸留と構造化精度行列による高速チューブ推定",
+   "summary_ja": "SCOPEはマルチモーダルバックボーンから得た代表軌道に対し、スコア関数の局所ヘッセ行列から不確実性を抽出します。ブロック帯状＋低ランク構造の導入とHVPを用いた学習により、オンライン計算量を抑えつつMPPIに直接組み込めるガウシアンチューブを実現しました。",
+   "details_ja": "### 3.1 制御インターフェース：ガウシアンチューブの混合分布\nSCOPEの出力は、代表軌道 $\\boldsymbol{\\mu}_k(\\mathbf{c})$ を中心線とし、その周りの局所的な広がりを構造化精度行列 $\\boldsymbol{\\Lambda}_k(\\mathbf{c})$ で表現した「ガウシアンチューブ」の混合分布です。モード確率 $\\pi_k$ が大域的な意図の分岐を表し、チューブの太さ（逆精度行列の各時間ブロック）が各意図の内部における局所的な不確実性を表します。\n\n### 3.2 マルチモーダル拡散バックボーン\n通常の拡散モデルから多数サンプリングして後処理でクラスタリングを行う方法は、リアルタイム制御には重すぎます。そこで本手法では離散潜在変数 $z \\in \\{1, \\dots, K\\}$ を備えたバックボーンを採用しました。これにより、質的に異なる複数の将来モード（右折、左折など）を明確に分離し、モードごとの確信度と代表軌道を直接出力させます。\n\n### 3.3 スコア曲率精度ヘッドの学習と構造化\nなぜスコア曲率から不確実性が得られるかというと、ラプラス近似によれば、密度の極大値付近での対数密度の負のヘッセ行列 $-\\nabla_\\mathbf{y}^2 \\log p(\\mathbf{y})$ がそのまま正規分布の精度行列 $\\boldsymbol{\\Lambda}^*$ になるからです。しかし、高次元な軌道空間で密なヘッセ行列をオンライン計算するのは不可能です。そこで以下の二つの工夫を導入しました。\n\n- ブロック帯状＋低ランク構造：軌道はマルコフ性を持つため、時間的に近接するステップ間の結合が支配的（ブロック帯状行列 $\\mathbf{L}\\mathbf{L}^\\top$）であり、遠隔の相関は低ランク項 $\\mathbf{R}\\mathbf{R}^\\top$ で補正できます。この構造により、高速なコレスキー分解とウッドベリーの公式を用いて、各ステップの周辺共分散を線形時間でクエリ可能です。\n- HVPとハッチンソン法による蒸留：教師となるヘッセ行列そのものは実体化せず、ランダムな探索ベクトル $\\mathbf{u}$ に対するヘッセ・ベクトル積（HVP）を自動微分で計算し、精度ヘッド $\\boldsymbol{\\Lambda}_\\phi$ を学習時に一致させます。重い2次計算はすべて事前学習段階に押し込められます。\n\n### 3.4 下流の制御への組み込み\n得られたチューブは2通りに活用されます。周囲エージェントの予測（ワールドモデル）として用いる場合は、時間ごとのガウス混合分布から衝突確率の上界（チャンス制約）を算出し、MPPIのコスト関数にペナルティを与えます。ロボット自身のポリシー事前分布として用いる場合は、チューブの共分散の大きさに応じてMPPIの探索ノイズ共分散 $\\boldsymbol{\\Sigma}_t^\\mathbf{u}$ を適応的に伸縮させます。広い場所では大きく探索し、狭い場所では無駄な衝突サンプリングを抑える賢い探索が可能になります。",
+   "figures": []
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "予測精度・推論速度・閉ループ制御における検証結果",
+   "summary_ja": "歩行者予測ベンチマーク、迷路ナビゲーション、混雑路案内、実機Frankaアームによる棚内ピック＆プレースで評価しました。SCOPEはアンサンブル法と同等以上の不確実性品質を1ミリ秒未満で達成し、閉ループ制御の成功率を大きく向上させました。",
+   "details_ja": "本論文では3つの問い（Q1: 不確実性の品質と速度、Q2: ポリシー側の探索効率、Q3: ワールドモデル側の衝突回避性能）に答える実験を行っています。\n\n### 4.1 SCOPE精度ヘッドの基礎特性\nY字路環境での歩行者予測において、不確実性の品質指標である負の対数尤度（NLL）を評価しました。比較対象として、等速カルマンフィルタ（LKF）および多数の拡散サンプル（64〜256個）から混合ガウス分布をフィッティングするMID-Ensembleを採用しました。結果として、SCOPEは最大密度の歩行者環境においてもアンサンブル手法と同等以上のNLLを達成しました。推論時間に関して、アンサンブル法はサンプル数に応じて最大7倍遅くなるのに対し、SCOPEの精度ヘッド計算とキャリブレーションはA5000 GPU上でわずか1ミリ秒未満で完了し、極めて高速です。構造の比較では、対角構造のみより帯状構造、さらに低ランク項を加えた完全版が最も優れたNLLを示しました。\n\n### 4.2 ケーススタディ1：Maze2Dナビゲーション\n非凸形状の2D迷路においてMPPIのポリシー事前分布として検証しました。固定共分散を用いる通常のDiff-MPPIは、探索幅が広すぎると壁に衝突するロールアウトが増えて障害物ギリギリをかすめる危険な軌道になり、狭すぎると局所解から脱出できません。SCOPEを用いた手法（Diff-MPPI + SCOPE）は、開口部で探索を広げ、狭路で収縮させる適応的な探索により、すべてのロールアウト予算において最高の成功率と最短の平均経路長を記録しました。\n\n### 4.3 ケーススタディ2：Y字路歩行者ナビゲーション\n混雑する交差点（歩行者数3〜12名）で自律移動ロボットが歩行者を回避するタスクです。予測なし（NF）やLKFに比べ、拡散モデルベースの手法は高い性能を示しますが、サンプリングベースのMID-Ensembleは計算負荷のために制御周波数が落ち、成功率が伸び悩みました。SCOPEはリアルタイム性を損なわずに高精度なチャンス制約を計算でき、歩行者数9名および12名の高密度環境で明確に最も高い成功率を達成しました。\n\n### 4.4 ケーススタディ3：実機Frankaアームによるマニピュレーション\n7自由度のFranka Emikaロボットアームを用い、棚の中にあるトマトを取り出して上段に運ぶ非凸・狭小空間タスクを実施しました（各条件30試行）。\n- 静的環境：障害物がある中で、固定探索幅のDiff-MPPIはクリアランスの狭い進入経路を選んで関節限界や障害物に挟まれタイムアウト（TO）や衝突を起こしました。SCOPEは柔軟性の高い進入モードを選択し、適応的な探索を行うことで最高成功率・最低衝突率を達成しました。\n- 動的環境：棚の近くから人の手が伸びてくる環境において、予測なしでは接近直前まで回避できず棚にぶつかります。アンサンブル法（64サンプル）は制御周期を維持できても精度が不足し、128サンプルに増やすと更新遅延で対応が遅れました。SCOPEによるチューブ予測を組み込んだロボットは、人の将来占有を素早く察知して手前で適切に退避行動をとり、最も高い成功率を示しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "左：ORCAシミュレーションによるY字路合流環境。右：各歩行者密度における予測軌道の不確実性品質（NLL）。SCOPEの構造化チューブは、高コストなアンサンブル法（MID-Ens）に匹敵する優れたキャリブレーション性能を示しています。",
+     "caption": "Figure 3: ( Left ) Y-corridor environment. ( Right ) Uncertainty quality (NLL).",
+     "image": "details/2610.12431/F3.jpg"
+    },
+    {
+     "key": "F9",
+     "caption_ja": "実機Frankaアームによる棚内部のピック＆プレース環境。トマト（ロボットの目標物）を棚の奥から取り出す狭小な作業空間であり、動的実験ではオレオ箱を狙う人間の手が動的障害物として干渉します。",
+     "caption": "Figure 9: Real-robot shelf setup for pick-and-place task. The Franka arm operates in a constrained shelf workspace. In this example, the OREO box is the human target and the tomato is the robot target, while the remaining objects serve as static obstacles for collision-aware MPPI control.",
+     "image": "details/2610.12431/F9.jpg"
+    },
+    {
+     "key": "F10",
+     "caption_ja": "実機実験におけるアプローチ経路のモード。(A) 開口部が広く柔軟な正面進入、(B) クリアランスが厳しい側面進入、(C) 動的実験で手の位置を追跡するWebカメラの構成。",
+     "caption": "Figure 10: Real-robot setup and representative approach modes. (A) Front approach, where the arm reaches the target through a wider opening. (B) Side approach, where the arm reaches the target with tighter clearance. (C) Low-cost RGB webcam setup used for hand tracking in the dynamic experiments.",
+     "image": "details/2610.12431/F10.jpg"
+    },
+    {
+     "key": "F11",
+     "caption_ja": "実機における代表的な失敗例。(A) 静的環境でのベースラインの失敗：柔軟性を考慮できないため狭い側面進入を選び、棚の柱と干渉してタイムアウト。(B) 人手予測モデル（ワールドモデル）を用いなかった場合の失敗：手の接近に対する回避が遅れ、棚の上段に衝突。",
+     "caption": "Figure 11: Representative real-robot failure cases. A. Static Diff-MPPI failure. Without SCOPE, the planner lacks clearance- and flexibility-aware mode selection and may choose the tighter side approach. Near the object, a potential shelf collision blocks further progress; limited-horizon MPPI cannot retreat and reorient, so the trial times out (TO). B. Dynamic failure of Ours (no WM), where SCOPE guides the robot policy but is not used as a human-motion world model. Without hand prediction, the controller reacts only after the hand enters the shelf workspace, causing a late upward evasive motion that collides with the shelf.",
+     "image": "details/2610.12431/F11.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめ：拡散モデルの不確実性をロボットの武器にする",
+   "summary_ja": "スコア曲率蒸留を通じて拡散モデルから制御即応型のガウシアンチューブを瞬時に抽出するSCOPEを提案しました。予測、ナビゲーション、実機制御の全般で、リアルタイム性を維持しながら閉ループ性能を大きく引き上げることを実証しました。",
+   "details_ja": "本研究では、拡散軌道モデルに制御即応型の不確実性を付加する軽量モジュールSCOPEを提案しました。スコアモデルが持つ局所的な曲率情報をヘッセ・ベクトル積によって事前学習で蒸留し、推論時にはブロック帯状＋低ランク構造の解法を用いることで、反復サンプリングを完全に排除したミリ秒未満での共分散計算を実現しました。\n\nこれにより、歩行者予測のチャンス制約評価やMPPIの適応的探索共分散の設計がリアルタイムに可能となり、迷路探索、混雑環境ナビゲーション、そして実機アームの棚内ピッキングにおいて優れた閉ループ制御性能を達成しました。拡散モデルの強力な表現力を、安全性が求められるロボット制御の現場へ橋渡しする実用的な一歩です。",
+   "figures": []
+  },
+  {
+   "heading": "6 Limitations",
+   "heading_ja": "本手法の前提条件と今後の課題",
+   "summary_ja": "バックボーンとなる拡散モデル自体の品質に依存する点や、低次元の状態入力を前提としている点が制限事項です。未学習領域への対応や画像・点群などの生観測データへの拡張が今後の展望として挙げられています。",
+   "details_ja": "SCOPEはスコア関数の曲率から不確実性を蒸留するため、前提として「拡散バックボーンが適切に学習されていること」に強く依存します。学習データのカバレッジが不足している領域や、モデルが適切なモード分離に失敗しているケースでは、予測される不確実性チューブが過信または過小評価されてキャリブレーションが崩れる恐れがあります。\n\nまた、現在の実験はロボットや歩行者の位置座標など、比較的低次元な幾何状態入力をベースに検証されています。カメラ画像や点群などの高次元な生観測から直接エンドツーエンドで制御即応型のチューブを抽出できるように拡張することが、実用化に向けた重要な今後の研究課題です。",
+   "figures": []
+  },
+  {
+   "heading": "付録",
+   "heading_ja": "精度行列のマルコフ性解析と理論的裏付け",
+   "summary_ja": "局所ガウシアン近似を正当化するラプラス展開の診断結果と、軌道の時間的独立性に基づくブロック帯状スパース構造の理論的妥当性について詳述されています。",
+   "details_ja": "付録では、手法を支える数学的根拠と診断実験が詳しく報告されています。\n\n### ラプラス近似の妥当性検証\n拡散モデルから生成された代表軌道が局所的な最適解（モード）に近いかどうかを診断するため、Y字路環境で3,000個のアンカー軌道におけるスコア曲率を検証しました。その結果、94.8%の行列が正定値であり、曲率中心とデコードされた軌道との位置ズレの残差平均平方根の中央値はわずか1.33 cmでした。代表軌道の周りで2次のテイラー展開を行う局所ガウシアン近似が極めて妥当であることが確認されています。\n\n### 精度行列のマルコフ疎構造\nなぜ精度行列をブロック帯状で近似できるのかという点について、ガウシアン・グラフィカルモデルの理論から説明されています。時系列の力学モデルにおいて、$b$ 次のマルコフ性を仮定すると、中間状態を与えたときに時間的に離れたステップ同士は条件付き独立になります。正規分布の精度行列におけるゼロ要素は条件付き独立性を表すため、時間幅 $b$ を超えるオフダイアゴナル成分は自然とゼロになります。実際の教師精度行列を可視化しても対角近傍の帯状成分が圧倒的に支配的であり、残りの大域的な依存関係（ゴールや障害物による拘束）を低ランク項で捉える設計が理に適っていることが裏付けられています。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "教師精度行列の構造可視化。線形スケール（左・中央右）では強い対角優位性が見られ、対称対数スケール（中央左・右）ではマルコフ性による対角近傍の帯状構造と低ランクな大域パターンが明確に確認できます。",
+     "caption": "Figure 5: Empirical structure of teacher precision matrices. The left two plots and the right two plots correspond to two representative trajectories, respectively. For each trajectory, we visualize the same precision matrix with a linear scale and a symmetric log scale. The linear-scale views show strong diagonal dominance, while the log-scale views reveal banded local structure and off-band global patterns.",
+     "image": "details/2610.12431/F5.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "拡散モデルのスコア関数勾配（曲率）は、局所的な精度行列（不確実性の逆数）を直接表現しており、これを活用すれば高コストなモンテカルロ抽出を完全に回避できる。",
+  "軌道の精度行列を「ブロック帯状＋低ランク」に制約することで、物理的なマルコフ性を生かした線形時間での共分散クエリが可能になる。",
+  "抽出した不確実性は、相手の衝突リスク（ワールドモデル）だけでなく、自機の制御器（MPPI）の探索分散を場所に応じて絞る・広げるための指針としても極めて有効である。"
+ ],
+ "limitations_ja": [
+  "教師となる拡散バックボーン自体の学習精度に依存するため、データ不足でスコアが歪んでいる領域では不確実性のキャリブレーションが狂う可能性がある。",
+  "検証が低次元の状態空間（位置座標など）に限られており、画像や点群などの生の高次元センサーデータへの直接適用は今後の課題である。"
+ ],
+ "keywords": [
+  "Diffusion Models",
+  "Uncertainty Quantification",
+  "Model Predictive Path Integral (MPPI)",
+  "Trajectory Prediction",
+  "Robot Safety"
+ ],
+ "id": "2610.12431",
+ "title": "Control-Ready Uncertainty for Trajectory Diffusion",
+ "authors": [
+  "Zhiwei Xue",
+  "Jia Yue Kam",
+  "Jinhang Qiu",
+  "Yifeng Cheng",
+  "Ege Gursoy",
+  "Jiaming Wang",
+  "Vincent Bonnet",
+  "Harold Soh"
+ ],
+ "date": "2026-10-09",
+ "group": "general",
+ "tags": [
+  "planning",
+  "control",
+  "safety"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.12431",
+ "pdf_url": "https://arxiv.org/pdf/2610.12431",
+ "summary_ja": "拡散モデルによる軌道生成において、計算コストの高いモンテカルロ抽出を行わずに実時間制御で利用可能な不確実性を抽出する手法SCOPEを提案。スコア曲率情報を蒸留して名目軌道周囲の精度行列を学習し、低オーバーヘッドで較正済み共分散チューブを出力して安全制御を可能にした。",
+ "generated": "2026-10-09",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.12431"
+}
