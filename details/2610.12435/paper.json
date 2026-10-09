@@ -1,0 +1,149 @@
+{
+ "title_ja": "VioLA: 人間データからの汎用ヒューマノイド制御方策学習",
+ "tldr_ja": "ヒューマノイドの関節指令ではなく全身と手の「運動潜在表現」を予測することで、人間の膨大な動作データをそのまま学習に活用し、タスク特化の追加学習なしで実機ロボットの歩行と作業を高い成功率で実現した論文です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "VioLAのシステム全体像です。人間やロボットの動作を共通の潜在空間（motion latent）に変換することで、93%以上が人間データで構成された大規模データセットから直接ポリシーを学習し、未知の環境で実機ヒューマノイドをゼロショットで動作させています。",
+  "caption": "Figure 1: VioLA. Human and robot motion encoders produce targets in shared body and hand latent spaces. The generalist policy predicts motion latents from vision, language, and proprioception; frozen robot controllers execute its predictions. Annotated human motion therefore supervises the policy in the same action representation as robot motion.",
+  "image": "details/2610.12435/F1.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットに言葉で指示を出して動かす研究は世界中で進んでいますが、腕だけのロボットに比べて2つの大きな壁がありました。1つ目は、バランスを取りながら腕や指を協調して動かす全身制御の難しさです。2つ目は、学習に必要なロボットの操作データ（テレオペレーションデータ）を集めるコストが非常に高く、データが圧倒的に不足していることです。\n\nそこで著者らは、「人間とロボットの動きを共通の潜在ベクトル（motion latent）に落とし込み、ポリシーには関節の角度ではなくその潜在ベクトルを予測させればよい」と考えました。全身制御はあらかじめ学習させた固定の低レイヤーコントローラに任せ、上位の汎用ポリシーは『どの動きをどのタイミングで行うか』という運動潜在表現だけを出力します。これにより、人間の動作ログも同じ潜在空間のラベルとしてそのまま学習データに使えるようになります。\n\n実機のUnitree G1を用いた実験では、タスク特化の追加ファインチューニングを一切行わずに、移動タスクで100%、物体の操作タスクで88.6%という高い成功率を達成しました。さらに、人間のデータだけで学習したポリシーでも実機で歩行や屈伸ができることを示し、人間動画を活用したヒューマノイド学習の新たな道を開きました。",
+ "contributions_ja": [
+  "関節角度の代わりに全身と手の運動潜在表現を予測する階層的な汎用ヒューマノイドポリシー「VioLA」を提案しました。",
+  "人間とロボットの運動を共通潜在空間にマッピングすることで、全体の93.2%が人間データで占められる計1億4060万フレームの大規模データセットを構築・活用しました。",
+  "実機Unitree G1において、タスク特化の追加学習なし（ゼロショット）で移動タスク100%、操作タスク88.6%の成功率を達成しました。",
+  "人間データのみで事前学習したポリシーでも、実機ヒューマノイドの歩行や屈伸動作がゼロショットで実行できることを実証しました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜヒューマノイドに指示通り動いてもらうのは難しいのか？",
+   "summary_ja": "ヒューマノイドの指示追従には「全身の協調制御」と「学習データの不足」という2つの課題があります。VioLAは方策の行動空間を関節指令から『運動潜在表現』へ変更し、あらかじめ訓練された全身コントローラと組み合わせることで両方の課題を同時に解決しました。",
+   "details_ja": "例えば「机まで歩いてノートPCを閉じて」と頼まれたとき、ヒューマノイドはバランスを崩さずに歩き、手を伸ばし、画面を押し下げる必要があります。ロボットアーム向けではVision-Language-Actionモデル（VLA）が大きな成果を上げていますが、二足歩行ヒューマノイドではそう簡単にはいきません。\n\n第1の壁は、全身の協調動作です。腕を伸ばせば重心が崩れ、一歩踏み出せば手の届く範囲が変わります。すべての関節の目標値を一度に学習しようとすると、方策は「指示の意味を理解すること」と「転ばずにバランスを取ること」を同時に解かなければならなくなります。\n\n第2の壁は、データの圧倒的な不足です。ヒューマノイドの実機遠隔操作（テレオペ）には専用の装置と操縦者が必要で、アームのように大量のデータを集めるのは困難です。人間が歩いたり作業したりする動画は世の中に溢れていますが、人の動きをそのままロボットの関節指令に変換することはできません。\n\nここがポイントなのですが、著者らは「第1の壁の解決策の中に、第2の壁を解く鍵がある」と気づきました。近年の運動コントローラ（SONICなど）は、人間とロボットの動きを共通の潜在ベクトル空間（motion latent）に写像し、その潜在表現からロボットの全身関節指令を復元できます。つまり、上位ポリシーに関節値ではなく運動潜在表現を出力させれば、下位コントローラがバランスと関節の協調を自動で受け持ち、さらに人間の動作記録もそのまま学習用の正解ラベルとして利用できるようになります。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "汎用ポリシー・階層制御・人間デモ活用の交差点",
+   "summary_ja": "ロボット向け基礎モデル、モーション事前分布を用いた階層制御、人間データからの学習という3つの文脈を整理します。VioLAはこれらを統合し、人間動画から抽出した運動潜在表現を直接ターゲットとして用いる新しいアプローチをとっています。",
+   "details_ja": "VioLAの位置づけを理解するために、関連する3つの研究領域を見ていきましょう。\n\n- 汎用ロボットポリシー（VLA / WAM）:\nRT-2やOpenVLA、連続行動を拡散・フローで扱う$\\pi_0$など、視覚言語モデルから直接行動を生成する研究が発展しています。最近では動画予測を組み込んだWorld-Action Models（WAM）も登場しています。ヒューマノイド向けにもGR00Tや$\\Psi_0$がありますが、ターゲットタスクごとに実機テレオペによる追加学習（ファインチューニング）が必要でした。\n\n- 運動事前分布と階層制御:\n強化学習を用いて参照動作に追従するコントローラをあらかじめ作っておく手法です。DeepMimicやASE、そして実機ヒューマノイド向けに展開されたSONICなどが挙げられます。SONICは運動エンコーダと全身コントローラを組み合わせることで、潜在ベクトルから関節指令を生成します。\n\n- 人間の動作デモからの学習:\n人間の動きをロボットに転移させるため、ロボットを人間の影のように追従させる手法（HumanPlus）や、人間の手首・指の軌道をリターゲティングして学習する研究（EgoMimicやHAT）が存在します。しかし、これらは別個のロボット用ヘッドを学習し直す必要がありました。\n\nVioLAの決定的な違いは、全身と手の両方に事前学習済みの共有潜在空間を用意した点です。人間の画像とアノテーションされた動作から直接この潜在ターゲットを作り出し、物理的なロボット実機デモを介さずに、そのままロボットが実行可能な方策を学習させます。",
+   "figures": []
+  },
+  {
+   "heading": "3 VioLA",
+   "heading_ja": "関節ではなく「動きの要約」を予測するアーキテクチャ",
+   "summary_ja": "VioLAはカメラ画像・言語指示・自己受容感覚から、全身と手の運動潜在表現を予測します。エンコーダとデコーダ（コントローラ）は完全に固定されており、人間データとロボットデータの両方を統一された行動空間で学習します。",
+   "details_ja": "### 3.1 共有潜在行動空間の設計\n上位ポリシーが予測するのは、関節の角度ではなく128次元のベクトル $\\mathbf{z}_t = [\\mathbf{z}_t^{\\mathrm{body}}; \\mathbf{z}_t^{\\mathrm{hand}}]$ です。全身の64次元には先行研究SONICの事前学習済みモデルを使い、手の64次元には著者らが別途事前学習したハンドモジュールを用います。方策 $p_\\theta$ は、一人称カメラ画像 $I_t$、指示文 $\\ell$、固有受容感覚（関節状態など）$\\mathbf{s}_t$ を受け取り、$H$ ステップ分の行動チャンク（連続した潜在ベクトルの束）を一括で予測します。\n\n### 3.2 人間とロボットのデモからの学習\n人間の動作動画にはロボットの関節指令が含まれていませんが、あらかじめ訓練された人間の全身・手エンコーダを通すことで、直接この128次元の潜在ターゲットを抽出できます。ただし、人間データには「ロボットの固有受容感覚」が欠けています。そこでシミュレータ上で固定のコントローラに人間の動作を追従させ、ロボットが実際に追従した際の関節状態や向き（ヘディング角）を再現して入力として与えました。この工夫により、人間データもロボットデータも「画像・言語指示・ロボット状態・潜在行動ターゲット」という全く同一のフォーマットになり、同じ損失関数で1つのポリシーヘッドを学習できます。\n\n### 3.3 予測から実機での連続実行へ\n実機動作時は、上位ポリシーが予測した潜在ベクトルを、50Hzで動く固定の全身コントローラとハンドデコーダが実時間で関節指令に変換します。上位モデルの推論には100〜200ms程度の遅延があるため、直前に実行中だった動作と新しい予測チャンクのつなぎ目でロボットがガクッと揺れないよう、リアルタイムチャンキング（RTC）という平滑化手法を潜在空間上で適用しています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "VioLAのアーキテクチャ概要です。左側で固定エンコーダが人間・ロボット双方のデモを共通の運動トークンに変換し、中央の上位ポリシーが視覚・言語・固有感覚からそれらを予測します。右側では予測されたトークンが固定デコーダによって実機の関節指令へと変換されます。",
+     "caption": "Figure 2: VioLA overview. Left: frozen motion encoders construct body and hand action targets from human or robot demonstrations. Center: the generalist policy predicts motion latents from an egocentric image, an instruction, and proprioception. It is the only component updated during training. Right: a frozen body controller and hand decoder convert the predicted latents into robot joint commands. Human and robot encoders produce targets for these same decoders.",
+     "image": "details/2610.12435/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "実機Unitree G1での検証：ゼロショットでどこまで動けるか",
+   "summary_ja": "実機のUnitree G1を用いて移動6タスク、操作7タスクを検証しました。タスクごとのファインチューニングなしで移動100%、操作88.6%を達成し、既存の汎用モデルを圧倒。人間データのみによる移動タスクのゼロショット成功も確認しました。",
+   "details_ja": "### 4.1 実機セットアップとデータ規模\n実験には5指ハンド（Inspire hands）を搭載したUnitree G1を用いました。学習データプールは、人間動画コーパス（EgoSuite）と4つのロボットコーパスを統合した計1億4060万フレーム（約781時間分）で、なんと93.2%が人間データです。評価タスクは未知の部屋・未知の物体インスタンスで行い、タスクごとの追加ファインチューニングは行いません。\n\n### 4.2・4.3 移動および操作タスクのゼロショット性能\n移動・姿勢タスク（歩行、屈伸、椅子からの立ち上がりなど6種）において、VioLAは全30試行中30回すべて成功（100%）しました。一方、公開されているGR00T N1.7は「直立保持」のみの16.7%、$\\Psi_0$は0%でした。\n操作タスク（PCを閉じる、椅子を回す、餃子のおもちゃを置く、やかんの蓋を閉めるなど7種）では、35試行中31回成功（88.6%）を達成しました。GR00Tは0%、$\\Psi_0$は8.6%にとどまりました。コートを腕に掛けるタスク（4/5成功）やシャンプーボトルの収納（2/5成功）など、物体を掴んで保持し続ける繊細なタスクで一部失敗が見られましたが、高い一般化能力を示しています。\n\n### 4.4 運動トークンの圧縮性\n10秒程度の動作中にポリシーが生成した潜在ベクトルをクラスタリングしたところ、PCを閉じる動作で平均82個の全身トークンと43個のハンドトークンしか使われていませんでした。関節の複雑な協調を低レイヤーに任せることで、上位ポリシーは非常にコンパクトな表現で動作を記述できていることが分かります。\n\n### 4.5 人間データは本当に効いているのか？\n人間データのみで学習したVioLAを実機に投入したところ、なんと移動タスクで40%（12/30試行）の成功を収めました。ロボット実機のデータを1フレームも見ていないポリシーが、指示に応じて黄色いソファまで歩き、しゃがむ動作を実機で完遂できたのです。また、ロボットデータのみで学習した場合（移動成功率80%）と比べ、人間データを混ぜて学習したVioLAは100%に達し、人間データが運動の多様性を大幅に底上げすることが確認されました。\n\n### 4.6 バックボーン比較と連続性\nGR00T N1.7、$\\pi_{0.5}$、DiT4DiT（WAM）の3種類のバックボーンを比較したところ、移動はいずれも高精度でしたが、操作タスクではGR00Tが最も高い性能（88.6%）を示しました。また、リアルタイムチャンキング（RTC）の導入により、チャンク切り替え時の潜在ベクトルの急変（ステップ変化）が大幅に抑制され、滑らかな動作が実現しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "移動（上段）と操作（下段）のタスク成功率の比較です。VioLAはタスク特化の調整なしで移動100%、操作88.6%を達成しており、既存のGR00T N1.7や$\\Psi_0$を大きく引き離しています。",
+     "caption": "Figure 3: One policy follows locomotion and manipulation instructions without task-specific fine-tuning. VioLA completes 30/30 locomotion trials (top) and 31/35 manipulation trials (bottom). Released GR00T N1.7 succeeds only at standing still; $\\Psi_{0}$ succeeds only at chair rotation. Bars show success over five trials per task, with one standard error. Photos illustrate the tasks.",
+     "image": "details/2610.12435/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "実機での連続動作の様子と潜在表現の推移です。屈伸、PC閉じ、餃子トイの受け渡しにおいて、全身（黒）と手（黄）の潜在表現が協調して滑らかに変化していることが分かります（最下段はコートを落として失敗した例）。",
+     "caption": "Figure 4: From body motion to object interaction. VioLA bends down, closes a laptop, and places a dumpling toy on the desk (first three rows). In a failed coat execution, VioLA grasps the coat but then drops it (last row; failure marked in red). Black and gold curves show executed body and hand latents projected onto their first principal components (63–91% and 47–87% of their variance). Projections are fitted per recording and scaled separately within each row. Gray bands mark successive action chunks; triangles align image timestamps with the curves.",
+     "image": "details/2610.12435/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "タスク完了までに使用されたユニークな運動トークン数です。PC閉じや椅子の回転といった複雑な作業であっても、数十個程度のコンパクトなトークン数で表現できていることが示されています。",
+     "caption": "Figure 5: Complex movements have compact descriptions in motion tokens. Each dot is the number of distinct body (black) or hand (gold) motion tokens over one complete recording, after grouping similar predictions as described in Appendix A.10 . Horizontal marks show the mean and vertical whiskers one standard error across five recordings per task. Numbers below give mean counts and durations. Chair rotation and laptop closing require tens of distinct body and hand tokens over roughly ten seconds of execution.",
+     "image": "details/2610.12435/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "人間データのみで学習したポリシーによる実機動作（左）と、学習データの構成による移動成功率の比較（右）です。人間データのみ（薄黄）でも40%成功し、ロボットデータ単体（薄茶）に人間データを加えることで100%まで向上しています。",
+     "caption": "Figure 6: Human demonstrations teach robot behavior. Left: the human-only policy follows “walk to the yellow couch” and “squat down.” Right: locomotion success with human-then-mixed training (30/30 trials), robot-only training (24/30), and human-only training (12/30). All three are VioLA variants with the same GR00T backbone and frozen motion modules. Error bars show one standard error over trials. The robot-only and human-then-mixed variants each receive 200k training updates.",
+     "image": "details/2610.12435/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Limitations and Conclusion",
+   "heading_ja": "成果と残された課題：接触フィードバックの欠如",
+   "summary_ja": "VioLAは運動潜在表現を介して人間データから実機ヒューマノイドの汎用制御を実現しました。一方で、手の制御に接触力のフィードバックがない点や、人間動画の3D姿勢推定精度への依存といった課題も残されています。",
+   "details_ja": "VioLAの登場により、人間動画を活用したヒューマノイドの大規模行動学習が一気に現実味を帯びてきました。しかし、著者らはいくつかの重要な制限事項も挙げています。\n\nまず第1に、手先コントローラの接触力フィードバックの欠如です。現在のハンドデコーダは指の位置指令を出しているだけで、物体に触れたときの力加減を感じ取ることができません。そのため、シャンプーボトルを掴み損ねて倒してしまったり、コートを途中で落としてしまったりといった失敗が発生しました。\n\n第2に、人間データへのアノテーション依存です。学習にはSMPLやMANOといった人間の全身・手先の3D姿勢推定が必要であり、動画から高精度に動きを抽出できるかどうかが学習の質を左右します。\n\n第3に、操作タスクにおける人間データの効果です。移動タスクでは人間データが絶大な効果を発揮した一方、操作タスクではロボットデータのみで学習した方がわずかに成功率が高い場面もありました。人間動画から手の繊細なインタラクションをいかにロボットへ正しく転移させるかは、今後の重要な研究テーマです。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix A Implementation and Additional Analyses",
+   "heading_ja": "付録：実装の詳細と未解決タスクの分析",
+   "summary_ja": "潜在表現の離散化手法（FSQ）やシミュレーションを用いた閉ループターゲット生成の技術的詳細を解説します。また、全敗となった高難度の「ボトル運搬タスク」の失敗要因を分析しています。",
+   "details_ja": "### 運動表現と閉ループターゲット生成\n運動エンコーダは64次元のベクトルを出力しますが、これはFinite Scalar Quantization（FSQ）によって離散化されたコードを平坦化したものです。全身のターゲット生成では、人間とロボットで歩行速度や旋回半径が異なるため、固定コントローラがシミュレータ内で参照動作を追従する際のロボットのヘディング角（向き）を基準に閉ループでターゲットを再計算しています。これにより、追従遅れが生じても次に取るべき行動が正しく補正されます。\n\n### 未解決タスク「ボトル運搬」の失敗分析\n本編の7つの操作タスクとは別に評価された「ボトルを受け取って机まで運び、置く」タスクは、全5試行すべてで失敗（0%）しました。図F10に示すように、人からボトルを受け取り机まで歩くことはできましたが、ボトルが斜めに傾いた状態で手を開いてしまい、ボトルが机から滑り落ちてしまいました。把持から歩行への移行や、直立させた状態でのリリースなど、複数のフェーズが絡む高度なインタラクションにはまだ課題が残っています。",
+   "figures": [
+    {
+     "key": "F10",
+     "caption_ja": "未解決タスクとなったボトル運搬の失敗例です。ボトルを受け取って机まで運ぶところまでは成功していますが、机の上でボトルが傾いたまま手を離してしまい、落下してしまっています。",
+     "caption": "Figure 10: Bottle carrying fails at release. One VioLA trial from a third-person camera. The robot takes the bottle from a person, walks to the table, and opens its hand while the bottle is tilted; the bottle then falls off the table. Times are seconds from the start of the clip. The task scores 0/5 and is reported separately from the seven manipulation tasks in Figure 3 .",
+     "image": "details/2610.12435/F10.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "ヒューマノイドの制御において、関節角度を直接予測するのではなく「運動潜在表現（motion latent）」を挟むアプローチが極めて有効であること。",
+  "人間動画を共通潜在空間に写像することで、テレオペデータが乏しいヒューマノイドでもインターネット上の膨大な人間行動データを学習リソースにできること。",
+  "全身の協調バランスを低レイヤーの固定コントローラに任せることで、上位の汎用ポリシーはタスクの意味理解と動作タイミングの決定に集中できること。"
+ ],
+ "limitations_ja": [
+  "ハンドデコーダに触覚や接触力のフィードバックがなく、把持の失敗や落下の原因になっている点。",
+  "人間データから運動潜在表現を抽出するために、動画からの高精度な全身・手先3D姿勢推定（SMPL/MANO等）が前提となっている点。",
+  "評価タスク数が計13タスク（各5試行）であり、より多様な環境や異なるロボットハードウェアでの検証がまだ限られている点。"
+ ],
+ "keywords": [
+  "Humanoid Robot",
+  "Vision-Language-Action (VLA)",
+  "Hierarchical Control",
+  "Motion Latent",
+  "Human Demonstration",
+  "Zero-shot Transfer"
+ ],
+ "id": "2610.12435",
+ "title": "VioLA: Learning Generalist Humanoid Control Policies from Human Data",
+ "authors": [
+  "Mert Albaba",
+  "Jens Bei{\\ss}wenger",
+  "Anna Manasyan",
+  "Daniel Marta",
+  "Michael J. Black",
+  "Wieland Brendel",
+  "Andreas Krause",
+  "Georg Martius",
+  "Martin Riedmiller"
+ ],
+ "date": "2026-10-09",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "control",
+  "imitation-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.12435",
+ "pdf_url": "https://arxiv.org/pdf/2610.12435",
+ "summary_ja": "膨大な人間動作データから汎用ヒューマノイド制御方策を学習する枠組みを提案。関節指令を直接模倣する代わりに全身の追従目標を予測し、低レイヤの追従制御器と階層化することで、限られた実機遠隔操作データに頼らずゼロショットで新規指示に従う安定した全身運動を実現した。",
+ "generated": "2026-10-09",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.12435"
+}
