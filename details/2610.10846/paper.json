@@ -1,0 +1,153 @@
+{
+ "title_ja": "潜在行動を用いた異種形態横断ロボット基盤ワールドモデル",
+ "tldr_ja": "ロボットごとに異なる行動空間を共通の潜在行動空間に統合することで、未知のロボットへの適応性能を大幅に高めたロボット向け基盤ワールドモデル「LAC-WM」を提案した論文です。事前学習に用いるロボットの種類を増やすほど下流タスクの性能が向上する正のスケーリング則を実証しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "LAC-WMの全体構成です。事前学習時（左側）は、逆ダイナミクスモデル（IDM）が連続する画像ペアから共通の潜在行動を抽出し、順ダイナミクスモデル（FDM）と動作デコーダを同時に学習します。未知のロボットへの適応時（右側）は、新しいロボットの明示的な行動を潜在空間に写像する行動プロジェクタを導入してファインチューニングします。",
+  "caption": "Figure 1 : LAC-WM Architecture . During pretraining (yellow area), the inverse dynamics model (IDM) encodes cross-embodiment image observations into a unified latent action space, as the condition for the forward dynamics model (FDM). A motion decoder translates the latent actions into motion labels, including delta human hand poses, robot end-effector actions, and camera motion. During finetuning (green area), an action projector encodes raw robot actions of unseen embodiments into the pre-trained unified latent action space.",
+  "image": "details/2610.10846/F1.jpg"
+ },
+ "overview_ja": "ロボットが将来の状態を動画のように予測し、行動計画に役立てる「ワールドモデル」が注目を集めています。しかし、ロボットの形態（エンボディメント）や関節構成、制御方法は千差万別です。新しいロボットが登場するたびにゼロからモデルを作り直すのは極めて非効率であり、多様なロボットや人間のデータから学習して未知のロボットへ迅速に適応できる基盤ワールドモデルが求められていました。\n\nそこで著者らは、ロボットごとの物理的な違いを抽象化し、タスクに必要な運動情報だけを共通して表現する「統一潜在行動空間」を学習するアプローチを考案しました。提案モデルであるLAC-WM（Latent Action-Conditioned Robot World Model）は、2枚の連続画像から潜在行動を抽出する逆ダイナミクスモデルと、その潜在行動をもとに次フレームを予測する順ダイナミクスモデル、さらに潜在行動を具体的な動作ラベルへ復元する動作デコーダを統合して事前学習を行います。\n\n実証実験では、人間や2種類のロボットのデータで事前学習したモデルを、未知の双腕ロボット（BFA）や別環境（LIBERO）へ適応させました。その結果、従来の明示的な行動ラベルを直接エンコードする手法に比べ、巧緻なマニピュレーションの成功率が最大46.7%向上しました。特筆すべきは、事前学習に使うロボットの種類を増やすほど下流性能が伸びるという「正のスケーリング則」を確認できた点であり、ロボット基盤モデル構築に向けた大きな一歩を示しています。",
+ "contributions_ja": [
+  "人間や異種ロボットのデータを統一された連続潜在行動空間に統合し、未知のロボットへ適応可能なワールドモデル「LAC-WM」を提案した点",
+  "動作復元損失（Motion Decoding Loss）と交差データ拡張を導入し、潜在表現の近道学習（ショートカット）を防ぎつつ物理的に意味のある表現を獲得した点",
+  "明示的な行動ラベルを用いる従来モデルが異種データ間で表現が分離してしまうのに対し、潜在行動モデルは共通の表現空間を獲得できることを視覚的・実験的に証明した点",
+  "事前学習に含めるロボットの形態数を増やすことで、下流タスクの計画成功率が向上する正のスケーリング則を世界で初めて確認した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜロボットのワールドモデルには「共通の潜在空間」が必要なのか？",
+   "summary_ja": "ロボットの形態や行動空間の多様性が、汎用的なワールドモデル構築の大きな壁になっています。本論文では、人間と複数ロボットの行動を統一された潜在行動空間に射影することで、未知のロボットへの適応力を劇的に高める新しいアプローチを提案します。",
+   "details_ja": "ロボットが行動を起こす前に将来の視覚変化を頭の中でシミュレーションする「ワールドモデル」は、模倣学習を補完する強力な枠組みです。しかし、ロボット研究には長年立ちはだかる厄介な問題があります。それは、アームの関節数やグリッパーの構造、カメラ視点がロボットごとにバラバラであるという「エンボディメントの多様性」です。\n\nこれまでの研究では、動画のみから教師なしで潜在行動を学習するか、あるいは特定のロボットの関節角度や手先座標といった「明示的な行動ラベル」を直接エンコードするのが一般的でした。しかし著者らは、明示的な行動ラベルをそのまま使うと、ロボットの種類ごとに行動表現がバラバラに分離（disjoint）してしまい、未知のロボットへ知識をうまく転移できないという仮説を立てました。\n\nそこで提案されたのがLAC-WMです。連続する2枚の観測画像から共通の潜在行動を抽出する逆ダイナミクスモデル（IDM）と、その潜在行動をもとに次フレームの視覚特徴を予測する順ダイナミクスモデル（FDM）を組み合わせます。さらに、補助的な動作デコーダを導入して運動情報をグラウンディング（意味付け）します。未知のロボットへ適応する際は、そのロボットの生行動を潜在空間へ変換する小さな行動プロジェクタを学習するだけで済む設計になっています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "LAC-WMのフレームワーク全体像です。事前学習フェーズではIDM・FDM・動作デコーダをエンドツーエンドで学習し、未知ロボットへの適応時には軽量な行動プロジェクタを介してFDMを効率よく微調整します。",
+     "caption": "Figure 1 : LAC-WM Architecture . During pretraining (yellow area), the inverse dynamics model (IDM) encodes cross-embodiment image observations into a unified latent action space, as the condition for the forward dynamics model (FDM). A motion decoder translates the latent actions into motion labels, including delta human hand poses, robot end-effector actions, and camera motion. During finetuning (green area), an action projector encodes raw robot actions of unseen embodiments into the pre-trained unified latent action space.",
+     "image": "details/2610.10846/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "ロボットワールドモデルと潜在行動研究の現在地",
+   "summary_ja": "ロボティクスにおけるワールドモデルや潜在行動モデルの先行研究を整理し、本研究がどこで一線を画しているかを解説します。異種ロボットの行動ラベル付きデータから統一空間を学習し、未知ロボットの行動で計画可能にした点が本研究の核心です。",
+   "details_ja": "### ロボティクスにおけるワールドモデルの変遷\nワールドモデルは、操作可能な動画生成モデルとして発展してきました。ナビゲーション分野では速度指令などの統一的な行動空間が使いやすかったのに対し、マニピュレーション分野では形態の違いが大きいため、事前学習では行動を入力しない動画予測にとどめ、後から単一ロボットの行動条件を追加するアプローチが主流でした。本研究は、事前学習段階から異種ロボットの行動データを統一潜在空間へと束ねる点が進歩的です。\n\n### 潜在行動モデル（LAM）の応用と本研究の立ち位置\nラベルなし動画から行動表現を獲得する手法として潜在行動モデル（LAM: Latent Action Model）が注目され、大規模な人間動画から潜在行動を抽出してVLA（Vision-Language-Action）モデルを訓練する試みなどが進んでいます。本研究でも連続的な潜在空間と動作復元損失を取り入れていますが、目的は単一ポリシーの学習ではなく、汎用的な基盤ワールドモデルの構築にあります。\n\n### 既存の潜在行動ワールドモデルとの差別化\n先行研究の多くはラベルなし動画での事前学習に依存しており、推論時にロボットの具体的な生行動（制御信号）を直接入力してロールアウトする機能が不足していました。また、明示的な行動ラベルを用いるモデルとの直接比較や、未知ロボットへの転移性能の検証も不十分でした。本研究は、ラベル付きマルチロボットデータを活用し、明示的行動と潜在行動の表現アライメントの違いを正面から解明した最初の研究です。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "統一潜在行動空間を学習するアーキテクチャと未知ロボットへの適応手順",
+   "summary_ja": "LAC-WMの具体的なモデル構成と学習ステップを解説します。IDMとFDMに加えて動作デコーダと交差データ拡張を導入して潜在表現の質を高め、未知ロボットには3段階のファインチューニングで適応します。",
+   "details_ja": "### IDMとFDMによる潜在行動モデリング\nカメラ画像 $O_t$ は、あらかじめ事前学習された視覚エンコーダ（V-JEPA-2）により潜在特徴 $x_t$ に変換されます。逆ダイナミクスモデル（IDM）は、連続する2フレームの特徴 $(x_t, x_{t+1})$ を入力とし、因果的アテンションと学習可能なクエリートークンを用いたクロスアテンションを通じて、連続値の潜在行動 $z_t$ を抽出します。順ダイナミクスモデル（FDM）は、現在の画像特徴 $x_t$ と潜在行動 $z_t$ を受け取り、トランスフォーマーブロックを通じて次のフレームの特徴 $\\hat{x}_{t+1}$ を予測します。\n\n### 交差データ拡張による近道学習の防止\nIDMが次フレームの画像特徴をそのまま潜在変数 $z_t$ に埋め込んでしまう「情報漏洩（ショートカット学習）」を防ぐため、交差データ拡張を採用しています。同じ画像ペアに対して互いに異なる独立なデータ拡張 $\\mathcal{A}_1, \\mathcal{A}_2$ を適用し、片方のペアから抽出した $z_t^1$ を使って、もう片方のペアの次フレーム特徴 $\\hat{x}_{t+1}^2$ をFDMに予測させます。\n\n### 動作デコーダ（Motion Decoder）による物理的グラウンディング\n潜在行動の表現力を制限（離散化や極端な低次元化）することなく意味のある動作情報を学習させるため、動作デコーダを併用します。これは潜在行動 $z_t$ と現在フレームの特徴から、実際の手先動作やカメラ移動量といった明示的動作ラベル $\\mathbf{a}_t$ を平均二乗誤差（MSE）で復元する補助タスクです。全体の事前学習損失は、視覚特徴の予測損失とこの動作復元損失の加重和となります。\n\n### 未知のロボット形態への3段階適応\n推論時には未来の画像が得られないため、IDMを実行できません。そこで未知ロボットの生行動 $\\mathbf{a}_t$ を潜在空間 $z_t$ へ直接変換する2層MLPの「行動プロジェクタ」を導入します。適応は3段階で行われます。まずIDMとFDMをランク2のLoRA（パラメータ効率の良い微調整手法）で微調整し、次にFDMを固定して行動プロジェクタを単独でゼロから訓練し、最後にプロジェクタとFDMを結合してエンドツーエンドでLoRA微調整を行います。",
+   "figures": []
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "実験設定：比較ベースラインとデータセットの詳細",
+   "summary_ja": "ベースラインとして明示的行動を用いるEAC-WMを設定し、人間動画と2種類のロボットデータで事前学習を行いました。下流タスクとして、シミュレータ環境で未知の多指ハンドロボットを用いた難関タスクを設定しています。",
+   "details_ja": "### 比較ベースライン（EAC-WM）の設計\nベースラインには、明示的行動条件付けワールドモデル（EAC-WM）を用意しました。FDMの構造はLAC-WMと同一ですが、潜在行動の代わりに各ロボット固有の明示的行動エンコーダ（EAE）を用いて行動ラベルを直接特徴量化します。未知ロボットへの適応時には、新しいEAEをスクラッチから学習し、FDMをLoRA（ランク2）でファインチューニングします。\n\n### 事前学習データセット\n事前学習には以下の3つのデータセットから各50,000軌道（計150,000軌道）を使用しました。\n- **EgoDex**: 人間が卓上で物体を操作する一人称視点データ（両手で計138次元の姿勢＋カメラ動作9次元）\n- **Agibot**: 双腕ヒューマノイドロボットのデータ（両手先各10次元＋カメラ動作9次元）\n- **Droid**: 単腕Frankaロボットとグリッパーによる三人称視点データ（手先10次元）\n観測頻度を下げるため、行動データは5ステップごとにチャンク化して扱います。行動埋め込みの次元数は64、画像トークナイザには固定されたV-JEPA-2を用い、64基のH200 GPUで約4日間かけて事前学習しました。\n\n### 未知ロボットへの適応評価環境（BFA）\n適応先として、Allegro多指ハンドを備えた双腕Frankaロボット（BFA）によるキッチン作業（RoboCasaシミュレータ）を採用しました。使用する右腕の行動空間はハンド16関節＋手先位置姿勢9次元の計25次元という複雑な構成です。22種類の物体把持タスク（計7,265軌道）を用いて、60kイテレーションのファインチューニングを行いました。",
+   "figures": []
+  },
+  {
+   "heading": "5 Latent Action Analysis",
+   "heading_ja": "潜在行動の可視化：なぜ明示的ラベルではダメなのか？",
+   "summary_ja": "UMAP可視化とロボット・人間間の動作転移実験により、提案手法が真に統一された行動空間を獲得できているかを検証しました。動作デコーダを伴うIDMのみが、形態を超えた一貫した動作表現を学習できることが判明しました。",
+   "details_ja": "### UMAPによる行動空間の可視化\n事前学習済みモデルから抽出した7,000点の行動埋め込みをUMAP（次元削減可視化ツール）で分析しました。明示的行動エンコーダ（EAE）を用いた場合、ロボットやデータセットごとにクラスタが完全に分断されてしまいました。エンコーダを全データセットで共有（EAE*）してもこの分断は解消されません。一方、LAC-WMのIDMが生成した潜在行動は、3つのデータセットが見事に混ざり合い、単一の統一クラスタを形成しました。\n\nなお、動作デコーダ（MD）を外してIDMを学習させると、視点が似ているAgibotとEgoDexだけが固まり、三人称視点のDroidが孤立しました。視覚変化だけに頼るとオプティカルフローのような見かけの特徴に引きずられるため、明示的な動作ラベルによるグラウンディングが必須であることが裏付けられました。\n\n### 形態を超えたクロスエンボディメント転移\nある形態の動画から抽出した潜在行動を使って、別の形態の将来動画を予測できるかをテストしました。ロボットの右アームが右上へ動く動作から抽出したIDMの潜在行動を人間の画像に与えると、人間の右手も正確に右上へ移動する動画が生成されました。対照的に、EAEの埋め込みを使った場合は手が静止したまま転移に失敗しました。また動作デコーダなしのIDMでは、手が分裂したり物体が宙に浮くといった視覚的アーティファクトが発生し、物理的な制御表現が破綻していることが確認されました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "事前学習データ3種の行動埋め込みをUMAP可視化した図です。明示的エンコーダ（1のEAE、2のEAE*）ではデータセットごとに分離していますが、提案手法（4のIDM）では3者のデータが美しく統合されています。3の動作デコーダなしでは視点依存の分離が起きています。",
+     "caption": "Figure 2 : UMAP visualization of 7,000 action embeddings from three datasets: Droid (red), Agibot (green), and Egodex (blue). 1 : Embeddings from separate Explicit Action Encoders (EAE), which are distinctly separated by embodiment. 2 : Embeddings from a shared EAE (EAE*), still showing dataset-level separation. 3 : Embeddings from IDM without the motion decoder, where Agibot and Egodex cluster together but separate from Droid. 4 : Embeddings from the IDM, showing strong cross-dataset alignment.",
+     "image": "details/2610.10846/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "形態間での動作転移生成の結果です。ロボットから人間（左）、人間からロボット（右）の転移において、IDMは参照動画の運動軌跡（青点線）を正確に再現しています。一方、EAEは動作せず、動作デコーダなし（IDM w.o. MD）では物体の浮遊や手の分裂（赤丸）が生じています。",
+     "caption": "Figure 3 : Cross-embodiment action transfer results : The left panels illustrate robot-to-human transfer, while the right panels show human-to-robot transfer. The first row presents reference videos. Rows 2–4 display FDM generated videos using embeddings from EAE, IDM without MD, and IDM, respectively. Blue dotted lines trace end-effector trajectories from the references and are aligned across generated videos except for initial positions. IDM embeddings yield trajectories that closely match the references, whereas the other methods exhibit inaccurate motion patterns and visual artifacts (highlighted by red circles).",
+     "image": "details/2610.10846/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Robot Task Evaluation",
+   "heading_ja": "未知ロボットでのタスク評価：驚異的なスケーリング則の発見",
+   "summary_ja": "未知の多指ハンドロボットによる物体操作タスクとLIBEROベンチマークで評価を行いました。LAC-WMは計画成功率で大幅な向上を達成しただけでなく、事前学習するロボットの種類を増やすほど性能が伸びる正のスケーリング則を示しました。",
+   "details_ja": "### 将来予測の画質とロールアウト精度\n初期画像と行動シーケンスから8フレーム先までを予測するタスクにおいて、未知の物体インスタンスおよび完全な未知カテゴリ（ドーナツ、ライム、バナナ）の両方で評価しました。LAC-WMはPSNR、FID、LPIPS、FVDの全指標で、スクラッチ学習（EAC-WM-S）や事前学習版EAC-WMを上回る高品質な予測を達成しました。\n\n### ワールドモデルによる行動選択と計画性能\n事前学習済みVLAモデルからサンプリングした候補行動シーケンス（500本）をワールドモデルで頭の中でシミュレーションし、ゴール画像特徴との距離が最も近い上位3本を平均して実行する計画実験を行いました。結果、全評価分割の平均成功率において、LAC-WMは最強のVLA単体ベースラインより29.0%、EAC-WM-Sより22.2%、そしてEAC-WMより46.7%も高い成功率を記録しました。EAC-WMがスクラッチ学習よりも悪化している点は衝撃的で、行動空間が分離したまま事前学習すると、かえって未知ロボットへの適応を妨げる毒になることが浮き彫りになりました。\n\n### エンボディメント数に関するスケーリング則\n事前学習に用いる形態数を「EgoDexのみ（1種/50k）」「＋Agibot（2種/100k）」「＋Droid（3種/150k）」と増やした際の下流計画性能を追跡しました。LAC-WMは形態数とデータ量が増えるにつれて成功率（S.R.）が16.5%から21.5%へと順調に向上しました。対照的に、EAC-WMは形態数が増えるほど成功率が17.2%から15.0%へと単調減少しました。総サンプル数を固定して形態数のみを増やした場合でもLAC-WMは性能が向上しており、統一潜在空間こそがマルチロボット学習の恩恵を引き出す鍵であることが証明されました。\n\n### LIBEROベンチマークでの検証\n視覚トークナイザをCosmos-0.1に置き換え、LIBERO環境の未知タスク5種で検証したところ、LAC-WMは平均成功率92.0%を達成し、EAC-WM（82.4%）に対して9.6ポイントの差をつけました。視覚エンコーダの種類を変えても本手法の優位性は揺るぎません。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "事前学習するエンボディメント数とデータ規模を増やした際のスケーリング挙動です。LAC-WM（青線）はゴールとの距離（左・中央）が縮まりタスク成功率（右）が向上する正のスケーリングを示しますが、EAC-WM（オレンジ線）は逆に性能が低下しています。",
+     "caption": "Figure 4 : We show the image latent embedding distance $\\delta f$ (left) and $\\delta f_{g}$ (middle) and task success rate S.R. (right), for LAC-WM (blue) and EAC-WM (orange) pre-trained with different number of embodiments. The x axis shows the number of embodiments and dataset size used in pre-training, from left to right of the x axis, the model is trained with Egodex only, Egodex and Agibot, and Egodex, Agibot and Droid dataset.",
+     "image": "details/2610.10846/F4.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "VLAが生成した候補行動から各ワールドモデルを用いて行動を選択・実行した際のロールアウト例です。LAC-WMのみが物体を的確に把持して持ち上げることに成功しており、他のベースラインは把持に失敗しています。",
+     "caption": "Figure 8 : Example roll-out of executing actions from a pre-trained VLA. From top to bottom, the figure shows rollouts for: executing the mean of all sampled actions (VLA-mean), a random sampled action (VLA-random), and actions selected using EAC-WM-S, EAC-WM, and LAC-WM from the VLA samples. The task is to pick up the object and place it back on the counter. While LAC-WM successfully selects actions to complete the task, the other methods fail to grasp and lift the object.",
+     "image": "details/2610.10846/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "7 Conclusion and Limitations",
+   "heading_ja": "まとめと今後の展望、そして現在の限界",
+   "summary_ja": "統一潜在行動空間がクロスエンボディメント学習に不可欠であることを結論づけました。今後の課題として、実機検証の実施やラベルなし大規模動画のさらなる活用、多指ハンド操作における絶対的な成功率の向上が挙げられています。",
+   "details_ja": "本研究は、ロボットごとの物理的な違いを乗り越える基盤ワールドモデルの実現に向け、統一された潜在行動空間が決定的な役割を果たすことを明らかにしました。明示的な行動ラベルに縛られた従来のアプローチでは、データを集めて形態数を増やすほど表現が分散してしまい、未知のロボットへ適応できなくなるという深刻な欠陥がありました。LAC-WMはこの壁を打ち破り、多様なデータを力に変えるスケーリング特性を獲得しています。\n\n一方で、著者らはいくつかの限界も認めています。\n- **動作ラベルへの依存**: 本研究では明示的手法との公平な比較のためにラベル付きデータを用いましたが、Web上の膨大なラベルなし動画を直接活用する枠組みへの拡張が待たれます。\n- **巧緻操作タスクの難易度**: LAC-WMは従来比で大幅な改善を示したものの、未知の多指ハンド操作における絶対的な成功率はまだ20%前後と低く、より強力なVLAポリシーや精緻な計画手法との統合が必要です。\n- **実機検証の不足**: 実験はRoboCasaやLIBEROなどの高精度シミュレータ環境にとどまっており、現実世界の物理ロボットでのハードウェア検証が今後の最重要課題です。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "ロボットの形態差を克服するには、明示的な関節角度や座標ラベルではなく、共通の「潜在行動空間」を学習することが本質的である。",
+  "視覚予測だけでなく補助的な「動作復元損失」を組み合わせることで、潜在表現が見かけの特徴に偏る近道学習を防ぎ、物理的制御に耐えうる表現が得られる。",
+  "明示的行動モデルは事前学習のロボット種類を増やすと性能が落ちる「負のスケーリング」に陥るが、潜在行動モデルなら形態数に応じて賢くなる「正のスケーリング」が成り立つ。",
+  "推論時に未来画像が得られない問題は、未知ロボットの行動を潜在空間へ射影する軽量な「行動プロジェクタ」を段階的に微調整することでスマートに解決できる。"
+ ],
+ "limitations_ja": [
+  "検証がシミュレーション環境（RoboCasa、LIBERO）に限定されており、実世界の実機ロボットにおけるノイズやダイナミクスのズレに対する検証が行われていない点",
+  "事前学習の比較を厳密にするため動作ラベル付きデータセットに依存しており、Web上の大規模な完全ラベルなし動画の潜在力をまだ直接引き出せていない点",
+  "未知の多指ハンド操作タスクにおける絶対的な成功率が約21.5%と依然として低く、実用レベルにはさらなる計画アルゴリズムやポリシーの強化が必要な点"
+ ],
+ "keywords": [
+  "World Models",
+  "Latent Action Models",
+  "Cross-Embodiment Learning",
+  "Robot Foundation Models",
+  "Dexterous Manipulation",
+  "Scaling Laws"
+ ],
+ "id": "2610.10846",
+ "title": "Cross-Embodiment Robot Foundation World Models with Latent Actions",
+ "authors": [
+  "Huang Huang",
+  "Sriram Yenamandra",
+  "Arjun Majumdar",
+  "Elie Aljalbout",
+  "Tushar Nagarajan",
+  "Tsung-Yen Yang",
+  "Akshara Rai",
+  "Michael Rabbat",
+  "Li Fei-Fei",
+  "Jiajun Wu",
+  "Tingfan Wu",
+  "Franziska Meier"
+ ],
+ "date": "2026-10-09",
+ "group": "general",
+ "tags": [
+  "world-model",
+  "perception",
+  "planning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.10846",
+ "pdf_url": "https://arxiv.org/pdf/2610.10846",
+ "summary_ja": "ロボットの機体形態や行動空間の差異を吸収する潜在行動条件付けワールドモデルLAC-WMを提案。共通の潜在行動空間を学習することで、明示的な関節・制御指令を条件とする従来手法に比べ、未見のロボット形態への適応能力と予測精度を大幅に向上させた。",
+ "generated": "2026-10-09",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.10846"
+}
