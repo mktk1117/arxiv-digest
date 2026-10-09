@@ -1,6 +1,318 @@
 {
  "entries": [
   {
+   "date": "2026-10-09",
+   "rank": 0,
+   "id": "2610.11505",
+   "group": "focus",
+   "title": "DAMP: Humanoid Locomotion via Denoised Belief Learning and Adversarial Motion Priors",
+   "title_ja": "DAMP: ノイズ除去型信念学習と敵対的運動事前分布によるヒューマノイドの不整地歩行",
+   "summary_ja": "視覚などの外界認識センサを用いずに不整地を走破するヒューマノイド歩行制御フレームワークを提案。RNNにより時系列依存性から特権情報などの潜在状態を暗黙的に推定し、タスク目標との整合を図りつつ敵対的運動事前分布（AMP）を組み合わせることで、盲目条件下でも頑健で自然な動的踏破を実現した。",
+   "summary_en": "This paper presents DAMP, a reinforcement learning framework for robust and naturalistic humanoid locomotion over challenging terrains without exteroceptive perception. By leveraging RNNs to infer privileged latent states and combining them with adversarial motion priors, it achieves stable and goal-directed blind traversal across complex environments.",
+   "authors": [
+    "Puying Shen",
+    "Wenhao Cui",
+    "Huaxing Huang",
+    "Bangyu Qin",
+    "Shengtao Li",
+    "Ziyang Dong",
+    "Guoteng Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.11505",
+   "image": "figures/2026-10-09/2610.11505.jpg"
+  },
+  {
+   "date": "2026-10-09",
+   "rank": 1,
+   "id": "2610.11283",
+   "group": "focus",
+   "title": "Being-M0.7: A Latent World-Action Model for Humanoid Robots",
+   "title_ja": "Being-M0.7: ヒューマノイドロボットのための潜在ワールド・アクションモデル",
+   "summary_ja": "ヒューマノイドの全身移動操作（loco-manipulation）に向けた潜在ワールド・アクションモデルを提案。1万時間以上の人間動画・動作データから事前学習を行い、ロボット中間学習とアクション事後学習を経て視覚・運動事前分布を制御へと転移させ、全身協調が必要な多様な長周期タスクを実行可能にした。",
+   "summary_en": "Being-M0.7 is a latent world-action model designed for humanoid loco-manipulation. By pre-training on over 10,000 hours of human video and motion data and transferring learned visual-motion priors via mid- and post-training, it enables coordinated whole-body humanoid control across diverse manipulation tasks.",
+   "authors": [
+    "Junpeng Yue",
+    "Boyuan Li",
+    "Yuxuan Wang",
+    "Zepeng Wang",
+    "Yuhui Fu",
+    "Feiyang Xie",
+    "Yu Zhang",
+    "Jing Zhang",
+    "Xianqi Zhang",
+    "Weibo Li",
+    "Xiaofei Zheng",
+    "Yuming Fang",
+    "Jiangxing Wang",
+    "Zongqing Lu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "world-model",
+    "control",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.11283",
+   "image": "figures/2026-10-09/2610.11283.jpg"
+  },
+  {
+   "date": "2026-10-09",
+   "rank": 2,
+   "id": "2610.12435",
+   "group": "focus",
+   "title": "VioLA: Learning Generalist Humanoid Control Policies from Human Data",
+   "title_ja": "VioLA: 人間データからの汎用ヒューマノイド制御方策学習",
+   "summary_ja": "膨大な人間動作データから汎用ヒューマノイド制御方策を学習する枠組みを提案。関節指令を直接模倣する代わりに全身の追従目標を予測し、低レイヤの追従制御器と階層化することで、限られた実機遠隔操作データに頼らずゼロショットで新規指示に従う安定した全身運動を実現した。",
+   "summary_en": "VioLA introduces a generalist humanoid policy learned from large-scale human demonstrations. Instead of predicting low-level joint actions directly, it predicts whole-body target trajectories tracked by lower-level controllers, enabling out-of-the-box instruction following without task-specific teleoperated demonstrations.",
+   "authors": [
+    "Mert Albaba",
+    "Jens Bei{\\ss}wenger",
+    "Anna Manasyan",
+    "Daniel Marta",
+    "Michael J. Black",
+    "Wieland Brendel",
+    "Andreas Krause",
+    "Georg Martius",
+    "Martin Riedmiller"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12435",
+   "image": "figures/2026-10-09/2610.12435.jpg"
+  },
+  {
+   "date": "2026-10-09",
+   "rank": 3,
+   "id": "2610.10601",
+   "group": "focus",
+   "title": "Teaching a Robot Dog New Tricks: Diverse Quadruped Skills via Combined Reinforcement and Imitation Learning with Adversarial Task Selection",
+   "title_ja": "敵対的タスク選択とRL・模倣学習の統合による四脚ロボットの多様スキル獲得",
+   "summary_ja": "四脚ロボットが歩行、掘削、跳躍、這行などの多様なタスクを単一方策で遂行するための3段階学習法を提案。個別タスクの教師方策をRLで訓練後、敵対的タスク選択を用いた模倣学習によりタスク間の勾配競合を抑制しながら学生方策へ蒸留し、単一モデルで多彩なスキルの合成・実行を可能にした。",
+   "summary_en": "This paper presents a three-stage framework combining RL and imitation learning with adversarial task selection to train a single quadruped policy capable of diverse skills like walking, digging, and hopping. It mitigates multi-task gradient conflict by distilling multiple teacher policies into a unified student policy.",
+   "authors": [
+    "Lemon Foxmere",
+    "Anthony Furman",
+    "Yizheng Du",
+    "Oliver Chang",
+    "Leilani Gilpin",
+    "Steve McGuire"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "reinforcement-learning",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.10601",
+   "image": "figures/2026-10-09/2610.10601.jpg"
+  },
+  {
+   "date": "2026-10-09",
+   "rank": 4,
+   "id": "2610.12465",
+   "group": "focus",
+   "title": "A Balanced Data Diet: Addressing the Exploration Bottleneck in Mega-Scale RL for Robot Control",
+   "title_ja": "バランスの取れたデータ配分: 大規模RLロボット制御における探索ボトルネックの解消",
+   "summary_ja": "超並列シミュレータを用いた強化学習において、多様な初期化リセットに依存する手法が俊敏な歩行や精密操作で直面する探索ボトルネックを分析。一様サンプリングが学習効率を落とす課題に対し、探索の進捗に応じた適応的なリセット状態サンプリング戦略を導入して学習の収束性と成功率を大幅に改善した。",
+   "summary_en": "This work tackles the exploration bottleneck in mega-scale parallel RL for agile locomotion and dexterous manipulation. By showing that uniform reset distributions hinder training efficiency, it proposes an adaptive reset sampling strategy that significantly improves learning progress and policy performance.",
+   "authors": [
+    "Octi Zhang",
+    "Mateo Guaman Castro",
+    "Patrick Yin",
+    "Ignacio Dagnino",
+    "Abhishek Gupta",
+    "Rosario Scalise",
+    "Byron Boots"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "simulation",
+    "control",
+    "locomotion"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12465",
+   "image": "figures/2026-10-09/2610.12465.jpg"
+  },
+  {
+   "date": "2026-10-09",
+   "rank": 5,
+   "id": "2610.11194",
+   "group": "general",
+   "title": "OmniDex: Scaling Dexterous Hand Grasping to Diverse Cluttered Scenes",
+   "title_ja": "OmniDex: 雑多な実環境シーンへ拡張する大規模巧緻ハンド把持ベンチマーク",
+   "summary_ja": "雑多な環境での多指ハンド把持学習を加速する超大規模シミュレーションデータセットを提案。効率的なシード＆フィルタ戦略により重いシーン最適化を回避し、260万以上のシーンと4億件の把持グラウンドトゥルースを生成。実環境の複雑なレイアウトにおける強固な把持方策学習を支援する。",
+   "summary_en": "OmniDex introduces a massive simulation dataset and benchmark for dexterous grasping in cluttered environments. Using a scalable seed-and-filter strategy, it generates over 2.6 million scenes and 0.4 billion grasp ground truths, providing rich training data to overcome real-world data scarcity.",
+   "authors": [
+    "Naiyu Fang",
+    "Zhongjin Luo",
+    "Yuxin Mo",
+    "Siyuan Huang",
+    "Jianbo Liu",
+    "Yufei Liu",
+    "Zheyuan Zhou",
+    "Chenkai Jin",
+    "Xiaogang Wang",
+    "Hongsheng Li"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "grasping",
+    "dataset",
+    "benchmark",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.11194",
+   "image": "figures/2026-10-09/2610.11194.jpg"
+  },
+  {
+   "date": "2026-10-09",
+   "rank": 6,
+   "id": "2610.11248",
+   "group": "general",
+   "title": "SimVLA: Zero-Shot Sim-to-Real VLA Learning for Mobile Manipulation",
+   "title_ja": "SimVLA: モバイルマニピュレーションのためのゼロショットSim-to-Real VLA学習",
+   "summary_ja": "遠隔操作データに頼らず、合成シミュレーションデータのみでモバイルマニピュレーション向けVLAをゼロショット学習するフレームワーク。原子スキルの合成による35タスクの大規模行動データセットと特権情報QAデータセットで事前学習を行い、実機環境へそのまま転移可能な方策を実現した。",
+   "summary_en": "SimVLA trains vision-language-action models for mobile manipulation entirely on synthetic simulation data without human teleoperation. Pre-trained on skill-composed action datasets and privileged QA data, it achieves successful zero-shot sim-to-real transfer on real mobile manipulation tasks.",
+   "authors": [
+    "Kyoungin Baik",
+    "Youngwoon Lee"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "sim-to-real",
+    "manipulation",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.11248",
+   "image": "figures/2026-10-09/2610.11248.jpg"
+  },
+  {
+   "date": "2026-10-09",
+   "rank": 7,
+   "id": "2610.10846",
+   "group": "general",
+   "title": "Cross-Embodiment Robot Foundation World Models with Latent Actions",
+   "title_ja": "潜在行動を用いた異種形態横断ロボット基盤ワールドモデル",
+   "summary_ja": "ロボットの機体形態や行動空間の差異を吸収する潜在行動条件付けワールドモデルLAC-WMを提案。共通の潜在行動空間を学習することで、明示的な関節・制御指令を条件とする従来手法に比べ、未見のロボット形態への適応能力と予測精度を大幅に向上させた。",
+   "summary_en": "LAC-WM introduces a unified latent action space for robot foundation world models across diverse embodiments. Compared to explicit action conditioning, learning in this shared latent action space substantially enhances generalization and downstream performance when adapting to unseen robot platforms.",
+   "authors": [
+    "Huang Huang",
+    "Sriram Yenamandra",
+    "Arjun Majumdar",
+    "Elie Aljalbout",
+    "Tushar Nagarajan",
+    "Tsung-Yen Yang",
+    "Akshara Rai",
+    "Michael Rabbat",
+    "Li Fei-Fei",
+    "Jiajun Wu",
+    "Tingfan Wu",
+    "Franziska Meier"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "perception",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.10846",
+   "image": "figures/2026-10-09/2610.10846.jpg"
+  },
+  {
+   "date": "2026-10-09",
+   "rank": 8,
+   "id": "2610.12431",
+   "group": "general",
+   "title": "Control-Ready Uncertainty for Trajectory Diffusion",
+   "title_ja": "SCOPE: 軌道拡散モデルのための制御即応型不確実性推定",
+   "summary_ja": "拡散モデルによる軌道生成において、計算コストの高いモンテカルロ抽出を行わずに実時間制御で利用可能な不確実性を抽出する手法SCOPEを提案。スコア曲率情報を蒸留して名目軌道周囲の精度行列を学習し、低オーバーヘッドで較正済み共分散チューブを出力して安全制御を可能にした。",
+   "summary_en": "SCOPE introduces a lightweight module that distills score-curvature information to extract control-ready uncertainty from diffusion trajectory models. It produces calibrated Gaussian tubes around nominal paths without expensive Monte Carlo sampling, enabling real-time risk-aware robot control.",
+   "authors": [
+    "Zhiwei Xue",
+    "Jia Yue Kam",
+    "Jinhang Qiu",
+    "Yifeng Cheng",
+    "Ege Gursoy",
+    "Jiaming Wang",
+    "Vincent Bonnet",
+    "Harold Soh"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "planning",
+    "control",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12431",
+   "image": "figures/2026-10-09/2610.12431.jpg"
+  },
+  {
+   "date": "2026-10-09",
+   "rank": 9,
+   "id": "2610.10646",
+   "group": "general",
+   "title": "Masked Generative Motion Planning with Geometry-Guided Token Search",
+   "title_ja": "幾何誘導トークン探索を用いたマスク型生成モーションプランニング",
+   "summary_ja": "生成モデルによる動作計画において、局所的な平滑化だけでなく大域的な経路修正を可能にするMGMPを提案。マスク型Transformerで離散軌道候補を並列生成し、環境幾何に基づくトークン探索により衝突箇所を集中的に再構築することで、96%の成功率と高速な推論を両立した。",
+   "summary_en": "MGMP couples a masked generative transformer for parallel trajectory candidate generation with geometry-guided token search for route-level structural repairs. This approach turns test-time continuous refinement into an efficient discrete search over prior-supported alternatives, achieving a 96% success rate.",
+   "authors": [
+    "Lipeng Zhuang",
+    "Yingdong Ru",
+    "Shiyu Fan",
+    "Edmond S. L. Ho",
+    "Gerardo Aragon Camarasa",
+    "Paul Henderson"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "planning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.10646",
+   "image": "figures/2026-10-09/2610.10646.jpg"
+  },
+  {
    "date": "2026-10-08",
    "rank": 0,
    "id": "2610.08970",
