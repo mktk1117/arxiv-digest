@@ -1,6 +1,294 @@
 {
  "entries": [
   {
+   "date": "2026-10-10",
+   "rank": 0,
+   "id": "2610.12135",
+   "group": "focus",
+   "title": "Q-Shaped Options for Hierarchical Reinforcement Learning",
+   "title_ja": "Q-Shaped Options for Hierarchical Reinforcement Learning",
+   "summary_ja": "Learning to tackle long-horizon, goal-conditioned tasks requires an agent to reason over extended timescales and act across a broad range of states. In principle, Hierarchical Reinforcement Learning (HRL) addresses both…",
+   "summary_en": "Learning to tackle long-horizon, goal-conditioned tasks requires an agent to reason over extended timescales and act across a broad range of states. In principle, Hierarchical Reinforcement Learning (HRL) addresses both challenges through the interaction between action (temporal) and state (spatial) abstraction. First, using an action abstraction to represent temporally extended behaviour as options reduces the effective decision horizon. Second, enabling different state abs…",
+   "authors": [
+    "Clarisse Wibault",
+    "Antoine Gorceix",
+    "Antonio L\\'eon Villares",
+    "Alexey Zakharov",
+    "Evangelos Chatzaroulas",
+    "Michael Matthews",
+    "Eduardo Pignatelli",
+    "Jakob Foerster"
+   ],
+   "categories": [
+    "cs.AI"
+   ],
+   "tags": [
+    "locomotion",
+    "manipulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12135",
+   "image": "figures/2026-10-10/2610.12135.jpg"
+  },
+  {
+   "date": "2026-10-10",
+   "rank": 1,
+   "id": "2610.10787",
+   "group": "focus",
+   "title": "NavGPT-3: Harnessing Context in a Hierarchical Navigation Runtime",
+   "title_ja": "NavGPT-3: Harnessing Context in a Hierarchical Navigation Runtime",
+   "summary_ja": "Language models trained with long-horizon agentic reinforcement learning can generalize knowledge through reasoning, express precise actions, and pursue goals over many steps, raising the ceiling on what an embodied age…",
+   "summary_en": "Language models trained with long-horizon agentic reinforcement learning can generalize knowledge through reasoning, express precise actions, and pursue goals over many steps, raising the ceiling on what an embodied agent can understand and decide. Physical interaction, however, remains the domain of action policies, which provide dense, low-latency control. We present NavGPT-3, a harness that connects the two models, with an OS-like runtime built above it: reasoning, acting…",
+   "authors": [
+    "Gengze Zhou",
+    "Yicong Hong",
+    "Jiazhao Zhang",
+    "Xunyi Zhao",
+    "Jian Zhou",
+    "Zixing Lei",
+    "Zun Wang",
+    "Chongyang Zhao",
+    "Xionghui Chen",
+    "Stephen Gould",
+    "Anton van den Hengel",
+    "Qi Wu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CL",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "navigation",
+    "reinforcement-learning",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.10787",
+   "image": "figures/2026-10-10/2610.10787.jpg"
+  },
+  {
+   "date": "2026-10-10",
+   "rank": 2,
+   "id": "2610.11175",
+   "group": "focus",
+   "title": "Higher-Order Action Supervision Makes A Strong Policy Class",
+   "title_ja": "Higher-Order Action Supervision Makes A Strong Policy Class",
+   "summary_ja": "Modern data-driven decision-making methods, such as imitation learning (IL) and reinforcement learning (RL), have achieved great success in solving many complex tasks. However, these methods often suffer from serious co…",
+   "summary_en": "Modern data-driven decision-making methods, such as imitation learning (IL) and reinforcement learning (RL), have achieved great success in solving many complex tasks. However, these methods often suffer from serious control instability and robustness issues when applied in real-world applications such as robotics and autonomous driving, posing notable challenges for their practical deployment. We argue that this instability issue stems largely from their limitations in sole…",
+   "authors": [
+    "Peng Cheng",
+    "Yunxian Hou",
+    "Zhi Zhou",
+    "Qian Zhang",
+    "Chang Huang",
+    "Xianyuan Zhan"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "imitation-learning",
+    "autonomous-driving"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.11175",
+   "image": "figures/2026-10-10/2610.11175.jpg"
+  },
+  {
+   "date": "2026-10-10",
+   "rank": 3,
+   "id": "2610.12026",
+   "group": "focus",
+   "title": "Humanoid World Action Model With Joint State--Action Generation",
+   "title_ja": "Humanoid World Action Model With Joint State--Action Generation",
+   "summary_ja": "Humanoid robots are a promising platform for general-purpose manipulation. Recent Vision-Language-Action (VLA) policies learn actions directly from multimodal observations, while World Action Models (WAMs) further incor…",
+   "summary_en": "Humanoid robots are a promising platform for general-purpose manipulation. Recent Vision-Language-Action (VLA) policies learn actions directly from multimodal observations, while World Action Models (WAMs) further incorporate future visual prediction to improve action generation. However, in hierarchical humanoid systems, VLA and WAM policies output reference actions that are subsequently realized through whole-body control, robot dynamics, balance, and contact. This hierarc…",
+   "authors": [
+    "Yan Yang",
+    "Jikun Rong",
+    "Minzhao Zhu",
+    "Zheyi Zhao",
+    "Qirui Hu",
+    "Zihan Lan",
+    "Weixin Mao",
+    "Yinhao Li",
+    "Zhen Fu",
+    "Hua Chen"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "manipulation",
+    "vision-language-action",
+    "humanoid"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12026",
+   "image": "figures/2026-10-10/2610.12026.jpg"
+  },
+  {
+   "date": "2026-10-10",
+   "rank": 4,
+   "id": "2610.12113",
+   "group": "focus",
+   "title": "A Geometric Approach to Soft Actor-Critic with Zonotopes for Locomotion Learning",
+   "title_ja": "A Geometric Approach to Soft Actor-Critic with Zonotopes for Locomotion Learning",
+   "summary_ja": "Off-policy actor--critic methods control overestimation bias by taking the minimum of two critics. This uses the same aggregation rule everywhere, regardless of how the critics disagree. We propose \\textbf{GeZo-SAC}, wh…",
+   "summary_en": "Off-policy actor--critic methods control overestimation bias by taking the minimum of two critics. This uses the same aggregation rule everywhere, regardless of how the critics disagree. We propose \\textbf{GeZo-SAC}, which uses auxiliary geometric representations to adapt critic pessimism to the state and action. Alongside its scalar value, each critic predicts a set of generators defining a zonotope. Probing this zonotope along sampled directions provides a geometric width,…",
+   "authors": [
+    "Panagiotis Roditis",
+    "Panagiotis P. Filntisis",
+    "Petros Maragos"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.AI"
+   ],
+   "tags": [
+    "locomotion",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12113",
+   "image": null
+  },
+  {
+   "date": "2026-10-10",
+   "rank": 5,
+   "id": "2610.10857",
+   "group": "general",
+   "title": "Self-Supervised Keyframe Discovery for Horizon-Invariant Behavior Cloning",
+   "title_ja": "Self-Supervised Keyframe Discovery for Horizon-Invariant Behavior Cloning",
+   "summary_ja": "Behavior cloning (BC) in non-Markovian environments is a challenging problem because policies have to reason over contextual information over long horizons. Existing policy architectures rely on recurrent or attention-b…",
+   "summary_en": "Behavior cloning (BC) in non-Markovian environments is a challenging problem because policies have to reason over contextual information over long horizons. Existing policy architectures rely on recurrent or attention-based mechanisms to capture long-term dependencies. However, recurrent models suffer from hidden-state collapse and gradient instability under backpropagation through time, while attention-based models are fundamentally limited by context length. To address the…",
+   "authors": [
+    "Prabin Kumar Rath",
+    "Omkar Patil",
+    "Nakul Gopalan"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "imitation-learning",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.10857",
+   "image": "figures/2026-10-10/2610.10857.jpg"
+  },
+  {
+   "date": "2026-10-10",
+   "rank": 6,
+   "id": "2610.11087",
+   "group": "general",
+   "title": "Beyond Imitation: A Framework and Benchmark for LLM-Assisted Peer Review",
+   "title_ja": "Beyond Imitation: A Framework and Benchmark for LLM-Assisted Peer Review",
+   "summary_ja": "The rapid growth of scientific publishing has strained peer review, particularly in machine learning, raising concerns about declining review quality and increasing reviewer workload. Large language models (LLMs) have b…",
+   "summary_en": "The rapid growth of scientific publishing has strained peer review, particularly in machine learning, raising concerns about declining review quality and increasing reviewer workload. Large language models (LLMs) have been proposed as automated review assistants, yet their evaluation has focused largely on imitating human-written reviews rather than supporting the core functions of peer review. Here, we introduce a verification-centric perspective on LLM-assisted peer review…",
+   "authors": [
+    "Rachel S. Y. Teo",
+    "Yutaro Yamada",
+    "Shashank Kotyan",
+    "Yuki Imajuku",
+    "Tarin Clanuwat"
+   ],
+   "categories": [
+    "cs.AI"
+   ],
+   "tags": [
+    "manipulation",
+    "llm-agent",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.11087",
+   "image": "figures/2026-10-10/2610.11087.jpg"
+  },
+  {
+   "date": "2026-10-10",
+   "rank": 7,
+   "id": "2610.12090",
+   "group": "general",
+   "title": "Recompose and Refine Latent Reasoning Flows for Vision-Language-Action Models",
+   "title_ja": "Recompose and Refine Latent Reasoning Flows for Vision-Language-Action Models",
+   "summary_ja": "Latent reasoning enables vision-language-action (VLA) models to transform multimodal observations into task-relevant internal states before generating continuous robot actions. While existing methods learn to generate o…",
+   "summary_en": "Latent reasoning enables vision-language-action (VLA) models to transform multimodal observations into task-relevant internal states before generating continuous robot actions. While existing methods learn to generate or refine such states for each policy query, they discard successful reasoning after execution and therefore reconstruct similar computation from scratch. We present Reasoning and Flow Memory (FLOWMEM), a unified VLA model that turns successful latent computati…",
+   "authors": [
+    "Hongyu Shi",
+    "Sen Zhao",
+    "Zuyu Zhang",
+    "Lifeng Shen",
+    "Ding Zou",
+    "Xinyu He",
+    "Xu Zhang",
+    "Qinghua Zhang"
+   ],
+   "categories": [
+    "cs.AI"
+   ],
+   "tags": [
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12090",
+   "image": "figures/2026-10-10/2610.12090.jpg"
+  },
+  {
+   "date": "2026-10-10",
+   "rank": 8,
+   "id": "2610.12361",
+   "group": "general",
+   "title": "Cited but Not Consulted: A Counterfactual Audit of Legal Chain-of-Thought Faithfulness",
+   "title_ja": "Cited but Not Consulted: A Counterfactual Audit of Legal Chain-of-Thought Faithfulness",
+   "summary_ja": "Large language models increasingly justify legal decisions by naming the statute or precedent behind a verdict, treated as evidence that the decision follows from it. We test this directly: holding case facts fixed, we …",
+   "summary_en": "Large language models increasingly justify legal decisions by naming the statute or precedent behind a verdict, treated as evidence that the decision follows from it. We test this directly: holding case facts fixed, we substitute the named legal authority for an unrelated one and decode a model's evolving verdict from its hidden states. Across seven open-weight models (8B-70B) and four benchmarks spanning judicial and contractual reasoning, when explicitly required to justif…",
+   "authors": [
+    "Saisab Sadhu",
+    "Shreeyans Arora",
+    "Pratinav Seth"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.CL",
+    "cs.CY"
+   ],
+   "tags": [
+    "manipulation",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12361",
+   "image": "figures/2026-10-10/2610.12361.jpg"
+  },
+  {
+   "date": "2026-10-10",
+   "rank": 9,
+   "id": "2610.10962",
+   "group": "general",
+   "title": "iAm.md: Robot Skill Self-Assessment through Agentic Introspection for Unknown Open-Vocabulary Domains",
+   "title_ja": "iAm.md: Robot Skill Self-Assessment through Agentic Introspection for Unknown Open-Vocabulary Domains",
+   "summary_ja": "Agentic AI based on Large Language Model generalization capabilities offers a wide range of potential applications, including planning for embodied tasks. For example, embodied agents based on Foundation models can gene…",
+   "summary_en": "Agentic AI based on Large Language Model generalization capabilities offers a wide range of potential applications, including planning for embodied tasks. For example, embodied agents based on Foundation models can generate plausible plans in autonomous robotics scenarios. Due to limited context windows or hallucinatory phenomena in the next-token prediction formulation, behaviors may be generated without establishing whether the deployed robot and the observed environment a…",
+   "authors": [
+    "Vincenzo Guarino",
+    "Emanuele Musumeci",
+    "Vincenzo Suriani",
+    "Daniele Nardi"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "manipulation",
+    "navigation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.10962",
+   "image": "figures/2026-10-10/2610.10962.jpg"
+  },
+  {
    "date": "2026-10-09",
    "rank": 0,
    "id": "2610.11505",
