@@ -1,6 +1,317 @@
 {
  "entries": [
   {
+   "date": "2026-10-11",
+   "rank": 0,
+   "id": "2610.12470",
+   "group": "focus",
+   "title": "Dex-One2Many: Learning Dexterous Manipulation from a Single Human Demonstration",
+   "title_ja": "Dex-One2Many: Learning Dexterous Manipulation from a Single Human Demonstration",
+   "summary_ja": "While learning dexterous manipulation from a single human video offers a promising alternative to costly robot demonstrations, many recent methods predominantly imitate demonstrated motions. Such strict motion matching …",
+   "summary_en": "While learning dexterous manipulation from a single human video offers a promising alternative to costly robot demonstrations, many recent methods predominantly imitate demonstrated motions. Such strict motion matching often limits generalization to initial object poses, goal poses, and grasps not shown in the video. Alternatively, discovering a policy via reinforcement learning (RL) allows for broad generalization, but without prior guidance, it struggles with high-dimensio…",
+   "authors": [
+    "Jusuk Lee",
+    "Sungha Kim",
+    "Yeonsoo Park",
+    "Jonguk Cheon",
+    "Yoonkyo Jung",
+    "Yongjun You",
+    "H. Jin Kim",
+    "Jia-Bin Huang",
+    "Furong Huang",
+    "Youngseok Jang",
+    "Seungjae Lee"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "manipulation",
+    "reinforcement-learning",
+    "sim-to-real",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12470",
+   "image": "figures/2026-10-11/2610.12470.jpg"
+  },
+  {
+   "date": "2026-10-11",
+   "rank": 1,
+   "id": "2610.12467",
+   "group": "focus",
+   "title": "CSF: Contextual Safety Filtering for Motion Generators",
+   "title_ja": "CSF: Contextual Safety Filtering for Motion Generators",
+   "summary_ja": "Text-conditioned motion generators produce trackable whole-body motion, but they have no notion of scene-dependent safety: the same action may target an object or a person. Existing safeguards either inspect the prompt,…",
+   "summary_en": "Text-conditioned motion generators produce trackable whole-body motion, but they have no notion of scene-dependent safety: the same action may target an object or a person. Existing safeguards either inspect the prompt, require labeled motion data, or enforce geometric constraints; therefore, they do not directly account for how scene context changes a motion's meaning. We introduce contextual safety filtering (CSF), a training-free filter that grounds natural-language safet…",
+   "authors": [
+    "Lizhi Yang",
+    "Yiling Hou",
+    "Yao Tang",
+    "Junheng Li",
+    "Daniel Weng",
+    "Blake Werner",
+    "Aaron D. Ames"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12467",
+   "image": "figures/2026-10-11/2610.12467.jpg"
+  },
+  {
+   "date": "2026-10-11",
+   "rank": 2,
+   "id": "2610.12464",
+   "group": "focus",
+   "title": "What 30,000 Hours of Ego-centric Video Does Not Teach",
+   "title_ja": "What 30,000 Hours of Ego-centric Video Does Not Teach",
+   "summary_ja": "World models offer a promising alternative to physics-based simulators, yet remain far from practical deployment. We ask how far scaling ego-centric human video takes them, using a dataset of 30,000 hours spanning over …",
+   "summary_en": "World models offer a promising alternative to physics-based simulators, yet remain far from practical deployment. We ask how far scaling ego-centric human video takes them, using a dataset of 30,000 hours spanning over 1,000 scene types and 14,000 contributors. Rather than relying on opaque downstream metrics, we directly evaluate agent and object-interaction fidelity on a challenging out-of-distribution benchmark. Increasing training data by 100x improves both, but unevenly…",
+   "authors": [
+    "Jiahua Dong",
+    "Anurag Bagchi",
+    "Yash Jangir",
+    "Muhammad Zubair Irshad",
+    "Sergey Zakharov",
+    "Martial Hebert",
+    "Homanga Bharadhwaj",
+    "Yu-Xiong Wang",
+    "Vitor Campagnolo Guizilini",
+    "Pavel Tokmakov"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "world-model",
+    "simulation",
+    "dataset",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12464",
+   "image": "figures/2026-10-11/2610.12464.jpg"
+  },
+  {
+   "date": "2026-10-11",
+   "rank": 3,
+   "id": "2610.12440",
+   "group": "focus",
+   "title": "Generative Neural Retargeting for Human-to-Robot Dexterous Manipulation",
+   "title_ja": "Generative Neural Retargeting for Human-to-Robot Dexterous Manipulation",
+   "summary_ja": "Human demonstrations are a scalable data source for learning dexterous manipulation, but the embodiment gap prevents human motion from being executed directly on robots. Inverse kinematics (IK) retargets human motion to…",
+   "summary_en": "Human demonstrations are a scalable data source for learning dexterous manipulation, but the embodiment gap prevents human motion from being executed directly on robots. Inverse kinematics (IK) retargets human motion to robots efficiently but ignores dynamics, often producing infeasible motions. Reinforcement learning (RL) and sampling-based model predictive control (MPC) are commonly employed to yield dynamically feasible motions, but both are sample-inefficient and sensiti…",
+   "authors": [
+    "Dechen Gao",
+    "Yue Yang",
+    "Ben Abbatematteo",
+    "Nathan Godwin",
+    "Pengcheng Wang",
+    "Roger Boldu",
+    "Steven Man",
+    "Zhiyang Dou",
+    "Chuan Qin",
+    "Sho Nakagome",
+    "Eric Whitmire"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "reinforcement-learning",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12440",
+   "image": "figures/2026-10-11/2610.12440.jpg"
+  },
+  {
+   "date": "2026-10-11",
+   "rank": 4,
+   "id": "2610.12432",
+   "group": "focus",
+   "title": "FAITH: Feasibility-Aware Safety-Filtered RL for High-Dimensional Systems",
+   "title_ja": "FAITH: Feasibility-Aware Safety-Filtered RL for High-Dimensional Systems",
+   "summary_ja": "Safe reinforcement learning commonly places safety and task performance in the same policy objective, where they can introduce competing updates. Safety filters separate them at action execution, but classical designs r…",
+   "summary_en": "Safe reinforcement learning commonly places safety and task performance in the same policy objective, where they can introduce competing updates. Safety filters separate them at action execution, but classical designs require an analytic safety function and dynamics model, and standard minimal-intervention filters are myopic to long-horizon task return because they minimize only instantaneous action deviation. Hard projections are also undefined when no safe action exists. W…",
+   "authors": [
+    "Songyuan Zhang",
+    "Baljeet Singh",
+    "Sarthak Ranjeet Kaingade",
+    "Chuchu Fan",
+    "Bryan Trinh"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG",
+    "eess.SY"
+   ],
+   "tags": [
+    "locomotion",
+    "reinforcement-learning",
+    "humanoid",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12432",
+   "image": "figures/2026-10-11/2610.12432.jpg"
+  },
+  {
+   "date": "2026-10-11",
+   "rank": 5,
+   "id": "2610.12468",
+   "group": "general",
+   "title": "DreamTrue: Action-Faithful Robot World Model with Counterfactual Post-Training",
+   "title_ja": "DreamTrue: Action-Faithful Robot World Model with Counterfactual Post-Training",
+   "summary_ja": "We present DreamTrue, a multi-view, cross-embodiment robot world model for action-faithful and physically plausible video prediction. Training such a model on existing robot datasets faces two obstacles: imprecise calib…",
+   "summary_en": "We present DreamTrue, a multi-view, cross-embodiment robot world model for action-faithful and physically plausible video prediction. Training such a model on existing robot datasets faces two obstacles: imprecise calibration can impair action following, while limited coverage of unsuccessful interactions can bias predictions toward successful outcomes. To improve action following across embodiments, we render action trajectories into image-space conditions and introduce off…",
+   "authors": [
+    "Junyan Li",
+    "Ruizhi Li",
+    "Yu Liu",
+    "Xiangshuo Liu",
+    "Mingchao Sun",
+    "Hongyu Pan",
+    "Mu Xu",
+    "Lue Fan",
+    "Zhaoxiang Zhang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "world-model",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12468",
+   "image": "figures/2026-10-11/2610.12468.jpg"
+  },
+  {
+   "date": "2026-10-11",
+   "rank": 6,
+   "id": "2610.12457",
+   "group": "general",
+   "title": "SpatialHarness: Test-Time Spatial Scaffolding for Fine Robotic Manipulation",
+   "title_ja": "SpatialHarness: Test-Time Spatial Scaffolding for Fine Robotic Manipulation",
+   "summary_ja": "Frontier multimodal foundation models (e.g., GPT-6 Astra) have recently shown strong potential for direct robotic control, yet their performance on fine manipulation remains limited. We argue that an important source of…",
+   "summary_en": "Frontier multimodal foundation models (e.g., GPT-6 Astra) have recently shown strong potential for direct robotic control, yet their performance on fine manipulation remains limited. We argue that an important source of failure is not necessarily insufficient policy capability, but insufficient spatial observability, where task-critical spatial relationships may be poorly revealed by the existing physical camera setup. We introduce SpatialHarness, a test-time embodied harnes…",
+   "authors": [
+    "Jiayu Wang",
+    "Yue Yu",
+    "Bin Zhu",
+    "Zhiyao Yang",
+    "Jingjing Chen"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12457",
+   "image": "figures/2026-10-11/2610.12457.jpg"
+  },
+  {
+   "date": "2026-10-11",
+   "rank": 7,
+   "id": "2610.12451",
+   "group": "general",
+   "title": "VersaCamVLA: Camera-Configurable VLA Policies for Robotic Manipulation",
+   "title_ja": "VersaCamVLA: Camera-Configurable VLA Policies for Robotic Manipulation",
+   "summary_ja": "Vision-Language-Action (VLA) models have emerged as powerful foundations for robotic manipulation, but their reliance on fixed camera configurations during training makes them brittle to changes in camera count or pose …",
+   "summary_en": "Vision-Language-Action (VLA) models have emerged as powerful foundations for robotic manipulation, but their reliance on fixed camera configurations during training makes them brittle to changes in camera count or pose during deployment. To overcome these limitations, we propose VersaCamVLA, a camera-configurable framework that decouples camera-set representation from action learning. VersaCamVLA learns a unified scene-token interface that maps an arbitrary, variable set of …",
+   "authors": [
+    "Boyao Han",
+    "Chen Shi",
+    "Jingjing Qian",
+    "ZhuoTan Tian",
+    "Li Jiang"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12451",
+   "image": "figures/2026-10-11/2610.12451.jpg"
+  },
+  {
+   "date": "2026-10-11",
+   "rank": 8,
+   "id": "2610.12424",
+   "group": "general",
+   "title": "RoboRSI: Stable, efficient, and reusable robot self-evolution in complex real-world environments",
+   "title_ja": "RoboRSI: Stable, efficient, and reusable robot self-evolution in complex real-world environments",
+   "summary_ja": "A generalist robot should not only perform diverse tasks but also improve through experience, turning what it learns during execution into capabilities that later tasks can reuse. Robot agents that act through code can …",
+   "summary_en": "A generalist robot should not only perform diverse tasks but also improve through experience, turning what it learns during execution into capabilities that later tasks can reuse. Robot agents that act through code can already repair programs from execution feedback, yet it remains a central challenge to organize this experience around the task structure that gives it meaning, so that each repair is attributed to the responsible capability, supported by execution evidence, a…",
+   "authors": [
+    "Zimo Wen",
+    "Yijin Chen",
+    "Yuxuan Cao",
+    "Wendi Chen",
+    "Yanwen Zou",
+    "Wenye Yu",
+    "Fuhang Kuang",
+    "Han Xue",
+    "Jun Lv",
+    "Chuan Wen",
+    "Cewu Lu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "manipulation",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12424",
+   "image": "figures/2026-10-11/2610.12424.jpg"
+  },
+  {
+   "date": "2026-10-11",
+   "rank": 9,
+   "id": "2610.12417",
+   "group": "general",
+   "title": "WOVEN: Weaving Visual World Modeling into Multimodal LLMs",
+   "title_ja": "WOVEN: Weaving Visual World Modeling into Multimodal LLMs",
+   "summary_ja": "Multimodal large language models (MLLMs) struggle with spatial, embodied, physical, and temporal reasoning. We hypothesize that these failures reflect a shared deficit in visual transition reasoning, and test whether th…",
+   "summary_en": "Multimodal large language models (MLLMs) struggle with spatial, embodied, physical, and temporal reasoning. We hypothesize that these failures reflect a shared deficit in visual transition reasoning, and test whether this capability can serve as a shared training primitive, one that different models can learn from different supervision sources and reuse across different tasks, with a systematic training recipe. Existing benchmarks document these deficits separately but do no…",
+   "authors": [
+    "Zheyu Fan",
+    "Yue Zhang",
+    "Mingkai Deng",
+    "Kangrui Wang",
+    "Qineng Wang",
+    "Canyu Chen",
+    "Jie Hao",
+    "Xing Fan",
+    "Chenlei Guo",
+    "Eric P. Xing",
+    "Mohit Bansal",
+    "Manling Li"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.CL",
+    "cs.LG"
+   ],
+   "tags": [
+    "world-model",
+    "llm-agent",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12417",
+   "image": "figures/2026-10-11/2610.12417.jpg"
+  },
+  {
    "date": "2026-10-10",
    "rank": 0,
    "id": "2610.12135",
