@@ -1,6 +1,298 @@
 {
  "entries": [
   {
+   "date": "2026-10-12",
+   "rank": 0,
+   "id": "2610.12558",
+   "group": "focus",
+   "title": "PanTact: Teaching Whole-Body Dexterity with a Wearable Contact Interface",
+   "title_ja": "PanTact: Teaching Whole-Body Dexterity with a Wearable Contact Interface",
+   "summary_ja": "Humanoid robots have many degrees of freedom and contact surfaces, yet most loco-manipulation research restricts manipulation to the hands and avoids other body contacts with the environment. To extend manipulation beyo…",
+   "summary_en": "Humanoid robots have many degrees of freedom and contact surfaces, yet most loco-manipulation research restricts manipulation to the hands and avoids other body contacts with the environment. To extend manipulation beyond the hands, we present PanTact, a system that learns humanoid whole-body dexterity, the capability to manipulate with any suitable body surface, directly from robot-free human demonstrations. Our key idea is to use contact as manipulation-centric information…",
+   "authors": [
+    "Xiaomeng Xu",
+    "Han Zhang",
+    "Zhian Ruan",
+    "Xiaofeng Guo",
+    "Jinkun Cao",
+    "Ruihan Yang",
+    "Carmelo Sferrazza",
+    "Shuran Song",
+    "Guanya Shi"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "humanoid"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12558",
+   "image": "figures/2026-10-12/2610.12558.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 1,
+   "id": "2610.12609",
+   "group": "focus",
+   "title": "Graph-Based Heuristics for Minimum Constraint Removal in Cluttered Robot Motion Planning",
+   "title_ja": "Graph-Based Heuristics for Minimum Constraint Removal in Cluttered Robot Motion Planning",
+   "summary_ja": "Humanoid and service robots operating in clut- tered human environments may encounter motion planning problems that are infeasible when all surrounding objects are treated as fixed obstacles. The Minimum Constraint Remo…",
+   "summary_en": "Humanoid and service robots operating in clut- tered human environments may encounter motion planning problems that are infeasible when all surrounding objects are treated as fixed obstacles. The Minimum Constraint Removal problem, which we refer to as MCR, addresses this situation by identifying the minimum number of constraints, such as movable objects, whose removal enables a collision-free path. However, computing an optimal MCR solution is NP-hard. In this work, we prop…",
+   "authors": [
+    "Antony Thomas",
+    "Fulvio Mastrogiovanni",
+    "Marco Baglietto"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "benchmark",
+    "humanoid"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12609",
+   "image": "figures/2026-10-12/2610.12609.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 2,
+   "id": "2610.12642",
+   "group": "focus",
+   "title": "PriMoRetarget: Humanoid Motion Transfer Through Prioritized Motion Retargeting",
+   "title_ja": "PriMoRetarget: Humanoid Motion Transfer Through Prioritized Motion Retargeting",
+   "summary_ja": "Motion retargeting is a critical preprocessing step for transferring human motion data to humanoid robots. While existing methods are effective for single-character motions, interactions involving multiple characters an…",
+   "summary_en": "Motion retargeting is a critical preprocessing step for transferring human motion data to humanoid robots. While existing methods are effective for single-character motions, interactions involving multiple characters and objects introduce additional contacts and spatial relationships that must be preserved. Retargeting is commonly formulated as a weighted multi-objective optimization problem, where conflicting objectives can require careful tuning of relative weights and can…",
+   "authors": [
+    "Nicholas Ioannidis",
+    "Dun Yang",
+    "Max Smith",
+    "Tue Vu",
+    "Ziyu Zhang",
+    "Shayegan Omidshafiei",
+    "Xue Bin Peng"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.GR"
+   ],
+   "tags": [
+    "manipulation",
+    "dataset",
+    "humanoid"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12642",
+   "image": "figures/2026-10-12/2610.12642.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 3,
+   "id": "2610.12733",
+   "group": "focus",
+   "title": "Visual-Wi-Fi Navigation to Signal-Emitting Devices",
+   "title_ja": "Visual-Wi-Fi Navigation to Signal-Emitting Devices",
+   "summary_ja": "Indoor navigation to task-relevant targets remains difficult when the target is small, occluded, or visually indistinct. Meanwhile, smart appliances, mobile devices, and IoT tags emit Wi-Fi signals during everyday commu…",
+   "summary_en": "Indoor navigation to task-relevant targets remains difficult when the target is small, occluded, or visually indistinct. Meanwhile, smart appliances, mobile devices, and IoT tags emit Wi-Fi signals during everyday communication, providing a pervasive but underused spatial cue. We study visual-Wi-Fi navigation, where a robot reaches a signal-emitting device in an unmapped environment using onboard visual observations and Wi-Fi packets overheard from the device, without connec…",
+   "authors": [
+    "Lihao Wang",
+    "Tianjian Xu",
+    "Tianmin Shu",
+    "Renjie Zhao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "navigation",
+    "simulation",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12733",
+   "image": "figures/2026-10-12/2610.12733.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 4,
+   "id": "2610.12747",
+   "group": "focus",
+   "title": "Trajectory Prediction for Autonomous Driving in Road Construction Zones Using Human-in-the-Loop Driving Data",
+   "title_ja": "Trajectory Prediction for Autonomous Driving in Road Construction Zones Using Human-in-the-Loop Driving Data",
+   "summary_ja": "Ego-trajectory prediction in urban roadway work zones remains an underexplored topic in autonomous-driving research, with limited dedicated data and systematic evaluation. Roadway work zones involve temporary changes in…",
+   "summary_en": "Ego-trajectory prediction in urban roadway work zones remains an underexplored topic in autonomous-driving research, with limited dedicated data and systematic evaluation. Roadway work zones involve temporary changes in the lane layouts and connectivity of the roads, complicating interactions with surrounding vehicles and workers. These changes make future vehicle trajectories difficult to predict. To address these challenges, we collect WZDrive-Data, a multimodal dataset co…",
+   "authors": [
+    "Shuo Zhang",
+    "Aman Sunesh",
+    "Semiha Ergan",
+    "Kaan Ozbay"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "simulation",
+    "dataset",
+    "benchmark",
+    "autonomous-driving"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12747",
+   "image": "figures/2026-10-12/2610.12747.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 5,
+   "id": "2610.12549",
+   "group": "general",
+   "title": "Fly-by-Code: Embodied Coding Agents for Aerial Manipulation with Active Visual and Physical Feedback",
+   "title_ja": "Fly-by-Code: Embodied Coding Agents for Aerial Manipulation with Active Visual and Physical Feedback",
+   "summary_ja": "Embodied coding agents construct robot policies from natural-language instructions by generating executable programs and refining them from execution feedback. This refinement assumes that execution feedback reveals whe…",
+   "summary_en": "Embodied coding agents construct robot policies from natural-language instructions by generating executable programs and refining them from execution feedback. This refinement assumes that execution feedback reveals whether the task succeeded and, after a failure, provides sufficient evidence to guide program revision. Aerial manipulation violates this assumption in two ways. Payload constraints restrict onboard camera coverage and leave task-critical outcomes outside the ro…",
+   "authors": [
+    "Jaewoo Lee",
+    "Jeongyeon Seo",
+    "Sihyun Cho",
+    "Gyeongrak Choe",
+    "Yutong Wang",
+    "Bavin Saravanan",
+    "Jia-Bin Huang",
+    "Furong Huang",
+    "Sebastian Scherer",
+    "Guanya Shi",
+    "H. Jin Kim",
+    "Seungjae Lee",
+    "Dongjae Lee"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "manipulation",
+    "simulation",
+    "drone"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12549",
+   "image": "figures/2026-10-12/2610.12549.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 6,
+   "id": "2610.12561",
+   "group": "general",
+   "title": "What Should Embodied Agents Remember? Benchmarking and Evaluating Memory Modality for Embodied Agents",
+   "title_ja": "What Should Embodied Agents Remember? Benchmarking and Evaluating Memory Modality for Embodied Agents",
+   "summary_ja": "Memory allows large language model (LLM) agents to use past experience, often stored as textual records, when responding to requests. For embodied agents that control robots, visual and spatial observations introduce a …",
+   "summary_en": "Memory allows large language model (LLM) agents to use past experience, often stored as textual records, when responding to requests. For embodied agents that control robots, visual and spatial observations introduce a broader choice of memory modalities, affecting both the information available for subsequent tasks and the model inference costs of constructing and using memory. We introduce MeMoREval, a benchmark for studying this problem through a controlled experience-req…",
+   "authors": [
+    "Junxiang Wang",
+    "Yuchen Liu",
+    "Yi Wu",
+    "Guofei Chen",
+    "Nir Pechuk",
+    "Tao Chen",
+    "Zackory Erickson",
+    "Yuzhe Qin",
+    "Tianyu Li"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "llm-agent",
+    "simulation",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12561",
+   "image": "figures/2026-10-12/2610.12561.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 7,
+   "id": "2610.12567",
+   "group": "general",
+   "title": "CASTER: Formalizing Zero-Shot Manipulation from Synthetic Videos as Constrained Optimization",
+   "title_ja": "CASTER: Formalizing Zero-Shot Manipulation from Synthetic Videos as Constrained Optimization",
+   "summary_ja": "Prior research on learning from humans often requires real human demonstrations. But advances in video generation models offer a new paradigm: we can now prompt these generators to make synthetic videos of the task. On …",
+   "summary_en": "Prior research on learning from humans often requires real human demonstrations. But advances in video generation models offer a new paradigm: we can now prompt these generators to make synthetic videos of the task. On the plus side, these synthetic videos take place in the robot's current environment, and do not require actual human teaching. However, while the generated videos appear to show plausible motions, they lack both physical consistency and robot grounding, and th…",
+   "authors": [
+    "Yinlong Dai",
+    "Homanga Bharadhwaj",
+    "Dylan P. Losey"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12567",
+   "image": "figures/2026-10-12/2610.12567.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 8,
+   "id": "2610.12631",
+   "group": "general",
+   "title": "Image-Based Path-Planning for Navigation of Soft-Growing Robots in the Spinal Sub-Arachnoid Space",
+   "title_ja": "Image-Based Path-Planning for Navigation of Soft-Growing Robots in the Spinal Sub-Arachnoid Space",
+   "summary_ja": "Recently, soft robotic procedures are being developed aiming at achieving targeted minimally invasive operations or drug administration in specific locations in the human body. Accordingly, specialized path-planning alg…",
+   "summary_en": "Recently, soft robotic procedures are being developed aiming at achieving targeted minimally invasive operations or drug administration in specific locations in the human body. Accordingly, specialized path-planning algorithms need to be investigated for the estimation of efficient paths that would protect the delicate tissue structures and simultaneously satisfy a set of requirements for the efficient navigation of the robot. In this context, we propose an image-based 3D pa…",
+   "authors": [
+    "George Dimas",
+    "Panagiotis G. Kalozoumis",
+    "Panagiotis Vartholomeos",
+    "Dimitris K. Iakovidis"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "navigation",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12631",
+   "image": "figures/2026-10-12/2610.12631.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 9,
+   "id": "2610.12636",
+   "group": "general",
+   "title": "Selectively Actuated Fiberbots for High-precision Minimally Invasive Surgery",
+   "title_ja": "Selectively Actuated Fiberbots for High-precision Minimally Invasive Surgery",
+   "summary_ja": "Long, slender instruments are essential for minimally invasive surgery (MIS), but achieving precise distal manipulation becomes increasingly difficult when actuation extends along the entire instrument. Here, we present…",
+   "summary_en": "Long, slender instruments are essential for minimally invasive surgery (MIS), but achieving precise distal manipulation becomes increasingly difficult when actuation extends along the entire instrument. Here, we present an electrothermally actuated fiber-based robot designed for MIS procedures, in which Joule heating is concentrated in the distal active segment. The fiber is fabricated using a thermal drawing process and uses embedded metallic wires for thermal actuation. Th…",
+   "authors": [
+    "Jinshi Zhao",
+    "Libaihe Tian",
+    "Alex Ranne",
+    "Qindong Zheng",
+    "Yue Li",
+    "Xiaotong Guo",
+    "Ziqi Yang",
+    "Ali Anil Demircali",
+    "Mohamed E. M. K. Abdelaziz",
+    "Bruno Gil Rosa",
+    "Ferdinando Rodriguez y Baena",
+    "Burak Temelkuran"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "medical"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12636",
+   "image": "figures/2026-10-12/2610.12636.jpg"
+  },
+  {
    "date": "2026-10-11",
    "rank": 0,
    "id": "2610.12470",
