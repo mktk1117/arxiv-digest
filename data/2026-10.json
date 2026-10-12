@@ -3,6 +3,37 @@
   {
    "date": "2026-10-12",
    "rank": 0,
+   "id": "2610.12772",
+   "group": "focus",
+   "title": "Reflex: Visually Grounded Reactive Humanoid Control",
+   "title_ja": "Reflex: Visually Grounded Reactive Humanoid Control",
+   "summary_ja": "Humans effortlessly react to the world; they adeptly return a tennis shot, catch a falling cup, step aside from a passing cart, or pass a box tossed during truck unloading. These everyday actions require anticipating a …",
+   "summary_en": "Humans effortlessly react to the world; they adeptly return a tennis shot, catch a falling cup, step aside from a passing cart, or pass a box tossed during truck unloading. These everyday actions require anticipating a moving target and reflexively responding with the whole body within about a second. Such visual reactive whole-body control remains challenging for humanoids, which must (1) coordinate whole-body control, (2) react to object dynamics in real time, and (3) grou…",
+   "authors": [
+    "Taoyang Jia",
+    "Weikai Huang",
+    "Linxin Song",
+    "Jared Darlington",
+    "Jieyu Zhao",
+    "Yue Wang",
+    "Jiafei Duan",
+    "Zhongzheng Ren",
+    "Ranjay Krishna"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "simulation",
+    "humanoid"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12772",
+   "image": "figures/2026-10-12/2610.12772.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 0,
    "id": "2610.12558",
    "group": "focus",
    "title": "PanTact: Teaching Whole-Body Dexterity with a Wearable Contact Interface",
@@ -33,6 +64,36 @@
   {
    "date": "2026-10-12",
    "rank": 1,
+   "id": "2610.12877",
+   "group": "focus",
+   "title": "TAME-Nav: Temporal Asymmetric Mixture-of-Experts Distillation for Agile and Versatile Robot Navigation",
+   "title_ja": "TAME-Nav: Temporal Asymmetric Mixture-of-Experts Distillation for Agile and Versatile Robot Navigation",
+   "summary_ja": "Agile and reliable navigation is a core capability for embodied robots navigating complex spatial constraints and dynamic interactions. However, a single policy often struggles to accommodate the distinct decision-makin…",
+   "summary_en": "Agile and reliable navigation is a core capability for embodied robots navigating complex spatial constraints and dynamic interactions. However, a single policy often struggles to accommodate the distinct decision-making demands of diverse scenarios. We present TAME-Nav, an asymmetric Teacher-Student navigation framework built around a temporal soft mixture of experts (Soft-MoE). The Teacher combines clean observations with causally maintained dynamic-obstacle tracks to cons…",
+   "authors": [
+    "Lingjie Zhang",
+    "Jun Xue",
+    "Shanze Wang",
+    "Haoyu Xi",
+    "Xinming Zhang",
+    "Xiaoyu Shen",
+    "Wei Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "navigation",
+    "sim-to-real",
+    "simulation",
+    "quadruped"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12877",
+   "image": "figures/2026-10-12/2610.12877.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 1,
    "id": "2610.12609",
    "group": "focus",
    "title": "Graph-Based Heuristics for Minimum Constraint Removal in Cluttered Robot Motion Planning",
@@ -54,6 +115,40 @@
    ],
    "abs_url": "https://arxiv.org/abs/2610.12609",
    "image": "figures/2026-10-12/2610.12609.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 2,
+   "id": "2610.12957",
+   "group": "focus",
+   "title": "JoyInside-VLM-Agent: Product-Conditioned Multimodal Policy Learning for Embodied Agents",
+   "title_ja": "JoyInside-VLM-Agent: Product-Conditioned Multimodal Policy Learning for Embodied Agents",
+   "summary_ja": "Embodied agents must translate multimodal observations and user requests into executable actions while adapting to product constraints, changing goals, and execution feedback. We present JoyInside-VLM-Agent, a ReAct-sty…",
+   "summary_en": "Embodied agents must translate multimodal observations and user requests into executable actions while adapting to product constraints, changing goals, and execution feedback. We present JoyInside-VLM-Agent, a ReAct-style multimodal agent developed through product-conditioned trajectory construction and staged policy learning for robotic platforms and smart hardware. A closed-loop sandbox generates multimodal interaction trajectories covering goal revisions and failure recov…",
+   "authors": [
+    "Gangyi Li",
+    "LuYao Wang",
+    "Jingfu Sun",
+    "Jingyi Yuan",
+    "Hang Liu",
+    "Hao Zong",
+    "Yujia Hu",
+    "Tingting Gao",
+    "Jianyong Wang",
+    "Xu Yang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "benchmark",
+    "quadruped"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12957",
+   "image": "figures/2026-10-12/2610.12957.jpg"
   },
   {
    "date": "2026-10-12",
@@ -88,6 +183,36 @@
   {
    "date": "2026-10-12",
    "rank": 3,
+   "id": "2610.12972",
+   "group": "focus",
+   "title": "Adaptive Whole-Body MPC with Optimal Posture Planning for Humanoid Robots under Unknown Payloads",
+   "title_ja": "Adaptive Whole-Body MPC with Optimal Posture Planning for Humanoid Robots under Unknown Payloads",
+   "summary_ja": "Humanoid robots performing lifting and material-handling tasks must maintain balance despite unknown and varying payloads. However, payload uncertainty significantly affects whole-body dynamics and may destabilize conve…",
+   "summary_en": "Humanoid robots performing lifting and material-handling tasks must maintain balance despite unknown and varying payloads. However, payload uncertainty significantly affects whole-body dynamics and may destabilize conventional controllers. We propose an adaptive whole-body control architecture that integrates three components: (i) a centroidal model predictive controller (MPC) that generates dynamically feasible reference motions, (ii) an adaptive fuzzy balance controller th…",
+   "authors": [
+    "Manh Cuong Nguyen",
+    "Duc Cuong Vu",
+    "Viet Anh Vu",
+    "Duc Tuan Pham",
+    "Toan Nguyen",
+    "Minh Hiep Phung",
+    "Ngo Anh Vien",
+    "Minh Nhat Vu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "humanoid",
+    "grasping"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12972",
+   "image": "figures/2026-10-12/2610.12972.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 3,
    "id": "2610.12733",
    "group": "focus",
    "title": "Visual-Wi-Fi Navigation to Signal-Emitting Devices",
@@ -110,6 +235,31 @@
    ],
    "abs_url": "https://arxiv.org/abs/2610.12733",
    "image": "figures/2026-10-12/2610.12733.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 4,
+   "id": "2610.13079",
+   "group": "focus",
+   "title": "VICAR: Video Imitation with Contact-Aware Retargeting for Humanoid Interactive Skills",
+   "title_ja": "VICAR: Video Imitation with Contact-Aware Retargeting for Humanoid Interactive Skills",
+   "summary_ja": "Third-person human videos offer a scalable alternative to task-specific reward engineering, teleoperation, and manually scripted demonstrations for humanoid loco-manipulation. Recent video-to-humanoid systems have shown…",
+   "summary_en": "Third-person human videos offer a scalable alternative to task-specific reward engineering, teleoperation, and manually scripted demonstrations for humanoid loco-manipulation. Recent video-to-humanoid systems have shown that noisy human motion, object trajectories, and contacts can be extracted from unstructured videos and refined into deployable skills. However, a key gap remains for contact-rich imitation: the task is often defined by world-frame contacts whose poses, timi…",
+   "authors": [
+    "Dvij Kalaria",
+    "Bike Zhang",
+    "S. Shankar Sastry"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "humanoid",
+    "teleoperation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.13079",
+   "image": "figures/2026-10-12/2610.13079.jpg"
   },
   {
    "date": "2026-10-12",
@@ -139,6 +289,32 @@
    ],
    "abs_url": "https://arxiv.org/abs/2610.12747",
    "image": "figures/2026-10-12/2610.12747.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 5,
+   "id": "2610.12637",
+   "group": "general",
+   "title": "Distributed Harmonic-Covariance Feedback for Hole Closure in Planar Robot Swarms",
+   "title_ja": "Distributed Harmonic-Covariance Feedback for Hole Closure in Planar Robot Swarms",
+   "summary_ja": "We consider hole closure in a planar multi-agent system whose sensing disks form a time-varying \\v{C}ech complex. We propose a harmonic-covariance feedback that uses harmonic edge signals to locate holes and converts th…",
+   "summary_en": "We consider hole closure in a planar multi-agent system whose sensing disks form a time-varying \\v{C}ech complex. We propose a harmonic-covariance feedback that uses harmonic edge signals to locate holes and converts those signals into agent forces. For distributed evaluation, we use a fixed-degree polynomial of the regularized Hodge Laplacian. This polynomial is evaluated through local operator applications. The closed loop has a unique global trajectory from every safe ini…",
+   "authors": [
+    "Jitian Liu",
+    "Subhrajit Bhattacharya"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.MA",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "multi-robot",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12637",
+   "image": "figures/2026-10-12/2610.12637.jpg"
   },
   {
    "date": "2026-10-12",
@@ -180,6 +356,31 @@
   {
    "date": "2026-10-12",
    "rank": 6,
+   "id": "2610.12670",
+   "group": "general",
+   "title": "Robust and Scalable UAV-UGV Planning for Aerial Monitoring under Energy and Precedence Constraints",
+   "title_ja": "Robust and Scalable UAV-UGV Planning for Aerial Monitoring under Energy and Precedence Constraints",
+   "summary_ja": "We consider planning for unmanned aerial vehicle (UAV) and unmanned ground vehicle (UGV) teams in aerial monitoring missions with ordering requirements on the monitoring points to be visited by the UAV. The system consi…",
+   "summary_en": "We consider planning for unmanned aerial vehicle (UAV) and unmanned ground vehicle (UGV) teams in aerial monitoring missions with ordering requirements on the monitoring points to be visited by the UAV. The system consists of multiple UAV-UGV teams, each comprising one UAV and one UGV. UAV energy limitations are modeled through endurance, defined as the maximum flight time on a full battery. The UGVs serve as mobile charging stations and transport the UAVs between consecutiv…",
+   "authors": [
+    "Cahit Ikbal Er",
+    "Yasin Yazicioglu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.MA",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "drone"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12670",
+   "image": "figures/2026-10-12/2610.12670.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 6,
    "id": "2610.12561",
    "group": "general",
    "title": "What Should Embodied Agents Remember? Benchmarking and Evaluating Memory Modality for Embodied Agents",
@@ -211,6 +412,32 @@
   {
    "date": "2026-10-12",
    "rank": 7,
+   "id": "2610.12684",
+   "group": "general",
+   "title": "Non-Prehensile Multi-Object Placement with Mobile Robots via Diffusion-Based Trajectory Planning",
+   "title_ja": "Non-Prehensile Multi-Object Placement with Mobile Robots via Diffusion-Based Trajectory Planning",
+   "summary_ja": "Non-prehensile manipulation with mobile robots has primarily targeted placement in coarse goal regions. Precision placement has been studied with manipulators on benchmarks such as Push-T, where an omnidirectional end e…",
+   "summary_en": "Non-prehensile manipulation with mobile robots has primarily targeted placement in coarse goal regions. Precision placement has been studied with manipulators on benchmarks such as Push-T, where an omnidirectional end effector can readily re-approach an object from any side. For a mobile robot, correcting the same placement errors may require wide repositioning maneuvers around the object. We formalize multi-object pushing with a mobile robot as a multi-target assignment pro…",
+   "authors": [
+    "Lance Pharand",
+    "Megnath Ramesh",
+    "Mark Chiu",
+    "Yash Vardhan Pant",
+    "Stephen L. Smith"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12684",
+   "image": "figures/2026-10-12/2610.12684.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 7,
    "id": "2610.12567",
    "group": "general",
    "title": "CASTER: Formalizing Zero-Shot Manipulation from Synthetic Videos as Constrained Optimization",
@@ -231,6 +458,32 @@
    ],
    "abs_url": "https://arxiv.org/abs/2610.12567",
    "image": "figures/2026-10-12/2610.12567.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 8,
+   "id": "2610.12696",
+   "group": "general",
+   "title": "Spa-Bench: A Real-Robot Benchmark for Spatial Grounding in Vision-Language-Action Models",
+   "title_ja": "Spa-Bench: A Real-Robot Benchmark for Spatial Grounding in Vision-Language-Action Models",
+   "summary_ja": "Vision-language-action models (VLAs) offer a promising route toward general-purpose robotics by transferring semantic knowledge from large-scale vision-language pretraining into language-conditioned control. However, mo…",
+   "summary_en": "Vision-language-action models (VLAs) offer a promising route toward general-purpose robotics by transferring semantic knowledge from large-scale vision-language pretraining into language-conditioned control. However, most VLA evaluations emphasize aggregate manipulation success under changes in objects, instructions, or environments, leaving unclear how reliably these policies ground spatial descriptions in the physical scenes where they act. We therefore ask a sharper quest…",
+   "authors": [
+    "Justin Tien-Smith",
+    "Matthew Pidden",
+    "Rolandos Alexandros Potamias"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "vision-language-action",
+    "benchmark",
+    "teleoperation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12696",
+   "image": "figures/2026-10-12/2610.12696.jpg"
   },
   {
    "date": "2026-10-12",
@@ -258,6 +511,33 @@
    ],
    "abs_url": "https://arxiv.org/abs/2610.12631",
    "image": "figures/2026-10-12/2610.12631.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 9,
+   "id": "2610.12706",
+   "group": "general",
+   "title": "FallGown: A Soft Pneumatic Wearable Device for Fall Prevention",
+   "title_ja": "FallGown: A Soft Pneumatic Wearable Device for Fall Prevention",
+   "summary_ja": "Concerns about falling and potential resulting injuries prevent many older adults from participating in forms of health-improving exercise such as walking, dance, and tai chi. Existing passive devices like walkers requi…",
+   "summary_en": "Concerns about falling and potential resulting injuries prevent many older adults from participating in forms of health-improving exercise such as walking, dance, and tai chi. Existing passive devices like walkers require use of the arms for support, and active devices like exoskeletons and robotic frames are often rigid, bulky, and stigmatized, which limits their use. The FallGown is a soft wearable support structure consisting of pressurized pneumatic pouches within a fabr…",
+   "authors": [
+    "Megan C. Coram",
+    "Haoran Lei",
+    "Steven H. Collins",
+    "Steve B. Cousins",
+    "Michelle Baldonado",
+    "Cynthia Sung",
+    "Allison M. Okamura"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12706",
+   "image": "figures/2026-10-12/2610.12706.jpg"
   },
   {
    "date": "2026-10-12",
