@@ -1,0 +1,156 @@
+{
+ "title_ja": "PanTact: ウェアラブル接触インターフェースを用いた全身巧緻性の学習",
+ "tldr_ja": "手先だけでなく腕や膝などの全身を使った操作（全身の器用さ）を、ウェアラブルな接触センサ付き人間デモから直接模倣学習し、追加の接触センサなしで人型ロボット実機に実現させました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "PanTact の全体概要です。(a) 人間の前腕や膝に装着したモジュール式接触パッチで「いつ・どこで接触したか」を収集し、(b) ポリシーが接触目標を予測してコントローラがロボット自身の身体でそれを実現します。(c) これにより、腕で大きな物を抱えながら手先で小物を掴む、脚で扉を押し閉めるなど、全身をフル活用した多様な作業が可能になります。",
+  "caption": "Figure 1: PanTact gives a humanoid whole-body dexterity, learned from robot-free human demonstrations. (a) The data collection interface captures whole-body contacts alongside vision and motion. (b) Contact provides an interface for human-to-robot transfer. The visuomotor policy predicts contact goals, and the whole-body controller realizes them using suitable robot surfaces. (c) PanTact enables diverse whole-body dexterous skills on a humanoid.",
+  "image": "details/2610.12558/F1.jpg"
+ },
+ "overview_ja": "人間は重い箱を抱えるときに前腕やお腹を使い、両手がふさがっていれば膝でドアを閉めるなど、手先以外の全身を自然に使って器用に作業します。しかし従来の人型ロボット（ヒューマノイド）研究では、物を操る操作（マニピュレーション）は基本的に「手先（グリッパー）」に限定され、身体の他の部位は移動やバランス維持に専念して環境との接触を避けるように設計されてきました。これでは人型ロボットが持つ多くの自由度や広い表面積というポテンシャルが宝の持ち腐れになってしまいます。\n\nそこで著者らは、「ロボットを使わない人間のデモ（Robot-free demonstrations）」から、手先以外の全身を使った操作能力＝全身の器用さ（Whole-Body Dexterity）を直接学習するシステム「PanTact」を開発しました。ここで鍵となる着想は、「接触（Contact）」こそが人間とロボットの身体構造の違い（エンボディメントギャップ）をまたいで転移できる情報だという点です。タスクを達成するために本質的なのは「環境のどこに、いつ接触するか」であり、その接触をどの関節を曲げてどの身体表面で実現するかはロボット自身が制約の中で決めればよい、という考え方です。\n\n著者らはこのアイデアを実現するため、(1) 手先把持器（UMI）に加えて前腕や膝の接触タイミングと位置を測れるモジュール式接触パッチ、(2) 人間の身体の映り込みを幾何学的に隠して接触目標を予測する拡散ポリシー（Diffusion Policy）、(3) 予測された接触目標をロボットの適切な表面で実現する接触対応型全身コントローラ、の3つを統合しました。Unitree G1 実機を用いた検証では、腕での抱え込み、前腕での一括掃き集め、歩行しながらの脚による押し込みなど、手先だけに頼らない高度な全身作業が高い成功率で達成できることを確認しました。",
+ "contributions_ja": [
+  "磁石で自由に組み替えられ、人間の前腕や膝の接触タイミング・強度・3次元位置を計測できるウェアラブルな接触センサパッチを開発したこと",
+  "人間の身体を視覚的にマスクしつつ、手先軌道と「接触すべきか否か・その位置」を同時に予測する接触予測型模倣学習ポリシーを提案したこと",
+  "ロボット自身の身体表面の距離を最適化し、目標接触位置へ押し込む仮想ターゲットなどを組み込んだ3種類の接触対応型全身制御手法を構築したこと",
+  "Unitree G1 実機に追加の接触センサを一切積むことなく、腕での抱え込みや脚での押し込みといった全身器用操作を実現・実証したこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ手先だけでなく、身体全体でモノを操るべきなのか？",
+   "summary_ja": "人間は腕で大きな物を抱えたり膝で物を押したりと全身を活用しますが、従来の人型ロボット研究は接触を手先に限定してきました。人間のデモから全身接触を学ぶには、接触の計測、人間とロボットの体格差への対応、全身制御という3つの難所があります。PanTact は「接触」そのものを共通インターフェースとして橋渡しすることで、これを解決します。",
+   "details_ja": "ヒューマノイドは人間とよく似た身体構造と数十ものアクチュエータを持っています。それにもかかわらず、既存の移動・操作（ロコマニピュレーション）研究では、操作を手先だけに縛り、身体の他の部位は環境とぶつからないように避ける制御が主流でした。しかし、これではせっかくの身体の能力を活かしきれません。\n\nでは、人間の自然な全身協調動作をお手本にしてロボットに学習させるにはどうすればよいでしょうか。人間のデモを真似る模倣学習は発展していますが、従来の手法を全身の器用さに拡張しようとすると、次の3つの壁にぶつかります。\n\n- 人間の接触を計測できない：既存のデータ収集装置は手先の位置姿勢や関節角度しか記録しておらず、身体のどこがいつ接触したかが分かりません。\n- 身体の違いで接触がずれる：手先ターゲットだけでは腕や脚の接触が指定されず、かといって人間の全身関節角度をそのまま真似させようとすると、人間とロボットの体格やプロポーションの違いのせいで肝心の接触位置が狂ってしまいます。\n- 全身コントローラに接触目標がない：従来の全身制御は手先の追従や姿勢維持が目的であり、身体表面を指定した位置に当てにいく仕組みがありません。\n\nここがポイントです。著者らは「接触の位置とタイミング」こそがタスクの本質であり、ロボットの体格に依存しない情報であることに着目しました。空中での腕の動きを完全に再現する必要はなく、「どこに接触すべきか」さえ分かれば、ロボットは自身の身体の都合に合わせて適切な関節配置を選べるからです。PanTact はこの発想に基づき、接触の計測・予測・制御を一貫して設計したシステムです。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "ロボット学習と全身センシングのいま",
+   "summary_ja": "ロボットの全身接触センシングはこれまで遠隔操作や専用ロボット皮膚に頼っており、データ収集も手先中心でした。本研究は、低コストなウェアラブル接触センサによるデータ収集、視覚ポリシーによる接触目標予測、接触対応コントローラを組み合わせることで、ロボット側に追加の皮膚センサを積むことなく全身操作を実現する点で新しい位置づけにあります。",
+   "details_ja": "関連する研究は大きく3つの系統に分かれます。\n\n### ロボットの全身センシング\n従来は、衝突回避や柔軟な接触のためにロボット本体へ触覚スキンや力覚センサを埋め込むアプローチが主流でした。しかしこれらは特定のロボット専用に作られることが多く、データの収集も時間がかかる遠隔操作（テレオペレーション）に頼っていました。PanTact は触覚センシングをロボット側ではなく「人間側のウェアラブル機器」に持たせることで、手軽なデータ収集を可能にしています。\n\n### ロボット学習のためのデータ収集インターフェース\n可搬型のグリッパーを用いる UMI などの登場で、ロボット実機を使わない人間デモ収集が急速に普及しました。頭部カメラや関節位置計測を組み合わせる拡張も進んでいますが、身体の接触そのものを直接記録できるものはありませんでした。PanTact はここに全身接触センシングを追加した初の試みです。\n\n### デモからの全身操作学習\n上位のポリシーが作業目標を出し、下位の全身コントローラがそれを実行する階層構造が一般的です。しかし従来は手先目標しか渡していませんでした。最近では接触を考慮した追従コントローラも提案されていますが、特定の部位に接触があらかじめ割り当てられており、高レベルの視覚ポリシーと統合されていませんでした。PanTact はこれらをエンドツーエンドで統合したシステムを提供します。",
+   "figures": []
+  },
+  {
+   "heading": "3 PanTact Data Collection Interface",
+   "heading_ja": "磁石でパチパチ組める！全身の接触を測るウェアラブルデバイス",
+   "summary_ja": "人間の前腕や膝に装着するモジュール式接触パッチを開発しました。44mm角の力検出抵抗（FSR）モジュールを磁石で自由に連結でき、頭部ステレオカメラや手元カメラ、HTC Vive トラッカーと同期して「いつ・どこで接触したか」を60Hzで正確に記録します。",
+   "details_ja": "人間の身体にフィットし、誰でも着けられるセンサを作るため、PanTact ではレゴのように組み立てられるモジュール構造を採用しました。\n\n### センサの構造と回路\n基本単位となるモジュールは $44\\times 44\\,\\mathrm{mm}$ の小型ユニットで、力検出抵抗（FSR: 押されると電気抵抗が下がる素子）を1枚搭載しています。特注の基板により最大16チャンネルのFSRを $1\\,\\mathrm{kHz}$ で同時サンプリングし、RS-485バスまたはUSB経由で低遅延にデータを集めます。\n\n### 磁石によるモジュール連結\n各モジュールの側面にはスロットがあり、磁石入りのコネクタをカチッとはめ込むことで、長方形でもL字でも自由な形状のパッチを作れます。コネクタには、センサ同士をつなぐ通常コネクタ、腕や脚に固定するストラップ用コネクタ、そして位置を追跡するための HTC Vive トラッカー用コネクタの3種類が用意されています。\n\n### 接触の判定と3次元位置の特定\nFSR は温度やバンドの締め付け具合によって抵抗値が徐々にドリフトします。そのため固定の閾値ではなく、チャンネルごとにベースラインを適応的に更新して接触の有無（0 または 1）を判定します。また、各パッチに取り付けたトラッカーの姿勢をもとに、各センサの中心位置を3次元ワールド座標系へ変換します。最終的に、センサ数 $N$ 個に対して「二値の接触状態と3次元位置」のペアを毎タイムステップ記録します。これが後のポリシー学習の正解ラベルになります。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "PanTact のモジュール式接触パッチの構造です。FSR を載せたセンサモジュールと各種コネクタが磁石で連結し、腕や膝の形状に合わせて自由にパッチを組める様子が示されています。",
+     "caption": "Figure 2: PanTact modular contact patch. Sensor, connector, and strap modules snap together into patches of arbitrary shape and extent. We showcase arm and knee patches.",
+     "image": "details/2610.12558/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Contact-Predictive Whole-Body Manipulation Policy",
+   "heading_ja": "体格の違いを飛び越える：接触予測ポリシーの設計",
+   "summary_ja": "一人称視点画像から人間の身体の映り込みを幾何学的にくり抜くことで、人間とロボットの見た目のギャップを解消しました。ポリシーは手先の軌道と同時に、「どの位置で接触を成立させるべきか（アクティブ接触）」を拡散モデルによって一括予測します。",
+   "details_ja": "人間のデモからロボットへ方針を移すとき、最も困るのが「視界に映る身体の見え方の違い」と「身長・リーチの違い」です。\n\n### 身体に依存しない観測空間（3.1節）\n手先カメラだけでは腕の後ろで行われる全身接触が見えないため、頭部カメラの一人称視点が必須になります。しかし、頭部視点には人間の腕や胴体が大きく映り込んでしまい、ロボット実機での見た目と大きく乖離してしまいます。そこで本研究では、手先グリッパーと接触パッチの裏側にある領域を「身体が存在する半空間」として幾何学的に定義し、その交差領域の点群をエンコーダのアテンション層でマスクして見えなくしました。これにより、人間やロボットの外見モデルを事前に用意することなく、汎用的に身体の映り込みを除去できます。\n\n### 接触予測型のアクション空間（3.2節）\nポリシーには拡散ポリシー（Diffusion Policy）を採用し、手先のアクションだけでなく各センサ位置に対応する接触目標 $\\{(\\hat{c}_{t,i}, \\hat{\\mathbf{p}}_{t,i})\\}$ を同時に予測させます。ここで $\\hat{c}_{t,i} \\in \\{0, 1\\}$ は接触しているかどうかのフラグです。\n\nつまり、$\\hat{c}=1$（アクティブ）のときだけ、コントローラに対して「この位置 $\\hat{\\mathbf{p}}$ にロボットの身体を接触させなさい」と指示を出します。$\\hat{c}=0$（インアクティブ）のときは空中の通過点に過ぎないため、ロボットは無理にその軌道を追う必要がありません。これによって、無駄な拘束を減らし、ロボットが自身のバランスや関節可動域を優先して姿勢を決められるようになります。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "クロスエンボディメント接触インターフェースの流れです。身体領域をマスクした一人称点群からポリシーが手先軌道と接触目標（位置と接触フラグ）を予測し、全身コントローラがロボットの最適な表面を割り当てて接触を実現します。",
+     "caption": "Figure 3: Cross-Embodiment Contact Interface. The Contact-Predictive Whole-Body Manipulation Policy uses body-masked 3D egocentric observations, wrist images, and proprioception to predict EEF trajectories and contact goals (position and binary state). The Contact-Aware Whole-Body Controller coordinates whole-body motion to track EEF commands and realize active contact goals using suitable robot surfaces.",
+     "image": "details/2610.12558/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Contact-Aware Whole-Body Control",
+   "heading_ja": "どの部位で触ってもOK！接触対応型の全身コントローラ",
+   "summary_ja": "ロボット表面から目標接触点までの距離を最小化し、適度な押し付け力を生む「仮想ターゲット」を導入しました。この考え方をもとに、上半身IK、全身IK＋高密度トラッカー、直接追従を学ぶ疎接触トラッカーの3種類の実装法を提案しています。",
+   "details_ja": "ポリシーから渡された接触目標を、ロボット実機でどう動かすかがコントローラの役目です。\n\n### 任意の表面で接触する目的関数と仮想ターゲット\n特定のリンクに接触を固定するのではなく、ロボットの候補となる複数の部位表面の中から最も近い点を選び、滑らかな距離関数 $d(\\hat{\\mathbf{p}}, q)$ を通じて距離をゼロに近づけます。また、位置を合わせるだけでは十分な押し付け力が出ないため、物体内部へ少しだけめり込ませた位置 $\\tilde{\\mathbf{p}} = \\hat{\\mathbf{p}} + \\min(F_{\\mathrm{des}}/k_{\\mathrm{virt}}, \\delta_{\\max})\\mathbf{n}$ を追従目標とする「仮想ターゲット」方式を取り入れ、低レイヤのPD制御から自然な押し付け力を発生させます。\n\n### 3つの制御戦略\n著者らは状況や難易度に応じて3つのコントローラを用意しました。\n\n- I. 上半身IK（Upper-Body IK）：接触タスクを2次計画法（QP）の微分逆運動学に組み込んだシンプルな手法です。最も近い3つのリンクに接触追従タスクを割り振ります。シミュレーション不要ですぐ動きますが、下半身は直立固定となります。\n- II. 全身IK＋SONIC（WBIK + SONIC）：QPを下半身まで拡張し、足の踏み出し（ステッピング）も自動で生成します。求めた全身の関節軌道を既存の追従制御器（SONIC）で実行します。下半身接触や歩行が可能ですが、全身の姿勢を細かく拘束しすぎる欠点があります。\n- III. 疎接触トラッカー（Sparse Contact Tracker）：中間的な密な関節参照軌道を作らず、疎な手先目標と接触目標だけを直接追従する強化学習ベースのコントローラです。シミュレーション内で目標点に触れる報酬とバランス維持報酬を与えて PPO で訓練しました。ロボットが最もバランスを取りやすい姿勢を自由に選べるメリットがあります。",
+   "figures": []
+  },
+  {
+   "heading": "6 Evaluation",
+   "heading_ja": "実機 Unitree G1 で検証：抱え込み、掃き集め、脚での押し込み",
+   "summary_ja": "29自由度の人型ロボット Unitree G1 を使い、手先だけでなく前腕や膝・足を使った3種類の難関タスクで評価しました。接触目標を一切持たない従来手法（Humanoid UMI 等）がほぼ全滅する中、PanTact は 85〜90% という極めて高い成功率を達成しました。",
+   "details_ja": "ロボット本体には追加の接触センサを一切積まず、手先カメラと頭部カメラのみを装備した Unitree G1 で実験を行いました。\n\n### 6.1 Grasp-and-Embrace（掴みと抱え込み）\n卓上の小さなぬいぐるみを片手のグリッパーで掴みつつ、巨大なアザラシのクッションを両腕で抱え込んで同時に運ぶタスクです。手先目標しか追従しないベースライン（Humanoid UMI）は、腕の締め付けが足りずクッションを落として成功率0%でした。対して提案手法の上半身IKは85%、疎接触トラッカーは80%の成功率を記録しました。\n\n### 6.2 Sweep-and-Stow（掃き集めとキャビネット閉め）\n前腕を使って机の上の複数のボトルをゴミ箱へ一括で払い落とし、開いたキャビネットを脚（膝や足先）で押し閉めるタスクです。手先と膝の姿勢を無理に真似させようとするベースライン（Humanoid UMI++）は、体格差から腕が可動域限界に達して脚を出せず、通算成功率は0%でした。一方、提案手法（WBIK+SONIC）は90.63%の成功率を達成し、デモで使った部位にとらわれず手首や足先などロボットの届きやすい部位で器用に接触を実現しました。\n\n### 6.3 Carry-and-Push（運搬と押し込み）\n両腕で箱を抱えて保持したまま歩行し、床にある大きなダンボール箱を膝や脚全体で $20\\,\\mathrm{cm}$ 以上押し込むタスクです。提案手法（WBIK+SONIC）は90%の成功率を示しました。ベースラインは歩行中も常に膝の姿勢を追従しようとしてバランスを崩し箱を落としましたが、提案手法は「接触すべき瞬間だけ」接触目標を追従するため、歩行の安定性と強い押し込みが両立できました。\n\n### 6.4 コントローラのシミュレーション比較\nシミュレーションで各コントローラの追従誤差を比較したところ、接触目標を導入することで、手先の追従精度をほとんど犠牲にすることなく接触面までの距離を大幅に縮められることが確認されました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "Grasp-and-Embrace タスクの様子です。グリッパーで小物を掴みながら両腕で巨大なぬいぐるみを抱え込んで運んでいます。手先しか制御しないベースラインは腕の接触が抜けて失敗するのに対し、提案手法は高い成功率を誇ります。",
+     "caption": "Figure 4: Grasp-and-Embrace. (a) Autonomous rollout of our policy deployed with Upper-Body IK , demonstrating capability to support a bulky object with arms while grasping small object with a gripper. (b) Overlayed test configurations with varied object placements and initial robot configurations. (c) Typical failure case of Humanoid UMI is insufficient arm contact to support the bulky object. (d) Task success rates. (e) Real-world tracking plots.",
+     "image": "details/2610.12558/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "Sweep-and-Stow タスクの結果です。前腕でペットボトルを箱に掃き集めた後、脚でキャビネットを押し閉めます。未知の物体に対しても頑健に動作し、90.63% の成功率を達成しています。",
+     "caption": "Figure 5: Sweep-and-Stow. (a) Our policy rollout with WBIK+SONIC tracker, demonstrating arm sweeping and lower-body pushing and locomotion at the same time. (b) Test configurations with seen and unseen object combinations, varied cabinet openings, and different robot-to-cabinet distances. (c) Typical failure case of the Humanoid UMI++ baseline include the gripper passes above an object or knocks it outside the bin, and the robot fails to advance a leg for cabinet closure as its arms approach joint limits. (d) Stage-wise and end-to-end success rates.",
+     "image": "details/2610.12558/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "Carry-and-Push タスクの様子です。胸元に箱を抱えて落とさないようキープしながら歩行し、床の大きな箱を膝と脚全体でグイグイと押し動かします。",
+     "caption": "Figure 6: Carry-and-Push. (a) Our policy with WBIK+SONIC tracker, demonstrating arms load-sharing while walking and pushing with lower body. (b) Test scenarios with varied box placements and robot postures. (c) Failure case of Humanoid UMI++ , dropping the carried box because of insufficient contact support. (d) Task success rates. (e) Tracking plots of real-world rollouts.",
+     "image": "details/2610.12558/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "7 Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "接触を人間とロボットの共通言語として捉えることで、ロボットを使わない手軽な人間デモから全身の器用さを学習できるシステム「PanTact」を実証しました。ハードウェア、模倣学習、制御のすべてを接触中心に再設計した本研究は、ヒューマノイドが身体全体を活かして働く未来への大きな足がかりとなります。",
+   "details_ja": "PanTact は、これまで手先に押し込められていたロボットマニピュレーションの枠組みを全身へと解放しました。その核心は、(1) 低コストで組み替え可能なウェアラブル接触パッチ、(2) 体格差を視覚マスキングと接触予測で乗り越えるポリシー、(3) 任意の身体表面を活用する全身コントローラ、にあります。人型ロボットが人間と同じように身体全体を使って重労働をこなすための、極めて実践的でスケーラブルな基盤が示されました。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：システムの実装詳細と学習パラメータ",
+   "summary_ja": "データ収集時の接触二値化処理や点群生成、拡散ポリシーのハイパーパラメータ、および各コントローラの最適化重みやドメインランダム化の設定について詳細にまとめられています。",
+   "details_ja": "論文の付録には、再現に必要な詳細設定が記されています。\n\n### データ収集と前処理\nステレオカメラから得られた視差をニューラル深度モデルで点群へ変換し、手先と接触パッチの幾何情報に基づいて身体領域をマスクします。FSR の値は動的なベースラインとノイズフロア $r_{\\min}$ を考慮して二値化されます。データは Jetson AGX Orin で同期記録され、訓練時は $20\\,\\mathrm{Hz}$ でサンプリングされます。\n\n### ポリシーの学習設定\nDINO-v3 をバックボーンとする DiT（Diffusion Transformer）を用い、観測履歴数 $h=2$、予測ホライズン $H=16$ で学習を行っています。推論時は DDIM 16ステップでサンプリングし、手先基準の相対座標系で予測することで体格差の影響を抑えています。\n\n### コントローラの実装とドメインランダム化\nWBIK では骨盤の水平移動が支持脚中心から $0.12\\,\\mathrm{m}$ 以上ずれた場合に自動でステッピング（遊脚リフト量 $0.06\\,\\mathrm{m}$）を開始します。強化学習を用いる疎接触トラッカーでは、摩擦係数、リンク質量（$\\pm 20\\sim 50\\%$）、ベース重心位置、関節バイアスなどをランダム化し、4096並列環境で 30,000 イテレーション訓練されています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "接触情報（いつ・どこで接触したか）を明示的に扱うことで、関節角度を真似る必要がなくなり、人間とロボットの体格差をスマートに吸収できる",
+  "「常に追従する」のではなく「接触フラグがアクティブな瞬間だけ追従する」設計にすることで、移動やバランス維持の邪魔をしない全身制御が可能になる",
+  "ロボット本体に高価な触覚スキンを貼らなくても、デモ収集側（人間側）に接触センサを持たせれば、視覚ベースで接触意図を予測して実機実行できる"
+ ],
+ "limitations_ja": [
+  "ロボット本体に接触センサがないため、接触位置の予測誤差や物体の予期せぬズレに対するリアルタイムな触覚フィードバック制御ができない",
+  "事前に接触パッチを装着した部位（本論文では前腕と膝）の接触しかデモから学習できず、背中やお腹などパッチのない部位の接触は捉えられない",
+  "接触目標を押し込むための仮想ターゲット（めり込み量）の法線方向や剛性パラメータが手動設計・固定値に依存している"
+ ],
+ "keywords": [
+  "Whole-Body Dexterity",
+  "Humanoid Robots",
+  "Imitation Learning",
+  "Wearable Contact Sensor",
+  "Whole-Body Control",
+  "Diffusion Policy"
+ ],
+ "id": "2610.12558",
+ "title": "PanTact: Teaching Whole-Body Dexterity with a Wearable Contact Interface",
+ "authors": [
+  "Xiaomeng Xu",
+  "Han Zhang",
+  "Zhian Ruan",
+  "Xiaofeng Guo",
+  "Jinkun Cao",
+  "Ruihan Yang",
+  "Carmelo Sferrazza",
+  "Shuran Song",
+  "Guanya Shi"
+ ],
+ "date": "2026-10-12",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "manipulation",
+  "imitation-learning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.12558",
+ "pdf_url": "https://arxiv.org/pdf/2610.12558",
+ "summary_ja": "手だけでなく腕や体幹などの全身接触面を活用して物体を操作するヒューマノイドの全身巧緻性獲得システムを提案。ロボットを用いない人間の実演から接触の位置とタイミングを抽出し、実施形態の差を超えてロボット自身の物理制約を満たす全身協調動作へと転移させて操作タスクを達成する。",
+ "generated": "2026-10-13",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.12558"
+}
