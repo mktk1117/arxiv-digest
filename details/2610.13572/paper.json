@@ -1,0 +1,147 @@
+{
+ "title_ja": "ATHLETE: 軌道誘導モーションマッチングによるヒューマノイドのリアクティブテニス学習",
+ "tldr_ja": "大量の専用モーションキャプチャを使わずに、一般的な歩行データと単なるテニス動画を賢く合成することで、実機ヒューマノイドが人間とテニスのラリーを続けられる反射的制御ポリシーを実現しました。",
+ "hero_figure": {
+  "key": "F4",
+  "caption_ja": "ATHLETEフレームワークの全体構成です。動画と歩行データから軌道誘導モーションマッチング（TGMM）で参照動作を合成し、タイミング適応型教師ポリシーの学習、学生ポリシーへの蒸留、タスク強化学習（PPO）による微調整を経て、最終的に参照動作なしで動く実機ポリシーを獲得します。",
+  "caption": "Fig. 4: Overview of the ATHLETE framework. (1) We construct reference motions from tennis videos and a subset of the LAFAN1 dataset using TGMM, followed by mimic-policy rollouts for dynamic correction. (2) We train a time-adaptive teacher policy to expand the range of incoming ball trajectories that can be matched to the generated references. (3) We distill the teacher into a reactive student policy through online DAgger and privileged representation alignment. (4) We fine-tune the student using PPO with task-specific rewards and domain randomization to improve ball contact and return accuracy. …",
+  "image": "details/2610.13572/F4.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットでテニスのような激しいスポーツを実現しようとすると、最大の壁になるのが「学習データの収集コスト」です。飛んでくるボールの位置やタイミング、そこに至るまでの移動動作の組み合わせは無数にあり、それら全てを人間のモーションキャプチャで網羅するのは現実的ではありません。\n\nそこで著者らは、「人間が新しいスポーツを覚えるとき、すでに持っている歩行や走行の経験に、お手本となるスイング動作を組み合わせている」という点に着目しました。わざわざテニス専用の全身動作を最初から集めなくても、公開されている一般的な歩行データセット（LAFAN1）と、わずか10分ほどの普通のテニス練習動画があれば十分ではないか、という発想です。\n\n提案された「ATHLETE」では、まず軌道最適化とモーションマッチングを組み合わせたTGMM（Trajectory-Guided Motion Matching）により、移動と打球を自然につなぐ多様な参照動作を自動生成します。次に、打球タイミングを自在に伸縮できる教師ポリシーを学習させ、特権的な参照情報をオンライン蒸留（DAgger）で圧縮した学生ポリシーへ伝達します。最後にタスク報酬と物理ドメインランダム化で微調整することで、本番環境では参照動作を一切見ずに、ボールと自身の状態からダイレクトに全身を動かす反射型ポリシーを作り上げました。\n\n実機のヒューマノイドを用いた実験では、フォアハンドで90.00%、バックハンドで86.67%という高い返球成功率を記録しました。さらに、アマチュアやプロのテニス選手との連続ラリー（最大8往復）にも成功し、低コストなデータソースからでもダイナミックな全身インタラクションスキルが獲得できることを実証しました。",
+ "contributions_ja": [
+  "公開歩行データと一般的な単眼テニス動画を組み合わせ、軌道誘導モーションマッチング（TGMM）によって多様なテニス参照動作を自動合成する手法を提案したこと。",
+  "打球期限に合わせて再生速度を自在に変えられる時間適応型教師ポリシーを学習させ、より幅広い飛来ボールと動作をマッチング可能にしたこと。",
+  "特権的な参照動作情報を潜在表現アライメントとDAggerによって蒸留し、実機配備時には参照動作やオンライン計画を一切必要としない反射的制御ポリシーを実現したこと。",
+  "実機ヒューマノイドにおいてフォアハンド90.00%、バックハンド86.67%の打球成功率を達成し、人間との複数回にわたる連続ラリーを実現したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "I INTRODUCTION",
+   "heading_ja": "専用のモキャプがなくてもテニスは学べるか？",
+   "summary_ja": "テニスには素早い移動と正確な全身インパクト、急激な状況変化への適応が求められますが、多様なアプローチや打球位置を網羅する専用動作データの収集は非常に高コストです。本研究は、既存の汎用歩行データとスパースな動画スイング動作を合成することでこの課題を解決するフレームワーク「ATHLETE」を提案します。",
+   "details_ja": "ヒューマノイドロボットにテニスのような動的タスクを習得させる際、最大の障壁となるのが「データのカバレッジ（網羅性）」です。ボールの飛来位置、スピード、到達時間は毎回異なります。これらに対応できる全身ポリシーを学習するには、多彩なアプローチ歩行と打球フォームの組み合わせが必要ですが、これらを全てモーションキャプチャで収録するのは莫大なコストがかかります。\n\n既存研究でも人間の動作データを事前知識として利用する試みはありましたが、アプローチからインパクトまでの膨大な組み合わせをカバーする専用データを集める難しさは残ったままでした。一方で、世の中にはLAFAN1のような高品質な汎用歩行データセットが存在し、テニスの打球フォーム自体はYouTubeなどの通常の練習動画から抽出できます。つまり、「移動の経験」と「打つスキル」は別々に調達できるはずです。\n\nATHLETEの核心は、これら2つの異種データソースを相補的なものとして扱い、必要な全身動作を自前で合成してしまう点にあります。軌道計画とモーションマッチングによってアプローチとスイングを滑らかに接続し、多様な打球点をカバーする参照動作群を構築します。さらに、教師あり学習と強化学習を組み合わせることで、最終的には参照動作に頼らず、ボールの軌道を見て即座に身体が反応する制御器を獲得することを目指します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "元データとTGMM生成データの打球点分布の比較です。(a)はフォアハンドとバックハンドの打球高さの分布を示し、(b)はロボット局所座標系における打球位置のXY平面上の分布を示しています。オレンジ色の元データが正面付近に集中しているのに対し、青緑色の生成データは周囲広範囲に広がっていることが分かります。",
+     "caption": "Fig. 2: Strike-point height and XY distribution of source skills and generated references. (a) strike height distribution of source tennis references. (b) XY distribution of strike points in local frames.",
+     "image": "details/2610.13572/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II RELATED WORKS",
+   "heading_ja": "データ生成と全身制御の系譜における位置づけ",
+   "summary_ja": "本章では、ヒューマノイド向けの動作データ生成手法と、強化学習に基づく全身制御手法の関連研究を整理します。ATHLETEは、軌道最適化とモーションマッチングで動作を生成しつつ、最終的には単一の反射型ポリシーに落とし込む点で既存の階層型プランニング手法と一線を画します。",
+   "details_ja": "### II-A ヒューマノイドのためのデータ生成技術\nゲームやアニメーション分野で培われたモーションマッチング（Motion Matching：データベースから姿勢や軌道特徴量が最も近いフレームを検索して滑らかにつなぎ合わせる手法）は、近年ロボティクスでも応用が進んでいます。例えばパルクール動作において基本スキルと移動を組み合わせる研究などがあります。また、テキストや履歴から動作を生成する生成モデルも盛んですが、ATHLETEでは平面の軌道最適化によってアプローチ経路を厳密に解き、接触や遷移の幾何学的制約を満たした上で物理シミュレーションによるトラッキング補正を行うアプローチを採用しています。\n\n### II-B ヒューマノイドの全身制御（Whole-Body Control）\n人間の参照動作に追従する模倣学習（Imitation Learning）は、ヒューマノイドの全身運動において主流のアプローチです。テニスを対象とした先行研究としては、LATENTやAdaPTが存在します。LATENTは不完全な動作プリミティブから修正可能な行動空間を学習し、AdaPTは動画由来の動作と階層型プランナーを組み合わせて速度適応型の追従を行っていました。\n\nしかし、これらの先行研究は実行時に上位のプランナーや参照動作の選択機構を必要とすることが多く、レイテンシやシステムの複雑さが課題でした。ATHLETEはTaskNPointのタスク目標駆動型報酬設計を取り入れつつ、時間伸縮が可能な教師ポリシーを設計し、最終的に「参照動作入力を一切持たない単一の反射型ポリシー」へと蒸留する点が大きく異なります。",
+   "figures": []
+  },
+  {
+   "heading": "III Model-Based Reference Motion Generation",
+   "heading_ja": "歩行とスイングを美しくつなぐ「TGMM」パイプライン",
+   "summary_ja": "16本のLAFAN1歩行シーケンスと、10分の動画から復元した164本のスイングクリップを組み合わせ、TGMMによって多様な全身参照動作を合成します。軌道最適化でアプローチ経路を計算して歩行をつなぎ、物理シミュレーションの模倣ポリシーで不整合を補正します。",
+   "details_ja": "### III-A 素材の準備とインパクト位置のマッチング\n素材として用意したのは、LAFAN1データセットから抽出した16本の歩行動作と、テニス選手の10分間の練習動画から切り出したバックハンド67本、フォアハンド97本のスイング動作です。動画からの骨格抽出にはGVHMR、ロボットへのリターゲット（関節角度の変換）にはGMRを使用しています。\n\n合成の第一歩として、ロボット周囲にランダムな目標打球点 $\\mathbf{b}$ を設定します。打球点の左右位置に応じてフォアかバックかを絞り込み、目標位置と各候補クリップのインパクト位置 $\\mathbf{c}_i$ との幾何学的コスト（式 1）を計算します。高さ方向のズレを重視した重み付けを行い、最もコストが小さいスイングクリップを選択します。\n\n### III-B 軌道誘導モーションマッチング（TGMM）\n次に、選択したスイングの開始位置までロボットを自然に歩かせるための経路を計画します。距離 $d$ が $1.5\\,\\mathrm{m}$ 以下の近距離では姿勢を維持した平行移動が主体となり、遠距離では移動方向へ旋回して走り、打球直前に向きを戻す2つのモードを切り替えます。\n\nこの平面ダイナミクスに基づき、CasADiとIPOPTを用いて制御入力が滑らかで最短となる軌道を非線形最適化で解きます（式 2）。得られた軌道から未来の位置や速度を特徴量クエリ $\\hat{\\mathbf{f}}_{\\mathrm{query}}$ として抽出し、LAFAN1歩行ライブラリから最もマッチするフレームをグローバル検索して接続します（式 3）。これにより、足運びと打球進入が破綻しない全身アプローチ動作が組み上がります。\n\n### III-C 合成と力学的補正（Dynamic Correction）\n歩行からスイングへの移行部では、特徴量が最も近いフレームを進入フレームとして選択し、オフセット減衰ブレンディング（式 4）により関節位置とルート位置の不連続性を解消します。\n\nただし、幾何学的なブレンディングだけでは物理的な関節制限や慣性の不整合が残ります。そこで先行研究BeyondMimicに基づく模倣ポリシー（Mimic policy）を訓練し、物理シミュレータ内で参照動作をトラッキングさせます。その結果得られた物理的に実行可能なロールアウト軌道を再収集し、次節の学習で用いる「力学補正済み参照動作データセット」として完成させます。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "TGMMによる打球動作生成の様子です。黄色の球が目標打球点、青い線が最適化された平面ルート軌道を示しています。半透明の青いロボットが歩行フェーズ、緑がスイングフェーズを表し、緑の曲線はラケットのスイートスポットの軌跡を示しています。",
+     "caption": "Fig. 3: Strike-Motion generation using Trajectory-Guided Motion Matching (TGMM). The yellow ball marks the target point. The blue trajectories are optimized for smoothness under planar motion constraints and then converted into whole-body motion. The translucent blue and green robots depict the locomotion and striking phases, respectively. The green curve traces the trajectory of the racket’s sweet spot.",
+     "image": "details/2610.13572/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Three-Stage Tennis Policy Learning",
+   "heading_ja": "3段階の学習：時間伸縮・ポリシー蒸留・タスク微調整",
+   "summary_ja": "生成した参照動作を用いて、まず打球期限を調整できる時間適応型教師を学習します。次にシミュレーションのボール軌道とマッチングさせ、DAggerによるオンライン蒸留で参照動作入力を排除した学生ポリシーを育成し、最後にPPOで打球品質を極限まで高めます。",
+   "details_ja": "### IV-A ステージ1: 時間適応型教師ポリシー（Time-Adaptive Teacher）\n通常の模倣学習では動作の再生速度が固定されており、ボールの球速変化に対応できません。そこで、同じ参照動作を異なる打球期限（デッドライン）に合わせて伸縮できる教師ポリシーをPPOで訓練します。\n\n公称所要時間 $\\bar{T}_i$ に対し、目標期限 $T_i$ を半分から等倍までの範囲 $[\\bar{T}_i/2, \\bar{T}_i]$ でサンプリングします。教師ポリシーは関節トルク指令 $\\mathbf{a}_t$ だけでなく、位相加速度 $\\ddot{\\phi}_t$ も出力します。これにより、必要に応じて動作の進度を早めたり遅らせたりして、指定時刻に静止球を正確にヒットできるようにします。この仕組みのおかげで、同じ1つの動作クリップを多様な球速のボールとペアリングできるようになります。\n\n### IV-B ステージ2: ボール軌道マッチングと学生ポリシーへの蒸留\nシミュレーション上で様々な位置・速度からボールを打ち出し、バウンド後の軌道と参照動作の打球点を空間・時間（ステージ1の期限内）の両面でマッチングさせます（200本の参照動作を使用）。\n\n次に、凍結した教師ポリシーの知識を、実機で動く学生ポリシーへと転移させます。ここではDAgger（Dataset Aggregation：学習中の学生自身が訪れた状態に対して専門家がラベルを付与する対話的模倣学習）を採用し、分布シフト（Distribution Shift）を防ぎます。さらに重要なのが潜在表現の設計です。未来の参照動作系列を参照できる特権エンコーダ $E_T$ と、過去5ステップのロボットおよびボールの観測履歴のみを入力とする学生エンコーダ $E_S$ を用意します。学生の潜在変数 $\\mathbf{z}_t^S$ を特権的な $\\mathbf{z}_t^T$ に近づけるアライメント損失（式 6）を課すことで、「観測履歴から打球意図とタイミングを自己推論する能力」を獲得させます。\n\n### IV-C ステージ3: PPOによるタスク微調整（Task Refinement）\n蒸留された学生ポリシーは打球の基本を身につけていますが、相手コートへ正確に返すには不十分です。そこでエンコーダを凍結し、ポリシーヘッドと価値関数ネットワークのみをPPOで微調整します。\n\n報酬には、インパクト時のラケット速度方向 $f_{\\mathrm{swing}}$、相手コートへの球速 $f_{\\mathrm{out}}$、ネット越えクリアランス $f_{\\mathrm{net}}$、目標着地点の精度 $f_{\\mathrm{land}}$ を導入します。さらにSim-to-Realギャップを埋めるため、ボールの質量、反発係数、空気抵抗、ラケットの慣性特性などを環境ごとに激しくランダム化（ドメインランダム化）します。この学習を経ることで、実機配備時には参照動作も位相制御も不要な、50Hzで駆動する完全自律型の反射ポリシーが完成します。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "ATHLETE全体の3段階学習フローです。(1)データ生成と力学補正、(2)時間適応型教師の学習、(3)特権表現アライメントとDAggerによる学生への蒸留、(4)物理ランダム化環境でのPPOタスク微調整、(5)モーションキャプチャ環境下での実機ヒューマノイド配備へとシームレスにつながります。",
+     "caption": "Fig. 4: Overview of the ATHLETE framework. (1) We construct reference motions from tennis videos and a subset of the LAFAN1 dataset using TGMM, followed by mimic-policy rollouts for dynamic correction. (2) We train a time-adaptive teacher policy to expand the range of incoming ball trajectories that can be matched to the generated references. (3) We distill the teacher into a reactive student policy through online DAgger and privileged representation alignment. (4) We fine-tune the student using PPO with task-specific rewards and domain randomization to improve ball contact and return accuracy. …",
+     "image": "details/2610.13572/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V EXPERIMENTAL RESULTS",
+   "heading_ja": "実機で90%のヒット率と人間との連続ラリーを達成",
+   "summary_ja": "TGMMによるカバレッジ拡大効果を検証したのち、シミュレーションと実機で打球性能を評価しました。実機実験ではフォアハンド90.00%、バックハンド86.67%のヒット率を記録し、人間との最大8往復に及ぶ連続ラリーに成功しました。",
+   "details_ja": "### V-A 参照動作のカバレッジ評価\nまず、TGMMで生成したライブラリがどれだけ飛来ボールを捉えられるかを検証しました。10,000組のボール軌道群に対し、同じライブラリサイズ（164本）かつ候補数 $K=1$ で比較したところ、元の動作ライブラリがわずか $7.57\\%$ しかマッチしなかったのに対し、TGMM生成動作は $42.64\\%$ の成功率を達成しました（図5）。200本に拡張したセットでは $K=8$ で $99.21\\%$ に達し、コンパクトなライブラリでも多様なボールに対応できることが証明されました。\n\n### V-B シミュレーションによる打球精度\n教師ポリシーの時間適応能力をテストしたところ、500試行中493試行（$98.6\\%$）で物理的コンタクトに成功し、目標期限に対する平均絶対時間誤差は $71.23\\,\\mathrm{ms}$ でした（図6）。\nまた、ステージ3の微調整（PPO）の有無を比較したアブレーション実験では決定的な差が出ました。微調整なしの蒸留単体ポリシーではヒット率がフォア $1.26\\%$、バック $5.67\\%$ に留まりネットを越えませんでしたが、PPO微調整を経ることでヒット率は $94.97\\%\\, /\\, 95.04\\%$、返球率（ネット越え）は $91.19\\%\\, /\\, 92.20\\%$ へと劇的に跳ね上がりました。スイートスポットからの誤差も約 $14\\,\\mathrm{cm}$ から約 $6\\,\\mathrm{cm}$ へと半減しています。\n\n### V-C 実機実験とベンチマーク\nUnitree社製ヒューマノイドを用い、外部モキャプでボールと自己位置を取得してRTX 5070 Ti Laptop GPU搭載PCから50Hzで制御しました。手投げによる30回ずつの投球テストでは、フォアハンドで $27/30$（$90.00\\%$）、バックハンドで $26/30$（$86.67\\%$）のヒット率を達成しました。ネット越え率はそれぞれ $46.67\\%$、$53.33\\%$ でした。\n先行研究AdaPTと比較しても、同等以上のヒット率と返球率を示しています。さらに人間とのラリー実験では、初心者相手に最大5往復、プロ選手相手に最大8往復の連続ラリーを維持することに成功しました（図7）。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "ボール軌道候補数 $K$ に対する時空間マッチング成功率の推移です。元の164動作（オレンジ）に比べ、TGMMで生成した164動作（青）や200動作（緑）は格段に高いマッチング率を示し、空間・時間両面でのカバレッジが大幅に向上していることが分かります。",
+     "caption": "Fig. 5: Spatiotemporal matching success rates of original and TGMM-generated reference libraries with varying numbers of qualified, forward-simulated ball trajectories per group, $K$ . A group is successful if at least one candidate trajectory matches a reference motion.",
+     "image": "details/2610.13572/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "目標打球期限比率 $\\alpha$ に対する教師ポリシーの接触時間誤差の分布です。493回の物理的インパクトにおいて、72.4%が目標時刻から±50ms以内（水色の帯内）に収まっており、平均誤差は71.23msと高精度なタイミング調整能力を示しています。",
+     "caption": "Fig. 6: Teacher contact timing across deadline ratios. Dots show absolute timing errors $|e|=|t_{\\mathrm{contact}}-T_{i}|$ for 493 physical racket contacts, where $T_{i}$ and $t_{\\mathrm{contact}}$ denote the target and actual contact times. Curves show binned mean absolute errors and 95th percentiles; shading marks errors within 50 ms.",
+     "image": "details/2610.13572/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "実機ヒューマノイドによる手投げボールの打球実験のスナップショットです。多様な進入位置と高さに対して、全身を協調させてフォアハンドおよびバックハンドで正確に打ち返している様子が捉えられています。",
+     "caption": "Fig. 7: Real-world striking snapshots from the manual-throw experiment.",
+     "image": "details/2610.13572/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "ATHLETEは、汎用歩行データとスパースな動画から動的なテニススキルを学習できることを実証しました。参照動作なしで動く反射型ポリシーにより、実機での高確率な打球と人間とのラリーを実現しています。今後はオンボードカメラでのボール認識や多様なプレースタイルの獲得が課題です。",
+   "details_ja": "本研究では、「既存の運動経験とタスク固有のデモを組み合わせる」という人間の学習メカニズムに着想を得て、高価なテニス専用モーションキャプチャを行わずにヒューマノイドテニスを実現する枠組み「ATHLETE」を確立しました。\n\n軌道誘導モーションマッチング（TGMM）によって異種データを幾何学的・力学的に整合させ、時間適応型教師からの蒸留と強化学習微調整によって、最終的には参照動作の入力すら不要な反射型全身コントローラへと昇華させました。実機実験において示された高い返球率と人間とのラリー性能は、データ効率と配備の容易さを両立できる強力なアプローチであることを裏付けています。\n\n一方で、現状のシステムはボール位置の推定を外部モーションキャプチャに依存しているという制約があります。著者らは今後の展望として、ロボット自身のオンボードカメラを用いた視覚フィードバックへの移行や、単一の返球動作に収束せず多彩なショットの打ち分けやプレースタイルを維持する学習手法の探求を挙げています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「汎用歩行データ」＋「動画からの単発スイング」という低コストな組み合わせでも、軌道最適化を仲介役にすることで高品質な全身運動を自動合成できる。",
+  "教師ポリシーに「位相加速度（時間の進み具合）」を出力させることで、動作クリップの再生速度を柔軟に伸縮させ、多種多様な球速のボールに対応させられる。",
+  "特権的な参照動作情報を「潜在表現アライメント」と「DAgger蒸留」によって観測履歴に落とし込むことで、実機配備時のオンライン動作計画や参照追従を完全に撤廃できる。",
+  "蒸留直後のポリシーだけでは接触精度が甘いため、ドメインランダム化を施した物理シミュレータでのPPO微調整がSim-to-Real成功の決定打となる。"
+ ],
+ "limitations_ja": [
+  "ボールの3次元位置や速度、ロボットのベース姿勢の取得を外部のモーションキャプチャシステムに完全に依存している点（オンボードカメラのみでの動作は未達）。",
+  "PPOによるタスク微調整の過程で、最初に動画から抽出した人間らしい多様なスイングスタイルの一部が単一の効率的な打ち方に縮退してしまう傾向がある点。",
+  "実験環境の物理的制約（約10.5m × 5.5mの狭いモキャプエリア）に合わせるため、返球速度に上限を設けるなどシミュレーション条件を実環境向けに制限している点。"
+ ],
+ "keywords": [
+  "Humanoid Robotics",
+  "Reinforcement Learning",
+  "Motion Matching",
+  "Teacher-Student Distillation",
+  "Whole-Body Control"
+ ],
+ "id": "2610.13572",
+ "title": "ATHLETE: Learning Reactive Humanoid Tennis via Trajectory-Guided Motion Matching",
+ "authors": [
+  "Zhihao Tian",
+  "Zifan Wang",
+  "Enzheng Zhu",
+  "Xun Yang",
+  "Jialong Qin",
+  "Mengbo Wang",
+  "Junwei Liang"
+ ],
+ "date": "2026-10-12",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "control",
+  "locomotion"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.13572",
+ "pdf_url": "https://arxiv.org/pdf/2610.13572",
+ "summary_ja": "汎用的な歩行データと一般的なテニス動画を組み合わせ、高速に飛来する球へ反応するヒューマノイドのテニス動作学習手法を提案。軌道誘導モーションマッチング（TGMM）によって多様な全身参照軌道を生成し、多様なアプローチ状態や打点タイミングに対応する全身協調スキルを獲得させた。",
+ "generated": "2026-10-13",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.13572"
+}
