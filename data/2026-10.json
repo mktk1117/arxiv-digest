@@ -1,6 +1,300 @@
 {
  "entries": [
   {
+   "date": "2026-10-12",
+   "rank": 0,
+   "id": "2610.12772",
+   "group": "focus",
+   "title": "Reflex: Visually Grounded Reactive Humanoid Control",
+   "title_ja": "Reflex: 視覚に根ざしたヒューマノイドのリアクティブ制御",
+   "summary_ja": "投げられた箱をキャッチするような動的な環境変化に対し、1秒以内で全身協調反応を行う制御フレームワークを提案。エゴセントリック視覚による物体軌道予測と全身運動制御を統合し、実機のヒューマノイドにおいて動的かつ即応性の高い全身キャッチ動作を実現した。",
+   "summary_en": "This paper presents Reflex, a visual reactive whole-body control framework enabling humanoids to respond to dynamic object motions, such as catching thrown boxes, within approximately one second. By integrating egocentric perception-based trajectory prediction with reactive whole-body coordination, the system achieves dynamic catching behaviors on physical humanoid hardware.",
+   "authors": [
+    "Taoyang Jia",
+    "Weikai Huang",
+    "Linxin Song",
+    "Jared Darlington",
+    "Jieyu Zhao",
+    "Yue Wang",
+    "Jiafei Duan",
+    "Zhongzheng Ren",
+    "Ranjay Krishna"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12772",
+   "image": "figures/2026-10-12/2610.12772.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 1,
+   "id": "2610.12972",
+   "group": "focus",
+   "title": "Adaptive Whole-Body MPC with Optimal Posture Planning for Humanoid Robots under Unknown Payloads",
+   "title_ja": "未知負荷下におけるヒューマノイドロボットの適応型全身MPCと最適姿勢計画",
+   "summary_ja": "荷物運搬などで未知のペイロード変動が生じた際にもバランスを保つ全身制御手法を提案。動的実行可能な軌道を生成する重心MPC、支持脚関節の補正トルクを算出する適応ファジーバランシング制御、3重積分器モデルによる最適姿勢計画器を統合し、安定した搬送動作を実証した。",
+   "summary_en": "This work introduces an adaptive whole-body control architecture for humanoid robots handling unknown and varying payloads. The framework integrates a centroidal MPC for feasible reference trajectories, an adaptive fuzzy balance controller distributing corrective torques across supporting-leg joints, and a triple-integrator-based optimal posture planner, ensuring stable payload handling.",
+   "authors": [
+    "Manh Cuong Nguyen",
+    "Duc Cuong Vu",
+    "Viet Anh Vu",
+    "Duc Tuan Pham",
+    "Toan Nguyen",
+    "Minh Hiep Phung",
+    "Ngo Anh Vien",
+    "Minh Nhat Vu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12972",
+   "image": "figures/2026-10-12/2610.12972.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 2,
+   "id": "2610.12558",
+   "group": "focus",
+   "title": "PanTact: Teaching Whole-Body Dexterity with a Wearable Contact Interface",
+   "title_ja": "PanTact: ウェアラブル接触インターフェースを用いた全身巧緻性の学習",
+   "summary_ja": "手だけでなく腕や体幹などの全身接触面を活用して物体を操作するヒューマノイドの全身巧緻性獲得システムを提案。ロボットを用いない人間の実演から接触の位置とタイミングを抽出し、実施形態の差を超えてロボット自身の物理制約を満たす全身協調動作へと転移させて操作タスクを達成する。",
+   "summary_en": "PanTact enables humanoid robots to acquire whole-body dexterity by manipulating objects using various body contact surfaces beyond just the hands. By extracting cross-embodiment contact locations and timing from robot-free human demonstrations, the system maps desired interactions onto the robot's physical constraints to achieve complex loco-manipulation tasks.",
+   "authors": [
+    "Xiaomeng Xu",
+    "Han Zhang",
+    "Zhian Ruan",
+    "Xiaofeng Guo",
+    "Jinkun Cao",
+    "Ruihan Yang",
+    "Carmelo Sferrazza",
+    "Shuran Song",
+    "Guanya Shi"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "manipulation",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12558",
+   "image": "figures/2026-10-12/2610.12558.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 3,
+   "id": "2610.13087",
+   "group": "focus",
+   "title": "Belief-Overlap Partial Inversion: Object-Centric Flow Replanning for Humanoid Loco-Manipulation",
+   "title_ja": "信念重複部分反転：ヒューマノイド移動マニピュレーションのための物体中心フロー再計画",
+   "summary_ja": "質量や車輪特性が未知の台車を押すヒューマノイドを対象に、オンライン状態推定、フローベース計画、全身制御を統合するフレームワークを提案。信念の更新度合いに応じて旧計画のフローを部分的に反転・再構成するBOPIにより、進行中の動作を過剰に乱すことなく適応的な押し操作を実現した。",
+   "summary_en": "This paper addresses humanoid cart pushing with unknown physical parameters using an object-centric loop of online estimation, flow-based planning, and whole-body control. The proposed Belief-Overlap Partial Inversion (BOPI) method scales plan revisions based on belief agreement, maintaining smooth execution while dynamically adapting to updated object dynamics.",
+   "authors": [
+    "Chen Yu",
+    "Sudarshan S Harithas",
+    "Juan Borbon",
+    "Dingqi Zhang",
+    "Jiuguang Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.13087",
+   "image": "figures/2026-10-12/2610.13087.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 4,
+   "id": "2610.13572",
+   "group": "focus",
+   "title": "ATHLETE: Learning Reactive Humanoid Tennis via Trajectory-Guided Motion Matching",
+   "title_ja": "ATHLETE: 軌道誘導モーションマッチングによるヒューマノイドのリアクティブテニス学習",
+   "summary_ja": "汎用的な歩行データと一般的なテニス動画を組み合わせ、高速に飛来する球へ反応するヒューマノイドのテニス動作学習手法を提案。軌道誘導モーションマッチング（TGMM）によって多様な全身参照軌道を生成し、多様なアプローチ状態や打点タイミングに対応する全身協調スキルを獲得させた。",
+   "summary_en": "ATHLETE presents a framework for humanoids to learn reactive tennis skills from general locomotion data and video demonstrations. Using Trajectory-Guided Motion Matching (TGMM), it synthesizes diverse task-conditioned whole-body references across various approach states and contact timings, achieving reactive coordinated striking behaviors under dynamic ball trajectories.",
+   "authors": [
+    "Zhihao Tian",
+    "Zifan Wang",
+    "Enzheng Zhu",
+    "Xun Yang",
+    "Jialong Qin",
+    "Mengbo Wang",
+    "Junwei Liang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "locomotion"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.13572",
+   "image": "figures/2026-10-12/2610.13572.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 5,
+   "id": "2610.13354",
+   "group": "general",
+   "title": "AlphaNIST: Emergent Assembly Skills from Binary Task Rewards",
+   "title_ja": "AlphaNIST: 疎なバイナリ報酬からの高精度組立スキルの創発",
+   "summary_ja": "精密な嵌合と長時間の協調を要するNIST組立タスクボードに対し、密な報酬やデモを用いず、タスク完了のバイナリ報酬のみから大規模強化学習で組立スキルを獲得可能か検証。タスク多様性を備えた環境下で学習させることで、自律的なリトライを含む高度な組立方策が創発することを示した。",
+   "summary_en": "AlphaNIST investigates whether complex assembly skills on the NIST Task Board can emerge purely from sparse binary task rewards using large-scale RL, without human demonstrations or shaped rewards. By training across diverse assembly tasks, the policy autonomously discovers precision insertion and error-recovery strategies.",
+   "authors": [
+    "Octi Zhang",
+    "Iretiayo Akinola",
+    "Rosario Scalise",
+    "Mateo Guaman Castro",
+    "Patrick Yin",
+    "Tobias Widmer",
+    "Miles Macklin",
+    "Chris Amevor",
+    "Dylan Turpin",
+    "Dirk Van Gelder",
+    "Jan Carius",
+    "Ankur Handa",
+    "Gavriel State",
+    "Yunrong Guo",
+    "Yashraj Narang"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "manipulation",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.13354",
+   "image": "figures/2026-10-12/2610.13354.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 6,
+   "id": "2610.13929",
+   "group": "general",
+   "title": "Chronos Policy: Learning Robot Policies on Physical Time",
+   "title_ja": "Chronos Policy: 物理時間に基づいたロボット方策の学習",
+   "summary_ja": "観測周期や推論遅延が変動する環境に対応するため、物理的なタイムスタンプを明示的に条件付けて行動を予測する方策学習手法を提案。時間認識型回転位置埋め込み（RoPE）をDiffusion Transformerに導入することで、サンプリング間隔のばらつきや遅延に対して極めて頑健な制御を実証した。",
+   "summary_en": "Chronos Policy explicitly conditions diffusion transformer policies on physical observation capture times and desired execution times, avoiding reliance on fixed-rate assumptions. Incorporating time-aware rotary position embeddings (RoPE) provides strong robustness against variable observation rates and inference latencies during real-world control.",
+   "authors": [
+    "Changhao Wang",
+    "Jaden Clark",
+    "Shuran Song"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "control",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.13929",
+   "image": "figures/2026-10-12/2610.13929.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 7,
+   "id": "2610.13945",
+   "group": "general",
+   "title": "Splat2Act: From Captured Scenes to Personalized VLA Manipulation",
+   "title_ja": "Splat2Act: 取得シーンから個別適応するVLA操作への展開",
+   "summary_ja": "スマートフォンの動画スキャンから3Dガウススプラッティング（3DGS）を用いて実環境をシミュレーション化し、事前学習済みVLA方策を特定環境・物体へ適応させる自動パイプラインを提案。実機デモ収集なしに、未適応では成功率0%だった実環境でのピックアップを高い成功率で達成した。",
+   "summary_en": "Splat2Act introduces an automated real-to-sim-to-real framework that personalizes pretrained VLA policies using handheld phone scans of user environments and objects. By transforming scenes into 3D Gaussian Splatting simulations for targeted adaptation without physical demonstrations, it significantly improves pickup success rates in complex target environments.",
+   "authors": [
+    "Xiaomeng Ye",
+    "Krishna Jaganathan",
+    "Gyubeum Lim",
+    "Gunjan Chhablani",
+    "Muhammad Zubair Irshad",
+    "Zsolt Kira"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "sim-to-real",
+    "vision-language-action",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.13945",
+   "image": "figures/2026-10-12/2610.13945.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 8,
+   "id": "2610.12818",
+   "group": "general",
+   "title": "LeWAM: End-to-End World and Action Modeling with JEPAs",
+   "title_ja": "LeWAM: JEPAによるエンドツーエンドのワールド・アクションモデル",
+   "summary_ja": "ピクセル再構成を行わずにコンパクトな潜在ワールドモデルを学習するJEPAを制御に適用したLeWAMを提案。次潜在状態予測とアクションフローマッチングの同時学習に加え、等方性ガウス拘束を課すことで、単一モデルによる方策実行と潜在プランニングを実現し、視覚プランニング成功率を大幅に向上させた。",
+   "summary_en": "LeWAM presents an end-to-end JEPA architecture for robot control that jointly optimizes next latent state prediction and action flow matching with an isotropic Gaussian latent constraint. Without pixel-level reconstruction, it supports both direct execution and efficient latent-space planning, boosting visual planning success rates from 28.6% to 89.7%.",
+   "authors": [
+    "Minghao Fu",
+    "Tavis Siebert",
+    "Eryk Halicki",
+    "Randall Balestriero"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "world-model",
+    "planning",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.12818",
+   "image": "figures/2026-10-12/2610.12818.jpg"
+  },
+  {
+   "date": "2026-10-12",
+   "rank": 9,
+   "id": "2610.13195",
+   "group": "general",
+   "title": "PATACON: GPU-Parallel Tangent-Bundle RRT-Connect for Constrained Motion Planning",
+   "title_ja": "PATACON: 拘束付き運動計画のためのGPU並列接束RRT-Connect",
+   "summary_ja": "高次元かつ拘束の厳しいヒューマノイド等の運動計画において、反復的な拘束多様体への射影オーバーヘッドを削減するGPU並列プランナを提案。多様体の局所線形近似である接束を利用してサンプリングと探索を行うことで、高次元拘束下での高速な動作計画と連続的なリプランニングを可能にした。",
+   "summary_en": "PATACON proposes a GPU-parallel Tangent-Bundle RRT-Connect planner for highly constrained, high-dimensional humanoid motion planning. By leveraging tangent-bundle local approximations of constraint manifolds, it drastically reduces constraint projection overhead, facilitating fast, massively parallel planning and real-time continuous replanning.",
+   "authors": [
+    "Gahyun Oh",
+    "Junho An",
+    "Suhyun Jeon",
+    "Suhan Park"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "planning",
+    "humanoid",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.13195",
+   "image": "figures/2026-10-12/2610.13195.jpg"
+  },
+  {
    "date": "2026-10-09",
    "rank": 0,
    "id": "2610.11505",
