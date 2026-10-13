@@ -1,6 +1,237 @@
 {
  "entries": [
   {
+   "date": "2026-10-13",
+   "rank": 0,
+   "id": "2610.13862",
+   "group": "focus",
+   "title": "BT-Agent: Deploying Onboard Robot Agents with Behavior Trees and Multi-Fidelity Evaluation",
+   "title_ja": "BT-Agent：振る舞い木とマルチフィデリティ評価を用いた四脚ロボットへのオンボードエージェント展開",
+   "summary_ja": "四脚ロボット上で9B言語モデルを完全オンボード動作させるBT-Agentを提案。LLMのタスク推論と事前定義された振る舞い木（BT）スキルを統合し、モデルの再推論を待たずに局所的な安全停止や復旧を実行できる。161タスクのマルチフィデリティベンチマークで性能を実証した。",
+   "summary_en": "This paper proposes BT-Agent, an onboard architecture that deploys a 9B language model directly on a quadruped robot. By combining LLM task reasoning with predefined behavior-tree skills, the system executes local safety stops and retries without awaiting model re-inference, validated on a 161-task multi-fidelity benchmark.",
+   "authors": [
+    "Fabio Hübel",
+    "Adam Lilja",
+    "Yue Yin",
+    "Siming He",
+    "Claire Tomlin",
+    "Shankar Sastry",
+    "Jonas Frey",
+    "Marco Pavone"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "llm-agent",
+    "control",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.13862",
+   "image": "figures/2026-10-13/2610.13862.jpg"
+  },
+  {
+   "date": "2026-10-13",
+   "rank": 1,
+   "id": "2610.13816",
+   "group": "focus",
+   "title": "Dream to Remember: Continual Steering of Generalist Robot Policies with World Models",
+   "title_ja": "Dream to Remember：ワールドモデルを用いた汎用ロボット方策の継続的ステアリング",
+   "summary_ja": "模倣学習された汎用ロボット方策を順次強化学習する際の破滅的忘却を防ぐDream to Remember (D2R)を提案。重みを固定した方策に対し、ワールドモデルを活用して過去スキルの幻覚・記憶を保持しながら、入力ノイズ空間の制御モジュールを新タスクに適応させる。",
+   "summary_en": "The paper introduces Dream to Remember (D2R) to prevent catastrophic forgetting when continually adapting generalist robot policies via reinforcement learning. By leveraging a frozen policy and a world model, D2R steers policy noise inputs for new tasks while retaining earlier skills.",
+   "authors": [
+    "Bahey Tharwat",
+    "Iman Nematollahi",
+    "Marvin Alles",
+    "Xingyuan Zhang",
+    "Akshay L Chandra",
+    "Abhinav Valada"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "world-model",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.13816",
+   "image": "figures/2026-10-13/2610.13816.jpg"
+  },
+  {
+   "date": "2026-10-13",
+   "rank": 2,
+   "id": "2610.13943",
+   "group": "focus",
+   "title": "Noise Space Learning for VLA Adaptation",
+   "title_ja": "VLA適応のためのノイズ空間学習",
+   "summary_ja": "Flow-matching型VLAの事前学習重みを固定したまま、コンテキスト条件付きノイズ分布を最適化するNoise Space Learning (NSL)を提案。PPO、SAC、AWRなどの強化学習アルゴリズムを統一的に適用可能な適応インターフェースを定式化し、効率的かつ安全なタスク適応を実現する。",
+   "summary_en": "This paper presents Noise Space Learning (NSL), which adapts flow-matching-based VLAs by learning a context-conditioned noise distribution while keeping the pretrained weights frozen. It establishes an interface compatible with RL algorithms like PPO, SAC, and AWR for efficient and safe task adaptation.",
+   "authors": [
+    "Junjie Lu",
+    "Chuheng Zhang",
+    "Yucen Wang",
+    "Yuhua Jiang",
+    "Xinyao Qin",
+    "Min Xu",
+    "Li Zhao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "vision-language-action",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.13943",
+   "image": "figures/2026-10-13/2610.13943.jpg"
+  },
+  {
+   "date": "2026-10-13",
+   "rank": 3,
+   "id": "2610.13772",
+   "group": "focus",
+   "title": "MARGoS: A Configuration-Driven Platform for Reproducible MARL Experiments in ARGoS",
+   "title_ja": "MARGoS：ARGoSにおける再現可能なマルチエージェント強化学習実験のための設定駆動型プラットフォーム",
+   "summary_ja": "群ロボティクスシミュレータARGoSにおいて、マルチエージェント強化学習（MARL）実験の再現性と設定管理を向上させるMARGoSを提案。散在しやすいシミュレータ設定、学習スクリプト、乱数シードなどを統一的に管理・再利用可能にし、実験基盤の構築コストを低減する。",
+   "summary_en": "The paper presents MARGoS, a configuration-driven platform for reproducible multi-agent reinforcement learning (MARL) in the ARGoS swarm simulator. It standardizes simulator configurations, training scripts, and seeds to ensure consistent experiment reproducibility and reuse in collective robotics.",
+   "authors": [
+    "Tom Philipp Backert",
+    "Mohammad D. Soorati",
+    "Javad Ghofrani"
+   ],
+   "categories": [
+    "cs.SE",
+    "cs.MA",
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "simulation",
+    "multi-robot"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.13772",
+   "image": null
+  },
+  {
+   "date": "2026-10-13",
+   "rank": 4,
+   "id": "2610.13628",
+   "group": "general",
+   "title": "JitterVLA: A Replay Benchmark for Motion Quality in VLA-Driven Human-Robot Manipulation",
+   "title_ja": "JitterVLA：VLA駆動型人間・ロボット協調マニピュレーションにおける運動品質評価ベンチマーク",
+   "summary_ja": "VLA方策の出力遅延や離散的指令が引き起こす急峻な動作（ジッター）を評価・改善するベンチマークJitterVLAを提案。コントローラ補間により、追従誤差2.0cmを保ちつつp99加加速度を最大83%低減できることを実機UR3および大規模データで実証した。",
+   "summary_en": "This paper introduces JitterVLA, a replay benchmark designed to isolate and evaluate motion quality issues caused by delayed VLA outputs. Results show that interpolation reduces modeled p99 jerk by up to 83% with a minimal 2.0 cm tracking cost, validated across human trajectories and a physical UR3 robot.",
+   "authors": [
+    "Faith Ogunwoye",
+    "Didar Seyidov",
+    "Konstantin Gubernatorov",
+    "Dzmitry Tsetserukou"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.HC",
+    "cs.LG"
+   ],
+   "tags": [
+    "vision-language-action",
+    "control",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.13628",
+   "image": "figures/2026-10-13/2610.13628.jpg"
+  },
+  {
+   "date": "2026-10-13",
+   "rank": 5,
+   "id": "2610.13643",
+   "group": "general",
+   "title": "AutoBio+: Benchmarking Dexterous Manipulation with Dynamic Experimental Phenomena in Realistic Laboratories",
+   "title_ja": "AutoBio+：リアルな実験室環境での動的現象を伴う器用なマニピュレーションのベンチマーク",
+   "summary_ja": "生物実験室の自動化に向け、火炎や蒸気、気泡などの動的実験現象下での器用な操作を評価するシミュレーションベンチマークAutoBio+を提案。4種のアクチュエータ形態と14種の精密実験タスクを含み、外乱環境でのマニピュレーション性能を体系的に測定できる。",
+   "summary_en": "The paper introduces AutoBio+, a simulation benchmark for dexterous manipulation under realistic biological laboratory phenomena such as flames, vapor, and bubbles. It encompasses 14 tasks across 4 robotic embodiments to evaluate precision tool use and instrument operation under dynamic physical disturbances.",
+   "authors": [
+    "Xuanye Wu",
+    "Yue Shi",
+    "Yongcan Yang",
+    "Yiqun Wang",
+    "Zhaoqi Wan",
+    "Dayu Xia",
+    "Jiezhang Cao",
+    "Xiangfei Li",
+    "Yao Mu",
+    "Guangtao Zhai"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "benchmark",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.13643",
+   "image": "figures/2026-10-13/2610.13643.jpg"
+  },
+  {
+   "date": "2026-10-13",
+   "rank": 6,
+   "id": "2610.13740",
+   "group": "general",
+   "title": "SmolWAM: A Latent World-Action Model for Robotic Manipulation on Edge Devices",
+   "title_ja": "SmolWAM：エッジデバイス向けロボットマニピュレーション用潜在ワールド・アクションモデル",
+   "summary_ja": "計算資源が限られたエッジ向けに、行動と将来の視覚潜在表現を1ステップで予測する軽量ワールド・アクションモデルSmolWAMを提案。2Bモデルから不要ブロックを削減し、3.6 GPU時間の学習で400試行中95.5%のタスク成功率を達成した。",
+   "summary_en": "SmolWAM is a lightweight latent world-action model designed for edge manipulation. Derived from a 2B-parameter backbone and predicting actions and future visual latents in a single rectified-flow step, it achieves a 95.5% success rate across 400 evaluations after only 3.6 GPU-hours of training.",
+   "authors": [
+    "Timi Owolabi",
+    "Hikmah Olawore",
+    "Frances Adelakun",
+    "Ayotomiwa Oyewumi"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "world-model",
+    "manipulation",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.13740",
+   "image": "figures/2026-10-13/2610.13740.jpg"
+  },
+  {
+   "date": "2026-10-13",
+   "rank": 7,
+   "id": "2610.13849",
+   "group": "general",
+   "title": "HorizonNav: Geometry-Guided Video Diffusion for Anticipatory 3D Robot Navigation",
+   "title_ja": "HorizonNav：予測的3Dロボットナビゲーションのための幾何誘導型動画拡散モデル",
+   "summary_ja": "単一RGB画像と指示文から幾何整合性のある将来の3D環境を先読み生成するHorizonNavを提案。VLMと動画拡散モデルで生成した観測列をORB-SLAM3と深度推定で処理し、未探索領域の3D構造を先んじて把握した高精度な自律移動を実現する。",
+   "summary_en": "HorizonNav is an anticipatory robot navigation framework that transforms a single RGB image and a text prompt into plausible surrounding 3D space via video diffusion. By coupling VLM-guided diffusion with visual SLAM and dense depth estimation, it enables proactive path planning in unseen environments.",
+   "authors": [
+    "Hajira Amjad",
+    "Valerii Serpiva",
+    "Viacheslav Liubimov",
+    "Didar Seyidov",
+    "Dzmitry Tsetserukou"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "navigation",
+    "perception",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.13849",
+   "image": "figures/2026-10-13/2610.13849.jpg"
+  },
+  {
    "date": "2026-10-12",
    "rank": 0,
    "id": "2610.12772",
