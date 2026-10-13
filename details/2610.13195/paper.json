@@ -1,0 +1,134 @@
+{
+ "title_ja": "PATACON: 拘束付き運動計画のためのGPU並列接束RRT-Connect",
+ "tldr_ja": "拘束多様体の接空間に沿って探索候補をGPU上で一気に生成・並列検証することで、双腕やヒューマノイドの高次元・強拘束な動作計画を最大11.25倍高速化しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "PATACONの全体概要図です。各CUDAブロックが共有バンクから局所的な接空間（局所線形近似平面）を動的に選び、多様体に沿った候補エッジをGPU上で並列に生成・射影・検証することで、効率的な双方向探索を実現しています。",
+  "caption": "Fig. 1: Overview of PATACON, a GPU-parallel bidirectional constrained planner. Task-specific constraints define a constraint manifold, and CUDA blocks select local tangent spaces from shared tree-specific banks to explore different regions of the manifold concurrently. Candidate motion segments generated in each tangent space are projected and validated on the manifold before insertion into the trees.",
+  "image": "details/2610.13195/F1.jpg"
+ },
+ "overview_ja": "ヒューマノイドや双腕ロボットが物体を運んだりバランスを保ったりする際、両手で物をつかむ閉ループ拘束や足裏の接地拘束など、複雑な幾何学的拘束（満たすべき等式制約）を満たし続ける必要があります。こうした拘束条件付き動作計画では、探索木を伸ばすたびに候補軌道を満たすべき曲面（拘束多様体）へと引き戻す「拘束射影」を何度も解く必要があり、計算負荷の大きなボトルネックになっていました。\n\n近年ではGPUを使って探索を大規模並列化する手法（cpRRTCなど）も登場しましたが、これらは依然として拘束を考慮しない全空間（環境空間）でランダムに枝を伸ばし、外れた点を無理やり多様体へ射影していました。そのため、高次元で拘束が厳しくなるほど無駄な射影が激増し、探索効率が急落するという問題がありました。\n\nそこで著者らは「多様体の局所的な傾きを表す接空間（Tangent Space）に沿って枝を伸ばせば、射影の無駄を劇的に減らせるはずだ」と考えました。接空間を扱う既存手法（TB-RRTなど）は逐次処理前提で並列化が困難でしたが、本論文では接空間情報をCUDAブロック間で共有する仕組みと、1回のサンプリングから複数の候補エッジを一度に生成して並列検証する仕組みを構築しました。\n\n7自由度のアームから35自由度のヒューマノイド全身計画まで8つの環境で評価した結果、次元が高く拘束が厳しいタスクほど提案手法の強みが発揮され、既存のGPU並列手法に対して最大11.25倍の高速化と100%の成功率を達成しました。",
+ "contributions_ja": [
+  "拘束多様体の局所的な幾何構造（接空間）に沿って候補枝を伸ばす探索を、GPUの大規模並列処理と初めて融合させました。",
+  "複数のCUDAブロック間で探索木ごとの接空間を共有・再利用する「接空間バンク」機構を提案しました。",
+  "1回のサンプリングと近傍探索から接線方向に沿って複数エッジをまとめて生成し、GPU上で一括検証する「投機的マルチエッジ拡張（TGMP）」を導入しました。",
+  "ヒューマノイド全身を含むベンチマーク実験で、高次元・強拘束な問題ほど従来手法に対する優位性が広がり、最大11.25倍の高速化を実証しました。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜGPU並列化しても拘束付きプランニングは重いのか？",
+   "summary_ja": "拘束条件付き動作計画はロボットの自由度や拘束の厳しさが増すほど拘束射影の負荷が爆発します。既存のGPU並列手法は環境空間で適当に枝を伸ばして射影していたため、高次元・強拘束な問題で効率が落ちてしまう課題がありました。",
+   "details_ja": "双腕ロボットによる物体運搬やヒューマノイドの全身動作では、関節リミットや衝突回避だけでなく、両手間の相対姿勢維持や足裏の接地といった運動学拘束を常に満たさなければなりません。これらは非線形な等式拘束として記述され、高次元な関節空間の中に埋め込まれた低次元な「拘束多様体（Constraint Manifold）」を定義します。\n\nサンプリングベースの動作計画法において、ただでさえ重い衝突判定や最近傍探索に加えて、探索木を伸ばすたびに状態を多様体へと引き戻す「拘束射影（反復的な数値計算）」が膨大に発生します。特に障害物や目標が刻々と変わる動的環境で軌道を再計画（リプランニング）する場合、この計算待ち時間は致命的です。\n\n最近では、GPU上で各スレッドブロックに直線の枝伸ばしと射影・衝突判定を割り当てるcpRRTCのような大規模並列プランナーが登場し、ミリ秒オーダーの探索が可能になってきました。しかし、探索の進め方そのものは従来のままでした。つまり、拘束の形を一切見ずに環境空間（全関節空間）でランダムな方向へ枝を伸ばし、そこから多様体へと無理やり射影していたのです。これでは、射影後に多様体上でほとんど進まない無駄なサンプルが大量に生まれ、計算資源を浪費してしまいます。\n\n一方、ヤコビ行列の零空間から得られる局所的な「接空間（Tangent Space）」に沿って探索すれば、多様体からのズレが小さくなり射影回数を抑えられることが知られていました（TB-RRTなど）。しかし、接空間の構築や管理には追加の計算コストがかかるため、逐次処理のままでは並列GPUの計算パワーを活かせません。\n\nそこで本論文が提案するのが「PATACON（Parallel Tangent-bundle RRT-Connect）」です。GPUの大規模並列処理に接空間ガイドの探索を組み込み、接空間の管理コストを複数の候補エッジで効率よく償却（アモチズ）することで、このボトルネックを打破しました。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "多様体をたどる先人たちの知恵と、並列化の壁",
+   "summary_ja": "拘束付き計画には数値射影を使う手法や接空間・局所座標系を使う手法が存在しますが、その多くはCPU上の逐次処理でした。既存のGPU並列手法も環境空間での単純な伸張に留まっており、接空間幾何を活用したGPU並列化は未開拓でした。",
+   "details_ja": "拘束条件を扱うサンプリングベース法には長い研究の歴史があります。大きく分けると、乱択勾配降下法やヤコビ行列を用いた一次後退法、CBiRRTのように多様体外の点を数値射影で引き戻す「射影ベース手法」と、局所座標チャートや接空間を敷き詰めてその上で木を成長させる「多様体・接空間ベース手法（AtlasRRTやTB-RRTなど）」が存在します。しかし、これらは基本的にCPU上で1ノードずつ探索を進める逐次アルゴリズムでした。\n\n近年は深層学習を用いて拘束を満たす潜在空間を学ばせるアプローチも登場していますが、オフラインでの大量データ収集や再学習が必要であり、任意の拘束関数に柔軟に対応できるわけではありません。\n\n計算時間を削るもうひとつの王道が並列化です。CPUでのマルチスレッド探索やSIMDベクトル演算（McVAMPなど）、そしてGPUを用いた並列衝突判定や軌道最適化が開発されてきました。最近では、GPU上でRRT探索木を丸ごと育てるpRRTCや、それを拘束付き計画に拡張したcpRRTCが提案され、大幅な高速化を達成しました。\n\nしかし、cpRRTCのアプローチはあくまで「環境空間で伸ばして、経由点をGPUで並列に射影する」という力技でした。並列化によって1回あたりの射影コストは下がっても、多様体から外れる無駄な探索そのものは減らせていません。接空間を取り入れようにも、接空間の構築や局所的な最近傍探索のオーバーヘッドが重く、単純な組み合わせでは性能が出ないという壁がありました。PATACONはまさにこのジレンマを解消するために設計された手法です。",
+   "figures": []
+  },
+  {
+   "heading": "III Problem Definition",
+   "heading_ja": "解くべき問題の数式モデル：関節空間に潜む薄い曲面を探せ",
+   "summary_ja": "ロボットの関節空間 $\\mathcal{C}$ 内で、等式拘束 $h(q)=0$ が定義する拘束多様体 $\\mathcal{M}$ を扱います。ヤコビ行列の零空間基底 $N(q)$ を使って接空間を表現し、衝突と自己干渉を回避する安全な連続パスを求める問題を定式化します。",
+   "details_ja": "ロボットの関節空間（コンフィギュレーション空間）を $\\mathcal{C} \\subseteq \\mathbb{R}^n$ とし、ロボットの姿勢（関節角）を $q \\in \\mathcal{C}$ で表します。タスクに応じた運動学拘束は、微分可能な非線形等式拘束関数 $h(q) = 0$（$h: \\mathcal{C} \\rightarrow \\mathbb{R}^m$）として与えられます。この拘束を満たす集合が「拘束多様体」 $\\mathcal{M} = \\{q \\in \\mathcal{C} \\mid h(q) = 0\\}$ です。\n\nヤコビ行列 $J_h(q) = \\partial h(q) / \\partial q$ がフルランク $m$ を持つ正則な点において、多様体の局所次元は $d = n - m$ となります。このとき、局所的な接空間（多様体に接する平坦な空間）は次のように表せます：\n\n$T_q \\mathcal{M} = \\{v \\in \\mathbb{R}^n \\mid J_h(q) v = 0\\}$\n\nPATACONでは、この零空間の正規直交基底を行列 $N(q) \\in \\mathbb{R}^{n \\times d}$ として計算します。すなわち $J_h(q) N(q) = 0$ かつ $N(q)^\\top N(q) = I_d$ を満たす基底です。この $N(q)$ が、接空間内を自由に探索するためのローカルな座標系として機能します。\n\nさらに、ロボット自身の自己干渉や環境との衝突がない安全な領域を $\\mathcal{C}_{\\mathrm{free}}$ とすると、探索すべき実行可能多様体は $\\mathcal{M}_{\\mathrm{free}} = \\mathcal{M} \\cap \\mathcal{C}_{\\mathrm{free}}$ と定義されます。本論文の目的は、与えられた開始状態 $q_{\\mathrm{start}} \\in \\mathcal{M}_{\\mathrm{free}}$ と目標状態 $q_{\\mathrm{goal}} \\in \\mathcal{M}_{\\mathrm{free}}$ を結び、経路上のすべての点が拘束・関節リミット・衝突回避を厳密に満たす連続パス $\\sigma: [0, 1] \\rightarrow \\mathcal{M}_{\\mathrm{free}}$ を見つけ出すことです。",
+   "figures": []
+  },
+  {
+   "heading": "IV GPU-Parallel Tangent-Bundle RRT-Connect",
+   "heading_ja": "PATACONのアーキテクチャ：接空間の共有とマルチエッジ一括検証",
+   "summary_ja": "PATACONは「接空間ガイドサンプリング（TGS）」と「マルチエッジ射影（TGMP）」の2つの柱で構成されます。CUDAブロック間で接空間を共有し、接線方向に沿って複数エッジをまとめて生成・並列検証することでオーバーヘッドを最小化します。",
+   "details_ja": "PATACONのコアアイデアは、接空間に沿って効率よく探索すること（TGS）と、その探索方向を使い回して複数エッジを一括で生成・並列検証すること（TGMP）を組み合わせた点にあります。\n\n### IV-A 並列探索を支える接空間サンプリング（TGS）\n従来のRRTでは全空間からランダムサンプリングしますが、TGSでは接空間の原点 $q_r$ における零空間基底 $N(q_r)$ の張る空間 $\\mathcal{T}_r$ の中で探索方向をサンプリングします。これにより、多様体から大きく離れる無駄な枝伸ばしを防ぎます。\nこの接空間データはGPUのグローバルメモリ上にある「接空間バンク」で管理され、スタート側の木とゴール側の木で別々に保持されます。各CUDAブロックはバンクから準備完了状態の接空間を動的に取得して探索するため、特定のブロックに固定されることなく、多様体の異なる領域を並列に開拓できます。\nまた、新しい接空間を探索する際には「後戻り防止（Backtracking Prevention）」を適用します。親の接空間から進んできた方向の内積をチェックし、過去の領域に逆戻りするサンプルは方向を反転させて前方の半空間に制限します。最近傍探索は、選択された接空間に属するノード群に対してブロック内のスレッド並列リダクションを用いて高速に実行されます。\n\n### IV-B 複数エッジを一気に伸ばすマルチエッジ射影（TGMP）\n接空間の構築や最近傍探索にはコストがかかるため、1回のサンプリングで1ステップしか進まないのはGPU的に非効率です。そこでTGMPでは、決定した接線方向に沿って最大 $K_{\\max}$ 個（実験では4個）の候補ノードを一定の刻み幅 $\\xi$ で数珠つなぎに生成します。\nただし、接空間はあくまで局所的な線形近似なので、遠くへ進むほど実際の多様体から離れていきます。そこで拘束誤差 $E_M(\\bar{q}_k) = \\|h(\\bar{q}_k)\\|_2$ を監視し、しきい値 $\\epsilon_M$ を超えた時点で候補生成を打ち切ります。\n\n### IV-C GPU上での並列エッジ射影と検証\n生成された複数の候補エッジは、CUDAブロック内の協調スレッドグループ（Cooperative Thread Groups）に分散され、GPU上で同時に射影・検証されます。エッジ内の微小ウェイポイントに対する射影は順番に行われますが、エッジ同士は並列に処理されるのがポイントです。\n検証結果は元の順番どおりにチェックされ、根元から連続して有効だった最長の部分（Valid Prefix）だけが探索木に追加されます。途中で衝突や射影失敗が起きたら、それ以降のエッジは破棄されます。また、バッチ内の全エッジが受け入れられ、かつ誤差しきい値を超えた境界ノードにおいてのみ、新しい接空間が生成されてバンクに追加されます。\n\n### IV-D 逆向き木への接続とブリッジ検証（CONNECT）\n木を伸ばすEXTENDが成功すると、もう一方の木の中で最も近いノードを固定ターゲット $q_{\\mathrm{tar}}$ に設定し、木同士をつなぐCONNECTフェーズに入ります。ターゲットへの方向ベクトルを現在の接空間へと射影し、同様にTGMPを用いて一気に枝を伸ばします。\nこのとき、数値射影によってターゲットから離れてしまわないよう、ターゲットとの距離が確実に縮まっているか（進捗条件 $\\epsilon_{\\mathrm{prog}}$）を検証します。両方の木が十分に近づいたら、最後の隙間（ブリッジ）を射影・衝突検証し、成功すれば経路完成となります。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "PATACONのGPUスレッドマッピング構造です。複数のCUDAブロックが異なる接空間領域を並列に探索し、各ブロック内では生成された複数の候補エッジ（Edge 0〜3）がワープ（32スレッド単位）へ割り振られて並列に検証されます。",
+     "caption": "Fig. 2: GPU mapping of PATACON. CUDA blocks concurrently explore local tangent-space regions, while candidate edges generated by each EXTEND are distributed across cooperative thread groups for parallel validation.",
+     "image": "details/2610.13195/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "接空間上でのEXTENDとCONNECTの流れです。EXTENDでは接線方向に沿って誤差がしきい値を超えるまで複数の候補ノードを生成して多様体へ射影し、CONNECTでは反対側の木のターゲットへ向かう方向を接空間に射影しながら繰り返し接続を試みます。",
+     "caption": "Fig. 3: Tangent-Space EXTEND and CONNECT. EXTEND generates multiple candidates along a common tangent direction, while CONNECT repeatedly applies EXTEND toward a fixed target in the opposite tree.",
+     "image": "details/2610.13195/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Experiments",
+   "heading_ja": "実験結果：次元と拘束が増えるほど圧倒的な強さを発揮！",
+   "summary_ja": "7自由度アームから35自由度のヒューマノイドまで計8環境で検証しました。低次元では既存のcpRRTCも健闘しますが、高次元かつ拘束が厳しくなるとPATACONが最大11.25倍の高速化を叩き出しました。",
+   "details_ja": "### V-A 実験セットアップとベンチマーク環境\n比較対象として、CPUのSIMDベクトル化を用いるMcVAMP、先行するGPU並列射影手法のcpRRTC、そして接空間逐次手法のTB-RRTを用意しました。実験環境はRyzen 7 9800X3D CPUとNVIDIA GeForce RTX 5090 GPUを搭載したワークステーションです。\n検証ロボットは、(A) 7自由度のFranka Panda、(B) 14自由度の双腕Franka、(C) 15自由度の固定台座FFW-SG2、(D) 18自由度の移動台座FFW-SG2、(E) 35自由度のUnitree G1ヒューマノイドの5種類です。課される拘束には、両手相対姿勢拘束（BK: 6自由度分）、エンドエフェクタの姿勢拘束（OR: 2自由度分）、両足接地拘束（FT: 12自由度分）、重心支持領域不等式拘束（CoM）が含まれます。\n\n### V-B 拘束の厳しさと次元数に応じた性能比較\n各タスク100問のランダムな開始・目標姿勢でテストを行いました。7自由度のFranka単腕では、接空間の管理オーバーヘッドがないぶんcpRRTCの方が高速でした。しかし、ロボットの自由度が増え、拘束が厳しくなるにつれて形勢が完全に逆転します。\n特に顕著だったのが、双腕閉ループ拘束（BK）に加えてエンドエフェクタの軸拘束（OR）を追加した15自由度のFFW-SG2です。PATACONの平均計画時間は約0.026秒（秒間約38.5回の探索スループット）に達し、cpRRTC（約0.294秒、秒間3.4回）に対して約11.25倍の圧倒的な高速化を達成しました。35自由度のUnitree G1全身計画でも、PATACONは安定して高い成功率と短い計算時間を記録し、拘束が厳しくなるほどcpRRTCとの性能差が広がることが確認されました。\n\n### V-C 提案要素のアブレーション解析\nG1の全身タスクで各構成要素の効果を順に検証しました。cpRRTCに接空間サンプリング（TGS）だけを足すと、接空間構築のコストが勝って逆に遅くなってしまいます。そこにマルチエッジ生成（TGMP）を加えてエッジ単位で順次処理するとコストが償却され始め、さらにPATACONのように複数エッジをGPUで一括並列検証し、後戻り防止を導入することで、計算時間が大幅に削減されました。接空間幾何とGPU並列化を緻密に噛み合わせることの重要性が分かります。\n\n### V-D いつでも打ち切れるAnytime最適化での挙動\nPATACONの初回解を発見するまでの圧倒的な速さは、経路最適化（Anytime計画）でも大きな武器になります。解が見つかるたびにコスト上限を更新して木を再探索する「AO-PATACON」をG1環境で評価したところ、探索開始直後のごくわずかな時間で100%の成功率に達し、10秒の制限時間内に経路長（コスト）が階段状にぐんぐん短縮されていく様子が確認されました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "評価に使用した5種類のベンチマーク環境です。(A) 7自由度単腕Franka、(B) 14自由度双腕Franka、(C) 15自由度双腕ロボットFFW-SG2、(D) 18自由度移動台座FFW-SG2、(E) 35自由度Unitree G1ヒューマノイドの全身計画タスクが設定されています。",
+     "caption": "Fig. 4: Experimental setups used for constrained motion-planning benchmarks. Start and goal configurations are shown for the Franka Panda, dual Franka, fixed- and mobile-base FFW-SG2, and Unitree G1.",
+     "image": "details/2610.13195/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "各ベンチマークにおける累積成功率の推移（横軸は対数スケールの計画時間）です。高次元かつ拘束が厳しい設定（右列や下段）になるほど、PATACON（オレンジ線）がcpRRTC（緑線）よりも大幅に左側（短時間）で100%成功に到達していることが分かります。",
+     "caption": "Fig. 5: Cumulative planning success across constrained planning benchmarks. Each curve shows the percentage of 100 randomly sampled start–goal problems solved within the corresponding planning time. Planning time is shown on a logarithmic scale.",
+     "image": "details/2610.13195/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "G1ヒューマノイド全身タスクにおけるAO-PATACONのAnytime最適化挙動です。上段の成功率は開始直後に素早く100%に達し、下段のパス長コスト（中央値）は余った計算時間を使って段階的に滑らかに削減されていく様子が示されています。",
+     "caption": "Fig. 6: Anytime optimization behavior of AO-PATACON on the G1 whole-body benchmark over 10 independent runs. The upper plot shows the success rate over computation time, and the lower plot shows the median best-so-far path cost during continued optimization.",
+     "image": "details/2610.13195/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "まとめと今後の展望：全身動作計画のリアルタイム化へ",
+   "summary_ja": "多様体の局所接空間を利用する幾何学的アプローチとGPUの大規模並列処理を統合したPATACONにより、高次元・強拘束な動作計画を劇的に高速化できることが示されました。",
+   "details_ja": "本論文では、拘束条件付き動作計画のためのGPU並列接束RRT-Connectフレームワーク「PATACON」が提案されました。多様体の局所接空間に沿って効率的に探索する幾何学的アプローチと、複数エッジの投機的生成・GPU並列検証を巧みに組み合わせることで、これまで並列化が難しかった接空間ベースの計画法を現代のハイエンドGPU上で見事に開花させました。\n\n双腕協調作業やヒューマノイド全身計画を用いた実験により、次元が高く拘束が厳しい問題ほどPATACONの優位性が顕著になり、最大11.25倍の高速化と高い成功率を達成できることが実証されました。数十ミリ秒オーダーで全身軌道を生成できるこの性能は、動的な実環境でヒューマノイドが連続的に再計画を行いながら動き続ける、真のリアルタイム全身動作計画の実現に向けた大きな一歩と言えます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "GPU並列RRTで拘束を扱うなら、環境空間で闇雲に伸ばすより接空間（多様体の接線方向）に沿って枝を伸ばす方が、無駄な射影が減って圧倒的に有利です。",
+  "接空間の構築や最近傍探索にはオーバーヘッドがありますが、1サンプリングあたり複数エッジ（TGMP）を一括生成してGPU並列検証すれば十分にお釣りが来ます。",
+  "拘束が緩い低次元問題では従来の単純なGPU手法（cpRRTC）で十分ですが、双腕＋姿勢拘束やヒューマノイド全身（15〜35自由度）のような高次元・強拘束タスクではPATACONの独壇場になります。"
+ ],
+ "limitations_ja": [
+  "自由度が低く拘束が緩い問題（7自由度の単腕など）では、接空間の構築・管理コストが探索削減のメリットを上回り、従来手法より遅くなる場合があります。",
+  "接空間の許容誤差しきい値（$\\epsilon_M$）や最大ステップ数（$K_{\\max}$）などのハイパーパラメータが、多様体の局所的な曲率やタスクの幾何形状に依存する可能性があります。"
+ ],
+ "keywords": [
+  "Constrained Motion Planning",
+  "GPU Parallel Computing",
+  "Tangent Space",
+  "RRT-Connect",
+  "Humanoid Whole-Body Planning"
+ ],
+ "id": "2610.13195",
+ "title": "PATACON: GPU-Parallel Tangent-Bundle RRT-Connect for Constrained Motion Planning",
+ "authors": [
+  "Gahyun Oh",
+  "Junho An",
+  "Suhyun Jeon",
+  "Suhan Park"
+ ],
+ "date": "2026-10-12",
+ "group": "general",
+ "tags": [
+  "planning",
+  "humanoid",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.13195",
+ "pdf_url": "https://arxiv.org/pdf/2610.13195",
+ "summary_ja": "高次元かつ拘束の厳しいヒューマノイド等の運動計画において、反復的な拘束多様体への射影オーバーヘッドを削減するGPU並列プランナを提案。多様体の局所線形近似である接束を利用してサンプリングと探索を行うことで、高次元拘束下での高速な動作計画と連続的なリプランニングを可能にした。",
+ "generated": "2026-10-13",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.13195"
+}
