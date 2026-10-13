@@ -1,0 +1,135 @@
+{
+ "title_ja": "Chronos Policy: 物理時間に基づいたロボット方策の学習",
+ "tldr_ja": "センサ取得時刻と行動実行時刻を「物理時間のタイムスタンプ」として明示的にモデルへ入力し、Time-aware RoPE で注目度を物理時間の経過に直接連動させることで、遅延やサンプリング周波数の揺らぎに頑健なロボット方策を実現した論文です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "ロボットシステムにおける時間的な揺らぎの全体像です。センサのサンプリング周波数、通信遅延、推論遅延、制御周期といった様々な時間のズレが、動的タスク（観測と行動のタイミング）、マルチモーダルタスク（観測同士のタイミング）、準静的タスク（学習と運用のミスマッチ）に与える影響を示しています。",
+  "caption": "Figure 1: Timing-related issues in robot policy learning. (a) Real robot systems exhibit multiple sources of temporal variation, including variable sensor sampling rate, observation latency and dropout, inference latency, control frequency, and execution latency. These timing effects matter differently across tasks. (b) In dynamic tasks, the key temporal relationship is between when an observation is captured and when an action takes effect . (c) In multisensory tasks, the key temporal relationship is between when different observations are captured . (d) Even in quasi-static tasks, differences between data-collection and deployment timing can create temporal mismatch. …",
+  "image": "details/2610.13929/F1.jpg"
+ },
+ "overview_ja": "従来の模倣学習では、センサ観測とロボットへの指令を「固定レートの系列」として扱い、系列内の並び順（インデックス）で時間の経過を暗黙的に代用してきました。しかし実機では、カメラのフレーム落ちや通信遅延、モデルの推論時間のブレなど、物理時間は常に揺らいでいます。同じ2フレームの差でも、間隔が20msなのか200msなのかによって物体の速度は10倍違いますし、指令を予測しても実際にモータが動くのが何ミリ秒後か分からなければ、動く物体を正確に掴むことはできません。\n\nそこで著者らは、観測が取得された物理時刻と、行動を実行してほしい未来の物理時刻を方策の入力として明示的に与える「Chronos Policy」を提案しました。ポイントは、トークンの特徴量自体にタイムスタンプを足し込むのではなく、回転位置埋め込み（RoPE）を物理時間ベースに拡張した「Time-aware RoPE」を採用した点です。これにより、トークンの中身を汚さずに、アテンションの重みを観測と行動の物理的な時間差そのものに依存させることができます。さらに学習時には、サンプリング間隔や行動チャンクの開始遅延をランダムに変えることで、未整列なマルチモーダルセンサデータから直接学習し、実機で生じる時間変動への適応力を身につけさせました。\n\n検証では、動的な物体追従、複数センサを組み合わせるピボッティング（棒の立ち上げ）、標準的なマニピュレーションベンチマーク、そして実ロボット実験を実施しました。その結果、従来のDiffusion Policyが推論遅延やサンプリング変動で著しく性能を落とす状況でも、Chronos Policyは極めて高い成功率を維持し、時間変動に対する圧倒的な頑健性を実証しました。",
+ "contributions_ja": [
+  "観測の取得時刻と要求する行動の実行時刻を条件づけることで、物理時間上で動作するロボット方策の学習フレームワークを定式化したこと",
+  "物理タイムスタンプを回転位置埋め込みに組み込む Time-aware RoPE を導入し、固定グリッドにリサンプリングすることなく非同期・多周波数のセンサから直接学習できる Diffusion Transformer を開発したこと",
+  "現実的な時間変動を模したベンチマークを構築し、シミュレーションおよび実ロボット実験において、動的制御やマルチモーダル制御での頑健性向上を実証したこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "ロボットの時計は一定ではない：系列の順番から「物理時間」へ",
+   "summary_ja": "実ロボット環境ではセンサの取得間隔や推論遅延が常に変動するため、系列の並び順だけで時間を代用する従来の手法は破綻します。本研究では、観測と行動の正確な物理タイムスタンプを明示的に入力し、Time-aware RoPE を通じて時間差を直接捉える Chronos Policy を提案します。",
+   "details_ja": "現実のロボットシステムは、決して一定のクロックでは動きません。たとえばベルトコンベア上を流れる物体をロボットが把持する場面を考えてみてください。2枚の画像の間で物体が同じ距離だけ動いていたとしても、その画像間隔が20msなのか200msなのかによって、物体の実際の移動速度は全く異なります。また、予測した行動が実際に実行されるのが「今すぐ」なのか「100ms後」なのかによっても、目標とすべき手先の位置は変わってきます。\n\nそれにもかかわらず、従来の模倣学習手法の多くは、デモンストレーションを固定レートの系列データに変換し、系列のインデックス（何番目のデータか）を物理時間の代わりとして扱ってきました。これではサンプリングレートが揺らいだり推論遅延が生じたりした際に、観測間にどれだけの時間が経過したのか、あるいは予測行動がどれくらい未来に実行されるのかを方策が判断できません。\n\n先行研究では推論遅延に特化した補正などが試みられてきましたが、本研究はアプローチが異なります。時間のズレを後から補正する外的なエラーとして扱うのではなく、そもそも「いつ観測されたか（$t_o$）」と「いつ実行したいか（$t_a$）」という物理時間を、方策の明示的な入力として定式化しました。\n\nここでの重要な設計判断が、時間の情報をネットワークにどう注入するかです。タイムスタンプを埋め込みベクトルに変換してトークンに足し算する方法もありますが、これだと「何が観測されたか」と「いつ観測されたか」が混ざってしまいます。そこで本研究ではトークンの内容はそのまま保ち、アテンションの計算に物理時間を用いる「Time-aware RoPE（回転位置埋め込み）」を採用しました。これにより、アテンションが経過時間差（$t_i - t_j$）に直接依存するようになり、時間基準点（時計の原点）に依存しない安定した表現が可能になります。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "非同期マルチモーダル学習と遅延補償のこれまで",
+   "summary_ja": "センサレートの違いに対処する非同期学習や、推論遅延を埋める行動チャンク手法、連続時間を扱うアテンション機構など、複数の先行研究の文脈を整理します。Chronos Policy はこれらを統合し、観測から行動までを統一的に物理時間として定式化する点で独自性を持っています。",
+   "details_ja": "### 非同期マルチモーダル学習\n接触を伴う作業では、低速なビジョンと高速な触覚や力覚センサの組み合わせが不可欠です。これまでは別々のモジュールで処理したり、センサごとに固有の推論レートを持つ方策を統合したりする手法が提案されてきました。しかし、これらは高周波フィードバックを活かす工夫にとどまり、全体の時間を統一的に扱えているわけではありませんでした。\n\n### 推論遅延と行動チャンクの連続性\n方策が大きなモデルになると、画像を処理して行動を推論するまでに無視できない遅延が生じます。予測した行動チャンク（一連の行動の塊）を実機でスムーズに繋ぐために、過去の実行予約済み行動を条件付けたり、インペインティングを使ったりする研究が進んでいます。また、推論ステップ自体を減らして低レイテンシ化する試みもあります。Chronos Policy は推論を高速化するのではなく、残る遅延を明示的な時間として扱うアプローチであり、既存の高速化手法とは相補的です。\n\n### ロボット制御における明示的な時間と連続時間アテンション\nタスクの残り時間を行動方策に入力して動作速度を変える研究や、自然言語処理・動画生成において不規則な時系列を扱うための連続時間アテンション、RoPE（Rotary Positional Embeddings）の拡張などが提案されてきました。本研究はこうした連続時間の視点をロボット模倣学習に持ち込み、異種センサの取得時刻と未来の行動実行時刻をひとつの枠組みで結びつけました。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "Time-aware RoPE と時間ランダム化による学習",
+   "summary_ja": "Chronos Policy は Diffusion Transformer をベースとし、観測の取得時刻と要求する行動実行時刻を Time-aware RoPE で埋め込みます。学習時にはサンプリング間隔や実行開始遅延をランダム化し、トークンの中身を変えずにアテンションを相対的な経過時間に連動させる仕組みを構築しました。",
+   "details_ja": "### 3.1 物理時間に基づく方策の定式化\n時刻 $\\mathbf{t}_o$ に取得された観測を $\\mathbf{O}_{\\mathbf{t}_o}$ とします。方策に対するリクエスト時刻を $t$ としたとき、$H$ ステップの行動チャンクを以下の時刻で問い合わせます：\n$$\\mathbf{t}_a = \\{t + d_t + j\\Delta t_a\\}_{j=0}^{H-1}$$\nここで $d_t$ は最初の行動が実行されるまでの遅延（推論遅延など）、$\\Delta t_a$ は行動の実行間隔です。方策は $\\mathbf{A}_{\\mathbf{t}_a} \\sim \\pi(\\cdot \\mid \\mathbf{O}_{\\mathbf{t}_o}, \\mathbf{t}_o, \\mathbf{t}_a)$ として定式化されます。これにより、観測レート、センサ遅延、推論遅延、要求される実行周波数がすべて時間パラメータとして明示化されます。\n\n### 3.2 Time-aware RoPE による物理時間のエンコード\n時間をモデルにどう組み込むかについて、本手法はトークン特徴量にタイムスタンプ埋め込みを加算するのではなく、アテンションの位置埋め込みとして物理時間を使います。各トークンにはリクエスト時刻 $t$ に対する相対時刻 $\\tilde{t} = t' - t$ が割り振られます。行動トークンでは $\\tilde{t}_{a,j} = d_t + j\\Delta t_a$ となり、推論遅延がそのまま未来へのシフトとして表現されます。\nこの相対時刻を行動と観測の回転座標として用いることで、クエリ $q_i$ とキー $k_j$ の内積計算は経過時間 $t_j - t_i$ のみに依存するようになります：\n$$(R(\\tilde{t}_i) q_i)^\\top (R(\\tilde{t}_j) k_j) = q_i^\\top R(t_j - t_i) k_j$$\nつまり、2つの観測がトークン列上で隣り合っていても、間隔が20msか200msかによってアテンションの伝わり方が物理時間に応じて自然に変化します。\n\n### 3.3 時間ランダム化（Temporal Randomization）を伴う学習\n学習時には、デモンストレーションデータから観測を抽出するサンプリングレートや配送遅延、そして行動チャンクの開始遅延 $d_t$ をランダムに変化させます。タイムスタンプが明示されているため、間隔を崩してもデータが曖昧にならず、固定レートへの間引きでは捨てられていたデータも余さず有効活用できます。学習は拡散モデルの標準的な $\\ell_1$ 損失で行われます。\n\n### 3.4 実機への展開\n展開時も同じインターフェースを用います。実機では推論にかかる正確な時間は事前には分からないため、直前のリクエスト完了時間から $d_t$ を推定します。予測された行動チャンクのうち、すでに実行時刻を過ぎてしまった古い行動は破棄し、残りを非同期に実行します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "Chronos Policy の全体パイプラインです。(a) 異なる周期・遅延を持つ各センサの観測と行動クエリが、(b) Time-aware RoPE によって物理時間に基づく回転行列 $R(t)$ でエンコードされ、(c) 共通の物理時間軸上でアテンションが経過時間差のみに依存する仕組みを示しています。",
+     "caption": "Figure 2: Overview of Chronos Policy. Tokens are paired with their physical times. Time-aware RoPE uses these physical timestamps as positional coordinates, so attention depends on elapsed time rather than sequence index. The diffusion transformer then predicts an action chunk at the requested execution times.",
+     "image": "details/2610.13929/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "シミュレーションと実機で実証された時間認識の威力",
+   "summary_ja": "動的タスク（コンベア）、マルチモーダルタスク（ピボッティング）、標準的な準静的タスク（DexMimicGen 6種）、そして実ロボット実験で評価しました。Chronos Policy は推論遅延やサンプリング変動が加わった過酷な条件下でも性能崩壊を防ぎ、高い頑健性を示しました。",
+   "details_ja": "実験では主に3つの疑問に答えています。(1) 時間情報はどんなタスクで役立つか、(2) 方策のどの構成要素が効いているのか、(3) 時間が重要でないタスクで悪影響はないか。\n\n### 4.1 & 4.2 動的タスクとマルチモーダルタスクでの検証\n動的なコンベアタスク（Conveyor）では、観測と行動のタイミングが命です。通常の Diffusion Policy は推論遅延が最大200msになると成功率がわずか 1.8% まで激減しますが、Chronos Policy は 76.4% を維持しました。観測の変動と遅延を同時に加えた Combined 条件では、ベースラインが 0.0% で全滅したのに対し、Chronos Policy は 32.7% と踏みとどまりました。\n触覚・力覚・視覚を統合するピボッティング（Pivoting）でも同様です。遅延200msの条件でベースラインの 51.3% に対し 60.2%、Combined 条件では 19.6% に対し 38.4% と、センサ間の相対的なタイミングのズレに対しても顕著な頑健性を見せました。\n\n### 4.3 アブレーション：何が効いているのか？\n学習時の「時間ランダム化」と、時間の埋め込み方式（AddTime vs RoPE）を比較しました。\n- 時間ランダム化単体：タイムスタンプを与えずに時間だけをランダム化すると、コンベアのような単純なタスクではデータ拡張として機能するものの、Pivoting では系列の物理的意味が曖昧になり、成功率が 48.4% から 21.6% へ大幅に悪化しました。タイムスタンプと組み合わせて初めて一貫した効果（55.3%）を発揮します。\n- AddTime vs Time-aware RoPE：Fourier 特徴量を用いた加算方式（AddTime）に比べ、Time-aware RoPE は過酷な変動条件下での成功率がコンベアで 7.8% に対し 32.7%、Pivoting で 16.7% に対し 38.4% と圧倒的に優れていました。トークン内容と時間を分離し、アテンションで直接時間差を測る設計の正しさが証明されています。\n\n### 4.4 準静的タスクへの影響\nDexMimicGen の6つの標準マニピュレーションタスクで検証したところ、公称条件（Nominal）ではベースラインと同等の性能を維持しつつ、時間変動が加わった平均では 59.7% から 73.4% へと向上しました。つまり、時間がシビアでないタスクでも明示的な時間導入によるデメリットはありません。\n\n### 4.5 実機ロボット実験\n動的なカップ配置（Dynamic Cup）、ペグ挿入（Peg Insertion）、ピボッティング（Pivoting）の3タスクで検証しました。先行研究の遅延対策である Real-Time Chunking（RTC）と比較しても、Chronos Policy は全タスク・全条件下で最高のスコアを達成しました。RTC は推論遅延には効くものの観測側の変動には対処できないのに対し、Chronos Policy は観測と行動の両方の時間を統合しているため、実環境特有の複合的な時間ブレを克服できました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "シミュレーション環境における設計要素のアブレーション結果です。時間ランダム化はタイムスタンプがあって初めて機能すること、加算埋め込み（AddTime）よりも Time-aware RoPE の方が外乱下で圧倒的に高い頑健性を持つことが示されています。",
+     "caption": "Figure 3: Simulation ablation of Chronos Policy design. We compare temporal randomization, additive time encoding, and time-aware RoPE to identify an effective recipe for time awareness. Temporal randomization is most effective when paired with explicit timestamps, while time-aware RoPE provides the strongest robustness across Conveyor and Pivoting.",
+     "image": "details/2610.13929/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "シミュレーション3環境における Diffusion Policy と Chronos Policy の比較です。(a) 動的なコンベア、(b) マルチモーダルなピボッティング、(c) 準静的な DexMimicGen 6タスクのすべてにおいて、時間変動時の頑健性が向上しています。",
+     "caption": "Figure 4: Simulation evaluation across manipulation settings. We compare Diffusion Policy and Chronos Policy on (a) dynamic Conveyor, (b) multisensory Pivoting, and (c) six standard DexMimicGen tasks under nominal and perturbed sensing and inference timing.",
+     "image": "details/2610.13929/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "実機ロボットによる3つのタスク（Dynamic Cup, Peg Insertion, Pivoting）の評価結果です。推論遅延だけでなく観測の遅れやサンプリング揺らぎが複合した状況において、Chronos Policy がベースラインや RTC を一貫して上回るスコアを示しています。",
+     "caption": "Figure 5: Real-world evaluation under timing variation. We compare Diffusion Policy, Diffusion Policy with RTC, and Chronos Policy on Dynamic Cup, Peg Insertion, and Pivoting under nominal, observation, inference, and combined timing conditions. Lighter bar segments indicate partial success.",
+     "image": "details/2610.13929/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion and Future Work",
+   "heading_ja": "まとめと今後の展望：速度を自在に変えられるロボットへ",
+   "summary_ja": "観測と行動のタイミングを明示することで、時間的な揺らぎに極めて強い方策を学習できることを示しました。今後の展望として、固定周期の行動出力にとどまらず、教示よりも素早くあるいはゆっくりとロボットの動作速度をスケーリングする制御への拡張が挙げられています。",
+   "details_ja": "本論文では、観測の取得時刻と行動の実行時刻を条件づけることで、ロボットの模倣学習を「物理時間」に根ざしたものにする Chronos Policy を提案しました。この枠組みにより、センサのサンプリング周波数の違い、配送遅延、推論遅延を単一の方策内で統一的に表現できるようになりました。\n\nシミュレーションと実機における動的タスク、マルチモーダルタスク、準静的タスクを通じて、公称性能を損なうことなく時間的ミスマッチに対する劇的な耐性を確認できました。\n\n今後の課題・展望としては、現在は固定されている行動の出力周波数（20Hzなど）を可変にすることや、時間スケールを自在に変化させることで「同じデモンストレーションをより高速に、あるいはより慎重にゆっくり実行する」といった制御への拡張が挙げられています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：ネットワーク構造と実験の詳細",
+   "summary_ja": "モデルは SigLIP2 と16層の Diffusion Transformer を採用し、非画像トークン間の自己注意と画像への交差注意を組み合わせています。実機では約 360Hz の力覚センサをダウンサンプリングして使用するなど、高周波センサを自然に取り扱う具体的なセットアップが明記されています。",
+   "details_ja": "### モデル構造の詳細\nベースモデルには、幅512、8ヘッド、16層の Diffusion Transformer を使用しています。画像特徴の抽出には事前学習済みの SigLIP2-base エンコーダを用い、$256\\times 256$ の解像度から768次元のパッチ特徴を取り出してトランスフォーマーに射影します。\n固有受容感覚（プロプリオセプション）や力覚・トルク、ノイズ混じりの行動ベクトルは個別のトークンとして埋め込まれます。非画像トークン同士は自己注意（Self-Attention）で相互作用し、画像トークンに対しては交差注意（Cross-Attention）を適用します。Time-aware RoPE は、0.1秒から2秒の間で対数的に等間隔に配置された周期を持つ16組のクエリ・キー座標を回転させます。\n\n### 学習と実機データのセットアップ\n損失関数には行動予測に対する $\\ell_1$ 損失を採用し、オプティマイザは AdamW、学習率は $3\\times 10^{-4}$、コサインスケジューラで50エポック学習させています。\n実機タスクでは、Peg Insertion や Pivoting において指先の力覚・トルクデータを約 360Hz で記録し、ストライド4でサンプリングして約 90Hz の履歴として使用しました。従来のように全センサを共通の低速グリッドに無理やりリサンプリングする必要がなく、各モダリティが自身の取得タイムスタンプを持ったまま学習できる点が、Chronos Policy の大きな実用上の強みとなっています。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "Chronos Policy のネットワーク詳細図です。プロプリオセプション、力覚、行動トークンが自己注意を行い、画像パッチに交差注意をかけます。すべてのトークンに対して Time-aware RoPE が適用され、物理時間に応じたデノイジングが反復実行されます。",
+     "caption": "Figure 6: Architecture of Chronos Policy. Proprioceptive, optional force/torque, and noisy action tokens interact through self-attention and attend to image features through cross-attention. Time-aware RoPE encodes observation capture times and queried action times in attention. The transformer iteratively denoises the action chunk.",
+     "image": "details/2610.13929/F6.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "ロボット制御の系列モデルにおいて、トークンのインデックス（並び順）を時間の代用にする仮定は実環境の遅延や揺らぎで簡単に破綻する",
+  "物理時間を導入する際、トークン特徴量への加算（AddTime）よりも、アテンションの相対位置情報として組み込む（Time-aware RoPE）方がトークン内容を汚さず圧倒的に頑健である",
+  "時間のランダム化データ拡張は、明示的なタイムスタンプと組み合わせることで初めてマルチモーダル環境でも破綻せずに汎化性能を押し上げる",
+  "非同期・多周波数のセンサデータを固定周波数のグリッドに無理やり揃えることなく、自然なタイムスタンプのまま学習・統合できる"
+ ],
+ "limitations_ja": [
+  "予測される行動チャンク内の制御周波数は固定されており、動作の実行速度自体を能動的に可変スケーリングする機能はまだ実装されていない",
+  "実機展開時の推論遅延 $d_t$ は過去の完了時間からの予測値に依存しているため、急激に推論時間が跳ね上がった場合の予測精度には限界がある",
+  "高周波なセンサデータをそのまま扱える一方で、トークン数が増加することによる Transformer 自体の計算コスト増大とのトレードオフが存在する"
+ ],
+ "keywords": [
+  "Robot Policy Learning",
+  "Diffusion Transformer",
+  "Rotary Positional Embeddings (RoPE)",
+  "Asynchronous Sensing",
+  "Inference Latency"
+ ],
+ "id": "2610.13929",
+ "title": "Chronos Policy: Learning Robot Policies on Physical Time",
+ "authors": [
+  "Changhao Wang",
+  "Jaden Clark",
+  "Shuran Song"
+ ],
+ "date": "2026-10-12",
+ "group": "general",
+ "tags": [
+  "control",
+  "imitation-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.13929",
+ "pdf_url": "https://arxiv.org/pdf/2610.13929",
+ "summary_ja": "観測周期や推論遅延が変動する環境に対応するため、物理的なタイムスタンプを明示的に条件付けて行動を予測する方策学習手法を提案。時間認識型回転位置埋め込み（RoPE）をDiffusion Transformerに導入することで、サンプリング間隔のばらつきや遅延に対して極めて頑健な制御を実証した。",
+ "generated": "2026-10-13",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.13929"
+}
