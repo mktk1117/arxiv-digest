@@ -1,0 +1,143 @@
+{
+ "title_ja": "Verify, Act, Distill：推論時計算をVision-Language-Actionモデルの推論時適応へと変換する",
+ "tldr_ja": "推論時に複数の行動候補を評価・集約して動かすテスト時計算（TTC）の実行ログから、成功した行動チャンクをそのままLoRAで自己蒸留することで、検証器なしの単一生成でもTTC性能の約74%を維持し、再度のTTCでさらなる性能向上を達成した研究です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "提案手法「Verify, Act, Distill」の全体像です。推論時に検証器で複数候補を重み付き集約して動かす「TTC」を行い、成功した試行の行動チャンクをそのままLoRAパラメータへ教師あり学習（Flow Matching）で蒸留することで、追加の強化学習なしでモデル自身を適応させます。",
+  "caption": "Figure 1: Overview of Verify, Act, Distill. Candidate chunks are scored and aggregated by the verifier and the leading $H_{2}=10$ steps are executed. Observations and the aggregated chunks of length $H_{1}=50$ from successful episodes are stored in a buffer and used to update the LoRA parameters. The verifier evaluates only the first $H_{2}$ steps of each candidate, whereas the teacher data include the entire planned chunk.",
+  "image": "details/2610.14885/F1.jpg"
+ },
+ "overview_ja": "ロボット向けのVision-Language-Action（VLA）モデルでは、推論時に複数の行動候補を生成し、評価器（Verifier）で良し悪しを判定して最良の行動を選ぶ「テスト時計算（Test-Time Compute: TTC）」が性能向上にとても有効だと注目されています。しかし、従来のTTCはモデルのパラメータを固定したまま推論を行うため、いくら現場で賢い選択をしてもモデル自体は全く賢くなりません。つまり、同じタスクを繰り返すたびに毎回ゼロから候補生成と検証をやり直す必要があり、計算コストが垂れ流しになっていました。\n\nそこで著者らは、「推論時に候補を吟味して実行した行動そのものが、すでに最高品質の教師データになっているのではないか？」という点に着目しました。提案された「Verify, Act, Distill」では、固定の検証器で重み付き集約した行動を実行し、タスクに成功したわずか10エピソード分の行動チャンクを、通常のFlow Matching損失を使ってVLAモデル（のLoRAパラメータ）にそのまま蒸留します。追加の強化学習（RL）も、教師役の別モデルも一切使いません。\n\nベンチマークのLIBERO（40タスク）で検証したところ、検証器を外した軽量な1候補の推論でも、8候補集約時（Agg-8）に得られた性能向上の約74%をモデル自身に定着させることに成功しました。さらに、蒸留後のモデルで再度TTCを行うと性能がさらに伸びる「再増幅」も確認されています。推論時の計算資源をその場限りの消費で終わらせず、モデル自身の恒久的な適応へと還元できることを綺麗に示した一編です。",
+ "contributions_ja": [
+  "TTCの実行過程で得られた検証済み行動チャンクを、追加の強化学習や教師軌道生成なしで直接LoRAに蒸留する簡潔な適応フレームワークを提案した点",
+  "わずか10エピソードの成功例を蒸留するだけで、検証器なしの単一推論においてTTCによる性能向上幅の約74%を定着させられることを示した点",
+  "蒸留によって基本ポリシーの候補生成能力が底上げされ、その後のTTC実行時にさらなる性能向上（再増幅）が得られる相乗効果を実証した点",
+  "成功判定フィルタの必要性、教師データの切り出し方、分布シフト環境（LIBERO-plus）における適用限界と挙動を詳細に分析した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "その場限りの推論時計算を、モデル自身の「学習」に変える",
+   "summary_ja": "推論時に複数候補を評価するテスト時計算（TTC）は強力ですが、方策を更新しないため計算が無駄に繰り返されます。本論文では、TTCで集約・実行された成功行動をそのままVLAへ直接蒸留し、単一推論の性能底上げと再度のTTCによる再増幅を両立させます。",
+   "details_ja": "DiffusionやFlow Matchingに基づく生成型VLAモデルは、同じ観測から多様な行動チャンクを出力できます。近年、推論時に複数の候補を出させて学習済みの検証器で採点する「テスト時計算（Test-Time Compute: TTC）」がロボットの成功率を大きく引き上げることが分かってきました。\n\nしかし、既存のTTCには大きな弱点があります。それは、ベースとなるポリシーの重みを一切更新しないことです。せっかく推論時に良い判断を下しても、モデル自身のパラメータには何のフィードバックも残らないため、同じ環境で動かし続ける限り、毎回重い計算資源を消費して候補生成と評価を繰り返さなければなりません。これは実応用において非常に非効率です。\n\nここがポイントなのですが、著者らは「推論時に候補を評価して良い行動を選び出すプロセスそのものが、極めて質の高い教師データを生み出している」と考えました。もしその行動をモデル自身にフィードバックできれば、検証器を使わない単一候補（$N=1$）の素早い推論でも高い成功率を維持できるはずです。さらに、適応したモデルが最初から筋の良い候補を生成できるようになれば、次にTTCを行ったときの性能上限もさらに高まる（再増幅される）という好循環が期待できます。\n\n提案手法「Verify, Act, Distill」は、このサイクルを驚くほどシンプルに実現します。新しいRL専門家を用意したり価値関数の勾配で行動を最適化したりすることなく、成功したロールアウトから集約済みチャンクを回収し、標準的なFlow Matching損失でLoRAパラメータを更新するだけです。わずか10回の適応試行で、単一推論の成功率を大幅に引き上げられることを示しています。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "推論時改善と事後適応の交差点：先行研究との決定的な違い",
+   "summary_ja": "候補選択による推論時改善（TTC）や強化学習による事後適応は盛んに研究されていますが、多くは評価器の固定・モデルの複雑化を伴います。本研究は、固定された検証器による日常的な実行結果を、そのまま生成元のVLAに直接蒸留する点で独自の位置を占めています。",
+   "details_ja": "本研究の立ち位置を理解するために、関連する研究の流れを整理してみましょう。\n\n### 候補評価による推論時の改善\n推論時に多くの計算を割り当てて性能を上げるアプローチには、価値関数で候補を再ランク付けするV-GPSや、検証器を組み合わせるRoboMonkey、報酬モデルを使うRoVerなどがあります。しかし、これらはすべて「候補の中からどれを実行するか」という選択に閉じており、選択した結果をモデル自身の重みに還元する仕組みはありませんでした。\n\n### 生成プロセスの誘導や先読み\nノイズの最適化やQ関数によるフローの誘導、世界モデルを用いた木探索など、生成過程そのものに計算を注ぎ込む研究も増えています。例えばSVAは探索結果をQ評価器に蒸留しますが、VLA本体は凍結されたままです。これに対し本研究は、改善された行動をVLA自身に直接蒸留する点が根本的に異なります。\n\n### 配備後の適応と強化学習（RL）\nVLAの配備後適応として、ノイズ空間をRLで調整するDSRLや、環境フィードバックでLoRAを更新するTT-VLA、PPO系の強化学習（VLA-RLなど）が盛んです。また、PA-RLやPLDのように改善された行動を蒸留する研究もあります。しかしPA-RLはCriticによる追加の局所最適化が必要で、PLDは別のRL専門家（残差ポリシー）を動かします。本研究は、通常のTTC実行で自然に得られる集約行動をそのまま教師データとして流用するため、追加のRL学習ループや補助モデルが一切不要というスマートさを持っています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Verify, Act, Distill",
+   "heading_ja": "検証・実行・蒸留：驚くほどシンプルな適応のメカニズム",
+   "summary_ja": "固定された検証器で複数候補の重み付き平均（Agg-N）を求めて環境で実行し、成功した試行の行動チャンクをバッファに保存します。あとは通常のFlow Matching損失でLoRAの重みを200ステップ微調整するだけで、適応が完了します。",
+   "details_ja": "フレームワークの流れは非常に明快です。モデルの推論・実行・更新の3ステップから構成されています。\n\n### 3.1 問題設定\nロボットへの観測 $o_t$（カメラ2視点画像、8次元の内馬状態、言語指示）に対し、VLAモデル $\\pi_{\\theta_0}$（本論文ではSmolVLAを採用）は初期ノイズ $z$ から正規化された $H_1=50$ ステップの行動チャンクを生成します。リプランニング周期ごとに、先頭の $H_2=10$ ステップだけを環境で実行します。適応フェーズではタスクごとに $K$ 回（デフォルトはわずか10回）エピソードを実行し、成功したものだけを使ってLoRAを更新します。タスク間での知識の引き継ぎは行わず、タスクごとに独立して適応させます。\n\n### 3.2 Verify and Act: 固定検証器による候補集約\n各リプラン境界において、$N$ 個（基本は8個）の候補チャンクを生成します。1つ目は標準正規分布から、残り7個は少し分散を広げたノイズ（$\\alpha=1.2$）から生成し、多様性を確保します。\n検証器 $V_{\\text{act}}$ は、観測特徴量と候補の先頭 $H_2=10$ ステップの行動を入力としてスカラーのスコア $s_i$ を出力する6層のTransformerです。この検証器はオフラインで「成功軌道の真の行動に近い候補ほどスコアが高くなる」よう、Bradley-Terry損失で事前学習されています。\n行動の決定には、最高スコアの1つを選ぶ（argmax）のではなく、温度パラメータ $\\lambda=0.3$ のソフトマックス重みによる加重平均（Agg-8）を採用します。これにより、単一の候補よりも滑らかで信頼性の高い実行プラン $\\bar{A}$ が得られます。\n\n### 3.3 Distill: 成功ロールアウトからの教師あり更新\nここが最大のエッセンスです。エピソードが成功した場合のみ、その時集約された行動チャンク $\\bar{A}$ を教師データとしてバッファに保存します。失敗したエピソードのデータは破棄します（成功フィルタ）。\n集まったデータを用いて、ベースモデルの行動エキスパート部分に挿入したLoRAパラメータ（ランク8、学習可能パラメータわずか0.37M）のみを、標準的なFlow Matching損失で更新します（200ステップ）。\n注目すべきは、環境で実行したのは先頭10ステップ（$H_2$）だけなのに、教師データとしては生成された50ステップ全体（$H_1$）を使う点です。これにより、SmolVLAの事前学習と同じ入出力形式と目的関数を保ちながら、一貫した行動計画全体を効率よく学習させることができます。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "手法全体のワークフローです。左側で検証器による重み付き集約（Act）を行い、右側で成功エピソードの全計画チャンクをバッファに集め、LoRAパラメータへFlow Matchingで蒸留（Distill）します。",
+     "caption": "Figure 1: Overview of Verify, Act, Distill. Candidate chunks are scored and aggregated by the verifier and the leading $H_{2}=10$ steps are executed. Observations and the aggregated chunks of length $H_{1}=50$ from successful episodes are stored in a buffer and used to update the LoRA parameters. The verifier evaluates only the first $H_{2}$ steps of each candidate, whereas the teacher data include the entire planned chunk.",
+     "image": "details/2610.14885/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experimental Results",
+   "heading_ja": "わずか10エピソードの蒸留で、TTC効果の74%を定着・再増幅",
+   "summary_ja": "LIBEROの40タスクにおいて、10エピソードの蒸留により検証器なしの単一推論成功率が54.1%から70.6%へ跳ね上がりました。さらに蒸留モデルで再度TTCを行うと82.3%に達し、分布シフト環境でも単一推論の確実な改善が確認されました。",
+   "details_ja": "実験はシミュレーション環境LIBEROの全4スイート（Spatial, Object, Goal, Longの計40タスク）で実施されました。モデルには、適応の余地を残した状態の代理として5kステップ学習させたSmolVLA（ベース成功率54.1%）を主に使用しています。\n\n### 4.2 主要結果：効果の定着とTTCの再増幅\n- **TTC効果の約74%を定着**: 8候補の集約（Agg-8）を行うと、ベースの成功率は54.1%から76.4%へと大きく向上します。このAgg-8の成功例から蒸留したポリシーは、検証器を全く使わない単一候補（$N=1$）の推論でも **70.6%** の成功率を達成しました。TTCによって得られたゲインの約74%が、モデル自身のパラメータにしっかり定着したことになります（40タスク中34タスクで向上）。\n- **後続TTCの再増幅**: この蒸留済みポリシーを使って再度Agg-8を実行したところ、成功率は **82.3%** までさらに伸びました。特に長期計画が求められる難関スイート「LIBERO-Long」では、44.0%から57.8%へと大幅なジャンプを記録しています。\n- **単なる自己模倣を超える効果**: 検証器を介さずベースモデル自身の成功軌道を模倣する「Self」ベースライン（63.7%）と比較しても、提案手法（70.6%）は大きく上回りました。検証器が集約した質の高い行動を教師にすることが極めて重要だと分かります。\n- **ノイズ空間RL（GRPO）に対する圧倒的優位**: 同じ10エピソードの予算で検証器スコアを報酬にしてノイズ空間を強化学習するN-GRPO（58.1% / 79.2%）に対しても、直接行動を蒸留する本手法の方が圧倒的にサンプル効率が高いことが証明されました。\n\n### 4.3〜4.6 アブレーションと分析\n- **学習が進んだモデル（10k）での挙動**: 10kチェックポイント（ベース83.2%）でも、蒸留後の単一推論は86.2%へと向上しました。ただし、再度のAgg-8では89.8%（元は90.4%）と再増幅は見られませんでした。候補間の差がわずかになり、固定検証器の判別性能が追いつかなくなることが原因と考えられます。\n- **成功フィルタの重要性**: 失敗エピソードも含めて蒸留すると、成功率は64.4%まで低下しました。失敗した行動を真似させないフィルタリングが生命線です。\n- **分布シフト環境（LIBERO-plus）**: 未知の摂動が加わる環境でも、単一推論で+3.9ポイントの確実な改善が見られました。ただし、140タスク中66タスクでは10回の試行中に一度も成功できず、適応そのものがスキップされるという課題も浮き彫りになりました。\n- **候補数と適応予算の依存性**: 評価時の候補数を $N=1$ から $16$ まで変化させても、蒸留後モデルは一貫してベースを上回りました。また、適応エピソード数はわずか $K=2$ や $5$ でも顕著な改善が得られ、本手法のデータ効率の高さが裏付けられています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "40タスクにおける成功率の散布図です。左側はベースと蒸留後（検証器なし・単一候補）の比較で、大半の点（34タスク）が対角線より上にあり性能向上を示しています。右側はAgg-8同士の比較で、蒸留によってTTCの上限がさらに引き上げられています。",
+     "caption": "Figure 2: Per-task success rates (SmolVLA 5k, 40 tasks, 50 episodes per point, seeds 10–59). Left: Base vs. distilled policy with a single candidate (no verifier); right: Agg-8 vs. distilled policy + Agg-8. Points above the diagonal indicate improvement (left 34/1/5, right 24/6/10).",
+     "image": "details/2610.14885/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "(a) 評価時の候補数 $N$ を変えた際の成功率推移と、(b) 適応エピソード数 $K$ に対する感度です。蒸留モデル（オレンジ）はあらゆる候補数でベースを上回り、わずか数エピソードの適応でも高い改善を示しています。",
+     "caption": "Figure 3: Dependence on the number of candidates and the adaptation budget. Both use the variant without the success filter; numbers are in Tables 6 and 7 .",
+     "image": "details/2610.14885/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "LIBERO-Long（タスク9）の定性的な実行比較です。ベース（上段）や通常のAgg-8（中段）がカップの把持や操作で失敗するのに対し、蒸留済みポリシー＋Agg-8（下段）は終始安定した軌道を描いてタスクを完遂しています。",
+     "caption": "Figure 4: Rollouts on LIBERO-Long task 9 (SmolVLA 5k) from the same initial state (seed 12) for Base ( $N{=}1$ ), Agg-8, and distilled policy + Agg-8; thin lines show each candidate’s predicted trajectory at each chunk boundary and the thick line the executed weighted average, and rows show the progression of time. The seed is the first one, searching upward from seed 10, in which Base fails and the distilled policy + Agg-8 succeeds (Agg-8 alone also fails here).",
+     "image": "details/2610.14885/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion and Limitations",
+   "heading_ja": "結論と実機応用に向けた課題",
+   "summary_ja": "本研究はTTCを「その場の行動選択」から「モデルの適応信号」へと進化させました。一方で、検証器の判別能力への依存や、最低1回の成功が必要である点、一部タスクでの性能低下など、実応用に向けて解決すべき限界も存在します。",
+   "details_ja": "「Verify, Act, Distill」は、推論時の計算コストを単なる消費で終わらせず、将来の推論をより軽く・賢くするための教師データ生成プロセスへと転換しました。これによって、重い検証器を動かし続けなくても高精度な制御が可能になります。\n\n一方で、実用化に向けて以下の限界や前提条件があることも率直に述べられています。\n- **検証器の精度依存**: 事前学習された検証器が正しく行動の良し悪しを判断できることが前提です。検証器自身の学習にはオフラインのデモ軌道が必要であり、未学習の状況では適切な教師データを作れません。\n- **「最低1回の成功」が必要**: 成功フィルタに頼っているため、極端な分布シフト下のように10回の適応試行で1度も成功できないタスクでは、そもそも学習が開始できません。また実機では成功・失敗を自動判定するディテクタの信頼性も問題になります。\n- **性能低下（Regression）へのセーフガード欠如**: 全タスクが無条件に向上するわけではなく、40タスク中5タスクでは性能が低下しました。ベースポリシーへのフォールバックや検証ステップなどの安全策が必要です。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：世界モデル特徴の活用と改善ベクトルの詳細分析",
+   "summary_ja": "付録では、世界モデルで予測した潜在状態を検証器に入力する試み（V_latent）や、未実行ステップの教師データに関するアブレーション、さらに学習が進んだモデルでTTC再増幅が起きにくくなる幾何学的理由が分析されています。",
+   "details_ja": "論文の付録には、手法の理解を深める興味深い追加実験が数多く記載されています。\n\n### 実行していないステップの教師データは必要か？（Appendix B.1）\n本手法では先頭10ステップ（$H_2$）だけを実行しつつ50ステップ（$H_1$）全体を蒸留していますが、損失計算を実行した10ステップのみに限定（マスク）する実験を行いました。結果、なんと10ステップのみに限定した方が平均成功率が 70.6% $\\to$ 74.1% へと向上しました。実行されず次のリプランで捨てられるはずの未来の行動は、むしろノイズになっていた可能性が示唆されています。\n\n### 世界モデルによる潜在状態の検証（Appendix E, F）\n行動そのものを評価する $V_{\\text{act}}$ の代わりに、世界モデルを介して10ステップ先の潜在特徴量を予測し、それを評価する $V_{\\text{latent}}$ も検証されました。図F5および図F6に示すように、摂動が加わったLIBERO-plus環境では、世界モデルを用いた検証器の方が高い頑健性と成功率を発揮することが確認されました。\n\n### なぜ20kチェックポイントではTTCが再増幅しないのか？（Appendix J, K）\n十分に学習されたモデル（20k）では、単一推論の性能は蒸留で伸びるものの、その後のTTCによる上積みがほとんど得られません。同じ状態で候補生成を32回繰り返した際の改善ベクトルの一致度（コサイン類似度）を測定したところ、5kや10kでは0.22だったのに対し、20kでは0.13まで急落していました。モデルが成熟すると候補間の差が極めて微細になり、検証器が指し示す改善方向がサンプリングごとにブレてしまうことが原因だと幾何学的に突き止められています。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "LIBERO-plusの全420タスクにおけるAgg-8成功率の比較です。横軸が直接行動を評価する $V_{\\text{act}}$、縦軸が世界モデルの予測潜在状態を評価する $V_{\\text{latent}}$ です。対角線より上に多くの点が集まっており、特にObjectタスクで世界モデル経由の評価が有効であることが分かります。",
+     "caption": "Figure 5: Scatter plot comparing Agg-8success rates on all 420 LIBERO-plus tasks (SmolVLA 10k): $V_{\\mathrm{act}}$ (horizontal) vs. $V_{\\mathrm{latent}}$ (vertical), 10 episodes per point (jitter of $\\pm 1.5$ points added to reduce overlap). Points above the diagonal favor $V_{\\mathrm{latent}}$ . The upward shift is especially pronounced on the Object suite.",
+     "image": "details/2610.14885/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "検証器の入力表現の比較（SmolVLA 4kモデル）です。ベースラインに対し、行動を直接見る $V_{\\text{act}}$ よりも、SmolVLA自身の特徴量を世界モデルで予測して評価する $V_{\\text{latent}}$（緑）が最も高い成功率を記録しています。",
+     "caption": "Figure 6: Comparison of verifier input representations with a SmolVLA 4k checkpoint trained on the Object and Long suites. Eight candidates, noise scale $\\alpha=2.0$ , argmax selection, 25 evaluation episodes per task (250 per suite). Verifiers are trained for 20k steps. The base policy, $V_{\\mathrm{act}}$ with direct action input, and $V_{\\mathrm{latent}}$ predicting DINOv2 features or SmolVLA features through the world model are compared. See Table 10 for details of the setup.",
+     "image": "details/2610.14885/F6.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "推論時計算（TTC）で消費した計算資源は、その場で捨てずに「成功ログの回収＋LoRA蒸留」を行うことで、将来の推論性能（単一生成）として恒久的に蓄積できる。",
+  "強化学習（RL）ループを回さなくても、検証器による重み付き集約行動をそのままFlow Matchingで模倣するだけで、極めて高いサンプル効率で適応が可能である。",
+  "モデルが未熟な段階（5k）では「単一推論の向上」と「後続TTCの再増幅」が両立するが、モデルが高度に学習されると候補間の差が縮まりTTCの相乗効果は飽和しやすい。",
+  "チャンク全体ではなく、実際に環境で実行・検証された先頭ステップのみに損失をマスクして蒸留する方が、むしろ高い適応性能を得られる可能性がある。"
+ ],
+ "limitations_ja": [
+  "適応フェーズで最低1回は自力でタスクに成功する必要があるため、大きな分布シフト下など成功率がゼロに近い状況では適応を開始できない。",
+  "オフラインで事前学習された固定検証器の判別性能に完全に依存しており、検証器自体が未知の環境変化に適応できるわけではない。",
+  "タスクごとに独立したLoRAパラメータを更新する前提であり、タスク間の知識共有やマルチタスク適応への拡張は検証されていない。",
+  "シミュレーション環境（LIBERO）のみでの検証にとどまっており、実機ロボットにおける遅延や成功判定器の誤認識の影響は未評価である。"
+ ],
+ "keywords": [
+  "Vision-Language-Action Models",
+  "Test-Time Compute",
+  "Test-Time Adaptation",
+  "Flow Matching",
+  "Policy Distillation"
+ ],
+ "id": "2610.14885",
+ "title": "Verify, Act, Distill: Turning Test-Time Compute into Test-Time Adaptation for Vision-Language-Action Models",
+ "authors": [
+  "Kaneyoshi Hiratsuka",
+  "Satoshi Yamamori",
+  "Jun Morimoto"
+ ],
+ "date": "2026-10-14",
+ "group": "general",
+ "tags": [
+  "vision-language-action",
+  "imitation-learning",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.14885",
+ "pdf_url": "https://arxiv.org/pdf/2610.14885",
+ "summary_ja": "VLAモデルにおいて推論時計算（TTC）で複数候補を評価・実行した結果を、その場限りで捨てずに自身のLoRAパラメータへと蒸留する手法。検証器が評価した適応エピソードの行動軌道を標準的なフローマッチング損失で再学習することで、推論ごとの計算コストをかけずに方策自身の性能を継続的に引き上げる。",
+ "generated": "2026-10-14",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.14885"
+}
