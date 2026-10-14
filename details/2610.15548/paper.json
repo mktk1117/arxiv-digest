@@ -1,0 +1,138 @@
+{
+ "title_ja": "PointWalker：生LiDAR点群から直接制御するマップレスな四脚ロボット歩行",
+ "tldr_ja": "標高マップや事前地図を一切構築せず、4基のLiDARから得られる生のボクセル化点群を直接強化学習ポリシーに入力することで、グレーチング階段や飛び石、80cmの溝や高台を含む多様な地形を単一ポリシーで走破できる四足歩行フレームワークを提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "単一のポリシーで様々な難所を走破する四足ロボットX30の実機実験です。飛び石や80 cmの溝、80 cmの高台、平均台、さらには50 kgの積載登攀や2.5 kmの山道ルート走破まで、地図なしで直接点群を処理して踏破しています。",
+  "caption": "Fig. 1: Real-world experiments with the X30 quadruped robot, all driven by one policy. (a) Stepping stones, (b) an 80-cm gap, (c) an 80-cm-high platform, and (d) a balance beam. (e) Outdoor mountain slope and (f) outdoor stairs on the 2.5-km route (25-kg payload; Fig. 15 ), (g) industrial steel-grating stairs, and (h) stair ascent with a 50-kg payload.",
+  "image": "details/2610.15548/F1.jpg"
+ },
+ "overview_ja": "四足歩行ロボットをプラント点検や不整地踏査に投入する際、グレーチング階段、飛び石、深い溝、高台といった足場の不連続な地形をどう認識して渡るかが大きな課題でした。従来の主流アプローチでは、LiDARや深度カメラから「標高マップ（Elevation map）」を作成したり、ワールドモデル等の潜在表現に変換してからポリシーに入力していました。しかし、標高マップは自己位置推定のドリフトで歪み、下が見通せる網目状のグレーチングを正しく扱えません。また深度カメラは逆光や暗所に弱く、視野角の制限から足元死角が生まれます。\n\nそこで著者らは、中間マップ表現を完全に排除し、4基のLiDARから得られる生のボクセル化点群（350点）をそのまま強化学習ポリシーに流し込む「PointWalker」を提案しました。点群同士の幾何学的関係を計算量の軽いLinear Self-Attentionでトークン化し、固有受容感覚（関節角や角速度など）と指令速度をクエリにしたCross-Attentionで「現在の運動に必要な地形特徴」を動的に抽出します。さらに、グレーチングの隙間と踏面を忠実に再現する二重チャネルシミュレーションや、跳躍を促す動的報酬を導入しました。\n\nシミュレーション上の7種類の極限地形で単一のPPO学習を行い、実機（Deep Robotics X30）へゼロショット転移させました。その結果、マップレスかつ足場位置推定なしで、80 cmの溝跳躍、80 cmの高台登攀、傾斜45度のグレーチング階段登攀、さらには50 kg積載（自重の91%）や2.5 kmの山道踏破を同一ポリシーで達成できることを実証しました。",
+ "contributions_ja": [
+  "標高マップや潜在空間表現を介さず、生のLiDAR点群を直接運動制御に結びつける初の地図レス四足歩行制御フレームワークを構築した点。",
+  "Linear Self-AttentionとCross-Attentionを組み合わせ、オンボード計算負荷をわずか2.01 ms（制御周期20 msの10%）に抑えつつ高精度な足場認識を実現した点。",
+  "幾何形状と物理衝突を分離した二重チャネルシミュレーションと地形適応型報酬により、グレーチング階段から飛び石まで7種の難地形を単一ポリシーで学習可能にした点。",
+  "Deep Robotics X30実機を用い、80 cm溝越え、80 cm高台登攀、45度グレーチング階段、50 kg積載、2.5 km山道走破をゼロショット転移で実証した点。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜ標高マップを捨てて生の点群を直接読むのか",
+   "summary_ja": "四足歩行ロボットが実現場で遭遇するグレーチングや飛び石などの難所では、接触前に安全な足場を見極める視覚が不可欠です。しかし従来の標高マップや深度画像は、ドリフトや死角、網目構造の破綻といった表現上の限界を抱えていました。本論文では、中間地図を一切介さず生LiDAR点群を直接処理する単一ポリシー「PointWalker」を提案します。",
+   "details_ja": "近年、四足歩行ロボットはプラント点検や物資運搬、野外探査への応用が急速に進んでいます。しかし、現場には急斜面や階段だけでなく、底が見通せるスチール製グレーチング、幅の広い溝、飛び石、平均台といった「接触する前に足場の幾何構造を正確に捉えなければ即座に転落する地形」が数多く存在します。\n\n強化学習による歩行制御は大きく発展しましたが、脚の接触に頼るブラインド歩行では、溝や狭い足場に対応できません。そこで従来は標高マップ（Elevation Map）や深度カメラ画像が使われてきました。しかし、ここには大きな落とし穴があります。オドメトリのドリフトが地図を歪ませること、外れ値がマップを汚損すること、そして何よりグレーチングのような「光線は抜けるが足は接地できる」構造を単一高さの2.5Dマップでは原理的に表現できないことです。また、深度カメラは暗所や直射日光で劣化し、前方の狭いコーン状視野しか持たないため、ロボット直下の足場が見えません。\n\nLiDARは環境光に左右されず直接的な3D幾何を与えてくれますが、これまでロボット制御ではマップ化や世界モデルの入力としてしか使われてきませんでした。「生の点群を直接読んで、そのまま歩行ポリシーを動かせないか？」というのが本研究の出発点です。PointWalkerは、4基のLiDARから得られる全周囲の生点群をそのまま入力し、マップ生成も足場計画も行わずに7種類の難所を走破する革新的なアプローチを打ち出しました。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "脚式ロボットにおける知覚インターフェースの進化と限界",
+   "summary_ja": "強化学習による歩行制御は固有受容感覚のみのブラインド制御から、特権蒸留、そして視覚・LiDAR統合へと進化してきました。しかし、いずれの先行手法も標高マップや潜在ワールドモデルといった中間表現に依存しており、インターフェースそのものが走破性のボトルネックになっていました。PointWalkerは生点群への直接アテンションにより、この制約を打ち破ります。",
+   "details_ja": "### II-A 強化学習ベースの脚式移動ロボット\n大規模並列シミュレーションの登場により、強化学習を用いた四足歩行制御は実用レベルに達しました。シミュレータ内の特権的な地形情報（高さマップなど）を教師に与え、ロボット自身の固有受容感覚（プロプリオセプション）のみで動く生徒ポリシーへと蒸留する手法が定番です。しかし、足を置く前に見なければ絶対に踏み外す「飛び石」や「深い溝」では、固有受容感覚への蒸留では原理的に情報が足りず、限界を迎えます。\n\n### II-B アジャイル歩行のための知覚インターフェース\nそこで視覚情報を直接ポリシーに統合する研究が活発化しました。2.5次元の局所標高マップを構築して足場を最適化する手法や、深度カメラ画像を直接畳み込んでパルクール動作を学習する手法などです。しかし、これらは「前方カメラの死角（真下や側方が見えない）」や「中間マップの更新コストと歪み」というインターフェース側の制約に縛られていました。\n\n### II-C LiDARベースの歩行制御\nLiDARを用いた手法でも、スキャン点群を一度標高マップに集約したり、球面深度画像に投影して世界モデルを介すなど、何らかの中間表現を挟むのが通例でした。生点群を入力する例は障害物回避に限られていたのです。PointWalkerはこれらを一新し、ボクセル化された疎な生LiDAR点群とロボット自身の運動履歴をCross-Attentionで直接融合することで、中間表現のオーバーヘッドと情報欠損を完全に排除しました。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "生の点群をどう処理し、どう動かすか：PointWalkerの全貌",
+   "summary_ja": "4基のLiDARから得た350点のボクセル点群をLinear Self-Attentionでエンコードし、運動履歴をクエリとするCross-Attentionで必要な足場特徴を抽出します。グレーチングを再現する二重チャネルシミュレーションと、溝や高台を跳び越えるための地形適応型報酬により、単一のPPO学習で極めて動的な歩行を獲得します。",
+   "details_ja": "### III-A オンボードLiDAR点群の知覚パイプライン\nロボットには4基のLivox Mid-360 LiDARが前後左右に分散配置されており、水平360度、垂直-7度〜52度の全周囲をカバーします。50 Hzの制御周期において、直近5グループのスキャンからボクセル化（0.1 m格子）を経てサンプリングした合計350点（$5 \\times 70 \\times 3$次元）をポリシーへの入力とします。\nこの点群をそのまま処理するため、計算量が点数に対して線形にしか増えないLinear Self-Attentionを採用しました。通常のSoftmaxアテンションのような2乗オーダーの計算量を避け、わずか2.01 msという超低レイテンシで点群間の幾何構造（グレーチングの格子状の並びなど）を32次元のトークンへと符号化します。\n\n### III-B Cross-Attention融合とポリシーネットワーク\nポリシーのバックボーンでは、固有受容感覚の履歴（関節角、角速度、重力ベクトルなど）と目標速度コマンドから生成した特徴量 $\\boldsymbol{s}_t$ をクエリとして、点群トークン群に対してMulti-Head Cross-Attentionを適用します。これにより、「ロボットが次に踏み出そうとしている脚の周辺」や「渡ろうとしている溝の向こう岸」といった、現在の運動に真に必要な地形の点だけに注意を集中させ、512次元の地形コンテキスト $\\boldsymbol{z}_t$ を取り出します。さらに、補助ヘッドとしてロボットの並進速度と足先クリアランスを予測させるマルチタスク学習を行い、潜在表現の品質を高めています。\n\n### III-C 地形適応型報酬の設計\n平坦地用の報酬だけでは、溝や高台を前にしたときに立ち往生してしまいます。そこで本手法では2つの動的インセンティブを導入しました。\n- **溝越え加速インセンティブ**: 前方に溝を検知した際、手前での助走を促すために進行方向の目標速度を一時的に引き上げ、速度超過ペナルティを緩和します。\n- **高台跳躍インセンティブ**: 高い段差の手前で鉛直方向の速度 $v_z$ と段差高さの積に比例した報酬を与え、前脚を掛けつつ後脚で力強く踏み切る跳躍動作を引き出します。\nまた、足先周囲に仮想レイを飛ばして端っこへの着地を罰する「Foot-edgeペナルティ」により、飛び石や階段のヘリを踏み外さない安定した着地を学習させます。\n\n### III-D 二重チャネルシミュレーションと単一ステージ学習\nシミュレータ内では「物理衝突チャネル」と「視覚知覚チャネル」を分離しました。グレーチング階段では、物理的には平坦な足場として接触を計算しつつ、LiDARレイキャストには厚さ5 mm、ピッチ40 mmの格子メッシュを当てることで、「光はすり抜けるが足は乗る」という現実のグレーチングを忠実にシミュレートしました。これにより、教師生徒蒸留を行わず、特権情報をCriticのみに与えるAsymmetric PPOの1回きりの学習で、7つの地形すべてを網羅する単一ポリシーを完成させました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "PointWalkerの全体フレームワークです。(a) 4基のLiDAR点群、固有受容感覚、速度指令を入力とし、学習時のみ特権情報がCriticに入ります。(b) 点群をLinear Self-Attentionで符号化し、ロボット状態をクエリとしたCross-Attentionで融合します。(c) 実機RK3588プロセッサ上で50 Hzの単一ポリシー推論を行います。",
+     "caption": "Fig. 2: PointWalker framework. (a) Environment: the policy receives proprioceptive history, commands, and four-LiDAR point clouds; privileged information (true states, dynamics) feeds the value network and the terrain-aware rewards in training only. (b) Actor network: linear self-attention point encoding, cross-attention fusion, a Gaussian action head with two auxiliary heads, and PPO training with an asymmetric critic. (c) Deployment: ONNX export and zero-shot 50-Hz inference on the onboard RK3588.",
+     "image": "details/2610.15548/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "シミュレーション評価と実機ゼロショット検証",
+   "summary_ja": "シミュレーションでは7種類の難地形で平均90.1%の走破成功率を達成し、標高マップや深度画像ベースのベースラインを一貫して上回りました。実機Deep Robotics X30にゼロショット展開した実験でも、80 cmの溝越え、80 cmの高台登攀、45度グレーチング階段、50 kg積載、そして2.5 kmの山道走破を単一ポリシーで軽々と成功させています。",
+   "details_ja": "### IV-A 実験セットアップと計算コスト\n実機には55 kg級の四足ロボットDeep Robotics X30を使用しました。車載組み込みCPU（Rockchip RK3588）上でONNX Runtimeを実行したところ、点群ボクセル化からポリシー推論までの全体パイプラインはわずか2.01 msで完了しました。これは20 msの制御周期の約10%に過ぎず、制御に十分な計算余力を残しています。\n\n### IV-B シミュレーション結果とアブレーション\n最高難易度のカリキュラム環境において、7つの地形で走破成功率を評価しました。\n- **走破成功率**: PointWalkerは平均90.1%を達成しました。一方、標高マップ（Height-map）はグレーチング階段で誤った高さを集約してしまい86.7%、飛び石で75.8%に沈みました。深度画像（Depth-image）は直下死角の影響で溝（71.5%）や飛び石（68.4%）で大きく失敗し、全体平均は84.8%でした。目隠し（Blind）ポリシーは溝や高台で30%未満に崩壊しました。\n- **モジュール検証**: Cross-Attentionを単純な平均プーリングに置き換えると成功率は80.1%へと10ポイント低下しました。決定的な足場点は全体のわずか一部であるため、クエリによる選択的抽出が不可欠です。また、ボクセルサイズを0.2 mに粗くすると、細い梁や階段の格子を捉えきれず走破率が82.2%まで落ち込みました。\n\n### IV-C 実機実験：過酷な実環境での実証\n学習済みポリシーをそのままX30実機に書き込み、一切の追加微調整なしでテストを行いました。\n- **極限地形の踏破**: 傾斜45度のスチール製グレーチング階段（段差25 cm）をよどみなく登り切りました。アテンション可視化を見ると、現在支持脚が乗っている踏面と、次に着地すべき踏面だけに鋭く注意が向いていることが分かります。さらに、幅80 cmの溝を勢いよく跳び越え、高さ80 cmの高台に前脚を掛けてよじ登り、幅35 cmの平均台や飛び石も正確に渡り切りました。\n- **頑健性と高負荷**: 4基のLiDARのうち前後2基を意図的にテープで完全に遮蔽しても、視野の冗長性と学習時の劣化注入により階段や斜面を安定して歩行し続けました。さらに、背中に50 kg（自重の91%）の重りを積載した状態でのグレーチング階段登攀や、25 kg積載で高低差200 m・全長2.5 kmの山道ルート（岩場、落ち葉、不規則な石段）を46分間ノントラブルで完走しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "シミュレーション上の7つの訓練地形と、点群に対するCross-Attentionの重み可視化です。赤が高く青が低い注意度を示しており、ロボットが渡ろうとしている進行方向の境界や次の足場に注意が集中していることが視覚的に確認できます。",
+     "caption": "Fig. 3: Snapshots of the seven training terrains in simulation (Table II ); points colored by cross-attention weight (Section III-B ): red = high, blue = low.",
+     "image": "details/2610.15548/F3.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "シミュレーションにおける溝越え動作の時系列スナップショットと速度変化です。溝の手前で進行方向速度 $v_x$ を2.1 m/sまで一気に加速させ、十分な前進モーメンタムを作って対岸へ着地しています。",
+     "caption": "Fig. 5: Gap crossing with the overspeed tolerance (simulation). Top: keyframes a–e in time order; middle and bottom: base-frame linear and angular velocities, dashed lines marking the keyframe instants.",
+     "image": "details/2610.15548/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "80 cmの高台をよじ登る動作解析です。壁面手前で助走をつけて前脚を掛け、ピッチ角速度 $\\omega_y$ を急激に立ち上げながら後脚で強く跳び上がる様子が示されています。",
+     "caption": "Fig. 6: Climbing onto a high platform with the jump incentive (simulation). Top: keyframes a–f in time order; middle and bottom: base-frame velocities with the keyframe instants marked.",
+     "image": "details/2610.15548/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "実機のスチール製グレーチング階段登攀時の様子（上段）と、リアルタイムの点群アテンション（下段）です。地図を作らずとも、疎な点群の中から支持脚の下と次に踏むべき踏面へ正確に注意が注がれています。",
+     "caption": "Fig. 7: Ascent of the steel-grating stairs (top) and the simultaneous point-cloud attention (bottom; rows time-aligned, red = high, blue = low): attention concentrates on the support under the stance feet and the tread about to be stepped on; the sparse points preserve the step structure with no map.",
+     "image": "details/2610.15548/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "幅35 cmの平均台を渡る実機実験です。足元から前方へと伸びる狭い帯状の点群に強くアテンションが集中しており、足場計画アルゴリズムなしで自律的に安全な接地位置を選択できています。",
+     "caption": "Fig. 8: Balance-beam crossing with the simultaneous point-cloud attention (rows time-aligned; red = high, blue = low): attention concentrates on the beam under the feet and extends to the next segment to be stepped on; the sparse points preserve the narrow strip with no map.",
+     "image": "details/2610.15548/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Discussion and Conclusion",
+   "heading_ja": "地図をなくした先に広がるロボット歩行の可能性",
+   "summary_ja": "PointWalkerは生LiDAR点群を直接利用することで、中間マップの歪みや計算負荷から解放され、前例のない汎用的な不整地踏破性能を実証しました。局所的な瞬時知覚に頼るため大域的なナビゲーションとの連携や動く足場への追従が今後の課題ですが、脚式ロボットの知覚制御インターフェースとして極めて強力な新たな標準を示しました。",
+   "details_ja": "本研究が示した最も大きな示唆は、「足場がスカスカな難所を走破するのに、緻密な標高マップも足場プランナーも不要だった」という事実です。生点群から直接特徴を拾い上げることで、2.5Dマップが抱えていたグレーチングの高さ誤認や、深度カメラの視野角限界による足元死角という根本的な問題を一挙に解消できました。\n\n一方で、現在の実装はロボット周囲の局所的かつ瞬間的な点群情報にのみ基づいて動作しています。そのため、視界の外にある大域的な障害物を迂回したり、ゴールまでの最適な移動経路を決定するには、上位の大域経路計画層（Navigation Stack）との統合が必要です。また、今回の4基のLiDAR配置に特化した設定となっているため、異なるセンサ構成を持つ他機種への転移性や、グラグラ揺れる吊り橋や動く足場への追従性能の検証が今後の興味深い研究課題となります。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "標高マップや世界モデルといった中間表現を省き、生点群を直接制御に結びつけた方が、グレーチングや飛び石などの特異地形での幾何学的破綻を防げる。",
+  "計算量を抑えるLinear Self-Attentionと、運動状態をクエリとするCross-Attentionの組み合わせにより、組み込みCPU上で2.01 msという超高速な点群処理と制御が可能になる。",
+  "シミュレータ上で幾何知覚（LiDAR）と物理衝突を分ける「二重チャネル構造」を組むことで、現実のシースルー素材に対するSim-to-Realギャップを埋めることができる。",
+  "溝越えの助走や高台への跳躍など、標準的な追従報酬では抑制されてしまうアグレッシブな動的動作には、地形に応じた明示的なインセンティブ報酬が極めて有効である。"
+ ],
+ "limitations_ja": [
+  "現在の点群処理は直近0.1秒間の局所的な観測範囲に限定されており、数メートル先の障害物を避けて大域的なルートを選ぶ機能は備わっていない。",
+  "ロボットの四隅に4基のLiDARを配置する独特のハードウェア構成を前提としており、センサ数が少ないロボットや配置が異なるプラットフォームへの汎化性は未検証である。",
+  "瓦礫のように崩れる地面や揺れる足場など、時間とともに動的に変化・変形する支持基盤への対応は今後の課題として残されている。"
+ ],
+ "keywords": [
+  "Quadruped Locomotion",
+  "Reinforcement Learning",
+  "Raw LiDAR Point Clouds",
+  "Mapless Navigation",
+  "Cross-Attention"
+ ],
+ "id": "2610.15548",
+ "title": "PointWalker: Mapless Quadruped Locomotion Directly From Raw LiDAR Point Clouds",
+ "authors": [
+  "Sicen Li",
+  "Zhen Chu",
+  "Chao Li",
+  "Jun Zheng",
+  "Qiuguo Zhu",
+  "Jun Wu"
+ ],
+ "date": "2026-10-14",
+ "group": "focus",
+ "tags": [
+  "quadruped",
+  "locomotion",
+  "reinforcement-learning",
+  "perception"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.15548",
+ "pdf_url": "https://arxiv.org/pdf/2610.15548",
+ "summary_ja": "従来の中間表現である標高マップや深度画像を用いず、4基の生LiDAR点群を直接入力とする単一の強化学習方策「PointWalker」を提案。オドメトリドリフトやグレーチング等の透過構造による破綻を回避し、階段や飛び石、平均台などの複雑な足場を安定して走破できることを示した。",
+ "generated": "2026-10-14",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.15548"
+}
