@@ -1,6 +1,282 @@
 {
  "entries": [
   {
+   "date": "2026-10-14",
+   "rank": 0,
+   "id": "2610.14840",
+   "group": "focus",
+   "title": "Push the Limit: Learning High-Speed Sprinting and Aggressive Cornering on a Full-Scale Humanoid",
+   "title_ja": "プッシュ・ザ・リミット：等身大ヒューマノイドにおける高速スプリントと急旋回学習",
+   "summary_ja": "等身大二足歩行ヒューマノイドにおいて7m/s超の高速スプリントと体幹を最大25度傾けた急旋回を強化学習で実現した研究。接地時の高周波なヨー角振動が固有受容感覚を乱す問題に対し、振動ダイナミクスに逆らわない報酬設計と動作事前分布を導入して極限状態でのダイナミックな全身運動を達成した。",
+   "summary_en": "This paper presents an RL framework enabling a full-scale humanoid to sprint over 7 m/s and perform sharp turns with up to 25 degrees of trunk lean. To overcome foot-impact yaw oscillations that corrupt proprioceptive feedback, it introduces oscillation-aware rewards and motion priors to achieve extreme dynamic locomotion.",
+   "authors": [
+    "Huaxing Huang",
+    "Ruidong Li",
+    "Jinchao Han",
+    "Ziyang Dong",
+    "Wenhao Cui"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.14840",
+   "image": "figures/2026-10-14/2610.14840.jpg"
+  },
+  {
+   "date": "2026-10-14",
+   "rank": 1,
+   "id": "2610.14033",
+   "group": "focus",
+   "title": "OIL: An Object Interaction Layer for Humanoid Whole-Body Control",
+   "title_ja": "OIL：ヒューマノイド全身制御のための物体相互作用レイヤー",
+   "summary_ja": "学習ベースのヒューマノイド全身制御（WBC）を運動学的な軌道追従から物体との相互作用へ拡張するレイヤー「OIL」を提案。上流システムからの物体の目標運動や接触指示を解釈し、ロボットの運動と物体操作をシームレスに統合することで、タスク固有の再学習なしに多様な接触タスクを実現する。",
+   "summary_en": "The authors propose OIL, an Object Interaction Layer that extends learned humanoid whole-body control beyond kinematic tracking to incorporate target object motions and contacts. This enables upstream planners to specify object interactions without task-specific controller retraining, bridging free-space motion and contact tasks.",
+   "authors": [
+    "Pranay Dugar",
+    "Mohitvishnu S. Gadde",
+    "Rajesh Mangannavar",
+    "Aayam Kumar Shrestha",
+    "Alan Fern"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.14033",
+   "image": "figures/2026-10-14/2610.14033.jpg"
+  },
+  {
+   "date": "2026-10-14",
+   "rank": 2,
+   "id": "2610.14042",
+   "group": "focus",
+   "title": "Reinforcement Learning from Real-Robot Interaction without High-Quality State Estimates",
+   "title_ja": "高精度な状態推定なしでの実機ロボット相互作用からの強化学習",
+   "summary_ja": "外部のモーションキャプチャ等に依存せず、車載センサと無香料カルマンフィルタ（UKF）による不完全な状態推定のみを用いて、二足歩行ロボットが実機環境で直接サッカーのシュート動作を強化学習する手法を実証。推定誤差による方策の不安定化を克服し、実世界での直接経験学習の可能性を示した。",
+   "summary_en": "This work demonstrates real-robot reinforcement learning for a bipedal robot learning contact-rich soccer kicking using only onboard sensing and an Unscented Kalman Filter, without external mocap. It shows that robots can directly learn dynamic tasks from physical experience despite state estimation errors in policy inputs and rewards.",
+   "authors": [
+    "Ryan Gao",
+    "Ashvin Anilkumar",
+    "Nicholas Corrado",
+    "William Cong",
+    "Josiah Hanna"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "humanoid",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.14042",
+   "image": "figures/2026-10-14/2610.14042.jpg"
+  },
+  {
+   "date": "2026-10-14",
+   "rank": 3,
+   "id": "2610.14061",
+   "group": "focus",
+   "title": "Terrain Traversal Without Motion Priors: Expert-Routed Humanoid Locomotion at Deployment Fidelity",
+   "title_ja": "動作事前分布を用いない不整地踏破：展開忠実度における専門家ルーティング型ヒューマノイド歩行",
+   "summary_ja": "モーションキャプチャや生成動作事前分布に依存せず、ヒューマノイドが多様な不整地を踏破するシステムを提案。地形分類に基づく5つの専門家方策のルーティングと、補間地形コスト場での勾配降下によるモデルベースの足位置プランニングを組み合わせ、実機デプロイ同等のシミュレーション環境で85mの不整地踏破を達成した。",
+   "summary_en": "The authors present a humanoid locomotion system traversing diverse terrains without motion capture priors. By combining a 5-expert mixture routed by a terrain classifier with a model-based foothold planner using closed-form gradient steps on cost fields, the humanoid successfully traversed an 85 m course in a deployment-fidelity simulator.",
+   "authors": [
+    "Thanh Ly",
+    "Chien Le",
+    "Truong-Duy Dang",
+    "Duy M. H. Nguyen",
+    "Duy-Dung Le",
+    "Vien Anh Ngo",
+    "An T. Le"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "planning",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.14061",
+   "image": "figures/2026-10-14/2610.14061.jpg"
+  },
+  {
+   "date": "2026-10-14",
+   "rank": 4,
+   "id": "2610.15548",
+   "group": "focus",
+   "title": "PointWalker: Mapless Quadruped Locomotion Directly From Raw LiDAR Point Clouds",
+   "title_ja": "PointWalker：生LiDAR点群から直接制御するマップレスな四脚ロボット歩行",
+   "summary_ja": "従来の中間表現である標高マップや深度画像を用いず、4基の生LiDAR点群を直接入力とする単一の強化学習方策「PointWalker」を提案。オドメトリドリフトやグレーチング等の透過構造による破綻を回避し、階段や飛び石、平均台などの複雑な足場を安定して走破できることを示した。",
+   "summary_en": "PointWalker is a mapless quadruped locomotion framework where a single RL policy directly ingests raw point clouds from four LiDAR sensors. Bypassing elevation maps and depth images, it avoids mapping drift and see-through failures, achieving robust traversal over challenging terrains including stairs, stepping stones, and balance beams.",
+   "authors": [
+    "Sicen Li",
+    "Zhen Chu",
+    "Chao Li",
+    "Jun Zheng",
+    "Qiuguo Zhu",
+    "Jun Wu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "reinforcement-learning",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.15548",
+   "image": "figures/2026-10-14/2610.15548.jpg"
+  },
+  {
+   "date": "2026-10-14",
+   "rank": 5,
+   "id": "2610.14372",
+   "group": "general",
+   "title": "DexFLEX: Contact-Aware Foundation Controller for Command-Guided Dexterity",
+   "title_ja": "DexFLEX：指示誘導型巧緻操作のための接触を考慮した基底コントローラ",
+   "summary_ja": "遠隔操作や上流方策から得られる粗い指先軌道ドラフトを、接触の整合性を保った関節指令へと変換する巧緻ハンド用基底コントローラを提案。触覚と固有受容感覚から短時間の動作候補を生成し、将来の接触安定性を評価・選択することで、詳細な力指示なしに安定した巧緻操作を実現する。",
+   "summary_en": "DexFLEX is a contact-aware foundation controller for dexterous robot hands that transforms fingertip motion drafts into contact-consistent joint commands. By evaluating proposed short-horizon motion candidates against predicted contact consequences, it tracks user intent while maintaining contact stability without requiring explicit force commands.",
+   "authors": [
+    "Weikang Wan",
+    "Zeyu Lai",
+    "Jianyu Hou",
+    "Yuchen Zhou",
+    "Jiawei Fu",
+    "Henrik I Christensen",
+    "Hao Su"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "manipulation",
+    "control",
+    "grasping"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.14372",
+   "image": "figures/2026-10-14/2610.14372.jpg"
+  },
+  {
+   "date": "2026-10-14",
+   "rank": 6,
+   "id": "2610.14885",
+   "group": "general",
+   "title": "Verify, Act, Distill: Turning Test-Time Compute into Test-Time Adaptation for Vision-Language-Action Models",
+   "title_ja": "Verify, Act, Distill：推論時計算をVision-Language-Actionモデルの推論時適応へと変換する",
+   "summary_ja": "VLAモデルにおいて推論時計算（TTC）で複数候補を評価・実行した結果を、その場限りで捨てずに自身のLoRAパラメータへと蒸留する手法。検証器が評価した適応エピソードの行動軌道を標準的なフローマッチング損失で再学習することで、推論ごとの計算コストをかけずに方策自身の性能を継続的に引き上げる。",
+   "summary_en": "Verify, Act, Distill consolidates test-time compute (TTC) gains directly into the VLA policy itself. After a verifier scores and executes flow-matching action candidates, successful interaction trajectories are distilled into LoRA parameters, avoiding repeated computation costs while continuously improving the base policy.",
+   "authors": [
+    "Kaneyoshi Hiratsuka",
+    "Satoshi Yamamori",
+    "Jun Morimoto"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "imitation-learning",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.14885",
+   "image": "figures/2026-10-14/2610.14885.jpg"
+  },
+  {
+   "date": "2026-10-14",
+   "rank": 7,
+   "id": "2610.15157",
+   "group": "general",
+   "title": "RootSLAM: Square Root Bundle Adjustment for Visual-Inertial SLAM",
+   "title_ja": "RootSLAM：視覚慣性SLAMのための平方根バンドル調整",
+   "summary_ja": "小型・低消費電力デバイス向けに、Basaltをベースとした高効率なマルチカメラVisual-Inertial SLAMシステムを提案。平方根形式のバンドル調整（Square Root BA）を適用することで、最先端の推定精度を維持しながら既存手法と比べて最大20倍の高速化を達成した。",
+   "summary_en": "RootSLAM is a highly efficient multi-camera visual-inertial SLAM system built on Basalt. By utilizing square root bundle adjustment, it maintains competitive state-of-the-art estimation accuracy while running up to 20 times faster, making it suitable for resource-constrained robotics platforms.",
+   "authors": [
+    "Tom\\'as Santucci",
+    "Mateo de Mayo",
+    "Daniel Cremers",
+    "Taih\\'u Pire"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "perception",
+    "drone"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.15157",
+   "image": "figures/2026-10-14/2610.15157.jpg"
+  },
+  {
+   "date": "2026-10-14",
+   "rank": 8,
+   "id": "2610.14142",
+   "group": "general",
+   "title": "Refine Where It Matters: Contact-Adaptive Meshing for Deformable Object Manipulation",
+   "title_ja": "重要な局所を洗練する：変形体操作のための接触適応型メッシュ細分化",
+   "summary_ja": "柔軟物・変形体の操作シミュレーションにおいて、接触が発生する局所領域のみを動的に適応細分化するGPU並列フレームワークを提案。幾何・弾性・接触情報から辺をスコアリングし競合のない再メッシュを行うことで、全体を一様微細化することなく接触変形の解像度とリアルタイム計算を両立した。",
+   "summary_en": "This paper presents a contact-adaptive tetrahedral mesh refinement framework for deformable object manipulation. By scoring edges based on solver contact and elasticity metrics and updating meshes fully in parallel on the GPU, it concentrates spatial resolution only at contact zones, achieving both physical accuracy and interactive simulation speeds.",
+   "authors": [
+    "Gabriel Johnson",
+    "Tom Olesch",
+    "Fei Liu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.14142",
+   "image": "figures/2026-10-14/2610.14142.jpg"
+  },
+  {
+   "date": "2026-10-14",
+   "rank": 9,
+   "id": "2610.15766",
+   "group": "general",
+   "title": "SurgiCLAW: An Interpretable Atomic-Skill Agent for Precision Robotic Micromanipulation",
+   "title_ja": "SurgiCLAW：高精度ロボットマイクロマニピュレーションのための解釈可能な原子スキルエージェント",
+   "summary_ja": "脳血流インタフェース埋め込み等の高精度手術ロボット操作に向け、MLLMによる術中理解・状況説明・原子スキル選択と、検証可能な決定論的低レベル制御を分離した階層型フレームワーク。ブラックボックスなエンドツーエンド学習を避け、高精度・解釈可能性・安全性を両立する。",
+   "summary_en": "SurgiCLAW is a hierarchical skill-based manipulation framework for high-precision surgical robotics. It confines a multimodal LLM to high-level visual reasoning, structured explanations, and atomic skill selection, delegating motor execution to deterministic, verifiable controllers to guarantee safety and submillimeter accuracy.",
+   "authors": [
+    "Angen Ye",
+    "junjie xie",
+    "Yujia Song",
+    "Junkai Huang",
+    "Dapeng Zhang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "medical",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.15766",
+   "image": "figures/2026-10-14/2610.15766.jpg"
+  },
+  {
    "date": "2026-10-13",
    "rank": 0,
    "id": "2610.13862",
