@@ -1,0 +1,122 @@
+{
+ "title_ja": "RootSLAM：視覚慣性SLAMのための平方根バンドル調整",
+ "tldr_ja": "高速なVIOであるBasaltをベースに、単精度浮動小数点数で安定して解ける独自の「平方根バンドル調整」とループ閉じ込みを導入し、最先端手法と同等以上の精度を保ちながら最大20倍の高速化を達成したVI-SLAMシステムです。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "42分間にわたる長時間の公開データセット（MOO12）をRootSLAMで処理した結果です。上段のマップでは長時間の軌跡（灰色）とランドマーク（青色）が一貫して推定されており、下段の処理時間グラフが示すように、99.99%のフレームで30fpsのリアルタイム予算である33msを大きく下回る平均7.2msで動作し続けています。",
+  "caption": "Fig. 1: RootSLAM running on the long sequence MOO12. Top: the resulting map, with the estimated trajectory in gray and the landmarks in blue. Bottom: moving average of the per-frame processing time throughout the sequence, which stays under the real-time budget of 33 ms for 99.99% of the frames, averaging $7.2$ ms with a standard deviation of $1.6$ ms. Run on an Intel Core Ultra 9 285H.",
+  "image": "details/2610.15157/F1.jpg"
+ },
+ "overview_ja": "ドローンやXR機器、自動運転などのエッジデバイスでは、カメラとIMU（慣性計測装置）を使って自己位置と地図を同時に推定するVI-SLAMが不可欠です。近年は深層学習を用いたSLAMも注目されていますが、計算コストが極めて大きくGPUが必須という課題があります。一方で古典的な幾何ベースの手法は計算効率に優れるものの、OKVIS2のように計算が重すぎたり、ORB-SLAM3のように長時間の追従で軌跡が滑らかさを失ったりするというトレードオフを抱えていました。\n\nそこで著者らは、高速・軽量で滑らかな局所追従性能を持つVIO「Basalt」に着目しました。Basaltは局所的な滑らかさに優れますが、ループ閉じ込み（過去に訪れた場所に戻ったときのズレの補正）がないため大域的な累積誤差（ドリフト）が防げません。これを解決するため、著者らは長期間保持する「永続マップ」、非同期の「ループ検出・最適化」、そしてSfM分野で登場した「平方根バンドル調整（RootBA）」をVI-SLAM向けに再定式化した大域バンドル調整を統合した「RootSLAM」を開発しました。\n\n通常の最適化では正規方程式を作る過程で数値的な悪条件化が起き、倍精度（64bit）計算が必須になりますが、平方根定式化とポーズグラフ拘束の直接結合により、単精度（32bit）での安定した最適化を可能にしました。103本もの実データセットを用いた評価の結果、RootSLAMは最先端手法と同等以上の軌跡精度を達成しつつ、最大20倍も高速に動作することを実証しました。",
+ "contributions_ja": [
+  "最先端手法（OKVIS2やORB-SLAM3）と同等以上の推定精度を達成しながら、最大20倍高速に動作するマルチカメラVI-SLAMシステムを構築したこと",
+  "SfM向けの平方根バンドル調整をポーズグラフ拘束と統合し、大域マップ最適化を単精度（32bit浮動小数点）で安定して解くことで計算性能を約2倍に引き上げたこと",
+  "カメラリグ構造の厳密な定式化と任意カメラモデルへの対応により、マルチカメラ構成への完全な幾何学的整合性を持たせたこと",
+  "永続マップ管理、高速なループ検出、ポーズグラフ最適化、大域BAを含む全パイプラインをオープンソースとして公開すること"
+ ],
+ "sections": [
+  {
+   "heading": "I INTRODUCTION",
+   "heading_ja": "なぜ今、幾何ベースVI-SLAMの超高速化が必要なのか",
+   "summary_ja": "ロボティクスやXRデバイスでは低遅延・省電力な自己位置推定が求められます。深層学習ベースの手法は計算負荷が高いため、本論文では高効率な幾何ベースVIOであるBasaltを拡張し、最先端の精度と最大20倍の高速性を両立するRootSLAMを提案します。",
+   "details_ja": "空間コンピューティングや自律移動ロボットの普及に伴い、省電力かつ小型なデバイス上でリアルタイムに自己位置を特定する技術の重要性がますます高まっています。その中核を担うのが、カメラとIMU（慣性計測装置）を組み合わせたVisual-Inertial SLAM（VI-SLAM）です。特に複数のカメラを組み合わせるマルチカメラ構成は、奥行きの曖昧さを減らし視野を広げる上で強力なアプローチとされています。\n\n近年の研究ではニューラルネットワークを用いた学習ベースのSLAMが最先端の精度を記録していますが、ネットワークを通じた幾何推定やGPU依存による計算オーバーヘッドが無視できません。さらに最近の知見では、学習ベース手法の精度の高さは特徴量追跡の改善に起因しており、同様の追跡器を古典的な幾何ベースのパイプラインに組み込めば古典手法の方が高い性能を示すことすら明らかになっています。つまり、エッジデバイスで実用化を目指すなら、依然として古典的な幾何ベース手法に大きな優位性があります。\n\nしかし、既存の最高峰の幾何ベースVI-SLAMであるORB-SLAM3やOKVIS2であっても、処理時間が長すぎたり、局所的な軌跡の滑らかさが損なわれたりする欠点がありました。そこで本論文では、滑らかな追従に定評のあるVIO「Basalt」をベースに選びました。SfM（Structure from Motion）で提案された平方根バンドル調整の手法をVI-SLAM向けに刷新して取り込み、単精度演算によって最適化速度を2倍にしつつ、全体として最先端手法より最大20倍高速な「RootSLAM」を開発しました。",
+   "figures": []
+  },
+  {
+   "heading": "II RELATED WORK",
+   "heading_ja": "フィルターからスライディングウィンドウ、そして平方根最適化へ",
+   "summary_ja": "SLAMはEKFなどのフィルター手法から、高精度なスライディングウィンドウ非線形最適化へと発展してきました。本章では先行するVI-SLAM手法の長所と短所を整理し、大規模バンドル調整を単精度で解く「平方根定式化」の系譜と本手法の位置づけを解説します。",
+   "details_ja": "VIOの歴史は、MSCKFに代表される拡張カルマンフィルター（EKF）やROVIOのような反復拡張カルマンフィルター（IEKF）から始まりました。これらは計算量が少なく軽量ですが、現在主流のスライディングウィンドウ（直近のキーフレーム群だけを保持して最適化する枠組み）を用いた非線形最小二乗法に比べると、絶対軌跡誤差（ATE）などの精度面で見劣りします。\n\n最適化ベースの手法としてはOKVISやORB-SLAMシリーズ、そしてBasaltが広く知られています。BasaltはFAST特徴点とKLTオプティカルフロー（局所的なパッチ追跡手法）を組み合わせ、余剰となった古いフレームを賢く周辺化（Marginalization）することで非常に滑らかな軌跡推定を実現しています。しかしBasalt単体は純粋なVIOであり、過去に通った場所を再認識してドリフトを打ち消す「ループ閉じ込み」を持たないため、長距離走行ではどうしても大域的な誤差が溜まってしまいます。\n\n一方、最高峰の精度を誇るOKVIS2は計算が非常に重く、ORB-SLAM3はループ補正時に局所的な相対軌跡誤差（RTE：軌跡のガタつき度合い）が悪化しやすいという問題がありました。さらに、マップ全体を洗練する大域バンドル調整（GBA）は、正規方程式を構成する際にヘッセ行列の条件数が2乗に悪化するため、数値計算の安定性の観点から倍精度（64bit浮動小数点）計算が必須となり、計算コストを押し上げていました。\n\nこの課題に対し、Demmelらの研究（RootBA）はQR分解を利用してランドマークを射影消去することで、正規方程式を作らずに解く「平方根バンドル調整」を提案しました。これにより単精度（32bit）計算でも高精度を維持できることが示されました。本研究はこの平方根アプローチをSfMからマルチカメラVI-SLAMへと発展させ、ポーズグラフ拘束と融合させた点に新規性があります。",
+   "figures": []
+  },
+  {
+   "heading": "III METHOD",
+   "heading_ja": "RootSLAMを支える3つの柱と平方根バンドル調整の再定式化",
+   "summary_ja": "BasaltのVIOフロントエンドの上に、永続マップ、非同期ループ閉じ込み、そして新開発の大域平方根バンドル調整を追加しました。ポーズグラフ拘束をヘッセ行列ではなくヤコビアンの追加行として組み込むことで、単精度のまま大域最適化を安定して実行できます。",
+   "details_ja": "RootSLAMのアーキテクチャは、Basaltの高速なフロントエンドと局所最適化部をそのまま生かしつつ、図 F2 に示す3つの新しいコンポーネントを接続した構造になっています。\n\n### III-A Persistent Map（永続マップ）\n局所最適化のスライディングウィンドウから外れたキーフレームとランドマークは、捨てずに永続マップへと保管されます。同時に、キーフレーム間の共視関係（同じランドマークを同時に観測している関係）を記録する共視グラフを常に最新状態に保ちます。マップが無制限に肥大化して処理が破綻するのを防ぐため、3つ以上の別キーフレームと90%以上観測が重複している冗長なキーフレームは間引き（カリング）します。キーフレーム数が1500を超えた場合は、品質と共視の冗長性スコアに基づいて下位30個を自動的に破棄します。\n\n### III-B Loop Detection and Closing（ループ検出と閉じ込み）\n局所追従スレッドをブロックしないよう、ループ処理は完全に非同期の別スレッドで実行されます。キーフレームが生成されると、高速なBoW（Bag of Words）ライブラリであるHashBoWとORB記述子を用いて過去の候補フレームを検索します。候補が見つかったら、総当たりマッチング、ランドマーク再投影、そしてgP3Pアルゴリズムによる幾何学的検証という厳格なチェックを通します。ドリフト量が10cm未満の場合は単純に重複ランドマークを統合し、10cmを超える大きなドリフトがある場合はポーズグラフ最適化（PGO）を起動してマップ全体の歪みを補正します。図 F3 のように、検出されたループのうち必要なものだけが選ばれてポーズグラフ最適化に送られます。\n\n### III-C Global Optimization（大域最適化）\nパイプラインの最終段階として、地図全体を洗練する大域バンドル調整を行います。従来のRootBAはSfM向けだったため、カメラの内部パラメータが未知であり、単眼カメラを前提としていました。本研究では以下の3つの重要な改良を加えました。\n- 内部パラメータの除外: 事前キャリブレーション済みのSLAMでは内部パラメータを固定すべきです。状態ベクトルから内部パラメータを取り除くことで、最適化変数をカメラ1台あたり9自由度から6自由度（剛体変換のみ）へと削減しました。\n- カメラリグポーズの最適化: 複数カメラがボディ（IMUフレーム）に剛体固定されている拘束を保つため、個々のカメラ姿勢ではなくボディ姿勢 $x_b$ を最適化変数とし、随伴表現（Adjoint）を用いたヤコビアンの連鎖律によって1つのランドマークブロックにリグ内の全カメラの観測を集約しました。\n- ポーズグラフ正則化項の導入: バンドル調整は共通のランドマークが見えているフレーム間しか拘束できませんが、オドメトリや過去のループ閉じ込みのエッジ情報も活用すべきです。本手法では、ポーズグラフの残差 $r_{ab}$ を縮約カメラ系のヤコビアン $Q_2^T J_p$ の真下に新たな行ブロックとして直接追加しました。これにより、ヘッセ行列を直接計算して2乗の悪条件化を招くことなく、平方根形式を保ったまま単精度浮動小数点（32bit）で解き切ることが可能になりました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "RootSLAMの全体パイプライン構成図です。左側のBasalt由来のフロントエンドおよび局所最適化部から、中央の永続マップデータベース、非同期ループ閉じ込み部、そして右側の大域バンドル調整（GBA）へとデータが流れるモジュール構成が示されています。",
+     "caption": "Fig. 2: Architecture of RootSLAM. We introduce the map database, loop closing and global bundle adjustment components and add them on top of Basalt’s front-end and local optimizer.",
+     "image": "details/2610.15157/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "TUM-VIデータセットにおけるループ検出結果です。縦軸を時間とした3次元プロットで、赤色が幾何検証を通過したループ、緑色が10cm以上のドリフトを検知して実際にポーズグラフ最適化を起動したループを示しています。",
+     "caption": "Fig. 3: Loop closures found by RootSLAM on (a) TUM-VI magistrale 1 and (b) corridor 1. The trajectory is drawn with time on the vertical axis, so every near-vertical segment links two visits to the same place: in red the loops that were detected and validated, and in green the subset whose estimated drift exceeded 10 cm and therefore triggered a pose-graph optimization. The insets show the 3D-2D correspondences of one such loop, with the observations of the candidate landmarks, the keypoints of the new keyframe, and the inlier matches that survive the geometric validation.",
+     "image": "details/2610.15157/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV RESULTS",
+   "heading_ja": "最先端SLAMとの徹底比較：精度を維持したまま最大20倍高速化",
+   "summary_ja": "EuRoC、TUM-VI、MSDの計103シーケンスで評価を行いました。単精度最適化によって精度を落とさず計算速度が2.16倍になり、OKVIS2やORB-SLAM3と比較して同等以上の軌跡精度を達成しながら、最大20倍という圧倒的な処理速度を記録しました。",
+   "details_ja": "評価には、VRヘッドセット向けに激しい頭部運動を含むMonado SLAM Dataset（MSD）、および定番ベンチマークであるEuRoCとTUM-VIの計103シーケンスを使用しました。比較対象はベースラインのBasalt、そして最先端のVI-SLAMであるOKVIS2とORB-SLAM3です。\n\nまず各提案要素の効果を検証するアブレーション実験（Table I）では、Basaltにループ閉じ込み（+LC）を加えるだけでMIPグループの絶対軌跡誤差（ATE）が23.6cmから4.0cmへと約6分の1に激減し、完成版のRootSLAM（RS）では2.4cmと約10分の1まで縮小しました。興味深い点として、大域BA（+GBA）のみを追加すると大域整合性を優先するあまり局所的な滑らかさ（RTE）が一時的に悪化しますが、提案のポーズグラフ拘束を導入することで、ATEを改善したまま滑らかさ（RTE）を元のVIO同等以上に見事に回復させることが確認されました。\n\n次に単精度化の検証（Table II）では、倍精度（float64）と単精度（float32）で解いた場合のATEの差はほぼ全グループで1cm未満にとどまり、精度低下が実質的に生じないことが証明されました。その一方で、単精度化によって大域最適化の計算速度は平均2.16倍（屋外環境では最大2.54倍）へと大幅に高速化しました。\n\n最先端手法との精度比較（Table III、図 F5）において、激しい動きの多いMSDデータセットではRootSLAMがすべてのグループで最優秀のATEを記録しました。例えばMIOシーケンスではOKVIS2が451.7cm、ORB-SLAM3が398.9m（追跡破綻）と崩壊したのに対し、RootSLAMは7.0cmという高精度を維持しました。さらにフレーム追跡成功率でも、ORB-SLAM3が平均94.1%（MIOでは87.1%まで低下）と追跡を見失う場面があったのに対し、RootSLAMは100%追跡し続けました。\n\nそして本手法の最大の強みである実行速度（Table IV、図 F6）です。42分間の長大シーケンスMOO12において、VIOパイプラインの処理時間は平均7.2msと、30Hzの制限時間である33msを圧倒的に下回りました。12の代表シーケンスでの平均フレーム処理時間は10.8msで、OKVIS2より13倍、ORB-SLAM3より3.6倍高速でした。長大なTM1シーケンス（772秒）では、OKVIS2がマップ肥大化により3173秒（実時間の4倍以上遅い）を要したのに対し、RootSLAMは大域最適化を含めても157秒（実時間の約5倍速い）で完走し、実に20倍の速度差を叩き出しました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "3つの代表的なデータセットセグメントにおける真値（点線）と各手法の推定軌跡の比較です。頭部の高速な回転運動が含まれるMIPP01シーケンス（左）において、OKVIS2やORB-SLAM3が大きくズレる中、RootSLAM（青線）だけが正確に真値を追従している様子が分かります。",
+     "caption": "Fig. 5: Estimated trajectories against ground truth on three segments of MIPP01, TR5 and EV103, with a frame of the scene from a highlighted section. RootSLAM stays clearly ahead on the MSD segment, where the fast head motion of MIPP01 degrades both references.",
+     "image": "details/2610.15157/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "42分間の長大シーケンス（MOO12）における処理時間とキューの内訳です。(a)ポーズ出力に関わるVIO処理時間は常に10ms以下を維持しており、(b)キューの滞留も一時的で、(c)重いポーズグラフ最適化（PGO：平均150.9ms）もキーフレーム間隔（233ms）の間に余裕を持って完了しています。",
+     "caption": "Fig. 6: Per-stage timings of RootSLAM on MOO12, a 42 min stereo sequence at 30 Hz, run on an Intel Core Ultra 9 285H. (a) Latency of the VIO pipeline, accounting for front-end and local optimizer threads, needed to estimate a pose. (b) Pending messages of the queues feeding the loop closer and the map. (c) Work spent per keyframe on each loop closing stage, in log scale. Solid lines are a moving average over a 6 s window, with the raw data in the background. For (b) we show the peak size of each window. In parentheses, the mean time of each stage.",
+     "image": "details/2610.15157/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V CONCLUSIONS",
+   "heading_ja": "まとめとエッジ知覚システムの未来",
+   "summary_ja": "RootSLAMは、Basaltの高速な局所推定に永続マップと平方根大域バンドル調整を融合させた完全なVI-SLAMです。最先端の精度を単精度演算で実現し、最大20倍の高速化によって小型・省電力デバイスへの高度な空間知覚の実装を現実のものにしました。",
+   "details_ja": "本研究では、マルチカメラVI-SLAMのための新システム「RootSLAM」を提案しました。滑らかな追従性を持つBasaltのVIOコアをベースに、キーフレームのカリング機能を備えた永続マップ、HashBoWによる非同期ループ検出、そしてSfM向けの平方根バンドル調整をSLAM向けに拡張した大域最適化ステージを統合しました。\n\n特に理論的な貢献として、マルチカメラリグの剛体拘束を保つ定式化を行い、ポーズグラフ拘束をヤコビアンの追加行として組み込むことで、問題の悪条件化を防ぎ、大域最適化を完全に単精度浮動小数点演算（32bit）で実行可能にしました。これにより、最適化の精度を一切犠牲にすることなく計算時間を半減させることに成功しています。\n\n103もの多様なデータセットを用いた評価により、ORB-SLAM3やOKVIS2といった最高峰のVI-SLAMと同等以上の大域・局所精度を保ちながら、最大20倍高速に動作し、かつ長時間の走行でも処理時間が発散しない堅牢性を証明しました。本システムの実装はオープンソースとして公開される予定であり、XRグラスや超小型ドローンなど、計算資源や熱設計が極めて厳しいエッジデバイスでの自己位置推定技術を大きく前進させる成果といえます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "平方根バンドル調整（RootBA）はSfMだけでなく、ポーズグラフ拘束を行ブロックとして追加することでVI-SLAMの大域最適化にも極めて有効である",
+  "正規方程式をあえて作らずQR分解を活用することで、大域最適化を単精度（32bit）で解くことができ、計算時間を精度低下なしに約半分にできる",
+  "大域BAだけを行うと局所的な滑らかさ（RTE）が損なわれやすいが、ポーズグラフ正則化を併用することで滑らかさと大域精度の両立が可能になる",
+  "長時間のSLAM運用ではキーフレームの間引き（カリング）が不可欠であり、計算コストの発散を防ぎつつリアルタイム性を担保できる"
+ ],
+ "limitations_ja": [
+  "TUM-VIの屋外（TO）シーケンスのように、出発地点と帰還地点の視野の重なりが極端に少ない過酷な環境では、ループ閉じ込みが機能せず数メートル規模のドリフトが残る場合がある",
+  "永続マップの最大キーフレーム数（1500枚）やカリング閾値（観測重複90%など）が固定パラメータとして設定されており、さらに広大な環境への適応には動的なスケーリング戦略の検討が必要である"
+ ],
+ "keywords": [
+  "Visual-Inertial SLAM",
+  "Bundle Adjustment",
+  "Square Root SAM",
+  "Loop Closure",
+  "Real-Time Perception"
+ ],
+ "id": "2610.15157",
+ "title": "RootSLAM: Square Root Bundle Adjustment for Visual-Inertial SLAM",
+ "authors": [
+  "Tom\\'as Santucci",
+  "Mateo de Mayo",
+  "Daniel Cremers",
+  "Taih\\'u Pire"
+ ],
+ "date": "2026-10-14",
+ "group": "general",
+ "tags": [
+  "perception",
+  "drone"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.15157",
+ "pdf_url": "https://arxiv.org/pdf/2610.15157",
+ "summary_ja": "小型・低消費電力デバイス向けに、Basaltをベースとした高効率なマルチカメラVisual-Inertial SLAMシステムを提案。平方根形式のバンドル調整（Square Root BA）を適用することで、最先端の推定精度を維持しながら既存手法と比べて最大20倍の高速化を達成した。",
+ "generated": "2026-10-14",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.15157"
+}
