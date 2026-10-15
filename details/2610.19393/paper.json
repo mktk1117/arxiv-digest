@@ -1,0 +1,134 @@
+{
+ "title_ja": "運動学追従を超えて：ヒューマノイド全身制御における表現的特徴の保持",
+ "tldr_ja": "関節の位置追従誤差が小さくても動作本来の表現力やダイナミクスが損なわれる問題に対し、振幅・エネルギー・姿勢の広がりなどの特徴量を明示的に補償する残差学習フレームワークを提案し、Unitree G1実機で高い表現力の再現を実現しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "提案された残差補償フレームワークの全体像です。参照動作を運動単位に分割し、固定された全身トラッカーに対して動作特化型の残差ポリシーを学習・蒸留することで、統合された1つの残差ポリシーと運動依存ゲーティングによる適応的な補償を実現しています。",
+  "caption": "Fig. 2: Residual compensation framework. (1) Human motions are retargeted, filtered, and segmented into units. (2) We train motion-specific teachers $\\pi_{\\mathrm{res}}^{(i)}$ (Stage I) and distill them into a unified student $\\pi_{\\mathrm{res}}^{\\mathrm{uni}}$ (Stage II). (3) The student augments the frozen tracker $\\pi_{\\mathrm{wbt}}$ , with motion-aware gating setting correction ranges by body-part activity.",
+  "image": "details/2610.19393/F2.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットが人間のように感情や意図を伝えるためには、単に指定された関節位置をなぞるだけでなく、手の振りの大きさや身振りのダイナミクスといった「表現力」を損なわずに再現することが不可欠です。しかし、既存の強化学習ベースの全身追従コントローラーは、転倒を防ぐバランス維持と全身の平均位置誤差の最小化を優先するため、お辞儀の深さや手振りの勢いといった動作の肝心な特徴が小さくなりがちでした。\n\nそこで著者らは、「平均位置追従誤差が小さくても、動作の動的・姿勢的特徴が正しく保たれているとは限らない」という洞察に基づき、既存の追従器を固定したまま表現力を復元する残差学習フレームワークを提案しました。具体的には、動作の振幅、運動エネルギー、上半身の広がり、体幹の前傾、骨盤高という5つの表現的特徴量を定義し、これらを目標値に近づける報酬で残差ポリシーを学習します。さらに、大きく動く部位には大きな補正自由度を与え、静止すべき部位のブレを抑える「運動依存ゲーティング」を導入しました。\n\nシミュレーションおよびUnitree G1実機を用いた8種類の動作カテゴリでの実験により、提案手法はベースラインと比べて追従の安定性を維持しながら、5つの動作特徴量すべてにおいて忠実な再現度を達成できることを実証しました。",
+ "contributions_ja": [
+  "平均位置追従誤差を最小化するだけでは、動作のダイナミクスや姿勢の特徴量が十分に保持されないことを実験的に明らかにしました。",
+  "動作の振幅・運動エネルギー・上半身の広がり・体幹前傾・骨盤高を直接補償する、固定トラッカー向けの残差学習フレームワークを提案しました。",
+  "身体部位の活動度に応じて補正範囲を動的に配分する運動依存ゲーティング機構を導入し、主動作の表現力回復と支持部の安定性を両立させました。",
+  "動作カテゴリごとの教示ポリシーを1つの統合ポリシーへ蒸留し、Unitree G1実機を含む8動作において優れた表現保持性能を実証しました。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜ位置を追従するだけでは「表現力」が伝わらないのか",
+   "summary_ja": "ヒューマノイドが身振り手振りを再現する際、転倒防止を重視するあまり動作の勢いや姿勢の深さが犠牲になる問題があります。本論文は、既存の追従器を固定したまま表現的特徴量を復元する残差学習手法を提案します。",
+   "details_ja": "ヒューマノイドロボットが物理的な身体を通じて意図や感情を伝えるには、全身の協調動作が欠かせません。挨拶の手振りでは手の振幅、お辞儀では上半身の前傾角度など、動作には固有の「表現上の要点」が存在します。\n\n近年、深層強化学習を用いた全身追従コントローラー（Whole-Body Controller）の進展により、多様な参照動作を1つのポリシーで追従できるようになりました。しかし、ロボットがバランスを維持して転倒を防ぐためには、参照動作からの逸脱が避けられません。既存の追従器は全身のキーポイント誤差の平均値を最小化するように訓練されているため、局所的で重要な表現的特徴（手の振りの大きさや深い前傾など）が減衰してしまうという問題がありました。つまり、「平均追従誤差が小さい＝動作の表現が優れている」とは言えないのです。\n\nそこで本研究では、事前学習済みの固定トラッカー（Frozen Tracker）の出力量に対して補正を加える「残差学習（Residual Learning）」に着目しました。動作の動的特徴（振幅・エネルギー）と姿勢的特徴（上半身の広がり・体幹前傾・骨盤高）を定量化し、これらを直接補償する残差ポリシーを学習します。さらに、活発に動く部位へ優先的に補正量を割り振る「運動依存ゲーティング」を組み合わせることで、安定したバランス維持と豊かな表現力の回復を同時に達成することを目指します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "提案する残差補償フレームワークの全体フローです。動作単位の分割から始まり、動作ごとの教師ポリシーの強化学習（Stage I）、それらを1つの統合学生ポリシーへと蒸留するプロセス（Stage II）、そして運動依存ゲートを介した実機展開（Stage III）を示しています。",
+     "caption": "Fig. 2: Residual compensation framework. (1) Human motions are retargeted, filtered, and segmented into units. (2) We train motion-specific teachers $\\pi_{\\mathrm{res}}^{(i)}$ (Stage I) and distill them into a unified student $\\pi_{\\mathrm{res}}^{\\mathrm{uni}}$ (Stage II). (3) The student augments the frozen tracker $\\pi_{\\mathrm{wbt}}$ , with motion-aware gating setting correction ranges by body-part activity.",
+     "image": "details/2610.19393/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "表現動作の解析と全身制御における適応手法",
+   "summary_ja": "人間の感情表現や動作特徴の定量化に関する先行研究と、ロボットの全身トラッキングおよび残差強化学習の進展を整理し、本研究の位置づけを明確にしています。",
+   "details_ja": "本研究の基盤には、表現動作解析（Expressive Motion Analysis）と全身追従・残差適応（Whole-Body Tracking & Residual Adaptation）の2つの系譜があります。\n\n### II-A Expressive Motion Analysis\n人間行動学やアニメーション分野では、身体の開き具合や関節速度、体幹の傾きなどの物理的特徴が感情や意図の伝達に直結することが知られています。ラバン舞踊記譜法に基づく研究や、動作のエネルギー・幾何学的形状を用いた感情認識の研究が行われてきました。バーチャルアバターの分野でも、歩行動作から特徴的な姿勢を抽出して表現性を保つ試みがあります。ロボティクスにおいては、人間のフィードバックから好まれる動作スタイルを学習したり、スタイル変換を全身追従と組み合わせる手法が提案されてきました。本研究はこれらの知見をもとに、ヒューマノイドの制御目標として直接扱える5つの具体的な記述子を定義しています。\n\n### II-B Whole-Body Motion Tracking and Residual Adaptation\n強化学習によるヒューマノイドの全身トラッキングは急速に発展しており、多様な動作の模倣が可能になりました。さらに、事前学習済みコントローラーを未知の動作分布や物体操作、シミュレータと実機のダイナミクス差（Sim-to-Realのギャップ）に適応させる手段として、残差強化学習が有効視されています。既存の残差適応の多くは追従誤差の低減やタスク成功率を目的としていますが、本研究は「姿勢や運動ダイナミクスの表現的特徴の明示的な復元」に特化している点がユニークです。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "表現力を取り戻す残差ポリシーと運動依存ゲーティングの仕組み",
+   "summary_ja": "動作を単位ごとに区切って5つの表現特徴量を算出し、強化学習と行動クローニングによる蒸留を用いて統合残差ポリシーを構築します。活動部位に大きな補正幅を与えるゲーティングも導入しています。",
+   "details_ja": "提案フレームワークは、データのキュレーション、表現記述子の定義、運動依存ゲーティング、そして残差ポリシーの学習と蒸留というステップから構成されます。\n\n### III-A Problem Formulation\n固定された全身トラッカー $\\pi_{\\mathrm{wbt}}$ が出力する基準関節位置指令 $\\mathbf{a}_t^{\\mathrm{wbt}}$ に対し、残差ポリシー $\\pi_{\\mathrm{res}}$ が補正項 $\\Delta\\hat{\\mathbf{a}}_t^{\\mathrm{res}} \\in [-1, 1]^{n_a}$ を加えます。最終的な指令は $\\mathbf{a}_t = \\mathbf{a}_t^{\\mathrm{wbt}} + \\alpha \\,\\mathbf{g}_t \\odot \\Delta\\hat{\\mathbf{a}}_t^{\\mathrm{res}}$ となります。ここで $\\alpha = 0.2\\,\\mathrm{rad}$（約11.5度）は最大補正スケール、$\\mathbf{g}_t \\in [0.2, 1]^{n_a}$ は運動依存ゲート、$\\odot$ は要素ごとの積です。\n\n### III-B Data Curation\nAMASSデータセットから歩行、キック、パンチ、しゃがみ、手振り、拍手、腕組み、お辞儀の8カテゴリを選び、SOMAを用いてロボット（Unitree G1）向けにリターゲティングします。各動作は、周期運動、単発運動、静止保持といった「運動単位（Motion Unit）」に分割され、特徴量の評価区間として使われます。\n\n### III-C Expressive Motion Descriptors\n表現力の特徴量として以下の5つを定義します。\n- 振幅（Amplitude）：手先、足首、腰の骨盤ローカル座標系における軌跡の直径\n- エネルギー（Energy）：関節角度の差分の二乗和（運動学的な激しさの指標）\n- 体の広がり（Body Expansion）：胸部中心から両肘・両手首までの距離\n- 体幹前傾（Body Lean）：世界座標系における体幹ピッチ角の正弦値 $\\sin\\theta_t$\n- 骨盤高（Pelvis Height）：支持脚の足裏から骨盤までの垂直距離\n\n### III-D Motion-Aware Residual Control\n全身29関節を5グループ（左右腕、左右脚、腰）に分け、参照動作の将来10ステップの自乗平均平方根（RMS）速度から活動度 $r_{t,b}$ を計算します。最も活動的な部位には全補正幅（$\\pm 0.2\\,\\mathrm{rad}$）を許容し、活動度の低い部位でも姿勢調整用に最低20%（$\\pm 0.04\\,\\mathrm{rad}$）の補正幅を残すゲーティング $\\mathbf{g}_t$ を適用します。これにより、不要な揺れを防ぎつつ必要な補正を集中させます。\n\n### III-E Residual Policy Training\n学習はPPO（Proximal Policy Optimization）を用います。報酬は表現保持報酬 $r_{\\mathrm{exp}}$、追従誤差が過度に増大しないよう制限する制約報酬 $r_{\\mathrm{con}}$、急峻な変化を抑える正則化項 $r_{\\mathrm{reg}}$ からなります。動作カテゴリごとに個別の教師ポリシーを学習させた後、DAggerを用いて単一の統合学生ポリシー $\\pi_{\\mathrm{res}}^{\\mathrm{uni}}$ へと蒸留します。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "提案手法で定義された5つの表現特徴量の運動学的定義です。左図は手の振幅、上半身の広がり、骨盤高を示し、右図は関節速度に基づく運動エネルギーと体幹の前傾角度を示しています。",
+     "caption": "Fig. 3: Kinematic cues for amplitude, energy, body expansion, body lean, and pelvis height.",
+     "image": "details/2610.19393/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "開発時の代表的な動作における補償効果の比較です。青い半透明が参照動作、オレンジが補償なし、緑が補償ありを示します。(a)手振りの振幅、(b)腕組み時の肘・手首と胸の距離、(c)お辞儀の前傾角、(d)しゃがみ時の骨盤高が、補償によって参照動作へ大きく近づいていることが分かります。",
+     "caption": "Fig. 4: Compensation on representative development motions: (a) amplitude/energy, (b) upper-body geometry, (c) body lean, and (d) pelvis height. Blue ghosts show references; solid robots show execution without (w/o Res.) and with (w/ Res.) compensation. Labels a–c link snapshots to times.",
+     "image": "details/2610.19393/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiment",
+   "heading_ja": "シミュレーションと実機Unitree G1による実証",
+   "summary_ja": "SONIC、GMT、TWIST2の3つのベースライン追従器に対し、提案手法が5つの表現指標すべてで誤差を大幅に低減することをシミュレーションと実機実験の両面で証明しました。",
+   "details_ja": "シミュレーション（MuJoCo Warp環境）および実機ヒューマノイド（Unitree G1、身長1.32m、29自由度）を用いて評価を行いました。既存の追従器としてSONIC、GMT、TWIST2の3種を比較対象としました。\n\n### IV-A & IV-B Expressive Preservation and Recovery\n単に位置追従誤差を最小化するように訓練した残差モデル（Track-Res）は、位置誤差（MPKPE）こそ減るものの、体幹前傾やエネルギーの誤差が悪化するケースが見られました。これは「位置追従精度の向上＝表現力の向上」ではないことを明確に裏付けています。\n一方、提案手法（w/ Res.）は、3つのどの追従器と組み合わせても、5つの表現特徴量すべてにおいて最も低い誤差を達成しました。例えば、深くしゃがみ込む動作での骨盤高の再現性や、手振りでの振幅と運動エネルギーの再現性が大幅に改善しています。転倒せずに動作を完遂できた割合（完了率）も、SONICで100%、GMTで98.27%、TWIST2で99.89%と極めて高く維持されました。\n\n### IV-C Ablation\n運動依存ゲート（MAG）の効果を検証しました。ゲートを全開（常に補正幅1.0）にした場合と比較すると、MAGは非活動部位のエンドポイント位置誤差を抑制し、関節位置誤差（MPJPE）を3.18cmから3.10cmへ改善しました。また、固定幅の一様ゲート（Uniform Gate）と比べても、MAGは振幅誤差を15.8%、低活動脚/腕の誤差を18.1%削減しており、必要な部位へ補正を集中的に配分する設計が有効に機能していることが確かめられました。\n\n### IV-D Real-World Robot Experiments\n実機Unitree G1において、各動作カテゴリから選定した軌道を用いて計144回の走行実験を行いました。実機測定値を用いた評価においても、すべての追従器と動作において、補償を適用することで5つの表現的特徴量のエラーがベースラインから一貫して削減され、よりメリハリのある自然な身振りが確認されました。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "Unitree G1実機での動作実行の様子です。各動作について左が補償なし、右が補償あり、青いオーバーレイが参照動作を示します。パンチの踏み込みやキックの高さ、お辞儀の深さなど、補償によって参照動作のダイナミクスが格段に良く再現されています。",
+     "caption": "Fig. 7: Physical executions without (left) and with (right) compensation; blue overlays show references. Arrows in (c) show hand excursion; markers show hand separation in (d) and projected reference deviations in (e)–(g).",
+     "image": "details/2610.19393/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Limitations",
+   "heading_ja": "表現記述子の限界と目標間のトレードオフ",
+   "summary_ja": "定義した5つの特徴量だけでは表現のすべてを捉えきれない点や、ある特徴を補正しようとすると別の特徴と競合してしまう干渉の問題といった制約事項について議論されています。",
+   "details_ja": "本手法にはいくつかの限界が存在します。\n\n- 表現記述子の網羅性：振幅、エネルギー、広がり、前傾、骨盤高の5つは代表的な指標ですが、人間の細やかなニュアンスを網羅しているわけではありません。また、運動単位ごとの平均エネルギーや前傾角を見ているため、時間軸上の一時的なズレ（タイミングの差異）や、身体グループ間でのエネルギーの偏位を見逃す可能性があります。\n- トラッカー依存性と目標の競合：基盤となる追従器自体の特性に引きずられる問題があります。例えばSONICでは腰の可動範囲が小さくなりやすく、体幹の前傾を補正するために股関節や脚部を無理に動かしてしまう現象が見られました。その結果、脚の振幅や運動エネルギー、骨盤高に悪影響が及び、ある特徴量を改善すると別の特徴量が悪化するというトレードオフが発生します。",
+   "figures": []
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "まとめ：より表情豊かなヒューマノイドの全身制御に向けて",
+   "summary_ja": "位置追従誤差の低減だけでなく表現特徴量の保持に焦点を当てた残差学習を確立し、シミュレーションと実機の双方でその有効性を実証しました。",
+   "details_ja": "本論文では、ヒューマノイドロボットが動作の意図やニュアンスを十全に表現するための、運動依存ゲーティング付き残差学習フレームワークを提案しました。\n\n従来の追従器で軽視されがちだった動的・姿勢的特徴量（振幅、エネルギー、体の広がり、前傾、骨盤高）を明示的な補償目標とし、既存の固定トラッカーの性能を損なうことなく表現力を引き上げることに成功しました。シミュレーションとUnitree G1実機での広範な実験により、単なる位置トラッキング精度の追求とは異なる次元で、ロボットの動作表現力を大きく向上させられることを示しました。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "関節位置追従誤差（MPKPEなど）の小ささは、必ずしも動作の勢いや深さといった表現力の高さを保証しない。",
+  "事前学習済みの全身トラッカーを固定したまま、表現力に特化した残差ポリシーを学習・蒸留するアプローチが極めて実用的で有効である。",
+  "身体部位ごとの参照動作の速度（活動度）に応じて補正幅を変えるゲーティング機構により、静止すべき部位のブレを防ぎつつ必要な大振り動作を実現できる。",
+  "ヒューマノイドの動作生成において、運動エネルギーや姿勢の幾何学的指標を直接報酬に組み込む設計指針が有効である。"
+ ],
+ "limitations_ja": [
+  "定義された5つの特徴量では、動作のタイミングの微細なズレや全身の運動エネルギー配分の偏りまで完全に捉えきれない。",
+  "下位の追従器の関節制限や癖によって、体幹の傾きを補うために脚が不自然に動くなど、特徴量同士が競合するトレードオフが存在する。"
+ ],
+ "keywords": [
+  "Humanoid Whole-Body Control",
+  "Expressive Motion",
+  "Residual Reinforcement Learning",
+  "Motion-Aware Gating",
+  "Policy Distillation"
+ ],
+ "id": "2610.19393",
+ "title": "Beyond Kinematic Tracking: Preserving Expressive Characteristics in Humanoid Whole-Body Control",
+ "authors": [
+  "Lingfan Bao",
+  "Hanshang Zhu",
+  "Yan Pan",
+  "Jincheng Wang",
+  "Jingyang Yu",
+  "Tianhu Peng",
+  "Yiyang Jia",
+  "Dimitrios Kanoulas",
+  "Chengxu Zhou"
+ ],
+ "date": "2026-10-15",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.19393",
+ "pdf_url": "https://arxiv.org/pdf/2610.19393",
+ "summary_ja": "ヒューマノイドロボットの全身制御（WBC）において、幾何学的な軌道追従だけでなく動作の表現力や動的特性を保持する手法を提案。位置誤差最小化だけでは失われがちな振幅やエネルギー、身体の拡張度を補償目標とする残差学習フレームワークを導入し、表現豊かな動作追従を実現した。",
+ "generated": "2026-10-15",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.19393"
+}
