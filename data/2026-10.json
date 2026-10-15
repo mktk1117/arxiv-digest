@@ -1,6 +1,302 @@
 {
  "entries": [
   {
+   "date": "2026-10-15",
+   "rank": 0,
+   "id": "2610.18991",
+   "group": "focus",
+   "title": "Contact-UAN: Unsupervised Actuator Networks as a Residual World Model for Humanoid Control",
+   "title_ja": "Contact-UAN: ヒューマノイド制御のための残差ワールドモデルとしての教師なしアクチュエータネットワーク",
+   "summary_ja": "ヒューマノイドのシミュレーション学習方策が実機転移時に接触力やトルク効率を損なう問題に対し、残差ワールドモデルContact-UANを提案。物理事前分布を保持しつつ、実機ロールアウトと整合するよう接触レンチを考慮したリプレイを通じてアクチュエータ動特性を修正する。",
+   "summary_en": "To address the loss of force interaction and torque efficiency when transferring humanoid policies from simulation to hardware, the authors propose Contact-UAN, a residual world model. It preserves simulator physics priors while adjusting actuator dynamics through contact-consistent replay aligned with recorded hardware rollouts.",
+   "authors": [
+    "Nolan Fey",
+    "Khai Nguyen",
+    "Yash Prabhu",
+    "Gabriel B. Margolis",
+    "Pulkit Agrawal"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "sim-to-real",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.18991",
+   "image": "figures/2026-10-15/2610.18991.jpg"
+  },
+  {
+   "date": "2026-10-15",
+   "rank": 1,
+   "id": "2610.19615",
+   "group": "focus",
+   "title": "PolyMorph: Learning Locomotion Policy for Cross-Embodiment Adaptation",
+   "title_ja": "PolyMorph: 形態横断的適応のための脚式移動方策学習",
+   "summary_ja": "脚数や関節構造が異なる多様な脚ロボットに対応する単一の移動方策学習フレームワークPolyMorphを提案。URDFから関節-リンク構造を抽出し、再帰型エンコーダとグラフTransformerを組み合わせて行動を生成する。形態正規化報酬などにより学習を安定化し、未知の形態への適応を可能にする。",
+   "summary_en": "The authors present PolyMorph, a framework that learns a single locomotion policy across heterogeneous legged robots with varying leg counts and joint structures. By combining a recurrent encoder and a graph-based Transformer over joint-link modules from URDFs, along with morphology-normalized rewards, it achieves stable training and cross-embodiment generalization.",
+   "authors": [
+    "Hyunsik Oh",
+    "Seunghun Jeon",
+    "Donghoon Youm",
+    "Jungwoo Hur",
+    "Hyeongjun Kim",
+    "Jeong Hyun Lee",
+    "Moonkyu Jung",
+    "Jemin Hwangbo"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "reinforcement-learning",
+    "quadruped"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.19615",
+   "image": "figures/2026-10-15/2610.19615.jpg"
+  },
+  {
+   "date": "2026-10-15",
+   "rank": 2,
+   "id": "2610.19627",
+   "group": "focus",
+   "title": "E2DRL: End-to-End Differentiable Reinforcement Learning for 3D Obstacle Avoidance in Quadruped Robots",
+   "title_ja": "E2DRL: 四足歩行ロボットの3D障害物回避のためのエンドツーエンド微分可能強化学習",
+   "summary_ja": "四足歩行ロボットの3D障害物回避に向けたエンドツーエンド微分可能強化学習フレームワークE2DRLを提案。硬い衝突制約による勾配消失を防ぐため、複数キーポイントへの貫入ペナルティと速度条件付き勾配遮断を用いた柔軟な微分可能相互作用を定式化し、局所解を回避して効率的な方策最適化を実現する。",
+   "summary_en": "The authors introduce E2DRL, an end-to-end differentiable reinforcement learning framework for 3D visual obstacle avoidance in quadrupedal robots. To prevent gradient corruption caused by hard collision constraints, it formulates soft differentiable obstacle interactions using multi-keypoint penetration penalties and velocity-conditioned stop-gradients.",
+   "authors": [
+    "Cheng Fan",
+    "Bingyang Zhou",
+    "Gang Yang",
+    "Zixuan Zhuang",
+    "Aoqian Zhang",
+    "Pengzhi Yang",
+    "Xin Liu",
+    "Chunzheng Wang",
+    "Yan Rui Tan",
+    "Fan Shi"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.19627",
+   "image": "figures/2026-10-15/2610.19627.jpg"
+  },
+  {
+   "date": "2026-10-15",
+   "rank": 3,
+   "id": "2610.19393",
+   "group": "focus",
+   "title": "Beyond Kinematic Tracking: Preserving Expressive Characteristics in Humanoid Whole-Body Control",
+   "title_ja": "運動学追従を超えて：ヒューマノイド全身制御における表現的特徴の保持",
+   "summary_ja": "ヒューマノイドロボットの全身制御（WBC）において、幾何学的な軌道追従だけでなく動作の表現力や動的特性を保持する手法を提案。位置誤差最小化だけでは失われがちな振幅やエネルギー、身体の拡張度を補償目標とする残差学習フレームワークを導入し、表現豊かな動作追従を実現した。",
+   "summary_en": "This paper proposes a whole-body control framework for humanoids that preserves the expressive and dynamic characteristics of motions beyond mere kinematic tracking. By introducing a residual learning framework with compensation objectives targeting motion amplitude, energy, and body expansion, it retains expressive motion fidelity during execution.",
+   "authors": [
+    "Lingfan Bao",
+    "Hanshang Zhu",
+    "Yan Pan",
+    "Jincheng Wang",
+    "Jingyang Yu",
+    "Tianhu Peng",
+    "Yiyang Jia",
+    "Dimitrios Kanoulas",
+    "Chengxu Zhou"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.19393",
+   "image": "figures/2026-10-15/2610.19393.jpg"
+  },
+  {
+   "date": "2026-10-15",
+   "rank": 4,
+   "id": "2610.18950",
+   "group": "focus",
+   "title": "$\\lambda_0$: Scaling Open-World Egocentric Human Data for Humanoid Loco-Manipulation",
+   "title_ja": "lambda_0: ヒューマノイドの移動マニピュレーションに向けた実世界主観視点人間データの大規模化",
+   "summary_ja": "ヒューマノイドの全身移動マニピュレーションの大規模学習に向け、500時間の主観視点映像と全身・手部動作を同期させたデータセットHumanVerseを構築。視点や腕の外観整合とオフライン補正を通じて末端効果器誤差を抑制するhuman-to-humanoidパイプラインを提案した。",
+   "summary_en": "The authors introduce HumanVerse, a 500-hour egocentric video and synchronized whole-body motion dataset for humanoid loco-manipulation. They propose a human-to-humanoid pipeline that aligns camera viewpoints and arm appearances while refining motion references offline to reduce end-effector tracking errors during execution.",
+   "authors": [
+    "humanoid Team"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.18950",
+   "image": "figures/2026-10-15/2610.18950.jpg"
+  },
+  {
+   "date": "2026-10-15",
+   "rank": 5,
+   "id": "2610.19091",
+   "group": "general",
+   "title": "DiffGIPC: Differentiable Mixed-Coordinate Contact Dynamics on GPU",
+   "title_ja": "DiffGIPC: GPU上での微分可能混合座標系接触ダイナミクス",
+   "summary_ja": "剛体・変形体の接触リッチな逆問題に向け、GPU並列微分可能接触シミュレータDiffGIPCを提案。従来のペナルティ法によるめり込みやFEMの計算負荷の課題に対し、非貫入を厳密に保証するIncremental Potential Contactを混合座標系によりGPU上で高速化し、正確な勾配計算を実現した。",
+   "summary_en": "The authors present DiffGIPC, a GPU-accelerated differentiable contact simulator for rigid and deformable bodies. Addressing penetration and drift issues in penalty methods as well as the high cost of FEM, it accelerates Incremental Potential Contact (IPC) using mixed coordinates to guarantee strict non-penetration while providing accurate gradients.",
+   "authors": [
+    "Kemeng Huang",
+    "Bowen Ren",
+    "Xinyu Lu",
+    "Minchen Li",
+    "Taku komura"
+   ],
+   "categories": [
+    "cs.GR",
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "simulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.19091",
+   "image": "figures/2026-10-15/2610.19091.jpg"
+  },
+  {
+   "date": "2026-10-15",
+   "rank": 6,
+   "id": "2610.19122",
+   "group": "general",
+   "title": "Learning in Orbit: Onboard Training and Closed-Loop Attitude Control with a Thermal Segmentation Model on a Spacecraft",
+   "title_ja": "軌道上学習：宇宙機における熱画像セグメンテーションモデルのオンボード学習と閉ループ姿勢制御",
+   "summary_ja": "宇宙機の実機軌道上において、熱赤外線セグメンテーションモデルのオンボード学習と月追従のための閉ループ姿勢制御を6U CubeSat実機上で実証した。通信遅延や帯域制限がある深宇宙探査に向け、宇宙空間のエッジ環境でモデル更新と実時間制御を両立できる自律制御基盤を示した。",
+   "summary_en": "This work demonstrates onboard training of a thermal segmentation model and closed-loop attitude control for Moon tracking deployed on an actual 6U CubeSat in orbit. Targeting deep space missions with severe communication constraints, it proves the feasibility of running real-time edge learning and control directly on flight hardware.",
+   "authors": [
+    "Elena Sorina Lupu",
+    "Hannah Grauer",
+    "Phaedrus Leeds",
+    "Nikhil Ranganathan",
+    "Connor Lee",
+    "Sulekha Kishore",
+    "Cailyn Smith",
+    "Shon Cortes",
+    "Brian Hardy",
+    "Benjamen Bycroft",
+    "Darren W. Rowen",
+    "Soon-Jo Chung"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "control",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.19122",
+   "image": "figures/2026-10-15/2610.19122.jpg"
+  },
+  {
+   "date": "2026-10-15",
+   "rank": 7,
+   "id": "2610.17161",
+   "group": "general",
+   "title": "Force-Modulated Dexterity: Unified Compliance for Contact-Rich Manipulation",
+   "title_ja": "力変調器用制御：接触リッチなマニピュレーションのための統一コンプライアンス",
+   "summary_ja": "接触リッチな器用な操作において、力覚情報なしの遠隔操作では困難だった接触力の調整を自動化する制御手法FOMO-Dexを提案。タスク幾何と接触構造に基づき指令を表現し、法線方向に力駆動の動作補正を適用することで、カードの把持や紙の切断など高精度な接触タスクを実現した。",
+   "summary_en": "The authors introduce FOMO-Dex, a unified compliance formulation for contact-rich dexterous manipulation. By expressing nominal actions in task-geometric coordinates and applying force-driven corrections along contact normals while preserving remaining commands, it enables robust performance on delicate tasks such as picking cards and cutting paper.",
+   "authors": [
+    "Ying Yuan",
+    "David Held",
+    "Jitendra Malik",
+    "Haozhi Qi"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "manipulation",
+    "grasping",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.17161",
+   "image": "figures/2026-10-15/2610.17161.jpg"
+  },
+  {
+   "date": "2026-10-15",
+   "rank": 8,
+   "id": "2610.20429",
+   "group": "general",
+   "title": "When Do Discrete Actions Make Good Continuous Controllers?",
+   "title_ja": "離散アクションはどのような場合に優れた連続コントローラとなるか？",
+   "summary_ja": "ロボット基盤モデルにおける行動表現として、一般的に用いられる連続ベクトルと離散化表現の優位性をシミュレーションと実機で徹底検証した。単純な均一ビンの量子化による離散行動予測であっても、単一タスクやマルチタスクVLAの双方で連続表現と同等以上の成功率を達成できることを明らかにした。",
+   "summary_en": "This paper challenges the assumption that continuous action representations are inherently superior in robot foundation models. Through extensive simulation and hardware experiments across single-task and multi-task VLA models, the authors show that simple uniform-bin discrete action quantization can match or even outperform continuous-action policies.",
+   "authors": [
+    "Zeji Yi",
+    "Soham Dasgupta",
+    "Xinyang Zhang",
+    "Koushil Sreenath",
+    "Guannan Qu",
+    "Xi Chen",
+    "Max Simchowitz",
+    "Guanya Shi"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "vision-language-action",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.20429",
+   "image": "figures/2026-10-15/2610.20429.jpg"
+  },
+  {
+   "date": "2026-10-15",
+   "rank": 9,
+   "id": "2610.19250",
+   "group": "general",
+   "title": "Full-Order Safety for Nonlinear Reduced-Order MPC",
+   "title_ja": "非線形低次元モデルMPCにおけるフルオーダー安全性の保証",
+   "summary_ja": "高次元非線形システムの実時間MPCにおいて、非線形低次元モデルを用いながらフルモデルでの再帰的実現可能性と制約充足を厳密に保証するCoRE-MPCを提案。予測誤差のダイナミクスを事前計算した誤差半径で評価することで、オンラインでのフルモデル評価を不要とし、高い計算効率と安全性を両立した。",
+   "summary_en": "The authors introduce CoRE-MPC, a robust model predictive control framework that plans with a nonlinear reduced-order model (ROM) while guaranteeing recursive feasibility and constraint satisfaction for the full-order system. By pre-bounding error propagation radii, it eliminates the need to evaluate the full-order model online, ensuring safety with high computational efficiency.",
+   "authors": [
+    "Luis Pabon",
+    "Johannes K\\\"{o}hler",
+    "Revant Kasichainula",
+    "Marco Pavone"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY",
+    "math.OC"
+   ],
+   "tags": [
+    "control",
+    "planning",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.19250",
+   "image": "figures/2026-10-15/2610.19250.jpg"
+  },
+  {
    "date": "2026-10-14",
    "rank": 0,
    "id": "2610.14840",
