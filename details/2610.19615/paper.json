@@ -1,0 +1,138 @@
+{
+ "title_ja": "PolyMorph: 形態横断的適応のための脚式移動方策学習",
+ "tldr_ja": "脚の数や関節構造が全く異なる多様な脚型ロボットを、URDF（ロボットの設計記述ファイル）を読み込むだけで追加学習なしに動かせる単一の強化学習コントローラ「PolyMorph」を提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "PolyMorphの全体像です。シミュレーション環境で二足・三足・四足など多種多様なロボットをまとめて学習し（左）、未学習の形態やプラットフォームへゼロショット転移させ（右上）、さらに実機の四足ロボット（通常、1脚固定の三足、前脚を浮かせた二足構成）にそのままデプロイして不整地歩行を達成しています。",
+  "caption": "Fig. 1: A single policy for cross-embodiment legged locomotion. PolyMorph is trained on diverse legged robots in simulation (left), zero-shot transfers to unseen morphology variants and platforms (top-right), and is deployed on real-world robots in multiple configurations (bottom-right).",
+  "image": "details/2610.19615/F1.jpg"
+ },
+ "overview_ja": "脚型ロボットの制御において深層強化学習（RL）は目覚ましい成果を上げていますが、従来の学習済みポリシーは特定のロボット形態に強く依存していました。脚の本数や関節構造、重量配分が変わると、観測空間や行動空間、報酬関数をプラットフォームごとに一から再設計して学習し直す必要があり、膨大なエンジニアリングコストがかかっていました。\n\nそこで著者らは、URDFから抽出した関節・リンクの接続関係を直接読み込み、多様な脚型ロボットをたった一つの共有ポリシーで制御するフレームワーク「PolyMorph」を開発しました。ロボットの構造をグラフ表現に変換してTransformerで空間的な依存関係を捉え、さらに過去の固有受容覚（関節角度や角速度など）をGRUで要約することで、可変な関節数や異なるトポロジーに対応しています。\n\nさらに本研究の面白いところは、モデル構造の工夫だけでなく、異種ロボットを同時学習させる際の「学習の偏り」を解消する実践的なテクニックを体系化した点です。関節数に応じた報酬正規化、学習が難しい二足を重点的に学ばせる適応サンプリング、URDFの慣性行列からPDゲインを自動計算する仕組みを導入しました。\n\nシミュレーションでの検証では、二足・三足・四足にまたがる学習済みロボットだけでなく、未知の形態や質量が極端に異なる未学習プラットフォームに対しても優れた追従性を示しました。さらに実機の四足ロボット（Raibo1およびRaibo2）に単一ポリシーをそのまま搭載し、通常の四足だけでなく、1脚を固定した三足や立ち上がり二足モードでも屋外不整地を安定して走破できることを実証しました。",
+ "contributions_ja": [
+  "関節数や脚数、運動学構造が異なる多様な脚型ロボットを、再学習なしで横断制御できるURDF条件付きの単一ポリシーアーキテクチャを構築した点",
+  "異種形態の同時強化学習で生じる報酬スケールの不整合、学習難易度の偏り、手動ゲイン調整の負担を、報酬正規化・適応サンプリング・URDF由来の自動PDゲイン計算によって解消した点",
+  "シミュレーション上で多数の四足・三足・二足ロボットや未学習プラットフォームでの汎化性能を検証し、実機でも単一ポリシーを用いて四足・三足・二足の複数構成で屋外不整地歩行を実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "1つの頭脳でいろんなロボットを動かしたい！",
+   "summary_ja": "強化学習による脚型ロボット制御は強力ですが、通常はロボットごとに個別のポリシーを学習させる必要がありました。本研究では、URDFから形態情報を読み込み、脚数や関節数が異なるロボットを単一ポリシーで制御する「PolyMorph」を提案しています。",
+   "details_ja": "強化学習（RL）のおかげで、四足ロボットが急斜面や階段、柔らかい地面を難なく走破できるようになりました。モデル予測制御（MPC）のように正確な物理モデルを作らなくても、環境との試行錯誤から直接タスクを最適化できるからです。\n\nしかし、現在の脚型ロボットの学習には大きな弱点があります。それは「1つのポリシーが1つの機体に縛られている」という点です。ロボットの脚の数やリンクの重さ、関節の並び順が少しでも変わると、観測空間や行動空間、報酬関数をゼロから作り直し、再学習をやり直さなければなりません。これでは新しいロボットを試作するたびに膨大な時間と労力がかかってしまいます。\n\nそこで著者らは、「脚の本数も関節構造も異なる多種多様な脚型ロボットを、たった1つのポリシーで動かせないか？ しかも追加学習なしで実機にそのまま載せられないか？」という問いに挑みました。\n\nこれを実現するために提案されたのが「PolyMorph」です。ロボットの設計情報が書かれたURDFファイルを関節とリンクのモジュール列として読み込み、可変な関節数に対応できるネットワーク構造を採用しています。\n\nさらに重要なのは、モデル構造の変更だけでは複数ロボットの同時学習がうまくいかないと見抜いた点です。関節数が多いロボットほど報酬ペナルティが大きくなりやすかったり、四足のように簡単に歩ける機体に学習が偏って二足歩行の学習が置いてきぼりになったりします。PolyMorphはこうした学習時の不均衡を解決する実践的な工夫を盛り込むことで、シミュレーションから実機まで安定したクロスエンボディメント（異形態横断）制御を達成しました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "PolyMorphのコンセプトと検証環境です。左側の多種多様な脚型ロボット（四足・三足・二足）で一括学習し、未学習の機体（右上）へのゼロショット汎化を達成。さらに下段のように、実機ロボット（Raibo1, Raibo2）を四足・三足・二足の各モードでそのまま動作させています。",
+     "caption": "Fig. 1: A single policy for cross-embodiment legged locomotion. PolyMorph is trained on diverse legged robots in simulation (left), zero-shot transfers to unseen morphology variants and platforms (top-right), and is deployed on real-world robots in multiple configurations (bottom-right).",
+     "image": "details/2610.19615/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "形態を越える制御器：先行研究と何が違うのか？",
+   "summary_ja": "Transformerを用いたロボット制御やクロスエンボディメント学習の先行研究を整理しています。従来の構造事前分布の取り入れ方を拡張し、本研究では異種形態を同時に安定して強化学習させるための実践的な学習パイプラインを統合した点が独自性です。",
+   "details_ja": "ロボット制御における関連研究は、大きく2つの流れに分けられます。\n\n### II-A ロボット制御のためのTransformer構造\nこれまで強化学習ポリシーにおけるTransformerは、主に過去のセンサー履歴を時系列として処理するために使われてきました。しかしTransformerの自己注意機構（Self-Attention）は、空間的なパーツ間の関係性を捉えるのにも非常に適しています。入力トークンの長さを可変にできるため、関節数が異なるロボットを統一的に扱う枠組みとして自然です。\nただし標準的なTransformerは物理的な結合関係を知らないため、どの関節とどのリンクが繋がっているかをゼロから学習する必要があり、サンプル効率が悪くなります。単一機体向けにロボットの隣接グラフを注意マスクとして組み込んだBody Transformerという先行研究がありますが、PolyMorphはこの考え方を異種形態ロボットの共有ポリシーへと発展させました。\n\n### II-B クロスエンボディメント（異形態横断）学習\n異なる機体を1つのポリシーで動かす研究はMetamorphやGenLoco、URMA、LocoFormerなど数多く提案されてきました。グラフニューラルネットワーク（GNN）で形態を表現したり、大規模な形態ランダム化を行ったりする試みです。\nしかし先行研究の多くはモデルアーキテクチャの提案に集中しており、「大きく異なる形態を同時にPPO（代表的な強化学習アルゴリズム）で最適化する際に生じる学習ダイナミクスの崩壊」にはあまり踏み込んでいませんでした。PolyMorphはネットワークの工夫にとどまらず、学習時の報酬スケールやサンプリングの不均衡といったトレーニングレベルの課題に正面から切り込んでいます。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "PolyMorphの仕組み：URDFを読み解く頭脳と学習の秘訣",
+   "summary_ja": "PolyMorphは、GRUによる時間エンコーダ、URDFのグラフ構造を反映したTransformer、関節ごとのデコーダで構成されます。さらに、形態正規化報酬、適応的サンプリング、URDF由来の自動PDゲイン計算を導入して安定した同時学習を実現しています。",
+   "details_ja": "PolyMorphの全体像は図F2の通りです。制御問題をマルコフ決定過程（MDP）として定式化し、PPOを用いて全ロボット共通の1つのポリシー $\\pi_\\theta$ を最適化します。\n\n### III-A 状態コンテキストエンコーダ（State Context Encoder）\nロボットの身体の傾き（Roll-Pitch）、角速度、各関節の角度や速度、前回の目標角度といった自己受容感覚（proprioception）を、共有のGRU（ゲート付き回帰型ユニット）に入力します。関節数が異なるため、最大関節数（実験では $N_{\\max}=15$）に合わせてゼロパディング（余った枠を0で埋めること）を行います。GRUが過去の時系列履歴を要約した潜在ベクトル $\\mathbf{z}_{\\mathrm{gru}}$ を出力し、これがバランス維持や外乱からの復帰に役立ちます。なお、Critic（状態価値を推定するネットワーク）にはシミュレータ上でしか得られない胴体高さや対地速度、地形スキャン情報などの特権情報を追加で渡す非対称な構造にしています。\n\n### III-B 形態を理解するTransformer（Morphology-Aware Transformer）\nロボットを「関節1つとそれに繋がるリンク1つ」のペア（モジュール）の並びとして表現します。各トークンには、リンクの質量・慣性・重心位置と、関節の現在角・基準角・過去履歴・PDゲインを含めます。運動学ツリーの根元（ベース胴体）から順に並べ、不足分はゼロパディングします。\n重要なのがアテンション機構です。URDFから得られる隣接行列 $M$ をもとに注意バイアス $r$ を作り、物理的に繋がっているモジュール同士の間でのみ強く相互作用できるようにマスクをかけます。これにより、物理構造の事前知識を直接Transformerに注入しています。\n\n### III-C アクションデコーダ（Decoder Network）\nTransformerが出力したモジュールごとの特徴量に、GRUの出力 $\\mathbf{z}_{\\mathrm{gru}}$ と歩行速度指令 $\\mathbf{o}_{cmd}$ を結合してデコーダに入力します。各関節のアクチュエータに対応するデコーダヘッドからガウス分布の平均値を出力し、目標関節角度を生成します。動かないルートモジュール（胴体）やパディング部分のアクションは適用しないマスク処理を行います。\n\n### III-D 異種ロボットを同時に安定して学ばせる工夫\nここが実用上の大きなキモです。\n- **適応的ロボットサンプリング（Adaptive Robot Sampling）**: 二足歩行は四足歩行に比べて転びやすく学習が困難です。均等に環境を割り振ると四足ばかりが先に上達して二足が学習失敗します。そこで得られている報酬が低いロボットほどサンプリング確率を高くする式を導入し、難しい機体に計算リソースを集約させました。\n- **形態正規化報酬（Reward Normalization）**: 関節トルクや加速度のペナルティは関節数が多いほど膨らみ、滞空時間やクリアランスの報酬は足の数に依存します。これらを駆動関節数や脚数で割り算して正規化することで、機体間の報酬スケールのバラつきを解消しました。\n- **自動PDゲイン設計（Automatic PD-gain Design）**: 機体ごとに手動でPDゲインをチューニングするのは大変です。そこでURDFの基準姿勢における質量行列 $\\mathbf{M}(\\mathbf{q}_0)$ からロボット全体の慣性スケールを計算し、$K_p$ を共通係数 $\\alpha=0.8$ で決定。さらに各関節の慣性項と減衰比 $\\zeta=0.8$ から求めた臨界減衰ゲインの中央値を $K_d$ として自動設定するルールを提案しました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "PolyMorphのシステム構成図です。左下でURDFからロボットのグラフ構造を取り出し、左上で関節・リンクごとのトークンを作成。中央のTransformerで構造を考慮したアテンションを行い、右側でGRUによる時系列コンテキストや速度指令と合流させて各関節の目標指令を出力します。",
+     "caption": "Fig. 2: Overall architecture of PolyMorph. PolyMorph consists of a GRU-based state context encoder, a morphology-aware Transformer that processes joint-link tokens using graph-based attention, and a decoder that generates actions for each actuated joint.",
+     "image": "details/2610.19615/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Results",
+   "heading_ja": "実験結果：未学習の機体も、手足を失った三足・二足も走破！",
+   "summary_ja": "シミュレーションで多種多様なロボットを学習させ、未学習機体への汎化と実機走行を検証しました。均等サンプリングでは破綻したAtlas（二足）が適応サンプリングで見事に歩行を獲得し、実機Raibo1/2でも四足・三足・二足の全モードで屋外不整地を走破しました。",
+   "details_ja": "実験は物理シミュレータRaiSimを用い、AMD EPYC CPUとNVIDIA RTX 4090 GPUの環境で約2.7日間（20,000イテレーション）学習させました。デプロイするActorネットワークのパラメータ数はわずか約33万（0.33M）と非常に軽量で、機体内蔵PCでの推論レイテンシは平均0.366 ms（100 Hz制御）に収まっています。\n\n### IV-A & B フレームワークの検証\n学習セットには、Raibo1, Raibo2, Hound, Aliengo, Anymal-C, Atlas, Cassie, Go1, Laikago, Mini-Cheetahに加え、脚を1本削除した三足バリアント（FR, FL, HR, HL除去）など、重量11 kgから135 kgに及ぶ幅広い機体を含めました。\n- **自動ゲインと報酬正規化の効果**: 表Iが示す通り、URDFから自動計算したPDゲインは手動チューニング値とほぼ同等に機能しました。また表IIのアブレーション実験では、報酬正規化を外すと機体間の報酬差が広がり、最終的な評価リターンが低下して転倒終了率の差も拡大することが確認されました。\n- **適応サンプリングの威力（図F4）**: 均等サンプリングでは、難易度が高い二足ロボットのAtlasが学習途中で報酬を落として完全に破綻しました。一方、適応サンプリングではAtlasに多くの環境数が動的に割り当てられ、他の四足ロボットと同様に安定して収束しました。\n- **実機での屋外走行実験（図F3、表III）**: 実機のRaibo1とRaibo2を使い、四足だけでなく、1脚の関節を固定した三足モード、前脚を浮かせた二足モードの合計複数構成で、舗装路・坂道・階段・草地が混在する50 mの屋外ルートを走行させました。すべて事前再学習なしの同一ポリシーです。三足構成では遊脚（地面から離れている脚）が段差に引っかかる失敗が一部見られたものの、高い走破性と外乱復帰力を発揮しました。\n\n### IV-C & D 分析・ベースライン比較\n- **速度指令追従（表IV）**: 未学習の四足ロボットであるB2（70 kg）やSolo12（2.5 kg）に対するゼロショット転移をテストしました。学習セットの重量範囲（11〜52 kg）を超えるB2でも既知の機体と同等の低いRMSE（追従誤差）を達成しました。超軽量（2.5 kg）なSolo12では追従精度がやや落ちたものの、転倒せずに歩行を維持しました。\n- **潜在表現の可視化（図F5）**: Transformerが出力する形態埋め込みをt-SNEで2次元可視化したところ、二足・三足・四足ごとに綺麗なクラスタが形成されました。さらに未学習の機体も構造が似ているロボットの近くに配置されており、単なる機体IDの丸暗記ではなく物理構造を正しく特徴量化できていることが分かります。\n- **ベースライン比較（図F6、表V）**: トークン化せずMLPに平坦化して入力する手法（PolyMorph-MLP）や、先行研究のMetamorph、URMAと比較しました。PolyMorphは全ロボットで最も高いトータルリターンを達成しました。MetamorphやURMAは明示的な構造バイアスや時系列の再帰処理を持たないため、カリキュラムが進むにつれて学習が不安定化したり、未学習機体で転倒（Fail）したりしました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "実機ロボット（Raibo1およびRaibo2）を用いた屋外走行実験の様子です。四足歩行はもちろん、1本の脚をロックした三足歩行（Triped）や、二足立ち歩行（Biped）といった極端に異なる形態構成でも、同一の学習済みコントローラを用いて芝生や階段、段差を転倒せずに踏破しています。",
+     "caption": "Fig. 3: A single trained controller is evaluated across diverse legged robot morphologies in simulation and deployed on Raibo1 and Raibo2 in bipedal, tripedal, and quadrupedal configurations. Both real-world deployment and unseen morphology configurations are tested on rough terrain.",
+     "image": "details/2610.19615/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "適応サンプリング（左）と均等サンプリング（右）の学習曲線の比較です。均等サンプリングでは難易度の高いAtlas（二足）の報酬が途中でゼロ近くまで低下して学習に失敗していますが、適応サンプリングではAtlasの生成環境数（Count）を自動で増やし、見事に安定収束させています。",
+     "caption": "Fig. 4: Comparison of adaptive and uniform robot sampling strategies. The figures show the reward and the number of generations for each robot.",
+     "image": "details/2610.19615/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "左は各ロボットの報酬推移と転倒終了率（Terminal rate）、右は学習された形態トークン埋め込みのt-SNE可視化です。四足・三足・二足が綺麗に分かれ、似た体格やキネマティクスを持つ機体同士が空間上で近くに集まっていることが分かります。",
+     "caption": "Fig. 5: The left panel shows rewards and termination rates. The right panel shows the t-SNE visualization of morphology-aware embeddings across bipedal, tripedal, and quadrupedal morphologies.",
+     "image": "details/2610.19615/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "ベースライン手法との学習曲線の比較です。提案手法（Polymorph）はMLP版やMetamorph、URMAと比べて最も高いトータルリターンを記録し、特定ロボットが極端に崩れることなく全形態でバランス良く高い報酬を獲得しています。",
+     "caption": "Fig. 6: Comparison of different networks. The figures show the total reward and per-robot reward for each network.",
+     "image": "details/2610.19615/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion and Future Work",
+   "heading_ja": "まとめと今後の展望：真の汎用脚型知能に向けて",
+   "summary_ja": "PolyMorphは、URDFに基づく単一ポリシーで多様な脚型ロボットを制御できることを示しました。今後の課題は、学習データからトポロジーが大きく乖離した極端な未知形態への外挿能力をさらに高めることです。",
+   "details_ja": "本研究では、単一のポリシーで多様な脚型ロボットを制御する形態対応フレームワーク「PolyMorph」を提案しました。\n\nURDFから抽出した関節・リンクモジュール列をグラフ構造付きTransformerとGRUで処理し、形態正規化報酬や適応サンプリング、自動PDゲイン計算を組み合わせることで、四足・三足・二足にまたがる機体を破綻なく同時学習することに成功しました。シミュレーションでのゼロショット汎化だけでなく、実機四足ロボットの脚固定や二足モードへのデプロイまでやってのけた点は、ロボット制御研究として極めて完成度が高いと言えます。\n\n著者が挙げている現在の限界は、学習セットに含まれる形態の範囲内では非常に頑健に動作するものの、骨格のトポロジーが全く異なるような極端な外挿ケースでは性能が低下する点です。今後は、URDFを自動変形・合成するロボットデータ拡張（Robot Data Augmentation）を導入し、学習段階でより広範な未知形態に触れさせることで、真にどんな形態の脚型ロボットでも即座に歩かせる基底モデル（Foundation Policy）への進化を目指すとしています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "モデル構造（Transformer＋グラフバイアス）だけでなく、「報酬正規化」「適応サンプリング」「自動PDゲイン設計」という強化学習の学習ダイナミクスを整える工夫が異形態同時学習の成否を分ける",
+  "URDFの運動学ツリーと質量行列を利用することで、機体ごとの手動パラメータチューニング（ゲイン調整など）を完全に排除した統一パイプラインが構築できる",
+  "四足ロボットの1脚を固定した三足歩行や立ち上がり二足歩行など、故障対応や形態変化にも単一の再学習なしポリシーで即座に対応できる実用性を示した"
+ ],
+ "limitations_ja": [
+  "学習セットでカバーされている重量や骨格の範囲を超えた、極端に異なるスケールや全く新しい幾何学的トポロジーを持つロボットに対しては追従精度が低下する",
+  "三足歩行時の遊脚のクリアランス不足による引っかかりなど、四足歩行前提のハードウェアを無理やり変則形態で動かす際の固有の運動制約や限界が残る",
+  "カメラなどの外部視覚センサ（Exteroception）は統合されておらず、本論文の範囲ではブラインド歩行（固有受容覚のみ）に限定されている"
+ ],
+ "keywords": [
+  "Cross-Embodiment Locomotion",
+  "Reinforcement Learning",
+  "Legged Robots",
+  "Transformer",
+  "Sim-to-Real Transfer"
+ ],
+ "id": "2610.19615",
+ "title": "PolyMorph: Learning Locomotion Policy for Cross-Embodiment Adaptation",
+ "authors": [
+  "Hyunsik Oh",
+  "Seunghun Jeon",
+  "Donghoon Youm",
+  "Jungwoo Hur",
+  "Hyeongjun Kim",
+  "Jeong Hyun Lee",
+  "Moonkyu Jung",
+  "Jemin Hwangbo"
+ ],
+ "date": "2026-10-15",
+ "group": "focus",
+ "tags": [
+  "locomotion",
+  "reinforcement-learning",
+  "quadruped"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.19615",
+ "pdf_url": "https://arxiv.org/pdf/2610.19615",
+ "summary_ja": "脚数や関節構造が異なる多様な脚ロボットに対応する単一の移動方策学習フレームワークPolyMorphを提案。URDFから関節-リンク構造を抽出し、再帰型エンコーダとグラフTransformerを組み合わせて行動を生成する。形態正規化報酬などにより学習を安定化し、未知の形態への適応を可能にする。",
+ "generated": "2026-10-15",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.19615"
+}
