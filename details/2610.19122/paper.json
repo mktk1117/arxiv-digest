@@ -1,0 +1,155 @@
+{
+ "title_ja": "軌道上学習：宇宙機における熱画像セグメンテーションモデルのオンボード学習と閉ループ姿勢制御",
+ "tldr_ja": "市販のNVIDIA Jetson TX2 NXとROS 2を搭載した6U超小型衛星（CubeSat）を用い、宇宙軌道上でGPUを使ったセグメンテーションモデルの追加学習と、リアルタイム熱赤外画像による月の自律追従クローズドループ姿勢制御を世界で初めて実証しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "地上と軌道上をつなぐ提案手法の全体パイプラインです。地上で視覚基盤モデル（DINO）からFast-SCNNへ知識蒸留を行って軽量化し、軌道上では地上から送られたアノテーションラベルを使ってGPU上で追加学習を実施、抽出した月の重心座標をカルマンフィルタ経由で姿勢制御系（ADCS）にフィードバックして閉ループ制御を実現しています。",
+  "caption": "Figure 2: Overview of our method. On Earth, we perform distillation of the VFM into the Fast-SCNN network using Algorithm 1 . As interfaces, we downlink ROS 2 bags and other logs from the satellite, as well as images, and uplinked labels after annotation. In space, we perform both training and inference of images captured by the onboard camera. We also close the loop on the segmented images to enable the spacecraft to point towards the Moon. The “snowflake” symbol represents the fact the DINO model is frozen (no gradients flow through the network).",
+  "image": "details/2610.19122/F2.jpg"
+ },
+ "overview_ja": "深宇宙探査や地球周回軌道のミッションでは、通信遅延や極めて限られた通信帯域が常に大きな課題となります。地上からの指示待ちでは間に合わない環境で宇宙機が自律的に活動するためには、地上ロボットと同様に、機体上で直接ニューラルネットワークなどの学習モデルを動かし、判断し、制御する技術が不可欠です。しかし、これまでの宇宙機は放射線耐性を重視したレガシーで低速なプロセッサに依存しており、計算リソースの制約からGPUを用いた深層学習モデルの訓練や閉ループ制御を軌道上で行うことは極めて困難でした。\n\nそこで研究チームは、市販のコンポーネント（COTS）であるNVIDIA Jetson TX2 NXとFLIR製非冷却長波長赤外線（LWIR）カメラ、そしてロボット用ミドルウェアROS 2を6Uサイズの超小型衛星に搭載した軌道上実証プラットフォーム「Edge Node Lite」を開発しました。あらかじめ地上で大型の視覚基盤モデル（DINO）から超軽量セグメンテーションモデル（Fast-SCNN）へ知識蒸留しておき、軌道上では撮影した月の熱赤外画像と地上からアップリンクしたアノテーションラベルを用いて、宇宙機のGPU上で直接ファインチューニングを行う仕組みを構築しました。\n\n約1年間にわたり軌道上で12回の実験を実施した結果、宇宙機のGPU上でモデルの追加学習が約13分で完了し、mIoU 0.9を超える高い精度を達成しました。さらに、学習済みモデルの推論結果からカルマンフィルタを介して姿勢制御系へリアルタイムに指令を送り、月を視野中心に捉え続ける動的ポインティング（クローズドループ制御）にも成功しました。民生用ハードウェアとオープンソース技術を活用することで、過酷な宇宙環境でも高精度な自律制御パイプラインが安定稼働することを示した画期的な成果です。",
+ "contributions_ja": [
+  "宇宙を自由飛行する超小型衛星（CubeSat）の搭載GPU（NVIDIA Jetson TX2 NX）上で、セグメンテーションモデルの軌道上学習（ファインチューニング）と推論を世界で初めて成功させました。",
+  "軌道上で学習したモデルによる熱赤外画像の推論結果をカルマンフィルタ経由で姿勢決定制御系（ADCS）に直接フィードバックし、月を捉え続ける自律クローズドループ制御を実証しました。",
+  "自由飛行する宇宙機としては初となるROS 2（Foxy）の軌道上運用を実現し、耐障害性に優れたファイルシステムOpenZFSとコンテナ仮想化（Docker）による高信頼な宇宙ロボットソフトウェア基盤を構築しました。",
+  "軌道上でのGPU追加学習およびリアルタイム推論時における計算機リソース使用率、消費電力、および熱挙動のテレメトリを定量的に明らかにしました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 INTRODUCTION",
+   "heading_ja": "地上ロボティクスの技術をそのまま宇宙へ持ち込む挑戦",
+   "summary_ja": "深宇宙探査には通信遅延に縛られない完全な自律性が求められており、地上のロボットと同様に機械学習を用いた知覚と制御の統合が必要です。本論文では、市販GPUとROS 2を積んだ超小型衛星を用い、軌道上でのモデル学習とそれに基づく閉ループ姿勢制御を世界で初めて実証しました。",
+   "details_ja": "深宇宙探査の究極の目標の一つは、ロボット自身が周囲の環境を認識・学習し、人間の介入なしに自律的に行動することです。地上ではドローンや自動運転車、歩行ロボットなどで深層学習と制御の統合が進んでいますが、宇宙機では放射線対策のために処理能力が著しく制限された旧世代プロセッサ（例えばPerseverance探査機のRAD750は200MHz、256MB RAM）が長年使われてきました。\n\nしかし、ロボティクスの観点から見れば、宇宙も「動作環境の一つ」に過ぎません。物理条件こそ違えど、知覚、状態推定、計画、制御という本質的な問題設定は地上と同じです。近年、火星ヘリコプターIngenuityが市販のスマートフォン向けSoC（Snapdragon 801）を採用したように、民生用コンポーネント（COTS）を宇宙で活用する動きが加速しています。\n\n本研究は、低軌道（LEO）を周回する6Uサイズの超小型衛星「Edge Node Lite」に市販の組み込みAIボード「NVIDIA Jetson TX2 NX」を搭載し、軌道上でのGPU追加学習と、学習済みモデルを用いた自律的な月追従クローズドループ姿勢制御を実現しました。さらに、ロボット用ミドルウェアROS 2や高信頼ファイルシステムOpenZFSを宇宙空間で初実証するなど、地上で洗練されたロボティクス基盤を過酷な宇宙環境へ展開するマイルストーンを打ち立てています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "軌道上を周回する6U超小型衛星の外観（右）と、搭載されたFLIR Boson熱赤外カメラで実際に宇宙から撮影された画像群です。上部には様々な位相の月、中央には地球の熱放射エッジと月、左側には太陽光の直入などで生じるストリーク状ノイズが写っています。",
+     "caption": "Figure 1: The spacecraft, alongside images captured in flight. At the top, three Moon images captured by the Boson thermal camera are shown. On the left, one image taken of the dark sky exhibiting streak artifacts (see Section 6-6.4 ). In the middle, we show an example of a thermal image acquired in orbit, with the Earth’s thermal emission and the Moon as a distinct thermal signature. The spacecraft is illustrated on the right.",
+     "image": "details/2610.19122/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 RELATED WORK",
+   "heading_ja": "宇宙AIの歴史：記号推論から軌道上GPU学習へ",
+   "summary_ja": "宇宙でのAI活用は1998年の記号推論から始まり、地球観測衛星での雲検出など推論中心の深層学習へと進化してきました。本研究は、これまでの「CPUによる静的な推論・再学習」の枠組みを大きく超え、軌道上GPU学習と視覚フィードバックによる実時間閉ループ制御を同時に達成した点に明確な新規性があります。",
+   "details_ja": "宇宙機における自律運用の歴史は、1998年に打ち上げられたDeep Space 1（DS1）の「Remote Agent」による記号推論と計画の自律制御実証に遡ります。統計的機械学習としては、2000年のEO-1衛星でSVM（サポートベクターマシン）を用いた科学観測データの選別が行われました。\n\n深層学習の時代に入ると、ESAのOPS-SAT（2019年）が軌道上でのCNN推論や実データを用いたモデル更新の先駆となり、Phi-Sat-1（2020年）はIntel Movidius VPUを用いてリアルタイムの雲検出を行いました。近年では、D-OrbitやUbotica、Spiral Blueなどの民間小型衛星がJetson NanoやXavier NXなどのAIアクセラレータを搭載し、地球観測画像のオンボード処理を推進しています。直近では軌道上データセンター構想を掲げるStarcloudがH100を用いた言語モデルの訓練を発表していますが、本研究はこれに先駆けて2025年8月に軌道上GPU学習を達成しました。\n\nまた、地上のロボット分野ではビジュアルサーボをはじめとする「視覚に基づくクローズドループ制御」が標準技術ですが、宇宙ではドッキングや着陸時の相対航法など極めて限定的な利用に留まっていました。さらに、NASAが提唱するSpace ROSのようにROS 2を宇宙機へ導入する動きはあるものの、これまで自由飛行する宇宙機でROS 2を実運用した事例はなく、本研究が世界初の快挙となります。",
+   "figures": []
+  },
+  {
+   "heading": "3 THE EDGE NODE MISSION",
+   "heading_ja": "超小型衛星「Edge Node Lite」のアーキテクチャ",
+   "summary_ja": "実証機は高度約500kmの太陽同期軌道を周回する6U CubeSatで、民生用Jetson TX2 NXと非冷却熱赤外カメラを積んでいます。Ubuntu 18.04上でDockerとROS 2を動かし、衛星の壁面に放熱板を直結することで、過酷な宇宙環境でもGPUの安定動作を担保しています。",
+   "details_ja": "### 3.1 Edge Node Liteのハードウェア構成\nEdge Nodeミッションは、将来の複数小型衛星による編隊飛行やランデブー・近傍運用（RPO）を見据えた宇宙実験プラットフォームです。その先行リスク低減機である「Edge Node Lite」の計算ペイロードには、GPUを内蔵したNVIDIA Jetson TX2 NXと1TBのNVMe SSD（WD IX SN530）を採用しました。さらに、放射線耐性をもつARM Cortex-M7マイコンが姿勢制御系（ADCS）やバス機器とのシリアル通信インターフェースを担っています。センサーには、昼夜を問わず安定した観測が可能なFLIR Boson+非冷却長波長赤外線（LWIR）マイクロボロメータカメラ（波長8〜14$\\mu$m）を搭載しました。\n\n### 3.2 6U CubeSatの軌道環境と排熱設計\n衛星は高度約500km、周期約94分の太陽同期準極軌道を周回しており、1周ごとに約30%の時間（食）を地球の影の中で過ごします。真空中では空気の対流熱伝達が使えないため、発熱密度の高いJetson TX2 NXは衛星構体の外壁金属面に直接熱的に結合（サーマルシンク）させて排熱を促す構造にしました。OSにはUbuntu 18.04ベースのNVIDIA Linux for Tegraをカスタマイズして導入し、各種センサ取得、テレメトリ監視、機械学習ライブラリ（PyTorch、TensorFlow、OpenCV）をすべてDockerコンテナとして管理する洗練された運用環境を構築しています。",
+   "figures": []
+  },
+  {
+   "heading": "4 METHODS",
+   "heading_ja": "基盤モデルの蒸留とカルマンフィルタによる追従アルゴリズム",
+   "summary_ja": "地上で大規模視覚基盤モデル（DINO）の特徴量を軽量なFast-SCNNに知識蒸留しておき、宇宙では少数の熱画像で効率的に追加学習を行えるようにしました。推論された月の重心座標をカルマンフィルタで平滑化し、姿勢決定制御系（ADCS）へフィードバックすることで目標を連続追従します。",
+   "details_ja": "### 4.1 問題設定：動的ターゲティング\n本研究が取り組むのは、軌道上カメラから得られる画像ストリームから対象（本実験では月）を検出し、その方向へ機首を向ける「動的ターゲティング（Dynamic Targeting）」です。これを地上からの重いモデルアップロードに頼らず、軽量な通信と軌道上リソースだけで完結させることを目指します。\n\n### 4.2 アプローチの詳細\n全体処理は、知識蒸留を活用したセグメンテーションモジュールと、カルマンフィルタによる姿勢制御ループで構成されます。\n\n### 4.2.1 知識蒸留とセグメンテーションモジュール\n軌道上で取得できる画像データ数は限られているため、スクラッチから学習すると過学習を起こします。そこで、エッジ向け軽量CNNであるFast-SCNNを生徒とし、ImageNet-21kで事前学習された視覚基盤モデルDINO V1（ViT）を教師とする知識蒸留（Student-Teacher学習）を地上で実施しました。入力画像 $\\mathcal{I}\\in\\mathbb{R}^{H\\times W\\times 3}$ に対し、DINOの中間特徴マップ ${\\bf\\it z}_{\\textrm{vfm}}$ とFast-SCNNの特徴マップ ${\\bf\\it z}_{\\textrm{student}}$ との間で平均二乗誤差（MSE）損失を計算し、Fast-SCNNのエンコーダのみの重みを確率的勾配降下法（SGD）で更新します。その後、熱赤外の1チャンネル画像に対応させるため、第1畳み込み層の重みをRGB3チャンネルから平均化して1チャンネルへと変換しました。宇宙機では、この蒸留済み重みを初期値として、地上からアップロードされた正解マスクを用いてオンボードでファインチューニングを実施します。\n\n### 4.2.2 カルマンフィルタを介した動的ターゲティング\nセグメンテーション予測から得られる画像平面上の月の重心座標 $(u, v)$ をカルマンフィルタ（KF）に入力します。状態ベクトルを $\\mathbf{x}:=[u, v, \\dot{u}, \\dot{v}]^\\top$ とし、角速度が低い前提で等速直線運動モデルを適用します。システムダイナミクス行列 $\\mathbf{A}$ と観測行列 $\\mathbf{H}$ は次の通りです：\n$$\\mathbf{A}=\\begin{bmatrix} 0 & 0 & 1 & 0 \\\\ 0 & 0 & 0 & 1 \\\\ 0 & 0 & 0 & 0 \\\\ 0 & 0 & 0 & 0 \\end{bmatrix},\\quad \\mathbf{H}=\\begin{bmatrix} 1 & 0 & 0 & 0 \\\\ 0 & 1 & 0 & 0 \\end{bmatrix}$$\n推定された月座標と画像中心 $(320\\mathrm{px}, 256\\mathrm{px})$ との偏差を姿勢角クォータニオンの偏差に変換し、姿勢決定制御系（ADCS）に指令を送ることで、目標を常に画面中央に維持します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "提案する動的ターゲティング手法の処理ブロック図です。地上フェーズ（左）でDINOの特徴量をFast-SCNNへ蒸留し、軌道上フェーズ（右）では月画像に対するオンボード追加学習を実施。推論された月座標をカルマンフィルタで推定し、ADCSを駆動して衛星姿勢をリアルタイムに制御します。",
+     "caption": "Figure 2: Overview of our method. On Earth, we perform distillation of the VFM into the Fast-SCNN network using Algorithm 1 . As interfaces, we downlink ROS 2 bags and other logs from the satellite, as well as images, and uplinked labels after annotation. In space, we perform both training and inference of images captured by the onboard camera. We also close the loop on the segmented images to enable the spacecraft to point towards the Moon. The “snowflake” symbol represents the fact the DINO model is frozen (no gradients flow through the network).",
+     "image": "details/2610.19122/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 RESULTS",
+   "heading_ja": "宇宙で走ったGPU学習と、月を捉え続けたクローズドループ制御",
+   "summary_ja": "約1年間で12回の軌道上実験を実施しました。宇宙機上でのGPU学習は約13分で完了してmIoU 0.9超を達成し、制御ループの遅延を削るチューニングによって月を画像の視野中心に安定して追従させることに成功しました。",
+   "details_ja": "### 5.1 軌道上での学習結果\n2025年8月と12月に、Jetson TX2 NXのGPUを用いて計3回の追加学習実験を行いました。地上でアノテーションした軌道上撮影画像40枚（満ち欠けや露出過多を含む）をアップロードし、バッチサイズ2で学習させました。学習は食（日陰）の間に行われ、1エポック目から急速に性能が向上し、最終的なmIoUは0.9以上で安定しました。30エポックを2フェーズ、合計約13分で完了し、この間のGPU温度上昇はわずか1〜4℃に収まりました。\n\n### 5.2 動的ターゲティング（閉ループ制御）の改善過程\n学習済みモデルを用いた追従実験では、初期の試行（2026年1月上旬）において左右のオーバーシュート（発振現象）が発生しました。原因を調査したところ、OpenCVのカメラバッファ遅延（デフォルト4フレーム）や制御ゲインの過大設定が判明しました。そこで以下の対策を順次適用しました：\n- OpenCVの画像バッファを1フレームに変更して遅延を最小化\n- 推論およびカルマンフィルタの周期を1Hzから2Hzへ倍速化\n- 制御ゲインを段階的に2.0から0.5へと低減\nこれらにより、2026年1月26日および30日の実験では発振が劇的に抑えられ、画像端にあった月が速やかに中心付近へと収束し、安定して追従し続けることに成功しました。\n\n### 5.3 LEO環境におけるJetsonとSSDの信頼性\n打ち上げ後6ヶ月目と12ヶ月目にファイルシステムの整合性を全検査（ZFS scrub）しましたが、チェックサムエラーは0件でした。照射試験により選定されたWD IX SN530 SSDは優れた放射線耐性を示し、軌道上で45時間の通電中にシングルイベント効果（SEE）による誤動作は一切観測されませんでした。\n\n### 5.4〜5.5 ソフトウェア基盤と地上検証\nミドルウェアとしてFast DDSとmicro-ROSを組み合わせたROS 2 Foxyを配置し、姿勢制御ボードとJetson間のIPCをシームレスに統合しました。また地上試験では、データセットサイズを減らしたアブレーション実験を行い、蒸留モデルが少量データにおいてベースラインより強固であることを証明しています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "衛星打ち上げから約1年間にわたって実施された12回の軌道上実験タイムラインです。初期の地上データによる推論から始まり、8月と12月のGPU追加学習、そして1月にかけて段階的に制御パラメータを改善して月追従に成功するまでの過程が示されています。",
+     "caption": "Figure 3: Timeline of the different experiments run onboard the spacecraft since its launch. In total, we ran 12 experiments, the majority being inference and dynamic targeting experiments. We have run three training experiments on the TX2 NX’s GPU on Moon images with labels uploaded from the ground (Aug. 8th, 2025 and Dec. 15th, 2025). The weights from Aug. 2025 were used for the Sep., Nov., and Dec. experiments, and the ones from Dec. for the Jan. experiments. The Moon icon signifies in which phase the Moon was when the experiment was performed. See Table 2 for the parameters used in the Jan. 2026 tracking experiments. For discussion on these parameters, see Section 5-5.2 .",
+     "image": "details/2610.19122/F3.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "動的ターゲティング実験における制御性能とリソース消費の推移です。(a)推論時のGPU負荷スパイクと温度変化、(b)初期位置から画面中央へと月が収束していく実際の追従画像シーケンス、(c)パラメータ修正前（Run 5の発振）と修正後（Run 7の安定追従）の姿勢クォータニオンと目標座標の比較です。",
+     "caption": "Figure 5: Performance on the dynamic targeting task. (a) Results from the dynamic targeting experiment runs. (top) GPU temperature, (middle) CPU usage in total over the 4 cores, (lower) GPU load. The dots show when image inference was performed. For the runs on and after Jan. 10th, we increased the inference frequency from 1 Hz to 2 Hz. (b) Position of the Moon during the dynamic targeting phase (first row contains a sequence of segmented Moon images and the second row represents a sequence of true thermal images). The Moon was moving towards the center of the image, showing that Run 7 performs well. …",
+     "image": "details/2610.19122/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "地上評価および宇宙実験で使用された4つのデータセットです。(a)衛星シミュレータ内の実写画像、(b)公開されている人工衛星・宇宙ステーション画像、(c)軌道上の本機から撮影した熱赤外月の画像、(d)Landsat熱画像に衛星CGを重畳した合成データセットです。",
+     "caption": "Figure 6: Example images from four datasets. The first dataset (a) consists of images taken inside our spacecraft simulator, while the second (b) is an open-source collection of spacecraft imagery [ 53 ] . The remaining two datasets (c, d) are thermal: one includes in-orbit observations of the Moon, and the other contains synthetically generated images based on Landsat data with overlaid spacecraft.",
+     "image": "details/2610.19122/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 DISCUSSIONS",
+   "heading_ja": "宇宙AI運用の落とし穴：電力スパイク、画像ノイズ、ROS 2の遅延",
+   "summary_ja": "宇宙でAIを動かすには、地上では気付かないハードとソフトの落とし穴が存在します。GPUの急激な電流スパイクによる電源電圧低下（ブラウンアウト）、熱赤外カメラのストリークノイズ、ROS 2 Bag圧縮に伴う書き込み遅延など、生々しいトラブルと具体的な回避策が共有されました。",
+   "details_ja": "### 6.1 アルゴリズム面での教訓\n月という単純な形状であっても、宇宙空間では太陽光の迷光や急激な露出変化、カメラのストリークなど多くの外乱が生じます。教師あり学習ではラベルを地上からアップロードする必要がありますが、重み全体（約6.5MB）を送るのに比べればラベル（約172KB）の転送負荷は圧倒的に小さく、通信帯域の節約として実用的であることが分かりました。\n\n### 6.2 地上試験で発覚したトラブルと対策\n開発段階のエンジニアリングモデル（EM）で学習スクリプトを実行した際、約30秒後にJetsonが突然シャットダウンするブラウンアウトが発生しました。調査の結果、事前の電力試験で用いていた行列乗算ループよりも、ニューラルネットワークの学習処理の方が瞬間的な電流スパイクが激しく、電源電圧が動作下限の12Vを割り込んでいたことが判明しました。これに対し、Jetsonの動作モードを20Wから15Wへと制限することで解決しました。また、ROS 2 bagの圧縮を有効にすると記録終了時の同期処理に約10分を要し、データ破損のリスクが高まるため、軌道上での記録時は圧縮を無効化し、ダウンリンク準備段階で圧縮する運用へと変更しました。\n\n### 6.3 宇宙機の多層防護設計\n暴走したAIが機体全体を巻き込まないよう、Jetsonの電源は別系統の低消費電力マイコンで独立制御され、1時間以上の連続通電を禁止する自動シャットダウン、ハードウェアウォッチドッグ、読み取り専用の「ゴールデンOSイメージ」への自動フォールバックなど、徹底したリスク低減策が施されています。\n\n### 6.4 熱カメラのノイズ現象\n宇宙用の非冷却熱赤外カメラでは、太陽が画角を横切る際に生じるストリーク（筋状のノイズ）が知覚の精度を狂わせます。これに対しては、内蔵シャッターを周期的に閉じて暗電流パターンを差し引くフラットフィールド補正（FFC）の実行頻度を高めることが有効でした。",
+   "figures": []
+  },
+  {
+   "heading": "7 CONCLUSIONS",
+   "heading_ja": "宇宙ロボティクスにおけるオンボード学習の夜明け",
+   "summary_ja": "市販GPU、ROS 2、オープンソースファイルシステムを統合した超小型衛星により、軌道上での深層学習と視覚クローズドループ制御を実証しました。宇宙機の限られたリソース制約下でも、現代的なAIとロボティクスソフトウェアが確実に機能することを示すマイルストーンとなりました。",
+   "details_ja": "本論文は、6U CubeSatという極めて制約の厳しい宇宙機上で、長波長赤外線画像を用いた深層学習モデルの軌道上追加学習と、それに基づく閉ループ姿勢制御を達成した flight deployment（実機実証）を報告しました。\n\n視覚基盤モデル（DINO）からの知識蒸留を用いることで、宇宙で撮影されたわずかなデータセットからでも短時間で実用レベルの推論精度（mIoU > 0.9）が得られることを示しました。また、計12回にわたる軌道上実験を通して、Jetson TX2 NXを用いたGPU学習・推論時の熱・電力テレメトリを詳細に分析し、宇宙空間での連続運用に対する安全マージンを証明しました。\n\nさらに、Fast DDSを通信バックボーンとするROS 2、OpenZFSによる自己修復ファイルシステム、Dockerコンテナ化によるモジュール型開発環境など、地上の最新ロボティクス技術群が宇宙ミッションにおいても極めて強力かつ堅牢に機能することを実証しました。本成果は、通信遅延により人間の指示が届かない将来の月・火星・深宇宙探査に向け、宇宙ロボットが「自ら学び、自ら動く」時代を大きく切り拓くものです。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "民生用組み込みGPU（Jetson TX2 NX）でも、適切な排熱設計と電源管理（15Wモード制限など）を行えば、宇宙軌道上で深層学習の追加学習や実時間推論が十分安全に実行可能です。",
+  "宇宙機の限られた通信帯域では、地上で学習した巨大モデルの重みファイルをアップリンクするよりも、事前蒸留したモデルに対して軌道上で「軽量な正解ラベル（数百KB）」を使って追加学習させるアプローチが極めて現実的で有効です。",
+  "ROS 2（micro-ROS / Fast DDS）やDocker、OpenZFSといった地上のオープンソースロボット開発エコシステムは、適切なフォールバック機構を組み合わせることで、宇宙機のフライトソフトウェアとしても極めて高い開発生産性と堅牢性を提供します。",
+  "視覚ベースの姿勢制御では、カメラドライバのバッファ段数や通信周期に起因するミリ秒単位の遅延が機体の発振に直結するため、制御ゲインやカルマンフィルタの設計とともにソフトウェアレイヤの遅延短縮が死活問題となります。"
+ ],
+ "limitations_ja": [
+  "今回の軌道上学習は地上からアップロードされた正解ラベルに依存する「教師あり学習」であり、宇宙機自身がラベルなしで自律的に環境適応する自己教師あり学習や強化学習は今後の課題として残されています。",
+  "熱赤外カメラのストリークノイズや月の輪郭検出の不完全さによる重心推定のブレが残り、姿勢制御ループに微小な振動をもたらす要因となっています。",
+  "ターゲットが宇宙空間に浮かぶ「月」という比較的背景コントラストが高い天体に限定されており、より複雑な地球表面や凹凸のある小惑星表面などのクラッター環境での実証は行われていません。"
+ ],
+ "keywords": [
+  "CubeSat",
+  "Onboard Learning",
+  "Closed-loop Attitude Control",
+  "ROS 2",
+  "Knowledge Distillation",
+  "Space Robotics"
+ ],
+ "id": "2610.19122",
+ "title": "Learning in Orbit: Onboard Training and Closed-Loop Attitude Control with a Thermal Segmentation Model on a Spacecraft",
+ "authors": [
+  "Elena Sorina Lupu",
+  "Hannah Grauer",
+  "Phaedrus Leeds",
+  "Nikhil Ranganathan",
+  "Connor Lee",
+  "Sulekha Kishore",
+  "Cailyn Smith",
+  "Shon Cortes",
+  "Brian Hardy",
+  "Benjamen Bycroft",
+  "Darren W. Rowen",
+  "Soon-Jo Chung"
+ ],
+ "date": "2026-10-15",
+ "group": "general",
+ "tags": [
+  "control",
+  "hardware"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.SY",
+  "eess.SY"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.19122",
+ "pdf_url": "https://arxiv.org/pdf/2610.19122",
+ "summary_ja": "宇宙機の実機軌道上において、熱赤外線セグメンテーションモデルのオンボード学習と月追従のための閉ループ姿勢制御を6U CubeSat実機上で実証した。通信遅延や帯域制限がある深宇宙探査に向け、宇宙空間のエッジ環境でモデル更新と実時間制御を両立できる自律制御基盤を示した。",
+ "generated": "2026-10-15",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.19122"
+}
