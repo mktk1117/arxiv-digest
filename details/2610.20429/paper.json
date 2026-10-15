@@ -1,0 +1,145 @@
+{
+ "title_ja": "離散アクションはどのような場合に優れた連続コントローラとなるか？",
+ "tldr_ja": "ロボット制御では連続値の行動出力が不可欠だという常識に反し、最も素朴な均一ビンによる離散化でも連続モデルと同等以上の成功率を出せることを示しました。離散化のボトルネックは量子化精度ではなく、次元や時間ステップ間の独立予測による「分解誤差」であり、反復計算やガイダンスで解決できます。",
+ "hero_figure": {
+  "key": "F5",
+  "caption_ja": "離散行動予測において発生する「分解誤差（factorization error）」のメカニズムを示した図です。多峰性のある行動分布から時間や座標ごとに独立してトークンを選ぶと、互換性のない候補が組み合わさって破綻した軌道になりますが、離散フロー（DF）などの反復計算を用いることで一貫した軌道が生成できます。",
+  "caption": "Figure 5 : (a) Temporal mode switching within an action chunk as relative mode probabilities vary across the prediction horizon; (b) Action chunks predicted by CR, CF, and DF from the same starting position. (c) Coordinate-wise factorization within a timestep: independently combining coordinates from two valid modes can produce two additional, incompatible actions.",
+  "image": "details/2610.20429/F5.jpg"
+ },
+ "overview_ja": "近年の大規模言語モデル（LLM）やマルチモーダル基盤モデルは離散トークンを扱いますが、ロボティクス分野の Vision-Language-Action（VLA）モデルでは「高精度な連続制御には連続空間での表現が不可欠だ」と考えられ、拡散モデルやフローマッチングなどの連続値生成モデルが主流となっていました。\n\nしかし、本当にロボットの行動予測に連続表現が必須なのでしょうか？ 本論文はこの共通認識に真っ向から挑み、単一タスクの模倣学習から大規模マルチタスク VLA、さらには実機実験に至るまで、連続表現と離散表現を同一条件下で徹底的に比較しました。\n\n実験の結果、最も単純な均一ビン分割（512分割）を用いた離散回帰（DR）や離散フロー（DF）が、連続回帰（CR）や連続フロー（CF）と同等、あるいはそれ以上の閉ループタスク成功率を達成できることが判明しました。離散モデルが高い性能を発揮する理由は、観測や時間変化に対して連続モデルよりも過度な平滑化を起こさず、俊敏に反応できるためです。\n\n一方で、離散モデルの弱点は「量子化による精度の粗さ」ではなく、時間軸や座標軸を独立に予測することで生じる「分解誤差（factorization error）」にあることも突き止めました。この問題は、離散フローによる反復的な自己修正や、Classifier-Free Guidance（CFG）による分布の先鋭化によって鮮やかに克服できます。",
+ "contributions_ja": [
+  "ロボットの行動予測において、単純な均一ビン離散化でも連続表現と同等以上の制御精度とタスク成功率を達成できることを示し、「離散化は精度が足りない」という通説を覆しました。",
+  "離散モデルが優れる理由として、連続モデル特有の過度な平滑化を回避し、観測変化や時間変化に対して高い応答性（ステート応答性・急峻なジャーク）を保てることを解明しました。",
+  "離散ポリシーの性能を損なう真の要因が、時間・座標の独立予測による「分解誤差（互換性のないマルチモーダル行動の混ざり合い）」であることを特定しました。",
+  "反復生成を行う離散フロー（DF）や Classifier-Free Guidance（CFG）を適用することで、分解誤差を大幅に削減し、離散ポリシーの性能を大幅に引き上げられることを実証しました。",
+  "距離を考慮した損失や幾何学的なトークナイザなどの明示的な構造導入は、標準的な均一ビン離散フローに対して大きな上乗せ効果を持たないことを示しました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ今、ロボット行動の離散化を再考するのか？",
+   "summary_ja": "LLMなど他のAI分野が離散トークンで急速に進歩する一方、ロボティクスでは連続値出力が必須だと信じられてきました。本論文は連続・離散の各ヘッドを公平に比較し、離散予測が連続制御器として十分に機能する条件を解明します。",
+   "details_ja": "現代のロボット学習、特に Vision-Language-Action（VLA）モデルや世界行動モデル（WAM）では、連続空間を扱う拡散モデルやフローマッチングが標準的な選択肢となっています。物理世界は連続であり、正確な動作生成には連続値の行動出力が無損失で優れているという前提があるためです。\n\n一方で、言語や画像、音声など他のAI領域はすべて離散トークンを入力・出力として扱っています。もしロボットの行動も同じ離散トークンとして扱えれば、言語モデルの推論能力や構造をそのまま自然に統合できるはずです。\n\nそこで著者らは、単一タスクのスクラッチ学習から大規模マルチタスクVLA、実機実験に至るまで、同一のバックボーンと条件のもとで連続・離散のポリシー表現を徹底比較しました。本論文の主な発見は3点に集約されます。\n\n- 発見1（制御精度）: 素朴な均一ビン離散化でも連続モデルに匹敵、またはそれを上回るタスク成功率を示します。\n- 発見2（分解誤差の克服）: 離散化の課題は精度ではなく、各次元の独立予測による組み合わせの破綻（分解誤差）であり、反復計算やガイダンスで解決可能です。\n- 発見3（幾何構造の限定的効果）: 複雑な幾何学的トークナイザを明示的に導入しても、素朴な均一ビン離散フローを超える改善は得られません。",
+   "figures": []
+  },
+  {
+   "heading": "2 Preliminaries: Action Representations and Prediction Heads",
+   "heading_ja": "連続 vs 離散：4つの代表的な予測ヘッドを整理する",
+   "summary_ja": "連続・離散の表現軸と、単一ステップ・反復生成の計算軸を交差させた4つの代表的ヘッド（CR, CF, DR, DF）を定義します。相対エンドエフェクタ（EEF）座標系を採用し、離散化には主に512分割の均一ビンを使用します。",
+   "details_ja": "方策に入力される観測を $o$、予測する未来の行動軌道（アクションチャンク）を $\\mathbf{a}_{1:H} \\in \\mathbb{R}^{H \\times M}$ とします。本論文では、予測時点の手先位置姿勢を基準とする「相対エンドエフェクタ（EEF）行動」を主に使用します。比較する4つのヘッドは以下の通りです。\n\n- 連続回帰（Continuous Regression: CR）: 1回の順伝播で二乗誤差最小化により行動チャンクを出力します。条件付き平均を予測するため、複数解がある場合に平均化されて破綻しやすい性質があります。\n- 連続フロー（Continuous Flow: CF）: フローマッチングを用いて、ガウスノイズからオイラー積分により連続行動軌道を反復生成します。\n- 離散回帰（Discrete Regression: DR）: 各行動座標を $B$ 個のビン（標準では $B=512$）に均一量子化し、各トークン位置で交差エントロピー損失により多クラス分類を行います。推論時は位置ごとに独立して argmax を取ります。\n- 離散フロー（Discrete Flow: DF）: ノイズトークンから出発し、反復的なステップでクリーントークン予測を繰り返して徐々に更新します。1ステップの予測は位置ごとに独立ですが、多段階の推論計算を通じてトークン間の相関を反映できます。\n\nさらに、条件付き予測と無条件予測を線形補間する Classifier-Free Guidance（CFG）も導入し、離散モデルの予測分布を先鋭化させる仕組みを整えています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Discrete Action Prediction Can Match Continuous Parametrizations",
+   "heading_ja": "離散モデルが連続モデルに勝る？ その驚きの実力とメカニズム",
+   "summary_ja": "シミュレーションおよび実機タスクにおいて、離散モデルが連続モデルと同等以上の成功率を達成しました。この優位性は量子化誤差の小ささではなく、連続モデルのような過度な平滑化を起こさず、高い応答性を保てることに起因しています。",
+   "details_ja": "RoboMimic（単一タスクのスクラッチ学習）、RoboCasa・LIBERO（PaliGemmaをバックボーンとするVLA）、および実機ロボット（ペンのキャップ開け、ボトルのゴミ箱投げ入れなど）で性能を測定しました。\n\n### 驚くべき性能の逆転\n結果として、離散フロー（DF）は連続フロー（CF）と同等かやや上回り、さらに驚くべきことに離散回帰（DR）は連続回帰（CR）を一貫して大きく上回りました。例えば RoboMimic の高精度を要するタスク（Tool Hangなど）でも、離散モデルは極めて高い成功率を示しています。これは「離散化すると精度が落ちてロボット制御ができない」という長年の思い込みを打ち砕く結果です。\n\n### なぜ離散モデルが勝てるのか？\nエンドエフェクタの再構成誤差（$\\ell_2$ 誤差）自体は各モデル間で大きな差がなく、タスク成功率との相関も見られませんでした。真の理由は「時間的・状態的な応答性の高さ」にありました。\n\n- 時間的変動とジャーク比（Jerk Ratio）: 軌道の3階差分であるジャークを調べると、連続回帰（CR）はジャーク比が 1 より大幅に小さく、急激な動きを平滑化しすぎていました。対照的に離散回帰（DR）は 1 に近く、急峻な変化をそのまま出力できます。\n- 微小動作への感度: 0〜5 mmといった微小な手先移動に対して、離散モデルの方が高精度に追従できていました。\n- 状態応答性（State Responsiveness）: 実軌道上で観測が変化した際、出力軌道がどれだけ変化するか（$\\frac{\\partial \\pi}{\\partial o}$）を測定したところ、連続モデルは変化量を過小評価する一方、離散モデルはエキスパートの変化に極めて近い機敏な反応を示しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "RoboCasaでの状態応答性の比較です。エキスパートの変化量を 1.00 としたとき、連続モデル（CR: 0.58, CF: 0.63）は観測の変化に対して出力の変化が鈍いのに対し、離散モデル（DR: 0.94, DF: 0.70）はより俊敏にエキスパートの軌道変化に追従できています。",
+     "caption": "Figure 3 : State responsiveness on held-out RoboCasa demonstrations: each head’s median change in its mean predicted chunk, divided by the expert’s median chunk change, for frame pairs four steps apart (1.00 matches the expert). Other lags are in Tab. 10 .",
+     "image": "details/2610.20429/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Factorization Error and Iterative Computation in Discrete Policies",
+   "heading_ja": "離散化の真の敵「分解誤差」と、それを倒す反復計算・ガイダンス",
+   "summary_ja": "離散回帰（DR）の課題は、多峰性のある環境下で時間や座標軸を独立に予測することで発生する「分解誤差」です。この誤差は Classifier-Free Guidance（CFG）による分布の先鋭化や、離散フロー（DF）の反復計算によって劇的に解消されます。",
+   "details_ja": "離散回帰（DR）が高い応答性を持つ一方で、なぜそのままでは不安定になることがあるのでしょうか。その原因は「分解誤差（factorization error）」にあります。\n\n### 分解誤差とは何か？\n観測に対して「右から回る」と「左から回る」という2つの有効なモードが存在するとき、各時間ステップや各座標軸の周辺分布を独立に予測すると、前半は右へ進むトークンを選び、後半は左へ進むトークンを選んでしまうといった矛盾が生じます。これが分解誤差です。個々のトークン予測確率が正しくても、同時結合確率をモデル化できていないため軌道全体として破綻してしまいます。\n\n### 解決策1：Classifier-Free Guidance（CFG）による先鋭化\nCFGを適用すると、曖昧な複数モードの中から好ましい単一モードへと確率分布がシャープになります。これにより、RoboCasa における DR の成功率はガイダンスなし（CFG 0）の 27.1% から、CFG 2 では 49.2% へと劇的に向上しました。これは予測精度（mm単位の誤差）が改善したのではなく、モードの混ざり合いが抑制されたことによる効果です。\n\n### 解決策2：離散フロー（DF）による反復的自己修正\n離散フロー（DF）はステップ数（NFE）を増やすことで、トークン同士の整合性を反復的に修正します。NFEを10以上に増やすと、チャンク内の不整合なモード予測数が DR に比べて 5.28分の1 にまで減少し、RoboCasa の成功率も 53.9% に達しました。連続フローが「平滑化しすぎの回避」のために反復計算を使うのに対し、離散フローは「独立予測の不整合の自己修正」のために反復計算が機能している点が対照的で興味深いポイントです。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "Push-T環境における分解誤差の可視化です。(a) 離散回帰では予測期間の途中でモードAからモードBへ確率が入れ替わり、軌道が破綻します。(b) CRは平均化により鈍くなり、DFは反復計算により一貫した軌道を生成します。(c) 座標軸を独立に選ぶと、2つの正常モードから誤った2つの行動が生み出される現象を示しています。",
+     "caption": "Figure 5 : (a) Temporal mode switching within an action chunk as relative mode probabilities vary across the prediction horizon; (b) Action chunks predicted by CR, CF, and DF from the same starting position. (c) Coordinate-wise factorization within a timestep: independently combining coordinates from two valid modes can produce two additional, incompatible actions.",
+     "image": "details/2610.20429/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Additional Structure Provides Limited Gains for Discrete Policies",
+   "heading_ja": "幾何構造や複雑なトークナイザは本当に必要なのか？",
+   "summary_ja": "ビンの幾何学的距離を考慮した損失関数や、高度なトークナイザ（nFSQ, FAST, RVQ）を検証しましたが、最も素朴な均一ビン離散フロー（DF）を超える一貫した改善は見られませんでした。ネットワーク自身が出力層でビンの局所幾何を自然に学習しているためです。",
+   "details_ja": "離散化に対して「値の近さ（幾何構造）が無視されるのではないか」という懸念から、行動距離を意識した拡張が提案されがちです。著者らはこれらを厳密にテストしました。\n\n### 明示的な幾何構造の注入\n- 距離に基づくラベル平滑化を DR に導入すると、RoboCasa の成功率が 2.1 ポイント向上しました。\n- 離散フローにおいて、連続フローを模してノイズ付加時に近いビンへ集中させる「メトリックパス」を試したところ、最高成功率は 52.8% となり、標準的な一様混合パス（53.9%）を上回ることはできませんでした。\n\n### 高度なトークナイザの比較\nFinite Scalar Quantization（nFSQ）、Residual Vector Quantization（RVQ）、FAST といった圧縮・構造化トークナイザを検証しました。DFにおいて nFSQ は 52.4%、FAST は 46.2%、RVQ は 38.2% となり、素朴な均一ビンの 53.9% を超えられませんでした。FAST などの文法制約がある手法では、デコード不能な無効シーケンスが発生する問題も浮き彫りになりました。\n\n### なぜ素朴な均一ビンで十分なのか？\n最終出力層の重みベクトルを解析したところ、隣接するビン同士の埋め込みベクトルのコサイン類似度が極めて高く、主成分分析（PCA）でもビンのインデックス順に綺麗に並んでいることが分かりました。つまり、明示的に教えなくても、ニューラルネットワーク自身が学習を通じてビンの空間的連続性を内部獲得しているということです。",
+   "figures": [
+    {
+     "key": "F17",
+     "caption_ja": "離散モデルの出力重みベクトルの解析結果です。(a, b) 隣接するビン同士が高いコサイン類似度を示しています。(c) ビン間の距離が離れるほど類似度は滑らかに減少します。(d, e) 重みのPCA空間ではビンがインデックス順に連続的な曲線を描いており、明示的な幾何構造を与えなくてもネットワークが値の連続性を自律的に学習していることが分かります。",
+     "caption": "Figure 17 : Both discrete heads organize output bins by value. Upper left: generated conceptual illustration defining bin separation and cosine; it contains no empirical measurements. (a,b) Output-weight cosine matrices on the same 222 occupied bins, centered over those rows, with self-similarity masked. (c) Median cosine over pairs at each exact bin separation; only output weights are shown. (d,e) Output-weight PCA, colored by bin index; axes state explained variance, and each head has its own PCA basis. (f) Output bias versus log validation occupancy on the same occupied bins; Pearson $r=0.809/0.720$ for DR/DF. Zero-count bins are excluded. Scope and controls are in Appendix G.3 .",
+     "image": "details/2610.20429/F17.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Discussion and Future Work",
+   "heading_ja": "まとめ：ロボット基盤モデルはトークン統一の世界へ",
+   "summary_ja": "物理世界が連続であっても、ロボットの行動予測は素朴な離散トークンで十分に高精度な制御が可能です。知覚・推論・行動を同一のトークン生成パラダイムで統合する未来のロボット基盤モデルへの道を拓く成果です。",
+   "details_ja": "本研究の最大の成果は、「ロボット制御には連続値出力が必須である」という従来のドグマを覆した点にあります。素朴な均一ビンによる離散表現は、言語モデルへの単なる便宜的なインターフェースにとどまらず、それ自体が連続モデルと同等以上に優れた制御方策となります。\n\n最大の難関であった分解誤差についても、離散フローによる反復計算やガイダンスといった介入によって解決できることが示されました。これは言語拡散モデルなどで研究されている「トークン間の整合性維持」という課題と直結しています。\n\n今後の展望として、単なる再構成誤差の最小化ではなく「時間的に結合した動作を一括して表現し、分解誤差を抑制するような新しい行動トークナイザ」の設計が挙げられます。また、視覚・言語・行動をすべて同一の離散トークン空間でマルチタスク学習させることで、事前学習済みモデルの推論能力を最大限に活かしたロボット制御の実現が期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：実機・シミュレーションの実験詳細とアブレーション",
+   "summary_ja": "行動空間（相対/絶対/差分、手先/関節空間）の比較、外乱に対するロバスト性評価、および人工関数を用いたフィッティング実験の詳細をまとめています。急峻な変化を含む関数では離散回帰が連続回帰を圧倒します。",
+   "details_ja": "付録では、本編の主張を裏付ける詳細な実験結果が多数報告されています。\n\n### 行動空間の比較\n相対EEF行動、デルタ（増分）行動、絶対EEF行動を比較したところ、DF・CF・CRでは相対行動が最高性能を示しました。また、絶対行動に切り替えた際の性能低下は、連続モデル（CFで13.7ポイント低下、CRで21.4ポイント低下）に比べて離散モデル（DRで2.4ポイント低下、DFで6.9ポイント低下）の方がはるかに小さく、離散モデルの頑健性が際立ちました。関節空間とEEF空間の比較では、ほぼ同等の成功率が得られています。\n\n### 外乱安定性と応答性のトレードオフ\nシミュレータ上で1ステップの外乱を加えた後の予測軌道の変動（Wasserstein距離）を調べたところ、フロー型ヘッド（CF, DF）が最も高い外乱安定性を示しました。DFは外乱に対する安定性を維持しつつ、真の状態変化に対してCFよりも高い応答性を発揮できる絶妙なバランスを持っています。\n\n### 人工関数フィッティング実験\n滑らかな正弦波と、矩形波（急激なジャンプ）が合わさった関数を学習させたところ、滑らかな成分に対しては連続回帰（CR）の誤差が小さい一方、矩形波のような急峻なエッジに対しては離散回帰（DR）がCRに対して平均二乗誤差で3.2倍、平均絶対誤差で4.5倍も低い誤差を記録しました。argmaxデコードの性質により、連続モデルのような角の丸まり（平滑化）を起こさずシャープに切り替えられることが証明されています。",
+   "figures": [
+    {
+     "key": "F14",
+     "caption_ja": "RoboCasaの冷蔵庫を閉めるタスクで生じる分解誤差の具体例です。(a) 「一貫して動かす」モードと「動かしてから保持する」モードが存在する場合、(b) 独立したトークン予測を行うと途中でモードが入れ替わり、腕が中途半端に停止する失敗が発生します。",
+     "caption": "Figure 14 : a Robocasas example showing that in the same chunk, robot arm has two mode one is move consistenly, the second is first move then hold; (b We show that this independent token sampling could cause factorization error, leads to swithcing between motions on different timestep, the same as what we have seen in push-T Fig. 5",
+     "image": "details/2610.20429/F14.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "「離散化すると精度が落ちる」は誤解であり、512個の均一ビンという素朴な離散化で連続フローや連続回帰と同等以上のタスク成功率を達成できる。",
+  "離散モデルが優れる本質的な理由は、連続モデル特有の過度な平滑化（オーバー・スムージング）を避け、時間や観測の変化に対して俊敏に応答できる点にある。",
+  "離散化における真の課題は「分解誤差（時間や座標の独立予測によるモード混ざり）」であり、離散フローによる反復修正や CFG による先鋭化で劇的に改善する。",
+  "距離を考慮した損失や複雑な幾何トークナイザを導入しなくても、ニューラルネットワークの出力層埋め込みが自然にビンの近傍関係を獲得している。"
+ ],
+ "limitations_ja": [
+  "離散回帰（DR）はガイダンスなしでは分解誤差に非常に弱く、成功率が 27.1% まで低迷するなどハイパーパラメータ（CFG重み）への依存度が高い。",
+  "均一ビンによる離散化は次元数に比例してトークン長または語彙数が増大するため、極めて多自由度なロボット全身制御におけるスケーラビリティには追加検証が必要である。",
+  "FAST などの圧縮トークナイザでは、モデルが文法的に無効なシーケンスを生成してしまい実行不能になるケースが見られた。"
+ ],
+ "keywords": [
+  "Discrete Action Prediction",
+  "Vision-Language-Action (VLA)",
+  "Discrete Flow Matching",
+  "Factorization Error",
+  "Classifier-Free Guidance",
+  "Robot Manipulation"
+ ],
+ "id": "2610.20429",
+ "title": "When Do Discrete Actions Make Good Continuous Controllers?",
+ "authors": [
+  "Zeji Yi",
+  "Soham Dasgupta",
+  "Xinyang Zhang",
+  "Koushil Sreenath",
+  "Guannan Qu",
+  "Xi Chen",
+  "Max Simchowitz",
+  "Guanya Shi"
+ ],
+ "date": "2026-10-15",
+ "group": "general",
+ "tags": [
+  "control",
+  "vision-language-action",
+  "benchmark"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.20429",
+ "pdf_url": "https://arxiv.org/pdf/2610.20429",
+ "summary_ja": "ロボット基盤モデルにおける行動表現として、一般的に用いられる連続ベクトルと離散化表現の優位性をシミュレーションと実機で徹底検証した。単純な均一ビンの量子化による離散行動予測であっても、単一タスクやマルチタスクVLAの双方で連続表現と同等以上の成功率を達成できることを明らかにした。",
+ "generated": "2026-10-15",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.20429"
+}
