@@ -1,0 +1,142 @@
+{
+ "title_ja": "教師ありプレイからの巧緻性獲得：自律データ収集と世界モデルによるMPC",
+ "tldr_ja": "人間が目的を持たずに数分間「遊んだ」データを模倣して自律収集ポリシーを作り、集めた大量の接触データでワールドモデルを訓練することで、タスク固有のデモや報酬設計なしに高度な多指ハンド操作を実現しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "DSPフレームワークの全体像です。人間によるわずかな自由操作から「遊びポリシー」を学習し、ロボットが自律的に大量の相互作用データを収集してワールドモデルを訓練します。実行時は同じ遊びポリシーが行動候補を出し、ワールドモデルを用いたMPC（モデル予測制御）で目標を達成します。",
+  "caption": "Fig. 1: \\dspfont DSP Pipeline Overview. (1) Human teleoperation trains a goal-agnostic play policy. (2) The policy collects interaction data through autonomous play. (3) These data train a world model to predict future states from past observations and proposed actions. (4) MPC uses the model to select actions for a requested goal. (5) Optionally, we can distill a goal-conditioned policy from self-play in the learned world model.",
+  "image": "details/2610.22340/F1.jpg"
+ },
+ "overview_ja": "多指ハンドによる物体の器用な操作は、ロボティクスにおける長年の難問です。これまでは、シミュレータ上で何億ステップもの強化学習（RL）を回して実機へ転移させるか、タスクごとに人間が大量のデモを集めるのが主流でした。しかし、実機でのむやみな探索はハードウェアを壊す危険があり、報酬や安全領域の手作業によるチューニングには限界があります。\n\nそこで著者たちが着目したのが、人間の幼児が「遊び」を通して手の使い方を学ぶプロセスです。提案手法「DSP（Dexterity from Supervised Play）」では、人間が数分間だけグローブで物体を適当に弄んだ（遊んだ）データから、まず目標を持たない「遊びポリシー」を模倣学習します。このポリシーを使ってロボット自身に何時間も自律的に遊ばせ、安全で多彩な接触データを集めて「ワールドモデル（環境予測モデル）」を訓練します。\n\nいざ特定の姿勢に物体を動かしたいときは、遊びポリシーが「自然な手の動かし方の候補」を提案し、ワールドモデルが「どの動きが一番目標に近づくか」を予測して最適な行動を選ぶMPCを行います。実機実験では、事後ラベル付け模倣学習を69.6%上回る成功率を記録し、強化学習（PPO）と同等の性能を約490分の1のデータ量で達成しました。目的のない遊びが、実は最も効率的な学習の足がかりになることを実証した画期的なアプローチです。",
+ "contributions_ja": [
+  "人間のわずか数分の目標なし遠隔操作から、安全で多様な接触データを自律収集する「教師あり遊び（Supervised Play）」の枠組みを提案したこと。",
+  "実機での自律的な遊びデータを0.5時間から5時間にスケールさせることで、ワールドモデルの予測誤差が単調に減少することを示したこと。",
+  "目標を持たない遊びポリシーを行動提案モデル（事前分布）としてMPCに組み込み、タスク固有のデモなしに高精度な操作を実現したこと。",
+  "ワールドモデル内でのセルフプレイにより、MPCの探索コストを肩代わりする高速な閉ループポリシーの蒸留手法を示したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜロボットに「遊び」を教えるのか？",
+   "summary_ja": "器用な操作に必要な物理理解は「遊び」から得られますが、安全で多様な遊び行動をルールベースで設計するのは極めて困難です。本論文では、人間の数分の自由なプレイから模倣学習で遊び行動を抽出し、自律データ収集とプランニングに活用する枠組みを提案します。",
+   "details_ja": "人間の子どもは、特定のタスクをこなすためではなく、ただおもちゃを触って「遊ぶ」ことで手の使い方や物理法則を直感的に身につけます。ロボットにも同じように遊ばせることができれば、膨大な接触経験を自律的に獲得できるはずです。\n\nしかし、現実のロボットで「遊ばせる」のは簡単ではありません。先行研究のようにヒューリスティクス（手作業のルール）や厳密な安全境界を作り込もうとすると、膨大な調整が必要になりスケールしません。かといってランダムに動かすと、指を挟んで壊したり、物体を弾き飛ばしたりしてしまいます。\n\nここでのコアな仮説は、「安全で有意義な遊び行動を数式で定義するのは難しくても、人間が適当に遊んでいるデータから模倣学習（Behavior Cloning）すれば簡単に獲得できる」という点です。目標を持たない状態条件付き確率モデルとして遊びを定式化することで、人間が数分操作するだけで、ロボット自身が何時間も安全に自律プレイを続けられるようになります。\n\nこうして集めたデータからワールドモデルを学習し、推論時には同じ遊びポリシーを行動候補の提案器として使うMPCを実行します。さらに、モデル内セルフプレイによるポリシー蒸留を行うことで、高速な推論も可能にしています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "DSPの4つの主要ステージです。(a) 人間の遠隔操作から遊びポリシーを模倣学習、(b) 実機で自律的に遊んで遷移データを収集、(c) ワールドモデルの学習、(d) 遊びポリシーの提案をワールドモデルで評価するMPCによる目標達成の流れを示しています。",
+     "caption": "Fig. 2: Dexterity from Supervised Play. (a) A goal-agnostic play policy is trained by behavior cloning on human teleoperation data. (b) The learned policy interacts autonomously with the environment to collect observation–action transitions. (c) These transitions train an action-conditioned world model to predict future observations. (d) At inference time, the play policy proposes candidate actions, the world model predicts their outcomes, and model-predictive control selects the candidate with the highest goal-conditioned reward. The selected action is executed in the environment, and planning repeats from the new observation.",
+     "image": "details/2610.22340/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "強化学習・好奇心・プレイ学習の限界を超える",
+   "summary_ja": "強化学習や好奇心駆動型の探索、従来のプレイ学習研究とDSPを対比します。DSPは明示的な報酬やシミュレータに依存せず、人間の直感をシードとして安全で接触に富んだ自律探索を実現する点が独自です。",
+   "details_ja": "本論文の立ち位置を理解するために、関連する4つの系統の研究と比較されています。\n\n### 強化学習における探索とプランニング\nMuZeroのようにモデルを学んでプランニングする手法や、マルチエージェントの創発的カリキュラムは目覚ましい成果を上げています。しかしこれらは、明確なゲームルールや報酬関数、あるいは高速なシミュレータがあることが前提です。接触リッチなロボット操作では、報酬の設計自体が難しく、安全な探索の保証も困難です。\n\n### 好奇心と内発的動機づけ\n報酬なしで探索させるために、予測誤差を報酬にする「好奇心（Curiosity）」や新規性を測る手法が研究されてきました。しかし、これらは大域的な状態探索には向いていても、多指ハンドが必要とする「壊さないように接触を保ちながら物体を操る」という偏りを生み出すことはできません。\n\n### プレイからの学習\nPlay-LMPなどの先行研究も人間の自由なプレイデータを活用していますが、それらは主に固定されたデータセットからの模倣学習にとどまっていました。DSPは、人間のプレイデータを「その後の自律的なデータ収集機」を作るためのシードとして再利用する点が決定的に異なります。\n\n### 多指ハンドによる巧緻操作\n既存の多指操作の多くは、シミュレータ上で何億ステップものRLを行い、ドメインランダム化で実機へ転移させています。DSPはシミュレータを一切使わず、実機での自律プレイのみからダイナミクスを学び、任意の目標へ向けたプランニングを可能にします。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "DSPの仕組み：遊んで、学んで、計画する",
+   "summary_ja": "DSPは4つのステップ（教師あり遊び、自律プレイ、ワールドモデル学習、MPC）と、推論を高速化するポリシー蒸留で構成されます。遊びポリシーが自然な動作候補を生み出し、ワールドモデルがその結果を予測して評価します。",
+   "details_ja": "DSPのパイプラインは、以下の段階を踏んで動作します。\n\n### III-A & III-B 教師あり遊び（Supervised Play）\nまず、人間がデータグローブを介してロボットハンドを遠隔操作し、特定の目標を決めずに物体をいじります（約15分間）。このデータを用いて、Diffusion Transformerベースの遊びポリシー $\\pi_{\\mathrm{play}}$ を模倣学習します。このポリシーは過去の観測履歴から未来の一連の行動チャンク（Action Chunks: $H$ ステップの関節指令）をサンプリングします。安全な接触維持の動作がデータを通じて自然に埋め込まれます。\n\n### III-C 自律プレイ（Autonomous Play）\n学習した $\\pi_{\\mathrm{play}}$ を実機ロボット上で自律的に動かします。これにより、人間の監視なしで、状態遷移空間を広くカバーする長時間のプレイデータセット $\\mathcal{D}_{\\mathrm{play}}$ を安全に収集できます。\n\n### III-D ワールドモデル（World Modeling）\n集めた遷移データから、観測履歴と行動チャンクを入力として未来の観測を予測するワールドモデル $\\mathcal{M}_{\\mathrm{wm}}$ を訓練します。学習には「Diffusion Forcing」を採用しています。各ステップに独立したノイズレベルを割り当てて因果的にノイズ除去を学習させることで、過去の観測を条件としつつ未来の展開を安定して自己回帰的に予測できます。\n\n### III-E モデル予測制御（MPC）\nタスク実行時、遊びポリシー $\\pi_{\\mathrm{play}}$ が $N$ 個（実験では1,024個）の候補行動チャンクを生成します。ワールドモデルがそれぞれの行動を実行した際の未来状態を予測し、指定された目標観測 $o_g$ との距離（報酬関数 $r$）でスコアリングします。最も評価の高い候補の先頭 $E$ ステップを実行し、新たな観測を得て再計画を繰り返します。\n\n### III-F ポリシー蒸留（Policy Distillation）\n毎回のMPC計算（1,024候補の評価）は計算コストがかかります。そこで、学習済みワールドモデルの中で仮想的にMPCを実行（セルフプレイ）し、状態と目標に対する最適行動のペアを大量に生成します。これを模倣学習することで、シミュレータや実機を一切動かすことなく、瞬時に推論できる目標条件付き閉ループポリシーを蒸留できます。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "遊びポリシーからMPCによって創発した器用なスキルです。ヨー回転、エッジやコーナーを使った反転、微細な位置調整など、個別のスキルを明示的に教えていないにもかかわらず、プランニングを通じて多様な動作が自動的に組み合わされています。",
+     "caption": "Fig. 3: Dexterous skills emerge through play-guided planning. MPC selects motions from a goal-agnostic play policy using their predicted outcomes, producing yaw rotations, edge and corner flips, fine adjustments, and composite actions without task-specific skill demonstrations. These examples illustrate how a shared repertoire of play motions can support both large reorientations and precise corrections toward a goal. Time progresses downward in each column; yellow arrows indicate object motion.",
+     "image": "details/2610.22340/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "驚異的なデータ効率と実機への適応力",
+   "summary_ja": "平面押し（Push-T）と多指ハンドによるキューブ姿勢変更（シミュレーション・実機・RGB画像入力）で評価を行いました。DSPは強化学習に対して約490倍高いデータ効率を示し、実機でもシミュレーションと同等の高精度な操作を達成しました。",
+   "details_ja": "実験は、提案手法が目標なしの遊びから目的指向の器用な操作を実現できるかを厳密に検証しています。\n\n### 実験設定\n評価タスクは主に以下の通りです。\n- **Task A (Push-T)**: 2次元平面上でT字ブロックを押して目標姿勢に合わせるタスク。\n- **Task B (シミュレーション姿勢変更)**: 22自由度の多指ハンドで、キューブを初期姿勢から90度以上離れた任意の目標姿勢へ回転させるタスク。\n- **Task C (実機姿勢変更)**: 実機のSharpaハンドを用い、同様の姿勢変更を行うタスク。\n- **Task D (視覚的姿勢変更)**: 物体の3D姿勢真値を使わず、RGB画像から潜在表現を学習して操作するタスク。\n\n### 主な結果と数値\n- **Push-T**: DSP（遊び誘導MPC）は厳しい許容誤差（SR@0.95）において74%の成功率を達成しました。同じデータ量の最強ベースラインであるHindsight BC（事後ラベル付け模倣学習）の36%を大きく引き離しました。\n- **シミュレーション姿勢変更**: 許容角度誤差0.6 rad以内の成功率は、直接の遊びポリシー実行が36.7%、Hindsight BCが53.9%にとどまる中、DSPは**91.4%**を叩き出しました。同じデータ予算（701Kフレーム）のPPOは0%で失敗しています。PPOが同等性能（86.7%）に達するには344Mフレームを要し、DSPは**約490倍のデータ効率**を記録しました。\n- **実機での実力**: 実機実験でも、DSPは0.6 rad以内で90.0%、0.8 rad以内で97.1%を達成しました。シミュレーション（91.4% / 96.1%）との性能差はわずか4.1ポイント以内に収まっており、Sim-to-Realギャップが極めて小さいことが確認されました。\n- **視覚モデル（RGB）**: 画像入力のTask Dでも、MPCを加えることで0.6 radの成功率が53.1%から78.1%へと25ポイント向上しました。\n- **蒸留ポリシー**: 蒸留された閉ループポリシーは、1回の推論がわずか21.8 ms（MPCの約7倍高速）でありながら、0.8 radで86.7%の成功率を維持しました。\n\n### 分析：なぜ効くのか？\nアブレーション解析により、決定論的ポリシーよりも拡散モデル（Diffusion）を用いた遊びポリシーの方が状態遷移のカバー率が圧倒的に高く（84.2% vs 55.4%）、これがワールドモデルとMPCの性能を支えていることが判明しました。また、実機プレイデータを0.5時間から5時間に増やすと、予測誤差（MAE）が34.96度から28.40度へと単調に減少することも確認されました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "シミュレーション環境におけるキューブ姿勢変更の定量結果。(a) DSPは各閾値でベースラインを大きく凌駕しています。(b) PPOが同等の成功率に達するまでに490倍のフレーム数を消費しており、DSPのデータ効率の高さが際立っています。",
+     "caption": "Fig. 5: Quantitative results of real-world object reorientation. (a) \\dspfont DSP outperforms all baselines. Scoring predicted outcomes lets the controller direct the motions learned from play toward a requested goal. (b) Ours uses 701K counted frames; timesteps-matched PPO (PPO-TM) achieves $0\\%$ at this budget, while performance-matched PPO (PPO-PM) reaches $86.7\\%$ after 344M frames, about $490\\times$ the budget. PPO-unlimited serves as an upper bound of PPO with unlimited interaction frames.",
+     "image": "details/2610.22340/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "実機とシミュレーションの性能比較です。ランダムウォークや遊びポリシー単体に対し、DSPは実機（Ours-real）でもシミュレーション（Ours-Sim）とほぼ同等の高い成功率を維持しています。",
+     "caption": "Fig. 7: Real vs. Sim. Our \\dspfont DSP achieves matched performance with the simulation experiment (Hatched bars), and outperforms other baselines.",
+     "image": "details/2610.22340/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "Task DにおけるRGBピクセル空間のワールドモデル予測例です。最上段の正解画像に対し、下段のモデル予測は手の動きとキューブの回転を3秒間にわたって高精度に捉えています。",
+     "caption": "Fig. 8: RGB world model. Snapshots of the pixel-space world model predictions across 3 seconds in Task D.",
+     "image": "details/2610.22340/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Discussion",
+   "heading_ja": "模倣学習・強化学習・好奇心探索との本質的な違い",
+   "summary_ja": "DSPが提示する新しいパラダイムを議論しています。人間のデモを「課題解決の手順」ではなく「自律探索のための相互作用事前分布」として位置づけ直したこと、そして行動基盤モデルとの親和性について考察しています。",
+   "details_ja": "著者はDSPの思想的意義をいくつかの観点から論じています。\n\n### 模倣学習に対するパラダイムシフト\n従来の模倣学習では、人間は「タスクの解き方」を教えていました。しかしDSPにおいて、人間のデモの役割は「環境と安全かつ有意義に関わり続けるための基礎作法」を教えることに変わります。目標のない遊び行動であっても、指の接触を維持し、物体を落とさず持ち替えるという高度な物理的知性が宿っています。解法そのものを教えるよりも、遊ぶ様子を見せる方が人間にとっても遥かに簡単です。\n\n### 強化学習や好奇心探索との違い\n強化学習はタスク報酬に縛られますが、DSPは物理の獲得とタスク目標を分離しているため、一度学べばモデルを再学習することなく任意のゴールに対応できます。また、一般的な好奇心駆動型探索は単に目新しい状態を追うだけで、多指操作に必要な協調接触動作を生み出せません。人間の直感によって探索の構造を与え、自律的な試行で物理法則を身につけさせるという分業が極めて有効に機能します。\n\n### 行動基盤モデルへの展開\n遊びポリシーはモジュール化されているため、将来的には大規模なロボット行動基盤モデル（Behavior Foundation Models）をそのまま遊びポリシーとして流用できる可能性があります。多様な事前動作レパートリーを基盤モデルから引き出し、現場での自律プレイによってその環境に根づかせるという発展が期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "まとめ：遊びから広がるロボットの自律的な器用さ",
+   "summary_ja": "DSPは、わずかな人間の遊びから安全な自律データ収集、ワールドモデルの学習、そしてゴール指向のMPCプランニングまでを一気通貫で実現しました。タスク固有のデモやシミュレータに頼らず、実機主導で器用さを獲得する有望な道筋を示しています。",
+   "details_ja": "本研究は、わずか15分程度の人間の自由なプレイデータから、安全な自律データ収集、高精度なワールドモデルの獲得、そしてモデル予測制御による目標達成を可能にする枠組み「DSP」を提示しました。\n\nシミュレーションでの厳密な検証だけでなく、実機ハンドにおいてもシミュレータなしで高度な姿勢変更タスクを成功させ、データ効率とロバスト性を証明しました。今後は、より多様な物体や複雑な接触タスクへの拡張、そして大規模行動基盤モデルとの統合によるさらなる汎化性能の向上が期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "人間のデモを「タスクの正解」ではなく「安全で多様な探索を自律実行するためのシード」として活用する発想の転換が極めて強力。",
+  "目標を持たない遊びポリシーであっても、Diffusionを用いてマルチモーダルな遷移を学習させることで、良質な探索とワールドモデル学習が可能になる。",
+  "タスク固有の報酬に頼る強化学習と比較して、ワールドモデルとMPCの組み合わせは約490倍もの高いデータ効率を達成できる。",
+  "シミュレータを一切使わずに実機主導で接触リッチなダイナミクスを学べるため、Sim-to-Realギャップを本質的に回避できる。"
+ ],
+ "limitations_ja": [
+  "MPCにおける毎ステップ1,024個の軌道サンプリングとワールドモデル展開は計算負荷が高く、リアルタイム制御には強力なGPU（RTX 5090等）と並列化が必須となる点。",
+  "物体の落下時に自動で初期位置へ復帰させる仕組み（シミュレータのリスポーンに相当する機構）が実機の大規模自動収集でどのように担保されるかについての詳細な課題。",
+  "現時点ではキューブの姿勢変更やPush-Tなど比較的コンパクトなオブジェクト操作が中心であり、変形体や極端に複雑な形状への適用限界はまだ未知数である点。"
+ ],
+ "keywords": [
+  "Dexterous Manipulation",
+  "World Models",
+  "Model Predictive Control",
+  "Supervised Play",
+  "Behavior Cloning",
+  "Sample Efficiency"
+ ],
+ "id": "2610.22340",
+ "title": "Dexterity from Supervised Play",
+ "authors": [
+  "Botao He",
+  "Yiming Dou",
+  "Yiannis Aloimonos",
+  "Jitendra Malik",
+  "Akash Sharma",
+  "Ruoshi Liu"
+ ],
+ "date": "2026-10-16",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "world-model",
+  "imitation-learning",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.22340",
+ "pdf_url": "https://arxiv.org/pdf/2610.22340",
+ "summary_ja": "数分の人間プレイデータから模倣学習したプレイ方策を用いてロボットが自律的に数時間の接触データを収集し、世界モデルを学習するDSPを提案。学習した世界モデルを用いたMPCおよびセルフプレイ蒸留により、多様で高度な接触操作スキルを獲得した。",
+ "generated": "2026-10-16",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.22340"
+}
