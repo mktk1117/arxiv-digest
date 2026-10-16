@@ -1,6 +1,294 @@
 {
  "entries": [
   {
+   "date": "2026-10-16",
+   "rank": 0,
+   "id": "2610.22119",
+   "group": "focus",
+   "title": "Compliant GMT: Making General Motion Tracking Compliant via Residual Reference Adaptation",
+   "title_ja": "Compliant GMT: 残差参照適応による全身運動追従のコンプライアント化",
+   "summary_ja": "ヒューマノイドの全身運動追従（GMT）方策は剛直に学習され、外乱に対する接触安全性が損なわれがちであった。本研究は残差参照適応を導入し、多様な動作の汎用的な追従性能を維持しながら、接触力に対して受動的かつ安全に適応するコンプライアントな全身制御を実現した。",
+   "summary_en": "Humanoid general motion tracking (GMT) policies are typically trained rigidly, compromising safety during contact interactions. This work proposes Compliant GMT, which introduces residual reference adaptation to achieve compliant full-body responses to contact forces while preserving general tracking capabilities across diverse motions.",
+   "authors": [
+    "Venki Parsuram",
+    "Michelle Wang",
+    "Jin-Hyuk Hong",
+    "Pulkit Agrawal"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.22119",
+   "image": "figures/2026-10-16/2610.22119.jpg"
+  },
+  {
+   "date": "2026-10-16",
+   "rank": 1,
+   "id": "2610.22184",
+   "group": "focus",
+   "title": "Whole-Body Dexterity",
+   "title_ja": "全身の接触面を活用するヒューマノイド・デクスタリティ",
+   "summary_ja": "エンドエフェクタのみに頼らず、腕や胴体全体を接触面として大型物体を把持・操作する枠組みWBDを提案。強化学習による全対全の再配置エキスパートを学習後に単一の視覚・固有受容感覚方策へ蒸留し、実機ヒューマノイドへのsim-to-real転移を達成した。",
+   "summary_en": "This work introduces Whole-Body Dexterity (WBD), enabling humanoids to use their limbs and torso as contact surfaces to manipulate bulky objects. RL experts trained on any-to-any repositioning are distilled into a single policy using proprioception and object geometry, achieving successful sim-to-real transfer on a physical humanoid.",
+   "authors": [
+    "Conor Mc Gartoll",
+    "An Dang",
+    "Pranay Thangeda",
+    "Arjun Gupta",
+    "Carolina Higuera",
+    "Nima Fazeli",
+    "Mustafa Mukadam",
+    "Manikantan Nambi"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "humanoid",
+    "manipulation",
+    "reinforcement-learning",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.22184",
+   "image": "figures/2026-10-16/2610.22184.jpg"
+  },
+  {
+   "date": "2026-10-16",
+   "rank": 2,
+   "id": "2610.22176",
+   "group": "focus",
+   "title": "Inertially Significant Humanoid Teleoperation via Whole Body Model Predictive Control and Online Parameter Estimation",
+   "title_ja": "全身MPCとオンライン慣性推定による高負荷ヒューマノイド遠隔操作",
+   "summary_ja": "重量工具の操作や高ペイロード運搬時に生じる重心・慣性パラメータの劇的な変動に対処する遠隔操作手法を提案。拡張カルマンフィルタ（EKF）による物理的に無矛盾なオンライン慣性推定値を剛体全身MPCにリアルタイム供給し、安定した追従を実現した。",
+   "summary_en": "This paper presents a humanoid teleoperation framework to handle substantial payload and inertia variations during heavy tool manipulation. By integrating online EKF parameter estimation with whole-body model predictive control (WB-MPC), the system continuously updates rigid-body dynamics to maintain stability and tracking.",
+   "authors": [
+    "James Foster",
+    "Beomyeong Park",
+    "Luigi Penco",
+    "Robert Griffin"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "teleoperation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.22176",
+   "image": "figures/2026-10-16/2610.22176.jpg"
+  },
+  {
+   "date": "2026-10-16",
+   "rank": 3,
+   "id": "2610.20936",
+   "group": "focus",
+   "title": "LEAP: Gradient Flow Augmented Lagrangian Trajectory Optimization for Contact Constrained Robots",
+   "title_ja": "LEAP: 接触制約ロボットのための勾配流拡張ラグランジアン軌道最適化",
+   "summary_ja": "脚ロボットやマニピュレータの摩擦錐などの接触制約を伴う最適制御問題を効率的に解く手法を提案。従来のSQP法等に代わり、PHR拡張ラグランジアンの主双対勾配流を線形陰解法で積分することで、関節数増加に対してもスケーラブルかつ頑健な解法を実現した。",
+   "summary_en": "LEAP solves non-convex optimal control problems with continuous contact and friction-cone constraints for legged and manipulating robots. Instead of standard Newton or SQP solves, it integrates a primal-dual gradient flow of an augmented Lagrangian using a stiff linearly implicit integrator, achieving robust scaling with robot degrees of freedom.",
+   "authors": [
+    "C\\'esar E. Ramos Chuquiure",
+    "Ryan Tsai",
+    "Yutong Zhou",
+    "Zihang Huang",
+    "Vansh Thakur",
+    "Akshunn Trivedi",
+    "Zachary Lin",
+    "Pearl Lin",
+    "Ruikai Yang",
+    "Challen Enninful Adu",
+    "Ram Vasudevan"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "planning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.20936",
+   "image": "figures/2026-10-16/2610.20936.jpg"
+  },
+  {
+   "date": "2026-10-16",
+   "rank": 4,
+   "id": "2610.20838",
+   "group": "focus",
+   "title": "Persistent Profile-Guided Reset-Free Recovery Improves Final Gait Selection after Irreversible Leg Damage",
+   "title_ja": "恒常的プロファイル誘導リセットフリー復元による不可逆な脚損傷後の歩行選択",
+   "summary_ja": "脚切断や関節ロックなどロボットの不可逆損傷時において、短時間の試行結果に基づく誤った歩行選択を防ぐPGRRを提案。複数回実行にわたる挙動プロファイルを予測し、ロボットを初期化（リセット）することなく安全に探査を行い、MuJoCoの108タスクで復元品質を向上させた。",
+   "summary_en": "Addressing irreversible leg damage on walking robots, PGRR avoids myopic gait selection in reset-free settings by predicting multi-execution outcome profiles. Using conservative uncertainty estimates to guide online exploratory probes without resetting, it achieves superior recovery quality across 108 MuJoCo tasks.",
+   "authors": [
+    "Minjoong Kim"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "reinforcement-learning",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.20838",
+   "image": "figures/2026-10-16/2610.20838.jpg"
+  },
+  {
+   "date": "2026-10-16",
+   "rank": 5,
+   "id": "2610.21349",
+   "group": "general",
+   "title": "CQDC-Warp: GPU-Accelerated Differentiable Quasi-Dynamic Simulation for Contact-Rich Manipulation",
+   "title_ja": "CQDC-Warp: 接触リッチな操作のためのGPU並列微分可能準動的シミュレータ",
+   "summary_ja": "接触を伴うマニピュレーション軌道計画を高速化するGPU並列微分可能シミュレータを開発。接触モードを事前に固定せず摩擦応答を解きながら、バッチモデル予測制御（MPC）により接触誘導型の勾配ベース軌道最適化をリアルタイムに実行可能にした。",
+   "summary_en": "CQDC-Warp is a GPU-accelerated differentiable quasi-dynamic simulator designed for contact-rich manipulation. It enables gradient-based trajectory optimization via batched MPC, resolving frictional contacts dynamically without prescribed contact modes to synthesize robust interaction motions.",
+   "authors": [
+    "Yanchen Ding",
+    "Jiayi Chen",
+    "Jianfeng Xu",
+    "Wei Zhao",
+    "Li Yi",
+    "He Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "planning",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.21349",
+   "image": "figures/2026-10-16/2610.21349.jpg"
+  },
+  {
+   "date": "2026-10-16",
+   "rank": 6,
+   "id": "2610.21913",
+   "group": "general",
+   "title": "Sub-Millisecond Reflexes for Continuous Physical Human-Robot Interaction",
+   "title_ja": "連続的物理的接触のためのミリ秒未満反射制御エンジン",
+   "summary_ja": "従来のROS 2制御で問題となっていたモード切り替えによる遅延を解消し、0.1ミリ秒未満での決定論的制御切り替えを実現。接触ハザードや関節可動域制限の回避反射動作をタスク中断なしに即時介入させるオープンソース基盤を構築し、実機検証した。",
+   "summary_en": "This paper presents an open-source ROS 2-compatible engine that enables sub-millisecond (under 0.1 ms) deterministic control switching. It allows continuous physical human-robot interaction by seamlessly triggering reflex behaviors for collision and limit avoidance without stopping active execution.",
+   "authors": [
+    "Jon \\v{S}kerlj",
+    "Sami Haddadin"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "control",
+    "safety",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.21913",
+   "image": "figures/2026-10-16/2610.21913.jpg"
+  },
+  {
+   "date": "2026-10-16",
+   "rank": 7,
+   "id": "2610.22340",
+   "group": "general",
+   "title": "Dexterity from Supervised Play",
+   "title_ja": "教師ありプレイからの巧緻性獲得：自律データ収集と世界モデルによるMPC",
+   "summary_ja": "数分の人間プレイデータから模倣学習したプレイ方策を用いてロボットが自律的に数時間の接触データを収集し、世界モデルを学習するDSPを提案。学習した世界モデルを用いたMPCおよびセルフプレイ蒸留により、多様で高度な接触操作スキルを獲得した。",
+   "summary_en": "DSP enables robots to learn dexterous manipulation by cloning a play policy from minutes of human play, using it to autonomously collect hours of interaction data to train a world model. The learned world model then guides MPC and distills goal-conditioned policies via internal self-play.",
+   "authors": [
+    "Botao He",
+    "Yiming Dou",
+    "Yiannis Aloimonos",
+    "Jitendra Malik",
+    "Akash Sharma",
+    "Ruoshi Liu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "manipulation",
+    "world-model",
+    "imitation-learning",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.22340",
+   "image": "figures/2026-10-16/2610.22340.jpg"
+  },
+  {
+   "date": "2026-10-16",
+   "rank": 8,
+   "id": "2610.21741",
+   "group": "general",
+   "title": "Comfortably Stuck: Evaluation Pitfalls in Bench2Drive's Closed-Loop Protocol",
+   "title_ja": "快適に停止する車両：Bench2Drive閉ループ評価プロトコルの落とし穴",
+   "summary_ja": "自動運転の有力ベンチマークBench2Driveの快適性評価メトリクスが、車両の停止時間を不当に優遇し停止時間と相関0.97を示していた欠陥を指摘。距離ベースの修正メトリクスを提案して相関を0.06に抑え、停止によるスコア詐称を排除した真の性能比較を可能にした。",
+   "summary_en": "This work identifies critical flaws in the widely used Bench2Drive autonomous driving benchmark, where the comfort metric heavily rewarded vehicle immobility (correlation r=0.97 with stationary time). A proposed distance-based metric reduces this correlation to r=0.06, providing an unskewed evaluation of driving models.",
+   "authors": [
+    "Thomas Schwarzfischer",
+    "Emad Aghajanzadeh",
+    "Moritz Thoma",
+    "Nael Fasfous",
+    "Manoj Rohit Vemparala",
+    "Pierpaolo Mori",
+    "Daniel Mueller-Gritschneder",
+    "Ulf Schlichtmann"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "autonomous-driving",
+    "benchmark",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.21741",
+   "image": null
+  },
+  {
+   "date": "2026-10-16",
+   "rank": 9,
+   "id": "2610.21389",
+   "group": "general",
+   "title": "Fast-VLA: You Only Think Once for Robot Manipulation",
+   "title_ja": "Fast-VLA: 思考は一度きりとするロボット操作向け軽量推論手法",
+   "summary_ja": "推論ループ内で数十億パラメータのVLMを毎回再実行する計算冗長性を解消するFast-VLAを提案。エピソード開始時に4B規模のVLMを1度だけ呼んでタスクメモリを固定生成し、制御時は軽量なオンラインアクターのみを高速動作させて高レートな動作予測を実現した。",
+   "summary_en": "Fast-VLA reduces the inference latency of vision-language-action policies by querying a 4B VLM only once per episode to build a persistent key-value task memory. A lightweight online actor then generates action chunks at high frequency using sensory feedback and the cached memory without re-running the foundation model.",
+   "authors": [
+    "Kehong Gong",
+    "Guanli Hou",
+    "Xiaoxu Zheng",
+    "Qi Wang",
+    "Mingxi Xu",
+    "Anbang Zhai",
+    "Xiaoyu He",
+    "Mingyuan Zhang",
+    "Michael Bi Mi"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.21389",
+   "image": "figures/2026-10-16/2610.21389.jpg"
+  },
+  {
    "date": "2026-10-15",
    "rank": 0,
    "id": "2610.18991",
