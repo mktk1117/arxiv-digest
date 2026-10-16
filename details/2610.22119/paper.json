@@ -1,0 +1,137 @@
+{
+ "title_ja": "Compliant GMT: 残差参照適応による全身運動追従のコンプライアント化",
+ "tldr_ja": "大規模データで学習した人型ロボットの汎用動作追従（GMT）に対し、固有感覚から動作参照値を微修正する残差アダプターを追加することで、高い動作再現性を保ったまま安全でしなやかな全身コンプライアンス制御を実現しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "C-GMTの学習と実機運用の全体フローです。学習時は外力と目標剛性から逆運動学（IK）で柔軟な動作参照を作る特権教師の振る舞いを、固有感覚履歴のみを入力とする残差アダプターへ蒸留します。展開時は力センサを使わずに参照トークンへ残差を加えるだけで全身の柔軟な応答を生成します。",
+  "caption": "Fig. 2: Overview of C-GMT training and deployment. During training, a privileged teacher generates compliant references from external force and stiffness commands, which are distilled into a proprioceptive residual adapter on top of a force-robust GMT. At deployment, the same adapter modifies the motion reference using only proprioceptive observations and the commanded stiffness.",
+  "image": "details/2610.22119/F2.jpg"
+ },
+ "overview_ja": "人型ロボットを人間の生活空間で活躍させるには、多様で俊敏な動きをこなすだけでなく、人や環境と接触した際に怪我や破損を防ぐ「しなやかさ（コンプライアンス）」が欠かせません。しかし従来の動作追従ポリシー（GMT: General Motion Tracker）は、指令された関節軌道を頑固に守るように学習されているため、予期せぬ接触があると無理に元の位置へ戻ろうとして過大な力を出してしまいます。一方で、柔軟制御を重視した先行研究は単一の動作に限定されていたり、柔軟に応答できるのが上半身だけだったりと、汎用性と全身の柔軟性の両立が困難でした。\n\nそこで著者らは、「動作追従そのものを変えるのではなく、追従させる目標動作のほうを外力に応じてリアルタイムにずらせばよい」というアイデアに着目しました。具体的には、外乱に耐える頑健なベース追従器を固定した上で、関節角度などの固有感覚の履歴から動作参照値の修正量を予測する軽量な「残差アダプター」をアドオンする枠組み「Compliant GMT (C-GMT)」を提案しました。\n\n評価では、シミュレーションと実機Unitree G1を用い、歩行や激しいダンス、テレオペレーション、視覚言語行動（VLA）モデルとの連携などを検証しました。その結果、C-GMTは従来の硬い追従器と同等の高い追従精度を維持したまま、接触時の衝撃力を劇的に緩和し、強い外力が加わっても全身を協調させてバランスを崩さずに作業を完遂できることを実証しました。",
+ "contributions_ja": [
+  "汎用動作追従ポリシーの潜在空間に残差アダプターを組み合わせることで、単一ポリシーによる全身コンプライアンス制御を初めて実現した点。",
+  "外力情報と全身IKを用いる特権教師から、固有感覚（内界センサ）のみで動作する残差アダプターを効率よく学習・蒸留する枠組みを確立した点。",
+  "柔軟動作時に発生しやすい不要な関節振動を抑制する、新しい2種類の防振損失（Anti-Oscillation Loss）を考案した点。",
+  "実機Unitree G1において、激しいダンス中の接触回避、全身を使った荷物押し引きテレオペ、外乱下でのVLAタスク成功率の大幅向上を実証した点。"
+ ],
+ "sections": [
+  {
+   "heading": "II INTRODUCTION",
+   "heading_ja": "なぜ人型ロボットの「硬い追従」は問題で、どう解決するのか？",
+   "summary_ja": "大規模なモーションキャプチャデータで学習した動作追従器は多彩な動作を高精度に再現できますが、接触時にも硬く追従し続けるため危険です。先行研究では汎用性とコンプライアンスがトレードオフになっていましたが、本研究は参照軌道を適応させる残差アダプターによって両者の両立に成功しました。",
+   "details_ja": "人型ロボットを人間社会へ導入する上で、多様で俊敏な運動性能と、人間や環境と安全に接触できる柔軟性を両立させることは最重要課題の一つです。近年の人型ロボット制御では、大規模な人間の動作データ（MoCap）を模倣学習した汎用動作追従器（GMT）が標準的なアプローチになっています。しかし、従来のGMTは外乱を力づくで跳ね返す「硬い」制御器として学習されているため、物理接触が起きた際にも元の軌道へ強引に戻ろうとし、過大な接触力を生み出して自身や周囲を破損させる危険がありました。\n\nこの問題を解決するコンプライアンス制御の研究はこれまでにも行われてきましたが、全身協調して柔軟に応答できるものは「直立などの単一動作専用」であったり、全身追従できるものは「上半身しか柔軟に応答しない」といった制約を抱えていました。追従・バランス維持・外力推定・柔軟応答のすべてを1つのニューラルネットワークに最初から同時に学ばせようとすると、学習時間が膨大になり、報酬設計も極めて難しくなるからです。\n\nここでの核心となる着想は、「接触に耐える頑健な動作追従器」と「目標動作を柔軟にずらす残差アダプター」への役割分担です。外力に応じて参照軌道を生成する解析的な教師（特権教師）を用意し、その挙動を固有感覚（関節位置や速度の履歴）から予測するアダプターへと蒸留することで、単一のモデルで高精度な汎用動作追従と全身コンプライアンスの両立を実現しました。",
+   "figures": []
+  },
+  {
+   "heading": "II RELATED WORK",
+   "heading_ja": "既存の動作追従と柔軟制御の限界、そして残差アプローチの強み",
+   "summary_ja": "従来の汎用追従器は硬すぎる接触挙動を生み、既存の強化学習ベースのコンプライアント制御は汎用性を犠牲にしていました。C-GMTは、既存の追従器を固定して上流の運動参照を残差修正するアーキテクチャを採用することで、両者のいいとこ取りを果たしています。",
+   "details_ja": "### II-A General Motion Tracking（汎用動作追従の現状）\n強化学習とSim-to-Real技術の進展により、MoCapデータから多彩な運動を再生できる汎用動作追従器（GMT）が急速に発展しました。GMTは遠隔操作の実行エンジンや、視覚言語行動（VLA: Vision-Language-Action）モデルの低レベル運動実行部として広く使われています。しかし既存のGMTは硬い位置追従を行うため、高位の計画器に遅延や誤差があったり未知の接触が生じたりすると、制御不能な過大トルクを発生させてしまいます。\n\n### II-B Learned Compliant Humanoid Control（学習型柔軟制御の系譜）\nロボットをバネ・マス・ダンパ系に見立てて外力に応じた軌道を生成するインピーダンス制御は古典的ですが、二足歩行ロボットでは転倒防止とのバランスが極めて困難です。先行研究のGentleHumanoidやCHIPは汎用追従を扱えるものの柔軟な応答は上半身に限られ、SoftMimicは全身協調の柔軟応答ができるものの単一の動作ごとに別ポリシーをゼロから学習する必要がありました。C-GMTは「全身協調の柔軟応答」と「任意の動作への汎用追従」を初めて両立させました。\n\n### II-C Residual Models for Humanoid Robotics（残差モデルの適用）\n基礎となる学習済みGMTを壊さずに機能拡張する手段として、残差学習（Residual Learning）は非常に魅力的です。先行研究では外力センサなしで環境特性を推定するために、関節位置や速度の履歴から特権情報を蒸留する手法が用いられてきました。C-GMTもこの流れを汲み、固有感覚履歴から目標動作トークンへの残差を予測する軽量アダプターを採用しています。",
+   "figures": []
+  },
+  {
+   "heading": "III METHODS",
+   "heading_ja": "C-GMTの仕組み: 特権教師の設計、潜在トークン修正、そして防振損失",
+   "summary_ja": "強固なベース追従器を外力負荷に耐えるよう事前調整し、その上でバネ則と全身IKによる特権教師の挙動を、固有感覚を入力とする軽量残差アダプターへ蒸留します。さらに、柔軟応答に伴う関節の不快な振動を抑える2つの新しい損失関数を導入しています。",
+   "details_ja": "### III-A Force-Robust General Motion Tracker（外乱に負けない追従器の構築）\nベースとなる動作追従器には、運動を離散的な潜在トークン（FSQ: Finite Scalar Quantization）に量子化して表現するSONICを採用しました。元のSONICは腕への持続的な負荷を想定していないため、手先に最大 $2\\,\\mathrm{kg}$ の重りや $10$ 〜 $30\\,\\mathrm{N}$ の持続外力を加えるカリキュラム学習を行い、デコーダをファインチューニングしました。失敗率の高いクリップの外力を自動調整する負荷スケール $\\mu_c$ を導入することで、無理な姿勢での学習破綻を防ぎ、高負荷でも指定姿勢をキープできる強固な追従器を作りました。\n\n### III-B Compliant Teacher and Feasibility Tuning（特権教師と実現可能性スイープ）\n手先に加わる真の外力 $\\mathbf{F}_i$ と指令剛性 $K_t^{\\mathrm{cmd}}$ から、フックの法則 $\\Delta \\mathbf{x} = \\mathbf{F}_i / K_t^{\\mathrm{cmd}}$ で手先の目標変位を計算します。そして、足位置の維持と重心（CoM）制御を優先した二次計画法（QP）ベースの全身逆運動学（IK）を解き、倒れずに外力へ屈する全身姿勢を解析的に算出します。4096種類の動作クリップと8方向の外力についてシミュレーションスイープを行い、ロボットが転倒しない安全な外力上限を事前に特定しました。\n\n### III-C Residual Adapter Architecture（残差アダプターの構造）\nアダプターは過去10ステップ（約0.2秒分）の固有感覚履歴、現在の動作トークン $z$、指令剛性の対数 $\\log k$ を受け取る軽量なMLPです。量子化の境界跨ぎによるカクつきを防ぐため、残差補正 $\\Delta z$ はFSQ量子化の「直後」に加算されます。また、外力がないときにゼロを出力しやすくするゲーティング機構と、微小な変動をカットするデッドバンド（しきい値 $0.005$）、手先外力を推定する補助ヘッドを備えています。\n\n### III-D Residual Adapter Training & Anti-Oscillation Loss（学習と防振損失）\n特権教師の出力アクションとトークンを模倣するよう蒸留します。学習初期は教師の軌道、後半は生徒自身の予測誤差を含んだ軌道（Student-driven）を使うことで、共変量シフトに強いアダプターに仕上げます。\nここで問題となったのが、柔軟に応答させようとすると関節が細かく振動してしまう現象です。単純なめらかさペナルティを強めると柔軟性まで損なわれてしまうため、関節速度の変化と残差アクションの変化の同調を罰する2つの「防振損失」を導入しました。ダイナミックな大振幅の振動を抑える非正規化損失 $\\mathcal{L}_{\\mathrm{osc}}$ と、静止付近の微小なジッターを捉える正規化・5ステップ間隔の損失 $\\mathcal{L}_{\\mathrm{norm\\_osc}}$ を組み合わせることで、しなやかな降伏動作とピタッと止まる安定性を両立させました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "C-GMTのアーキテクチャと学習パイプラインです。特権教師は真の外力と剛性指令からIKを用いて柔軟な参照動作を生成し、生徒である残差アダプターは固有感覚履歴のみからその修正量を学習します。最終的にベース追従器は固定のまま、アダプターを差し込むだけで柔軟制御が可能になります。",
+     "caption": "Fig. 2: Overview of C-GMT training and deployment. During training, a privileged teacher generates compliant references from external force and stiffness commands, which are distilled into a proprioceptive residual adapter on top of a force-robust GMT. At deployment, the same adapter modifies the motion reference using only proprioceptive observations and the commanded stiffness.",
+     "image": "details/2610.22119/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV EXPERIMENTS AND RESULTS",
+   "heading_ja": "実機G1とシミュレーションで実証: 正確な剛性、激しいダンス中の接触低減、そして全身協調",
+   "summary_ja": "設定した剛性に正確に追従し、非接触時の動作追従精度を落とさないことを確認しました。さらに壁際でのダンス動作における衝突力の半減、手先を押し下げられた際に膝を曲げて耐える全身協調動作、そして外乱下でのVLAタスク成功率の大幅な向上をシミュレーションおよび実機で実証しました。",
+   "details_ja": "### IV-A C-GMT accurately tracks compliance levels（剛性指令への忠実性）\n立位姿勢で手先に力を加え、指令剛性（$40$ 〜 $600\\,\\mathrm{N/m}$）に対して実際に生じる変位から実効剛性を測定しました。C-GMTは全領域で指令値と極めて良好な比例関係を示し、立位専用に単一学習されたSoftMimicと同等精度のコンプライアンスを達成しました。\n\n### IV-B C-GMT is an accurate general motion tracker（名目追従性能の維持）\n外力がない通常時において、LAFAN1データセット（歩行12クリップ、動的動作17クリップ）の追従性能を評価しました。C-GMTは元のSONICと遜色ない局所追従精度（MPJPE約 $17\\,\\mathrm{mm}$）を維持し、TWIST2やGentleHumanoidを大きく上回る成功率（動的動作で100%）を記録しました。剛性を $k=100$ から $k=300$ に変えても追従精度はほぼ一定であり、アダプターがロボット自身の自己運動と外部接触を正しく区別できていることが分かります。\n\n### IV-C C-GMT enables safe interaction during dynamic motions（動的動作中の安全性）\n壁のすぐ横でロボットに激しいダンス動作を再生させる実験を行いました。従来のSONICは壁を強く叩いて反発し、TWIST2に至っては $250\\,\\mathrm{N}$ を超える衝撃力で弾き飛ばされました。一方、C-GMT（$k=60\\,\\mathrm{N/m}$）は接触を検知すると手先をしなやかに引っ込め、接触力を約 $50\\,\\mathrm{N}$ 以下に抑えつつダンスを継続しました。実機G1でも同様に、激しく踊っている最中に人間が腕を引っ張ったり壁にぶつかったりしても、転倒せず安全にいなす様子が確認されました。\n\n### IV-D C-GMT is robust to external disturbances（全身協調と高位タスクへの貢献）\n- **全身協調による踏ん張り**: 手先を下向きに強く引っ張る実験では、上半身しか柔軟性を持たないGentleHumanoidは膝を曲げられずに $110\\,\\mathrm{N}$ で転倒しました。対するC-GMTは、SoftMimicと同様に膝を深く曲げてスクワット姿勢を取り、全身で外力を分散させて耐え抜きました。\n- **遠隔操作とVLAの頑健化**: 実機テレオペでは、ドア開けやホワイトボード拭き、椅子を引く動作など、操作者が細かな接触力を知覚できない環境でも滑らかに追従しました。また、箱を持ち上げるタスクを学習させたVLAモデル（GR00T）との統合実験では、歩行中に $60\\,\\mathrm{N}$ の横引っ張り外乱を受けた際、SONICはよろめいて箱に衝突しタスクに失敗したのに対し、C-GMTは外力にしなやかに身を任せつつ歩調を整え、復帰して把持を成功させました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "壁際で激しいダンス動作を再生したときの接触力（a）と衝突後の姿勢（b）の比較です。TWIST2は250N以上の衝撃を出して吹き飛び、SONICも強く壁を押し返しますが、C-GMTは接触力を低く抑えて壁に寄り添うように安全に追従を継続しています。",
+     "caption": "Fig. 4: C-GMT reduces collision forces even during highly dynamic motions. We place the robot next to a wall and play a dancing motion clip. In (a), we plot the contact force of the robot’s hand on the wall over time and observe that C-GMT reduces the interaction force. In (b), we show post-impact snapshots and observe that C-GMT yielded to the contact, remaining in the same position and continuing to track the motion. Both SONIC and TWIST2 push themselves away from the wall.",
+     "image": "details/2610.22119/F4.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "手先を下向きに引っ張った際の下半身の協調動作の比較です。上半身のみが柔軟なGentleHumanoidは膝を曲げられず110Nで転倒しますが、C-GMTとSoftMimicは膝を曲げてしゃがみ込み、全身で力を受け流して安定を保ちます。",
+     "caption": "Fig. 6: Full-body compliant responses improve robustness. We exert an increasing downward force on the standing robot’s hand. C-GMT and SoftMimic squat down to fully comply with the force, while GentleHumanoid never bends its knees and eventually falls under a strong force.",
+     "image": "details/2610.22119/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "実機Unitree G1を用いた接触リッチな遠隔操作の様子です。ドアノブを回して開ける、ホワイトボードを拭く、歩きながら椅子を引きずる、バランスボールを抱えるなど、操作者が接触反力を感じ取れない状況でもアダプターが誤差を吸収して安定して実行できます。",
+     "caption": "Fig. 7: Compliance enables contact-rich teleoperation like opening a door, wiping a whiteboard, dragging a chair while walking, and holding a rubber ball. C-GMT is robust to inevitable operator error when contact dynamics are unknown and imperceivable to the operator.",
+     "image": "details/2610.22119/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "VLA（GR00T）による箱運搬タスク実行中に外乱が加わった際の比較です。SONICは外乱に逆らって前のめりによろめき箱を突き飛ばして失敗しますが、C-GMTは外力に柔軟に追従したあと姿勢を立て直し、無事に箱を持ち上げることができます。",
+     "caption": "Fig. 8: Compliance improves robustness while executing high-level policy commands. While rolling out a VLA, an unexpected force is applied to the robot. C-GMT complies, recovers, and completes the task successfully, but SONIC is pulled off-course, stumbles forward, collides with the box, and fails to pick it up.",
+     "image": "details/2610.22119/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V CONCLUSION",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "C-GMTは、既存の追従器を活かしつつ全身コンプライアンスを実現するモジュール型の枠組みです。今後は手先以外の全身リンクへの接触対応や、状況に応じた剛性の自動調節が高位ポリシーの課題となります。",
+   "details_ja": "本論文では、学習済みの汎用動作追従器に残差参照適応を組み合わせることで、高い動作追従精度と全身協調コンプライアンスを両立させた「Compliant GMT (C-GMT)」を提案しました。従来の「単一動作しかできない」あるいは「上半身しか柔らかくならない」という二者択一の限界を打ち破り、激しい動的動作中でも安全に力を受け流せることを実証しました。さらに、テレオペレーションの操作性向上やVLAタスクの耐外乱性強化など、実用面でも極めて有益な特性を示しています。\n\n今後の課題としては、現状では主に手先（手首）を中心とした外乱設計になっているため、膝や背中など全身の任意のリンクに接触があった場合への拡張が挙げられます。また、現在は指令剛性 $k$ を人間が外部から指定していますが、作業内容や周囲の環境コンテキストに応じて、高位の視覚モデルや言語モデルが最適な剛性を自律的に決定・調整できるようにしていくことが期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録: 実装と学習のハイパーパラメータ詳細",
+   "summary_ja": "Isaac Labとmjlabを用いた2段階の学習環境設定、全身IKの重み配分、ネットワーク構成、および外力急増時の参照動作一時停止処理などの実機展開ノウハウが詳しく記載されています。",
+   "details_ja": "### A-A & A-B Force-Robust Trackerと特権教師の設定\nロバスト追従器はIsaac Lab上でBONES-SEEDデータセットを用い、H200 GPU 3基で5日間学習されました。手先に加える外力は2〜4秒ごとに方向と大きさを更新し、許容外力バジェットを $10\\,\\mathrm{N}$ から $30\\,\\mathrm{N}$ まで徐々に増やしています。特権教師の全身IKでは、手先変位の追従重みを10.0、足配置を10.0、重心（CoM）維持を5.0、名目姿勢への正則化を0.1とする二次計画法を解いています。\n\n### A-C & A-D 残差アダプターの構造と学習パラメータ\nアダプターは隠れ層 $[512, 256]$ のMLPで、ELU活性化関数を使用しています。残差ヘッドはtanhで初期値をゼロに設定し、学習初期の追従器の挙動を乱さない工夫がなされています。学習にはmjlab（MuJoCo-Warp）を使用し、H100 GPU 4基で2日間蒸留を行いました。外力は最大 $140\\,\\mathrm{N}$ まで、剛性は $40$ 〜 $600\\,\\mathrm{N/m}$ の対数一様分布でサンプリングされています。\n\n### A-E 実機展開時の工夫（安全停止ロジック）\n実機Unitree G1の制御にはRTX 3080搭載のノートPCを使用し、アダプターとGMTを $50\\,\\mathrm{Hz}$ で同期実行しています。動作再生中に過大な外力との予期せぬ相互作用で不安定化するのを防ぐため、推定外力の指数移動平均（EMA）が剛性依存のしきい値を超えた場合、参照モーションのタイムステップ進行を一時停止（ポーズ）し、外力が去ったら自動再開する実用的なフェイルセーフが組み込まれています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "動作追従ポリシーを最初から柔軟に学習させるのではなく、「強固な追従器」＋「参照軌道の潜在残差修正」に分解することで、学習の安定性と高い汎用性が両立できる。",
+  "全身IKとバネ則を用いた特権教師を用意すれば、物理的な実現可能性を事前にシミュレーション検証した上で、内界センサのみの生徒モデルへ安全に蒸留できる。",
+  "コンプライアンス制御に伴う不要な高周波振動や微小ジッターは、残差アクション変化と関節速度変化の相関を罰する2種類の防振損失（Anti-Oscillation Loss）で効果的に抑え込める。",
+  "低レベル制御器に全身コンプライアンスを持たせることは、上位のテレオペレーションやVLAモデルの接触耐性を高め、実環境でのタスク成功率を大きく引き上げる。"
+ ],
+ "limitations_ja": [
+  "外力の作用点として主に手先（両手首）を想定して設計・検証されており、胴体や脚部への直接接触に対する適応はまだ限定的である点。",
+  "目標剛性パラメータ（k）は外部から手動で与える必要があり、環境やタスクの文脈に応じた自動調整は上位ポリシー側の今後の課題である点。",
+  "強い外力に対して屈する方向はIKの定式化（重心維持と足位置維持の優先）に強く依存しており、踏み出し（ステッピング）による転倒回避行動までは統合されていない点。"
+ ],
+ "keywords": [
+  "Humanoid Whole-Body Control",
+  "General Motion Tracking",
+  "Compliance Control",
+  "Residual Reinforcement Learning",
+  "Teacher-Student Distillation",
+  "Vision-Language-Action Models"
+ ],
+ "id": "2610.22119",
+ "title": "Compliant GMT: Making General Motion Tracking Compliant via Residual Reference Adaptation",
+ "authors": [
+  "Venki Parsuram",
+  "Michelle Wang",
+  "Jin-Hyuk Hong",
+  "Pulkit Agrawal"
+ ],
+ "date": "2026-10-16",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "control",
+  "imitation-learning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.22119",
+ "pdf_url": "https://arxiv.org/pdf/2610.22119",
+ "summary_ja": "ヒューマノイドの全身運動追従（GMT）方策は剛直に学習され、外乱に対する接触安全性が損なわれがちであった。本研究は残差参照適応を導入し、多様な動作の汎用的な追従性能を維持しながら、接触力に対して受動的かつ安全に適応するコンプライアントな全身制御を実現した。",
+ "generated": "2026-10-16",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.22119"
+}
