@@ -1,0 +1,133 @@
+{
+ "title_ja": "Fast-VLA: 思考は一度きりとするロボット操作向け軽量推論手法",
+ "tldr_ja": "巨大な視覚言語モデル（VLM）の実行をエピソード開始時の1回だけに限定し、得られたタスクメモリを軽量なオンラインアクターが参照することで、高精度な閉ループ制御を保ちながら推論時間を最大17倍以上高速化しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "Fast-VLAの性能とアーキテクチャの概要です。(a)では他手法と比較して高い成功率を維持しつつ推論時間とメモリ使用量を劇的に削減していることが分かります。(b)ではエピソード開始時に凍結VLMがタスクメモリを一度だけ生成し、以降は軽量なオンラインアクターが現在観測をもとにアクションを生成する二段階の仕組みが示されています。",
+  "caption": "Figure 1: Fast-VLA thinks once per episode. (a) Success versus amortized inference latency on RoboTwin 2.0; bubble area denotes online resident memory and colour denotes method family. (b) A frozen 4B vision–language model (VLM) encodes the instruction and initial multi-view frames into fixed, layer-wise KV task memory once at episode start. At every action chunk, the online actor uses live observations and robot state to query this memory and predict 50 absolute joint commands without re-running the VLM.",
+  "image": "details/2610.21389/F1.jpg"
+ },
+ "overview_ja": "近年のロボット制御では、大規模な事前学習済み視覚言語モデル（VLM）を活用したVLA（Vision-Language-Action）モデルが注目を集めています。しかし従来の多くの手法は、ロボットが数歩動くたび（アクションチャンクごと）に数十億パラメータのVLM全体を再実行していました。人間が作業するとき、全体のタスク目標を一度理解すれば、あとは手元の視覚や触覚のフィードバックに合わせて素早く手を動かすだけで、毎瞬タスクの意味を一から考え直したりはしません。この「タスク理解」と「リアルタイム制御」の時間スケールの違いに着目したのが本論文です。\n\n著者らは「You Only Think Once（思考は1回だけでいい）」という発想のもと、Fast-VLAを提案しました。エピソードの開始時に、凍結された4B（40億パラメータ）のVLMへ指示文と初期カメラ画像を入力し、全34層のKey-Value（KV）キャッシュを「固定タスクメモリ」として保存します。以降の制御ループから巨大なVLMは完全に退場し、実行時は軽量なオンラインアクターだけが動きます。オンラインアクターは、現在のカメラ画像や関節状態からアクションクエリを作成し、固定タスクメモリから必要な情報を引き出して一撃でアクションチャンクを予測します。\n\n二腕ロボットベンチマークのRoboTwin 2.0やLIBEROで検証したところ、従来のVLAモデルと同等以上の成功率（RoboTwin 2.0で約92.4%）を達成しました。さらに、同じハードウェア上で比較したところ、1ステップあたりの推論時間を10.9〜17.1倍も短縮し、実行時の常駐メモリもわずか1.22 GiBに抑えられることを実証しました。",
+ "contributions_ja": [
+  "タスク理解とリアルタイム制御を分離し、凍結した4B VLMの推論をエピソード開始時の1回のみに限定するエピソードレベルのVLAアーキテクチャを提案したこと。",
+  "現在の視覚・固有受容感覚フィードバックと学習済みクエリを融合し、多層の固定タスクメモリから文脈を引き出して1パスで行動を予測する軽量オンラインアクターを開発したこと。",
+  "RoboTwin 2.0、LIBERO、LIBERO-Plusにおいて高い成功率を維持しながら、従来手法に比べて推論時間を10.9〜17.1倍高速化し、メモリ使用量を1.22 GiBまで削減できることを実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "巨大VLMを制御ループの外へ！「1回だけ考える」Fast-VLA",
+   "summary_ja": "従来のVLAモデルは動作を予測するたびに巨大なVLMを実行しており、計算コストが大きな課題でした。人間が作業前に目標を理解し、作業中は感覚フィードバックのみで素早く動くことに着想を得て、タスク理解を最初の1回だけに限定するFast-VLAを提案しています。",
+   "details_ja": "大規模な事前学習済みVLMをロボット制御に統合したVLAモデルは、多様な指示や環境に対して柔軟に適応できる強力な枠組みです。しかし、既存のモデルの多くは制御周期ごとに数十億パラメータのバックボーンを再実行しています。ロボットがリアルタイムに環境を観察して動作を微修正する必要がある一方で、与えられたタスク指示や大局的な目標はエピソードを通じてほとんど変化しません。「毎ステップ、巨大なVLMでタスクを最初から考え直す必要があるのか？」という疑問が研究の出発点です。\n\n人間が物を操作するとき、まず何をするかを把握し、対象物を特定してから手を伸ばします。手先を動かしている最中は、目や手の感覚フィードバックに応じて動作を調節しますが、指先を動かすたびにタスク全体の意味を再解釈することはありません。つまり、大局的な「タスク理解」は低頻度で安定しており、「低レベル制御」は高頻度で環境変化に応答するという、2つの異なる時間スケールが存在します。\n\nそこで著者らは、エピソード開始時に1回だけ思考するFast-VLAを開発しました。凍結した4B規模のVLMに初期画像と指示文を入力し、Transformerの全層にわたるKey-Valueテンソルを固定の「タスクメモリ」として保存します。その後、VLMは制御ループから完全に外されます。実際の動作実行時は、軽量なオンラインアクターが現在のカメラ画像や関節角度（固有受容感覚）を受け取り、動的にクエリを生成して固定タスクメモリを参照します。これにより、環境変化に即座に応答する閉ループ制御の即応性を保ったまま、圧倒的な推論の高速化とメモリ削減を実現しました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "計算効率化の系譜とFast-VLAの独自性",
+   "summary_ja": "従来の高速化手法はアクション生成の並列化やキャッシュによる部分再計算が主流でした。Fast-VLAはバックボーンの呼び出し頻度そのものに着目し、VLMを制御ループから完全に排除する点で一線を画しています。",
+   "details_ja": "### 効率的なVLAポリシー\n汎用的なVLAモデルは、VLMの表現力とアクション生成機構（自己回帰トークン、フローマッチング、専用アクションヘッドなど）を組み合わせて構築されます。最近の研究では、連続アクションの並列デコードやアクションチャンキング（複数ステップの行動を一括予測する手法）、コンパクトなアクションのトークン化によって計算コストを下げる試みが進んでいます。しかしこれらはアクション生成側の工夫であり、依然として新しい観測が来るたびに巨大なVLMバックボーンを回し続けています。これに対しFast-VLAは、バックボーンの呼び出し頻度そのものをエピソードあたり1回に減らす点に根本的な違いがあります。また、指示や初期画像から小型ポリシーの重みを動的に生成するHyperVLAのようなアプローチとも異なり、オンラインアクター自体は共通の重みを使い、明示的な多層KVメモリとしてタスク文脈を保持する設計をとっています。\n\n### 制御ステップ間での計算再利用\n隣接フレーム間で変化の少ないトークンの表現を再利用するVLA-Cacheや、動画生成を省いて軽量化する世界モデル系アプローチ（WAM）なども提案されています。しかし、これらも依然として巨大な視覚モデルや動画バックボーンを毎ステップの制御ループ内に残しています。Fast-VLAは状態推定や視覚フィードバックの処理をすべて軽量なオンラインアクターに任せ、巨大モデルを完全にループ外へ追放するアプローチをとっています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "固定タスクメモリと軽量オンラインアクターの連携メカニズム",
+   "summary_ja": "凍結された4B VLMが初期画像と指示文から34層分のKVタスクメモリを生成します。実行時はDINOv2を用いた軽量アクターが、現在のカメラ画像・ロボット状態からアクションクエリを作り、固定メモリと交差アテンションを行って行動チャンクを一撃で予測します。",
+   "details_ja": "### 3.1 概要\nFast-VLAは「タスクメモリ構築」と「オンラインアクターによる制御」の2段階に明確に分かれています。エピソード開始時、指示文 $L$ と初期マルチカメラ画像 $I_0$ から固定タスクメモリ $M$ を生成します。その後の制御ループでは、現在の観測画像 $I_t$、関節状態（固有受容感覚）$q_t$、および短い画像履歴 $H_t$ からオンライン入力表現 $Z_t$ を抽出し、これと固定タスクメモリ $M$ を組み合わせて $K$ ステップ先までのアクションチャンクを一括予測します。\n\n### 3.2 エピソードレベルのタスクメモリ\nタスクメモリの生成には、凍結されたDM0.5（4BパラメータのVLM）を使用します。ここで工夫されているのが、Transformerの最終層だけでなく、全34層のKeyとValueのテンソルをすべて保持することです。これにより、後段のアクターが浅い層の低レベル視覚特徴から深い層の意味的文脈まで、必要に応じた深さの情報を柔軟に引き出せるようになります。\n\n### 3.3 オンラインアクター\n実行時に毎ステップ動作するオンラインアクターは、以下のモジュールで構成されます。\n- **ライブ入力と視覚エンコーダ**: 頭部カメラ画像、左右の手先（リスト）カメラ画像、および短い過去フレームを処理します。各カメラにはファインチューニング可能な独立したDINOv2エンコーダを配置しています。\n- **クエリ融合（Query Fusion）**: 未来の各時間ステップ $\\tau$ と左右のアーム $a$ ごとに用意された学習可能なクエリを用意します。これに各アームの7次元の関節状態と、手先カメラのCLSトークン（大域的な画像特徴）をMLPで結合したフィードバックを、ゲート付き残差接続で融合します。これにより、同じ固定タスクメモリを参照する場合でも、腕の現在位置や手元の状況に応じて全く異なる「問い（アクションクエリ）」を作ることができます。\n- **アクションデコーダ**: 4層のデコーダ構造を持ち、各層は「Self-Attention（時間と両腕の調整）」「Cross-Visual（現在の視覚トークンの読み込み）」「Cross-Memory（固定タスクメモリからの検索）」「FFN」の順に処理します。Cross-Memory部分ではアダプタを導入し、デコーダ層ごとにどのVLM層のKVメモリを重視するかを学習可能なスコアで重み付け統合します。最後に線形のアクションヘッドにより、拡散モデルなどの反復サンプリングを行わず、わずか1回の順伝播で50ステップ分の関節目標値（$50 \\times 14$次元）を出力します。\n\n### 3.4 学習と推論\nVLMバックボーンは完全に凍結されているため、学習データセットに対するタスクメモリのKVキャッシュは事前にすべてオフラインで計算・保存しておけます。そのため、アクター側のDINOv2エンコーダとデコーダのみを正規化アクションに対する $\\ell_1$ 損失で効率的に学習できます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "Fast-VLAの全体構造です。上段の凍結DM0.5 VLMが初期画像と指示文から34層のKVタスクメモリを一度だけ生成します。下段のオンラインアクターでは、アーム状態と手先カメラ特徴を学習済みクエリに融合し、現在の視覚トークンおよび固定タスクメモリを参照して50ステップのアクションチャンクを出力します。",
+     "caption": "Figure 2: Memory-conditioned online control in Fast-VLA. A frozen VLM constructs layer-wise KV task memory from the instruction and initial views once per episode. In the online actor, query fusion combines learned queries with arm state and wrist-view CLS tokens to form action queries. The action decoder reads visual tokens from current and historical views and retrieves task context from the fixed memory. The action head predicts a 50-step bimanual action chunk.",
+     "image": "details/2610.21389/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "17倍の高速化と高い操作性能を両立！多様な検証で示された実力",
+   "summary_ja": "RoboTwin 2.0やLIBEROベンチマークで評価を行いました。Fast-VLAは92%以上の高い成功率を維持しつつ、同等性能のベースラインに対して10.9〜17.1倍の高速化を達成し、固定メモリの有効性とアテンションの動的な変化が確認されました。",
+   "details_ja": "### 4.1 RoboTwin 2.0での性能と推論コスト\n二腕ロボットのベンチマークRoboTwin 2.0（Clean環境および背景や物体を変化させたRandomized環境）で評価しました。Fast-VLAはCleanで92.46%、Randomizedで92.40%（平均92.43%）という極めて高い成功率を達成しました。同じハードウェア環境での実測比較において、90%以上の成功率を持つ既存ベースラインと比較して、初回VLM呼び出しを含めた1ステップあたりの償却推論時間を10.9〜17.1倍高速化しました。例えばDM0.5と比較すると成功率の差はわずか1.02ポイントでありながら11.2倍高速であり、Faster-WAM（HUST）に対しては0.09ポイント差で10.9倍高速です。さらに、実行時の常駐メモリはわずか1.22 GiB（固定タスクメモリ自体は174.6 MiB）に抑えられています。\n\n### 4.2 LIBEROおよびLIBERO-Plusでの検証\n単腕タスクのLIBEROスイートでも評価を行いました。Fast-VLAは標準LIBEROで95.95%、外乱を加えた頑健性評価のLIBERO-Plusで79.11%を記録しました。Faster-WAM（HUST）と比較してLIBERO-Plusで5.54ポイント上回りつつ21.2倍高速でした。\n\n### 4.3 定性的な観察と視覚的グラウンディング\nタスクメモリを更新しなくても、ロボットは途中の状態変化にしっかり対応できています。ブロック積みタスクのアテンション可視化では、左腕から右腕へ制御が移るタイミングで、頭部カメラのアテンションが赤ブロックから緑ブロックへと自律的にシフトしている様子が確認されました。固定メモリを参照していても、入力される手先の観測が変わることで、現在アクティブなサブゴールに注意が向くようになっています。\n\n### 4.4 アブレーション研究と分析\n- **タスクメモリへの依存性**: テスト時にタスクメモリを他エピソードのものと差し替える実験を行ったところ、同じタスクの別エピソードのメモリに差し替えるだけで成功率が6.26%に暴落しました。アクターが初期状態に特化したメモリを正確に利用している証拠です。\n- **メモリの構成**: タスクメモリを完全に除去すると成功率は69.90%（LIBERO標準）まで低下し、全層のメモリを使う構成が最も高い性能を示しました。\n- **観測要素の影響**: 手先（リスト）カメラを除外すると成功率が65.60%まで急落し、手元のクローズアップ画像が閉ループ制御の要であることが判明しました。\n- **更新頻度**: メモリを毎チャンク更新しても成功率は1.8ポイントしか上がらず、推論時間が3.12倍に悪化するため、「エピソード開始時の1回のみ」が最も優れたトレードオフとなっています。\n- **長期タスクへの耐性**: 最長1,700ステップ（最大34回のチャンク予測）に達するタスクでも87.00%の成功率を達成し、長時間のタスクでも固定メモリが破綻しないことが示されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "固定タスクメモリを用いたロールアウトの様子です。RoboTwin 2.0、LIBERO-10、およびカメラに強いノイズが加わったLIBERO-Plusの各エピソードにおいて、開始時に構築されたメモリのみを使って最後までタスクを完遂できています。",
+     "caption": "Figure 3: Successful rollouts with fixed task memory. Each row shows five frames sampled at equal intervals from one episode; corner labels indicate frame indices. Wrist views are inset below the third-person view (two for RoboTwin and one for LIBERO). Task memory is constructed once at episode start and reused throughout each rollout. In the LIBERO-Plus row, sensor noise corrupts the third-person view while the wrist view remains unperturbed; memory is built from the perturbed initial observation.",
+     "image": "details/2610.21389/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "ブロック積みタスクにおけるアテンションの遷移です。制御が左腕から右腕へ移るにつれて、頭部カメラの注目先が赤ブロックから緑ブロックへと切り替わっており、固定メモリを用いながらも進行状況に応じて適切に視覚注意が適応していることが分かります。",
+     "caption": "Figure 4: Attention follows the active sub-goal. A successful 300-step stack_blocks_two rollout, shown in successive 50-step action chunks. As control passes from the left arm to the right, head-camera attention shifts from the red block to the green block. Each wrist focuses on the block handled by its own arm, with the right wrist attending to the green block before the second sub-goal begins. Crosshairs mark attention peaks, and enrichment above $1$ indicates preferential attention to the corresponding block; the final open-loop chunk has no new attention map.",
+     "image": "details/2610.21389/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめ：タスク理解と制御を分離した次世代VLAの形",
+   "summary_ja": "Fast-VLAは一度限りのタスク理解と繰り返しの閉ループ制御を分離することで、圧倒的な高速化と省メモリ化を達成しました。これにより、巨大モデルの表現力とリアルタイム制御の応答性の両立が可能であることを示しました。",
+   "details_ja": "Fast-VLAは、「タスク理解は一度で十分であり、制御だけをリアルタイムに回せばよい」という明快な発想によって、VLAモデルの実用性を大きく前進させました。4B VLMによるエピソード開始時のタスクメモリ生成と、軽量なオンラインアクターによる高速なアクション予測を組み合わせることで、従来のVLAに匹敵する成功率を保ちながら、推論コストを桁違いに削減することに成功しています。\n\n同じデバイス上での比較実験により、RoboTwin 2.0において10.9〜17.1倍の推論高速化と1.22 GiBという小さな実行時メモリフットプリントを実証しました。タスクメモリの入れ替え実験からも、アクターが固定メモリの文脈を確実に捉えて動いていることが確認されています。巨大基盤モデルの推論負荷に悩むロボティクス分野において、計算リソースを極限まで節約しつつ高性能を引き出す新たな設計指針を提示した研究といえます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：詳細設定と追加の頑健性検証",
+   "summary_ja": "ハードウェア測定の詳細プロトコルや、視点変更・照明変化・背景テクスチャ変化といった様々な環境外乱に対する追加の定性ロールアウト結果について補足しています。",
+   "details_ja": "### 推論測定の詳細\n推論速度の公平な比較のため、同一ハードウェア上で10,000エピソード（計2,372,728ステップ）を走らせる徹底したプロファイリングを実施しています。Fast-VLAの実行時常駐メモリ1.22 GiBのうち、再利用される固定タスクメモリが占めるサイズはわずか174.6 MiBです。\n\n### 定性ロールアウトの追加検証\nLIBERO-Plusにおける各種外乱（カメラの視点変更、背景の模様変化、照明条件の変更、物体の配置変更、ロボットの初期姿勢変更など）を加えた実験でも、初期観測から作成された1回限りのタスクメモリを用いて、破綻することなく引き出しの開閉やボウル格納タスクを成功させています。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "LIBERO-Plusにおける多様な環境外乱（カメラ位置、背景、照明、物体配置、初期姿勢）に対する成功例です。大きく見た目が変化した初期画像から生成された固定メモリであっても、エピソード全体を通じて安定して動作生成をガイドできています。",
+     "caption": "Figure 6: Additional successful LIBERO-Plus rollouts for “put the black bowl in the bottom drawer of the cabinet and close it.” Rows show camera, background, lighting, object-layout, and initial-state perturbations, respectively. Each row contains five equally spaced frames, with frame indices in the corners and the wrist view inset. Task memory is built once from the perturbed initial observations and remains fixed for the episode. The sensor-noise variant appears in Figure 3 .",
+     "image": "details/2610.21389/F6.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "「タスク理解」と「フィードバック制御」の時間スケールを分離することで、巨大VLMを制御ループの外に出し、計算コストを劇的に削減できる。",
+  "VLMの最終層だけでなく全層のKey-Valueキャッシュをタスクメモリとして残すことで、アクターが必要な抽象度の視覚・言語特徴を柔軟に取り出せる。",
+  "手先（リスト）カメラの現在フレーム情報と関節状態をアクションクエリに動的注入することで、固定メモリであっても現在の進行状況に合わせた柔軟な動作生成が可能になる。"
+ ],
+ "limitations_ja": [
+  "タスクメモリがエピソード開始時に固定されるため、作業の途中で人間の指示が変わったり、目標そのものが切り替わるような動的なタスクへの適応は未検証であること。",
+  "アクションデコーダおよびヘッドをデモデータからゼロから学習しているため、未学習の完全未知ドメインに対するゼロショット汎化性には限界があること。"
+ ],
+ "keywords": [
+  "Vision-Language-Action (VLA)",
+  "Efficient Inference",
+  "Task Memory",
+  "Robot Manipulation",
+  "Action Chunking"
+ ],
+ "id": "2610.21389",
+ "title": "Fast-VLA: You Only Think Once for Robot Manipulation",
+ "authors": [
+  "Kehong Gong",
+  "Guanli Hou",
+  "Xiaoxu Zheng",
+  "Qi Wang",
+  "Mingxi Xu",
+  "Anbang Zhai",
+  "Xiaoyu He",
+  "Mingyuan Zhang",
+  "Michael Bi Mi"
+ ],
+ "date": "2026-10-16",
+ "group": "general",
+ "tags": [
+  "vision-language-action",
+  "manipulation",
+  "imitation-learning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.21389",
+ "pdf_url": "https://arxiv.org/pdf/2610.21389",
+ "summary_ja": "推論ループ内で数十億パラメータのVLMを毎回再実行する計算冗長性を解消するFast-VLAを提案。エピソード開始時に4B規模のVLMを1度だけ呼んでタスクメモリを固定生成し、制御時は軽量なオンラインアクターのみを高速動作させて高レートな動作予測を実現した。",
+ "generated": "2026-10-16",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.21389"
+}
