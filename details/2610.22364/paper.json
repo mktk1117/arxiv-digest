@@ -1,0 +1,148 @@
+{
+ "title_ja": "T2-z: ロボットワールドモデルのための環境潜在変数のテスト時最適化",
+ "tldr_ja": "摩擦や質量など外見からは見えない環境特性を32次元の潜在変数として表現し、テスト時にわずか1〜2回の試行結果から直接最適化することで、未知の環境にも即座に適応できるロボットワールドモデル手法を提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "T2-zの全体像です。(a) 外見が同じでも質量や摩擦が異なるとロボットの行動結果は変わりますが、T2-zは環境潜在変数を最適化することで環境ごとの挙動の違いを正確に予測し分けます。(b) 明示的な物理パラメータのラベルを与えていないにもかかわらず、学習された潜在空間には質量や摩擦といった真の物理パラメータに対応する規則的な構造が自然に創発します。",
+  "caption": "Figure 1: T2-z for Test-Time Environment Latent Optimization. (a) Given the same observation and action, T2-z directly optimizes environment latents to capture different environmental conditions ( e.g., ball mass), leading the world model to predict different outcomes. (b) Without knowing how many factors exist or what they represent, PCA of the learned environment latents reveals a two-dimensional structure that closely reflects the underlying factor distribution. (c) We evaluate T2-z on real-world robotic tasks spanning diverse unobserved environmental factors. …",
+  "image": "details/2610.22364/F1.jpg"
+ },
+ "overview_ja": "ロボットが目にするカメラ画像だけでは、次に何が起きるかを正確に予測することはできません。見た目がまったく同じ物体であっても、表面の摩擦係数や内部の質量分布、さらには「どちらのスイッチを押せばライトが点くか」といった目に見えないルールが異なれば、同じ力を加えても結果は大きく変わってしまうからです。\n\n従来のシステム同定手法では、適応したい物理パラメータ（摩擦や質量など）をあらかじめ人間が定義し、その正解ラベルを使って推定器を学習させていました。しかし、これでは未知の要因や複合的な環境変化に対応できません。一方で、近年のビデオ生成型ワールドモデル（行動を入力として未来の映像を予測するモデル）は、目に見える外見の予測には長けていますが、隠れた環境要因の違いを捉えきれず、環境が変わっても同じ予測を出力してしまいがちでした。\n\nそこで著者らは「T2-z」を提案しました。発想はとても明快です。ワールドモデルに環境ごとのコンパクトな潜在変数（32次元のベクトル）を持たせ、学習時は「共通の物理動力学を学ぶモデル更新」と「環境特有の差分を吸収する潜在変数更新」を交互に行います。そして新しい環境に置かれたテスト時には、モデル本体を固定したまま、ランダムな行動を1〜2回試した結果（予測誤差）を逆伝播させて、その環境に合った潜在変数だけを直接最適化します。\n\n7種類のシミュレーション環境と4種類の実機ロボットタスクで検証したところ、物体の位置予測誤差を大幅に削減し、予測に基づく行動計画の成功率をシミュレーションで37.9%から74.2%、実機で26.5%から70.8%へと大幅に向上させました。事前定義なしに潜在変数が物理法則を獲得する点が非常に強力です。",
+ "contributions_ja": [
+  "隠れた環境要因を事前定義や正解ラベルなしに獲得する、環境潜在変数を用いたロボットワールドモデルを提案したこと。",
+  "共通の視覚動力学を学ぶモデル更新と、環境差分を捉える潜在変数更新を交互に行う2段階学習フレームワークを構築したこと。",
+  "テスト時にわずか1〜2回のインタラクション軌跡から予測誤差を用いて潜在変数のみを直接最適化し、未知の環境シミュレータとして機能させる手法を示したこと。",
+  "7つのシミュレーションと4つの実機タスクにおいて、物理予測精度と行動選択の成功率を既存手法から大幅に向上させたこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "見た目だけでは分からない「隠れた物理」をどう予測するか",
+   "summary_ja": "視覚情報だけでは摩擦や質量などの隠れた環境要因を特定できず、同じ行動でも結果が変わります。人間のように内部モデルを通して観測から隠れた構造を逆推定する着想に基づき、テスト時に直接最適化可能な環境潜在変数を導入したT2-zを導入します。",
+   "details_ja": "ロボットが置かれている環境には、カメラ画像だけでは決して見えない要素が満ちています。たとえば、テーブルの摩擦抵抗、押そうとしている箱の重さ、さらには人間が決めた隠れた操作ルールなどです。これらは実際に手を出して動かしてみるまで、結果にどう影響するかが分かりません。\n\nこれらを扱う従来のアプローチとして、摩擦や質量などのパラメータを陽にモデリングする手法（システム同定）があります。しかし、あらかじめどのパラメータがどう変化するかを人間が指定してラベルを用意する必要があり、未知の要因が絡み合う実世界へのスケールには限界がありました。一方で人間は、頭の中にある生成モデルを使い、観測された結果をうまく説明できるように隠れた要因を推論（仮説検証）しています。\n\nここから生まれた問いが「ロボットのワールドモデルにおいても、テスト時の相互作用から隠れた環境要因を潜在表現として直接最適化できるのではないか？」というものです。T2-zでは、ワールドモデルに行動だけでなく、環境を表す学習可能な潜在変数 $\\mathbf{z}_{e}$ を条件として与えます。事前知識やラベルによる教師なしで、予測誤差を最小化するように潜在変数を更新することで、隠れた物理特性を自然に浮き彫りにさせる仕組みです。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Works",
+   "heading_ja": "既存のワールドモデルや適応手法と何が違うのか",
+   "summary_ja": "従来のワールドモデルは隠れた環境要因を分離できず、RMAなどのシステム同定手法は事前定義されたパラメータや固定の履歴エンコーダに縛られていました。T2-zはエンコーダを用いず、予測誤差による直接最適化によって任意の試行回数や未知の環境変化に柔軟に対応します。",
+   "details_ja": "本研究の位置づけを理解するポイントは、ロボット向けワールドモデルとシステム同定（System Identification）の2つの文脈を比較することです。\n\n- ロボットワールドモデルの限界:\n近年、拡散モデルやFlow Matching（連続的な確率流で分布を変換する生成手法）を用いた行動条件付きビデオ予測モデルが大きく進歩しています。しかし、従来の標準的なワールドモデルは見た目の画像のみから未来を予測するため、外見が同じで摩擦や質量だけが異なる環境に対して、すべて同じ予測を出力してしまう弱点がありました。\n\n- システム同定手法（RMAなど）との違い:\nRapid Motor Adaptation（RMA）に代表される手法は、過去の行動履歴から環境埋め込みを推定します。しかし、これらはあらかじめシミュレータ内で定義した数種類の特権情報（摩擦係数などの真値）を教師として埋め込み空間を学習し、それを履歴エンコーダで再現する構造をとっています。そのため、想定外の複合要因や分布外の環境に弱く、エンコーダが想定する固定ステップ数の履歴しか使えないという制約がありました。\n\n- テスト時適応（TTA）の新たなアプローチ:\nポリシーの重みを微調整する既存のTTAとは異なり、T2-zはワールドモデルの本体パラメータを完全に固定し、コンパクトな環境潜在変数だけを直接最適化します。エンコーダを介さない純粋な最適化問題として定式化しているため、テスト時の試行データが1回分でも複数回分でも、そのまま柔軟に活用できるのが大きな強みです。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "既存アプローチとの比較です。(a) 通常のワールドモデルは摩擦などの違いを捉えられず同じ予測を出力します。(b) RMAなどの従来手法は事前に定義した正解物理値と履歴エンコーダに依存します。(c) 提案手法のT2-zは正解ラベルもエンコーダも不要で、予測誤差をもとに潜在変数を直接最適化します。",
+     "caption": "Figure 2: Comparison with existing approaches. (a) Vanilla world models do not explicitly represent unobserved environmental variation, producing the same prediction under different environmental conditions. (b) System-identification approaches such as RMA learn environment representations from predefined factors and their ground-truth values, then infer them from interaction history through a learned encoder. (c) T2-z requires neither predefined environmental factors nor a learned environment encoder, instead directly optimizing an emergent environment latent from test-time interaction through prediction error.",
+     "image": "details/2610.22364/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "モデルと潜在変数を交互に鍛え、テスト時にサクッと適応する",
+   "summary_ja": "T2-zは、共通の視覚ダイナミクスを学ぶワールドモデル学習と、環境ごとの差分を捉える潜在変数最適化を交互に行います。テスト時にはモデルを凍結し、わずかな試行軌跡の予測誤差から環境潜在変数のみを直接最適化して適応シミュレータへと変貌させます。",
+   "details_ja": "### 3.1 問題設定とアーキテクチャ\nワールドモデルは、現在の観測画像 $\\mathbf{x}$、ロボットの行動系列 $\\mathbf{a}$、そして環境潜在変数 $\\mathbf{z}_{e}$（32次元ベクトル）を入力として、未来の観測 $\\mathbf{y}$ を予測します。ベースモデルには Wan2.2-5B ベースのロボットワールドモデルを採用しており、標準的なFlow Matching損失関数 $\\mathcal{L}_{\\mathrm{FM}}$ で学習します。潜在変数 $\\mathbf{z}_{e}$ は、プロジェクタを介してCross-Attentionのトークンと、DiTブロックの適応的正規化（Modulation）の両方に注入されます。\n\n### 3.1.1 交互学習（2段階のトレーニング）\n学習時は、モデルパラメータ $\\theta$ と環境潜在変数 $\\mathbf{z}_{e}$ を同時に更新するのではなく、タイムスケールの異なる2つのステージを交互に繰り返します。\n\n- Stage I（ワールドモデル最適化）: 各環境の潜在変数 $\\mathbf{z}_{e}$ を固定し、全環境のデータを使ってモデル $\\theta$ を小さな学習率で更新します。これにより、環境間で共通する「ロボットがこう動けば世界はこう変わる」という基本的な視覚動力学をじっくり学習します。\n- Stage II（環境潜在変数最適化）: モデル $\\theta$ を完全に凍結し、各環境の潜在変数 $\\mathbf{z}_{e}$ だけを予測誤差に基づいて大きめの学習率で高速に更新します。モデルが説明しきれなかった環境特有の差分（摩擦の大小など）が、すべて $\\mathbf{z}_{e}$ に吸収されていきます。\n\nこの交互更新を繰り返すことで、明示的な物理ラベルを一切与えていないにもかかわらず、潜在空間の中に物理要因に応じた綺麗な構造が自然と立ち現れてきます。\n\n### 3.1.2 テスト時の直接最適化（Test-Time Optimization）\n未知の環境にロボットが投入されたら、モデル $\\theta$ は凍結したまま、新しく初期化した潜在変数 $\\mathbf{z}_{\\mathrm{test}}$ を用意します。そしてランダムな行動を1回〜数回実行して得られた軌跡に対し、学習時と同じFlow Matching損失を計算して $\\mathbf{z}_{\\mathrm{test}}$ だけを勾配降下法で更新します。学習率は粗い値から細かい値へと段階的に減衰させるスケジュール（Coarse-to-fine）を適用し、40ステップほど更新すれば完了です。最適化された $\\mathbf{z}_{\\mathrm{test}}$ をセットすれば、凍結モデルはその環境専用の精密なシミュレータとなり、未実行の多様な候補行動の結果を先読みできるようになります。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "T2-zのフレームワーク詳細です。学習時は(1)モデル更新と(2)潜在変数更新を交互に行います。テスト時はモデルを凍結したまま、得られた相互作用軌跡を使って新しい環境潜在変数を最適化し、その潜在変数を固定して様々な候補行動の結果をロールアウト予測します。",
+     "caption": "Figure 3: T2-z framework. During training, T2-z alternates between two stages: (1) world-model optimization, which learns shared action-conditioned dynamics with environment latents fixed, and (2) environment-latent optimization, which optimizes the latents through prediction error with the world model frozen. (3) At test time, the world model remains frozen while a new environment latent is directly optimized from interaction and then reused to predict the outcomes of different actions.",
+     "image": "details/2610.22364/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "シミュレーションと実機で実証：未知の物理をどれだけ見抜けたか",
+   "summary_ja": "7つのシミュレーションと4つの実機タスクで評価を実施しました。物体の位置誤差を半分以下に減らし、実機での行動成功率を26.5%から70.8%へ跳ね上げるとともに、複合要因の分解や背景変化に対する頑健性も確認されました。",
+   "details_ja": "### 4.1 実験設定とベースライン\n検証には、単一の物理要因（摩擦、重力、衝突質量）、離散ルール（どのスイッチで照明が点くか）、複合要因（質量×摩擦）、および多様な背景（30種類の外見）を含む7つのシミュレーションタスクを用意しました。さらに実機ロボット（Franka Panda）でも、ボールの摩擦・質量、ドアのバネ剛性、天秤の質量バランス、柔らかい物体の引っ張りという4つの難関タスクを構築しました。\n比較対象として、適応を行わない標準ワールドモデル（Standard World Model）、LoRAパラメータをテスト時更新する「LoRA TTA」、DINOv2特徴から文脈を抽出する「DINOv2 Context」、高速重み更新を行う「TTT-KQV」の4つを用意しました。\n\n### 4.2 シミュレーション結果と潜在空間の創発構造\n単一要因の実験では、T2-zが全タスクで最高性能を達成し、行動成功率はベースライン平均の36.9%から76.6%へと倍増しました。物体の位置予測誤差（Physical Error）も大幅に減少しています。\n驚くべきは、学習された潜在変数を主成分分析（PCA）で可視化した結果です。モデルには摩擦係数の数値を一切教えていないにもかかわらず、第1主成分の軸上に摩擦の値の順序通り綺麗にプロットが並びました。さらに「質量×摩擦」を同時に変化させた複合環境では、潜在空間が自然と2次元的な広がりを形成し、2つの物理要因を分離して捉えていることが確認されました（図 F4(d)）。背景画像が30種類変わるタスクでも、見た目に惑わされず物理特性に応じた一貫した潜在表現を獲得できています。\n\n### 4.3 実機ロボット実験の結果\n実世界では、シミュレーション以上に予測誤差の改善が顕著でした。追跡状態誤差（ピクセル単位）は19.30から10.85へとほぼ半減し、実機での行動成功率は26.47%から70.80%へと劇的に向上しました。たとえば「天秤のバランス取り」タスクでは、成功率が20.00%から83.33%へと跳ね上がっています。\n\n### 4.4 アブレーション解析から分かったこと\nテスト時の試行回数（軌跡数）に関する分析では、大半のタスクにおいて「わずか1回」の試行軌跡で潜在変数の最適化が十分に収束し、それ以上増やしても性能が飽和することが分かりました。また、モデルと潜在変数を同時に学習させると性能が落ちることも確認され、提案する交互最適化スケジュールの有効性が裏付けられました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "学習された潜在変数の主成分分析（PCA）プロットです。丸印は訓練環境、三角印は未知のテスト環境を示します。(a, b) 単一要因では真の摩擦や質量に対応して1次元上に整列します。(c) 背景が変化しても一貫した構造を維持します。(d) 質量と摩擦が同時に変わる複合要因では、事前知識なしに綺麗な2次元グリッド構造が創発しています。",
+     "caption": "Figure 4: PCA of learned environment latents. We visualize learned environment latents using PCA onto x-y axes, with $\\bigcirc$ denoting training environments and $\\triangle$ denoting test environments. Ground-truth factors (denoted by color or size) are shown only for visualization and are never provided to the model. (a–b) show that structured latent representations emerge in both simulated and real-world single-factor settings. (c) shows that a unified latent structure emerges across diverse visual backgrounds, indicating that the representation does not become entangled with scene appearance. …",
+     "image": "details/2610.22364/F4.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "シミュレーションおよび実機タスクにおける定性比較結果です。同一の行動を入力しても環境によって真の結果（GT）は異なりますが、T2-z（Ours）は潜在変数の適応によって正解と酷似した未来映像を正確に予測できています。ベースラインは環境の違いを捉えられず破綻しています。",
+     "caption": "Figure 6: Qualitative results in simulation and the real world. Within each task, we apply the same actions across different environments, which produce different ground-truth outcomes due to underlying environmental variation. T2-z closely matches these environment-dependent outcomes.",
+     "image": "details/2610.22364/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめ：環境潜在変数の最適化が切り拓く適応型ワールドモデル",
+   "summary_ja": "T2-zは、ロボットワールドモデルに環境潜在変数を組み込み、テスト時の直接最適化によって未知の環境へ即座に適応する枠組みを確立しました。視覚予測と下流の行動決定の両面で圧倒的な優位性を示しました。",
+   "details_ja": "本論文では、隠れた環境要因が存在する状況下でロボットが高精度な未来予測を行うための新手法「T2-z」を提示しました。ワールドモデル本体の学習と環境潜在変数の学習を交互に行うことで、ラベルなしに物理構造を自己組織化させ、テスト時には数ステップの勾配更新だけで環境に適応させることができます。\n\nシミュレーション7種・実機4種に及ぶ徹底的な実験により、視覚的な生成品質だけでなく、物理的な状態予測の正確さ、そして未来予測を活用した行動選択の成功率において、既存の非適応モデルやエンコーダベースの手法を大きく凌駕することを実証しました。ロボットが新しい現場に配備された際、少し触って試すだけでその場の物理法則を理解して動けるようになる、実践的な第一歩と言えます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：実装の詳細、計算効率、およびタスクごとの潜在空間",
+   "summary_ja": "モデル構造の詳細（Cross-AttentionとModulationの二重注入）や最適化ハイパーパラメータ、推論速度の計測結果をまとめました。T2-zはLoRAやTTTなどの適応ベースラインよりも高速かつ省メモリに動作します。",
+   "details_ja": "### モデル構造と最適化パラメータの詳細\n- 入力と潜在変数の注入: モデルのベース幅 $D=3072$ に対し、32次元の潜在変数 $\\mathbf{z}_{e}$ は2つの独立した2層MLPプロジェクタ（中間層128次元）によって $D$ 次元に変換されます。一方はCross-Attentionの追加トークンとして行動トークン列に連結され、もう一方は時間埋め込みに加算されてDiT各層のModulation（適応的正規化）を制御します。\n- 学習スケジュール: Stage I（モデル更新）はAdamW（学習率 $10^{-5}$）、Stage II（潜在変数更新）は学習率 $0.03$ を使用します。最初にモデル単体を300ステップ更新した後、潜在変数200ステップ・モデル200ステップの交互サイクルを回します。\n- テスト時適応: 学習率を $3.0 \\to 1.5 \\to 0.5 \\to 0.15$ と10ステップごとに減衰させ、計40ステップの勾配更新を行います。\n\n### 計算効率の比較\nH200 GPU 1基を用いたFriction設定での速度比較において、テスト時の軌跡1本（$K=1$）からの適応＋5本のクエリ動画生成にかかる時間は、LoRA TTAが32.73秒、TTT-KQVが37.57秒であったのに対し、T2-zはわずか18.09秒で完了しました。巨大なモデルの重みではなく32次元のベクトルのみを更新するため、計算コストとメモリ消費を極めて低く抑えられます。\n\n### 各タスクにおける潜在空間の創発\n付録図 F9 に示される通り、ドアのラッチ剛性や天秤の質量比、柔らかいチューブの引張特性など、実機・シミュレーションの全タスクにおいて、最適化された潜在変数は真の物理特性に沿った秩序ある配置を示しました。",
+   "figures": [
+    {
+     "key": "F9",
+     "caption_ja": "シミュレーション4種(a–d)と実機4種(e–h)における潜在空間のPCAプロット詳細です。丸印は訓練環境、三角印はテスト環境を示します。色やサイズで表した真の物理パラメータ（摩擦、質量比、バネ剛性など）が、一切の教師なしで見事に潜在空間の軸に沿って分離されています。",
+     "caption": "Figure 9: Latent-space PCA across simulation (a–d) and real-world tasks (e–h). Circles denote training-time latents and triangles denote test-time-adapted latents. Color indicates the underlying physical setting; point size additionally indicates friction in Mass $\\times$ Friction. These factor annotations are used only for visualization and are not provided to the model. The Soft Pull test-time latents shown here use four test-time interaction trajectories.",
+     "image": "details/2610.22364/F9.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "外見からは見えない物理特性（摩擦や質量など）は、専用の履歴エンコーダを作るよりも、凍結したワールドモデルに対する潜在変数の「テスト時直接最適化」で解く方が柔軟で精度が高い。",
+  "モデル更新と潜在変数更新を交互に行うだけで、物理ラベルを一切与えなくても、潜在空間内に真の物理法則に対応する低次元構造が自然に創発する。",
+  "テスト時の適応に必要な試行データは、大半のタスクにおいてランダム行動による「わずか1回」の軌跡で十分である。",
+  "32次元のコンパクトな潜在変数のみを更新するため、LoRAなどの重み適応手法と比べてテスト時最適化の計算オーバーヘッドが非常に小さい。"
+ ],
+ "limitations_ja": [
+  "テスト時に数回の実機動作（相互作用軌跡の収集）と40ステップ程度の勾配計算が必要となるため、完全なゼロショットでの即時行動開始はできない。",
+  "環境特性が時間経過とともにダイナミックに変化し続ける非定常環境（途中で摩擦が急変するなど）へのリアルタイム追従は検証されていない。",
+  "潜在変数の次元数（32次元）や交互学習のステップ比率など、タスクの複雑さに応じたハイパーパラメータ調整が一部残されている。"
+ ],
+ "keywords": [
+  "Robotic World Models",
+  "Test-Time Optimization",
+  "Environment Latents",
+  "Flow Matching",
+  "System Identification"
+ ],
+ "id": "2610.22364",
+ "title": "T2-z: Test-Time Optimization of Environment Latents for Robotic World Models",
+ "authors": [
+  "Chenyuan Zhou",
+  "Yining Hong",
+  "Huang Huang",
+  "Yunfan Jiang",
+  "Wenlong Huang",
+  "David Held",
+  "Vitor Campagnolo Guizilini",
+  "Yue Wang",
+  "Li Fei-Fei",
+  "Jiajun Wu",
+  "Leonidas Guibas",
+  "Yejin Choi"
+ ],
+ "date": "2026-10-17",
+ "group": "focus",
+ "tags": [
+  "world-model",
+  "control",
+  "sim-to-real"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.22364",
+ "pdf_url": "https://arxiv.org/pdf/2610.22364",
+ "summary_ja": "摩擦や質量といった不可視な環境要因に適応するため、テスト時に環境潜在変数を最適化するロボット向けワールドモデルT2-zを提案。潜在変数の最適化とワールドモデル学習を交互に行うことで、明示的な物理パラメータの教師なしに高精度なダイナミクス予測を実現した。",
+ "generated": "2026-10-17",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.22364"
+}
