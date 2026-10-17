@@ -1,0 +1,155 @@
+{
+ "title_ja": "人間動画からロボット操作への因果ビームに基づくクロスエンボディメント転移",
+ "tldr_ja": "身体構造の異なる人間の作業動画から、ロボットが真似すべき「局所的な因果関係」を因果ビーム理論で抽出し、世界行動モデル（WAM）に言語指示として与えることで、シミュレーションおよび実機タスクの成功率を大きく向上させました。",
+ "hero_figure": {
+  "key": "F3",
+  "caption_ja": "CBSTの全体パイプラインです。人間動画で事前学習した時系列特徴表現をロボットデータで因果変数にグラウンディングし、状況に応じた「因果ビーム」を選択して凍結された世界行動モデル（WAM）を条件付けします。",
+  "caption": "Figure 3: Overview of Causal-Beam-Guided Subtask Transfer (CBST). Human-video pretraining and robot adaptation support state prediction and contextual beam selection. The resulting semantic conditions guide a frozen world–action model to predict actions and future states. Solid and dashed arrows denote inference and training/supervision, respectively.",
+  "image": "details/2610.21798/F3.jpg"
+ },
+ "overview_ja": "ロボットに多様な作業を学習させる際、実機でのデータ収集コストが最大の壁となっています。そこでインターネット上に無数にある「人間の作業動画」を活用したいところですが、人間とロボットでは骨格や関節数などの身体構造（エンボディメント）や制御方法が根本から異なります。そのため、人間の手の動きをそのまま真似させようとしても破綻してしまいます。\n\nそこで著者らは、「人間動画からロボットへ本当に引き継ぐべき本質的な知識は何なのか？」という問いに着目しました。単に手先の軌道をなぞるのではなく、また「目標状態」だけを真似るのでもなく、タスクを成立させている「前提条件と状態変化、そして局所的な因果関係」こそが転移すべき情報だと考えたのです。これを定式化するために導入されたのが、統計的因果推論の概念である「因果ビーム（Causal Beam）」です。現在の実行コンテキストにおいて、ある結果をもたらすために不可欠な入力関係だけを刈り込み、抽出する仕組みです。\n\n本研究では、この着想をもとに「CBST（Causal-Beam-Guided Subtask Transfer）」を提案しました。人間動画から動作認識を通して時系列表現を事前学習し、少量のロボットデータを用いて因果構造（SCM）へ対応付けます。そして実行時には、現在の状況に適合する因果ビームを選択し、それをテキスト条件として既存の世界行動モデル（WAM: 環境予測と行動出力を同時に行うモデル）に注入します。\n\n検証として、LIBEROやRoboTwin 2.0などのシミュレーション環境に加え、AgileX双腕実機ロボットで実験を行いました。その結果、元となるWAM単体や従来の模倣学習手法に比べ、長時間の複合タスクやアーム間の受け渡しを伴う難関タスクにおいて大幅な成功率向上を確認しました。",
+ "contributions_ja": [
+  "人間動画からロボット操作への転移において、具体的な身体軌道ではなく「局所的な効果を支える因果依存関係」を転移対象として特定した点",
+  "構造的因果モデル（SCM）と因果ビーム理論を用い、実行状況に応じて必要な条件と依存関係を選択する「CBST」フレームワークを提案した点",
+  "大規模な人間動画（Something-Something V2）による事前学習と少量のロボットデータによる適応を組み合わせ、既存の世界行動モデル（WAM）を再学習なしで誘導できる設計を示した点",
+  "複数のシミュレーションベンチマークおよび双腕ロボットによる実機実験において、既存の基盤モデルを上回るタスク成功率を実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ人間の動きをそのまま真似してはいけないのか？",
+   "summary_ja": "人間動画には豊富な作業知識が含まれていますが、ロボットとの身体差が大きいため手先の軌道を直接真似することはできません。本章では、身体差を超えて転移すべき情報は「局所的な因果依存関係」であると提起し、因果ビーム理論を用いたアプローチの動機を説明します。",
+   "details_ja": "近年、周囲の将来変化とロボットの行動を同時に予測する世界行動モデル（WAM: World Action Model）が注目を集めています。しかし、WAMを賢くするには膨大で多様な操作データが必要です。実機ロボットを動かしてデータを集めるのは時間も人手もかかり、コストが極めて高くなります。一方で、人間が日常的に物を操作している動画はWeb上に大量に存在します。\n\nしかし、人間とロボットは見た目も関節の自由度も動作空間もまったく異なります。そのため、人間の手先軌道を直接ロボットに押し付けても上手く動きません。これまでの研究では、最終目標の画像だけを真似させたり、サブゴール（中間目標）を与えたりする手法が試みられてきました。しかし目標地点だけを与えても「途中で何に気をつけなければならないのか」という相互作用の条件が抜け落ちてしまいます。逆に、軌道全体を細かくコピーしようとすると、人間特有の余計な動きまで引き継いでしまいます。\n\nそこで著者らは、「局所的なサブタスクにおいて、結果を引き起こすために本当に必要な条件と依存関係だけを残す」という問題設定を立てました。これを実現するために採用したのが、Judea Pearlが提唱した「因果ビーム（Causal Beam）」という統計的因果推論の枠組みです。現在の文脈において結果を維持できる親ノードの組み合わせだけを選び出すことで、身体差を排した純粋なタスク構造の転移を目指します。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "ボウルを置く、蓋を開ける、本を持ち上げるといったタスクにおける身体差の課題です。人間とロボットは同じ目的を共有していても身体構造が異なるため、具体的な動作詳細を捨てて転移すべき構造化情報を抽出する必要があります。",
+     "caption": "Figure 1: The cross-embodiment transfer problem. Human and robot demonstrations share task objectives but differ in execution. Examples of placing a bowl, opening a lid, and lifting a book motivate the question: what task information should transfer beyond embodiment-specific motion and goal endpoints?",
+     "image": "details/2610.21798/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Works",
+   "heading_ja": "先行研究の歩み：人間からの学習・時間的抽象化・世界行動モデル",
+   "summary_ja": "人間動画のロボットへの活用手法、階層的プランニングのための時間的抽象化、そして最新の世界行動モデル（WAM）という3つの研究分野を整理し、本研究がその交差点に位置づけられることを示します。",
+   "details_ja": "本研究の関連領域は大きく3つに分けられます。\n\n- 人間からロボットへの転移（Human-to-robot transfer）：人間の手の3Dトラッキングを使って視覚特徴を揃える手法（WHIRLやEgoMimic）や、動画から離散的な潜在行動を事前学習する手法（LAPA）が提案されてきました。さらに、人間動画から抽象的なスキル表現を取り出す手法（MimicPlay、XSkill、UniSkill）も登場しています。しかし、これらは潜在空間での特徴一致に依存しており、「なぜその操作が成功するのか」という因果的な依存関係を明示的に選択してはいませんでした。\n\n- 時間的抽象化（Temporal abstraction）：長い作業を細かなサブゴールやオプションに分解する試みです。SayCanのようにスキルの前提条件を言語モデルで評価したり、画像ベースの中間目標を段階的に生成するプランニング手法が存在します。近年では潜在世界モデルの中で時間スケールの異なる階層的プランニングを行う手法も現れています。\n\n- 世界行動モデル（World Action Models: WAM）：従来の環境ダイナミクスを予測する世界モデル（World Model）を進化させ、未来の観測予測とロボットの行動生成をひとつの統一モデルで行うアーキテクチャです（WorldVLA、Cosmos Policy、LingBot-VAなど）。CBSTは、こうした最先端のWAMを基盤として利用し、外部から因果ビームに基づく文脈情報を注入するプラグインとして機能します。",
+   "figures": []
+  },
+  {
+   "heading": "3 Problem Definition and Analysis",
+   "heading_ja": "因果ビームで読み解く：結果を支える「最小の依存関係」とは",
+   "summary_ja": "ロボット操作の定式化と因果ビーム理論の基礎を解説します。同じ作業でも状況によって成立条件が変わることを具体例で示し、人間とロボットで共有可能な構造的因果モデル（SCM）の設計方針を明らかにします。",
+   "details_ja": "### 3.1 問題の定式化\nロボット操作は、言語指示 $g$ とこれまでの観測・行動履歴 $h_t$ に基づいて、未来の行動チャンク $A_t$ と将来の観測 $S_t^+$ を予測する世界行動モデル $p_\\theta(A_t, S_t^+ \\mid h_t, g)$ による閉ループ制御として定式化されます。\n\n### 3.2 因果ビーム（Causal Beams）\n構造的因果モデル（SCM）において、ある変数 $V_i$ は親変数 $\\mathrm{PA}_i$ と外生変数 $U$ によるメカニズム $V_i = f_i(\\mathrm{PA}_i, U)$ で決定されます。因果ビームとは、特定の文脈 $U=u$ において、親変数の集合を「保持する親 $C_i$」と「除外する親 $N_i$」に分割する操作です。このとき、次の2つの条件を満たす必要があります。\n1. 維持性（Sustenance）：除外された変数 $N_i$ にどんな値が入ろうとも、保持した変数 $C_i$ の実際の値だけで、本来の結果 $V_i(u)$ が保たれること。\n2. 応答性（Responsiveness）：保持した変数 $C_i$ の値を変化させたとき、射影されたメカニズムの出力が固定値にならず、きちんと変化すること（意味のないダミー射影を排除するため）。\n\n### 3.3 身体差を超える因果分析\n図2(a)に示すように、局所的な操作は「初期条件 $X$」「試行された動作 $I$」「物体の状態変化 $D$」「最終的な局所効果 $Y$」という共通の変数スキーマで記述できます。具体的な物理メカニズム $f_D^e$ や $f_Y^e$ は人間とロボットで異なりますが、変数の意味と因果の枠組みは共有できます。\n\n例えば「ボウルを棚に入れる」作業を考えます。把持が有効か（$G$）、棚が開いているか（$O$）、運ぶ動作をしたか（$B$）のとき、正常に成功した文脈（$B=1, G=1, O=1$）では、$G$ も $B$ も欠かすことができず、すべての依存関係を保持する必要があります。しかし、もし把持に失敗していた文脈（$G=0$）であれば、運ぶ動作 $B$ がどうであれ失敗するため、$B$ を除外した簡略化された依存関係（$D=G$）が有効なビームとなります。つまり、状況に応じて「どの条件に注目すべきか」が動的に変化するのです。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "(a) 局所操作をモデル化する候補SCMの構造です。初期条件 $X$、動作試行 $I$、物体変化 $D$、効果 $Y$ の因果関係を表します。(b) ボウル配置タスクにおける人間とロボットの動作例であり、手先の動きは違っても因果的な変数は共通していることを示しています。",
+     "caption": "Figure 2: (a) Candidate local manipulation SCM for a fixed task goal, showing the endogenous parent structure. $X$ and $I$ are boundary inputs, and the mechanisms for $D$ and $Y$ may differ across embodiments. Variable groups are instantiated into task-specific variables before beam selection. (b) Illustrative human and robot motion realizations of the same bowl-placement task.",
+     "image": "details/2610.21798/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Method",
+   "heading_ja": "提案手法CBST：人間動画での事前学習から因果ビームの選択まで",
+   "summary_ja": "提案手法「CBST」の具体的なアーキテクチャと学習方法を解説します。人間動画で事前学習した時系列特徴をロボットデータで因果変数に結びつけ、選択された因果条件を言語化して凍結WAMに入力する仕組みを説明します。",
+   "details_ja": "### 4.1 全体アーキテクチャ\nCBSTの処理の流れは大きく3段階に分かれています。\n1. 観測から意味論的状態の予測：ロボットの観測履歴 $h_t$ を視覚時系列エンコーダ（ResNet18 + GRU）に入力し、潜在特徴 $z_t$ を抽出します。ここから分類ヘッドを通じて、SCM上の変数（条件 $\\hat{X}_t$、試行 $\\hat{I}_t$、状態変化 $\\hat{D}_t$、局所効果 $\\hat{Y}_t$）を離散値として予測します。\n2. コンテキストに応じた因果ビームの選択：予測された状態をもとに、あらかじめ定義された参照メカニズムを満たす親変数の候補部分集合の中から、学習済みのセレクターが確率 $p_{i,t}(C)$ を出力し、最も確からしく互換性のある因果ビーム $\\hat{\\sigma}_t$ を選択します。\n3. WAMへの言語条件付け：選択された因果変数とその値を決定論的なレンダラーによって自然言語のテキスト条件へと変換します。これを既存の凍結された世界行動モデル（WAM）に入力し、ロボット自身の観測と組み合わせて具体的な行動チャンク $A_t$ を出力させます。\n\n### 4.2 学習目的とトレーニング手順\n学習は二段階で行われます。\n- ステップ1（人間動画による事前学習）：大規模な日常行動動画データセット（Something-Something V2）を用い、行動分類タスクによって視覚時系列エンコーダを事前学習します。これにより、物体と手の相互作用に関する時間的特徴表現を獲得します。\n- ステップ2（ロボット実演データによる適応）：少量のロボットデータを用いて、各因果変数の予測損失 $\\mathcal{L}_{\\mathrm{sem}}$ と、親変数の値が参照メカニズムの出力と一致することを促すメカニズム整合性損失 $\\mathcal{L}_{\\mathrm{mech}}$ を最適化します。さらに、因果ビームの条件を満たす親変数集合に対して高い確率を割り当て、かつ不要な変数を削るコンパクトさ正則化を加えた損失 $\\mathcal{L}_{\\mathrm{beam}}$ によってセレクターを訓練します。重要な点として、下流のWAM本体やテキストエンコーダは一切更新せず、完全に凍結（Frozen）したまま使用します。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "CBSTの詳細なシステム構成図です。左側のエンコーダ事前学習、中央の因果状態予測とビーム選択モジュール、右側の凍結された世界行動モデル（WAM）への言語プロンプト注入という一連の流れが示されています。",
+     "caption": "Figure 3: Overview of Causal-Beam-Guided Subtask Transfer (CBST). Human-video pretraining and robot adaptation support state prediction and contextual beam selection. The resulting semantic conditions guide a frozen world–action model to predict actions and future states. Solid and dashed arrows denote inference and training/supervision, respectively.",
+     "image": "details/2610.21798/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Experiments",
+   "heading_ja": "実験と検証：シミュレーションと実機双腕ロボットで効果を実証",
+   "summary_ja": "LIBERO、RoboTwin 2.0、RoboCasaの3つのシミュレーションベンチマークと、AgileX双腕実機ロボットを用いて性能を評価しました。バックボーン単体を有意に上回る成功率を記録し、アブレーションにより因果ビームと人間動画事前学習の有効性が確認されました。",
+   "details_ja": "### 5.1 実験設定\n世界行動モデル（WAM）のバックボーンとして「LingBot-VA」と「Cosmos Policy (Predict2.5)」を使用しました。評価環境には、双腕シミュレータRoboTwin 2.0（50タスク）、長期タスクを含むLIBERO（4スイート）、家庭環境を模したRoboCasa（24タスク）を採用しました。\n\n### 5.2 シミュレーション結果\n- RoboTwin 2.0：LingBot-VA + CBSTは、Easy設定で94.00%、Hard設定で92.54%の成功率を達成しました。\n- LIBERO-Long：LingBot-VA + CBSTが98.60%、Cosmos Policy (Predict2.5) + CBSTが97.33%という極めて高い成功率を記録しました。ベースとなるバックボーン単体から明確な性能向上が確認されています。\n- RoboCasa：Predict2.5 + CBSTにおいて、タスクあたりわずか50デモの学習量で72.44%を達成し、元のPredict2.5（71.1%）を上回りました。\n\n### 5.3 アブレーション研究\nRoboTwin Easy環境にて、各構成要素の寄与を検証しました（表4）。\n- 人間動画事前学習の有無：事前学習なし（92.80%）や動画フレームをシャッフルした事前学習（92.94%）に比べ、時系列順序を保った通常事前学習（94.00%）が最も高い性能を示しました。動画の時間の流れを学ぶことが重要です。\n- 条件付け情報の比較：因果ビームを使わずに状態のみを与えた場合（91.68%）や、全因果変数をそのまま与えた場合（92.40%）、ランダムに親変数を選んだ場合（91.80%）のいずれに対しても、CBSTの因果ビーム選択が優れていました。ただ情報を詰め込むのではなく「状況に応じて刈り込む」ことの有効性が裏付けられました。\n\n### 5.4 実機実験（AgileX双腕ロボット）\n片腕では届かない位置にある物体をもう一方の腕へ渡して目標位置に置く、10種類の物体配置タスク（各20試行）を実施しました。Cosmos Policy (Predict2.5) 単体と比較したところ、CBSTを追加することで、ワークスペースをまたぐ中間受け渡し（Handover）を含む一連の協調動作が安定して遂行できることが確認されました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "LIBEROにおけるLingBot-VA + CBSTの実行シーケンスです。スイッチを操作し、コンロを点火し、モカポットをその上に正確に配置するという一連の長期タスクを達成しています。",
+     "caption": "Figure 4: A LingBot-VA + CBST execution: operating the switch, turning on the stove, and placing the moka pot on it. Frames follow temporal order; timestamps indicate video playback time.",
+     "image": "details/2610.21798/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "AgileX双腕実機ロボットによるカップ配置タスクの様子です。左アームがカップを持ち上げて受け渡し位置へ運び、右アームが受け取って目標地点へ配置・リリースする協調動作が実現されています。",
+     "caption": "Figure 5: CBST execution of cup placement on the AgileX platform. One arm lifts the cup and transfers it to the receiving gripper, which transports it to the target location and releases it on the tabletop. Handover enables cross-workspace transport but is not the task goal. Labels describe observed events, and timestamps indicate video playback time.",
+     "image": "details/2610.21798/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめ：因果構造を通じたロボット学習の新しい道",
+   "summary_ja": "人間動画からのロボット操作知識の転移において、因果ビームによる文脈依存の情報抽出手法「CBST」の有効性を総括し、今後のロボティクス基盤モデル研究への示唆を述べます。",
+   "details_ja": "本研究では、身体差の壁を乗り越えて人間動画からロボットへ知識を転移するための新しいアプローチ「CBST」を提案しました。\n\n人間とロボットで直接一致させることが困難な手先の物理軌道ではなく、「どの条件が揃えばどういう効果が生じるか」というタスクレベルの因果依存関係に着目し、因果ビームの枠組みによって実行コンテキストごとに必要な情報だけを抽出する仕組みを構築しました。これにより、人間動画で事前学習した表現を少量のロボット実演でグラウンディングさせ、既存の世界行動モデル（WAM）を凍結したまま強力に誘導することが可能になりました。\n\n実験では、シミュレーションおよび実機の双方で確実な性能向上が実証されました。動画から物理的な動きそのものを真似させる従来のアプローチに対して、「因果関係という抽象度の高い構造を抽出し、行動生成はロボット自身のモデルに任せる」という分離設計の有効性を示した点が、本研究の大きな意義です。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：因果ビームの数学的定義と実機・シミュレーションの追加検証",
+   "summary_ja": "因果ビーム（Natural Beam）の厳密な数学的条件、シミュレーション追加実験の詳細、およびAgileX双腕ロボットによるプレート収納やリモコン配置などの実機定性結果をまとめます。",
+   "details_ja": "### 付録A：因果ビームの形式的定義\n因果ビーム $M_u = (u, V, \\mathcal{F}^u)$ は、各非ルートメカニズム $V_i = f_i(\\mathrm{PA}_i, U)$ の親集合を保持する親 $C_i$ と除外する親 $N_i$ に分割して構築されます。本論文で用いられる「ナチュラルビーム（Natural Beam）」では、除外された親変数をコンテキスト $u$ における実際の値 $N_i(u)$ に固定します。これにより射影メカニズムは $f_i^u(c_i) = f_i(c_i, N_i(u), u)$ となります。これが維持性（任意の値に対して本来の出力を維持）と応答性（保持した入力に関して非定数であること）を満たし、メカニズム間で変数の割り当てに矛盾がない（互換性がある）ときに有効なビームとして成立します。\n\n### 付録C・E：追加定性実験\n図7および図8には、シミュレーションと実機における追加タスクの実行例が示されています。\n- シミュレーション：RoboTwinでの3つのボウルの積み重ねタスクやブロックの受け渡しタスク、LIBEROでのボウルを棚に入れて引き出しを閉めるタスクなど、複雑な接触と複数ステップを要するタスクが円滑に達成されています。\n- 実機実験：図8に示すように、皿をラックに立てかけるタスク（Plate racking）では両腕での把持受け渡しを経て正確なスロット挿入が行われており、リモコンを箱に収めるタスク（Remote-control placement）では片腕のみを使ったシンプルなピック＆プレースが適切に選択されています。タスクの文脈に応じて柔軟な行動が生成されていることがわかります。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "シミュレーション環境でのLingBot-VA実行シーケンスの追加例です。(a) RoboTwinでの3つのボウルのスタッキング、(b) ブロックの受け渡し、(c) LIBEROでのボウルの引き出し収納と閉扉動作を示しています。",
+     "caption": "Figure 7: Additional recorded LingBot-VA executions:(a) stacking three bowls in RoboTwin, (b) handing over a block in RoboTwin, and (c) placing a black bowl in a drawer and closing it in LIBERO. Each row shows six temporally ordered frames;timestamps indicate video playback time.",
+     "image": "details/2610.21798/F7.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "人間動画からロボットへ転移すべき本質は手先の運動軌道ではなく、状態変化を支える「因果関係と前提条件」である",
+  "因果ビーム（Causal Beam）を用いることで、状況に応じて「結果を左右する本質的な変数」だけを数理的に絞り込むことができる",
+  "世界行動モデル（WAM）本体を再学習・微調整せずとも、因果ビームに基づくテキスト条件付けを追加するだけで制御性能を底上げできる",
+  "人間動画の事前学習においては、静止画の特徴だけでなく「フレームの時間的な順序」を維持して学習させることが下流タスクの成功率に直結する"
+ ],
+ "limitations_ja": [
+  "事前にタスク構造を定義した候補SCM（構造的因果モデル）や参照メカニズムを設計・定義しておく必要があり、完全なオープンドメインへの適用にはテンプレートの拡充が必要である",
+  "因果変数の状態推定が誤っていた場合、不適切な因果ビームが選択されて下流の行動生成に悪影響を及ぼす可能性がある",
+  "評価されたタスクは卓上マニピュレーションが中心であり、全身協調を要する移動マニピュレーションやより動的な接触作業への拡張性は未検証である"
+ ],
+ "keywords": [
+  "Cross-Embodiment Transfer",
+  "Causal Beam",
+  "Structural Causal Models",
+  "World Action Model",
+  "Human Video Pretraining",
+  "Bimanual Robot Manipulation"
+ ],
+ "id": "2610.21798",
+ "title": "Cross-Embodiment Causal Transfer from Human Videos to Robot Manipulation",
+ "authors": [
+  "Xingyu Zhang",
+  "Yingchao Li",
+  "Peizheng Guo",
+  "Jie Hu",
+  "Changwen Zheng",
+  "Wenwen Qiang"
+ ],
+ "date": "2026-10-17",
+ "group": "general",
+ "tags": [
+  "imitation-learning",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.21798",
+ "pdf_url": "https://arxiv.org/pdf/2610.21798",
+ "summary_ja": "人間の作業動画からロボット操作方策への知見転移において、「因果ビーム」の観点から伝達すべきサブタスク間の依存関係を分析・抽出する手法を提案。形態や行動空間の差異を超え、物理的制約やコンテキスト条件を転移することで模倣学習の性能を向上させた。",
+ "generated": "2026-10-17",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.21798"
+}
