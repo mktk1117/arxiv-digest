@@ -1,0 +1,134 @@
+{
+ "title_ja": "水耕栽培レタス収穫における経路安全な目標到達のためのSim-to-Real強化学習",
+ "tldr_ja": "狭い水耕栽培レーンでレタスを傷つけずに収穫するため、進入経路と手先姿勢の安全性を組み込んだ強化学習手法「PSA-PPO」を開発し、シミュレーションのみの学習から実機UR10eへのゼロショット転移と高信頼な収穫動作を実証した論文です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "提案されたSim-to-Realレタス収穫フレームワークの全体像です。上段の手先カメラでレタスの切断点を検出し、下段のシミュレータ（Isaac Lab）で学習した安全な側面アプローチ方策（PSA-PPO）を実機アームに直接適用して、障害物の多い水耕ベッドでも安全に収穫を行います。",
+  "caption": "Figure 1 : Overview of the proposed sim-to-real PSA-PPO harvesting framework. The robot-mounted RGB-D camera provides RGB imagery and aligned depth to the lettuce perception module, which generates temporally smoothed 3D cutting-point targets. PSA-PPO is trained entirely in Isaac Lab for target-conditioned, path-safe side-approach reaching. During physical deployment, the frozen policy and vision-derived targets are integrated through the ROS action-control layer to command the UR10e for side-approach harvesting of nutrient film technique (NFT)-grown lettuce.",
+  "image": "details/2610.22337/F1.jpg"
+ },
+ "overview_ja": "温室の水耕栽培（NFT方式）におけるレタス収穫は、ロボットアームにとって非常にシビアな作業です。密植された柔らかい葉や周囲の栽培レールを避けつつ、地際数ミリの茎へ正しい角度で刃先を潜り込ませなければなりません。従来のサンプリング型動作計画（RRTなど）では特異点や振動、計画の失敗が起きやすく、一方で一般的な強化学習（RL）を実機で試行錯誤させるのは衝突リスクが高すぎて不可能です。\n\nそこで著者らは、シミュレーション環境（Isaac Lab）だけで安全な進入軌道をゼロから学習し、実機ファインチューニングなしでそのまま動かす「PSA-PPO」を提案しました。アルゴリズム自体は標準的なPPOのままですが、初期化位置の幾何的決定、アプローチ経路の回廊（コリドー）制約、手先や手首リンクの高さ違反履歴を評価する報酬設計を巧みに組み合わせ、収穫に適したアプローチ動作を獲得させました。\n\nシミュレーションでのアブレーション実験、実機UR10eを用いた古典的プランナー（RRTConnect、RRT*、Cartesian+TOTG）との150目標ベンチマーク比較、そして温室での144株の実収穫パイプライン評価を実施しました。その結果、実機ベンチマークで最高水準の到達成功率94.7%を達成し、動作の滑らかさの指標である加加速度（ジャーク）を大幅に低減できること、そして温室本番環境でも86.1%の完全収穫成功率を達成できることを示しました。",
+ "contributions_ja": [
+  "幾何制約と進入経路の安全履歴を組み込み、狭隘な水耕栽培環境での側面アプローチを学習できる局所動作方策「PSA-PPO」の提案",
+  "Isaac Labの大規模並列GPU環境による完全シミュレーション学習を行い、実機追加学習なし（ゼロショット）でのUR10eへのSim-to-Real転移の実証",
+  "実機での150目標ベンチマークにおいて、古典的動作計画手法を有意に上回る94.7%の到達率と39.8〜73.0%の加加速度（ジャーク）低減を確認",
+  "RGB-D認識からカット＆ホールド機構までを統合した実温室での収穫実験（144試行）において、94.4%の到達成功率と86.1%の完全収穫成功率を達成"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ水耕レタスの収穫アプローチは難しいのか",
+   "summary_ja": "水耕栽培レタスの自動収穫では、密に並ぶ株や栽培レールと衝突せずに茎の根本へ正確な角度で刃先を届ける必要があります。従来の動作計画手法は振動や特異点に弱く、一般的な強化学習は実機での試行錯誤が危険という課題を、シミュレータ完結型の学習で解決します。",
+   "details_ja": "施設園芸におけるロボット収穫は、工業用ロボットのような整備された環境とは全く異なります。作物は形も柔らかさも1株ごとに異なり、水耕栽培（NFT: 養液を薄く流す栽培方式）の樋（とい）や隣の葉がすぐそばに迫っています。レタスを収穫するには、これらにぶつかることなく、地際すれすれの狭い空間へ横から水平に刃先を滑り込ませなければなりません。\n\nこれまで使われてきたRRTやBIT*といったサンプリング型動作計画やデカルト空間軌道生成は、幾何学的な経路を見つけるのは得意ですが、特異点や計算ノイズに弱く、急な関節の切り返しや不安定な振動（高い加加速度）が生じがちです。一方で、深層強化学習（DRL）を使えば環境に適応した滑らかな制御器を作れますが、実機で何度もロボットをぶつけながら試行錯誤（探索）させるわけにはいきません。\n\nそこで注目されるのが、GPU上で並列動作する物理シミュレータ（NVIDIA Isaac Labなど）を使った学習です。しかし、シミュレータと現実の挙動の違い（リアリティ・ギャップ）をどう埋めるか、そして「単に最終目標に届けばいい」ではなく「指定された水平方向から指定の高さを保って安全に進入する」という作物体特有の厳しい幾何制約をどう強化学習に解かせるかが大きな壁でした。本研究はこの課題に対し、タスク設計自体を収穫向けに特化させたPSA-PPOで挑みます。",
+   "figures": []
+  },
+  {
+   "heading": "2 Methodology",
+   "heading_ja": "PSA-PPO：安全な側面進入をシミュレータだけで叩き込む仕組み",
+   "summary_ja": "PSA-PPOは標準的なPPOの数式を変更せず、目標に応じた安全初期化、仮想コリドーによる経路追従、手首や手先の侵入違反履歴ペナルティを設計することで安全な進入を実現します。さらに、RGB-D認識による目標点追尾平滑化や、3Dプリント製カット＆ホールド機構を統合しています。",
+   "details_ja": "### 2.1 3D Target Streaming（3D目標ストリーミング）\n手先に取り付けたRGB-Dカメラでレタスの株元（切断点）を検出します。デプスセンサのフレームごとのばらつきを抑えるため、検出された2D位置をトラッキングし、直近数フレームの3D座標を時間的に平均化バッファリングしてROSトピックとして配信します。\n\n### 2.2 PSA-PPOの学習設計\nPSA-PPOの核心は「遠くからの大まかな移動」と「手前からの精密な側面アプローチ」を分けた点にあります。目標位置 $\\mathbf{p}^T$ が決まると、水平方向の手前 $d_a$ 離れた待機点 $\\mathbf{p}^S$ と水平アプローチ方向ベクトル $\\mathbf{a}^T$ が自動的に定まります。アームはまず目標に応じた幾何的安全開始姿勢へ移動し、そこからの最後の進入区間だけを方策（Actor）が制御します。\n\nActorに渡される観測は42次元で、関節角度・角速度、目標との位置誤差、ツール姿勢とアプローチ方向の平行度、そして手先や手首リンクの高さ方向クリアランス情報が含まれます。報酬関数では、目標への接近だけでなく、仮想的な進入コリドーからの逸脱、ツールの傾き、そして「アプローチ中に一度でも安全基準面を下回ったか」という累積違反量を厳しくペナルティ化しました。最終到達判定も、位置と姿勢が合っているだけでなく「進入経路全体で安全面を割り込まなかったか」を必須条件（厳密成功基準）としています。\n\n### 2.3 & 2.4 実機展開と収穫シーケンス\nエンドエフェクタには、OnRobotの2FG7電動グリッパで駆動する自作のテコ式「カット＆ホールド機構」を採用しました。1回の把持動作で茎の切断と株の保持を同時に行えます。学習済み方策を実機UR10eへ移す際は、実機側でのファインチューニングを一切行わず、固定のデカルト補正量とROSの関節軌道コントローラを介して1ステップごとに指令を送る決定論的推論を行っています。急激な指令を弾く安全リミッターもROS層に備えています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "PSA-PPOの学習構造図です。目標点から手前の待機点と水平進入方向を幾何的に算出し、手首や手先の高さクリアランスを含む42次元の観測から6自由度の増分関節指令を出力します。経路中の安全違反履歴も報酬と終了判定に組み込まれています。",
+     "caption": "Figure 2 : Training architecture of the path-safe, side-corridor approach policy (PSA-PPO) for the UR10e manipulator. Each target $\\mathbf{p}^{T}$ defines a horizontal approach direction $\\mathbf{a}^{T}$ and same-height staging reference $\\mathbf{p}^{S}$ and determines a geometry-conditioned safe-start configuration. The actor receives the 42-dimensional policy observation $\\boldsymbol{\\xi}_{t}$ and produces a six-dimensional action $\\bar{\\mathbf{u}}_{t}$ , which is bounded, filtered, and scaled before application. The environment evaluates target closure, corridor following, tool orientation, wrist–TCP path safety, and motion regularity. …",
+     "image": "details/2610.22337/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "新設計のカット＆ホールド収穫エンドエフェクタです。OnRobot 2FG7グリッパの開閉動作と連動して、剪定刃による茎の切断と保持フィンガーによる株の把持を同時に行える構造になっています。",
+     "caption": "Figure 3 : Redesigned cut-and-hold lettuce harvesting end effector. (a–f) SolidWorks components and assembled geometry, including top, bottom, side, open, and closed configurations; (g) fabricated mechanism mounted on the OnRobot 2FG7 and UR10e manipulator.",
+     "image": "details/2610.22337/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "3 Experiment",
+   "heading_ja": "実機アーム対決と温室でのリアル収穫テスト",
+   "summary_ja": "シミュレータでのアブレーションにより経路安全報酬の重要性を確認した後、実機UR10eで古典的プランナー3種と150目標で直接対決させました。PSA-PPOは最高到達率94.7%と圧倒的な動作の滑らかさを記録し、温室での144株の実収穫でも高い実用性を示しました。",
+   "details_ja": "### 3.1 & 3.2 実験設定と評価プロトコル\n実験は「シミュレーション切除実験（200目標）」「実機での制御比較ベンチマーク（150目標）」「温室での実収穫テスト（144株）」の3段階で実施しました。実機比較では、PSA-PPOと3つの代表的動作計画手法（Cartesian+TOTG、RRTConnect、RRT*）を同一の目標群で走らせ、到達成功率、端点誤差、そして最終22 cmの進入区間における手先加速度・加加速度（RMSジャーク）を比較しました。\n\n### 3.3.1 シミュレーション切除実験（アブレーション）\n安全項を抜いた場合の影響を検証したところ、経路安全項（path-safety）を外すと、厳密成功率は92.0%から63.5%へと激減し、基準面を最大54.3 mmも下に突き抜ける危険な進入が発生しました。興味深いのは側方コリドー項（side-corridor）を外したケースです。最終端点誤差はむしろ25.3 mmへと改善（PSA-PPOは32.3 mm）したにもかかわらず、途中で危険な経路を通るため厳密成功率は73.0%に落ちました。つまり、「目標位置への到達精度だけを競っても、安全な収穫動作にはならない」ことが浮き彫りになりました。\n\n### 3.3.2 実機ロボットでの古典的プランナーとの比較\n実機UR10eによる150目標のテストにおいて、PSA-PPOは最高到達率94.7%を達成しました（RRTConnect: 88.0%, Cartesian+TOTG: 86.0%, RRT*: 80.0%）。端点の静止精度自体は古典的手法が1 mm前後と勝るものの、PSA-PPOも許容値20 mmを大きく下回る9.78 mmに収まっています。さらに特筆すべきは動作の滑らかさです。最終進入区間のRMSジャークは、Cartesian+TOTG比で73.0%、RRTConnect比で72.1%、RRT*比で39.8%も低減しました。急激な関節の振れがなく、きわめて静かに目標へ到達しています。\n\n### 3.3.3 温室でのエンドツーエンド収穫性能\n実際の温室でカメラ認識から切断・回収までを通しで行った144試行では、目標到達率94.4%（136/144株）、切断成功率86.1%（124株）、最終的なカゴへの回収成功率は75.0%（108株）でした。到達後の失敗の多くは、切断刃の噛み込み不良や搬送中の脱落など物理的把持の課題であり、学習された動作制御自体は極めて頑健に機能することが確かめられました。",
+   "figures": [
+    {
+     "key": "F12",
+     "caption_ja": "温室環境でのRGB-Dビジョン認識画面です。手先カメラから得られた点群とセグメンテーション画像に基づき、NFT水耕ベッド上に並ぶ各レタスの切断目標点（黄色い点）を正確に同定・ストリーミングしています。",
+     "caption": "Figure 12 : Representative online target stream during greenhouse harvesting. The image was acquired from the robot-mounted RGB-D camera while the UR10e remained at the home configuration. The vision node identified the available lettuce targets and published their corresponding 3D cutting-point coordinates for subsequent robot-frame transformation and target-conditioned reaching.",
+     "image": "details/2610.22337/F12.jpg"
+    },
+    {
+     "key": "F13",
+     "caption_ja": "温室での収穫シーケンスの様子です。(a) PSA-PPOによる水平アプローチ、(b) 2FG7駆動エンドエフェクタによる切断・把持、(c) 運搬後のカゴへのリリースまでの一連の動作が安定して実行されています。",
+     "caption": "Figure 13 : Representative greenhouse execution of the integrated harvesting pipeline: (a) PSA-PPO-controlled side approach toward the vision-derived cutting location; (b) simultaneous cutting and retention using the 2FG7-driven cut-and-hold end effector; and (c) release of the harvested lettuce into the collection basket.",
+     "image": "details/2610.22337/F13.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Conclusion",
+   "heading_ja": "まとめ：収穫ロボットにおける幾何計画と学習制御の新しい関係",
+   "summary_ja": "PSA-PPOは、シミュレーションのみで学習した強化学習ポリシーが、水耕栽培のような狭隘環境でも安全かつ滑らかに実機作動できることを証明しました。従来の幾何的プランナーと強化学習コントローラの得意分野の違いを明確にし、実用的な収穫自動化への道筋を示しました。",
+   "details_ja": "本研究は、水耕栽培レタス収穫という制約の厳しいタスクにおいて、シミュレーション完結型の強化学習（PSA-PPO）が実機でも高い信頼性を発揮できることを実証しました。特に重要な知見は、強化学習と古典的プランナーのトレードオフです。古典的プランナーは幾何学的な最短経路や高精度な位置決めが得意ですが、特異点や狭い環境での解の破綻、動作の振動が生じやすい傾向があります。一方、PSA-PPOは到達信頼性が高く、動的な励起（振動やジャーク）が圧倒的に低いという、農業ロボットに最適な動作特性を示しました。\n\n今後は、大域的な障害物回避を古典的な幾何プランナーに任せ、作物の直前でのデリケートな進入をPSA-PPOのような学習ポリシーが担当し、さらに接触力をフィードバックするハイブリッドな制御アーキテクチャへの発展が期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：学習設定の詳細とワークスペース全域での成否分布",
+   "summary_ja": "付録ではPPOのハイパーパラメータや報酬の重み、安全開始姿勢の計算式、そしてシミュレーションワークスペース全体における各アブレーション手法の成否分布データを詳細に公開しています。",
+   "details_ja": "PSA-PPOの学習では、PPOのクリップパラメータ $\\epsilon=0.2$、割引率 $\\gamma=0.99$、GAEパラメータ $\\lambda=0.95$ などの標準的な設定が使われています。方策ネットワークは42次元入力を受け取り、隠れ層 [256, 128, 64] のMLPを経て6次元の関節増分値を出力します。\n\nワークスペース全域における成否を可視化した3Dマップ（Figure B.2）を見ると、PSA-PPOは作業空間の端や高低差の大きい領域でも安定して「厳密成功（緑色の丸）」を維持していることが分かります。これに対し、経路安全項を外したモデル（W/o path safety）では、空間全体にわたって「安全条件違反による失敗（オレンジの四角）」が多発しており、特定の苦手領域があるのではなく、動作全体の軌道管理が破綻していることが確認できます。",
+   "figures": [
+    {
+     "key": "F14",
+     "caption_ja": "シミュレーション評価（200目標）におけるワークスペース内の成否分布です。PSA-PPO（左上）が全域で厳密成功（緑丸）を維持しているのに対し、経路安全項を除去したモデル（右上）では安全違反による失敗（橙四角）が空間全体で多発していることが一目で分かります。",
+     "caption": "Figure B.2 : Target-wise simulation outcomes over the common workspace for PSA-PPO and the three component-removal formulations. Markers distinguish strict success, safety-only failure, final-only failure, and failure of both criteria. The plots localize evaluation failures but do not represent variation across policy retraining seeds.",
+     "image": "details/2610.22337/F14.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "「最終目標位置への到達誤差」だけを報酬にすると、途中で障害物面を割り込む危険な経路を学習してしまうため、経路履歴全体の安全性を評価する終了・報酬設計が不可欠である",
+  "強化学習コントローラは古典的プランナーに比べて絶対的な端点精度や直線性では劣るものの、到達成功率の高さと圧倒的なジャーク（加加速度）低減という優れた動特性を持つ",
+  "全行程を1つの方策に解かせるのではなく、目標に応じた安全姿勢への大まかなプリポジショニングと、直前20 cmの局所アプローチ学習を切り分ける設計がSim-to-Realの成功率を大きく引き上げる",
+  "収穫システム全体で見ると、動作計画の到達率が94%を超えた段階では、最終的なボトルネックは動作制御ではなく刃物の切断や把持・脱落防止といった物理インタラクションに移る"
+ ],
+ "limitations_ja": [
+  "「経路安全（Path-Safe）」と銘打っているものの、手首と手先の高さ制限および回廊制約に基づいた設計であり、温室全体や予期せぬ障害物に対する厳密な衝突回避保証（数学的証明）があるわけではない",
+  "評価されたポリシーは単一のシミュレーション学習チェックポイントに基づいており、乱数シードを変えた複数回学習によるばらつき（リトレーニング堅牢性）の評価までは行われていない",
+  "古典的プランナーとの比較は位置決めベンチマークのみであり、ビジョン認識と連動したエンドツーエンドの温室実験では古典的プランナーとの直接比較が行われていない"
+ ],
+ "keywords": [
+  "Agricultural Robotics",
+  "Reinforcement Learning",
+  "Sim-to-Real Transfer",
+  "Proximal Policy Optimization",
+  "Constrained Manipulation"
+ ],
+ "id": "2610.22337",
+ "title": "Sim-to-Real Reinforcement Learning for Path-Safe Target Reaching in Robotic Harvesting of Hydroponic Lettuce",
+ "authors": [
+  "Al Bashir",
+  "Partho Ghose",
+  "Yibin Wang",
+  "Robert G. Hardin",
+  "Joshua Peeples",
+  "Genhua Niu",
+  "Azlan Zahid"
+ ],
+ "date": "2026-10-18",
+ "group": "focus",
+ "tags": [
+  "reinforcement-learning",
+  "sim-to-real",
+  "safety",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.22337",
+ "pdf_url": "https://arxiv.org/pdf/2610.22337",
+ "summary_ja": "狭小環境での収穫ロボット向けに、目標条件付き到達手法PSA-PPOを提案した。PPOの目的関数を保持しつつ、回廊状の空間制約や軌道履歴に基づく安全性エンコーディングを方策に組み込んだ。シミュレーションで学習した方策を実機にSim-to-Real転移し、高精度かつ安全な到達を達成した。",
+ "generated": "2026-10-18",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.22337"
+}
