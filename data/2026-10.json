@@ -1,6 +1,267 @@
 {
  "entries": [
   {
+   "date": "2026-10-18",
+   "rank": 0,
+   "id": "2610.22368",
+   "group": "focus",
+   "title": "Value as Memory: Online Value-Guided Post-training for General Robot Policies",
+   "title_ja": "Value as Memory：汎用ロボット方策のためのオンライン価値誘導型ポストトレーニング",
+   "summary_ja": "部分観測性とオフライン学習の遅延フィードバックに対処するため、価値予測をタスク進捗メモリとしてキャッシュし、実環境でのオンライン強化学習（RL）を行う枠組みVaMを提案した。オフラインデモ、介入、オンポリシー試行を統合し、実機環境で自律的かつ高サンプル効率な方策改善を実証した。",
+   "summary_en": "To address partial observability and delayed feedback in real-world policy post-training, this paper proposes Value as Memory (VaM), which caches value predictions as task memory and performs online RL. Combining offline demos, interventions, and on-policy rollouts, it enables sample-efficient autonomous policy adaptation on physical robots.",
+   "authors": [
+    "Wenye Yu",
+    "Yijin Chen",
+    "Kaiyi Xiong",
+    "Wenbo Han",
+    "Wendi Chen",
+    "Yang Jin",
+    "Han Xue",
+    "Jun Lv",
+    "Cewu Lu",
+    "Chuan Wen"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.22368",
+   "image": "figures/2026-10-18/2610.22368.jpg"
+  },
+  {
+   "date": "2026-10-18",
+   "rank": 1,
+   "id": "2610.22337",
+   "group": "focus",
+   "title": "Sim-to-Real Reinforcement Learning for Path-Safe Target Reaching in Robotic Harvesting of Hydroponic Lettuce",
+   "title_ja": "水耕栽培レタス収穫における経路安全な目標到達のためのSim-to-Real強化学習",
+   "summary_ja": "狭小環境での収穫ロボット向けに、目標条件付き到達手法PSA-PPOを提案した。PPOの目的関数を保持しつつ、回廊状の空間制約や軌道履歴に基づく安全性エンコーディングを方策に組み込んだ。シミュレーションで学習した方策を実機にSim-to-Real転移し、高精度かつ安全な到達を達成した。",
+   "summary_en": "The authors propose PSA-PPO, a target-conditioned local reaching framework for robotic harvesting in constrained workspaces. It incorporates corridor-aware spatial constraints and trajectory-history-based safety into PPO, enabling effective sim-to-real transfer for precise and collision-free reaching on real hardware.",
+   "authors": [
+    "Al Bashir",
+    "Partho Ghose",
+    "Yibin Wang",
+    "Robert G. Hardin",
+    "Joshua Peeples",
+    "Genhua Niu",
+    "Azlan Zahid"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "sim-to-real",
+    "safety",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.22337",
+   "image": "figures/2026-10-18/2610.22337.jpg"
+  },
+  {
+   "date": "2026-10-18",
+   "rank": 2,
+   "id": "2610.22193",
+   "group": "focus",
+   "title": "MOSS: Mode-Oriented Source Shaping for Robot Flow Matching Policies",
+   "title_ja": "MOSS：ロボット向けフローマッチング方策におけるモード指向ソース整形",
+   "summary_ja": "フローマッチング方策が複数動作モードを捉えても実行モードがランダムサンプリングに委ねられる問題に対し、初期ノイズ空間の選択でモードを明示指定する手法MOSSを提案した。ODE輸送の決定論的性質を利用してモードを分離し、実機操作タスク等で意図通りのマルチモーダル挙動選択を実現した。",
+   "summary_en": "Generative policies like flow matching capture multimodal actions, but mode execution is typically left to random sampling. The authors introduce MOSS, which enables explicit mode selection by shaping the source noise space. Leveraging deterministic ODE transport properties, it successfully controls multimodal behavior in manipulation tasks.",
+   "authors": [
+    "Zirun Ma",
+    "Jindou Jia",
+    "Tuo An",
+    "Jiaqi Bai",
+    "Jiahua Dong",
+    "Jianfei Yang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "imitation-learning",
+    "control",
+    "manipulation",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.22193",
+   "image": "figures/2026-10-18/2610.22193.jpg"
+  },
+  {
+   "date": "2026-10-18",
+   "rank": 3,
+   "id": "2610.22342",
+   "group": "general",
+   "title": "Spark-0: Scaling Spatially Aligned Tactile Pretraining for Robot Dexterous Manipulation",
+   "title_ja": "Spark-0：ロボット巧緻操作に向けた空間整列触覚事前学習のスケーリング",
+   "summary_ja": "接触が重要な巧緻操作に向け、触覚グローブ由来の接触マップを視覚トークンへ整列させて事前学習する視覚・触覚・言語・行動（VTLA）モデルSpark-0を提案した。推論時は視覚のみまたは局所的な力・3Dタクセル履歴を入力可能とし、実機での多彩な接触リッチ作業で優れた操作性能を示した。",
+   "summary_en": "The paper presents Spark-0, a spatially aligned vision-tactile-language-action (VTLA) model for contact-rich dexterous manipulation. It supervises visual tokens with glove-based tactile contact maps during pretraining, while supporting dual visual-tactile or vision-only inference to achieve high performance on complex manipulation tasks.",
+   "authors": [
+    "Tianxing Chen",
+    "Wenwei Lin",
+    "Chuqiao Lyu",
+    "Peicheng Xiang",
+    "Junyuan Tang",
+    "Tian Nian",
+    "Zijian Cai",
+    "Kehe Ye",
+    "Chenze Yu",
+    "Wenxuan Zhu",
+    "Eric J. Chen",
+    "Yan Qin",
+    "Yue Chen",
+    "Tongyu Wu",
+    "Junhao Gong",
+    "Kai-Chong Lei",
+    "Jiahao Zhang",
+    "Kailun Su",
+    "Qiwei Liang",
+    "Renjing Xu",
+    "Ping Luo",
+    "Wenbo Ding"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "vision-language-action",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.22342",
+   "image": "figures/2026-10-18/2610.22342.jpg"
+  },
+  {
+   "date": "2026-10-18",
+   "rank": 4,
+   "id": "2610.22363",
+   "group": "general",
+   "title": "Perceive, Predict, and Plan: a Unified World Action Model for Egocentric Dexterous Manipulation",
+   "title_ja": "認識・予測・計画：一人称視点巧緻操作のための統合型ワールドアクションモデル",
+   "summary_ja": "一人称視点での巧緻操作に向け、知覚・行動条件付き予測・目標指向計画を統合したワールドアクションモデルP³-WAMを提案した。3D行動表現を動画拡散Transformerに組み込み、画像と指示から将来の視覚変化と行動軌道を同時生成することで、実環境の操作課題において高い計画精度を達成した。",
+   "summary_en": "The authors introduce P3-WAM, a unified world action model for egocentric dexterous manipulation that unifies 3D perception, action-conditioned prediction, and planning. By integrating structured 3D actions into a video diffusion transformer, it jointly generates future visual states and action trajectories from visual and language goals.",
+   "authors": [
+    "Zirui Wu",
+    "Chen Guo",
+    "Tianjian Jiang",
+    "Zeren Jiang",
+    "Zeming Li",
+    "Lingchen Yang",
+    "Longteng Duan",
+    "Ying Xue",
+    "Handi Yin",
+    "Shenyuan Gao",
+    "Martin R. Oswald",
+    "Jun Zhang",
+    "Ping Tan",
+    "Jie Song"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "manipulation",
+    "planning",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.22363",
+   "image": "figures/2026-10-18/2610.22363.jpg"
+  },
+  {
+   "date": "2026-10-18",
+   "rank": 5,
+   "id": "2610.22178",
+   "group": "general",
+   "title": "REKI: Registering Knowledge in VLAs",
+   "title_ja": "REKI：VLAにおける知識のレジスタ保持機構",
+   "summary_ja": "公開データのみで学習した24億パラメータのVLAモデルREKIを提案した。VLMの出力を要約するレジスタトークンを行動エキスパートのキャッシュに保持させる軽量な記憶機構を導入し、計算コストを増やさずに過去の履歴を参照可能にした。ベンチマークで約2倍の規模のモデルに匹敵する性能を達成した。",
+   "summary_en": "The paper presents REKI, a 2.4B vision-language-action model trained entirely on public datasets. By introducing register tokens in the flow-matching action expert that summarize past VLM outputs with minimal cost, REKI establishes a strong Pareto frontier, matching or outperforming models nearly twice its size on standard benchmarks.",
+   "authors": [
+    "Juliette Marrie",
+    "Paul Pacaud",
+    "Adrien Ramanana Rahary",
+    "Shizhe Chen",
+    "Moritz Böhle"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "vision-language-action",
+    "imitation-learning",
+    "manipulation",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.22178",
+   "image": "figures/2026-10-18/2610.22178.jpg"
+  },
+  {
+   "date": "2026-10-18",
+   "rank": 6,
+   "id": "2610.22343",
+   "group": "general",
+   "title": "GeoState: Learning View-Decoupled Geometry States for 3D World Modeling",
+   "title_ja": "GeoState：3Dワールドモデリングのための視点分離型幾何状態学習",
+   "summary_ja": "幾何基盤モデル特徴量を用いた3Dワールドモデルにおけるカメラ視点依存の交絡に対処するため、幾何状態を視点と分離して表現するGeoStateを提案した。マルチビュー特徴量を視点非依存なシーン状態に集約して自己回帰的に予測することで、カメラ変動に左右されない正確な未来3D予測を実現した。",
+   "summary_en": "To resolve the entanglement of scene dynamics and camera variations in 3D world models, GeoState introduces a view-decoupled geometric representation. By aggregating multi-view foundation features into camera-independent scene states and predicting them autoregressively, it achieves robust and accurate 3D future state prediction.",
+   "authors": [
+    "Hongchang Liu",
+    "Jian Liu",
+    "Yujuan Ding",
+    "Liang Peng",
+    "Xun Jiang",
+    "Fei Ma",
+    "Xing Xu",
+    "Yi Bin"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.AI",
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "perception",
+    "autonomous-driving"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.22343",
+   "image": "figures/2026-10-18/2610.22343.jpg"
+  },
+  {
+   "date": "2026-10-18",
+   "rank": 7,
+   "id": "2610.22225",
+   "group": "general",
+   "title": "Safe and Fuel-Efficient Motion Planning for Lunar Propulsive Drones",
+   "title_ja": "月面推進型ドローンのための安全かつ省燃費なモーションプランニング",
+   "summary_ja": "月面地形観測を行う推進型ホッピングドローン向けに、視覚誘導型最適制御を用いた自律運動計画フレームワークを提案した。ウェイポイント間の放物線跳躍軌道を最適化しつつ、セマンティック危険度予測に基づく着陸適性判定と緊急時の迂回マヌーバを統合して、過酷な月環境での安全性と燃料効率を両立した。",
+   "summary_en": "The authors present an autonomous motion planning framework for lunar propulsive hopping drones using vision-guided optimal control. By optimizing parabolic hops between waypoints and integrating semantic hazard assessment for divert maneuvers, the system achieves safe and fuel-efficient navigation in harsh lunar environments.",
+   "authors": [
+    "Elena Wittemyer",
+    "Graco Gao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "drone",
+    "planning",
+    "safety",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.22225",
+   "image": "figures/2026-10-18/2610.22225.jpg"
+  },
+  {
    "date": "2026-10-17",
    "rank": 0,
    "id": "2610.20968",
