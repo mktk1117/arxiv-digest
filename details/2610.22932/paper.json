@@ -1,0 +1,146 @@
+{
+ "title_ja": "Ego2Contact: 接触を伴うロボット操作のための主観視点人間動画からの触覚予測",
+ "tldr_ja": "人間の一人称視点（一人称RGB）映像から接触位置や圧力を高精度に予測し、解剖学的な対応付けによってロボットハンドの触覚入力として転移・活用できるようにした研究です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "人間の視覚-触覚データから学んだ予測モデルを、解剖学的な対応関係を通じてロボットハンドに適応させる全体フレームワークです。適応後のモデルは「仮想触覚センサ」として機能し、シミュレーションでの強化学習や実機ロボットの模倣学習（VLA）に触覚情報を供給できます。",
+  "caption": "Fig. 1: From human touch to robot manipulation. We learn a visual-tactile predictor from paired human egocentric video and tactile measurements, fine-tune it to a dexterous robot hand through anatomical region correspondences, and use the adapted predictor to supply touch for downstream policy learning across four simulated and two real-world contact-rich tasks.",
+  "image": "details/2610.22932/F1.jpg"
+ },
+ "overview_ja": "ロボットがペンのキャップを外したりボトルの蓋を回したりする接触の多い作業では、どこにどれだけの力がかかっているかを知ることが不可欠です。しかし、指先や対象物が隠れてしまう視覚情報だけでは接触力の推定が難しく、かといってロボット用の触覚センサは高価で壊れやすく、ロボットごとに形状が異なるため大規模なデータ集めが極めて困難でした。\n\nそこで著者らは「人間の一人称視点映像なら大量に集められる」という点に着目しました。触覚グローブを着けた人間の動作映像から視覚と触覚の事前知識（Prior）を学習し、それをロボットハンドへ転移させるフレームワーク「Ego2Contact」を提案したのです。人間の手とロボットの手では見た目もセンサの配置も全く違いますが、手の解剖学的な骨格領域（指先、第二関節、掌など）を共通のインターフェースとして定義することで、この形態差を見事に乗り越えました。\n\n検証では、人間の未知物体操作における触覚予測精度で従来手法を上回っただけでなく、シミュレーションや実機のロボットハンドへ適応させることにも成功しました。シミュレーション環境での接触作業では、視覚のみの制御ポリシーに比べて成功率が大幅に向上し、実物の触覚センサを使った場合に迫る性能を達成しています。本物センサがなくても、映像から触覚を「想像」させてロボットを巧みに操れる道を切り拓いた注目の研究です。",
+ "contributions_ja": [
+  "時間的なシーン文脈と手の局所視覚特徴を融合し、両手の連続圧力場を高精度に生成するConditional Flow-Matchingモデルを提案した点",
+  "人間の手と異なるロボットのセンサ配置を17の解剖学的領域で結びつけ、相互変換を可能にする汎用インターフェースを構築した点",
+  "予測器を制御ポリシーから完全に切り離し、シミュレーションの強化学習（RL）と実機の視覚言語行動モデル（VLA）の双方に触覚入力を供給できることを実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "ロボットに触覚を持たせたいけれど、センサの壁が高すぎる問題",
+   "summary_ja": "接触を伴う器用な作業には触覚が欠かせませんが、ロボットでの触覚データ収集はハードウェアの制約から極めて困難です。本論文は、集めやすい人間の一人称映像から触覚の事前知識を学び、解剖学的対応付けによってロボットへ転移させる「Ego2Contact」を提案します。",
+   "details_ja": "ロボットに器用な作業をさせようとすると、滑りそうな瞬間に把持力を強めたり、視界が遮られた状態で接触の瞬間を察知したりといった「触覚」のフィードバックが欲しくなります。ですが、現実にはロボット用の触覚スキンや光学式触覚センサは壊れやすく、ロボットハンドの形状ごとに設計がバラバラです。そのため、複数ロボットで使い回せる大規模な触覚データセットを作るのはほぼ不可能でした。\n\nそれなら、人間の一人称視点映像を活用できないでしょうか。人間が触覚グローブを着けて作業するデータセットを使えば、映像から触覚を予測するモデルは作れます。しかし、これまでの研究は「人間の手」の範囲で完結しており、ロボットを動かすことまでは踏み込めていませんでした。ロボットの手は金属やプラスチックで見た目が人間の手と大きく異なりますし、センサの数や配置も全く別物だからです。\n\nここがポイントなのですが、Ego2Contactはこの「外見の差」と「センサ配置の差」を同時に解決します。時間情報と局所的な手の見た目を組み合わせた高精度な触覚予測器を作り、さらに手を17個の解剖学的領域に分割することで、どんな形状のロボットハンドとも触覚情報をやり取りできるようにしました。予測器は独立したモジュールとして動くため、ロボットの制御方策（ポリシー）の構造を選ばない点も大きな強みです。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "人間の一人称映像から学んだ視覚-触覚予測モデルを、解剖学的対応付けを介してロボットハンドに適応させ、シミュレーションや実機での多様な接触タスクへ応用するパイプラインの全体像です。",
+     "caption": "Fig. 1: From human touch to robot manipulation. We learn a visual-tactile predictor from paired human egocentric video and tactile measurements, fine-tune it to a dexterous robot hand through anatomical region correspondences, and use the adapted predictor to supply touch for downstream policy learning across four simulated and two real-world contact-rich tasks.",
+     "image": "details/2610.22932/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "視覚からの触覚推定と、ロボットへの転移はどこまで進んでいたか",
+   "summary_ja": "映像から触覚を予測する研究やロボット自身が触覚を想像する研究は存在していましたが、人間の大規模データから得た触覚の事前知識を多様なロボットの制御方策へ直接渡せる統一的な仕組みはありませんでした。",
+   "details_ja": "関連研究は大きく3つの系統に分かれます。\n\n### 視覚ベースの接触・圧力推定\n画像から接触を推定する試みは、まず「どこに触れているか」の二値推定から始まり、近年では触覚グローブのデータと組み合わせることで手全体の連続的な圧力を推定する研究へと発展してきました。代表例がTouchAnythingで、両手それぞれを $21\\times 21$ の共通グリッドとして扱う枠組みを提案しています。ただし、これらはあくまで人間の手を対象とした評価にとどまっていました。\n\n### ロボットマニピュレーションのための触覚センシングと想像\n実機に触覚センサを常備できない問題を解決するため、ロボット自身のデモデータから視覚情報をもとに触覚を予測する「TacImag」や、視覚触覚ワールドモデルを学ぶ「ViTacWorld」などが提案されています。しかし、これらは特定のロボットが収集したデータのみに依存しており、人間が持つ膨大で多様なインタラクションデータを活かせていません。\n\n### 人間の事前知識のロボット触覚学習への転移\n人間の映像から触覚の知識をロボットへ持ち込む研究として「VTDexManip」や「H-Tac」が登場しています。ですが、これらは触覚推定が特定の強化学習アーキテクチャや行動空間と密結合（一体化）しており、別のロボットや異なるポリシーへ柔軟に組み替えることが困難でした。Ego2Contactは知覚モジュールを独立させ、解剖学的対応付けによって汎用的な触覚観測値として出力する点で一線を画しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Methodology",
+   "heading_ja": "時間文脈の融合と解剖学的グリッドによるクロスボディ適応",
+   "summary_ja": "入力されたRGB連続フレームから時系列文脈と手の局所特徴を抽出し、Conditional Flow-Matchingによって両手の触覚マップを生成します。さらに手を17領域に分ける双方向マッピングを設計し、ロボットのセンサ値によるファインチューニングと制御入力への変換を実現しました。",
+   "details_ja": "### 問題設定\nモデルへの入力は、サンプリング間隔 $\\Delta=2$ で取得した過去 $T=8$ フレームのRGBクリップ $V_t$ です。ここから両手それぞれの $21\\times 21$ の触覚圧力場 $P_t \\in [0, 1]^{2\\times 21\\times 21}$ を予測します。各手には217個の有効なセンサセルが存在します。\n\n### 視覚-触覚事前知識の学習\n接触面は手で隠れることが多いため、静止画の見た目や3D姿勢だけでは圧力を正確に推定できません。そこで、モデルには「時間的な文脈」と「手の局所的な見え方」の両方を教え込みます。\n- シーン全体の流れ：凍結したDINOv2（ViT-B/14）で各フレームから256個のトークンを抽出し、3層のTemporal Transformerで時間方向に統合します。\n- 手元の局所情報：手のクロップ画像から凍結したWiLoR（ViT-H）で特徴を抽出し、空間プーリングで手あたり16トークンに圧縮します。\n- 特徴融合：手元トークンをクエリとして、時系列シーン特徴に対してCross-Attentionを適用し、条件ベクトル $c_t$ を作ります。\n\n触覚の生成器には6ブロックのDiffusion Transformer（DiT）を採用し、Rectified Flow（流速を予測してノイズから画像を生成する手法）によって $21\\times 21$ のグリッドを生成します。損失関数には、接触している領域に大きな重みをかける接触重み付け誤差と、隣接セル同士の急激な変化を抑える全変動（TV）正則化を組み込んでいます。\n\n### 解剖学的対応付けによるロボット適応\nここが最も面白い工夫です。予測器の出力である217個のセルを、指の各関節や掌など「17の解剖学的領域」にグループ分けします。\n- 順マッピング（学習時）：ロボットの測定値を $21\\times 21$ グリッドに変換します。シミュレータの剛体リンクにかかる接触力はガウス重みで領域内のセルに分散させ、実機の880点触覚グローブの値はセルごとに平均化します。これにより、どちらのロボットデータも同じ形式の教師信号になり、人間の事前学習モデルをそのままファインチューニングできます。\n- 逆マッピング（制御時）：生成されたグリッドをロボットのポリシーが使いやすい形式に変換します。強化学習（PPO）向けには、各領域の最大圧力値（連続値17個）と接触フラグ（0か1の二値17個）を並べた34次元のコンパクトなベクトルとして渡します。実機のVLA（$N_0$-VTLA）向けには、Ridge回帰デコーダで880点のタクセルへ復元し、 $224\\times 224$ の触覚画像としてレンダリングして入力します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "触覚予測器のアーキテクチャです。DINOv2による大局的な時系列特徴とWiLoRによる手元の局所特徴をCross-Attentionで融合し、Conditional Flow-Matchingによってガウシアンノイズから反復的に触覚グリッドを生成します。",
+     "caption": "Fig. 2: Visual-tactile prediction model. Egocentric RGB frames and per-hand crops are encoded by a frozen DINOv2 (global scene context) and a frozen WiLoR backbone (hand-local features). A temporal transformer aggregates scene tokens, and cross-attention fuses the hand-local tokens with scene context into conditions for a conditional flow-matching generator that predicts the bimanual $21\\times 21$ tactile field from Gaussian noise through iterative refinement.",
+     "image": "details/2610.22932/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "ロボットへの適応と制御学習の流れです。解剖学的対応付けによってロボットの触覚データを共通グリッドに写してファインチューニングを行い、適応した予測器がカメラ映像から仮想的な触覚信号を生成してポリシーに渡します。",
+     "caption": "Fig. 3: Robot adaptation and policy learning. Anatomical region correspondences map the robot’s measured tactile signals onto the predictor’s canonical $21\\times 21$ grid, providing paired supervision to fine-tune the human-trained predictor. The adapted predictor turns robot RGB into predicted robot tactile, which, together with robot proprioception, is encoded as an observation for policy learning.",
+     "image": "details/2610.22932/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "双方向の解剖学的マッピングの詳細です。(a) 順マッピングではシミュレータのリンク力や実機の880点データを共通の217セルに統合します。(b) 逆マッピングでは予測グリッドを強化学習用の領域特徴量やVLA用の触覚画像へと変換します。",
+     "caption": "Fig. 4: Bidirectional anatomical mapping. (a) The forward mapping creates fine-tuning supervision. Simulator link forces are spread over their anatomical region’s cells and real 880-taxel readings are averaged within each cell, so both embodiments land in the shared 217-cell canonical grid. (b) The inverse mapping turns a predicted grid into policy inputs. Region pooling produces a per-region continuous peak and a binary contact flag for reinforcement learning, while a ridge decoder reconstructs and calibrates the 880 taxels into a tactile image for $N_{0}$ -VTLA post-training.",
+     "image": "details/2610.22932/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "人間の未知物体からロボットの器用な操作まで、予測触覚は本当に役立つのか",
+   "summary_ja": "人間の触覚データセットにおいて従来手法を超える予測精度を達成し、特に未知物体で高い汎化性を示しました。さらにロボットシミュレーションの強化学習では、触覚なしベースラインを有意に上回り、実機でもVLAポリシーの学習に成功しました。",
+   "details_ja": "### 人間データでの触覚予測精度\n人間データセット「EgoTouch」で評価したところ、Ego2ContactはTouchAnythingを上回り、接触IoU（接触領域の一致度）や時間的一致精度、圧力のMAE（平均絶対誤差）で最高性能を記録しました。別のデータセット「EgoTactile」への適応実験でも同様に優れた性能を示しています。\n\nなぜこれが効いたのかを探るアブレーション実験として、手の局所視覚特徴の代わりに「3D手姿勢」を入力するモデルを試しました。すると、学習時と同じ物体（Seen）では精度が上がったものの、未知物体（Unseen）では接触IoUが大きく低下してしまいました。姿勢情報は学習データの特定の形に過学習しやすく、手元のテクスチャや物体の変形といった「局所的な見た目の変化」こそが未知物体への汎化に不可欠だったということです。\n\n### ロボットへの適応とシミュレーション制御\nシミュレータ（Isaac Gym）のデータ約7万フレームでファインチューニングした結果、未適応では0.008しかなかったロボットデータに対するグリッド接触IoUが0.476へと劇的に跳ね上がりました。TouchAnythingを適応させた場合と比較しても、接触中心（Center of Pressure）の誤差が小さく、空間的な接触位置を正確に捉えられています。\n\nこの予測触覚をPPOによる強化学習ポリシーにオンライン供給したところ、極めて興味深い結果が得られました。\n- ボトルの蓋回し（Bottle Cap Turning）：触覚なしベースラインに比べ、予測触覚を与えたポリシーは成功率が71.0%に達し、本物のセンサ値を与えた場合（74.1%）に肉薄しました。\n- レバー操作（Lever Sliding）や物体受け渡し（Bimanual Handover）でも、触覚なしを有意に上回る成功率を記録しました。\n- ただし、ペンのキャップ外し（Pen Cap Removal）では、本物センサだと95.0%成功するのに対し、予測触覚では1.0%（ベースラインは0.0%）にとどまりました。非常に細かな指先の噛み合わせが必要な作業では、映像からの予測だけでは精度がまだ足りないという課題も浮き彫りになっています。\n\n### 実機ロボットへの展開\n実機環境では、xArm6ロボットアームに880点の触覚グローブを着けたBrainCo Revo 2ハンドを取り付け、VRテレオペで収集した約12.3万フレームのデータでモデルを適応させました。適応済みモデルを使って過去のデモ動画から触覚画像を生成（オフラインアノテーション）し、VLAモデル「$N_0$-VTLA」を事後学習（Post-training）させました。「試験管の移載」や「ボトルのキャップ外し」といった繊細な実機タスクにおいて、約24.5 Hzで安定して動作することを確認しています。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "人間データ（EgoTouch）での触覚予測の定性比較です。左から入力画像、正解、TouchAnything、提案手法です。手が部分的に遮蔽されている状況でも、Ego2Contactは接触位置と力の強弱を極めて忠実に再現できています。",
+     "caption": "Fig. 5: Qualitative human tactile prediction. For representative EgoTouch interactions (rows), we show the egocentric input and the left/right tactile maps of ground truth, TouchAnything, and Ego2Contact. Ego2Contact localizes contact and relative intensity more faithfully, including under partial hand occlusion.",
+     "image": "details/2610.22932/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実機ロボットによる「ボトルのキャップ外し」と「試験管の移載」の実行風景です。一人称視点と手元カメラの映像をもとに、適応済みモデルが触覚情報を補完しながら器用な操作を行っています。",
+     "caption": "Fig. 6: Real-world deployment. Egocentric and wrist-camera views of the two real-robot tasks, Bottle Cap Removal and Test Tube Transfer, performed by the dexterous hand used for $N_{0}$ -VTLA post-training.",
+     "image": "details/2610.22932/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "人間からロボットへ、触覚を「視覚的に」持ち込む新しい道",
+   "summary_ja": "人間の映像から視覚-触覚の事前知識を学び、解剖学的対応付けを介してロボットハンドへ転移する枠組みを確立しました。触覚ハードウェアが制限される環境でも、映像から仮想触覚を生成して高度なマニピュレーションを実現できる可能性を示しました。",
+   "details_ja": "本研究は、人間の一人称映像というスケールしやすいデータソースを活用し、ロボットにおける深刻な触覚データ不足を打破するアプローチを提示しました。時系列文脈と手元特徴を組み合わせたFlow-Matching生成器によって高精度な触覚予測を可能にし、17の解剖学的領域という共通の足場を築くことで、シミュレーションと実機の双方に触覚信号を供給できることを実証しました。\n\n本物センサの性能を完全に取り戻せたわけではありませんが、センサが壊れやすい過酷な環境や、触覚センサを搭載できない安価なハンドであっても、「映像から触覚を補う」ことで器用な接触作業を実現できる道筋を示した意義は非常に大きいです。\n\n著者らは今後の課題として、ロボット側への適応に必要なデータ量のさらなる削減や、手動で解剖学的対応を設計することなく、あらゆるロボットやセンサ形状へ自動で対応できる普遍的な触覚表現の構築を挙げています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "ロボットの触覚センサデータが少なくても、人間の一人称視点グローブデータから学んだ視覚-触覚事前知識を転移させることで補える",
+  "接触推定において3D手姿勢だけに頼ると未知物体で過学習しやすいため、手元の局所的なテクスチャや変形といった視覚特徴（WiLoRなど）と時間文脈の併用が極めて重要である",
+  "手の骨格に基づく「解剖学的領域（17領域）」を共通インターフェースに据えることで、剛体リンク力から高密度タクセルアレイまで異なるロボットセンサ形式を統一的に扱える",
+  "予測された触覚は、強化学習（RL）の観測値としても模倣学習（VLA）のオフライン触覚アノテーションとしてもそのまま活用でき、ポリシー構造と完全に独立して機能する"
+ ],
+ "limitations_ja": [
+  "ロボットへの適応にあたって、ハンドのリンクやタクセルを手作業で17の解剖学的領域に対応付ける設計コストが残っている",
+  "ペンのキャップ外しのように、極めて微小な位置合わせや硬い勘合を伴う作業では、映像予測のわずかな誤差が致命的となり、本物センサとの性能差が大きい",
+  "ロボットドメインへの適応（ファインチューニング）には依然として一定量（数万〜十数万フレーム）のペアデータ収集が必要である"
+ ],
+ "keywords": [
+  "Tactile Prediction",
+  "Visuo-Tactile Learning",
+  "Egocentric Vision",
+  "Dexterous Manipulation",
+  "Cross-Embodiment Transfer",
+  "Flow Matching"
+ ],
+ "id": "2610.22932",
+ "title": "Ego2Contact: Predicting Touch from Egocentric Human Video for Contact-Rich Robot Manipulation",
+ "authors": [
+  "Qianqian Yang",
+  "Dayou Li",
+  "Bangya Liu",
+  "Zihao Zhu",
+  "Nuo Chen",
+  "Siyuan Xu",
+  "Hezhen Hu",
+  "Chen Yu",
+  "Rebecca Friesen",
+  "Minghui Zheng",
+  "Cynthia Hipwell",
+  "Xiaoning Qian",
+  "Kenji Shimada",
+  "Zhiwen Fan"
+ ],
+ "date": "2026-10-19",
+ "group": "general",
+ "tags": [
+  "perception",
+  "manipulation",
+  "imitation-learning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.22932",
+ "pdf_url": "https://arxiv.org/pdf/2610.22932",
+ "summary_ja": "接触リッチなロボット操作に必要な触覚情報を人間の一人称視点映像から抽出するEgo2Contactを提案。触覚グローブ付き映像から視覚-触覚プライアを事前学習し、手先外観やセンサ配置が異なるロボットハンドへと転移させることで、ロボット実機での収集が困難な触覚データを人間動画からスケーラブルに補完・活用可能にした。",
+ "generated": "2026-10-19",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.22932"
+}
