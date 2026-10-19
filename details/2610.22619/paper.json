@@ -1,0 +1,128 @@
+{
+ "title_ja": "FCTS: 生成地形上の失敗に基づくカリキュラムツリー探索による脚ロボットのパルクール",
+ "tldr_ja": "四足歩行ロボットの踏破失敗時の局所的な地形やロボット状態をLLMにフィードバックして苦手な地形を自動生成し、MCTS（モンテカルロ木探索）で最適な学習カリキュラムの分岐を探索するフレームワーク「FCTS」を提案しました。実環境を模した高難度な瓦礫地形で走破成功率を従来比で大幅に向上させ、実機への転移も実証しています。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "FCTSのシステム全体像です。固定の検証地形での失敗情報（ロボットの姿勢、ローカル標高マップ、カメラ画像など）を抽出し、マルチモーダルLLMがその弱点を突く地形コードを生成します。そしてMCTSによって方策チェックポイントの有望な改善軌道を並行探索しながら強化学習を進めます。",
+  "caption": "Fig. 2 : Overview of our failure-conditioned curriculum search (FCTS). Validation failures guide LLM terrain generation, while parallel MCTS explores alternative policy-improvement trajectories.",
+  "image": "details/2610.22619/F2.jpg"
+ },
+ "overview_ja": "四足歩行ロボットによるパルクール技術は目覚ましい進化を遂げていますが、学習時に用いられる地形は階段や跳び箱といった定型的なものに限られがちでした。その結果、災害現場や建設現場のような、凸凹・亀裂・傾斜が複雑に入り組んだ非定型の環境に直面すると、方策が急激に破綻してしまうという汎化性の限界がありました。\n\nそこで著者らは、「ロボットがどこで、なぜ失敗したのか」という失敗の診断情報に着目しました。単なる平均スコアではなく、失敗地点の3D形状や姿勢をマルチモーダルLLMに渡し、その弱点を克服するための新しい訓練地形を自動生成させます。さらに、どのチェックポイントからどの地形へカリキュラムを進めるべきかを、限られた学習予算内で効率的に見つけ出すため、モンテカルロ木探索（MCTS）をカリキュラム発見問題に適用しました。\n\n実世界の建設現場や災害現場を3Dスキャンした高難度な検証コースで評価したところ、FCTSは中難度コースの走破成功率を従来最高水準の28.4%から85.8%へ、高難度コースでは14.9%から44.7%へと劇的に引き上げました。さらにBoston Dynamics社のSpot実機でも複合パルクールコースの走破に成功し、シミュレーションから現実への優れた転移性能を示しています。",
+ "contributions_ja": [
+  "ロボットが失敗した地点の座標、終了条件、姿勢、局所標高マップを反映して訓練地形を生成する、失敗条件付きカリキュラム生成機構を提案した点",
+  "方策チェックポイントをノード、地形生成と強化学習実行をエッジとみなすMCTS定式化を行い、過去の地形の復習（リハーサル）も組み込んだ点",
+  "実環境のスキャンデータから構築した未知の高難度ベンチマークで、既存のパルクール手法やLLMカリキュラム手法を圧倒する走破性能を達成した点",
+  "シミュレーションで獲得した方策が、Boston Dynamics Spot実機の複合パルクール環境へゼロショットで転移することを示した点"
+ ],
+ "sections": [
+  {
+   "heading": "I INTRODUCTION",
+   "heading_ja": "定型練習では太刀打ちできない「現実の不整地」をどう突破するか",
+   "summary_ja": "従来の四足ロボットの学習は人間が設計した定型的な障害物に依存しており、実世界の複雑な複合地形では学習済み方策が簡単に破綻してしまいます。このボトルネックを解消するため、ロボットの具体的な失敗コンテキストから弱点に特化した地形をLLMで自動生成し、MCTSで学習経路を探索するFCTSを提案しています。",
+   "details_ja": "強化学習による四足歩行のパルクールは、溝を跳び越えたり高い段差を駆け上がったりと、驚くべき敏捷性を実現してきました。しかし、それらは慎重にパラメータ調整された「あらかじめ定義された地形ファミリ」の中で学習されたものに過ぎません。実際の建設現場や被災地では、不規則な凹凸、細い足場、急勾配が同時に組み合わさって出現します。つまり、ロボットの能力そのものよりも「訓練時にどのような地形分布を見せていたか」が最大の制約になっていたわけです。\n\nこれを人間が手動で設計し直すのは膨大な手間がかかります。最近ではEurekaverseのように、大規模言語モデル（LLM）を使って訓練地形プログラムを自動生成する試みも登場しました。しかし従来手法は「平均走破スコア」のような集約された数値だけをLLMにフィードバックしていたため、LLMはロボットが具体的にどこでなぜ転倒したのかを知ることができず、自分の常識（事前確率）に従って適当な地形を作ってしまう問題がありました。\n\nそこで本研究では、「失敗した瞬間」こそが最も価値ある診断シグナルであるという洞察に立ち返りました。失敗地点の座標、転倒時のロボットの姿勢、周囲のローカルな標高マップなどをLLMに与えることで、弱点をピンポイントで突く地形を合成します。そして、強化学習の実行コストが高いという制約の下、モンテカルロ木探索（MCTS）を用いてチェックポイントの分岐を効率よく探索するフレームワーク「FCTS」を開発しました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "実環境のスキャンデータから再構成された未知の瓦礫コースにおける走行比較です。従来手法（Extreme ParkourやEurekaverse）は序盤の waypoint 3〜4 付近で転倒・停止していますが、FCTSで学習した方策（緑色）はすべての waypoint をクリアして最後まで走破できています。",
+     "caption": "Fig. 1 : FCTS traverses reconstructed real-world terrain on which baseline curriculum stop early. The site is an unseen deployment environment, held out from curriculum generation and training, and all three policies start from the same pre-trained checkpoint under the same commanded route, shown as overlaid poses through waypoints marked in red. Each trajectory is a representative episode.",
+     "image": "details/2610.22619/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II RELATED WORK",
+   "heading_ja": "パルクール学習・環境設計・LLM生成の交差点",
+   "summary_ja": "四足パルクール、環境自動設計（UED）、LLMを用いたコード生成という3つの研究領域を概観しています。FCTSは、これらを「失敗局所化フィードバック」と「方策チェックポイント空間におけるMCTS」という新しい枠組みで統合した位置づけになります。",
+   "details_ja": "本研究の背景には、大きく分けて3つの先行研究の流れがあります。\n\n### 四足歩行パルクール学習\nRobot Parkour LearningやANYmal Parkour、Extreme Parkour（EP）などは、跳躍や登攀といった多様なスキルを獲得させ、極めて高い敏捷性を実証してきました。しかし、これらは事前に設計された障害物パラメータ空間の中で難易度スケジューラを回すアプローチであり、新しい地形構造そのものを生み出すことはできませんでした。\n\n### 自動カリキュラムと環境設計（UED）\nエージェントの現在能力に合わせて環境を自動生成する手法として、GoalGANやPAIRED、POETなどが知られています。地形分野ではTACLのように既存マップ上で難易度関数を学習する手法もありますが、これらはあらかじめ決まったパラメータ空間や手続き型生成の範囲にとどまっていました。\n\n### LLMを用いたカリキュラム生成と探索\nLLMの表現力と推論能力を活かしてRLの環境や報酬コードを生成するEurekaやEurekaverse、EnvGenが登場しています。またGIF-MCTSのように、コード生成をMCTSで探索する試みもあります。しかし従来のコード木探索は軽量なコード実行で評価できる設定がほとんどでした。FCTSでは「1回の枝の展開（エッジ）＝丸ごとの強化学習実行」となるため、コード空間ではなく「方策チェックポイントの改善軌道」を探索する点に決定的な違いがあります。",
+   "figures": []
+  },
+  {
+   "heading": "III DISCOVERING TERRAIN CURRICULA FROM FAILURES",
+   "heading_ja": "失敗から地形を創り、木探索で育てる：FCTSのアルゴリズム",
+   "summary_ja": "FCTSは既存のパルクール学習器の外側で動作し、固定の検証環境をもとにMCTSを実行します。失敗診断フェーズで集めた幾何・姿勢情報をもとにLLMが「弱点克服」「汎化」「複合」の3種地形をコード生成し、過去の良地形を復習させながら方策を育てていきます。",
+   "details_ja": "FCTSの全体像とアルゴリズムの主要ステップは次の通りです。\n\n### III-A 前提と検証地形の設計\nベースの方策 $\\pi_0$ に対し、生成された地形カリキュラム $\\mathcal{C}_i$ を使ってRL学習器 $\\mathcal{T}$ を走らせ、新たなチェックポイントを生成します。各学習ランは計算コストが非常に重いため、限られた総学習回数 $N_{\\mathrm{train}}$ の中で最高の方策を見つけ出す必要があります。ここで、異なる地形履歴を持つ方策同士を公平に比較するため、パルクールの標準的な課題（ボックス登攀、溝跳び、狭路歩行など）を網羅した「固定の検証地形セット」をあらかじめLLMで用意し、不変の物差しとして使用します。\n\n### III-B 失敗誘導型カリキュラム木探索のステップ\n探索木では、各ノード $s_i$ が方策チェックポイント、エッジがRL訓練ランを表します。\n\n- **選択（Selection）**: 未探索の枝と有望な枝のバランスを取るため、PUCT則を用いて次に拡張する親ノードを選びます。\n- **失敗診断（Failure diagnosis）**: 選ばれた方策を検証地形上で並列実行（$R=512$試行）します。外れ値に惑わされないよう「最頻値（モード）」となる進行距離での失敗を特定し、その地点の座標、転倒原因、ロボットの基準姿勢、周囲 $8\\,\\mathrm{m} \\times 8\\,\\mathrm{m}$ のローカル標高マップ、カメラ画像などを詳細に記録します。\n- **拡張（Expansion）**: 過去の能力を忘れない（破滅的忘却を防ぐ）ため、過去に性能向上をもたらした地形をプールし、訓練地形の50%を「復習用（リハーサル）」に割り当てます。残りの50%として、LLMに失敗コンテキストとブランチの履歴を渡し、①失敗を再現する地形、②それを変化させた汎化地形、③両者を合わせた複合地形の3つの地形プログラムを出力させます。\n- **評価とバックプロパゲーション（Simulation & Backpropagation）**: 子ノードの真の価値は「そこからさらにどれだけ伸びるか」にあるため、深さ $H=2$ の浅い並列ロールアウトで将来の性能を推定します。親への価値の反映には、ブランチ内の最高性能を評価する Max-backup を採用しています。\n- **並列探索**: 1回の学習が重いため、訪問カウントに実行中カウントを加算することで非同期に並列探索を進め、スループットを高めています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "評価に用いられた2つの再構成環境のルートです。左の「Debris site（瓦礫環境）」では地形起伏の統計量に基づいてEasyからV-Hardまでのルートを自動設計しています。右の「Exposed Beam site（鉄骨環境）」は起伏計算が馴染まない大きな穴や細い梁が多いため、直接手動で評価ルートを設定しています。",
+     "caption": "Fig. 3 : Evaluation routes in the two reconstructed environments. Left (Debris site) shows both the relief-stratified traversal routes (Courses 1–8) and directly specified traversal routes (Courses 9–11) across all difficulty levels. Right (Exposed Beam site) shows the directly specified evaluation routes only, since the relief-based course generator is not reliable on its large gaps and disconnected structures.",
+     "image": "details/2610.22619/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV EXPERIMENTS",
+   "heading_ja": "崩壊ビル・鉄骨地帯での圧倒的走破力と実機Spotへの転移",
+   "summary_ja": "産業施設や災害現場を模した高難度な未知スキャン環境で評価を実施しました。FCTSは最高難度の瓦礫コースで従来手法が1%未満に沈むなか11.4%の完走率と高い進捗度を記録し、並列MCTSの効率化やBoston Dynamics Spot実機での走破も実証しました。",
+   "details_ja": "### 実験設定とベースライン\n実世界の建設現場や災害現場をスキャンした2つの環境「Debris site（瓦礫現場）」と「Exposed Beam site（露出鉄骨現場）」を使用しました。これらは学習および地形生成には一切使われていない完全な未知環境です。比較対象は、手動設計カリキュラムの代表格 Extreme Parkour（EP）、LLMによる進化的生成を行う Eurekaverse、そして検証環境の情報を与えた Modified Eurekaverse です。\n\n### IV-A 再構成環境での走破性能\nDebris siteの起伏分類ルートにおいて、FCTSは圧倒的な性能を見せました。\n- **Easy**: 完走率 $84.0\\%$（最強ベースラインは $31.5\\%$）\n- **Hard**: 完走率 $44.7\\%$、進捗中央値IQM $0.82$（最強ベースラインは $14.9\\%$、IQM $0.42$）\n- **V-Hard（最高難度）**: 従来手法が軒並み $1\\%$ 未満の成功率にとどまる中、FCTSは $11.4\\%$ の完走率を達成し、進捗IQMも $0.71$（ベースラインは最大 $0.44$）と大きく前進しました。\n\n### IV-B なぜFCTSはベースラインが倒れる場所を越えられるのか？\n質的分析により、差がついたのはコース全体の平均的な歩行ではなく「特定の難所」であることが判明しました。例えば「瓦礫と穴が組み合わさった90度ターン」や「丸い巨石が転がる傾斜面」、「段差と隙間が連続する壊れたハードル」などです。FCTSの最良探索ブランチを辿ると、初期に「うねる瓦礫」、次に「傾斜ピラー」、さらに「隆起ブロックと空間」といった具合に、失敗の克服に必要な幾何学的要素が段階的にカリキュラムへ導入されて複合化されていることが確認できました。\n\n### IV-C 並列探索効率と IV-D 実機転移\n24時間の固定計算予算下で、並列MCTSは逐次探索に比べて拡張スループットを約5.3倍（毎時0.21回から1.13回へ）向上させました。また、Boston Dynamics SpotにRealSense D435iとJetson AGX Orinを搭載し、パレット登攀・ブロック段差・階段降下からなる複合コースを走らせたところ、シミュレーション方策のまま安定して踏破に成功しました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "ベースラインが転倒した3つの難所（90度ターン、傾斜した瓦礫、連続ギャップ）と、FCTSが辿った最良ブランチのカリキュラム推移です。失敗をフィードバックすることで、うねり→傾斜ピラー→高所ブロックと段階的に難易度を上げた地形が生成され、複合地形の克服につながったことが分かります。",
+     "caption": "Fig. 4 : Failure cases and the corresponding winning FCTS curriculum branch. Top: three terrain regions where Extreme Parkour and Eurekaverse fail while FCTS completes the traversal. Bottom: the highest-valued branch found by FCTS and the terrain families generated along it. The branch progressively introduces irregular rubble, inclined support, repeated height-and-gap transitions, and their composition.",
+     "image": "details/2610.22619/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "Boston Dynamics Spot実機を用いた実証実験の様子です。パレットから高いブロックへ登り、そこから階段を降りるという複合的なパルクールコースを、FCTSで学習した単一のポリシーが50Hzのオンボード制御で滑らかに走破しています。",
+     "caption": "Fig. 5 : Real-world deployment of FCTS on a Boston Dynamics Spot traversing a compound parkour course consisting of a pallet, raised block, and stair descent.",
+     "image": "details/2610.22619/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V CONCLUSIONS",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "局所的な失敗の診断情報に基づくLLM地形生成とMCTSを組み合わせたFCTSにより、未知の過酷な実世界地形に対する四足ロボットの踏破性能が大幅に向上しました。本手法は、ロボットが直面する弱点に適応的なカリキュラムを自動構築する強力なフレームワークとなります。",
+   "details_ja": "本論文では、四足歩行パルクールにおける新しいカリキュラム自動生成手法「FCTS」を提案しました。従来の「大まかなスコアに基づく地形生成」から脱却し、転倒時の具体的な姿勢や局所地形というリッチな診断情報をLLMに与えることで、弱点を狙い撃ちした訓練地形を合成することに成功しました。\n\nさらに、強化学習の膨大な実行コストを考慮してMCTSを導入し、過去の良質な地形のリハーサルを挟みながら有望なチェックポイントを探索する枠組みを確立しました。これにより、実際の災害現場や建設現場を模したスキャン環境において、従来手法を大きく引き離す踏破性能を実証し、実機Spotへの転移性も示しました。\n\n今後の課題としては、シミュレーション上での実験環境にとどまらず、実際の産業現場や災害現場そのものにロボットを配備した実地での検証が挙げられています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "LLMによる環境生成では、大まかな平均スコアではなく「転倒地点のローカル標高や姿勢」といった局所的な失敗シグナルを渡すことが極めて効果的である。",
+  "カリキュラムの進化を一方向のgreedyな更新にするのではなく、MCTSを用いてチェックポイントの木構造として探索することで、局所最適や学習の行き詰まりを回避できる。",
+  "新しい弱点特化地形を訓練する際、過去の成功地形を50%程度リハーサル（復習）させることが、古いスキルの破滅的忘却を防ぐ鍵となる。",
+  "高難度な不整地の走破成否はコース全体ではなく一握りの複合難所で決まるため、弱点克服の積み重ねが最終的な完走率の劇的な差（1%未満→11.4%など）につながる。"
+ ],
+ "limitations_ja": [
+  "1回の木展開ごとに強化学習の完全な訓練ランを回す必要があるため、並列化を行っても計算リソースの要求が非常に大きい点。",
+  "鉄骨のような極端に不連続な環境（Exposed Beam siteのRoute 1など）では、ベースラインのEurekaverseに完走率で劣るケースも見られ、地形タイプによって得手不得手がある点。",
+  "実機検証は屋内のパレットや階段を用いた制御された複合コースで行われており、泥や崩落の危険がある本物の被災地・産業現場での実機試験は今後の課題とされている点。"
+ ],
+ "keywords": [
+  "Quadruped Locomotion",
+  "Parkour",
+  "Monte Carlo Tree Search",
+  "Curriculum Learning",
+  "Large Language Models",
+  "Sim-to-Real"
+ ],
+ "id": "2610.22619",
+ "title": "FCTS: Failure-Guided Curriculum Tree Search Over Generated Terrain for Legged Parkour",
+ "authors": [
+  "Narayanan Palghat Parameswaran (Carnegie Mellon University)",
+  "Dong-Ki Kim (FieldAI)",
+  "Jay Patrikar (FieldAI)",
+  "Santiago Gutierrez (FieldAI)",
+  "Harshad Zade (FieldAI)",
+  "Shayegan Omidshafiei (FieldAI)",
+  "Harmish Khambhaita (FieldAI)"
+ ],
+ "date": "2026-10-19",
+ "group": "focus",
+ "tags": [
+  "quadruped",
+  "locomotion",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.22619",
+ "pdf_url": "https://arxiv.org/pdf/2610.22619",
+ "summary_ja": "四足歩行ロボットのパルクール方策を複雑な不整地に汎化させるため、局所的な走破失敗箇所を手がかりに地形カリキュラムを自動生成する手法FCTSを提案。失敗地点に基づき木構造探索で段階的に難度を調整した地形を合成・学習させることで、従来の手動カリキュラムや実環境の直接再構成では困難だった不整地踏破の成功率を向上させた。",
+ "generated": "2026-10-19",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.22619"
+}
