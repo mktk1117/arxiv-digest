@@ -1,6 +1,365 @@
 {
  "entries": [
   {
+   "date": "2026-10-19",
+   "rank": 0,
+   "id": "2610.22619",
+   "group": "focus",
+   "title": "FCTS: Failure-Guided Curriculum Tree Search Over Generated Terrain for Legged Parkour",
+   "title_ja": "FCTS: 生成地形上の失敗に基づくカリキュラムツリー探索による脚ロボットのパルクール",
+   "summary_ja": "四足歩行ロボットのパルクール方策を複雑な不整地に汎化させるため、局所的な走破失敗箇所を手がかりに地形カリキュラムを自動生成する手法FCTSを提案。失敗地点に基づき木構造探索で段階的に難度を調整した地形を合成・学習させることで、従来の手動カリキュラムや実環境の直接再構成では困難だった不整地踏破の成功率を向上させた。",
+   "summary_en": "To generalize quadruped parkour policies to irregular, compound terrains, this paper proposes FCTS, a curriculum framework that uses localized traversal failures to automatically generate training terrains via tree search. By targeting specific policy weaknesses, FCTS improves traversal success over hand-designed curricula and direct training on reconstructed geometries.",
+   "authors": [
+    "Narayanan Palghat Parameswaran (Carnegie Mellon University)",
+    "Dong-Ki Kim (FieldAI)",
+    "Jay Patrikar (FieldAI)",
+    "Santiago Gutierrez (FieldAI)",
+    "Harshad Zade (FieldAI)",
+    "Shayegan Omidshafiei (FieldAI)",
+    "Harmish Khambhaita (FieldAI)"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.22619",
+   "image": "figures/2026-10-19/2610.22619.jpg"
+  },
+  {
+   "date": "2026-10-19",
+   "rank": 1,
+   "id": "2610.23127",
+   "group": "focus",
+   "title": "BeJEPA: A Goal-Conditioned Humanoid Behavior World Model via Unsupervised RL",
+   "title_ja": "BeJEPA: 教師なし強化学習によるゴール条件付きヒューマノイド行動世界モデル",
+   "summary_ja": "外乱を受けたヒューマノイドが目標ワールド姿勢へ復帰する制御のため、JEPAに基づくゴール条件付き行動世界モデルBeJEPAを提案。人の運動プライアと実機相互作用から教師なし強化学習を行い、次状態を予測するDynamic Predictorと将来状態を要約するSuccessor Predictorにより、身体配置と世界座標系での位置姿勢を統合的に表現し高精度な制御を実現する。",
+   "summary_en": "This paper proposes BeJEPA, a goal-conditioned behavior world model for humanoid robots based on JEPA, learned via unsupervised RL from human motion priors and robot interaction. By combining a Dynamic Predictor for next-state transitions and a Successor Predictor for future state summaries, it jointly represents body configuration and world-frame placement to effectively recover target poses after disturbances.",
+   "authors": [
+    "Liyun Yan",
+    "Haoyang Li",
+    "Yang Zhang",
+    "Jialing Zhu",
+    "Zhanxiang Cao",
+    "Zihao Zhou",
+    "Keqi Zhu",
+    "Yizhi Chen",
+    "Huang Chuxuan",
+    "Shengcheng Fu",
+    "Zhong Jiangwei",
+    "Qiao Sun",
+    "Chen Zhang",
+    "Yue Gao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "reinforcement-learning",
+    "world-model",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.23127",
+   "image": "figures/2026-10-19/2610.23127.jpg"
+  },
+  {
+   "date": "2026-10-19",
+   "rank": 2,
+   "id": "2610.23548",
+   "group": "focus",
+   "title": "Reinforcement Learning Based Multi-Terrain Adaptive Whole-Body Control for a Quadruped Manipulator",
+   "title_ja": "四足マニピュレータのための強化学習に基づくマルチ地形適応型全身制御",
+   "summary_ja": "不整地移動に伴う外乱下でもエンドエフェクタの作業精度を維持するため、ハイブリッドタスク表現と優先度付き学習を組み合わせた強化学習型全身制御（WBC）フレームワークを提案。小型四足ロボットにおいて移動とマニピュレーションの強い連動を調停し、複雑な地形で安定した移動マニピュレーションを実現した。",
+   "summary_en": "This paper proposes a reinforcement learning-based whole-body control framework for quadruped manipulators on complex terrains. By combining a hybrid task representation with task-prioritized whole-body learning, it coordinates the coupled dynamics of locomotion and manipulation, maintaining task-consistent end-effector behavior despite terrain-induced disturbances.",
+   "authors": [
+    "Yanzhou Jin",
+    "Fei Suo",
+    "Chang Liu",
+    "Yasuhisa Hasegawa",
+    "Liming Chen",
+    "Yusuke Iwasawa",
+    "Yutaka Matsuo",
+    "Yaonan Zhu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "control",
+    "reinforcement-learning",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.23548",
+   "image": "figures/2026-10-19/2610.23548.jpg"
+  },
+  {
+   "date": "2026-10-19",
+   "rank": 3,
+   "id": "2610.23849",
+   "group": "focus",
+   "title": "Blind Precise Assembly: Proprioceptive Sim-to-Real Peg-in-Hole for Diverse Parts",
+   "title_ja": "ブラインド精密組み立て: 多様な部品に対する固有受容感覚のみを用いたSim-to-Realペグ挿入",
+   "summary_ja": "視覚や力覚・触覚センサを用いず、関節位置・速度の履歴と自身の行動のみを入力とする固有受容感覚シミュレーション学習による精密組み立て手法を提案。治具や部品の姿勢が未知かつ把持位置がランダムな過酷な条件下でも、シミュレータ上の強化学習から実機へのzero-shot転移に成功し、ミリ単位の穴やギアの噛み合わせを実現した。",
+   "summary_en": "This paper presents a proprioceptive sim-to-real assembly framework that relies solely on joint positions, velocities, and action histories without visual or tactile sensors. Trained via reinforcement learning in simulation under uncertain part/fixture poses and randomized grasps, the policy achieves zero-shot sim-to-real transfer for millimeter-scale peg insertion and gear meshing.",
+   "authors": [
+    "Antonia Bronars",
+    "Younghyo Park",
+    "Kushal Kedia",
+    "Pulkit Agrawal"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "sim-to-real",
+    "reinforcement-learning",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.23849",
+   "image": "figures/2026-10-19/2610.23849.jpg"
+  },
+  {
+   "date": "2026-10-19",
+   "rank": 4,
+   "id": "2610.23438",
+   "group": "focus",
+   "title": "No Eyes, No Problem: What Does Touch Contribute to Blind Baoding Ball Manipulation?",
+   "title_ja": "目がなくても問題ない: ブラインド保定球操作における触覚の寄与",
+   "summary_ja": "Shadow Hand Liteを用い、視覚を使わず固有受容感覚とバイナリ触覚フィードバックのみで2つの保定球を回転させる高難度マニピュレーションを研究。シミュレーション上での強化学習とドメインランダム化により、接触変化の激しい複雑な動的把持において実機へのzero-shot sim-to-real転移を達成し、触覚情報の重要性を検証した。",
+   "summary_en": "This paper investigates in-hand blind manipulation by rotating Baoding balls on a Shadow Dexterous Hand Lite using only proprioception and binary tactile feedback. By combining reinforcement learning in simulation with domain randomization, it achieves zero-shot sim-to-real transfer for highly dynamic multi-contact manipulation, demonstrating the critical role of touch without vision.",
+   "authors": [
+    "Ayush Deshmukh",
+    "Nalin Agarwal",
+    "Elle Miller",
+    "Sethu Vijayakumar"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "sim-to-real",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.23438",
+   "image": "figures/2026-10-19/2610.23438.jpg"
+  },
+  {
+   "date": "2026-10-19",
+   "rank": 5,
+   "id": "2610.22471",
+   "group": "general",
+   "title": "Has GPT-6-Astra Achieved Embodied Intelligence?",
+   "title_ja": "GPT-6-Astraは身体知（Embodied Intelligence）を獲得したのか？",
+   "summary_ja": "単一の大規模モデルGPT-6-Astraが多様なロボット形態・タスクで動作する能力を検証した大規模評価レポート。卓上操作、ヒューマノイド、移動台車、多指ハンドにまたがる12の代表的ベンチマークにおいて文脈内学習（ICL）プロトコルを適用し、従来個別の特化モデルを必要としていたロボット操作・ナビゲーションの常識を覆す高い汎化性能を示した。",
+   "summary_en": "This report evaluates GPT-6-Astra across 12 representative robotics benchmarks spanning tabletop manipulation, humanoids, mobile platforms, and dexterous hands. Using in-context learning from demonstrations and increased execution steps, it challenges the traditional paradigm of specialized embodiment models by demonstrating unprecedented generalist capabilities.",
+   "authors": [
+    "SenseNova",
+    "Joint Research Team",
+    ":",
+    "Zhongang Cai",
+    "Ziang Cao",
+    "Tailai Chen",
+    "Han Chong Chua",
+    "Linjun Dai",
+    "Hanming Deng",
+    "Hokin Deng",
+    "Haiwen Diao",
+    "Chenjing Ding",
+    "Weichen Fan",
+    "Xiao Fu",
+    "Zerui Gong",
+    "Chenyang Gu",
+    "Zexin He",
+    "Zhi Hou",
+    "Bo Li",
+    "Qinyue Li",
+    "Quanzhou Li",
+    "Xiaowan Li",
+    "Zhichao Liao",
+    "Dahua Lin",
+    "Zilong Lin",
+    "Bo Liu",
+    "Chunxiao Liu",
+    "Pengfei Liu",
+    "Tianqi Liu",
+    "Ziwei Liu",
+    "Chen Change Loy",
+    "Lewei Lu",
+    "Jiapeng Luo",
+    "Yuexiao Ma",
+    "Liang Pan",
+    "Xingang Pan",
+    "Oscar Qian",
+    "Ziyi Shang",
+    "Yuyao Shao",
+    "Dawei Su",
+    "Dacheng Tao",
+    "Qingyi Tao",
+    "Quan Wang",
+    "Ruisi Wang",
+    "Xiaogang Wang",
+    "Ziyi Wang",
+    "Beichen Wen",
+    "Donghao Wu",
+    "Jiaxu Wu",
+    "Silei Wu",
+    "Xiaoming Wu",
+    "Zhonghua Wu",
+    "Hongcan Xiao",
+    "Weiye Xu",
+    "Atsushi Yamashita",
+    "Lei Yang",
+    "Zhe Yang",
+    "Baiqiao Yin",
+    "Wanqi Yin",
+    "Hanfei Zhao",
+    "Tianbo Zhong",
+    "Long Zhuo",
+    "Jing Zuo"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV",
+    "cs.LG",
+    "cs.MM"
+   ],
+   "tags": [
+    "benchmark",
+    "vision-language-action",
+    "manipulation",
+    "navigation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.22471",
+   "image": "figures/2026-10-19/2610.22471.jpg"
+  },
+  {
+   "date": "2026-10-19",
+   "rank": 6,
+   "id": "2610.22932",
+   "group": "general",
+   "title": "Ego2Contact: Predicting Touch from Egocentric Human Video for Contact-Rich Robot Manipulation",
+   "title_ja": "Ego2Contact: 接触を伴うロボット操作のための主観視点人間動画からの触覚予測",
+   "summary_ja": "接触リッチなロボット操作に必要な触覚情報を人間の一人称視点映像から抽出するEgo2Contactを提案。触覚グローブ付き映像から視覚-触覚プライアを事前学習し、手先外観やセンサ配置が異なるロボットハンドへと転移させることで、ロボット実機での収集が困難な触覚データを人間動画からスケーラブルに補完・活用可能にした。",
+   "summary_en": "Ego2Contact learns a visual-tactile prior from human egocentric videos paired with tactile-glove data and transfers it to robotic hands with distinct morphologies. By estimating contact locations and forces from RGB video alone, it mitigates the scarcity of physical robot tactile datasets and facilitates contact-rich manipulation tasks.",
+   "authors": [
+    "Qianqian Yang",
+    "Dayou Li",
+    "Bangya Liu",
+    "Zihao Zhu",
+    "Nuo Chen",
+    "Siyuan Xu",
+    "Hezhen Hu",
+    "Chen Yu",
+    "Rebecca Friesen",
+    "Minghui Zheng",
+    "Cynthia Hipwell",
+    "Xiaoning Qian",
+    "Kenji Shimada",
+    "Zhiwen Fan"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "perception",
+    "manipulation",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.22932",
+   "image": "figures/2026-10-19/2610.22932.jpg"
+  },
+  {
+   "date": "2026-10-19",
+   "rank": 7,
+   "id": "2610.22977",
+   "group": "general",
+   "title": "Hardware-as-Regularization: Enhancing Data Consistency in Imitation Learning via an Adjustable Passive Compliant Leader Arm",
+   "title_ja": "Hardware-as-Regularization: 調整可能な受動コンプライアント・リーダーアームによる模倣学習データの一貫性向上",
+   "summary_ja": "テレオペ用受動リーダーアームの余剰自由度による軌道ばらつきを抑えるため、調整可能なクラッチと渦巻きバネで中立姿勢に戻す受動モジュールを開発。この復元力を関節空間のL2正則化として機能させる「Hardware-as-Regularization」により、動作の滑らかさを保ちつつ軌道分散を大幅に低減し、模倣学習の品質とタスク時間を改善した。",
+   "summary_en": "This paper introduces a low-cost passive joint module with an adjustable clutch and spiral spring for teleoperation leader arms, acting as a physical L2 regularizer. By pulling redundant joints toward a neutral posture, this \"Hardware-as-Regularization\" approach reduces joint-trajectory variance and completion time while preserving motion smoothness, boosting imitation learning quality.",
+   "authors": [
+    "Hideyuki Ichiwara",
+    "Yushi Kaida",
+    "Hirokazu Ishida"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "imitation-learning",
+    "teleoperation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.22977",
+   "image": "figures/2026-10-19/2610.22977.jpg"
+  },
+  {
+   "date": "2026-10-19",
+   "rank": 8,
+   "id": "2610.23813",
+   "group": "general",
+   "title": "MOSS: Multimodal Origami Swamp Robot System",
+   "title_ja": "MOSS: マルチモーダル折り紙湿地ロボットシステム",
+   "summary_ja": "湿地や沼地など不整地と水辺が混在する環境を走行するため、3Dプリント製折り紙車輪を備えた水陸両用ロボットMOSSを提案。クランク機構により車輪の幅、直径、ヒレの向きを瞬時に伸縮切替可能とし、硬い地面での高効率な転がり走行と、泥濘地や水上での高い推進力を両立させた。",
+   "summary_en": "This paper presents MOSS, a compact amphibious robot featuring 3D-printed origami wheels for wetlands and swamps. A compact crank mechanism dynamically switches the wheels between contracted and expanded modes, altering diameter, width, and fin orientation to achieve efficient rolling on solid ground and high traction/propulsion in mud and water.",
+   "authors": [
+    "T. Lan",
+    "A. Babgei",
+    "L. Romanello",
+    "M. Kovac",
+    "S. F. Armanini"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "locomotion"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.23813",
+   "image": "figures/2026-10-19/2610.23813.jpg"
+  },
+  {
+   "date": "2026-10-19",
+   "rank": 9,
+   "id": "2610.22556",
+   "group": "general",
+   "title": "When Plans Change, Remember: Replanning-Guided Visual Memory for Vision-Language-Action Models",
+   "title_ja": "計画変更時に記憶せよ: VLAモデルのための再計画誘導型視覚メモリ",
+   "summary_ja": "長時間のVLA方策において過去の重要情報を選択的に保持するため、再計画の不一致信号を書き込みトリガーとするRePlanMem-VLAを提案。後退ホライズン制御下で連続するアクションチャンク間の予測差分をタスク関連イベントの発生とみなし、全履歴の保存を避けて計算負荷を抑えつつマルチステージタスクの成功率を高めた。",
+   "summary_en": "RePlanMem-VLA introduces an online visual memory mechanism for long-horizon VLA models by using policy plan revisions as a write signal. Under receding-horizon execution, large disagreements between consecutive action chunk predictions are treated as task-relevant events to selectively store keyframes, avoiding redundant historical context and improving multi-stage manipulation performance.",
+   "authors": [
+    "Victoria Smelova",
+    "Daniil Kazachkov",
+    "Georgiy Kazantsev",
+    "Iuliia Tsvetkova",
+    "Egor Cherepanov",
+    "Nikita Kachaev",
+    "Artem Latyshev",
+    "Aleksandr I. Panov",
+    "Alexey K. Kovalev"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "vision-language-action",
+    "planning",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.22556",
+   "image": "figures/2026-10-19/2610.22556.jpg"
+  },
+  {
    "date": "2026-10-18",
    "rank": 0,
    "id": "2610.22368",
