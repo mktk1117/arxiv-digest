@@ -1,0 +1,142 @@
+{
+ "title_ja": "Hardware-as-Regularization: 調整可能な受動コンプライアント・リーダーアームによる模倣学習データの一貫性向上",
+ "tldr_ja": "安価な3Dプリント製リーダーアームに渦巻きバネとクラッチを組み込み、関節を基準姿勢へ引き戻す物理的な復元力を持たせることで、模倣学習データの姿勢のばらつきを大幅に減らし、タスク成功率を劇的に引き上げました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "提案された「Hardware-as-Regularization」の全体像です。3Dプリント部品、バネ、エンコーダのみで構成された受動関節モジュールによって、遠隔操作時に作業者の姿勢を自然と基準姿勢へ引き戻し、力学的に$L_2$正則化を解くことでデータの一貫性を高めます。",
+  "caption": "Figure 1: Overview of Hardware-as-Regularization. We introduce a purely mechanical joint module that consists only of 3D printable parts, screws, and bearings. By building a redundant teleoperation arm (e.g., GELLO) with this module containing a passive spring and an absolute encoder, we can mechanically regularize joint angles. This physical prior effectively solves the optimization problem $\\min_{q}\\frac{1}{2}(q-q_{0})^{T}K(q-q_{0})$ subject to the task-space constraint $f(q)=x_{d}$ , allowing users to collect highly consistent imitation learning data.",
+  "image": "details/2610.22977/F1.jpg"
+ },
+ "overview_ja": "ロボットの模倣学習（人間の操作実演をお手本として動作を学ぶ手法）をスケールさせるため、GELLOやALOHAのような安価な3Dプリント製の遠隔操作デバイス（リーダーアーム）が急速に普及しています。しかし、従来の安価なアームは単に関節の角度を測るだけの「完全に脱力した」構造でした。ロボットアームが持つ自由度が手先の位置決めよりも多い冗長関節を持っていると、手先が同じ位置にあっても肘の上がり方などの姿勢が操作するたびにバラバラになってしまいます。この姿勢のばらつき（ヌル空間ドリフト）が、学習モデルの性能を落とす大きな原因になっていました。\n\nそこで著者らは、「ハードウェアそのものを最適化の正則化項として機能させる」という発想（Hardware-as-Regularization）を思いつきました。アクチュエータによる高価で遅延や発振のリスクがある能動制御に頼るのではなく、安価な3Dプリント製の「渦巻きバネ」と基準姿勢を調整できる「クラッチ機構」を各関節に組み込んだのです。人間が無意識に筋力を節約しようとする特性を利用すると、バネが関節を中立位置に引き戻す力は、数学的には関節空間での$L_2$正則化（ティホノフ正則化）と完全に等価になります。\n\n実験では、トルクレンチを用いた剛性評価、シミュレーションによる姿勢の一貫性と滑らかさの評価、さらに実機ロボット（OpenArm）でのブロック積みなどの模倣学習を実施しました。その結果、従来の脱力アームと比べて関節角度のばらつきが激減し、ブロック積みタスクの成功率が36.7%から73.3%へと倍増しました。モータで作った仮想バネと同等以上の滑らかさと一貫性を、追加の計算コストや電気的な遅延なしに、完全にパッシブな機構だけで実現できることを示しています。",
+ "contributions_ja": [
+  "3Dプリント製のポリカーボネート渦巻きバネとハースカップリングによるクラッチを備えた、安価で完全受動な関節モジュールを開発したこと",
+  "ハードウェアの物理的な剛性が、冗長遠隔操作における関節空間の$L_2$正則化（構造的先験情報）として機能するという概念「Hardware-as-Regularization」を定式化したこと",
+  "物理バネによる拘束が実演データの姿勢分散を抑制し、モータによる仮想バネで生じるバックラッシュの引っかかりを排して、極めて滑らかな軌跡を生成できることを実証したこと",
+  "下流の模倣学習（ACT）において、従来のパッシブアームと比べてタスク成功率を大幅に向上させ、剛性の強さが正則化重みとして一貫性に直結することを示したこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ安価な遠隔操作アームのデータはバラついてしまうのか？",
+   "summary_ja": "近年の模倣学習で使われる安価なパッシブリーダーアームは、復元力がないため冗長な関節の姿勢が操作ごとに大きくドリフトしてしまいます。本研究は、完全受動の機械式バネモジュールによって関節空間に直接$L_2$正則化をかける新パラダイム「Hardware-as-Regularization」を提案します。",
+   "details_ja": "大規模な模倣学習によるロボットマニピュレーションでは、大量のデータ収集が不可欠です。そこで、GELLOやALOHAのような3Dプリンタで作れる安価なリーダーアーム（操作用デバイス）が世界中で使われるようになりました。\n\nしかし、ここには見落とされがちな機械的な弱点があります。コストを削るためにモータによる押し戻し力（復元力）を省いた結果、冗長な自由度（手先の位置姿勢を決めるのに必要な数以上の関節）が拘束されなくなってしまったのです。操作者の腕の位置や重力によって、同じ作業をしていても肘の高さなどの関節角度が試行ごとに大きくドリフト（変動）します。これにより、同じ状況なのに異なる関節指令が混ざるマルチモーダルなデータが生まれ、行動クローニング（模倣学習）の学習効率を大きく低下させていました。\n\n古典的なロボット工学では、冗長性の解消には高価なモータを用いたアクティブなインピーダンス制御（仮想的なバネダンパを作る制御）が使われます。しかし、それでは安価にデータを集めるという民主化の目的に反します。さらに、安価なモータで仮想バネを実装しようとすると、通信や制御の遅延のせいで高周波の発振（ガタつき）が起きやすく、強いダンピング（減衰）をかけると操作感が極端に重くなってしまいます。\n\nそこで著者らが着目したのが、パッシブハプティクス（受動的な力触覚）の発想です。電気的な遅延が一切なく、エネルギーも注入しない完全な機械式バネを関節に組み込めば、操作者の姿勢を自然と基準位置に引き戻せるのではないかと考えました。これが「Hardware-as-Regularization」の提案です。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "Hardware-as-Regularizationの概念図。安価な機械部品だけで組まれた関節モジュールが、作業空間拘束を満たしつつ中立姿勢$q_0$からのズレを最小化する最適化問題を物理的に解いてくれます。",
+     "caption": "Figure 1: Overview of Hardware-as-Regularization. We introduce a purely mechanical joint module that consists only of 3D printable parts, screws, and bearings. By building a redundant teleoperation arm (e.g., GELLO) with this module containing a passive spring and an absolute encoder, we can mechanically regularize joint angles. This physical prior effectively solves the optimization problem $\\min_{q}\\frac{1}{2}(q-q_{0})^{T}K(q-q_{0})$ subject to the task-space constraint $f(q)=x_{d}$ , allowing users to collect highly consistent imitation learning data.",
+     "image": "details/2610.22977/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "模倣学習のボトルネックと受動機構アプローチ",
+   "summary_ja": "最新の生成モデル（Diffusion Policyなど）でも、データ自体の運動学的なばらつきが性能限界を生んでいます。本研究は、制御ループの安定性限界を超えるアクティブ制御ではなく、ハードウェア自体に物理的コンプライアンス（柔軟性）を埋め込むアプローチをとります。",
+   "details_ja": "本研究の位置づけを理解するために、関連する先行研究の文脈を整理してみましょう。\n\n- 安価な遠隔操作と模倣学習：ALOHAやGELLOはデータ収集を民主化しましたが、ヌル空間（手先を動かさずに関節だけが動く冗長な方向）に大きなばらつきを生み、これが状態分布のシフトを引き起こして行動クローニングを難しくしていました。\n- 生成ポリシーと分散のボトルネック：最近のDiffusion PolicyやFlowPolicyは多様な動作を扱える表現力を持ちますが、制約のない関節ノイズのフィッティングに無駄なネットワーク容量を消費してしまいます。特に制御安定性に直結する関節空間の表現において、この問題は深刻です。\n- 冗長制御における受動性と仮想固定具：離散時間の制御ループで仮想剛性を作ると、受動性の限界（エネルギーの不整合）を超えて不安定な振動を起こしやすくなります。これに対し、機械式ブレーキやバネを使う受動ハプティクス研究があり、本手法はこの系譜を受け継いでいます。\n- 遠隔操作における操作者の努力量：人間の運動制御モデル（最小躍度モデルなど）によれば、人間は無意識に動作の滑らかさや肉体的な労力を最小化するように動きます。つまり、ハードウェアが弾性的な復元力を生み出せば、操作者は自然と最も力を使わずに済む姿勢に落ち着くはずであり、これが本研究の理論的な支えとなっています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Hardware-as-Regularization: Concept and Design",
+   "heading_ja": "バネがL2正則化を解く仕組みと、調整可能な関節設計",
+   "summary_ja": "バネのポテンシャルエネルギー最小化は、数学的なティホノフ正則化（$L_2$正則化）と完全に一致します。ハードウェアとしては、両方向に効く3Dプリント製渦巻きバネと、基準姿勢を20度刻みで変えられるハースカップリング式クラッチを開発しました。",
+   "details_ja": "### 3.1 冗長アームにおける一貫性問題の数式化\n手先の微小変位 $\\Delta x$ と関節変位 $\\Delta q$ の関係は、ヤコビ行列 $J$ を用いて $\\Delta x = J \\Delta q$ と書けます。逆運動学の解は $\\Delta q = J^+ \\Delta x + (I - J^+ J) z$ となり、ここで $(I - J^+ J) z$ が手先位置に影響を与えないヌル空間の動き（冗長な自由度）です。\n\n復元力のないアームでは任意ベクトル $z$ が放置され、重力や手の震えで勝手に姿勢がドリフトします。そこに基準姿勢 $q_0$ と剛性行列 $K$ を持つ機械バネを入れると、系には $U(q) = \\frac{1}{2}(q-q_0)^T K (q-q_0)$ というポテンシャルエネルギーが生じます。人間が疲れないように最小の力で操作しようとすると、手先目標位置 $f(q) = x_d$ を満たしながら $U(q)$ を最小化する最適化問題を自然と解くことになります。$K$ が正定値行列なら目的関数は強凸になり、一意な最適姿勢 $q^*$ に自然と収束します。これは機械学習でいうティホノフ正則化（$L_2$正則化）そのものです。\n\n### 3.2 メカニカル設計の工夫\nハードウェアには2つの要求がありました。汎用的なモジュール構造にすること、そして作業内容に合わせて基準位置 $q_0$ を手軽に変えられることです。\n\n- クラッチ機構：リンク間を「ハースカップリング」（放射状の噛み合い歯を持つ継手）で連結し、セットスクリューで固定します。ネジを緩めるとベアリングによって自由に回転し、20度刻みで噛み合わせを変えて基準位置を設定できます。\n- 両方向の渦巻きバネ：通常のねじりコイルバネは片方向にしか効きませんが、渦巻き形状（スパイラルスプリング）にすることで、中立位置から時計回り・反時計回りの両方に滑らかな復元力を生み出せます。\n- 材料と3Dプリントの工夫：FDM方式の3DプリントはZ軸（積層方向）の引っ張りに弱い性質がありますが、渦巻き形状ならXY平面内にフィラメントが連続して走るため、曲げ応力に対して非常に頑丈になります。材料には塑性変形（へたり）に強いポリカーボネート（PC）を採用し、他のハウジングには軽量なABSを使用しました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "提案する受動関節モジュールの分解図。PC製の渦巻きバネ、中立位置を離散的に変えられるハースカップリング、そして関節角度を測る同軸の磁気エンコーダがコンパクトにまとまっています。",
+     "caption": "Figure 2: Exploded view of the proposed compliant joint module: a 3D-printed spiral spring for bidirectional compliance, a Hirth coupling secured via set screws for discrete neutral-position adjustment, and a coaxial magnetic encoder for joint-angle measurement.",
+     "image": "details/2610.22977/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "機械剛性の検証から実機模倣学習まで：効果の徹底検証",
+   "summary_ja": "トルクレンチによる剛性測定、シミュレータでの到達動作、実機での模倣学習を行いました。提案モジュールはモータによる仮想バネのバックラッシュ死の帯を回避し、実機タスクで従来のパッシブアームを圧倒する成功率（73.3% vs 36.7%）を達成しました。",
+   "details_ja": "### 4.1 実験セットアップ\n熟練者1名と初心者4名（遠隔操作未経験）の計5名が参加し、7自由度アームで実験を行いました。比較対象は、(1) 従来の脱力GELLO（Naive）、(2) モータで仮想バネを再現したGELLO（Virtual Spring）、(3) 提案モジュールを搭載したGELLOの3種類です。\n\n### 4.2 剛性の分析：物理バネ vs 仮想バネ\nトルクレンチを用いて変位とトルクの関係を計測しました。提案モジュールは $0.0330\\text{ Nm/rad}$ という極めて綺麗な線形性を示し、1000回の往復テスト後も劣化は見られませんでした。一方、モータで作った仮想バネは、指令電流は綺麗に出ているものの、ギヤの摩擦やバックラッシュ（歯車の隙間遊び）のせいで変位ゼロ付近に明確な「不感帯（デッドゾーン）」が発生していました。これが操作時の引っかかり感の原因になります。\n\n### 4.3 運動学的一貫性と滑らかさの評価\nシミュレータ上で4箇所の目標姿勢へ腕を伸ばすタスクを行い、関節角度の標準偏差、DTW（軌跡の類似度、値が小さいほど一致）、SPARC（滑らかさの指標、ゼロに近いほど滑らか）を評価しました。Naive GELLOはヌル空間に該当するJ2やJ4の関節で激しいばらつきを示しましたが、提案手法は分散を大幅に抑制しました。熟練者だけでなく初心者全員において一貫性が向上し、熟練者の試行完了時間はNaiveの6.56秒から4.42秒へと有意に短縮されました。\n\n### 4.4 正則化重みとしての剛性スイープ\nバネの厚みを変えて剛性を半分（$K/2$）にしたモジュールで比較したところ、剛性を上げるにつれて軌跡のDTW誤差が $24.20 \\rightarrow 10.17 \\rightarrow 6.86\\text{ deg}$ と単調に減少し、バネ定数 $K$ が正則化重みとして忠実に機能していることが裏付けられました。\n\n### 4.5 模倣学習（ACT）での性能検証\n実機アームで「ピック＆プレース」と高精度が求められる「ブロック積み」を学習させました。Naive GELLOで集めたデータは関節DTWが2倍以上悪く、ACTの成功率はピック＆プレースで53.3%、ブロック積みで36.7%に低迷しました。対して提案手法はそれぞれ96.7%、73.3%と極めて高い成功率を記録しました。微細な位置調整が続くブロック積みでは、モータ仮想バネに見られる微小な引っかかりがない分、提案モジュールの方が動作の滑らかさ（SPARC）でも有意に勝っていました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "実験装置の概要。(a) トルクレンチによる剛性測定系、(b, c) 仮想バネ版と提案受動モジュール版のGELLOリーダーアーム、(d) シミュレーション評価画面、(e) 7自由度実機ロボット（OpenArm）を用いた模倣学習の環境です。",
+     "caption": "Figure 3: Overview of the experimental setups. (a) Stiffness measurement with an analogue torque wrench on the proposed module. (b, c) The leader devices: a GELLO with virtual springs and the proposed passive module. (d) The simulation interface showing the current robot pose and the target goal pose (shadow). (e) The physical workspace for imitation learning with a 7-DoF arm, a fixed camera, and a wrist camera.",
+     "image": "details/2610.22977/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "剛性測定の結果。(a) 提案モジュールは $0.0330\\text{ Nm/rad}$ で極めて線形ですが、(b) モータによる仮想バネではギヤ摩擦に起因する不感帯（デッドゾーン）がはっきりと現れています。(c) はその際のモータ電流です。",
+     "caption": "Figure 4: Results of the stiffness evaluation. (a) Torque versus displacement for the proposed passive spiral spring module (linear fit: 0.0330 Nm/rad). (b) Torque versus displacement for the active virtual spring, showing intermittent mechanical dead zones. (c) Commanded and measured current versus displacement for the virtual spring (linear electrical response: 29.45 mA/rad).",
+     "image": "details/2610.22977/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "各関節における角度の標準偏差。青色のNaive GELLOではJ3やJ5だけでなくヌル空間に関わるJ2やJ4が大きくばらついていますが、緑色の提案手法では全関節で劇的に抑制されていることが分かります。",
+     "caption": "Table 2: Quantitative metrics comparing joint angle variance, DTW, and trajectory smoothness (SPARC) across devices and operators. (Note: For SPARC, values closer to zero indicate smoother trajectories)",
+     "image": "details/2610.22977/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "操作者5名（User 1が熟練者、2〜5が初心者）ごとの結果。(a) 関節標準偏差、(b) 軌跡DTW、(c) 滑らかさSPARCのすべてにおいて、提案手法は個人の癖に依存せず安定して高い一貫性を発揮しています。",
+     "caption": "Figure 6: Comparison of individual operator performance across three kinematic consistency metrics: (a) joint standard deviation, (b) Pairwise DTW, and (c) trajectory smoothness (SPARC). Note that User 1 is an expert, while Users 2–5 are novices. The proposed module consistently minimizes null-space drift (a, b) for each user regardless of skill level, while preserving natural smoothness (c).",
+     "image": "details/2610.22977/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Discussion and Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "安価な3Dプリント製バネによる物理的正則化が、遠隔操作データの質と模倣学習の成功率を大きく向上させることを実証しました。セットアップ時の手動調整や大負荷アームへの拡張といった課題はあるものの、ロボットデータ収集の強力な新標準になり得ます。",
+   "details_ja": "本研究は、低コストなパッシブリーダーアームの宿命だった「関節姿勢のばらつき」を、ハードウェアそのものに正則化の役割を持たせるという新しいアプローチ（Hardware-as-Regularization）で解決しました。遅延ゼロの完全受動バネは、アクティブモータのような発振リスクやバックラッシュの引っかかりがなく、模倣学習の成功率を大幅に押し上げます。\n\nもちろん、いくつかの制約や今後の課題もあります。\n- 基準姿勢の変更：ソフトウェア上で瞬時に変えられるモータ制御と違い、クラッチのネジを緩めて手動で合わせ直すのに7関節で2〜3分ほどの段取り替え時間がかかります。\n- 疲労と作業範囲：狭い作業空間では問題になりませんが、アームを大きく振り回すような動作ではバネに逆らう疲労が生じる可能性があります。\n- 大型ロボットへの適用：より重いアームに対応するにはバネを分厚く大きくする必要があり、省スペース化やメタマテリアルの活用が今後の検討課題です。\n\nそれでも、高価なモータや複雑な制御コードを追加することなく、3Dプリンタの部品だけでデータの品質を根本から改善できるこの手法は、模倣学習の実務において極めて実用的なソリューションといえます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix A Hardware Specifications and Fabrication Details",
+   "heading_ja": "【付録】ハードウェアの詳細仕様とバネの理論計算",
+   "summary_ja": "アームの関節軸配置、各関節のバネ設計パラメータ、ならびにはり理論に基づいた剛性の理論計算式について解説します。重力負荷の大きい関節には剛性を高めた専用バネを採用しています。",
+   "details_ja": "### A.1 アーム構成とパラメータ\nリーダー側とフォロワー側は幾何学的に等価な7自由度構成で、リーダーは実機の約40%のスケールで製作されています。関節角度は1:1で直接マッピングされます。\n\n### A.2 各関節のバネパラメータ\n基本となる関節モジュールは幅 $b=8\\text{ mm}$、厚み $t=1.5\\text{ mm}$、巻き数 $N=3$ ですが、重力の影響を大きく受けるJ2関節とJ4関節には剛性を高めた設計を採用しています。\n- J2関節：幅 $b=30\\text{ mm}$、厚み $t=2.5\\text{ mm}$（理論剛性 $0.344\\text{ Nm/rad}$）\n- J4関節：幅 $b=25\\text{ mm}$、厚み $t=2.0\\text{ mm}$（理論剛性 $0.153\\text{ Nm/rad}$）\n\n### A.3 渦巻きバネの曲げ理論\n両端固定の渦巻きバネの理論ねじり剛性 $K$ は、材料の曲げ弾性率 $E$、断面二次モーメント $I = \\frac{b t^3}{12}$、バネの展開長 $L$ を用いて以下の式で表されます。\n$$\nK = \\frac{E I}{L} = \\frac{E b t^3}{12 L}\n$$\nアルキメデスの渦巻き線の展開長 $L$ は、内径 $r_{in}$、ピッチ $p$、巻き数 $N$ から幾何学的に計算できます。厚み $t$ の3乗に比例するため、3Dプリントのわずか $0.2\\text{ mm}$ の製造公差でも剛性が約1.45倍に跳ね上がります。測定値が理論値よりやや高めに出たのは、このプリント公差や内部摩擦が主な理由です。それでも同一ロットでのばらつきは極めて小さく、高い再現性が確認されています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "模倣学習における遠隔操作データの質を落としていた主因は、冗長関節が無拘束であることによる「ヌル空間のドリフト」だった",
+  "各関節に機械式バネを組み込むだけで、人間が最小の労力で操作しようとする特性を通じて、数学的な$L_2$正則化（ティホノフ正則化）が物理的に達成される",
+  "安価なサーボモータで作る仮想バネにはギヤの遊び（バックラッシュ）による微小な引っかかりがあるが、完全パッシブな物理バネなら遅延ゼロで極めて滑らかな操作感を実現できる",
+  "バネの剛性を高めることは正則化重みを大きくすることに対応し、データのばらつきを減らして模倣学習（ACT）の成功率を大きく向上させる"
+ ],
+ "limitations_ja": [
+  "作業内容に応じてアームの基準姿勢（$q_0$）を変更する際、クラッチのネジを手作業で緩めて調整する手間（全7関節で2〜3分程度）がかかる",
+  "作業範囲全体にわたって大きく腕を動かすダイナミックなタスクでは、バネの復元力に対抗し続けることで操作者が疲労しやすい",
+  "実験での模倣学習ポリシーの検証はACTのみで行われており、他のポリシーアーキテクチャ（Diffusion Policy等）への影響や、PD制御＋バックラッシュ補償付きのモータベースラインとの比較は今後の課題とされている"
+ ],
+ "keywords": [
+  "Imitation Learning",
+  "Teleoperation",
+  "Hardware-as-Regularization",
+  "Passive Compliant Mechanism",
+  "Visuomotor Policy"
+ ],
+ "id": "2610.22977",
+ "title": "Hardware-as-Regularization: Enhancing Data Consistency in Imitation Learning via an Adjustable Passive Compliant Leader Arm",
+ "authors": [
+  "Hideyuki Ichiwara",
+  "Yushi Kaida",
+  "Hirokazu Ishida"
+ ],
+ "date": "2026-10-19",
+ "group": "general",
+ "tags": [
+  "hardware",
+  "imitation-learning",
+  "teleoperation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.22977",
+ "pdf_url": "https://arxiv.org/pdf/2610.22977",
+ "summary_ja": "テレオペ用受動リーダーアームの余剰自由度による軌道ばらつきを抑えるため、調整可能なクラッチと渦巻きバネで中立姿勢に戻す受動モジュールを開発。この復元力を関節空間のL2正則化として機能させる「Hardware-as-Regularization」により、動作の滑らかさを保ちつつ軌道分散を大幅に低減し、模倣学習の品質とタスク時間を改善した。",
+ "generated": "2026-10-19",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.22977"
+}
