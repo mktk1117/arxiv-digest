@@ -1,0 +1,140 @@
+{
+ "title_ja": "BeJEPA: 教師なし強化学習によるゴール条件付きヒューマノイド行動世界モデル",
+ "tldr_ja": "関節のポーズだけでなく世界座標系での位置や向きも同時に制御するため、1ステップの物理予測と長期の行動要約を分離して潜在空間で学習するヒューマノイド向けワールドモデル「BeJEPA」を提案しました。長期の想像ロールアウトを行うことなく、高精度な大域トラッキングと実機での転倒復帰・外乱回復を達成しています。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "BeJEPAの全体フレームワークです。左側のように目標のポーズと世界座標での位置・向きを同時に達成することを目指します。中央では1ステップ先の物理変化を予測するDynamic Predictorと、割引将来特徴を要約するSuccessor Predictorを共通の潜在空間（JEPA）で学習し、右側のようにDynamic Predictorを用いたオンライン行動修正（MPC）によって時間的・空間的な追従遅れを解消します。",
+  "caption": "Figure 1: BeJEPA: a goal-conditioned Behavior World Model for humanoid control. Left: our goal is to jointly control world position, heading, and whole-body posture. Center: Dynamic and Successor learn physical consequences and long-term behavior in a shared latent space through unsupervised RL. Right: the Dynamic Predictor refines actions online.",
+  "image": "details/2610.23127/F1.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットに現実世界でタスクを行わせるには、身体の関節姿勢を真似るだけでなく、「世界のどの位置で、どの向きを向いているか」という大域的な配置を一致させる必要があります。しかし、従来の模倣学習コントローラは身体ローカル座標系でのトラッキングに偏っており、外力で吹き飛ばされたり初期位置がずれたりすると、指定された姿勢のまま目標地点からずれた場所にとどまってしまう問題がありました。目標位置に戻るには、一時的にポーズの一致度を犠牲にしてでも足を一歩踏み出すような長期的な行動判断が求められます。\n\nそこで著者らは、教師なし強化学習とJoint-Embedding Predictive Architecture（JEPA）を組み合わせた行動ワールドモデル「BeJEPA」を考案しました。ポイントは、行動がもたらす1ステップ先の物理変化を予測する「Dynamic Predictor」と、ポリシーが将来訪れる状態特徴の割引総和を予測する「Successor Predictor」にモデルを分離したことです。これにより、誤差が累積しやすい長いステップの潜在ロールアウトを行わずに、1回の物理予測と1回の行動要約を合成するだけで長期的なゴール達成価値を正確に評価できるようになりました。\n\n20秒間の長距離モーション追従ベンチマークにおいて、BeJEPAは大域位置誤差を大幅に削減し、既存の基盤モデル（SONICや世界座標を入力したBFM-Zero）を大きく上回る追従精度を示しました。さらに実機のUnitree G1ヒューマノイドに展開し、蹴られた後の位置復帰、床からの起き上がり、姿勢を切り替えながらの周回移動といったタスクを同一のポリシーで成功させています。",
+ "contributions_ja": [
+  "関節姿勢と世界座標系における位置・向きを共通の潜在空間で同時に表現する、ヒューマノイド向けゴール条件付き行動ワールドモデル「BeJEPA」を構築したこと。",
+  "物理予測（Dynamic）と将来行動の要約（Successor）を分離し、長大な潜在ロールアウトを回避しながら長期的な方策改善を可能にする予測アーキテクチャを提案したこと。",
+  "学習済みのDynamic Predictorを活用し、推論時に追加の再学習なしで時間遅延や空間偏差を補正するモデル予測行動修正（MPC）を実現したこと。",
+  "シミュレーションでのAMASS/LAFANトラッキングに加え、実機Unitree G1で外乱からの位置復帰や床からの立ち上がりをゼロショットで実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜヒューマノイドには「世界座標に根ざした行動モデル」が必要なのか？",
+   "summary_ja": "ヒューマノイドの全身制御では、関節姿勢の一致だけでなく世界座標における位置や向きの達成が不可欠です。しかし、指定された場所に移動するためには一時的に目標姿勢を崩して歩幅を踏み出す必要があり、局所的な模倣だけでは解決できません。本論文では、物理変化と将来行動を潜在空間で統一的に扱うBeJEPAを提案します。",
+   "details_ja": "ヒューマノイドロボットの全身制御（Whole-Body Control, WBC）は、マニピュレーションや歩行、高次指示の実行を支える基盤技術です。実世界でタスクを実行する場合、単に目標の関節角度を再現するだけでは足りず、指定された世界座標の位置と向き（ヘディング）に身体を運ばなければなりません。ところが、従来のモーション模倣を主軸とするコントローラは、ロボットのルート（腰）を基準とした姿勢再現に集中しがちでした。その結果、外力などで位置がずれた場合、ポーズは目標通りなのに場所だけがずれている、という状況に陥ります。\n\nこのズレを修正するには、ロボットは一度目標姿勢を崩してでも足を踏み出し、目的地へ移動してから再びポーズを合わせる必要があります。つまり制御器は、「短期的には姿勢の一致度が悪化しても、将来的にゴールを達成できる行動」を高く評価できなければなりません。教師なし強化学習を用いた先行研究（BFM-Zeroなど）もありますが、身体相対の特徴量に依存しているため、絶対位置や向きを目標に含めることが困難でした。\n\nそこで本研究は、人間のモーション事前分布とロボット自身の対話データから、教師なし強化学習で学習する行動ワールドモデル「BeJEPA」を提案します。1ステップの物理予測を担う「Dynamic Predictor」と、将来の状態特徴の要約を担う「Successor Predictor」を組み合わせることで、長い潜在ロールアウトに頼ることなく、世界座標を意識した全身行動を効率的に獲得します。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "BeJEPAのコンセプト図です。世界座標でのポーズ達成という課題（左）に対し、DynamicとSuccessorを組み合わせた潜在空間（中央）と、推論時のDynamicを用いたMPCによる軌道修正（右）でアプローチします。",
+     "caption": "Figure 1: BeJEPA: a goal-conditioned Behavior World Model for humanoid control. Left: our goal is to jointly control world position, heading, and whole-body posture. Center: Dynamic and Successor learn physical consequences and long-term behavior in a shared latent space through unsupervised RL. Right: the Dynamic Predictor refines actions online.",
+     "image": "details/2610.23127/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "模倣学習・ワールドモデル・後続表現の交差点",
+   "summary_ja": "既存の行動基盤モデルは軌道トラッキングに依存しがちで、ワールドモデルは長距離予測の誤差蓄積に悩まされてきました。また後続特徴量は報酬のない環境での方策転移に優れますが、オンライン探索での表現獲得が課題でした。BeJEPAはこれらをJEPAの枠組みで統合し、短期的物理予測と長期的行動要約を同時に解決します。",
+   "details_ja": "ヒューマノイド制御の関連研究は、大きく3つの系統に分かれます。\n\n### ヒューマノイド行動基盤モデル\n人間のモーションデータを模倣する手法（SONICやHumanoid-GPTなど）は高い表現力を誇りますが、連続した参照軌道が与えられることを前提としています。孤立したゴールや急激な目標変更が与えられた場合、中間軌道を生成する上位プランナーを別途用意する必要がありました。一方、Meta MotivoやBFM-Zeroのような教師なし強化学習アプローチは直接多様な行動を獲得できますが、BFM-Zeroは身体ローカル特徴量を用いているため、世界座標における位置や向きを直接制御することができませんでした。\n\n### ワールドモデルと潜在空間制御\nDreamerなどの画像再構成に基づくワールドモデルは、制御に関係のない視覚ノイズの復元に容量を奪われがちです。またTD-MPCやDINO-WM、LeWorldModelのように潜在空間でダイナミクスを何ステップも先までロールアウトして計画する手法は、ステップが進むにつれて予測誤差が累積するリスクを抱えています。BeJEPAはJEPAの設計思想に基づき、予測困難な詳細を抽象化しつつ、将来の挙動を1つの要約ベクトルとして直接予測することで、長大なロールアウトを不要にしています。\n\n### 後続表現とリワードフリー強化学習\n後続特徴量（Successor Features）は、将来訪問する状態特徴の割引累積値を要約する技術であり、新しい報酬関数へのゼロショット適応を可能にします。TD-JEPAなどはこれをオフライン遷移から学習しますが、オンラインでのロボット学習では方策の進化と予測ターゲットの変動が同時に起こるため、遠い未来の予測ターゲットが初期には極めて不安定になります。BeJEPAは、1ステップの確実な物理遷移学習によって表現の土台を固めつつ、後続予測器を並行して育てることで、この課題を克服しました。",
+   "figures": []
+  },
+  {
+   "heading": "3 BeJEPA: A Behavior World Model",
+   "heading_ja": "物理予測と行動要約を組み合わせる：BeJEPAのアーキテクチャ",
+   "summary_ja": "BeJEPAは状態エンコーダに加え、短期の物理変化を予測するDynamic Predictorと長期の行動要約を出力するSuccessor Predictorで構成されます。これらをBellman方程式で結びつけることで、1回の物理予測と1回の要約ベクトルの内積計算だけで現在の行動価値を評価し、アクターを更新できます。さらに推論時にはDynamicを用いたオンラインMPCにより、時間的・空間的なズレを微修正します。",
+   "details_ja": "本手法の中核となる定式化とアルゴリズムの仕組みを見ていきましょう。\n\n### 3.1 問題設定\nロボットの制御を部分観測マルコフ決定プロセス（POMDP）として扱います。観測 $o_t$ には固有受容感覚（プロプリオセプション）、推定されたルート姿勢、センサおよび行動履歴が含まれます。ルート姿勢は固定参照アンカーからの相対位置と向き $\\rho_t = (x_t, y_t, \\sin\\psi_t, \\cos\\psi_t)$ として表現されます。状態エンコーダ $E_\\phi$ は状態 $s_t$ を $d=256$ 次元の球面上の潜在ベクトル $z_t$ （ノルムは $\\sqrt{d}$）に写像します。固定ゴール $s_g$ に対する報酬は、潜在特徴同士の内積 $\\langle z_t, z_g \\rangle$ で定義されるため、報酬最大化は潜在空間での距離最小化と一致します。\n\n### 3.2 後続特徴量によるゴール条件付き制御\n方策 $\\pi_g$ が将来訪問する状態特徴の幾何割引期待値を、単一の要約ベクトル $S^{\\pi_g}(s_t) = (1-\\gamma) \\mathbb{E}[\\sum_{k=0}^\\infty \\gamma^k z_{t+k}]$ として定義します。ゴール報酬が特徴ベクトルの線形和であるため、方策の期待収益はこの要約ベクトルとゴールベクトル $z_g$ の内積 $\\langle S^{\\pi_g}(s_t), z_g \\rangle$ として瞬時に求まります。これにより、直後の状態がゴールから一時的に離れても、その後の挙動全体としてゴールに近づく行動であれば高い価値が付与されます。\n\n### 3.3 DynamicとSuccessorの学習と方策改善\nBeJEPAは2つの予測器を導入します。\n- **Dynamic Predictor ($D_\\nu$)**: 現在の潜在状態 $z_t$ と行動 $a_t$ から、次の潜在状態 $z_{t+1}$ を予測します。ゴールには依存せず、あらゆる物理遷移から学習できます。\n- **Successor Predictor ($S_\\xi$)**: 次の状態 $z_{t+1}$ とゴール $z_g$ から、その後の割引将来特徴の要約を予測します。\n\nこれらをベクトルBellman方程式を通じて合成し、行動価値を $Q_g(s_t, a_t) = (1-\\gamma)\\langle z_t, z_g \\rangle + \\gamma \\langle S_\\xi(D_\\nu(z_t, a_t), z_g), z_g \\rangle$ と近似します。アクターを更新する際、勾配は固定されたSuccessorとDynamicを通り、現在の行動 $a_t$ に直接伝播します。何ステップも潜在ロールアウトをする必要はなく、計算が極めて安定します。学習初期はDynamicの損失重みを大きくして物理的に予測可能な特徴表現を形成し、学習が進むにつれてSuccessorの関与を高めて長期行動を構造化します。\n\n### 3.4 空間と時間のオンライン微修正（MPC）\nSuccessorの評価尺度は将来の割引累積値であるため、軌道追従タスクにおいて空間的なオフセットや時間的な遅れ（ラグ）が生じることがあります。そこで推論時には、凍結したDynamic Predictorを用いた短いホライズンの勾配ベース潜在MPCを実行します。アクターが出力したノミナル行動に対し、微小な残差行動 $\\delta$ を最適化することで、手先位置やルートの追従精度をオンラインで引き上げます。",
+   "figures": []
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "大域追従ベンチマークでの圧倒的な精度と実機G1での実証",
+   "summary_ja": "AMASSおよびLAFANデータセットを用いた20秒間のトラッキング実験において、BeJEPAは大域位置誤差を既存のベースラインに対して約60%削減しました。アブレーションによりDynamicとSuccessorの分離が学習安定性に不可欠であることを確認し、実機Unitree G1では外乱からの復帰や起き上がり、周回移動に成功しました。",
+   "details_ja": "実験では、BeJEPAが「姿勢」と「世界座標での配置」をどれほど高いレベルで両立できるかを検証しました。\n\n### Q1: 全身モーション追従性能\nIsaac Sim上で4,096並列環境を用いて事前学習を行い、MuJoCo上で20秒間のAMASSおよびLAFANシーケンスを評価しました。従来研究では大きく外れた軌道を途中で失敗扱いにして除外することが多いですが、本実験では実世界の厳密な評価のため全軌道を最後まで残して大域誤差を計測しています。結果として、BeJEPAは大域関節位置誤差（Global MPJPE）において、世界座標入力を与えたBFM-Zeroに比べ61.7%、模倣ベースのSONICに比べ58.7%の誤差削減を達成しました。さらにDynamicを用いたMPC（Balanced）を併用することで、時間的な追従遅延（ラグ）がAMASS上で94.8 msから21.2 msへと大幅に短縮されました。\n\n### Q2: DynamicとSuccessorを分ける意義\n予測器を統合したモデル（Merged Predictor）や、どちらか一方のエンコーダ勾配を止めたモデルと比較しました。統合モデルでは遠い未来の不確実なターゲットに引きずられて世界座標の誤差が大きく悪化しました。1ステップの物理予測で表現の基礎を固め、そこに後続予測を重ねるBeJEPAの設計が最も優れた性能を示しました。\n\n### Q3: 潜在空間の構造分析\n同じ身体姿勢に対して異なる世界位置（$x, y$）や向き（yaw）を与えて潜在空間をPCA解析したところ、第1主成分と第2主成分がそれぞれ世界座標の $x$ と $y$ にきれいに対応し、第3主成分が向きを分離していました（図 F4）。また、身体姿勢を固定したt-SNE可視化では、ハイハイ、膝立ち、歩行、ダンスなどの動作群が意味のあるクラスタを形成していることが確認されました（図 F5）。\n\n### Q4: 実機Unitree G1への展開\nシミュレーションで学習した方策をそのまま29自由度のUnitree G1に適用しました。FAST-LIOによるLiDARオドメトリで大域姿勢を推定しながら制御を行っています。強いキックを受けて位置がずれても自律的に元の位置までステップを踏んで戻る動作（図 F6 a）や、うつ伏せに倒れた状態から腕立て伏せのように押し上げて起き上がる動作（図 F6 b）、さらにTポーズから前進・旋回を経て元のマーカー位置へ戻るシーケンシャルな目標追従（図 F6 c）に成功しました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "潜在空間における世界座標の幾何構造（PCA）です。同一の身体ポーズに対して世界座標の $x, y$ および向きを変えると、第1・第2主成分が $x, y$ 平面の変位を綺麗に捉えていることが分かります。",
+     "caption": "Figure 4: World geometry within a shared body-state representation. Eighty body states are crossed with random world poses: $x,y\\in[-1,1]$ m and yaw in $[-\\pi,\\pi]$ . Within-body PCA (PC ρ ) subtracts body means before projection; colors show $x$ , $y$ , and heading.",
+     "image": "details/2610.23127/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "潜在空間の動作クラスタと線形読み出し精度です。(a) ルート座標を揃えたt-SNEプロットでは、類似した動作姿勢が自然にまとまっています。(b) BFM-Zeroと比較して、線速度やルート高さなどの物理量がより線形に分離しやすい形で表現されています。",
+     "caption": "Figure 5: Motion organization and linear state readouts in the latent space. (a) t-SNE with root $x=y=\\psi=0$ ; colors match the illustrated motion families. (b) Linear state readouts at the original world poses.",
+     "image": "details/2610.23127/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実機Unitree G1での実験結果です。(a) 強いキックを受けた後に元の床マークへ自律復帰する様子、(b) うつ伏せ状態からの起き上がり、(c) 姿勢を順次変えながら元の位置へ戻る一連の制御を示しています。",
+     "caption": "Figure 6: World-anchored control on the physical G1. (a) Recovery after a kick. (b) Standing up from the ground. (c) Sequential goal switching. Gold rings identify the floor reference marks in (a,c).",
+     "image": "details/2610.23127/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：TD-JEPAとの数理的接続と追加実験",
+   "summary_ja": "付録では、後続測度とTD-JEPAの定式化を結びつける数理的背景や、DynamicとSuccessorの勾配バランスの推移が詳しく解説されています。また、静止ポーズと位置目標を同時に与えた際の過渡応答や、Dynamic Predictorの予測限界（約160 ms）についても明かされています。",
+   "details_ja": "付録には、手法の理論的裏付けと実践的な洞察が詰まっています。\n\n### 後続特徴量とTD学習の数理\n状態の幾何割引将来分布である後続測度（Successor Measure）を行列ベルマン方程式として整理し、特徴ベクトルの回帰問題がTD-JEPAの枠組みと等価であることを示しています。BeJEPAの分割アプローチは、行動依存性を1ステップのDynamic Predictorに集約させ、後続予測器の状態継続モデルから行動パラメータを取り除くことで、リプレイバッファの再利用効率を飛躍的に高めていることが理論的にも裏付けられています。\n\n### 学習段階による勾配の役割交代\nエンコーダに伝播するDynamicとSuccessorの勾配ノルム比を追跡すると、最初の500万遷移まではDynamicの勾配が支配的（比率2.63）であり、物理的に予測可能な座標系をまず構築しています。その後1,500万遷移を超えるとSuccessorの勾配が主導権を握り（比率0.39以下）、両者の勾配のコサイン類似度も正の相関を高めていきます。つまり「局所的な物理法則で基礎を作ってから、大域的な行動を整える」という2段階の学習が自然に進行していることが実証されました。\n\n### 位置・向き・ポーズの同時達成とDynamicの有効ホライズン\n静止ポーズ（直立、腕広げ、スクワット）を目標として離れた位置に与えた実験（図 F9）では、ロボットは移動中に一度ポーズ誤差を増やして歩行に専念し、目的地に近づいてから姿勢を収束させるという「人間らしい過渡応答」を自然に獲得していることが分かりました。\n一方、Dynamic Predictor単体の開ループ予測誤差を評価したところ、約8ステップ（160 ms）を超えると累積誤差が急増することが判明しました。この結果は、長期間の計画をDynamicの再帰的ロールアウトに頼るのではなく、Successorによる直接的な将来要約ベクトルに委ねるというBeJEPAの設計判断の妥当性を強く支持しています。",
+   "figures": [
+    {
+     "key": "F9",
+     "caption_ja": "固定ゴールに対するアプローチ過程のエラー推移です。直立（青）の場合、歩行を開始するために初期（0〜0.5秒）の関節誤差（Joint RMS）が意図的に跳ね上がり、位置と向きが目的地に到達した後に目標ポーズへと落ち着く様子が分かります。",
+     "caption": "Figure 9: Root-position, heading, and joint-angle errors during fixed-goal execution. Lines show mean errors; shading shows the interquartile range. The early approach is expanded horizontally, with markers at $0$ , $0.5$ , $1$ , $1.5$ , $2$ , $5$ , and $10$ s. The illustrated postures receive the same position and heading commands.",
+     "image": "details/2610.23127/F9.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "「1ステップの物理予測（Dynamic）」と「長期行動の要約（Successor）」を分離することで、長大なロールアウトに伴う累積誤差を回避しながら、安定した長期価値評価が可能になる。",
+  "世界座標での全身制御では、目標位置へ移動するために「短期的には目標姿勢の一致度を犠牲にする」判断が必要であり、後続特徴量のアプローチが極めて相性が良い。",
+  "学習済みの物理予測器は、推論時にモデル予測制御（MPC）の内部モデルとして再利用でき、追加学習なしで追従遅延や空間誤差を大幅に削減できる。"
+ ],
+ "limitations_ja": [
+  "Dynamic Predictorの開ループ予測は約8ステップ（約160 ms）を超えると誤差が急増するため、長期的な軌道生成をDynamic単体のMPCだけで行うことはできない。",
+  "大域位置の追従を優先すると、人間の不可能な軌道に対して局所的な関節姿勢誤差（MPJPE L）がベースラインよりやや高くなるトレードオフが存在する。",
+  "実機での位置・向き推定をFAST-LIO等の外部SLAM/オドメトリに依存しており、センサ誤差やドリフトが発生した際のロバスト性には制約がある。"
+ ],
+ "keywords": [
+  "Humanoid Whole-Body Control",
+  "World Models",
+  "Joint-Embedding Predictive Architecture (JEPA)",
+  "Successor Features",
+  "Unsupervised Reinforcement Learning"
+ ],
+ "id": "2610.23127",
+ "title": "BeJEPA: A Goal-Conditioned Humanoid Behavior World Model via Unsupervised RL",
+ "authors": [
+  "Liyun Yan",
+  "Haoyang Li",
+  "Yang Zhang",
+  "Jialing Zhu",
+  "Zhanxiang Cao",
+  "Zihao Zhou",
+  "Keqi Zhu",
+  "Yizhi Chen",
+  "Huang Chuxuan",
+  "Shengcheng Fu",
+  "Zhong Jiangwei",
+  "Qiao Sun",
+  "Chen Zhang",
+  "Yue Gao"
+ ],
+ "date": "2026-10-19",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "reinforcement-learning",
+  "world-model",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.23127",
+ "pdf_url": "https://arxiv.org/pdf/2610.23127",
+ "summary_ja": "外乱を受けたヒューマノイドが目標ワールド姿勢へ復帰する制御のため、JEPAに基づくゴール条件付き行動世界モデルBeJEPAを提案。人の運動プライアと実機相互作用から教師なし強化学習を行い、次状態を予測するDynamic Predictorと将来状態を要約するSuccessor Predictorにより、身体配置と世界座標系での位置姿勢を統合的に表現し高精度な制御を実現する。",
+ "generated": "2026-10-19",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.23127"
+}
