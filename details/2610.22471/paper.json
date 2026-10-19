@@ -1,0 +1,214 @@
+{
+ "title_ja": "GPT-6-Astraは身体知（Embodied Intelligence）を獲得したのか？",
+ "tldr_ja": "汎用基盤モデルGPT-6-Astraがロボットの制御で驚異的な性能を示す一方、現実世界での実用知能にはまだ大きな壁があることを多角的な実験から明らかにしました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "12種類のロボティクスベンチマークにおけるGPT-6-Astraの性能比較です。デモを用いた文脈内学習（ICL）と試行ステップ数の拡大によって、多くのタスクで既存のSOTAやエージェント手法を大きく上回り、飽和に近いスコアを叩き出していることが分かります。",
+  "caption": "Figure 1 : Probing the capability upper bound of GPT-6-Astra across 12 benchmarks under a unified protocol that 1) allows for in-context learning (ICL) on the training set and 2) extends the step limit (budget) up to $10\\times$ . RoboLab has no training set and thus no ICL; BEHAVIOR is not extended to $10\\times$ due to its large official budget. SOTA cut-off date: October 12, 2026. Details in Tab. 2 .",
+  "image": "details/2610.22471/F1.jpg"
+ },
+ "overview_ja": "大規模言語・マルチモーダルモデルの急速な発展に伴い、「汎用モデルがそのままロボットの身体を動かせるのか」という疑問が研究者の間で大きな関心事になっています。従来のロボティクスでは、タスクごと・機体ごとに専用のポリシー（VLAや世界行動モデルなど）を学習させるのが当たり前でした。しかし、最新鋭のフロンティアモデルであるGPT-6-Astraの登場により、その前提が揺らぎ始めています。\n\nそこで著者らは、GPT-6-Astraの重みを一切更新せず、タスクのデモ動画などをプロンプトに含める文脈内学習（ICL）と、失敗時のやり直しを許容する実行ステップ拡大プロトコルを考案しました。これを卓上マニピュレーション、人型ロボット、移動マニピュレータ、多指ハンド、ナビゲーションにまたがる12のベンチマークで大規模に評価したところ、多くの指標で従来の最高記録（SOTA）を大幅に塗り替える驚異的な適応力を示しました。\n\nしかし、話はそこで終わりません。深掘りしてみると、この高い成功率は「シミュレータが推論中に時間を止めてくれる」「危険な衝突や破損のペナルティがない」という都合の良い前提に依存していました。実機8機種での実験や、時間が止まらず結果の実用性で評価する新世代の家庭環境ベンチマークを試作したところ、推論時間の遅さによる環境変化への取り残され、不可逆な失敗（液体のこぼれや部品落下）からの復帰不能、自分の身体寸法の把握不足など、実用的な身体性知能にはまだ遠い実態が浮き彫りになりました。",
+ "contributions_ja": [
+  "重み更新なしの文脈内学習（ICL）と試行ステップ拡大という統一プロトコルにより、12のベンチマークでGPT-6-Astraの限界性能を網羅的に検証したこと。",
+  "推論を行うSystem 2と低レベル制御を担うSystem 1の連携プロトコルや、行動表現・チャンキング設計が性能と推論コストに与える影響を系統的に解明したこと。",
+  "単腕・双腕・多指ハンド・移動台車・人型ロボットを含む8種の実機プラットフォームにゼロショット展開し、実世界特有の制約と挙動を明らかにしたこと。",
+  "「時間が止まらない世界」「デモなし」「人間の真のニーズに基づく効用評価」を掲げた次世代エンボディドベンチマークの原則を提唱し、Isaac Sim上で実証プロトタイプを構築したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "汎用モデルはロボットの専門家を過去のものにするのか？",
+   "summary_ja": "汎用モデルGPT-6-Astraがロボット制御で高い能力を示したことを受け、本研究ではその到達点と限界、実世界展開へのギャップ、そして今後の評価のあり方を問い直します。シミュレーション、制御ハーネス設計、実機実験、新世代ベンチマークの4本柱で徹底的に検証します。",
+   "details_ja": "これまでのロボット学習は、特定のタスクやロボットに合わせて収集したデモデータから専用ポリシーを学習するアプローチが主流でした。ところが、GPT-6-Astraのようなフロンティアモデルは、重みを変えずにゼロショットで汎化し、その場のプロンプトから学習し、失敗から立ち直る能力を見せ始めています。ここで疑問が湧きます。「この汎用モデルは、従来の専用モデルを不要にしてしまうほど本当に賢いのか？」ということです。\n\n本報告書では、GPT-6-Astraをレンズとして、身体性知能分野がどこへ向かうべきかを探索しています。まず、モデルの重みを固定したまま、従来の学習ベース手法と同じデモ情報を使えるようにした文脈内学習（ICL）と、ステップ制限を大幅に緩和した環境で評価を実施しました。その結果、既存手法を圧倒する高いスコアを達成し、多くのタスクが飽和状態に近づくことが確認されました。\n\nしかし、この結果を手放しで喜ぶことはできません。詳細な分析を進めると、推論コストと時間の莫大さ、物理的な成功条件の誤認、不可逆な失敗からの回復不能といった深刻な弱点も見えてきました。さらに、実機ロボットへの展開や、実世界に即した新しいベンチマークでの評価を通じて、既存の評価指標と実用知能との間にある大きな乖離を浮き彫りにしていきます。",
+   "figures": []
+  },
+  {
+   "heading": "2 Large-Scale Study under A Unified Protocol",
+   "heading_ja": "統一プロトコルで暴くGPT-6-Astraの驚異的な上限と潜む限界",
+   "summary_ja": "12種類のベンチマークにおいて、デモを活用した知識パッケージと試行回数を10倍に増やす枠組みで評価しました。多くの環境で90%以上の圧倒的な成功率を叩き出す一方、タスク外への転移性の低さや物理状態の検証ミスといった失敗要因も判明しました。",
+   "details_ja": "### 2.1 評価プロトコルの設計\n従来の学習済みポリシーはベンチマークの訓練セットを使って学習しているため、デモなしで比較するのは不公平です。そこで、GPT-6-Astraに訓練デモを事前分析させ、コードや戦略、参照軌道などをまとめた「知識パッケージ」を作らせてテスト時に参照させる文脈内学習（ICL）を採用しました。さらに、モデルが失敗に気づいてリカバリー行動を取れるよう、標準のステップ数（$1\\times$）に加えて最大10倍（$10\\times$）まで延長できる設定を用意しました。\n\n### 2.2 文脈内学習（ICL）の威力\nこの枠組みを用いると、驚くべき結果が得られました。図 F1の通り、LIBEROシリーズやSIMPLEでは98%を超えてほぼ飽和状態に達し、複雑な接触を伴う多指ハンド環境DexJoCoでも87.3%を記録しました。知識パッケージには、作業手順だけでなく、動作の参照軌道や視覚的参照、逆運動学などを解く実行可能ヘルパー関数、成否判定チェックルーチンなどが自動的に整理されています。デモとテストの分布が近いタスクでは、これらを柔軟に適応させることで圧倒的な強さを発揮しました。\n\n### 2.3 ステップ上限の拡大がもたらす効果\n標準ステップ（$1\\times$）では25%前後に留まっていた双腕・多指の高精度タスク（RoboDojoやBench2Dex）でも、ステップ数を10倍に増やすと成功率が2〜3倍に跳ね上がりました。これは、モデルが途中でミスを検知し、別のやり方でやり直す「自己修正ループ」が機能するためです。\n\n### 2.4 残された限界と失敗モード\nただし、課題も山積みです。図 F6に代表的な失敗例を示しています。\n- 知識パッケージの汎化限界: デモがないタスクでは性能が大きく落ち、転移性に課題があります。\n- コストと時間: RoboDojoの難関タスクでは1エピソードの推論に数時間、数百万トークンを消費し、実用には程遠い状態です。\n- 物理的成功の誤認: 図 F6(a)のように、マグカップの持ち手にフックが重なっただけで「掛けられた」と錯覚し、実際には机に落ちているのに修正を終えてしまう現象が多発します。\n- 不可逆な失敗からの回復不能: 図 F6(b)のように、液体がこぼれたり部品が床に落ちたりすると、物理的に復帰できないのに無駄な試行を続けてしまいます。\n- 長期タスクでの進捗の破壊: 図 F6(c)のように、後半の微調整中にせっかく掛けたヘッドホンを落としてしまうなど、過去に達成したサブゴールを崩してしまう問題が見られました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "12のベンチマークにおけるGPT-6-Astra + ICLの成功率です。標準予算（1×）でも既存の最高手法を上回り、10×までステップを延長するとLIBEROやSIMPLE、DexJoCoで9割以上の極めて高いスコアに到達しています。",
+     "caption": "Figure 1 : Probing the capability upper bound of GPT-6-Astra across 12 benchmarks under a unified protocol that 1) allows for in-context learning (ICL) on the training set and 2) extends the step limit (budget) up to $10\\times$ . RoboLab has no training set and thus no ICL; BEHAVIOR is not extended to $10\\times$ due to its large official budget. SOTA cut-off date: October 12, 2026. Details in Tab. 2 .",
+     "image": "details/2610.22471/F1.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "拡張ステップ下でも解決できなかった典型的な失敗例です。(a)接触や嵌合の成否を視覚的に誤認するケース、(b)液体のこぼれなど不可逆な破綻に対応できないケース、(c)後半の動作で以前の成果を壊してしまうケースが確認されました。",
+     "caption": "Figure 6 : Residual failures under ICL with the extended budget. Each pair shows the state before a key event and its outcome; purple arrows mark the relevant objects. (a) Verifying physical success: apparent or self-reported completion diverges from the actual task state. (b) Recovering from consequential actions: an early mishap, such as a spill or a dropped part, cannot be undone and derails later subtasks. (c) Preserving progress over long horizons: progress that later steps depend on, such as an open lid or a placed object, is lost and blocks the task.",
+     "image": "details/2610.22471/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "3 Harness Ablation",
+   "heading_ja": "頭脳と手足をどう繋ぐか？制御ハーネス設計の勘所",
+   "summary_ja": "高レベル推論を行うGPT-6-Astraと低レベル制御の連携形態や、出力する行動の表現形式を系統的に比較しました。閉ループでの介入や適応的チャンキングが成功率を高める鍵ですが、トークン消費量とのトレードオフが存在します。",
+   "details_ja": "モデル本体の性能をロボットの実際の動きに変換するには、周辺のシステム設計（ハーネス）が極めて重要になります。ここではRoboDojoの42タスクを用いてアブレーションを行いました。\n\n### 3.1 System 1とSystem 2の協調関係\n深い推論を行う「System 2（GPT-6-Astra）」と、高速な低レベル動作を行う「System 1（VLAモデルである$\\pi_{0.5}$）」の組み合わせ方を比較しました。\n- 単独のVLAでは成功率6.91%、GPTが大まかなサブゴールだけを投げる開ループ連携でも5.83%に留まりました。\n- 一方、VLAが提案したエンドエフェクタ（手先先端口、EEF）の軌道をGPTが事前にレビューして修正・承認する「閉ループ連携」を導入すると、成功率は最大で20ポイント以上向上しました。\n- ただし、1アクションごとにレビューすると約766万トークンも消費してしまいます。そこで4アクション分をまとめてレビュー（$L=4$）させると、トークン消費を63.5%カットしつつ成功率も25.83%へと微増しました。ICLと組み合わせると54.17%まで達しますが、約1933万トークンという莫大なコストがかかります。\n\n### 3.2 行動表現とアクションチャンキング\nGPT-6-Astraがどのような形式で動作指令を出すかも重要なポイントです。\n- 各関節角度を直接指令させると成功率は5.84ポイント低下しました。マルチモーダルモデルの空間認識と低レベルな関節空間の間には表現のギャップがあり、手先の相対的な移動方向や距離を指定するセマンティックな指令の方が2.50ポイント高い性能を示しました。\n- また、1回に生成するアクション数を固定するのではなく、モデル自身に状況に応じて1〜4ステップを選択させる「適応的チャンキング」を採用することで、固定チャンキングよりも高い成功率（+4.44ポイント）を達成できることが分かりました。",
+   "figures": []
+  },
+  {
+   "heading": "4 Real-World Validation",
+   "heading_ja": "シミュレーションの常識が通じない実機ロボットの過酷な現実",
+   "summary_ja": "単腕・双腕・多指ハンド・移動ロボット・人型ロボットの計8種類のハードウェアにGPT-6-Astraをゼロショット適用しました。剛体のピッキングなどは得意な一方、接触の多い作業や関節の過熱、推論待ち時間の長さという実機ならではの壁が立ちはだかりました。",
+   "details_ja": "### 4.1 実機実験のセットアップ\nシミュレータ環境で成功した最大の要因は「デモが存在したこと」と「やり直しの時間が無限にあったこと」です。しかし現実世界では、未知のタスクに対するデモは存在せず、試行錯誤の時間はロボットの故障や安全性に直結します。そこで実機実験では、デモなし（ゼロショット）、人間の事前知識プロンプト（関節制限やハンドの開閉プリセットなど）のみを付与し、ステップ数ではなく実時間（通常60分）を予算として8種類のプラットフォームで実験しました。\n\n### 4.2 実機実験から得られた知見\n- 単一モデルで多様な機体を駆動可能: 図 F8の通り、剛体のブロック積み（Franka 3で6/6成功）やテープのスタックなど、シミュレーション通りのタスクは高精度にこなせました。しかし、布の折りたたみやプラグの差し込み（3機種で計0/11成功）のような精密な接触作業は極めて困難でした。\n- 能動的視覚（アクティブビジョン）の発現: 図 F9に示す花を花瓶に挿すタスクが象徴的です。花を持った単腕では花瓶の口が死角になって失敗しましたが、双腕ロボット（Piper）では、空いているもう片方の腕のカメラを花瓶の口が見える位置まで回り込ませてから挿入を完了させました。これは人間の遠隔操作デモには含まれない、モデル自身が視界を確保するために編み出した動作です。\n- 人型ロボット（Unitree G1）の制御: 高速に動く歩行コントローラ（System 0）に対して、遅いSystem 2として関節目標や移動速度を投げることで、歩行（3/3）と操作（2/3）に成功しました。\n\n### 4.3 現実世界で崩れるシミュレーションの前提\nシミュレータと違って、実機では「失敗したらやり直せばいい」という理屈が通用しません。\n- 安全制約: 布の端を引っ張って机に触れただけで安全保護停止がかかり、実験が強制終了します。\n- ハードウェアの物理限界: 多指ハンドで何度も把持を繰り返すとモーターが発熱し、62℃に達して安全停止しました。また、G1では全体の約90%の時間を推論待ちで静止して過ごしており、1試行に1時間以上を要しました。物理世界では、思考時間そのものがハードウェアの負荷とリスクになるのです。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "実機8機種でのゼロショット制御の様子です。ブロック積みなどの剛体操作は安定していますが、多指ハンドによる把持や洗濯機のボタン押しなど、接触や環境のズレを伴うタスクでは人間の事前指示や再計画が必要となりました。",
+     "caption": "Figure 8 : Zero-shot real-world control, from simple to complex embodiments. Frames from released videos in temporal order. Chips give successes over all counted trials. (c) GPT-6-Astra re-plans after contact displaces the receiving bowl. (e) Dexterous grasping with the Wuji hands of the Tianji M6S, given human-written grasp scripts (the successful bottle run; the toy grasp succeeds in 3/3). The full gallery is in Fig. 13 , and all tasks per platform in App. 11 .",
+     "image": "details/2610.22471/F8.jpg"
+    },
+    {
+     "key": "F9",
+     "caption_ja": "視界の確保が成否を分けるアクティブビジョンの例です。(a)単腕では手先カメラが花に遮られて花瓶の口が見えず失敗しますが、(b)双腕では空いた腕のカメラを移動させて花瓶の口を視認し、見事に挿入を成功させています。",
+     "caption": "Figure 9 : What GPT-6-Astra can do depends on what it can see. Flower insertion, main view and wrist views. (a) Single arm (Franka 3): the gripper holds the stem vertically, so its wrist camera cannot see the vase mouth, and the insertion fails. (b) Dual-arm Piper: the wrist view of the holding arm shows only the stem; GPT-6-Astra moves the free arm until its wrist camera sees the vase mouth (boxed frames: no vase, approaching the vase, vase mouth in view), and the insertion succeeds.",
+     "image": "details/2610.22471/F9.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Towards a Next-Generation Embodied Benchmark",
+   "heading_ja": "ロボットが賢くなったからこそ、テストの側を根本から作り直す",
+   "summary_ja": "既存ベンチマークの前提を覆す「人間のニーズ起点」「デモなしの探索」「時間が止まらない世界」という3原則を提唱しました。Isaac Simによる家庭環境プロトタイプでの実験により、思考遅延による目玉焼きの焦げ付きなど、新たな失敗が浮き彫りになりました。",
+   "details_ja": "### 5.1 次世代ベンチマークの3原則\n既存のベンチマークは「ロボットができること」から逆算して作られ、静止した世界で最終状態の論理式だけをチェックするものが大半でした。しかしこれでは実用的な知能は測れません。そこで本研究では以下の3原則を提案しています。\n1. 人間のニーズに基づくタスク設計: 「朝食を作って」のように自然な要求で指示し、固定されたゴールではなく「結果の効用（満足度）」で評価します。さらに、作業中に開け放した冷蔵庫を閉めるといった、明示的に指示されない義務（Duty）の遂行も採点対象にします。\n2. テスト時の自律的な経験獲得: 事前デモは一切与えず、未知の家や家電の仕組みを自分自身の探索で解き明かさせます。\n3. 動き続ける世界（リアルタイム性）: モデルが考えている間もシミュレータ内の時間は進みます。思考が遅ければ、フライパンの上の料理は焦げてしまいます。\n\n### 5.2 家庭環境プロトタイプでの実証\nNVIDIA Isaac Simを用いて忠実な物理現象（流体、剛体、布、加熱プロセス）を備えた1LDKのアパート環境を構築しました（図 F11）。ここでGPT-6-Astraをゼロショット評価したところ、極めて示唆に富む失敗が観察されました（図 F12）。\n- 手元の物体に集中しすぎて周囲を破壊: 本を片付けようとして肘でモニターを押し出したり、牛乳を冷蔵庫に入れたあと扉を450秒以上開けっ放しにしたりしました。\n- 自身の身体の配置を考慮できない: 冷蔵庫のドアを開けたものの、ロボット自身の身体が邪魔になって奥のベーコンに手が届かず、ドアを離して閉まってしまう動作を繰り返しました。\n- 思考中に世界が進んで手遅れになる: 図 F12(e)のように、卵が焼けたのを見て「火を消す」と正しく判断したものの、推論と画像処理に数十秒かかっている間に目玉焼きが真っ黒に焦げてしまいました。\n\n### 5.3 実現に向けた課題\nこのようなリアルタイム・高忠実度のベンチマークを普及させるには、物理シミュレーションの精度向上、思考時間に応じた計算コスト、公平な自動判定器の構築など、まだ多くの技術的課題が残されています。",
+   "figures": [
+    {
+     "key": "F11",
+     "caption_ja": "次世代家庭環境ベンチマークの構築パイプラインです。オープンアセットと物理バインディングを組み合わせ、ロボットの内蔵カメラのみで「思考中も時間が止まらない世界」の中で人間の曖昧なニーズに応えさせます。",
+     "caption": "Figure 11 : Building and using the household environment. Publicly available assets (1) and a floor plan (2) are composed into an interactive home. Coding agents place everyday items at real-world scale on named supports under human review (3), and every part is bound to physics: articulation, liquids, cloth and contact (4). A task states only a need (5): asked to make breakfast, the agent must work out the fridge, air fryer and toaster by itself, and is to be judged both on the request (Intent) and on obligations no one stated, such as closing the fridge (Duty). The agent sees only through the robot’s onboard cameras, and its deliberation advances world time (6).",
+     "image": "details/2610.22471/F11.jpg"
+    },
+    {
+     "key": "F12",
+     "caption_ja": "動き続ける家庭環境プロトタイプでの失敗例です。(a)机の上の物を落とす衝突、(b)冷蔵庫を開けっ放しにする義務違反、(c)自分の身体が邪魔で食材が取れない、(e)考えている間に目玉焼きが焦げてしまう、といった現実的な課題が露呈しました。",
+     "caption": "Figure 12 : GPT-6-Astra in the household proof of concept. All runs are zero-shot, with contact-based grasping and no demonstrations. (a) While moving a book during tidying, the robot displaces desk items, knocks objects onto the floor and pushes the monitor out of place with its elbow. (b) Having opened the refrigerator to store the milk, the robot turns to carrying fruit to the table, and the door stays open from 300 s to 765 s of world time. (c) Making breakfast, the robot holds the refrigerator door open with one arm, but from where it stands the door blocks its other arm from the bacon inside; when it releases the handle to reach in, the door swings shut. …",
+     "image": "details/2610.22471/F12.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "ベンチマークの飽和を超えて、真の実用身体性知能へ",
+   "summary_ja": "GPT-6-Astraは身体性タスクにおいて目覚ましい進化を証明しましたが、それは実用知能の完成を意味しません。今後は孤立したベンチマークでの点数稼ぎを脱し、現実世界の制約下で安全かつ効率的に動作するシステムの構築へと舵を切る必要があります。",
+   "details_ja": "GPT-6-Astraの調査を通じて得られた最大の結論は、「汎用モデルによる身体性制御は間違いなく巨大な飛躍を遂げたが、実用的な身体性知能の終着点にはまだ遠い」ということです。\n\n文脈内学習と試行回数の力を使えば、既存の孤立したベンチマークの多くは飽和させることができます。しかし、私たちが真に解決しなければならない課題は、別の場所に移動しました。タスクをまたいだ汎化、長期的な計画の維持、不可逆な失敗を避けるリスク管理、そして何よりも実世界における時間・コスト・安全性の厳格な制約です。\n\nベンチマークで高いスコアが出たからといって、実世界でそのまま使えるわけではありません。これからのロボティクス・AI研究は、単にタスクの成功率を競い合う段階を終え、時間やハードウェアの限界と向き合いながら、現実の配備条件を満たす信頼性の高いシステムをどう組み上げるかという、新たなフロンティアへと進むべき時を迎えています。",
+   "figures": []
+  },
+  {
+   "heading": "8 Related Work",
+   "heading_ja": "巨人の肩の上に立つ：VLA、世界モデル、そしてエージェント制御の系譜",
+   "summary_ja": "LLMを用いた高レベル計画からVLA、世界行動モデル（WAM）への発展の歴史を振り返り、本研究の独自性を位置づけます。モデル単体だけでなく、推論を制御に変換するエージェントハーネス研究の潮流も整理しています。",
+   "details_ja": "本研究は、近年のロボティクスと基盤モデルの急速な融合の歴史の上に成り立っています。\n\n### 8.1 エンボディドエージェントとしての基盤モデル\n初期の研究（SayCanやInner Monologue、Code as Policiesなど）では、LLMは高レベルの計画者として「何をすべきか」を決め、低レベルの制御は既存のスキルライブラリや動作計画器に任せていました。これに対し本研究では、最先端のフロンティアモデルが直接フィードバックループに入り、手先のアクションを指示できるかを検証しています。また、コーディングエージェントの着想を取り入れた「ハーネス（周辺インフラ）」の重要性についても、構成要素ごとに切り分けて比較しています。\n\n### 8.2 ロボットポリシー学習の系譜\n模倣学習から始まったポリシー学習は、近年VLA（Vision-Language-Actionモデル、OpenVLAや$\\pi$シリーズなど）へと進化し、大規模事前学習の恩恵をロボット制御にもたらしました。さらに最近では、動画予測と行動生成を統合した世界行動モデル（WAM）も登場し、激しい進化を続けています。本研究は、これら専用モデルをゼロから学習させるのではなく、「汎用モデルがどこまで直接ポリシーの代わりを務められるか」、そして「VLAをツールとしてどう使いこなすか」を検証した点で相補的な立ち位置にあります。\n\n### 8.3 ベンチマークと実証研究の進化\nLIBEROやRoboDojo、BEHAVIORなど多種多様なベンチマークが存在しますが、その多くは模倣学習ポリシーの評価用に作られたものでした。本研究は、これらを単一プロトコルで横断的に評価するとともに、エージェントが動き続ける現実世界を反映した次世代ベンチマークの必要性を強力に訴えかけています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "重みを更新しなくても、適切なプロンプト設計（ICL）と十分なステップ数があれば、汎用フロンティアモデルは専門モデル（VLA/WAM）に匹敵・凌駕する制御性能を発揮できる。",
+  "低レベル制御（VLA等）に丸投げするのではなく、手先空間でSystem 2（LLM）が閉ループ監視・修正を行うハーネス構成が極めて有効である。",
+  "シミュレータの高い成功率は「推論中に時間が止まる」「安全停止がない」という甘い前提の上に成り立っており、実機での成功率向上とは直結しない。",
+  "今後の身体性知能評価は、固定的な終了判定ではなく、「推論中も時間が進む環境」で人間の真のニーズや副次的義務（片付け等）への配慮を測る形へと移行すべきである。"
+ ],
+ "limitations_ja": [
+  "1エピソードあたり数時間・数百万トークンを要する場合があり、商業的・実用的なリアルタイム展開にはコストとレイテンシが高すぎる点。",
+  "液体のこぼれや部品の落下など、やり直しが効かない「不可逆な物理変化」が発生した際に、復帰不能なまま無駄な試行を繰り返してしまう点。",
+  "実機実験において、多指ハンドの過熱や接触時の非常停止など、ハードウェア保護機能によって試行が中断される制約をモデル自身が回避・管理しきれていない点。"
+ ],
+ "keywords": [
+  "Embodied AI",
+  "GPT-6-Astra",
+  "In-Context Learning",
+  "Vision-Language-Action (VLA)",
+  "System 1 / System 2 Collaboration",
+  "Embodied Benchmark"
+ ],
+ "id": "2610.22471",
+ "title": "Has GPT-6-Astra Achieved Embodied Intelligence?",
+ "authors": [
+  "SenseNova",
+  "Joint Research Team",
+  ":",
+  "Zhongang Cai",
+  "Ziang Cao",
+  "Tailai Chen",
+  "Han Chong Chua",
+  "Linjun Dai",
+  "Hanming Deng",
+  "Hokin Deng",
+  "Haiwen Diao",
+  "Chenjing Ding",
+  "Weichen Fan",
+  "Xiao Fu",
+  "Zerui Gong",
+  "Chenyang Gu",
+  "Zexin He",
+  "Zhi Hou",
+  "Bo Li",
+  "Qinyue Li",
+  "Quanzhou Li",
+  "Xiaowan Li",
+  "Zhichao Liao",
+  "Dahua Lin",
+  "Zilong Lin",
+  "Bo Liu",
+  "Chunxiao Liu",
+  "Pengfei Liu",
+  "Tianqi Liu",
+  "Ziwei Liu",
+  "Chen Change Loy",
+  "Lewei Lu",
+  "Jiapeng Luo",
+  "Yuexiao Ma",
+  "Liang Pan",
+  "Xingang Pan",
+  "Oscar Qian",
+  "Ziyi Shang",
+  "Yuyao Shao",
+  "Dawei Su",
+  "Dacheng Tao",
+  "Qingyi Tao",
+  "Quan Wang",
+  "Ruisi Wang",
+  "Xiaogang Wang",
+  "Ziyi Wang",
+  "Beichen Wen",
+  "Donghao Wu",
+  "Jiaxu Wu",
+  "Silei Wu",
+  "Xiaoming Wu",
+  "Zhonghua Wu",
+  "Hongcan Xiao",
+  "Weiye Xu",
+  "Atsushi Yamashita",
+  "Lei Yang",
+  "Zhe Yang",
+  "Baiqiao Yin",
+  "Wanqi Yin",
+  "Hanfei Zhao",
+  "Tianbo Zhong",
+  "Long Zhuo",
+  "Jing Zuo"
+ ],
+ "date": "2026-10-19",
+ "group": "general",
+ "tags": [
+  "benchmark",
+  "vision-language-action",
+  "manipulation",
+  "navigation"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV",
+  "cs.LG",
+  "cs.MM"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.22471",
+ "pdf_url": "https://arxiv.org/pdf/2610.22471",
+ "summary_ja": "単一の大規模モデルGPT-6-Astraが多様なロボット形態・タスクで動作する能力を検証した大規模評価レポート。卓上操作、ヒューマノイド、移動台車、多指ハンドにまたがる12の代表的ベンチマークにおいて文脈内学習（ICL）プロトコルを適用し、従来個別の特化モデルを必要としていたロボット操作・ナビゲーションの常識を覆す高い汎化性能を示した。",
+ "generated": "2026-10-19",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.22471"
+}
