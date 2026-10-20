@@ -1,0 +1,169 @@
+{
+ "title_ja": "ACTS：人間の物理的インタラクションから学ぶ視覚触覚ワールドモデル",
+ "tldr_ja": "人間が手持ちの触覚センサで物体をいじったデータだけから視覚・触覚ワールドモデルを学習し、ロボットの遠隔操作へゼロショットで転移できることを実証した研究です。力情報を組み込んだセンサ中心のアクション表現により、ロボットデータを使わずに接触ダイナミクスの予測を可能にしました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "力情報を組み込んだセンサアクションの概念図と予測例です。垂直抗力の変化をセンサ法線方向の変位として動作に足し合わせることで、位置だけでは検出できない接触の瞬間を捉え、適切な触覚パターンの生成を可能にしています。",
+  "caption": "Figure 1: Force-informed sensor actions. (a) Top: scene view, with the sensor of (b) boxed. Estimated normal force $f$ shifts the sensor target by $k_{f}f\\,\\mathbf{n}_{s}$ along the gel normal, so each action includes $k_{f}\\Delta f\\,\\mathbf{n}_{s}$ (Eq. 3 ). (b) On a held-out PushT sequence, the force-conditioned model forms the tactile imprint at contact, while the pose-only model does not. Tactile crops are shown at 2 $\\times$ contrast.",
+  "image": "details/2610.24285/F1.jpg"
+ },
+ "overview_ja": "ロボットが物体を器用に操るためには、どこにどんな力で触れ、いつ滑りや離脱が起きるかという「接触リッチなダイナミクス」を予測できるワールドモデルが強力な武器になります。しかし、従来のロボット遠隔操作によるデータ収集は非常に時間がかかるうえ、手先のグリッパ形状に動きが縛られ、豊かな接触挙動を十分に集めることが困難でした。\n\nそこで著者らは、「ロボットを使わず、人間が直接触覚センサを手で持って物体とインタラクションしたデータから、接触ダイナミクスを学べないか？」と考えました。この着想を実現する鍵が、動作の表現をロボットの関節や手先ではなく「触覚センサそのものの動きと受ける力」として定義することです。人間とロボットで共通のセンサを使えば、アクション空間を完全に一致させることができます。\n\n著者らは、手持ちの光学式触覚センサ（GelSight Mini）を用いて、3種類の物体を両手で自由に操作する約4.9時間のマルチモーダルデータセット「React」を構築しました。そして、事前学習済みビデオ生成モデルをベースにした視覚・触覚ワールドモデル「ACTS」を提案し、人間のデータだけでモデルを学習させました。\n\n検証の結果、未知の人間の動作に対して既存の視覚・触覚モデルを上回る予測精度を示しただけでなく、ロボット実機の遠隔操作データに対しても、ファインチューニングなし（ゼロショット）で接触の発生や離脱に伴う触覚パターンの変化を正しく予測できることが確認されました。外見的な視覚の転移には課題が残るものの、局所的な接触ダイナミクスは人間からロボットへ確かに転移することを示した画期的な成果です。",
+ "contributions_ja": [
+  "人間の手持ちデータ収集とロボットの実機実行で完全に共有できる、力情報を統合したセンサレベルのアクション空間を提案しました。",
+  "高精度な6自由度トラッキングと触覚由来の垂直抗力を備えた、4.9時間の両手操作視覚・触覚データセット「React」を構築しました。",
+  "人間のインタラクションデータのみで学習し、ロボット遠隔操作時の接触ダイナミクスをゼロショットで予測できる視覚・触覚ワールドモデル「ACTS」を実現しました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "ロボットを使わずにロボットの「触覚ワールドモデル」を作るには？",
+   "summary_ja": "接触を伴うマニピュレーションの予測には膨大で多様な接触データが必要ですが、ロボット遠隔操作での収集は大きなボトルネックでした。本論文は、人間が手持ち触覚センサで集めたデータから学習し、ロボットへゼロショット転移可能な視覚・触覚ワールドモデルACTSを提案します。",
+   "details_ja": "ロボットが候補アクションによる未来の観測変化を予測するワールドモデルは、計画や方策学習の基盤として注目されています。しかし、物体を押す、滑らせる、引っかかる、あるいは離れるといった接触リッチな現象は、わずかな接触位置や力の違いで挙動が激変するため、モデル化が極めて困難です。カメラの映像だけでは局所的な接触状態を捉えきれないため、触覚情報と多様な力の変化を含むデータが不可欠となります。\n\nところが、ロボットの遠隔操作でこうした密な接触データを集めるのは非常に時間がかかります。力覚フィードバックが乏しいシステムも多く、グリッパの幾何構造に接触の仕方が制限されてしまう問題もありました。最近では手持ち器具で人間のデモを集めるアプローチ（UMIなど）も登場していますが、依然として特定のグリッパ形状に縛られていました。\n\nここでのブレークスルーは、「アクションを手の動きやロボットの関節ではなく、触覚センサの局所フレームにおける動きと力の変化として定義する」という発想です。人間がセンサ単体を手で持って物体を触れば、自由な角度や押し込み力で接触を探索できます。そして、ロボットのアーム先端にも同じセンサを取り付ければ、人間とロボットが全く同じセンサレベルのアクション空間を共有できるわけです。\n\n本研究では、この共通空間を利用して視覚・触覚ワールドモデル「ACTS」を構築しました。人間データだけで学習したモデルが、ロボット実機による未知の操作に対しても接触ダイナミクスを予測できるかどうかに挑みます。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "力対応センサアクションの仕組みです。(a) 触覚画像から推定された垂直抗力 $f$ を仮想的な変位としてセンサ目標位置に加え、各ステップのアクションに反映させます。(b) PushTタスクにおいて、力情報を入れたモデルだけが接触時の正確な触覚インプリント（接触痕）を再現できています。",
+     "caption": "Figure 1: Force-informed sensor actions. (a) Top: scene view, with the sensor of (b) boxed. Estimated normal force $f$ shifts the sensor target by $k_{f}f\\,\\mathbf{n}_{s}$ along the gel normal, so each action includes $k_{f}\\Delta f\\,\\mathbf{n}_{s}$ (Eq. 3 ). (b) On a held-out PushT sequence, the force-conditioned model forms the tactile imprint at contact, while the pose-only model does not. Tactile crops are shown at 2 $\\times$ contrast.",
+     "image": "details/2610.24285/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "ワールドモデルと触覚データセットの進化",
+   "summary_ja": "ロボット向けワールドモデルはビデオ事前学習モデルの活用で進化してきましたが、その多くはロボット自身の軌道に依存していました。ACTSは手持ちセンサによる自由な人間データから学習し、センサ中心のアクション定義によってロボット非依存の転移を実現した点で独自の位置を占めます。",
+   "details_ja": "本研究の関連分野は大きく3つの系統に分かれます。\n\n- ロボットマニピュレーションのためのワールドモデル\n近年は大規模に事前学習された視覚表現や動画生成モデル（Cosmosなど）を活用し、アクションに応じた将来映像を予測する手法が盛んです。しかし従来手法の多くは、エンドエフェクタの動きや関節角度、グリッパの開閉状態をアクションとしており、データ収集を行った特定のロボットにダイナミクスが縛られていました。\n\n- 視覚・触覚ワールドモデル\nカメラでは見えない接触を解明するため、VT-WMやViTacWorld、OmniVTAなど、視覚と触覚の未来を同時予測するモデルが登場しています。ただし、これらもロボット自身の軌道や、手持ちグリッパによるデータに依存していました。対してACTSは、グリッパを介さず「むき出しのセンサ」を人間が直接動かしたデータから学習する点が決定的に異なります。\n\n- 視覚・触覚データセットと収集インターフェース\n触覚データセットは拡充されつつあるものの、ワールドモデルの学習に必要なアクションの教師信号を伴うものは限られていました。UMIやTacUMIといった手持ち収集デバイスは主に方策（ポリシー）の学習を目的としており、ロボットへの転移を意図したワールドモデル向けのアクション付きデータとしては活用されていませんでした。\n\nACTSは、Reactデータセットを通じて「センサ視点の動作＋力」という完全な教師信号を与え、ロボットに依存しない汎用的な接触予測の道を拓くものです。",
+   "figures": []
+  },
+  {
+   "heading": "3 Dataset",
+   "heading_ja": "4.9時間の両手インタラクションデータセット「React」",
+   "summary_ja": "5人の操作者が手持ちGelSightセンサを用いて、3種類の物体を両手で操作した4.9時間のマルチモーダルデータセット「React」を構築しました。外部トラッキングによる高精度な6自由度ポーズと、触覚画像から推定した垂直抗力を同期記録しています。",
+   "details_ja": "接触の豊富な振る舞いを網羅するため、著者らは独自の両手データセット「React」を構築しました。\n\n- 人間によるデータ収集\n作業者は左右の手にそれぞれ独立した計測デバイスを持ちます。各デバイスには光学式触覚センサであるGelSight Mini（エラストマーゲルの変形を内部カメラで捉えるセンサ）、手元を写すリストカメラ、そして6自由度ポーズ計測用のOptiTrackマーカーが搭載されています。作業スペース全体を3台の固定カメラで撮影しながら、5人の作業者がマザーボード、T字ブロック（PushT）、ロープの3種類の物体を自由に操作しました。特定のタスク達成を目指すのではなく、接触の形成や解除、固着、滑り、押し引きなどを様々な力加減と角度で網羅的に探索しています。データクレンジング後の総時間は4.91時間（187セグメント）に達します。\n\n- 評価用のロボットデータ\nモデルの汎化性能を試すため、YAMアーム2台とGELLO遠隔操作インターフェースを用いたロボット評価データを別途収集しました。アーム先端には人間が持っていたものと全く同じ手持ちデバイスを装着しているため、センサ構成もアクションの計算方法も人間データと完全に一致します。3つの物体に対して各1分間の非把持マニピュレーションを5回ずつ行い、計15分間の評価用データを記録しました。このロボットデータは学習には一切使わず、ゼロショット評価専用として保持されます。\n\n- 後処理と同期\n映像、触覚、ポーズの各ストリームはタイムスタンプに基づいて共通の30 Hzタイムラインに整列されます。触覚画像から推定した垂直抗力とポーズの変位を組み合わせ、後述する「力対応アクション」を生成しています。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "人間データの収集セットアップです。3台の固定カメラとOptiTrackで覆われた作業台（左）、GelSight Miniとトラッキングマーカーを備えた手持ちデバイス（右上）、そして操作対象としたマザーボード、PushTブロック、ロープ（下）で構成されています。",
+     "caption": "Figure 4: Human data collection setup. Left: the workspace and three fixed cameras. Top right: the two handheld devices and their sensing hardware. Bottom: the motherboard, PushT block, and rope used for collection.",
+     "image": "details/2610.24285/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Method",
+   "heading_ja": "力と幾何を統合したマルチモーダル予測フレームワーク",
+   "summary_ja": "ACTSは事前学習済み動画生成モデルCosmos3をベースとし、俯瞰映像、両手首カメラ、両手触覚の計5ストリームを同時に予測します。センサ座標系における垂直抗力変化を加味した動作と、カメラ座標系への幾何投影という2つのアクション表現を条件付けに用います。",
+   "details_ja": "### 4.1 マルチモーダル観測の表現\nACTSは、俯瞰カメラ映像 $V$、左右のリストカメラ映像 $W^L, W^R$、左右のGelSight触覚画像 $T^L, T^R$ の計5つの観測ストリームを同時に扱います。RGBストリームには動画生成モデルWan2.2の事前学習済み因果的VAE（Causal VAE）エンコーダをそのまま使い、触覚ストリームにはGelSight向けにLoRAで適応させた同VAEを用います。これらを潜在表現に変換した後、パッチ化して共通のトークン空間に射影します。\n\n### 4.2 アクション表現の工夫\nここが本論文の最も重要な提案部分です。アクションは2つの形式でモデルに与えられます。\n- 力対応センサアクション（Force-aware sensor actions）：センサ自身の座標系における相対並進・回転動作です。ただし単純な位置の移動だけでなく、触覚から推定された垂直抗力の変化 $\\Delta f$ に比例定数 $k_f = 0.5\\,\\mathrm{mm/N}$ を掛けた仮想的な変位 $k_f \\Delta f \\,\\mathbf{n}_s$ を法線方向に足し合わせます。これにより、目に見える位置移動がほとんどない「強く押し込んだだけ」の状態も動作として正しく表現できます。\n- 視点整列アクション（View-aligned actions）：俯瞰カメラから見たセンサの幾何学的位置と姿勢を、センサ上の固定3点の正規化ピクセル座標とカメラ深度値（計9次元）として与えます。これにより、大局的なカメラ映像内でのセンサの空間的位置関係をモデルが直接把握できます。\n\n### 4.3 シーケンス構築と時間整列\nすべての観測トークンとアクショントークンを1本のシーケンスにまとめます。バックボーンにはCosmos3-Nanoを採用し、マルチモーダル回転位置埋め込み（MRoPE）によって物理時間軸に沿った時間・空間の同期を行います。因果的アテンションマスクにより、未来の予測トークンは過去の観測と全期間のアクション軌道を参照できるようにしています。\n\n### 4.4 学習と推論\nRectified Flow Matchingの枠組みを用い、未来ブロックのノイズを段階的に除去するベクトル場を学習します。推論時は、与えられた過去フレームとアクション軌道を条件に、自己回帰的に未来の潜在表現を生成し、最後に各デコーダで一括して画像系列へと戻します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "ACTSの全体アーキテクチャです。固定されたエンコーダで潜在トークン化された5つの観測ストリームと、力対応センサアクション・視点整列アクションをCosmos3ベースの生成器に入力し、Flow Matchingによって未来の潜在表現を同時予測します。",
+     "caption": "Figure 2: Overview of ACTS. Frozen encoders produce observation latents, whose spatial patches are mapped to tokens by input projectors $P^{\\mathrm{in}}$ . A generator initialized from pretrained Cosmos3 weights jointly processes noisy future tokens conditioned on clean history, force-aware sensor actions, and view-aligned actions. Output projectors $P^{\\mathrm{out}}$ map target-token features to latent velocity predictions. The scene and two wrist streams share the RGB projector pair $(P_{V}^{\\mathrm{in}},P_{V}^{\\mathrm{out}})$ , while both tactile streams share $(P_{T}^{\\mathrm{in}},P_{T}^{\\mathrm{out}})$ . …",
+     "image": "details/2610.24285/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Experiments",
+   "heading_ja": "未知の人間データとロボット遠隔操作での検証設計",
+   "summary_ja": "過去8フレームの観測とアクション軌道を入力として未来8フレーム（約0.53秒）を予測させ、未知の人間データおよびロボット実機データで評価しました。比較対象としてContactWorldおよびVT-WMの再実装モデルを用いています。",
+   "details_ja": "### 5.1 比較ベースライン\n既存の視覚・触覚ワールドモデルの中でコードが公開されているContactWorld（JEPAベース、予測潜在変数から画像を復元する読み出し層を別途追加して評価）と、代表的なモデルであるVT-WMを本データセット用に再実装した「VT-WM-style」の2つを比較対象としました。両者ともReactデータセット上でゼロからスクラッチ学習させています。\n\n### 5.2 評価プロトコルと指標\nモデルには過去8フレーム（15 fpsで約0.53秒）の観測履歴と、対応するアクション軌道を入力し、続く8フレームの未来予測を行わせます。評価指標にはピクセル忠実度を測るPSNR、構造類似度SSIM、知覚的距離LPIPSを採用しました。評価基準となる正解画像は、VAEの再構成誤差を排除するため、正解潜在変数をVAEデコーダで復元したフレームを使用しています。\n\n### 5.3 ロボットへのゼロショット転移実験\n人間データのみで学習した各モデルを、追学習やファインチューニングを一切行わずにロボット遠隔操作エピソードに適用します。ロボットの関節角度から順運動学で計算した手先位置は、バックラッシュやアームのたわみによりOptiTrackの計測値とステップあたり中央値で0.33 mm乖離するため、人間データと一貫性を保つ目的でロボット側のアクションもOptiTrackベースで構築しています。接触の開始または解除が含まれるウィンドウを抽出し、予測性能を検証しました。",
+   "figures": []
+  },
+  {
+   "heading": "6 Results",
+   "heading_ja": "人間データでの高精度予測とロボットへの触覚ダイナミクス転移",
+   "summary_ja": "人間データにおいてACTSはベースラインを大幅に上回り、特に俯瞰視点予測で高いPSNRを記録しました。ロボットへのゼロショット適用では、視覚的な外観予測に一部ボケや乱れが生じたものの、接触の発生や解除に伴う触覚パターンの変化は見事に再現されました。",
+   "details_ja": "### 6.1 人間データにおける予測精度\n直前フレームをそのまま繰り返す永続性ベースライン（Copy）と比較したところ、ACTSはカメラストリーム全般で1.0〜4.6 dB PSNRの改善を達成しました。また、ベースライン比較（表2）において、ACTSはPushT、ロープ、マザーボードの全タスクにおいてContactWorldやVT-WM-styleをPSNR、SSIM、LPIPSのすべての指標で一貫して上回りました（俯瞰視点で0.7〜2.0 dBのPSNR向上）。\n\n### 6.2 触覚評価の注意点と力情報の効果\n触覚画像は接触領域以外が変化しないため、静止したゲル面をコピーするだけでもPSNRが高く出てしまいます。しかし定性的に見ると、力情報を入れたモデルだけが接触時のインプリント（凹みパターン）を正しいタイミングで生成・消失させられることが分かりました。\n\n### 6.3 ロボット遠隔操作へのゼロショット転移\nロボット操作への転移結果（表3）は、物体やカメラの視点によって明暗が分かれました。PushTタスクでは、俯瞰カメラ予測でフレームコピーを最大2.1 dB上回り、良好な結果を示しました。一方、微細な構造が多いマザーボードや、ロボット特有の暗い手元カメラ映像では、視覚予測がぼやけたり存在しない構造を幻覚（ハルシネーション）したりする傾向が見られました。\n\nしかし極めて興味深いことに、視覚予測が劣化した場合でも、触覚ストリームにおいては接触の立ち上がりや解除のタイミングに合わせてインプリントが明瞭に出現・消失しました。これは、見た目のスタイル転移よりも、力とセンサ変位に支配される物理的な接触ダイナミクスの方が、人間とロボットの間で本質的に転移しやすいことを示唆しています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "人間データにおける未知シーケンスの予測結果です。左手センサをブロックから持ち上げる際、青枠の正解データと同様に、オレンジ枠の予測でも $t+1$ から $t+3$ にかけて触覚インプリントが消えていく様子が正確に捉えられています。",
+     "caption": "Figure 3: Qualitative results on a held-out PushT window. Given eight observed frames (left) and the recorded sensor actions, ACTS predicts the next eight frames of the scene view, both wrist views, and both GelSight streams. Ground truth in blue boxes, predictions in orange boxes. Videos and results on all tasks: https://acts-anon.github.io/ .",
+     "image": "details/2610.24285/F3.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "ロボット遠隔操作に対するゼロショット予測の様子です。ファインチューニングなしでも、センサがブロックから離れる瞬間に合わせて左手の触覚インプリントが綺麗に消失しています。一方、左リストカメラでは物体の形状が不自然に変形する視覚的な課題も見られます。",
+     "caption": "Figure 5: Zero-shot rollout on robot teleoperation. A held-out robot PushT window in which the sensor breaks contact with the block, predicted without fine-tuning by the model trained on human data. Given eight observed frames (left) and the robot’s sensor actions, ACTS predicts the next eight frames of the scene view, both wrist views, and both GelSight streams. Ground truth in blue boxes, predictions in orange boxes. The scene and left tactile predictions follow the recording as the sensor lifts off. In the left wrist view, the recorded frames barely change, while the predicted block face grows and shifts from $t{+}4$ onward. More robot rollouts: https://acts-anon.github.io/ .",
+     "image": "details/2610.24285/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "7 Limitations",
+   "heading_ja": "本手法が抱える制約と課題",
+   "summary_ja": "触覚からの力推定が垂直抗力のみに限られている点、静止部分の多い触覚画像に対する画像評価指標の限界、そして高精度な外部モーションキャプチャに依存している点が主な課題として挙げられています。",
+   "details_ja": "著者らは率直に以下の限界を認めています。\n\n- 垂直抗力のみのモデル化\n現在の力推定器は法線方向の力（垂直抗力）しか扱っていません。接触の形成や解除には十分ですが、滑り摩擦を決定づけるせん断力のダイナミクスは捉えきれていません。\n\n- 評価指標の限界\n触覚画像は大部分が変化しないゲル面であるため、画像全体のPSNRやSSIMでは「接触が正しいタイミングで起きたか」を十分に定量化できません。現在は目視確認に頼る部分が大きく、接触タイミングを評価する専用指標が必要です。\n\n- 外部モーションキャプチャ（OptiTrack）への依存\nセンサの位置姿勢計測を外部カメラに頼っているため、計測環境が整った実験室に縛られます。ロボットのアーム順運動学（FK）から得られる動作指令は、関節のガタや負荷によるたわみの影響でステップあたり中央値0.33 mm（1ステップの移動量の約半分に匹敵）もOptiTrackとズレてしまうため、単純にロボットの関節値で代用することができませんでした。",
+   "figures": []
+  },
+  {
+   "heading": "8 Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "人間が手で触覚センサを扱ったデータのみから学習する視覚・触覚ワールドモデルACTSを提案しました。ロボット実機へのゼロショット転移において、視覚的な外見のギャップは残るものの、接触ダイナミクスが堅牢に転移することを実証しました。",
+   "details_ja": "本研究は、ロボットの動作学習における最大の障壁の一つである「接触リッチなデータの収集コスト」に対し、人間による手持ちセンサ収集と共通センサアクション空間というスマートな解決策を提示しました。\n\n実験を通じて、視覚的な外見の転移にはドメインギャップ（ロボットの腕の映り込みや照明の違いなど）が依然として立ちはだかる一方、局所的な接触ダイナミクスは人間からロボットへ非常に素直に転移することが浮き彫りになりました。今後は視覚的なドメイン適応を進めるとともに、獲得したACTSワールドモデル上でロボットの接触タスクの計画（プランニング）やポリシー最適化を実行することが期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：力情報が接触予測の命運を分ける理由",
+   "summary_ja": "アクションに力情報を加えることで、位置データだけでは表現できない「接触の瞬間」がどうモデルに伝わるのか、アブレーション実験の詳細と触覚エンコーダの実装について解説します。",
+   "details_ja": "### 力情報の有無によるアブレーション実験\n付録Hでは、アクションから力項（垂直抗力変化）を取り除いた場合の影響を詳細に分析しています。画像全体の平均PSNRで見ると、力項の有無による差は0.3〜0.6 dB程度にとどまります。これは前述の通り、触覚画像の大半が無変化のゲル面で占められているためです。\n\nしかし、接触が起きる瞬間のウィンドウを拡大すると決定的な差が現れます（図F6）。位置のみのアクションでは、センサがブロックの表面に向かって移動していることは分かっても、ブロックの正確な境界面がどこにあるかまでは分かりません。そのため、位置のみのモデルは接触しても触覚画像を平坦なまま（変化なし）にしてしまい、接触インプリントを形成できません。ここに力変化の項（$k_f \\Delta f$）が加わることで初めて、「ここで物体にぶつかって力が立ち上がった」という情報が伝わり、鮮明な接触パターンが生成されるのです。\n\n### 触覚エンコーダの適応訓練\n付録Dでは触覚特化のVAE構築法が述べられています。Wan2.2の3D Causal VAEに対し、既存の公開触覚データセット（GelSLAMやFoTaなど）から抽出した6,533本の触覚動画を用いてLoRAファインチューニングを行いました。オプティカルフローの大きさで重み付けした再構成損失を用いることで、ゲルが大きく変形する接触領域を集中的に美しく再構成できるエンコーダを実現しています。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "力情報アブレーションの詳細です。右センサがブロックに接触する際、位置のみのアクション（グレー）では触覚パターンが全く現れませんが、力項を加えたアクション（オレンジ）では接触した瞬間に正解（青）通りのインプリントが生成されています。",
+     "caption": "Figure 6: Effect of the force term on tactile prediction. A held-out PushT window in which the right sensor touches the block. Rows: ground truth (blue), force-informed actions (orange), pose-only actions (gray) for the right wrist and GelSight streams; numbers are per-frame PSNR. Bottom: recorded normal force (black, left axis) and per-step action along the gel normal $\\mathbf{n}_{s}$ (Eq. 3 ; right axis, broken), pose-only (gray) and force-informed (orange), with the force increment $k_{f}\\,\\Delta f$ above each orange bar; the dotted line marks contact. The force term adds 1.2 mm over the window, and only the model that receives it forms the imprint.",
+     "image": "details/2610.24285/F6.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "アクションをロボットの関節ではなく「触覚センサ自体の動きと力」として定義することで、人間が手で集めたデータをそのままロボットに転移できる。",
+  "位置の変位だけでなく、垂直抗力の変化を仮想的な変位としてアクションに組み込むことが、接触の発生や解除を正しく予測するために不可欠である。",
+  "視覚的な見た目の転移（色味やロボットアームの映り込み）にはまだドメインギャップがあるが、局所的な接触ダイナミクスは人間からロボットへゼロショットで極めて頑健に転移する。"
+ ],
+ "limitations_ja": [
+  "垂直抗力のみを扱っており、物体の滑り動作に直結するせん断力（摩擦力）の変化がアクション表現に含まれていない。",
+  "ロボットのアームたわみやバックラッシュの影響が大きいため、手先位置の取得に高精度な外部モーションキャプチャ（OptiTrack）が必須となっており、実環境への配備ハードルがある。",
+  "触覚画像全体の画素ベース評価指標（PSNRなど）は静止したゲル面に引きずられるため、接触タイミングの正確さを自動で定量評価する仕組みが未確立である。"
+ ],
+ "keywords": [
+  "World Models",
+  "Visuo-Tactile Sensing",
+  "Human-to-Robot Transfer",
+  "GelSight",
+  "Bimanual Manipulation"
+ ],
+ "id": "2610.24285",
+ "title": "ACTS: Learning Visuo-Tactile World Models from Human Physical Interaction",
+ "authors": [
+  "Yuxiang Ma",
+  "Weihan Xu",
+  "Pengfei Ye",
+  "Anna Mei",
+  "Yuxin Ray Song",
+  "Tingle Li",
+  "Haonan Chen",
+  "Edward H. Adelson"
+ ],
+ "date": "2026-10-20",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "world-model",
+  "dataset",
+  "perception"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.24285",
+ "pdf_url": "https://arxiv.org/pdf/2610.24285",
+ "summary_ja": "接触リッチな操作に必要な動特性を、ロボットの遠隔操作ではなく人間の実手作業から学習する視覚触覚ワールドモデルACTSを提案。GelSightセンサを用いた手動操作データセットReact（4.9時間分）を構築し、手先の6自由度運動と垂直力に応じた視覚・触覚変化を予測してロボット操作へ転移する。",
+ "generated": "2026-10-20",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.24285"
+}
