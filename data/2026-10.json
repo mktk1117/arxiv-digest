@@ -1,6 +1,286 @@
 {
  "entries": [
   {
+   "date": "2026-10-20",
+   "rank": 0,
+   "id": "2610.23872",
+   "group": "focus",
+   "title": "DUET: Decoupled Upper- and Lower-Body Execution for Task-Agnostic Humanoid Loco-Manipulation",
+   "title_ja": "DUET：タスク非依存なヒューマノイド・ロコマニピュレーションのための上半身・下半身分離実行フレームワーク",
+   "summary_ja": "ヒューマノイドの操作方策変更時に歩行制御器の再学習を不要にする分離実行手法DUETを提案。RL歩行方策は脚12関節と腰ヨー角を制御し、腕の関節状態は観測としてのみ受容することで、任意の腕制御器とロボットインタフェース上で直接統合・協調動作を可能にした。",
+   "summary_en": "We present DUET, a decoupled execution framework that combines locomotion and manipulation controllers at the robot interface without retraining for each task. An RL locomotion policy controls the 12 leg joints and waist yaw while taking arm states only as observations, enabling concurrent execution with arbitrary manipulation controllers.",
+   "authors": [
+    "Kapalik Khanal",
+    "Biswash Khatiwada",
+    "Stephen Afrifa",
+    "Fan Wu",
+    "Ramesh Bahadur Bist"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.23872",
+   "image": null
+  },
+  {
+   "date": "2026-10-20",
+   "rank": 1,
+   "id": "2610.24779",
+   "group": "focus",
+   "title": "Learning Structured Locomotion References for Optimization-Based Whole-Body Control",
+   "title_ja": "最適化ベース全身制御のための構造化歩行リファレンスの強化学習",
+   "summary_ja": "四足歩行において、高周波の全身インパルス制御や歩容生成器を保持したまま、強化学習によって接地位置や歩容タイミングなどの構造化リファレンスを適応させる階層型制御を提案。ベクトル化シミュレータ環境でのカリキュラム学習により、外乱に対する高い頑健性を実現した。",
+   "summary_en": "This paper proposes a hierarchical quadruped locomotion controller where reinforcement learning adapts structured references, such as footholds and timing, while a model-based whole-body impulse controller handles high-frequency execution. Trained in a vectorized sim with disturbance curricula, it achieves robust locomotion.",
+   "authors": [
+    "\\\"Omer Tar{\\i}k Banu\\c{s}",
+    "Ulu\\c{c} Saranl{\\i}",
+    "M. Mert Ankaral{\\i}"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.24779",
+   "image": null
+  },
+  {
+   "date": "2026-10-20",
+   "rank": 2,
+   "id": "2610.24675",
+   "group": "focus",
+   "title": "Action-Aligned Latent Planning for Versatile Humanoid Loco-Manipulation",
+   "title_ja": "多様なヒューマノイド・ロコマニピュレーションに向けた行動整合型潜在空間プランニング",
+   "summary_ja": "多様なヒューマノイドのロコマニピュレーションに向け、行動基盤モデル（BFM）の実行可能な潜在空間をプランニング表現として用いる階層型フレームワークFIBERを提案。ハイレベルの視覚プランナーが潜在意図を生成し、ローレベルの全身制御器が接触応答を保持しながら物理インタラクションを実行する。",
+   "summary_en": "We propose FIBER, a framework that uses the executable latent space of a frozen behavioral foundation model as a shared planning representation for humanoid loco-manipulation. A high-level visual planner generates latent intentions while a low-level whole-body controller maintains state-dependent contact responses.",
+   "authors": [
+    "Yutang Lin",
+    "Guanya Shi",
+    "C. Karen Liu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "planning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.24675",
+   "image": "figures/2026-10-20/2610.24675.jpg"
+  },
+  {
+   "date": "2026-10-20",
+   "rank": 3,
+   "id": "2610.25711",
+   "group": "focus",
+   "title": "SWAP: Test-Time Steerable Humanoid Whole-Body Collision Avoidance",
+   "title_ja": "SWAP：テスト時誘導可能なヒューマノイド全身衝突回避制御",
+   "summary_ja": "狭小・雑多な環境でバランスを維持しつつ全身で障害物を回避する階層型制御SWAPを提案。知覚を入力とするハイレベル拡散方策が衝突回避軌道をマルチモーダルに生成し、ローレベルの全身安定化制御器が動的安定性を担保することで、実機を含む複雑環境での安全なナビゲーションを可能にする。",
+   "summary_en": "This paper proposes SWAP, a hierarchical framework for humanoid whole-body collision avoidance in cluttered spaces. A perception-conditioned high-level diffusion policy generates multi-modal avoidance trajectories while a low-level whole-body stabilizer ensures balance, enabling certified safe navigation.",
+   "authors": [
+    "Zeji Yi",
+    "Guanqi He",
+    "Xiaofeng Guo",
+    "Guannan Qu",
+    "Pieter Abbeel",
+    "Yan Duan",
+    "Karen Liu",
+    "Guanya Shi"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "planning",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.25711",
+   "image": "figures/2026-10-20/2610.25711.jpg"
+  },
+  {
+   "date": "2026-10-20",
+   "rank": 4,
+   "id": "2610.24241",
+   "group": "focus",
+   "title": "Towards Reinforcement Learning for Space Robotics: Fast Training and Reliable Real-World Transfer",
+   "title_ja": "宇宙ロボティクスに向けた強化学習：高速学習と信頼性の高い実世界転移",
+   "summary_ja": "最小限のハードウェア要件で高信頼な実機転移を実現する高速シミュレーション学習フレームワークを提案。単一の民生用GPU上にて20分未満の強化学習を行うだけで、四足ロボットが月面模擬施設を含む多様な実環境の不整地を走破できる方策の獲得とsim-to-real転移を実証した。",
+   "summary_en": "This paper demonstrates a fast simulation-based reinforcement learning framework for space robotics. With less than 20 minutes of training on a single consumer GPU, a quadruped robot learns policies that reliably transfer to challenging real-world terrains, including a lunar-analog facility.",
+   "authors": [
+    "Abhishek Naik",
+    "Michael Wu",
+    "Michael O'Sullivan",
+    "Colin Bellinger",
+    "Yunli Wang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "reinforcement-learning",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.24241",
+   "image": "figures/2026-10-20/2610.24241.jpg"
+  },
+  {
+   "date": "2026-10-20",
+   "rank": 5,
+   "id": "2610.25476",
+   "group": "general",
+   "title": "CusADi2: Latency-Optimized Batch Computation of Robot Kinematics, Jacobians, and Hessians on the GPU",
+   "title_ja": "CusADi2：GPU上でのロボット運動学・ヤコビアン・ヘッシアンの低遅延バッチ計算",
+   "summary_ja": "軌道最適化やMPCなどで不可欠な順運動学、ヤコビアン、ヘッシアンの並列バッチ計算をGPU上でミリ秒以下の超低遅延で実行するライブラリCusADi2を提案。計算グラフの解析的コンパイルとメモリレイアウトの最適化により、実時間制御ループ内での多点サンプリング評価を劇的に加速する。",
+   "summary_en": "We present CusADi2, a GPU framework optimized for low-latency batch computation of robot kinematics, Jacobians, and Hessians. By compiling computation graphs and optimizing memory layouts, it enables extremely fast parallel evaluations required for real-time trajectory optimization and MPC.",
+   "authors": [
+    "John Viljoen",
+    "Lasse Peters",
+    "Masayoshi Tomizuka",
+    "Negar Mehr"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "planning",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.25476",
+   "image": "figures/2026-10-20/2610.25476.jpg"
+  },
+  {
+   "date": "2026-10-20",
+   "rank": 6,
+   "id": "2610.24512",
+   "group": "general",
+   "title": "ContactBench 1.0: A Benchmark for Everyday Contact-Rich Robotic Manipulation",
+   "title_ja": "ContactBench 1.0：日常的な接触リッチ・ロボットマニピュレーションのためのベンチマーク",
+   "summary_ja": "接触が頻発する日常操作スキルの再現可能な評価に向け、8つのスキルカテゴリ、36の参照タスク、40種以上のアセットからなるベンチマークContactBench 1.0を提案。家庭用3Dプリンタで製作可能な実物アセットとシミュレーション環境を両立し、方針の接触挙動評価を標準化する。",
+   "summary_en": "ContactBench 1.0 is an extensible benchmark designed to evaluate contact-rich everyday manipulation skills across 8 skill categories, 36 reference tasks, and over 40 printable assets. It provides both simulated and physical setups to standardize reproducible evaluation of contact behaviors.",
+   "authors": [
+    "Jingyi Xiang",
+    "Yixuan Wang",
+    "Jeannette Bohg",
+    "Wenzhen Yuan"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "benchmark",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.24512",
+   "image": "figures/2026-10-20/2610.24512.jpg"
+  },
+  {
+   "date": "2026-10-20",
+   "rank": 7,
+   "id": "2610.24285",
+   "group": "general",
+   "title": "ACTS: Learning Visuo-Tactile World Models from Human Physical Interaction",
+   "title_ja": "ACTS：人間の物理的インタラクションから学ぶ視覚触覚ワールドモデル",
+   "summary_ja": "接触リッチな操作に必要な動特性を、ロボットの遠隔操作ではなく人間の実手作業から学習する視覚触覚ワールドモデルACTSを提案。GelSightセンサを用いた手動操作データセットReact（4.9時間分）を構築し、手先の6自由度運動と垂直力に応じた視覚・触覚変化を予測してロボット操作へ転移する。",
+   "summary_en": "We present ACTS, an action-conditioned visuo-tactile world model trained entirely on human physical interaction data using handheld GelSight sensors. By leveraging the 4.9-hour React dataset, it predicts how contacts evolve under continuous motion and force, transferring learned dynamics to robotic manipulation.",
+   "authors": [
+    "Yuxiang Ma",
+    "Weihan Xu",
+    "Pengfei Ye",
+    "Anna Mei",
+    "Yuxin Ray Song",
+    "Tingle Li",
+    "Haonan Chen",
+    "Edward H. Adelson"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "world-model",
+    "dataset",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.24285",
+   "image": "figures/2026-10-20/2610.24285.jpg"
+  },
+  {
+   "date": "2026-10-20",
+   "rank": 8,
+   "id": "2610.24579",
+   "group": "general",
+   "title": "LIBERO-Dynamic: Benchmarking Robotic Manipulation in Dynamic Environments",
+   "title_ja": "LIBERO-Dynamic：動的環境におけるロボットマニピュレーションのベンチマーク",
+   "summary_ja": "静止物体・ゼロ遅延を仮定しがちな従来の操作評価に対し、動く対象物と推論遅延を組み込んだLIBERO-Dynamicを提案。LIBEROの全40タスクを拡張し、接触摩擦による物体の移動やモデルの推論レイテンシを再現した環境下で、動的適応能力と観測の陳腐化への耐性を厳密に検証可能にした。",
+   "summary_en": "LIBERO-Dynamic extends all 40 LIBERO tasks to benchmark robotic manipulation with moving targets and realistic model inference latency. By reproducing physical displacements and delayed policy execution, it systematically measures policy robustness against dynamic environments and observation staleness.",
+   "authors": [
+    "Shaojie Ren",
+    "Jingwen Sun",
+    "Zezhi Liu",
+    "Hongjin Chen",
+    "Xin Jin",
+    "Wei Zou",
+    "Zhibo Chen"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "benchmark",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.24579",
+   "image": "figures/2026-10-20/2610.24579.jpg"
+  },
+  {
+   "date": "2026-10-20",
+   "rank": 9,
+   "id": "2610.25600",
+   "group": "general",
+   "title": "Vector-Quantized World Model: Latent Feedback Motion Planning for Robot Manipulation",
+   "title_ja": "ベクトル量子化ワールドモデル：ロボットマニピュレーションのための潜在フィードバック運動計画",
+   "summary_ja": "長期マニピュレーションにおける予測誤差の蓄積と探索の爆発に対処するため、離散潜在予測と連続フィードバック制御を統合したVQ-WMを提案。ベクトル量子化された潜在空間上で離散探索により最短ゴール経路を計画し、学習済み連続制御器が視覚フィードバックに基づきサブゴールを順次追従する。",
+   "summary_en": "We propose VQ-WM, a latent feedback motion planning framework for long-horizon manipulation. It combines discrete forward search over vector-quantized latent transitions to plan global paths with a continuous closed-loop controller that tracks subgoals using visual feedback, overcoming compounding prediction errors.",
+   "authors": [
+    "Xuezhou Xu",
+    "Chung-Pang Wang",
+    "Zhenzhen Li",
+    "Benjamin Riviere"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "world-model",
+    "planning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.25600",
+   "image": "figures/2026-10-20/2610.25600.jpg"
+  },
+  {
    "date": "2026-10-19",
    "rank": 0,
    "id": "2610.22619",
