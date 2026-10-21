@@ -1,0 +1,117 @@
+{
+ "title_ja": "適応型通過チューブによる二足ヒューマノイドの姿勢認識ナビゲーション",
+ "tldr_ja": "通路の幾何学的クリアランスと歩行者の快適距離を連続的な「チューブ幅」として統一表現し、狭小空間のすり抜けやすれ違い時の譲り合いを前進から横歩きへの滑らかな姿勢変化（ヨー角制御）で実現するヒューマノイドナビゲーション手法です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "提案手法の概念図とUnitree G1での動作例です。上段では幾何学的な狭路通過（左）と対向歩行者に対するソーシャルな快適距離の圧縮（右）が、どちらもチューブ幅の減少として統一的に扱われています。下段ではその幅に応じてロボットが正面歩きから横歩きへと滑らかに姿勢を変えている様子を示しています。",
+  "caption": "Fig. 1: Overview of the proposed idea. Top: ATT width field (green $\\,\\to\\,$ red as the tube narrows) for a geometric squeeze-through (left) and social comfort compression (right). Bottom: corresponding real-robot behaviors on a Unitree G1, where IVH schedules a frontal-to-sidestep posture response.",
+  "image": "details/2610.27688/F1.jpg"
+ },
+ "overview_ja": "オフィスや商業施設などの屋内環境は人間の身体寸法に合わせて設計されており、ドアの開口部や家具の間隔は人の肩幅と同程度しかありません。さらに通路ですれ違う歩行者とは適度な対人距離を保つ必要があります。従来の車輪型ロボットは水平面の占有形状（フットプリント）が一定であるため、狭い通路を「通過不能」と判定したり、歩行者に出会うと減速や迂回しかできませんでした。一方、2足歩行ヒューマノイドは進行方向に対して身体の向き（ヨー角）を変えてカニ歩き（横歩き）をすることで、見かけ上の通過幅を大幅に狭められるという大きな利点を持っています。\n\nしかし、この能力をナビゲーション層でどう扱うかには課題がありました。接地位置を個別に解く全身制御（WBC）やMPCは計算負荷が高く、エンドツーエンドの強化学習はモジュール性や再利用性に欠けます。そこで著者らは、幾何学的な空きスペースと人間に対する快適距離を1本の参照経路に沿ったスカラー値の幅場（Adaptive Traversal Tubes: ATT）として統一表現する枠組みを提案しました。さらに、その幅を正面歩きから横歩きへの滑らかな姿勢スケジュールに変換し、全方向速度指令を生成するInterval Velocity–Heading（IVH）トラッカーを設計しています。\n\nこの指令は既存の歩行コントローラにも渡せますが、旋回と横移動が連動する遷移時の安定性を高めるため、人間の動作キャプチャから学習した横歩き対応AMP（Adversarial Motion Priors）歩行ポリシーも構築しました。実機ヒューマノイドUnitree G1を用いた検証プロトコルを策定し、シミュレーションおよび実機での狭小通路すり抜けや歩行者への譲り合い動作を定性的に示しています。",
+ "contributions_ja": [
+  "静的な幾何クリアランスと動的なソーシャル快適距離を、経路に沿った1つの連続的な通過可能幅場として統合するAdaptive Traversal Tubes（ATT）の提案。",
+  "チューブ幅から正面歩きと横歩きの比率を滑らかに割り出し、全方向移動速度とヨー角指令を生成するInterval Velocity–Heading（IVH）制御器の設計。",
+  "人間の動画から生成した正面・横歩き・姿勢遷移動作を取り込み、遷移時の$(v_x, v_y)$追従安定性を向上させたAMPベースの歩行ポリシーの構築。",
+  "Unitree G1を対象とした、正面維持ベースラインと比較可能な姿勢考慮ナビゲーションの評価プロトコルの策定。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜヒューマノイドは「体を横に向けて」歩くべきなのか",
+   "summary_ja": "ドアや通路が肩幅ギリギリの屋内環境では、体を横に向けることで実質的な通過幅を狭小化できます。幾何学的な狭路通過と人間へのソーシャルな譲り合いを、1本の経路に沿った「チューブ幅」によって統一的に制御する新しいナビゲーション思想を提示します。",
+   "details_ja": "屋内の生活・業務空間は人間の身体スケールに合わせて作られています。ドア枠や廊下の空き幅は人の肩幅よりわずかに広い程度であることが多く、そこを行き交う歩行者同士はお互いに不快感を与えない距離を保ちながらすれ違っています。\n\n2足歩行ヒューマノイドはこの環境に非常に適しています。車輪型台車は水平面の占有形状が固定ですが、ヒューマノイドはヨー角を変えて横歩き（カニ歩き）に移行することで、正面から見た実質的な幅（フットプリント）を小さくできるからです。この姿勢変更は狭いドアを通り抜けるだけでなく、歩行者に対して細身のプロファイルを向けながら進路を譲る「礼儀正しい回避」にも使えます。\n\nしかし、この強みを活かすには3つの課題があります。\n- 姿勢依存のフットプリントの曖昧さ: 単なる壁間距離ではなく、ロボットがその姿勢で通れるかどうかが重要です。固定半径の円形フットプリントとして扱うと、実際には通れるドアを過剰に拒絶してしまいます。\n- 幾何学的制約とソーシャル制約の統一: 障害物だけでなく歩行者のパーソナルスペースも考慮する必要がありますが、これらを別々に処理するのではなく、同じ姿勢変化トリガーとして扱いたいところです。\n- 移動制御インタフェースとの接続: 接地位置や足先軌道を最適化する接触レベルの制御器は計算が重く、逆にNav2のような経路追従スタックには正面から横歩きへの姿勢制御が組み込まれていません。\n\nそこで著者らは、姿勢決定に必要な情報を「経路に沿った有効通過幅」という1つの信号に集約するアプローチを提案しました。これがAdaptive Traversal Tubes（ATT）とInterval Velocity–Heading（IVH）トラッキングです。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "提案アイデアの概要図です。幾何学的な狭窄部（左）でも歩行者の接近による快適領域の圧縮（右）でも、ATT幅が緑から赤へ狭まることで、IVHが同様に正面歩きから横歩きへの姿勢変化を引き起こします。",
+     "caption": "Fig. 1: Overview of the proposed idea. Top: ATT width field (green $\\,\\to\\,$ red as the tube narrows) for a geometric squeeze-through (left) and social comfort compression (right). Bottom: corresponding real-robot behaviors on a Unitree G1, where IVH schedules a frontal-to-sidestep posture response.",
+     "image": "details/2610.27688/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "接触最適化・強化学習・安全フィルタとの違いと位置づけ",
+   "summary_ja": "従来の足踏み計画（WBC/MPC）やエンドツーエンド強化学習、制御バリア関数（CBF）による安全層と比較し、本手法はナビゲーション層で姿勢を明示的にスケジュールしつつ既存の歩行層と疎結合に接続できる軽量さを強みとしています。",
+   "details_ja": "ヒューマノイドの移動に関する先行研究は、大きく3つの系統に整理できます。\n\n### 足踏み計画とWBC/MPC\n離散的な足場を計画し、重心やゼロモーメント点（ZMP）を制御しながら追従するクラシカルな手法です。狭小空間の通過も古くから研究されていますが、関心の中心は「どこを踏んでどうバランスを保つか」にあります。横歩きは接触最適化の結果として現れることが多く、廊下の幅に応じてナビゲーション層から直感的に姿勢を調整できるインタフェースにはなっていません。\n\n### 学習ベースの歩行と密結合ナビゲーション\n強化学習（RL）の進展により、高運動性な歩行やLiDARから直接モータを駆動するエンドツーエンド方策が登場しています。しかし、知覚・姿勢遷移・バランスをすべて一体で学習するとシミュレーションから実機への移行（Sim-to-Real）や訓練コストが重くなります。また、別のプランナや地図スタックへ載せ替える際に再学習が必要になる点もデメリットです。\n\n### 幾何学的・ソーシャルな中位ナビゲーション\n階層的な動作計画や制御バリア関数（CBF）を用いて安全を担保する研究も増えています。しかし、その多くは固定フットプリントを前提とした減速・迂回にとどまるか、接触シーケンスの再計算に頼っています。\n\n### 本手法のポジショニング\n提案するATT+IVHは、接触レベルの最適化を置き換えるものではありません。安定した全方向速度追従ができる歩行コントローラが存在することを前提に、その上位で「幅」に応じて正面〜横歩きの姿勢を軽量かつ解釈可能にスケジューリングするナビゲーション層を提供します。これにより、既存の歩行ポリシーを差し替え可能なモジュール性を維持できます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "システム全体のアーキテクチャです。LiDAR自己位置推定とA*系プランナが生成した経路に対し、ATTが幾何・ソーシャル制約から幅場$w(s)$を付与し、IVHが速度と姿勢角へ変換して下位の歩行層へ渡すクリーンな階層構造を示しています。",
+     "caption": "Fig. 2: System overview. Mid-360 LiDAR localization supports global A* and local Hybrid A* planning. ATT builds a behavior-feasible width field $w(s)$ along the reference path from geometric clearance and social comfort; IVH maps $w(s)$ to a frontal–sidestep heading schedule and body-frame $(v_{x},v_{y},\\omega_{z})$ for a sidestep-enhanced AMP locomotion policy. Offline, GVHMR+GMR provide frontal/sidestep reference motions for AMP training; a generic onboard controller remains a compatible fallback.",
+     "image": "details/2610.27688/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "チューブ幅の計算から横歩きAMPポリシーの学習まで",
+   "summary_ja": "経路に沿った幾何・ソーシャルクリアランスをスカラーの幅場$w(s)$に落とし込むATT、その幅を滑らかな横歩き比率と速度指令に写像するIVH、そして遷移時の安定性を担保するために人間の動作から学習した横歩き対応AMP歩行ポリシーの全容を解説します。",
+   "details_ja": "### III-A システム全体像\nロボットはLiDARオドメトリ（FAST-LIO2系）で自己位置を把握し、大域A*および局所Hybrid A*で参照経路を生成します。ATTはこの経路にスカラー幅場$w(s)$を付与し、IVHがそれを受け取って全方向速度と目標ヨー角$(v_x, v_y, \\omega_z)$を出力します。下位の歩行層には、標準のオンボードコントローラまたは著者らが訓練した横歩き対応AMPポリシーを接続します。\n\n### III-B 適応型通過チューブ（ATT）\n参照経路を弧長$s$、中心線$\\mathbf{p}(s)$、法線$\\mathbf{n}(s)$とします。障害物までのユークリッド距離変換から得られるクリアランス$c(s)$に対し、静的幾何幅を次のように定義します:\n$w_{\\mathrm{static}}(s) = \\mathrm{clip}(2c(s) - m_{\\mathrm{safe}};\\; w_{\\min},\\; w_{\\mathrm{nom}})$\nここで$m_{\\mathrm{safe}}$は安全マージン、$w_{\\mathrm{nom}}$は「正面歩きに十分な広さ」を示す上限幅、$w_{\\min}$は下限幅です。さらに周囲の歩行者までの距離$d(s)$と快適半径$r_a$からソーシャル幅を求め、その最小値を取ることで最終的な有効幅$w(s)$を決定します。これにより、壁の狭まりも人の接近も全く同一の幅減少として扱われます。\n\n### III-C 区間速度・方位（IVH）制御\n肩幅$w_{\\mathrm{sh}}$と体厚$w_{\\mathrm{dp}}$（$w_{\\mathrm{dp}} < w_{\\mathrm{sh}}$）を閾値として、横歩き比率$\\rho(s) \\in [0, 1]$を計算します。幅が肩幅以上なら$\\rho=0$（正面歩き）、体厚以下なら$\\rho=1$（完全な横歩き）とし、その間を3次エルミート多項式（smoothstep）で滑らかに補間します。端点で微分がゼロになるため、姿勢遷移の開始・終了時に角速度が不連続に跳ねるのを防げます。\n\n目標ヨー角は経路の接線方位$\\psi(s)$に対し$\\theta_{\\mathrm{des}}(s) = \\psi(s) + \\sigma(s) \\rho(s) \\frac{\\pi}{2}$と設定します。左右どちらを向くか（$\\sigma = \\pm 1$）は狭小部に入るとき現在のヨー角に近い方を選び、ヒステリシスを持たせて旋回方向のチャタリングを防ぎます。さらに経路からの横ずれ誤差をフィードバックしながら、機体座標系の並進・旋回速度指令を生成します。\n\n### III-D 横歩き対応AMP歩行ポリシー\n市販ヒューマノイドの標準歩行コントローラは前進に最適化されており、大きな横速度$v_y$の維持や、旋回と横移動が混ざる遷移領域でバランスを崩しがちです。そこで著者らは単眼カメラで撮影した人間の正面歩行・横歩き・姿勢遷移の動画からGVHMRで3次元姿勢を抽出し、GMRでUnitree G1向けにリターゲティングした動作ライブラリを作成しました。\n\nAdversarial Motion Priors（AMP）の枠組みを用い、進行方向$\\mathbf{d}_t$と身体の向き$\\mathbf{f}$を独立に指定できる操舵タスク報酬を与えてPPOで学習します。正面歩き（$\\mathbf{f} \\approx \\mathbf{d}_t$）から横歩き（$\\mathbf{f} \\perp \\mathbf{d}_t$）までをカリキュラム学習で段階的に経験させることで、IVHの複合指令を安定してトラッキングできる歩行ポリシーを実現しました。",
+   "figures": []
+  },
+  {
+   "heading": "IV Planned Evaluation",
+   "heading_ja": "Unitree G1実機での検証計画と定性的な挙動",
+   "summary_ja": "本プレプリントでは定性的なデモ動画と評価プロトコルを提示しており、Unitree G1実機を用いて正面歩行固定ベースラインとの比較（成功率、所要時間、クリアランス等）を行う計画が詳細に述べられています。",
+   "details_ja": "### IV-A 実機プラットフォームと想定シナリオ\n実証実験の対象機体はUnitree G1です。頭部にLivox Mid-360 LiDARを搭載し、リアルタイムに自己位置推定と障害物検知を行います。想定シナリオは以下の2つです:\n- 狭小通路・ドア通過: ロボットの肩幅より狭く体厚よりは広い隙間を設置し、正面向きでは物理的に衝突・スタックするが横歩きなら通過可能な環境。\n- ソーシャルな譲り合い: 廊下で前方から歩行者が接近してくる状況で、大回りな迂回をすることなく、快適空間の重なりを検知して事前に横向き姿勢を取り進路を譲るタスク。\n\n### IV-B 比較ベースラインと評価指標\n姿勢スケジューリングの効果を切り分けるため、同じ経路計画器と歩行バックエンドを用いながら、ヨー角を経路接線方向に固定して横移動を行わない「正面固定（Frontal-only）」を主ベースラインとします。\n評価指標としては、タスク成功率、衝突・スタック回数、障害物および歩行者との最小距離、通過所要時間を記録する予定です。また、下位歩行コントローラの違い（標準ポリシー vs 提案AMPポリシー）を比較するためのヨー角追従誤差や速度追従誤差も測定対象としています。\n\n### IV-C 現在のステータス\n本プレプリント執筆時点では統計的な数値比較は保留されており、シミュレーション（MuJoCo）および実機での動作デモ動画が公開されています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "Unitree G1実機における動作の定性的な様子です。(a)では向かってくる歩行者の快適ゾーンに反応して事前に体を横に向けてすれ違い、(b)では狭いパーティションの隙間に入る手前で横歩きに遷移して通過後再び正面歩きに復帰しています。",
+     "caption": "Fig. 3: Qualitative illustration of the intended behaviors on a Unitree G1 (not a quantitative benchmark). (a) Socially aware pedestrian encounter: comfort-space compression narrows the tube and IVH schedules a frontal-to-sidestep yield. (b) Narrow-corridor traversal: geometric clearance shrinks $w(s)$ at the gap, triggering a sidestep squeeze-through and recovery to frontal gait. Controlled comparisons against a frontal-only baseline are left to the evaluation protocol in Section IV .",
+     "image": "details/2610.27688/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "幾何クリアランスとソーシャル空間を1本の幅信号に集約し、ヒューマノイドの姿勢を連続的に制御する実用的なフレームワークを確立しました。今後は実機での定量的評価やより混雑した環境での検証が予定されています。",
+   "details_ja": "本研究では、2足歩行ヒューマノイドが持つ「体の向きを変えて実質フットプリントを薄くできる」という最大の利点をナビゲーション層に引き上げるATTおよびIVH制御器を提案しました。\n\n静的な壁の圧迫感も、人間が近づいてくるプレッシャーも、等しく「チューブ幅$w(s)$の減少」として一元化することで、アルゴリズムを極めてシンプルかつ解釈しやすい構造に保っています。さらに、このナビゲーション指令を綺麗に実行するための横歩き対応AMP歩行ポリシーも整備されました。\n\n今後は、計画されているUnitree G1実機での定量的なアブレーション実験の完了と、より動的で多数の歩行者が行き交う混雑空間への拡張が期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "ヒューマノイドの占有形状の可変性を、経路上のスカラー幅場（ATT）と3次smoothstepによる姿勢比率（IVH）としてモデル化することで、接触計画を回さずとも軽量に姿勢制御が可能になる。",
+  "物理的な狭路すり抜けとソーシャルな対人譲り合い動作を、同一の「有効幅の減少」という単一シグナルで統一的に駆動できる。",
+  "全方向速度インタフェースを持つ既存の歩行ポリシーと疎結合に接続できるため、足踏み制御とナビゲーションの役割分担が非常に綺麗で実装しやすい。"
+ ],
+ "limitations_ja": [
+  "プレプリント段階のため、成功率や通過時間などの定量的な比較ベンチマークデータは今後の改訂待ちである。",
+  "左右どちらを向いて横歩きするか（$\\sigma$）の決定が、進入時の最小ヨー角ルールとヒステリシスによる簡易的な選択にとどまっており、複雑な視界確保や歩行者の動線に応じた高度な最適化は行われていない。",
+  "経路自体は2次元平面上の中心線を前提としており、頭上や足元の局所的な3次元障害物（段差や張り出しなど）に対する姿勢適応まではカバーされていない。"
+ ],
+ "keywords": [
+  "Humanoid Navigation",
+  "Adaptive Traversal Tubes",
+  "Posture-Aware Navigation",
+  "Adversarial Motion Priors",
+  "Social Robot Navigation"
+ ],
+ "id": "2610.27688",
+ "title": "Adaptive Traversal Tubes for Posture-Aware Navigation of Bipedal Humanoids",
+ "authors": [
+  "Zijian Ge"
+ ],
+ "date": "2026-10-21",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "locomotion",
+  "navigation",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.SY",
+  "eess.SY"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.27688",
+ "pdf_url": "https://arxiv.org/pdf/2610.27688",
+ "summary_ja": "二足ヒューマノイドがヨー角を変えて投影面積を変化させられる利点に着目し、狭路通過と社会的配慮を両立するナビゲーション基盤を提案。経路に沿った通過可能幅を連続信号化するAdaptive Traversal Tubes（ATT）と、それを前進から横歩きへの姿勢スケジュールに変換するIVH制御を構築。GVHMRデータで再学習したAMP歩行方策と組み合わせ、実環境の障害物や人との接触を回避する滑らかな歩行移動を実証した。",
+ "generated": "2026-10-21",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.27688"
+}
