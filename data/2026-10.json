@@ -1,6 +1,301 @@
 {
  "entries": [
   {
+   "date": "2026-10-21",
+   "rank": 0,
+   "id": "2610.28480",
+   "group": "focus",
+   "title": "SuperMimic: Scaling Humanoid Whole-Body Control with One Differentiable World Model",
+   "title_ja": "SuperMimic: 1つの微分可能ワールドモデルによるヒューマノイド全身制御の大規模化",
+   "summary_ja": "従来の大規模モーション追従では膨大な計算資源が必要だったヒューマノイド全身制御に対し、剛体シミュレータの遷移ログから学習した単一の微分可能ワールドモデルを用いるSuperMimicを提案。ワールドモデルと追従方策を同一ループで学習し、短時間のロールアウトに対するBPTTで解析的勾配を供給する。これにより個別方策の蒸留や大規模強化学習の計算負荷を大幅に削減し、多様な動作の汎用的な全身追従を実現した。",
+   "summary_en": "SuperMimic scales humanoid whole-body control across large motion datasets using a single differentiable world model fit from rigid-body simulator transitions. By co-training the world model and tracking policy via backpropagation-through-time over short imagined rollouts, it provides analytic gradients directly to the policy. This amortizes learning across diverse motions and eliminates the need for expensive per-motion RL or lossy policy distillation.",
+   "authors": [
+    "Qiayuan Liao",
+    "Yiyang Shao",
+    "Junfeng Long",
+    "Kevin Zakka",
+    "Roberto Horowitz",
+    "Pieter Abbeel",
+    "Koushil Sreenath"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "world-model",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.28480",
+   "image": "figures/2026-10-21/2610.28480.jpg"
+  },
+  {
+   "date": "2026-10-21",
+   "rank": 1,
+   "id": "2610.23894",
+   "group": "focus",
+   "title": "Language-Forcing: Advancing Humanoid Loco-Manipulation via Semantic Alignment of Whole-Body World Action Models",
+   "title_ja": "Language-Forcing: 全身ワールドアクションモデルの言語アライメントによるヒューマノイドのロコマニピュレーション高度化",
+   "summary_ja": "全身ロコマニピュレーションでは接触や物体状態の変化が重要だが、既存のワールドアクションモデル（WAM）は偶発的な背景変化とタスク関連遷移を区別しにくい。そこで、凍結VLMを用いて現在と未来フレームからタスク進捗や状態変化を言語化し、将来の視覚特徴に言語指示を注入する学習手法LANGUAGE-FORCINGを提案。移動を伴う協調タスクにおいて、意図した全身動作の正確な予測と方策学習の性能を向上させた。",
+   "summary_en": "Humanoid loco-manipulation requires coordinating body pose, contact, and object states, but standard World Action Models often fail to isolate task-relevant changes from visual distractors. LANGUAGE-FORCING leverages a frozen VLM to evaluate progress between paired frames and predict semantic transitions, conditioning the latent future representations on language. This semantic alignment significantly improves prediction quality and policy performance on complex whole-body t…",
+   "authors": [
+    "Yanjun Li",
+    "Jiarui Ye",
+    "Weiyu Guo",
+    "Zixiao He",
+    "Kangjie Ye",
+    "Dihan Wang",
+    "Yishuo Cheng",
+    "Zishang Xiang",
+    "Mingju Gao",
+    "Hao Tang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.23894",
+   "image": "figures/2026-10-21/2610.23894.jpg"
+  },
+  {
+   "date": "2026-10-21",
+   "rank": 2,
+   "id": "2610.28470",
+   "group": "focus",
+   "title": "Fast Motion Retargeting Pipeline for Scalable Humanoid Robot Learning",
+   "title_ja": "FRDV: スケーラブルなヒューマノイド学習のための高速モーションリターゲティングパイプライン",
+   "summary_ja": "ヒューマノイドの模倣学習に不可欠な人間MoCapデータのリターゲティングにおいて、動力学を考慮した軌道最適化の高コスト性を解決するフレームワークFRDVを提案。カスタムSQPソルバー、リアルタイム反復（RTI）、並列チャンク処理を統合した運動学ステージにより最大9,156 fpsの高速処理を実現し、後段の動力学検証と組み合わせる。手動調整を排除しつつ物理整合性を保った大規模動作データを効率的に生成可能にした。",
+   "summary_en": "FRDV accelerates motion retargeting from human motion capture datasets to humanoid robots by pairing rapid constrained kinematics with dynamic validation. The kinematic stage combines a custom SQP solver, Real-Time Iteration, and chunk-based parallel processing to achieve throughput up to 9,156 frames per second. This automated, compute-efficient pipeline removes the need for per-motion manual tuning while ensuring dynamically viable humanoid reference motions.",
+   "authors": [
+    "Daniel Marew",
+    "Sangjun Park",
+    "Nisal Perera",
+    "Donghyun Kim"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "simulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.28470",
+   "image": null
+  },
+  {
+   "date": "2026-10-21",
+   "rank": 3,
+   "id": "2610.27688",
+   "group": "focus",
+   "title": "Adaptive Traversal Tubes for Posture-Aware Navigation of Bipedal Humanoids",
+   "title_ja": "適応型通過チューブによる二足ヒューマノイドの姿勢認識ナビゲーション",
+   "summary_ja": "二足ヒューマノイドがヨー角を変えて投影面積を変化させられる利点に着目し、狭路通過と社会的配慮を両立するナビゲーション基盤を提案。経路に沿った通過可能幅を連続信号化するAdaptive Traversal Tubes（ATT）と、それを前進から横歩きへの姿勢スケジュールに変換するIVH制御を構築。GVHMRデータで再学習したAMP歩行方策と組み合わせ、実環境の障害物や人との接触を回避する滑らかな歩行移動を実証した。",
+   "summary_en": "This paper presents a posture-aware navigation framework for bipedal humanoids by exploiting their ability to adjust body yaw and alter their footprint. The system introduces Adaptive Traversal Tubes (ATT) to model clearance fields and an Interval Velocity-Heading controller to schedule transitions between frontal walking and sidestepping. Integrated with an adversarial motion prior (AMP) policy, it enables agile and socially compliant navigation through narrow spaces.",
+   "authors": [
+    "Zijian Ge"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "navigation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.27688",
+   "image": "figures/2026-10-21/2610.27688.jpg"
+  },
+  {
+   "date": "2026-10-21",
+   "rank": 4,
+   "id": "2610.27998",
+   "group": "focus",
+   "title": "LocoPilot: Single-Operator Bilateral Teleoperation for Loco-Manipulation Policy Learning",
+   "title_ja": "LocoPilot: 単一オペレータによる四足ロコマニピュレーション学習のための双方向遠隔操作基盤",
+   "summary_ja": "四足ロボットとアームの協調動作デモ収集に向け、単一オペレータで全系を同時指令できる双方向遠隔操作フレームワークLocoPilotを提案。12自由度のUnitree Go2と6自由度Piperアームを用い、ベース移動・アーム操作・触覚フィードバックを統合した操作環境を構築。操作者の意図を反映したプラットフォーム固有の固有受容感覚や車載カメラデータを直接収集し、高度な協調ロコマニピュレーション方策の学習を可能にした。",
+   "summary_en": "LocoPilot is a single-operator bilateral teleoperation and data collection framework designed for quadrupedal loco-manipulation. Deployed on a Unitree Go2 quadruped equipped with an AgileX Piper arm, it enables simultaneous, coordinated teleoperation of both base mobility and arm manipulation while capturing onboard proprioception and vision. The platform provides rich demonstration data that reflects platform-specific kinematics, facilitating robust imitation policy learnin…",
+   "authors": [
+    "Antonio Langella",
+    "Giovanni Minelli",
+    "Giovanni B. Dessy",
+    "Lorenzo Amatucci",
+    "Giulio Turrisi",
+    "Victor Barasuol",
+    "Claudio Semini"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "manipulation",
+    "teleoperation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.27998",
+   "image": "figures/2026-10-21/2610.27998.jpg"
+  },
+  {
+   "date": "2026-10-21",
+   "rank": 5,
+   "id": "2610.27622",
+   "group": "general",
+   "title": "A Head Camera Is (Almost) All You Need: An Electronics-Free UMI Glove Labelled and Observed by One Moving Camera",
+   "title_ja": "頭部カメラ1台で十分：移動カメラ1台で観測・追跡する電子部品不要のUMIグローブ",
+   "summary_ja": "手持ち型デモ収集の配線や重装化を解消するため、頭部装着カメラ（122ドル）とマーカー付きの電子部品フリー手袋（22ドル）のみで構成されるシステムを提案。作業台の基準紙と手袋上のマーカーを単一カメラで同時に読み取ることで、6自由度の把持ポーズと開口幅を高精度に追跡する。手首カメラや同期装置を一切排除しつつ、従来のUMIと同等以上の高品質な模倣学習データを極めて低コストに収集できることを実証した。",
+   "summary_en": "This work introduces a minimalist, low-cost teleoperation data-collection setup consisting of a $122 head-mounted camera and a $22 electronics-free glove with printed fiducials. By tracking the glove markers against workspace paper tiles, a single video stream provides 6-DoF gripper poses and jaw width without wrist cameras or IMUs. This drastically simplifies hardware and calibration pipelines while collecting high-quality demonstrations for imitation learning.",
+   "authors": [
+    "Yosub Shin",
+    "Yuan Liu",
+    "Igor Molybog"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "manipulation",
+    "imitation-learning",
+    "teleoperation",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.27622",
+   "image": "figures/2026-10-21/2610.27622.jpg"
+  },
+  {
+   "date": "2026-10-21",
+   "rank": 6,
+   "id": "2610.28613",
+   "group": "general",
+   "title": "Physical Canvas: A Vision Tactile World Model For Robot Policy Evaluation And Learning",
+   "title_ja": "Physical Canvas: ロボット方策評価と学習のための視覚・触覚ワールドモデル",
+   "summary_ja": "実機での接触リッチな操作評価の高コスト性を解消するため、視覚と触覚を統合したワールドモデルPhysCanvasを提案。マルチビューRGB、触覚画像、マーカー変位、タスク状態、行動を同一の潜在空間に統合し、共有Video-VAEと事前学習済み生成バックボーンで接触ダイナミクスを整合的に予測する。視覚的妥当性だけでなく正確な接触力を反映したシミュレーションを可能にし、方策の事後評価や強化学習における有効性を示した。",
+   "summary_en": "PhysCanvas is a state-consistent visuo-tactile world model designed as an interactive simulator for contact-rich manipulation. It unifies multi-view RGB, tactile imagery, tactile marker displacement, and task states within a shared video VAE and generative backbone. By accurately preserving contact dynamics rather than purely visual continuity, PhysCanvas provides a reliable virtual environment for evaluating and fine-tuning embodied manipulation policies.",
+   "authors": [
+    "Zebin Xing",
+    "Yuhang Zheng",
+    "Yupeng Zheng",
+    "Yichen Zhang",
+    "Zichen Li",
+    "Shangqing Zhou",
+    "Yujie Zang",
+    "Yuchen Liu",
+    "Zhongpu Xia",
+    "Haoran Li",
+    "Qichao Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "world-model",
+    "simulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.28613",
+   "image": "figures/2026-10-21/2610.28613.jpg"
+  },
+  {
+   "date": "2026-10-21",
+   "rank": 7,
+   "id": "2610.27194",
+   "group": "general",
+   "title": "Learning to Be Different: Component Specialization for Compositional Diffusion Policies",
+   "title_ja": "異なることを学ぶ：構成的拡散方策のためのコンポーネント特化手法",
+   "summary_ja": "線形合成によってマルチタスク適応を行う構成的拡散方策において、従来目的関数では各モジュールが同一表現に縮退しやすい問題を指摘。射影合成理論に基づき、各コンポーネントが予測するノイズ間の重複にペナルティを課すスコア非相関補助損失（score-decorrelation loss）を提案した。ドロップインで適用可能なこの損失により、各因子の専門分化が促進され、タスク合成時の汎化性能と解釈性が大幅に向上することを実証した。",
+   "summary_en": "Compositional diffusion policies combine modular components via linear score combination, but standard objectives often cause modules to collapse into redundant, identical predictors. The authors propose a plug-and-play score-decorrelation auxiliary loss grounded in projective composition theory, penalizing directional overlap between component predictions. This enforces clear functional specialization among factors, boosting compositional generalization and policy interpret…",
+   "authors": [
+    "Alec Laprevotte",
+    "Haonan Chen",
+    "Xiaoshen Han",
+    "Yilun Du"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "imitation-learning",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.27194",
+   "image": "figures/2026-10-21/2610.27194.jpg"
+  },
+  {
+   "date": "2026-10-21",
+   "rank": 8,
+   "id": "2610.28585",
+   "group": "general",
+   "title": "SceneRig: An Agentic System for Simulation-Ready 3D Scene Reconstruction from Single Images",
+   "title_ja": "SceneRig: 単一画像から物理検証済みシミュレーションシーンを構築するエージェントシステム",
+   "summary_ja": "ロボット学習用シミュレーション環境の大規模作成に向け、単一画像から物理シミュレーション対応の3Dシーンを構築するSceneRigを提案。幾何・視覚・物理ツールを組み合わせたエージェントが、物体配置の復元と「編集・検証」ループを自律的に反復実行する。物理的な干渉や破綻を自動検知して修正することで、画像との見た目の整合性だけでなく、マニピュレーション操作に耐えうる物理的に破綻のない環境生成を実現した。",
+   "summary_en": "SceneRig is an agentic framework that transforms a single RGB image into an editable, simulation-ready 3D environment. Rather than relying on simple visual geometry, an LLM agent coordinates vision, geometric, and physical simulation tools within an iterative edit-and-validate loop. This ensures that reconstructed assets are physically stable and appropriately grounded, generating high-fidelity digital twins suitable for robotic manipulation training.",
+   "authors": [
+    "Rundong Luo",
+    "Yunong Liu",
+    "Di Cao",
+    "Matthew Tancik",
+    "Shyamal Buch",
+    "Colton Stearns",
+    "Wenqi Xian"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "simulation",
+    "perception",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.28585",
+   "image": "figures/2026-10-21/2610.28585.jpg"
+  },
+  {
+   "date": "2026-10-21",
+   "rank": 9,
+   "id": "2610.27387",
+   "group": "general",
+   "title": "Training Controllable World Models via Action Influence Maximization",
+   "title_ja": "行動影響度最大化による制御可能なワールドモデルの学習",
+   "summary_ja": "エキスパートのデモ動画で訓練されたビデオワールドモデルが行動指令を無視して自律的に未来を生成してしまう課題に対し、その原因がデータセット内の「行動影響度（Action Influence）」の低さにあることを理論的に証明。この限界を超えるため、モデルの予測が行動に鋭敏に反応する遷移データを探索・収集するアルゴリズムAIMを提案した。介入データを能動的に収集することで、指示に忠実に追従する制御可能なワールドモデルの構築を実現した。",
+   "summary_en": "Action-conditioned video world models trained on expert demonstrations often ignore commanded actions due to low action variance in the data. The authors prove that the training data's action influence sets an upper bound on model controllability, which scaling model capacity cannot fix. They introduce Action Influence Maximization (AIM), an active data-collection framework that enriches datasets with exploratory rollouts, yielding highly responsive and controllable world mo…",
+   "authors": [
+    "Samuel M. Bateman",
+    "Tenny Yin",
+    "Chongyi Zheng",
+    "Lei Huang",
+    "Brian Wang",
+    "Benjamin Eysenbach",
+    "Jaime Fern\\'andez Fisac",
+    "Dhruv Shah"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "world-model",
+    "reinforcement-learning",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.27387",
+   "image": "figures/2026-10-21/2610.27387.jpg"
+  },
+  {
    "date": "2026-10-20",
    "rank": 0,
    "id": "2610.23872",
