@@ -1,0 +1,142 @@
+{
+ "title_ja": "行動影響度最大化による制御可能なワールドモデルの学習",
+ "tldr_ja": "エキスパートの成功データだけで訓練した世界モデルが指示した行動を無視してしまう原因を理論的に解明し、データ内の「行動の影響度（相互情報量）」を最大化するように能動的にデータを収集する新手法「AIM」によって、最大85倍のデータ効率で高精度な操作予測を実現しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "エキスパートデータのみで学習した世界モデル（中央）は、指示された行動を無視して都合の良い成功未来を捏造（ハルシネーション）してしまいます。一方、AIMで収集したデータを加えた世界モデル（右）は、与えられた行動に忠実に従ったシミュレーションを行えています。",
+  "caption": "Figure 1 : Action-Conditioned Video Generative Models trained on near-expert data suffer from expert success bias and low controllability. The center panel shows a world model trained on expert data ignoring input actions and hallucinating a state closer to success. The right panel shows a world model trained with AIM data which remains faithful to the commanded action.",
+  "image": "details/2610.27387/F1.jpg"
+ },
+ "overview_ja": "ロボットが「もし別の行動をとったらどうなるか」を高精度に予測する「世界モデル（World Model: 環境の未来動向を模倣する予測モデル）」は、実機を壊さずに新たな行動方針（ポリシー）を改善するための鍵として注目されています。しかし、人間による遠隔操作などのエキスパートによる成功データだけで学習させると、モデルは入力された行動指令を無視し、どんな行動を与えても「それっぽい成功の未来」ばかりを描き出すという深刻な問題（制御不能性）に陥っていました。\n\n著者らはこの根本原因がモデルの容量不足ではなく、学習データ自体に含まれる「行動の影響度（Action Influence: 行動が次の状態に与える情報の多様性）」の不足にあることを理論的に突き止めました。エキスパートの軌跡は無駄がなく行動がワンパターンになりがちなため、モデルから見れば「行動をわざわざ見なくても次の状態が予測できてしまう」のです。そこで著者らは、データセットにおける行動と次状態の条件付き相互情報量が、世界モデルの制御性の理論的上限を決めることを数学的に証明しました。\n\nこの理論をもとに提案されたのが「AIM（Action Influence Maximization）」です。AIMは、現在のデータセットではまだ予測結果の差がはっきり説明できない状態・行動の組み合わせを割り出し、そこを重点的に探索してデータを能動収集（Active Data Collection）します。\n\n検証実験では、離散グリッド環境の「Four Rooms」と、高次元なピクセル画像ベースのロボットアーム操作タスク「Push-T」で評価を行いました。その結果、AIMで能動収集したわずか500エピソードを既存の3,000エピソードに加えるだけで、エキスパートデータ30万エピソードで学習した世界モデルと同等の手先制御性を達成し、実に85倍ものデータ効率化を実証しました。",
+ "contributions_ja": [
+  "世界モデルが行動指令を無視してしまう「制御不能性」の原因を、訓練データに含まれる行動影響度（条件付き相互情報量）の不足にあると理論づけ、それがモデル制御可能性の上限を決めることを証明したこと",
+  "既存データセットに対して行動の影響度が最も高くなる遷移を能動的に探索・収集するアルゴリズム「AIM（Action Influence Maximization）」を提案したこと",
+  "画像入力のロボット操作タスク（Push-T）において、わずか500エピソードの能動収集データを追加するだけで、エキスパートデータ30万エピソード分に匹敵する制御性を達成し、データ収集効率を最大85倍に向上させたこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜエキスパートのデータだけでは世界モデルをうまく操れないのか？",
+   "summary_ja": "成功したデモデータだけで学習した世界モデルは、異なる行動を与えても指示を無視して成功の未来を捏造してしまいます。本章では、この問題がモデルではなくデータの「行動影響度」の不足に起因していることを指摘し、それを能動的に補う新手法AIMの狙いを語っています。",
+   "details_ja": "ロボティクスにおいて、ある状態からロボットが特定のアクションを起こしたときに何が起きるかを予測する「行動条件付き世界モデル」は、シミュレーション上で安全にポリシーを鍛えるための強力なツールです。しかし、既存の高品質なエキスパートデータだけで学習すると、モデルが見慣れない行動を入力された際に指示を無視して「成功する未来」を描いてしまったり、あり得ない現象を捏造（ハルシネーション）したりします。これでは、学習途中の拙いロボットが犯すミスや試行錯誤をシミュレートできず、ポリシーの改善に役立ちません。\n\nこの原因は直感的です。人間の熟練者による遠隔操作などのエキスパートデータは、無駄のない狭い行動シーケンスに集中しています。つまり、行動のバリエーションがほとんどないため、モデルにとって「行動を見なくても、前後の状態だけから未来を当てられる」状態になってしまいます。これでは、別の行動をとったときの結果を学習しようがありません。\n\n受動的にデータを大量収集（パッシブスケーリング）しても、カバーできる範囲には限界があります。そこで著者らは「データ収集分布そのものが世界モデルの制御性を左右するのか？」「それを直接最適化して収集できるか？」という問いを立てました。その答えとして提案するのが、現在のデータでは結果の説明がつきにくい遷移を能動的に探索する「AIM」です。Push-Tタスクにおいて、わずか500エピソードのAIM収集データを3,000エピソードのデモに加えるだけで、30万エピソードのエキスパートデータで学習したモデルと同等の制御性を引き出すことに成功しました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "世界モデルの訓練データ分布（左）、学習中ポリシーの行動範囲（中央）、そしてAIMによる能動探索の分布（右）の比較です。AIMはエキスパート軌跡の周辺から外側へ段階的に探索領域を広げ、学習中ポリシーが必要とする遷移データを効率よく埋めていきます。",
+     "caption": "Figure 2 : AIM is an algorithm that uses an information maximization objective to collect high-utility experimental transitions to improve controllability of learner policies similar to the prior demonstrations.",
+     "image": "details/2610.27387/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "世界モデルの制御性と能動的データ収集のこれまで",
+   "summary_ja": "大規模な動画生成モデルをロボティクスに応用する研究が進む一方、生成動画の見栄えとロボット制御への有用性にはギャップが存在します。本章では、強化学習の探索理論やアクティブラーニングの知見を整理し、モデルとデータを切り離してデータ自体の情報量を最大化する本研究の立ち位置を明確にしています。",
+   "details_ja": "近年の動画生成モデル（拡散モデルなど）や自己教師あり学習の発展により、行動条件付きの大規模な生成世界モデルが次々と登場しています。しかし、ネット上の動画やロボットデータを使って単に動画の分布的一致度（見た目の自然さ）を最大化するアプローチは、ロボティクスの目的と食い違いが生じます。ロボット制御で本当に重要なのは、行動によって引き起こされるタスク関連の変化を忠実に再現できる「制御性（Controllability）」だからです。\n\nこれまでにも、自律的なプレイデータの追加や失敗データの導入、潜在表現の工夫によって制御性を改善する試みはありました。しかし、アクティブラーニング（能動的学習: モデルの改善に最も役立つデータを賢く選んで集める枠組み）や情報理論的な実験計画法を、最新の生成世界モデルへ適用する研究は極めて限定的でした。\n\n強化学習の探索分野では、モデルの予測誤差やアンサンブルの意見の不一致（不確実性）を内発的報酬として探索する手法が一般的です。しかし本研究では「良質なデータという性質は特定のモデル構造から独立して定義できる」という立場をとります。モデルの予測エラーに頼るのではなく、データセット自体が持つ「行動の影響度（相互情報量）」を最大化するようにデータを集める点が、従来の内発的動機づけ手法と大きく異なるポイントです。",
+   "figures": []
+  },
+  {
+   "heading": "3 Data Collection with Action Influence Maximization",
+   "heading_ja": "行動影響最大化（AIM）：理論的限界の導出とアルゴリズム設計",
+   "summary_ja": "行動が未来に与える影響度を「説明された行動情報量」として定量化し、それがデータセットの条件付き相互情報量によって上界されることを証明しました。この上限を引き上げるため、密度比推定と強化学習を組み合わせた実用的なデータ能動収集ループ「AIM」を構築しています。",
+   "details_ja": "### 3.1 データ収集が世界モデルの制御性をどう決めるのか？\n世界モデルが「行動を知っているとき」と「行動が隠されているとき」の予測精度の差を、著者らは「説明された行動情報量スコア（Explained Action Information Score）」と定義しました。行動を知ることで予測が劇的に当たるようになるなら、そのモデルは行動の影響を正しく捉えている（制御性が高い）と言えます。しかし、エキスパートデータのように行動が1通りしかないデータでは、行動を隠しても平均的な未来を当てられてしまうため、このスコアは原理的に上がりません。\n\n### 3.2 価値あるデータを集めるための目的関数\n著者らはベイズの定理とKLダイバージェンスの非負性を用いて、説明された行動情報量スコアの上限が、データセットにおける状態を所与とした行動と次状態の「条件付き相互情報量 $I(\\rho_{\\mathrm{eval}}, \\pi)$」で抑えられることを数学的に証明しました（定理3.1）。つまり、どれだけモデルのパラメータ数を増やしても、データセット自体の相互情報量が低ければ制御性は絶対に頭打ちになります。モデルを賢くするには、この相互情報量を高める行動ポリシー $\\pi$ を見つけてデータを集めるしかありません。\n\n### 3.3 AIMの内発的報酬\nこの相互情報量の最適化を文脈付きバンディット問題として定式化し、既存のデータ（リプレイバッファ）から計算できる内発的報酬（AIM報酬）を導出しました。AIM報酬は、大まかに「評価状態分布に近づきつつ既存データから離れる項（状態カバレッジ）」と「その結果からとった行動が特定しやすくなる度合い（ポイントワイズ相互情報量項）」の組み合わせで構成されます。これにより、すでに分かっている行動を繰り返すのを避け、行動の結果に明確な違いが出る未探索領域へエージェントを誘導します。\n\n### 3.4 実装上の工夫とオフライン強化学習\n実用化にあたっては、収集が進むにつれてデータ分布が変わる「非定常性」に対処する必要があります。そこで、Flow Matching（連続正規化フローに基づく高速かつ高精度な生成・密度推定手法）を用いてデータの確率密度を推定し、バッチ単位でデータを集めては密度モデルを更新する反復ループを採用しました。さらに、方策の最適化には保守的なオフライン強化学習手法であるIQL（Implicit Q-Learning）とAWR（Advantage-Weighted Regression）を組み合わせ、極端な外れ値に振り回されない安定した探索を実現しています。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "状態・行動のカバー範囲の比較です。エキスパート（左上）は成功軌跡のみに集中し、ランダム（下段中央）は広く散らばるもののタスク構造を無視しています。AIM（右下）は、モデルの制御性を高めるために最も情報価値の高い領域を的確に突いて探索していることが分かります。",
+     "caption": "Figure 4 : State-Action Coverage. Near-expert policies concentrate coverage around successful task execution, while random policies provide broader but less structured coverage. AIM targets action-informative regions useful for improving world model controllability.",
+     "image": "details/2610.27387/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Evaluation",
+   "heading_ja": "画像ベースのロボット操作タスクで85倍のデータ効率を達成",
+   "summary_ja": "離散環境「Four Rooms」と画像ベースの連続操作タスク「Push-T」で検証を行いました。受動的な収集手法や既存の内発的動機づけ手法と比較して、AIMだけが一貫して高い制御性を達成し、わずか500エピソードの能動データでエキスパートデータ30万エピソードに匹敵する性能を示しました。",
+   "details_ja": "### 4.1 相互情報量と制御性の相関関係\nまずFour Roomsにおいて、データセットの規模や収集ポリシーを変えて世界モデルを網羅的に検証したところ、シミュレータの再現忠実度と「説明された行動情報量」の間に極めて強い相関（$r = 0.979$）が確認されました。行動の影響度を捉えることこそが、世界モデルのシミュレーション精度を担保する決定的な指標であることが実証された形です。\n\n### 4.2 AIMによる能動データ収集の威力\n高次元なピクセル画像を入力とするPush-T環境では、初期データとして約3,000エピソードのエキスパートデモを用意し、そこに各手法で100エピソードずつ5ラウンド（計500エピソード）を追加収集して世界モデルを学習させました。比較対象は、ランダム行動、ランダムウォーク、復帰動作を模したRecoveryポリシー、そして強化学習で著名な内発的動機づけ手法（DIAYN、DADS、ICM、METRA）です。\n\n結果は圧倒的でした。他の比較手法がエンドエフェクタ（手先位置）の制御性評価で頭打ちになる中、AIMだけが追加収集ラウンドごとに一貫して制御性を向上させました。AIMで収集した500エピソードを加えた世界モデルは、エキスパートデータ30万エピソードで学習した巨大ベースラインの手先制御性に匹敵し、データ量にして約85倍の削減（効率化）を達成しました。従来の手法が既存データから遠く離れた「孤立した行動」ばかり集めて既存知識と繋がらなかったのに対し、AIMは既存デモの周辺から橋渡しするように探索領域を広げたことが勝因です。\n\n### 4.3 詳細なアブレーション解析\nベースデータを変えた実験や、人間によるブラインドA/Bテスト（Eloレーティング）も実施しました。AIMで集めたデータを加えたモデルは、人間の選好度においても大幅にスコアを伸ばしました（Elo値が732から1190へ大幅上昇）。また、AIMの報酬を「新規性（状態カバレッジ）のみ」や「相互情報量のみ」に分解したところ、新規性重視は大きく外れたタスクで強く、相互情報量重視はエキスパート軌跡近傍で高い効果を発揮することが分かり、双方の項が相補的に働いていることが確認されました。",
+   "figures": []
+  },
+  {
+   "heading": "5 Conclusion and Limitations",
+   "heading_ja": "まとめと今後の課題：ロボットが自ら学びを深める世界へ",
+   "summary_ja": "世界モデルの性能を決定づけるのはデータの量ではなく「行動の影響力」であるという新視点を提示しました。能動的データ収集の有効性を実証した一方で、密度推定モデルの再学習コストや、実機への適用といった課題についても正直に論じられています。",
+   "details_ja": "本研究の最大のメッセージは極めてシンプルです。「世界モデルのスケーリングを支えるのは、遷移データの数そのものではなく、データの中に含まれる行動情報の豊かさである」ということです。AIMは、シミュレーション内の複雑なロボット操作タスクにおいて、目的を持った能動的探索が最大85倍ものデータ効率化をもたらすことを明確に示しました。これは、ロボットが自分自身の世界モデルを洗練させるために「何が分からないか」を自覚し、自ら必要なデータを取りに行く継続的学習の実現に向けた大きな一歩です。\n\n一方で、実用上の限界もいくつか挙げられています。\n- 第一に、収集ループの途中で複数の確率密度推定モデル（Flow Matchingモデル）を再学習・更新する必要があり、計算コストと実装の複雑さが大きい点です。\n- 第二に、理論的には文脈付きバンディット問題として定式化されていますが、実際の実装ではオフライン強化学習による逐次的意思決定として近似しているため、理論と実装の間にわずかなギャップが存在します。\n- 第三に、本研究の検証はすべてシミュレータ環境にとどまっており、実ロボットでの検証や、事前学習済みの大規模基盤モデルへのスケールアップは今後の課題として残されています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：Four Roomsの全状態解析とPush-Tにおける保守的探索の重要性",
+   "summary_ja": "Four Rooms環境における極限状態でのモデル崩壊現象の可視化や、Push-Tタスクで報酬の信頼領域（Trust Region）がなぜ不可欠なのかを解説した付録の実験結果をまとめました。",
+   "details_ja": "### Four Roomsでの行動感度解析と訪問頻度\nFour Rooms環境でデータ量を極端に減らした解析（図F8）では、150エピソードの低データ領域において、モデルが入力アクションを完全に無視し、データ生成ポリシーの最頻パターンをそのまま出力してしまう「モード崩壊」が確認されました。これは、インターネット動画などの大量受動データで学習した既存の動画生成モデルが直面している「行動への感度の低さ」が、まさにこの低データ領域の振る舞いと一致している可能性を示唆しています。また、固定開始位置からの訪問頻度比率の推移（図F9）を見ると、AIMは反復ラウンドごとに訪問済み領域を避け、未踏の部屋へと段階的に探索の手を広げている様子が鮮明に記録されています。\n\n### なぜ密度ベースの探索に信頼領域が必要なのか？\nPush-T環境においてAIM報酬の空間分布を可視化した実験（図F11）では、興味深い事実が判明しました。生の密度推定によるAIM報酬は、ロボットの動作可能範囲を大きく逸脱した「机の外」などの無意味な領域に対しても高い値を吐き出してしまいます。制約をかけずにこの報酬を最大化させると、過去の多様性探索手法（DIAYNなど）と同様に、ロボットがタスクと無関係な場所で無駄な動きを繰り返す失敗に陥ります。本研究でAWRによるKL制約（信頼領域）を課し、既存の行動軌跡の周辺から離れすぎないように制御したことが、意味のある物理インタラクションを維持したまま探索を成功させた決定打でした。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "Four Roomsにおける世界モデルの行動感度を網羅評価した図です。左側の低データ領域（150エピソード）では入力行動に関わらず特定の方向ばかり予測して制御不能に陥っていますが、右側（30万エピソード）では指示通りの行動結果が正確に出力されています。",
+     "caption": "Figure 8 : Exhaustive Evaluation of World Model Action Sensitivity in Four Rooms: This figure compares the evaluation results of one step action sensitivity of two data scales of a Four Rooms world model trained on expert data via the above “Dozen plots\". Each quarter slice in the figure represents a state (grid position and direction of the agent), and within that slice it is split into 3 triangles representing each commanded Four Rooms action: forward, left, right. The color, as denoted in the top right, represents the action corresponding to the actual observed transition by the learned world model. …",
+     "image": "details/2610.27387/F8.jpg"
+    },
+    {
+     "key": "F9",
+     "caption_ja": "固定開始点（緑の三角）からAIMとランダムポリシーが訪問した状態の頻度比率（対数比）のヒートマップです。ラウンドが進むにつれて赤色（AIMの訪問優位）が開始点から遠い未踏領域へとシフトし、重複なく探索を広げていることが分かります。",
+     "caption": "Figure 9 : AIM-over-Random Fixed-Start Visitation Ratios: In this figure, we fix the initial state of data collection rollouts to the pose of the green triangle in all figures. Then, we compare state visitations in Four Rooms between rollouts generated by either successive AIM iterations or from a random policy as a heatmap of the clipped log ratio of their empirical state occupancy. More red represents more frequent AIM visitation, and more blue represents more frequent Random visitation. Pseudocounts with $\\epsilon=10^{-6}$ were added for normalization of the log ratios. …",
+     "image": "details/2610.27387/F9.jpg"
+    },
+    {
+     "key": "F11",
+     "caption_ja": "Push-TにおけるAIM報酬のヒートマップ比較です。重み付けなし（左）では作業領域外の無関係な場所まで高報酬になってしまいますが、AWRによる保守的な重み付け（右）を行うことで、タスクに関連する有意義な領域へ探索が集中します。",
+     "caption": "Figure 11 : The Need for Trust Regions for Density-Based Intrinsic Motivation in Push-T: In this experiment, we initialize the robot arm in the workspace in a grid and collect 4 transitions at each spot, one for each cardinal direction, then evaluate these transitions with the learned AIM reward model. We then plot the max AIM reward on the above heatmap. We see that the learned AIM intrinsic motivation reward provides significant reward for regions outside of the nominal action workspace, and unbounded policy optimization would likely encourage unfocused state coverage similar to prior work [ 54 , 44 , 55 ] . …",
+     "image": "details/2610.27387/F11.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "世界モデルの「言うことを聞かない」問題は、モデル容量ではなく訓練データ内の行動影響度（相互情報量）の不足が理論的なボトルネックである",
+  "エキスパートのデモデータは行動のバリエーションが狭すぎるため、世界モデルの訓練データとしては本質的に情報不足に陥りやすい",
+  "既存データとの相互情報量を高めるように能動収集（Active Data Collection）を行うことで、データ収集量を最大85分の1に激減させることができる",
+  "密度推定に基づく内発的報酬で探索する際は、作業空間外への無駄な発散を防ぐための保守的な強化学習（信頼領域制約）が実用上極めて重要である"
+ ],
+ "limitations_ja": [
+  "データの収集バッチごとにFlow Matchingによる確率密度推定モデルを再学習する必要があり、計算とパイプラインの負荷が大きい",
+  "数理的なバンディット問題の最適解を逐次的なオフライン強化学習で近似しているため、理論通りの最適性が保証されない場合がある",
+  "検証がシミュレーション環境（Four Rooms、Push-T）に限られており、実ロボットやオープンエンドな実世界データでの検証は未実施である"
+ ],
+ "keywords": [
+  "World Models",
+  "Active Data Collection",
+  "Mutual Information",
+  "Controllability",
+  "Flow Matching",
+  "Offline RL"
+ ],
+ "id": "2610.27387",
+ "title": "Training Controllable World Models via Action Influence Maximization",
+ "authors": [
+  "Samuel M. Bateman",
+  "Tenny Yin",
+  "Chongyi Zheng",
+  "Lei Huang",
+  "Brian Wang",
+  "Benjamin Eysenbach",
+  "Jaime Fern\\'andez Fisac",
+  "Dhruv Shah"
+ ],
+ "date": "2026-10-21",
+ "group": "general",
+ "tags": [
+  "world-model",
+  "reinforcement-learning",
+  "planning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.27387",
+ "pdf_url": "https://arxiv.org/pdf/2610.27387",
+ "summary_ja": "エキスパートのデモ動画で訓練されたビデオワールドモデルが行動指令を無視して自律的に未来を生成してしまう課題に対し、その原因がデータセット内の「行動影響度（Action Influence）」の低さにあることを理論的に証明。この限界を超えるため、モデルの予測が行動に鋭敏に反応する遷移データを探索・収集するアルゴリズムAIMを提案した。介入データを能動的に収集することで、指示に忠実に追従する制御可能なワールドモデルの構築を実現した。",
+ "generated": "2026-10-21",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.27387"
+}
