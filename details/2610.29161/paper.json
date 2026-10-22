@@ -1,0 +1,120 @@
+{
+ "title_ja": "SimPT：介入ベースのVLAポストトレーニングを自動化するシミュレーション基盤",
+ "tldr_ja": "ロボットが失敗した際の人間の介入・修正行動をシミュレータ内で完全自動化し、VLA（視覚・言語・行動）モデルの事後学習とアルゴリズム検証を大幅に効率化するフレームワーク「SimPT」を開発しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "SimPTの全体アーキテクチャです。(A) LLMエージェントがタスク仕様からProgress Graphを構築し、(B) ポリシー実行中にスナップショットを記録してCuRoboベースのエキスパートが自動でリカバリを実行します。(C) 収集データから複数手法を事後学習・評価し、(D) シミュレーションで改良した手法を実機のLANケーブル挿入タスクへ転移させています。",
+  "caption": "Fig. 1: SimPT integrates corrective data collection, VLA post-training, and standalone policy evaluation in an automated simulation framework. (A) An agent constructs and validates a Progress Graph, whose data-dependent thresholds are calibrated using simulated expert trajectories. (B) After terminal rollout failure, stable snapshots enable expert recovery and corrective data collection. (C) Post-training and controlled evaluation support algorithm comparison and refinement; curves are schematic. (D) RECAP and RECAP-CF-LPF are compared using seven-task mean success rates on held-out simulation trials and Ethernet cable-insertion success rates on a real robot. …",
+  "image": "details/2610.29161/F1.jpg"
+ },
+ "overview_ja": "ロボットの視覚・言語・行動を直接結ぶVLA（Vision-Language-Action）モデルは強力ですが、学習データの分布から外れた未知の状況に直面すると誤動作を起こしやすく、その誤差が連鎖して失敗に至るという課題があります。これを克服するために、人間が遠隔操作などで介入して正しい動作を教え直すHuman-in-the-loop（HIL）学習が注目されています。しかし、実機ロボットで人間が毎回介入データを集め、アルゴリズムの比較評価を行うのは途方もない時間とコストがかかり、再現性の確保も困難でした。\n\nそこで著者らは、介入によるリカバリデータの収集からモデル訓練、評価までのサイクルをシミュレータ内で完結・自動化するフレームワーク「SimPT」を提案しました。最大の工夫は、特権シミュレータ状態を活用してタスクの進捗を管理する「Agent-Compiled Progress Graph」です。ロボットが失敗した際、進んでいる段階のスナップショットから運動計画器（CuRobo）を用いて自動でリカバリを試み、成功した復帰軌道を修正データとして蓄積します。\n\nRoboTwinの7つの双腕・精密マニピュレーションタスクで検証したところ、固定間隔で状態を保存する従来手法と比べてリカバリ試行回数を75.0%削減し、リカバリ成功率は98.9%へと向上しました。さらにSimPTを活用して価値関数のブレを抑える改良アルゴリズム（RECAP-CF-LPF）を設計したところ、シミュレーションだけでなく実機のLANケーブル挿入タスクでも成功率が72%から96%へと大幅に向上することを確認しました。",
+ "contributions_ja": [
+  "介入を伴うVLA事後学習のデータ収集・学習・評価の全工程を自動化するシミュレーションフレームワーク「SimPT」を構築した点",
+  "特権状態に基づいてタスク進捗を追跡し、失敗後の段階的リカバリを可能にする「Agent-Compiled Progress Graph」を開発した点",
+  "RoboTwinの7タスクで主要な事後学習4手法（HG-DAgger、RECAP、DPO+SFT、FlowPRO）を同一条件で網羅的に比較した点",
+  "SimPT上で価値関数の過学習と高周波ノイズを抑えるRECAP-CF-LPFを開発し、シミュレーションと実機実験の双方で成功率を大きく向上させた点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "人間任せの介入学習をシミュレーションで自動化したい",
+   "summary_ja": "VLAモデルの未知環境での失敗を防ぐHIL学習は有用ですが、実機での人間介入と評価には膨大なコストがかかります。本研究はシミュレーション上で介入と復帰軌道の生成を完全自動化する「SimPT」を提案し、アルゴリズムの体系的な開発と検証を可能にします。",
+   "details_ja": "近年のVLAモデルは画像と指示文から直接ロボットのアクションを出力できますが、デモデータの分布から外れた「分布外（OOD）状態」に陥ると、誤った動作を出力して致命的な失敗につながることがよくあります。この問題への標準的な処方箋が、人間が途中で操作を奪って正しい動作を見せるHuman-in-the-loop（HIL）学習です。しかし、実機で人間が付きっきりになって介入データを集め、評価のために何百回も試行を繰り返すのは、現実的には研究の大きなボトルネックになっていました。\n\nシミュレーションを使えば再現性高くスケーラブルに実験できますが、ここにも壁がありました。「ロボットが失敗したとき、いつ・どこから・どうやって専門家がタスクをやり直せばよいか」という判断の自動化です。VLM（視覚言語モデル）に画像を逐次見せて判断させるアプローチは推論コストが重すぎますし、CuRoboなどの高速な運動計画器も、ポリシーが途中で変な状態にしてしまったタスクの進捗状況までは理解できません。\n\nここが本論文の出発点です。著者らは、LLMエージェントがタスク仕様から事前にコンパイルする「Progress Graph」を開発しました。シミュレータ内部の正確な状態情報（特権状態）を使って軽量な幾何・接触判定を行うことで、追加の推論コストなしに進捗を監視し、失敗時に適切なスナップショットからリカバリ軌道を自動生成します。このSimPT環境を用いて、RECAPやHG-DAggerなどの代表的な事後学習アルゴリズムを公平に比較し、新たな改良手法の創出に繋げました。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "介入ロボット学習・タスク監視・シミュレーション評価の系譜",
+   "summary_ja": "本研究は、インタラクティブ模倣学習やRLを組み合わせたVLA事後学習、コード生成によるタスク実行監視、そしてシミュレーション環境でのデータ生成という3つの研究領域を横断・統合する位置づけにあります。",
+   "details_ja": "本論文の関連研究は大きく3つの系統に整理されます。\n\n### 介入ベースのロボット学習\n古典的なDAggerに始まり、人間が介入タイミングを決めるHG-DAggerや、新規性・リスク推定に基づいて介入を要求するThriftyDAggerなど、分布シフトを抑えるインタラクティブ模倣学習が発展してきました。最近では強化学習を取り入れた手法も盛んで、価値関数から得られるアドバンテージ（優位性）で重み付けるRECAPや、アンサンブルでアドバンテージの過大評価を抑えるSTEAM、Flow Matchingモデルに直接選好最適化（DPO）を適用するFlowPROなどが提案されています。しかし、これらは介入データの収集に依然として多大な人間の手を必要としていました。\n\n### タスク監視と失敗リカバリ\n実行の成否を監視して復帰に繋げる試みとして、VLMに制約違反を監視させるDoReMiや、LLMで監視コードを事前生成するCode-as-Monitor、復帰ブランチをあらかじめタスクグラフに仕込むAgentChordなどがあります。本研究のProgress Graphは、事前コンパイルしたグラフを用いてシミュレータの特権状態を直接監視し、VLA事後学習のためのリカバリ軌道収集に特化させた点で独自性があります。\n\n### シミュレーションによるデータ生成と評価\nRoboTwinやLIBERO、RoboDojoなど、シミュレーションを活用した大規模デモ生成やベンチマークは急速に進んでいます。またIntervenGenのように、少数の人間の介入をシミュレータ内で拡張する試みもあります。SimPTはこれらを一歩進め、人間の初期介入すら必要とせず、介入から事後学習・評価までのループ全体を完全に自動化した点が新しいポジションです。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "進捗グラフとCuRoboが織りなす自動リカバリの仕組み",
+   "summary_ja": "SimPTは、LLMが構築したProgress Graphでポリシー実行中の進捗を追跡し、安定したスナップショットを保存します。失敗時には、進んだステージから順にCuRoboエキスパートが復帰を試行し、得られた修正軌道をバッファに蓄積してVLAの事後学習に利用します。",
+   "details_ja": "### フレームワークの全体像\nSimPTのパイプラインは、タスク仕様のグラフ化、自動データ収集、ポリシー訓練、そして独立した性能評価という4つの段階で構成されています。まず準備段階でLLMがタスク定義からProgress Graphを作成し、専門家のシミュレーション走行データを使って各種閾値をキャリブレーションします。収集時には、ポリシーを実行しながらグラフに従ってスナップショットを記録し、失敗が確定した瞬間にエキスパートが復帰を試みます。\n\n### Agent-Compiled Progress Graph\n進捗グラフは、タスクの各段階を表すノード群 $\\mathcal{V}$ と、前進・後退を表す有向エッジ群 $\\mathcal{E}$ からなる状態遷移グラフです。例えば「両手で鍋を持ち上げる」タスクでは、左右のアームがそれぞれ鍋の取っ手に近づく「接近ステージ」があり、両アームが接近距離閾値 $\\theta_{\\mathrm{app},a}$ を満たすと合流して「把持」「持ち上げ」へと遷移します。\n\nここで重要なのが「後退（Regression）」の検知です。持ち上げ中に右手のグリッパーが滑って外れた場合、幾何条件（把持点からの距離が閾値 $\\theta_{\\mathrm{loss}}$ を超える）によって即座に「右手の接近ステージ」へと状態が巻き戻されます。このグラフ構造はCodex（GPT-5.6-Sol）がタスクコードから自動生成し、静的検証ツールと対話しながら修正を繰り返して完成させます。\n\n### スナップショットとエキスパートリカバリ\nポリシーの実行中、SimPTは各タスクステージに到達した最新の安定したシミュレータ状態をスナップショットとして保持します。ポリシーが失敗に終わると、SimPTは最も進んでいたステージのスナップショットから順にシミュレータを巻き戻し、CuRoboベースの自動エキスパートにタスクの続きを実行させます。もし失敗したら、一つ前のステージのスナップショットへとフォールバックします。最後までダメなら初期状態からやり直します。これにより、極めて高確率で成功する修正軌道が得られます。\n\n### 事後学習と評価用バッファ\nこうして得られた「失敗した試行の途中まで」と「エキスパートによる成功リカバリ」を連結（$\\tau^{+} = \\tau^{-}_{<t} \\oplus \\tau^{\\mathrm{E}}_{t}$）し、成功・失敗の全データとともにデータバッファ $\\mathcal{D}$ に保存します。各学習アルゴリズムはこのバッファから必要なデータを取り出してVLAを更新し、最終的に特権状態を一切使わない通常の推論環境で評価を行います。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "両手で鍋を持ち上げる「Lift Pot」タスクのProgress Graphの例です。左右のアームがそれぞれ接近条件を満たすと合流（Bimanual join）し、把持・持ち上げへと進みます。持ち上げ中に片手の把持が外れると、破線矢印のように該当アームの接近ステージへ自動で後退します。",
+     "caption": "Fig. 2: Selected components of the Lift Pot Progress Graph illustrate stage completion and regression after grasp loss. Solid arrows indicate progression, while dashed orange arrows indicate regression. The approach, join, grasp, and lift images show successive states from one rollout; the grasp-loss image comes from a separate failed rollout. Gripper preparation is shown from an external viewpoint to display both arms.",
+     "image": "details/2610.29161/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "7つのタスクでの徹底比較と、実機LANケーブル挿入での実証",
+   "summary_ja": "RoboTwinの7タスクにおいて、Progress Graphは固定間隔スナップショットに比べ試行回数を75%削減しつつ98.9%のリカバリ成功を達成しました。さらにSimPT上で開発した改良版RECAP（RECAP-CF-LPF）は、シミュレーション評価で成功率を向上させ、実機のLANケーブル挿入タスクでも72%から96%へと飛躍的な性能向上を示しました。",
+   "details_ja": "### 実験設定\n評価にはRoboTwinの7つのマニピュレーションタスク（鍋持ち上げ、缶の移動、カップ配置、ハンマー叩き、カゴへの缶入れ、ブロック受け渡し、ブロック2段積み）を用いました。バックボーンには $\\pi_{0.5}$（アクションチャンクサイズ50）を採用し、専門家デモ50回でSFTした親ポリシーを出発点とします。比較ベースラインとして、50ステップごとの固定間隔でスナップショットを保存し逆順にリカバリを試みるNaiveベースラインを用意しました。事後学習手法にはHG-DAgger、RECAP、DPO+SFT、FlowPROの4つを実装し、タスクごとに未見の200シード（計1,400試行）で評価しました。\n\n### Progress Graphの効率性とリカバリ成功率\nCodexによるグラフ生成は1タスクあたり平均8.0分で完了し、全タスクで検証を通過しました。リカバリ性能の比較では、Progress Graph（PG）の圧倒的な効率の良さが実証されました。全7タスクのリカバリ試行回数はNaiveの3,781回から945回へと75.0%も激減し、リカバリ成功率は93.4%から98.9%へと向上しました。特にブロック受け渡しタスクでは、試行回数が1,329回から192回へと大幅に削減されています。\n\n### 事後学習アルゴリズムの比較\nPGで収集したデータを用いて各手法を訓練した結果、HG-DAggerが全体成功率82.14%で最も高いスコアを記録しました。エキスパートの修正行動を直接教師あり学習する挙動が強く効いています。RECAPは76.50%（親ポリシーのSFTは67.29%）と追従しましたが、限られたデータ量では価値関数が過学習し、アドバンテージの推定にノイズが乗る課題が浮き彫りになりました。DPO+SFT（63.14%）やFlowPRO（71.86%）は、失敗状態と修正軌道の間を補間して選好ペアを作る際に接触状態の物理的整合性が崩れやすく、タスクによって伸び悩みました。また、Naive収集データとPG収集データを比べると、RECAPで+9.86ポイント（66.64%→76.50%）をはじめ、大半の手法でPGデータが勝っていました。\n\n### シミュレーション発の新手法「RECAP-CF-LPF」と実機実証\nRECAPの価値関数が抱える「訓練軌道への過学習」と「高周波の時間的ゆらぎ」を解決するため、著者らはSimPT上で2つの工夫を施した「RECAP-CF-LPF」を開発しました。\n- 5分割のクロスフィッティング（CF）を導入し、価値予測時の過学習を排除\n- 30Hzでサンプリングされた予測値系列に1HzのButterworthローパスフィルタ（LPF）を適用し、不要な振動を除去\n\nこの改良により、シミュレーション未見テストでの成功率は76.50%から79.36%へ向上しました（95%信頼区間で有意な改善）。\n\nこの効果を実機で確かめるため、双腕ロボット（AgileX PiPER 2本）による「デスクトップPCへのLANケーブル挿入タスク」を実施しました。ケーブル把持・両手受け渡し・端子挿入の3段階からなる難関タスクです。ケーブルの長さや配置を変えた25通りのシナリオでテストしたところ、標準RECAPの成功率が72%（18/25）だったのに対し、RECAP-CF-LPFは96%（24/25）と驚異的な粘り強さを見せ、シミュレータ上で見出したアルゴリズム改善が実機のHIL学習にもそのまま有効であることが証明されました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "把持動作中におけるRECAPの価値関数の推移です。標準RECAP（青線）はグリッパーが閉じる前に不自然に急上昇していますが、クロスフィッティング（破線）により動作に沿った上昇となり、さらにローパスフィルタ（オレンジ線）をかけることで滑らかで安定した値になっています。",
+     "caption": "Fig. 4: Value sequences during grasping in a Place Can Basket expert recovery trajectory. Curves show standard RECAP, out-of-fold predictions from cross-fitting (CF), and the CF sequence after 1 Hz Butterworth low-pass filtering (RECAP-CF-LPF). Images (a–c) show the gripper open, closing, and closed, with dashed lines linking each image to its timestamp. The shaded interval spans the closing and closed gripper states (3.50–4.00 s).",
+     "image": "details/2610.29161/F4.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実機によるLANケーブル挿入タスクの進行スコアです。(a)初期状態（0点）から、(b)ケーブル把持（1点）、(c)両手での受け渡し（2点）、(d)PCポートへの端子挿入（3点・成功）と進みます。RECAP-CF-LPFは25シナリオ中24シナリオで満点を獲得しました。",
+     "caption": "Fig. 6: Real-robot Ethernet cable insertion is evaluated using a cumulative progress score. Panels (a–d) show the initial configuration, cable grasping, bimanual handover, and plug insertion, corresponding to scores of 0, 1, 2, and 3. Each completed milestone adds one point, and full insertion defines task success. The inset in (d) provides a close-up of the inserted plug.",
+     "image": "details/2610.29161/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion and Future Work",
+   "heading_ja": "まとめと今後の展望：シミュレータ発のアルゴリズム改善を加速する",
+   "summary_ja": "SimPTは介入型VLA事後学習のサイクルを自動化し、低コストで再現性の高いアルゴリズム開発を可能にしました。今後はReal-to-Sim技術を取り入れ、シミュレーション環境と実環境のギャップをさらに埋めていく予定です。",
+   "details_ja": "本研究では、介入に基づくVLAの事後学習プロセス全体をシミュレータ内で自動化する「SimPT」を提案しました。特権状態を活用したProgress Graphにより、人間を介さずに高品質なリカバリ軌道を収集でき、固定間隔ベースラインと比べて探索試行回数を75%削減しました。さらにSimPT上で開発したRECAP-CF-LPFが、シミュレーションだけでなく実機の複雑なLANケーブル挿入タスクでも劇的な性能向上をもたらしたことは、本フレームワークの有用性を強く示しています。\n\n一方で、事後学習のパフォーマンスは依然としてタスクや環境の幾何・力学的特性に敏感です。今後はReal-to-Sim（実世界環境の3D再構成など）の技術を統合し、実機の配線や障害物などの配置をより忠実にシミュレータへ落とし込むことで、実機HIL学習の事前検証プラットフォームとしての価値をさらに高めていくとしています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "特権状態を利用したProgress Graphにより、VLM推論などの重いコストをかけずに、シミュレータ内で正確な失敗検知と巻き戻しリカバリを自動化できる",
+  "介入型事後学習では、単に定期的に状態を保存するよりも、タスクの進捗ステージに応じて賢くスナップショットを管理する方がリカバリ試行回数と学習効率が劇的に向上する",
+  "RECAPのような価値ベースの事後学習では、クロスフィッティングとローパスフィルタによる「過学習の抑制と平滑化」が性能向上の極めて重要な鍵となる",
+  "シミュレータ上で自動化されたHIL実験ループを回して開発したアルゴリズムの改良は、実機の人間介入学習（実機HIL）にも確実に転移して効果を発揮する"
+ ],
+ "limitations_ja": [
+  "タスクの進捗判定やリカバリがシミュレータの特権状態（正確な物体位置や接触判定）に依存しているため、シミュレータ環境が整備されていない未知タスクには即座に適用できない",
+  "CuRoboによるエキスパート運動計画器が解を生成できるタスクであることが前提となっており、極めて柔軟な変形物の扱いや複雑な接触を伴う作業ではリカバリ軌道の生成自体が難しくなる可能性がある",
+  "DPOやFlowPROのような選好最適化手法では、失敗軌道と復帰軌道の補間時に物理的接触の不整合が生じやすく、依然として改善の余地が大きい"
+ ],
+ "keywords": [
+  "Vision-Language-Action Models",
+  "Human-in-the-Loop",
+  "Post-Training",
+  "Progress Graph",
+  "Interactive Imitation Learning",
+  "Sim-to-Real"
+ ],
+ "id": "2610.29161",
+ "title": "SimPT: An Automated Simulation Framework for Intervention-Based VLA Post-Training",
+ "authors": [
+  "Caicheng Wang",
+  "Zipeng Ye",
+  "Zhexuan Zhou",
+  "Zilong Huang",
+  "Xi Zhang",
+  "Yuchen Xie"
+ ],
+ "date": "2026-10-22",
+ "group": "general",
+ "tags": [
+  "simulation",
+  "vision-language-action",
+  "imitation-learning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.29161",
+ "pdf_url": "https://arxiv.org/pdf/2610.29161",
+ "summary_ja": "人間による実機介入データ収集の高コスト性を解決するため、シミュレータ内でVLAポリシーの介入学習を全自動化するSimPTを提案。特権状態からタスク進行を追跡するプログレスグラフを構築し、失敗検知と介入タイミング決定、専門家によるリカバリ行動収集、再学習、評価を一貫して自動実行する。人手介入を要さずにVLAの成功率を大幅に向上させることに成功した。",
+ "generated": "2026-10-22",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.29161"
+}
