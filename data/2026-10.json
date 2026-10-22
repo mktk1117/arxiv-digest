@@ -1,6 +1,310 @@
 {
  "entries": [
   {
+   "date": "2026-10-22",
+   "rank": 0,
+   "id": "2610.29612",
+   "group": "focus",
+   "title": "Watch Your Step: Anticipated Perception for Humanoid Locomotion",
+   "title_ja": "足元に注目：ヒューマノイド歩行のための予見型知覚",
+   "summary_ja": "密な周囲標高マップの全域処理は計算負荷が高く汎化を阻害する課題に対し、固有受容覚と速度指令から次の一歩を予測する軽量な足先予測モデル（FPM）を提案。予測された着地点周辺の標高のみを選択的にサンプリングしてポリシーに入力することで、冗長な知覚入力を排除した。これにより強化学習の学習速度が向上し、未知地形や階段、障害物への適応・走破性能が大幅に改善することを示した。",
+   "summary_en": "To eliminate the computational burden and generalization bottlenecks of processing full robot-centric elevation maps, this paper proposes a lightweight Foothold Prediction Model (FPM) that forecasts future footholds solely from proprioception and velocity commands. By sampling elevation only around predicted contact points, it filters out redundant perceptual inputs, accelerating reinforcement learning and substantially improving traversal on unseen rough terrain and stairs.",
+   "authors": [
+    "Matthias Heyrman",
+    "Chenhao Li",
+    "Ioannis Dadiotis",
+    "Marco Hutter"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "locomotion",
+    "humanoid",
+    "reinforcement-learning",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.29612",
+   "image": "figures/2026-10-22/2610.29612.jpg"
+  },
+  {
+   "date": "2026-10-22",
+   "rank": 1,
+   "id": "2610.30044",
+   "group": "focus",
+   "title": "SP-HLM: Sparse-Pose-Driven Motion Generation and Whole-Body Control for Humanoid Loco-Manipulation",
+   "title_ja": "SP-HLM：ヒューマノイドの全身移動マニピュレーションに向けたスパースポーズ駆動型動作生成と全身制御",
+   "summary_ja": "上位方針と全身制御の連携において、5つの重要タスクポーズと学習済み潜在運動事前分布を組み合わせるスパースポーズ駆動型インターフェースを提案。VLAモデルSP-VLAが視覚言語入力からタスク関連スパースポーズと指関節角を生成し、全身強化学習ポリシーが潜在運動空間内で追従制御を行う。シミュレーションと実機実験において、多様な移動マニピュレーション課題をロバストに達成できることを実証した。",
+   "summary_en": "This paper presents SP-HLM, a framework featuring a sparse-pose-driven interface that couples five critical task poses with a learned latent motion prior to bridge high-level task planning and low-level whole-body control. The SP-VLA model predicts task-space sparse poses and finger positions from vision-language inputs, while a whole-body RL tracking policy tracks these targets. Real-world and simulation experiments demonstrate robust whole-body humanoid loco-manipulation.",
+   "authors": [
+    "Zhaohui Yang",
+    "Quanbao Lin",
+    "Chengqi Shi",
+    "Zhenglang Weng",
+    "Jicheng Lin",
+    "Boyu Chen",
+    "Tengjie Zhu",
+    "Guanzhu Ren",
+    "Jiahao Xu",
+    "Yang Feng",
+    "Xiaokang Yang",
+    "Yao Mu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.30044",
+   "image": "figures/2026-10-22/2610.30044.jpg"
+  },
+  {
+   "date": "2026-10-22",
+   "rank": 2,
+   "id": "2610.28948",
+   "group": "focus",
+   "title": "COWBOY: A Scalable Sim-to-Real Framework for Learning Contextual Whole-Body Manipulation",
+   "title_ja": "COWBOY：文脈に応じた全身マニピュレーション学習のためのスケーラブルなSim-to-Realフレームワーク",
+   "summary_ja": "移動マニピュレータが複雑な実環境で把持を行うためのSim-to-Real手法。環境適応を直接RLで学習させる代わりに、数千環境で並列動作するベクトル化された環境認識型全身コントローラ（WBC）が到達動作を担い、手先ポリシーと統合する。シミュレーションでの大規模学習により、雑然とした机や棚、引き出しなど未見の実環境・数百種類の物体に対してゼロショットで全身器用把持を達成した。",
+   "summary_en": "COWBOY is a scalable sim-to-real framework for contextual whole-body dexterous grasping with mobile manipulators. Instead of learning scene-awareness end-to-end via RL, it combines an end-effector policy with a GPU-vectorized, environment-aware whole-body controller that plans collision-free reaching across thousands of scenes. The resulting policy transfers zero-shot to real-world cluttered tables, shelves, and drawers across hundreds of unseen objects.",
+   "authors": [
+    "Jiahui Yang",
+    "Jason Jingzhou Liu",
+    "Ray Muxin Liu",
+    "Andrew E. Wang",
+    "Kenneth Shaw",
+    "Deepak Pathak",
+    "Ruslan Salakhutdinov"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "control",
+    "sim-to-real",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.28948",
+   "image": "figures/2026-10-22/2610.28948.jpg"
+  },
+  {
+   "date": "2026-10-22",
+   "rank": 3,
+   "id": "2610.28925",
+   "group": "focus",
+   "title": "One Policy, Many Styles: Where to Aggregate Preferences for Steerable Humanoid Control?",
+   "title_ja": "1つの方策で多様なスタイルを：操縦可能なヒューマノイド制御のための選好集約手法の比較検証",
+   "summary_ja": "単一のポリシーで実行時に運動スタイルを切り替える操縦可能ヒューマノイド制御において、選好条件付き強化学習の集約層（報酬レベル、アドバンテージレベル、損失レベル、PCGrad）を系統的に比較。新指標PRRおよび網羅性・効用評価を用いて2つの制御基盤上で検証した結果、タスク性能とスタイル応答性のトレードオフは集約設計に強く依存し、単一の最良手法は存在しないことを明らかにした。",
+   "summary_en": "This paper investigates steerable humanoid control where a single policy adapts its behavioral style at runtime based on user preferences. By benchmarking preference-conditioned reinforcement learning across reward-, advantage-, loss-level, and gradient-based (PCGrad) aggregations on two humanoid frameworks, it evaluates responsiveness, coverage, and task utility, revealing distinct trade-offs across different aggregation levels.",
+   "authors": [
+    "Ziqian Huang",
+    "Yuzhuo Chen",
+    "Shimin Zhang",
+    "Junyang He",
+    "Xinyue Annie Yang",
+    "Animesh Garg"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.28925",
+   "image": "figures/2026-10-22/2610.28925.jpg"
+  },
+  {
+   "date": "2026-10-22",
+   "rank": 4,
+   "id": "2610.28950",
+   "group": "focus",
+   "title": "HyperDrone: Simulation-to-Reality Transfer at Millions of Frames per Second",
+   "title_ja": "HyperDrone：毎秒数百万フレームのレンダリングを実現するSim-to-Realシミュレータ基盤",
+   "summary_ja": "GPU上で完全に動作する超高速マルチロータ向けシミュレータを提案。最適化されたダイナミクスと、OptiX/Vulkan/Metal等に対応する新レイトレーシングエンジンHyperLuxを統合し、既存SOTA比較で20倍以上高速な毎秒数百万フレームのバッチレンダリングを実現した。高忠実度なRGB、深度、セマンティクス、オプティカルフローを生成可能で、大規模な並列強化学習とSim-to-Real転移を加速する。",
+   "summary_en": "HyperDrone is an ultra-fast quadrotor simulation framework capable of batch-rendering at millions of frames per second, running over 20x faster than state-of-the-art simulators. Fully GPU-native, it couples optimized multirotor dynamics with HyperLux, a versatile ray-tracing engine supporting RGB, depth, and optical flow rendering with realistic physics, providing massive throughput for parallel RL and sim-to-real transfer.",
+   "authors": [
+    "Jonas Eschmann",
+    "Giuseppe Loianno"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "simulation",
+    "sim-to-real",
+    "drone",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.28950",
+   "image": "figures/2026-10-22/2610.28950.jpg"
+  },
+  {
+   "date": "2026-10-22",
+   "rank": 5,
+   "id": "2610.28814",
+   "group": "general",
+   "title": "T-WLA: Bridging Slow Vision and Fast Touch",
+   "title_ja": "T-WLA：低速な視覚と高速な触覚を架橋する世界言語行動モデル",
+   "summary_ja": "接触密接なマニピュレーションにおいて、視覚推論の遅延と触覚の局所性を解決するT-WLAアーキテクチャを提案。共有視覚メモリを介してベースアクションを生成しつつ、低遅延な触覚エディタが触覚フィードバックとキャッシュされた視覚メモリを統合して動作チャンクをリアルタイムに補正する。ペグ挿入や精密接触タスクにおいて、外乱への即座な適応と高い成功率を達成した。",
+   "summary_en": "T-WLA bridges slow visual reasoning and high-frequency tactile feedback for contact-rich manipulation. It uses a shared visual memory to condition base action generation while caching it for a lightweight tactile editor that rapidly adjusts ongoing action chunks based on real-time touch readings. Experiments on precision assembly tasks demonstrate high success rates and quick recovery from unexpected contact disturbances.",
+   "authors": [
+    "Kaichen Zhou",
+    "Yuzhen Chen",
+    "Hannah Yao",
+    "Chonghe Jiang",
+    "Rao Fu",
+    "Xihang Yu",
+    "Wei Dai",
+    "Bashar Kabbarah",
+    "Haoyu Chen",
+    "Ishita Goluguri",
+    "Zhiyang Dou",
+    "Haonan Chen",
+    "Fangneng Zhan",
+    "Mengyu Wang",
+    "Wojciech Matusik",
+    "Antonio Torralba",
+    "Paul Pu Liang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "perception",
+    "world-model",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.28814",
+   "image": "figures/2026-10-22/2610.28814.jpg"
+  },
+  {
+   "date": "2026-10-22",
+   "rank": 6,
+   "id": "2610.29903",
+   "group": "general",
+   "title": "HuMiT: Low-Latency Whole-Body Humanoid Teleoperation via Compact Reference Tracking",
+   "title_ja": "HuMiT：コンパクトな参照目標追従による低遅延な全身ヒューマノイド遠隔操作",
+   "summary_ja": "従来の最適化ベースリターゲティングに伴う遅延を解消するため、現在フレームのルート高さ・速度および4つの疎なキーポイントのSE(3)ポーズのみを入力とする全身追従ポリシーを構築。計算コストの高い密な関節角指令や未来予測を排除しつつ、全身運動の一貫性とバランス維持を実現した。実機ヒューマノイドにおいて遅延を大幅に削減し、俊敏で直感的な全身遠隔操作を可能にした。",
+   "summary_en": "HuMiT enables low-latency whole-body humanoid teleoperation by discarding dense joint targets and future-frame conditioning. It relies on a tracking policy that requires only compact current-frame references: root height, root velocity, and four sparse SE(3) end-effector poses. This decoupled design drastically lowers computational latency while preserving tracking accuracy and dynamic balance on physical humanoids.",
+   "authors": [
+    "Liu Cao",
+    "Botian Xu",
+    "Ruoqu Chen",
+    "Jiajun Liu",
+    "Mingzhi Pei",
+    "Zihao Wang",
+    "Zhongyu Li",
+    "Mengdi Xu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "teleoperation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.29903",
+   "image": "figures/2026-10-22/2610.29903.jpg"
+  },
+  {
+   "date": "2026-10-22",
+   "rank": 7,
+   "id": "2610.30117",
+   "group": "general",
+   "title": "CW-WAM: A Structured Contact-Wrench World Action Model for Force-Sensitive Manipulation",
+   "title_ja": "CW-WAM：力覚に敏感なマニピュレーションのための接触レンチ構造化世界行動モデル",
+   "summary_ja": "視覚情報だけでは捉えられない接触力と負荷を考慮するため、映像、動作軌道、接触レンチを同時に予測するCW-WAMを提案。因果的アテンション機構と長期レンチメモリを用いて動作とレンチの相互依存性をモデル化し、予測されたレンチを20Hzの外ループアドミタンス制御の参照値として利用する。力制御が必要な接触タスクにおいて、優れた追従性と接触適応性能を示した。",
+   "summary_en": "CW-WAM is a world action model tailored for force-sensitive manipulation that jointly forecasts video, motion, and contact wrench trajectories. By leveraging pair-causal attention and a persistent wrench memory, it predicts synchronized motion-wrench chunks used as reference inputs for outer-loop admittance control, achieving robust compliant execution and force regulation in contact-intensive tasks.",
+   "authors": [
+    "Houzhu Ding",
+    "Xinda Qi",
+    "Luqi Wang",
+    "Ming Yang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "control",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.30117",
+   "image": "figures/2026-10-22/2610.30117.jpg"
+  },
+  {
+   "date": "2026-10-22",
+   "rank": 8,
+   "id": "2610.29030",
+   "group": "general",
+   "title": "PHD-Hand: A Printable Humanoid Dexterous Hand with Linkage-Driven 3-DOA Digits",
+   "title_ja": "PHD-Hand：リンク駆動3-DOA指を備えたプリント可能なヒューマノイド器用ハンド",
+   "summary_ja": "ワイヤ駆動式ハンドの高コスト・低耐久性という課題に対し、3Dプリント可能で完全リンク駆動型のヒューマノイド器用ハンドを開発。各指に3自由度の独立駆動機構を組み込む独自の小型リンク機構を設計し、高い信頼性と容易な保守性を実現した。実機検証により、多様な日用品に対する高精度な把持および操作能力を確認した。",
+   "summary_en": "Addressing the high cost and maintenance challenges of tendon-driven hands, this paper presents PHD-Hand, a 3D-printable humanoid dexterous hand featuring fully linkage-driven digits with 3 degrees of actuation each. The compact multi-loop linkage design ensures robust force transmission and durability while maintaining high dexterity, validated through various grasping and manipulation trials.",
+   "authors": [
+    "Neel Adwani",
+    "Muhaiminul Islam Akash",
+    "Saffia Ouali",
+    "Ethan Liu",
+    "Cong Wang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "hardware",
+    "humanoid",
+    "grasping"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.29030",
+   "image": "figures/2026-10-22/2610.29030.jpg"
+  },
+  {
+   "date": "2026-10-22",
+   "rank": 9,
+   "id": "2610.29161",
+   "group": "general",
+   "title": "SimPT: An Automated Simulation Framework for Intervention-Based VLA Post-Training",
+   "title_ja": "SimPT：介入ベースのVLAポストトレーニングを自動化するシミュレーション基盤",
+   "summary_ja": "人間による実機介入データ収集の高コスト性を解決するため、シミュレータ内でVLAポリシーの介入学習を全自動化するSimPTを提案。特権状態からタスク進行を追跡するプログレスグラフを構築し、失敗検知と介入タイミング決定、専門家によるリカバリ行動収集、再学習、評価を一貫して自動実行する。人手介入を要さずにVLAの成功率を大幅に向上させることに成功した。",
+   "summary_en": "SimPT automates intervention-based post-training for vision-language-action (VLA) models within simulation, eliminating expensive human-in-the-loop data collection. Leveraging an Agent-Compiled Progress Graph that monitors privileged simulator states, it automatically determines intervention timing, gathers corrective recovery rollouts, and executes policy updates, significantly boosting task completion rates.",
+   "authors": [
+    "Caicheng Wang",
+    "Zipeng Ye",
+    "Zhexuan Zhou",
+    "Zilong Huang",
+    "Xi Zhang",
+    "Yuchen Xie"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "vision-language-action",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.29161",
+   "image": "figures/2026-10-22/2610.29161.jpg"
+  },
+  {
    "date": "2026-10-21",
    "rank": 0,
    "id": "2610.28480",
