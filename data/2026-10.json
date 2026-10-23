@@ -1,6 +1,307 @@
 {
  "entries": [
   {
+   "date": "2026-10-23",
+   "rank": 0,
+   "id": "2610.30876",
+   "group": "focus",
+   "title": "LocoManiLab: A Unified Testbed for Data, Policies, Controllers, and Deployment in Humanoid Loco-Manipulation",
+   "title_ja": "LocoManiLab: ヒューマノイドの全身移動操作におけるデータ・方策・制御器・実機展開の統合テストベッド",
+   "summary_ja": "ヒューマノイドの移動と操作を統合評価するための一貫したテストベッドを提案。家庭内5環境にわたる234種類のタスクと51.5時間の遠隔操作データを備え、12種類の方策と5種類の全身制御器を系統的に比較検証した。シミュレーションと実機実験を通じ、デモンストレーション規模や制御アーキテクチャが外乱適応性やタスク成功率に及ぼす影響を包括的に明らかにしている。",
+   "summary_en": "This paper presents LocoManiLab, an integrated testbed bridging data generation, policy training, evaluation, and hardware deployment for humanoid loco-manipulation. Covering 234 tasks across five household scenes with 51.5 hours of teleoperation data, it systematically benchmarks twelve policies across five controllers. The study reveals critical performance dynamics and sim-to-real transfer factors under varying perturbation levels.",
+   "authors": [
+    "Dewei Wang",
+    "Jinrui Han",
+    "Jiyuan Shi",
+    "Chenyun Zhang",
+    "Xianbo Lu",
+    "Jiabao Wu",
+    "Jiqin Feng",
+    "Jipeng Kong",
+    "Ping Luo",
+    "Chenjia Bai",
+    "Xuelong Li"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.30876",
+   "image": "figures/2026-10-23/2610.30876.jpg"
+  },
+  {
+   "date": "2026-10-23",
+   "rank": 1,
+   "id": "2610.31608",
+   "group": "focus",
+   "title": "Humanoid Mobility via Attention-based Contacts",
+   "title_ja": "注意機構に基づく接触予測によるヒューマノイドの不整地移動制御",
+   "summary_ja": "複雑な地形におけるヒューマノイドの歩行に向け、動作データを事前分布としてのみ活用する強化学習手法を提案。自己教師ありの注意機構付き接触プランナが環境との接触位置を明示的に予測し、追従バイアスに囚われない適応的な全身運動を生成する。階段や障害物など多様な未学習地形においても、自然かつ高い踏破性を持つロバストな移動制御を実現した。",
+   "summary_en": "This work introduces a reinforcement learning framework for humanoid mobility on complex terrains by utilizing human motion data strictly as a prior. An explicit, self-supervised attention-based contact planner predicts future foot-environment contacts, enabling coordinated whole-body adaptation without overfitting to reference trajectories. The method demonstrates robust and natural traversal across diverse unstructured terrains.",
+   "authors": [
+    "Junzhe He",
+    "Kehan Wen",
+    "Chong Zhang",
+    "Clemens Schwarke",
+    "Zewei Zhang",
+    "Kaixian Qu",
+    "Siyuan Hu",
+    "Matthias M\\\"uller",
+    "Vladlen Koltun",
+    "Marco Hutter"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.31608",
+   "image": "figures/2026-10-23/2610.31608.jpg"
+  },
+  {
+   "date": "2026-10-23",
+   "rank": 2,
+   "id": "2610.30334",
+   "group": "focus",
+   "title": "MPBRS: Multi-Potential-Based Reward Shaping for Unified Reward Configuration in Humanoid Locomotion",
+   "title_ja": "MPBRS: ヒューマノイド歩行における統一的報酬構成のための多ポテンシャル報酬成形",
+   "summary_ja": "ヒューマノイド歩行の強化学習における報酬チューニングの煩雑さを解消するため、ポテンシャルに基づく報酬成形（PBRS）を拡張したMulti-PBRSを提案。最適方策を変えずに探索を誘導できる理論的保証を活かし、統一的な報酬構造と重み設計を確立した。単一の報酬設定のまま異なるヒューマノイド形態や歩行条件へ適用可能であることを実証している。",
+   "summary_en": "The authors propose Multi-PBRS (Potential-Based Reward Shaping) to address the reward engineering challenge in reinforcement learning for humanoid locomotion. By leveraging the theoretical guarantee that PBRS guides exploration without altering optimal policy behaviors, they establish a unified reward configuration. The same reward formulation and weights generalize successfully across different humanoid platforms and conditions.",
+   "authors": [
+    "Van Chung Nguyen",
+    "Hung Manh La"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.30334",
+   "image": null
+  },
+  {
+   "date": "2026-10-23",
+   "rank": 3,
+   "id": "2610.30540",
+   "group": "focus",
+   "title": "Motion Retargeting with Spatiotemporal Preferences for Humanoid Loco-Manipulation",
+   "title_ja": "ヒューマノイドの全身移動操作に向けた時空間選好に基づく動作リターゲティング",
+   "summary_ja": "人間の動作データをヒューマノイドの全身移動操作用軌道へ変換する計算効率を改善する手法STRを提案。全フレーム一律の最適化ではなく、VLMを用いて物体把持などの重要キーフレームと主たる身体部位を特定し、最適化の計算資源を選択的に配分する。接触精度を維持したまま最適化時間を大幅に短縮し、高精度なリファレンス軌道生成を可能にした。",
+   "summary_en": "This paper presents Spatiotemporal Retargeting (STR) to efficiently bridge the embodiment gap for humanoid loco-manipulation. Instead of uniform per-frame iterations, STR leverages a vision-language model to identify keyframes and crucial body parts, allocating optimization budgets dynamically. This achieves high-fidelity contact preservation for manipulation while substantially reducing retargeting computation time.",
+   "authors": [
+    "Xiongbo Shi",
+    "Shihang Du",
+    "Zongyou Yu",
+    "Ao Zhou",
+    "Xudong Zhang",
+    "Ziyu Lin",
+    "Haodong Zhang",
+    "Junqiao Zhao",
+    "Guang Chen"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "manipulation",
+    "locomotion",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.30540",
+   "image": "figures/2026-10-23/2610.30540.jpg"
+  },
+  {
+   "date": "2026-10-23",
+   "rank": 4,
+   "id": "2610.30817",
+   "group": "focus",
+   "title": "Robot Motion Transition with Human Motion Prior",
+   "title_ja": "STAMP: 人間動作事前分布を用いたヒューマノイドの滑らかな動作遷移生成",
+   "summary_ja": "個別に取得されたヒューマノイドの動作軌道を滑らかに連結する枠組みSTAMPを提案。境界姿勢をロボット空間から人間動作空間へ写像し、生成型モーション事前分布を活用して時空間整合を行うことで、不自然な旋回や過度な歩行を抑えた遷移動作を生成する。多様な基本動作間を破綻なく繋ぎ、連続的な全身運動制御を可能にした。",
+   "summary_en": "This paper proposes STAMP, a framework that seamlessly connects independently acquired humanoid motions using a human motion prior. By mapping boundary poses into a human motion latent space and performing spatio-temporal alignment before converting back, it prevents unintended locomotion and unnatural transitions. The method reliably generates continuous and physically viable whole-body transitions.",
+   "authors": [
+    "Taehyun Byun",
+    "Taemoon Jeong",
+    "Yoonbyung Chai",
+    "Woojin Wie",
+    "Insu Park",
+    "Kyungjae Lee",
+    "Sungjoon Choi"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.30817",
+   "image": "figures/2026-10-23/2610.30817.jpg"
+  },
+  {
+   "date": "2026-10-23",
+   "rank": 5,
+   "id": "2610.30735",
+   "group": "general",
+   "title": "When One Step Is Enough: An Empirical Study of Euler Integration in Flow-Matching Policies",
+   "title_ja": "フロー整合型VLA方策におけるオイラー積分の実証分析：1ステップ推論の妥当性",
+   "summary_ja": "フロー整合（Flow Matching）を用いた視覚言語行動（VLA）方策において、推論時の多ステップ常微分方程式数値解法が本当に必要かを検証。6種類のVLAモデルで大規模に比較した結果、十分なモデル規模とデータがあれば1ステップのオイラー積分による行動生成が多ステップ生成と同等の性能を達成することを示し、高速制御への道を開いた。",
+   "summary_en": "This empirical study investigates whether multi-step ODE integration is strictly necessary for flow-matching-based VLA policies. Across six flow-matching VLAs, the authors discover that single-step Euler action generation matches multi-step integration performance, provided sufficient model capacity and training data. This finding drastically simplifies high-frequency deployment without complex distillation.",
+   "authors": [
+    "Shivakanth Sujit",
+    "Luca Nunziante",
+    "Rousslan Fernand Julien Dossa",
+    "Kai Arulkumaran"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "imitation-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.30735",
+   "image": "figures/2026-10-23/2610.30735.jpg"
+  },
+  {
+   "date": "2026-10-23",
+   "rank": 6,
+   "id": "2610.31334",
+   "group": "general",
+   "title": "GelSlim 5.0: Unifying Vision and Touch with a Single Fingertip Camera",
+   "title_ja": "GelSlim 5.0: 単一指先カメラによる視覚と触覚の統合センシング",
+   "summary_ja": "接触部の死角問題を解決するため、単一カメラとUV応答層を用いて外部視覚と接触面触覚を両立する指先センサGelSlim 5.0を開発。照明切替によって同一視点から膜越しの物体画像と接触触覚画像を順次取得し、外部キャリブレーションを不要にした。マルチモーダルトランスフォーマにより、平面姿勢と三次元接触形状の高精度推定を達成している。",
+   "summary_en": "GelSlim 5.0 is a fingertip sensor integrating both visual and tactile sensing using a single fixed camera and a UV-responsive contact layer. By alternating illumination, it captures through-membrane vision and contact deformation from a shared viewpoint, eliminating external extrinsic calibration. A dedicated multimodal transformer processes these signals to accurately estimate object pose and contact geometry.",
+   "authors": [
+    "Xiangdong Wang",
+    "I-Hsuan Huang",
+    "Xiaohao Xu",
+    "Xili Yi",
+    "Nima Fazeli",
+    "Xiaonan Huang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "perception",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.31334",
+   "image": "figures/2026-10-23/2610.31334.jpg"
+  },
+  {
+   "date": "2026-10-23",
+   "rank": 7,
+   "id": "2610.30814",
+   "group": "general",
+   "title": "DRILL: Training World Models to Improve Policies, Not Predict Pixels",
+   "title_ja": "DRILL: ピクセル予測ではなく方策改善を指向したロボット用ワールドモデル学習",
+   "summary_ja": "RLによるVLA方策のファインチューニングにおいて、ワールドモデルのピクセル予測誤差（MSE）最小化が方策勾配の質と一致しない問題に着目。下流方策のリターン向上を直接目的とする二階最適化ループDRILLを提案した。ピクセルMSEが劣る場合でも、方策学習にとって有用なダイナミクス表現を獲得し、最終的なタスク成功率を大幅に向上させた。",
+   "summary_en": "Addressing the misalignment where low pixel-prediction MSE in world models does not lead to better policy gradients, the authors propose DRILL (Downstream-Return Imagination Learning Loop). By training world models via a bilevel optimization framework prioritizing downstream reinforcement learning returns rather than visual fidelity, the system significantly improves VLA policy performance.",
+   "authors": [
+    "Zhaolu Kang",
+    "Tailong Luo",
+    "Lei Wei",
+    "Guangyuan Dong",
+    "Sihan Liu",
+    "Yingjie He",
+    "Siheng Wang",
+    "Shuaibo Li",
+    "Rongchao Zhang",
+    "Zhen Tian",
+    "Richeng Xuan",
+    "Zhichao Hu"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "world-model",
+    "reinforcement-learning",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.30814",
+   "image": "figures/2026-10-23/2610.30814.jpg"
+  },
+  {
+   "date": "2026-10-23",
+   "rank": 8,
+   "id": "2610.31617",
+   "group": "general",
+   "title": "DiffDreamer: Coupling World Models with Differentiable Simulation for Agile Quadrotor Control",
+   "title_ja": "DiffDreamer: 高機動クアッドロータ制御のためのワールドモデルと微分可能シミュレーションの結合",
+   "summary_ja": "動的ゲート通過など高速な環境適応と高周波制御が求められるタスクに向け、微分可能強化学習フレームワークDiffDreamerを提案。外乱や環境変化を学習型ワールドモデルで潜在伝播させつつ、ロボット自体のダイナミクスは微分可能シミュレータで忠実に計算して結合することで、モデルバイアスを抑制し極めて高効率な方策最適化を実現した。",
+   "summary_en": "DiffDreamer combines a learned latent world model with differentiable physical simulation for agile quadrotor control. External dynamic environmental changes are captured in latent space by the world model, while the robot's own dynamics are propagated through differentiable simulation. This hybrid formulation eliminates model bias and enables sample-efficient policy optimization.",
+   "authors": [
+    "Fanxing Li",
+    "Yuxiang Huang",
+    "Shengyang Wang",
+    "Fangyu Sun",
+    "Shuyu Wu",
+    "Tianbao Zhang",
+    "Dexin Zuo",
+    "Yan Yufei",
+    "Danping Zou",
+    "Wenxian Yu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "drone",
+    "world-model",
+    "simulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.31617",
+   "image": "figures/2026-10-23/2610.31617.jpg"
+  },
+  {
+   "date": "2026-10-23",
+   "rank": 9,
+   "id": "2610.30607",
+   "group": "general",
+   "title": "Continuous-Time Motion Planning and Steering with Global Convergence",
+   "title_ja": "GlobMP: 大域的収束性を持つ連続時間運動計画およびステアリング",
+   "summary_ja": "学習型プランナの軌道修正や障害物回避において、全時間区間で厳密に制約を満たす連続時間運動計画法GlobMPを提案。滑らかさのコストと非凸な衝突回避制約を単一の連続時間最適化問題として定式化し、区分的多項式に対する勾配射影法によって大域的最適解への収束を理論的に保証した。実時間での安全な軌道補正を可能にしている。",
+   "summary_en": "The paper introduces GlobMP, a continuous-time motion planning algorithm that guarantees global convergence under smoothness objectives and non-convex safety constraints. Formulated as a continuous-time program using piecewise polynomials, a gradient projection method continuously steers trajectories to avoid obstacles. It provably converges to globally optimal collision-free motions for trajectory refinement.",
+   "authors": [
+    "Mohsen Amiri",
+    "Sima Didari",
+    "Davoud Ataee Tarzanagh",
+    "Hankyu Moon",
+    "Yeongdae Kwon"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "planning",
+    "control",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.30607",
+   "image": "figures/2026-10-23/2610.30607.jpg"
+  },
+  {
    "date": "2026-10-22",
    "rank": 0,
    "id": "2610.29612",
