@@ -1,0 +1,141 @@
+{
+ "title_ja": "DiffDreamer: 高機動クアッドロータ制御のためのワールドモデルと微分可能シミュレーションの結合",
+ "tldr_ja": "未知の外部環境の動きを潜在空間で予測するワールドモデルと、機体の物理運動を高精度に計算する微分可能シミュレータを時間同期させて結合し、高機動ドローンの予測・制御性能を劇的に引き上げた研究です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "DiffDreamerの全体構成図。外部環境（動的ゲートなど）の未来予測を潜在ワールドモデル（RSSM）が担い、ドローン自身の剛体物理挙動と解析的勾配の伝播を微分可能シミュレータが担います。ポリシーは両者の状態を入力とし、高周波な推力・角速度指令を出力します。",
+  "caption": "Fig. 1: A schematic overview of DiffDreamer for dynamic-gate racing. The quadrotor must predict the future motion of dynamic gates while executing precise flight control. DiffDreamer trains the actor through a tightly coupled dual-pathway process: a learned world model imagines future environmental states (e.g., target motion), while a differentiable simulation predicts the quadrotor’s physical dynamics and provides analytical gradients. The policy takes both implicit latent states and explicit physical states as input to generate control commands. The quadrotor is digitally reconstructed and calibrated through system identification for zero-shot transfer to the real world.",
+  "image": "details/2610.31617/F1.jpg"
+ },
+ "overview_ja": "動くターゲットの追尾や動的ゲートをくぐるドローンレースでは、「相手が次にどう動くか」を予測しながら、ミリ秒単位で機体を限界まで正確に操縦する必要があります。この課題に対し、世界を潜在空間で想像して学習するワールドモデル（Dreamerなど）は有力な手法ですが、外部環境の不確実な挙動とドローン自身の高周波な剛体ダイナミクスをすべて1つのニューラルネットに抱え込ませてしまうため、モデル化誤差（モデルバイアス）が起きやすく制御精度が落ちる問題がありました。一方で、物理エンジンの微分を通じて効率的にポリシーを最適化する微分可能強化学習（DiffRL）は、機体の滑らかな運動制御には非常に強いものの、部分観測や未知の外部物体の運動、ゲート通過のような非微分な離散イベントを扱うのが苦手です。\n\nそこで著者らは、両者の長所を組み合わせた「DiffDreamer」を考案しました。着想はとても直感的で、「飛んでくるボールを捕るとき、人間はボールの軌道を頭の中で想像しつつ、自分の体の筋肉は身体運動モデルで動かす」という仕組みを制御アーキテクチャに落とし込んだものです。外部の時系列変化はRSSMベースのワールドモデルで想像（ロールアウト）し、機体の物理状態は微分可能シミュレータで同時に展開します。さらに、非微分なタスク報酬はCritic経由で、滑らかな運動報酬はシミュレータの解析的勾配経由で最適化する「デュアル経路」を導入しました。\n\n実験では、高速で逃げるターゲットの追尾と、動き回るゲートをくぐるレースの2つの超高難度タスクで検証しています。従来の強化学習や微分可能RL、さらに古典的なMPCベースの手法と比較して、学習の収束速度と制御精度の両面で圧倒的な性能を示し、実機による飛行実験でもゼロショット展開に成功しました。",
+ "contributions_ja": [
+  "外部環境の時系列予測を行う潜在ワールドモデルと、機体運動を計算する微分可能シミュレータを時間同期させて並行ロールアウトするデュアル経路最適化フレームワークを提案した点",
+  "非微分なタスク達成報酬をCriticで、滑らかな運動報酬を微分可能シミュレータの解析的勾配で直接最適化する報酬分解機構を開発した点",
+  "アグレッシブなターゲット追尾と動的ゲート通過タスクにおいて、既存の強化学習・微分可能RL・古典的MPCを大幅に上回る制御・予測性能を実証した点",
+  "同定した物理モデルを組み込むことで、シミュレーションで学習した高周波制御ポリシーを実機のクアッドローターへ直接ゼロショット移行できることを示した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜ予測と物理制御を別々に回すべきなのか？",
+   "summary_ja": "高機動ドローン制御では、動的環境の未来予測と高周波な物理制御の両立が不可欠です。本章では、ワールドモデルと微分可能シミュレーションが抱えるそれぞれの限界を整理し、両者を緊密に結合するDiffDreamerの狙いと貢献を述べています。",
+   "details_ja": "クアッドローターで動き回るゲートを高速通過するようなタスクでは、外部環境の動きを先読みしつつ、機体を限界ギリギリで正確に制御しなければなりません。\n\n従来の代表的なアプローチは、予測・計画・制御を独立したモジュールに分けるパイプライン型でした。解釈性が高く実用的な一方で、モジュール間の誤差が後段の制御に伝播しやすく、手動のチューニングコストもかさみます。\n\n一方、近年のワールドモデル型強化学習（Dreamerなど）は、環境をまるごと潜在空間で学習して将来を「想像」しながらエンドツーエンドで学べます。しかし、部分観測で履歴依存性の高い「外部環境の動き」と、既知の物理法則に従う「ロボット自身の剛体運動」という性質の全く異なる2つのダイナミクスを単一のニューラルネットで再現しようとすると、モデルバイアスが生じ、ミリ秒単位の物理制御に必要な正確な勾配が得られなくなってしまいます。\n\nそこで注目されるのが、物理エンジンの微積分を利用して低分散な一次勾配でポリシーを直接最適化できる微分可能強化学習（DiffRL）です。ロボットの滑らかな運動には抜群のサンプル効率を誇りますが、未知の外部物体の軌道予測や、ゲート通過のような非連続・非微分な報酬イベントには対応できません。\n\nDiffDreamerは、この「外部の予測」と「自己の物理運動」を構造的に分離し、1つの最適化ステップの中で時間同期させながら同時にロールアウトする新しい枠組みを提案しています。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "モジュール分離型・モデルベース強化学習・微分可能RLの系譜",
+   "summary_ja": "アジャイル飛行における従来のモジュール分割型手法、サンプル効率に優れるモデルベース強化学習、そして物理エンジンを活用する微分可能強化学習の利点と課題を整理しています。",
+   "details_ja": "### II-A 高機動飛行とモジュール型パイプライン\nドローンのアジャイル飛行や自律レースでは、知覚・状態推定・軌道計画・低レベル制御を個別に設計してパイプライン化するのが標準的でした。動的障害物に対してはカルマンフィルタや時空間軌道最適化（Elastic Trackerなど）、MPC（モデル予測制御）の組み合わせが用いられます。しかし、これらは別々に最適化されるため、予測誤差が制御の破綻につながる「予測と制御のミスマッチ」が高速飛行時に顕著になります。\n\n### II-B モデルベース強化学習の強みと限界\n環境のダイナミクスを学んで長期的なリターンを予測するモデルベース強化学習（MBPOやDreamerなど）は、試行錯誤のデータ効率が非常に高いのが魅力です。しかし、高周波かつ高精度が求められるロボット制御では、学習されたモデルのわずかなズレが致命的になります。特にドローンでは、外部の不規則な動きと自身の高速な回転運動が混ざり合い、物理シミュレーションに比べて制御性能が頭打ちになりやすい課題がありました。",
+   "figures": []
+  },
+  {
+   "heading": "III Methodology",
+   "heading_ja": "想像と物理シミュレーションを同期させるデュアル経路最適化",
+   "summary_ja": "外部の時系列特徴を捉える潜在状態とロボットの物理状態を結合し、非微分報酬と微分可能報酬を別々の経路から逆伝播してポリシーを最適化する「DiffDreamer」のアーキテクチャを解説します。",
+   "details_ja": "### III-A & III-B 基礎理論とワールドモデルによる想像\n本手法ではタスクをPOMDP（部分観測マルコフ決定プロセス）として定式化します。ベースとなるワールドモデルにはDreamerV3のRSSM（リカレント状態空間モデル）を採用しています。観測 $o_t$ はエンコーダを経て確率的な潜在特徴 $z_t$ と決定論的隠れ状態 $h_t$ に変換され、これらを束ねた陰的状態 $s_t^{\\mathrm{imp}} = \\{z_t, h_t\\}$ の中で将来の軌道展開（想像）が行われます。\n\n### III-C 微分可能シミュレーションと運動方程式\nロボット自身の状態は、位置・速度・クォータニオン姿勢・角速度からなる陽的状態 $s_t^{\\mathrm{exp}} = \\{\\mathbf{p}_W, \\mathbf{v}_W, \\mathbf{q}, \\mathbf{\\Omega}\\}$ として定義します。クアッドローターの連続時間剛体ダイナミクスを時間刻みでODE積分し、物理シミュレータを通じて解析的勾配 $\\frac{\\partial s_{j}^{\\mathrm{exp}}}{\\partial s_{j-1}^{\\mathrm{exp}}}$ を逆伝播（BPTT）させます。\n\n### III-D DiffDreamerの統合設計\nここが本論文の核心です。ポリシー（Actor）には、RSSMが予測する外部環境の陰的状態 $s_t^{\\mathrm{imp}}$ と、微分可能シミュレータが展開する機体の陽的状態 $s_t^{\\mathrm{exp}}$ の両方を結合して入力します。\n\n同一の行動 $a_t$ を両方のモデルに入力して1ステップずつ進めることで、潜在的な外部予測と陽的な物理予測が完全に時間同期します。このとき、Actorへの潜在状態入力にはストップグラディエント演算子 $\\mathrm{sg}(\\cdot)$ を適用し、ニューラルネットの想像経路へ不要な勾配が流れるのを防ぎます。\n\nさらに報酬関数を賢く分解しています:\n- 非微分タスク報酬 $r_t^{\\mathrm{disc}}$（ゲートを通過した瞬間の離散ボーナスなど）: Criticが学習し、価値関数の勾配を用いて最適化します。\n- 微分可能運動報酬 $r_t^{\\mathrm{diff}}$（ゲートへの接近速度や過度な姿勢変化へのペナルティなど）: 微分可能シミュレータの物理グラフを通じて、直接解析的にバックプロパゲーションします。\n\nこの設計により、ワールドモデルは「ドローンの物理法則」という自明な学習負荷から解放され、外部の動きの予測に専念できるようになります。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "人間がボールをキャッチする直感的なメカニズム（左）とDiffDreamerの最適化構造（右）。外部の未来予測は学習型ワールドモデルが担い、身体の運動制御は微分可能物理シミュレータが担うことで、高精度なデュアル経路学習を実現します。",
+     "caption": "Fig. 2: Coupling external-motion prediction with internal control. Left: Catching a ball requires imagining its trajectory and planning body motion. Right: DiffDreamer combines latent world-model features with explicit physical states for policy optimization. It imagines future external motion through a learned world model and propagates the robot’s physical state through differentiable simulation.",
+     "image": "details/2610.31617/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "超高速追尾と動的ゲートレースで既存手法を圧倒",
+   "summary_ja": "PyTorchベースの微分可能シミュレータVisFly上で、アグレッシブなターゲット追尾と動的ゲート通過の2タスクを検証しました。学習の収束性、追従精度、ゲート通過数において既存の強化学習やMPCを大きく上回る結果を示しています。",
+   "details_ja": "### IV-A & IV-B 実験セットアップとタスク設計\n検証環境にはPyTorchネイティブの微分可能シミュレータ「VisFly」を使用しています。ポリシーは collective thrust and body rate (CTBR: 総推力と3軸角速度指令) を直接出力するエンドツーエンド設計です。\n- **タスク1: アグレッシブ追尾**: 3次元空間を激しく不規則に飛び回るターゲットを、単眼カメラ視野の中心かつ一定距離（所望距離）に捉え続けます。\n- **タスク2: 動的ゲートレース**: 3次元的に移動する4連ゲートを可能な限り短い時間で連続通過します。\n\n### IV-C 学習曲線の比較\n比較対象は、純粋なワールドモデル強化学習のDreamerV3、微分可能シミュレーションのみを使うBPTT、そして代表的なモデルフリーRLであるPPOです。図F5の通り、DiffDreamerは両タスクにおいて最も速く収束し、最高の報酬を達成しました。特にゲートレースでは、BPTTが外部予測を持たないため伸び悩み、DreamerV3が物理誤差と疎な報酬に苦しむ中、DiffDreamerだけが飛び抜けた学習性能を見せました。\n\n### IV-D 性能評価\n外部軌道予測の精度比較（図F4 A, C）では、固定モデルを仮定する拡張カルマンフィルタ（EKF）がターゲットの急激な加速変化で予測を大きく外すのに対し、DiffDreamerのワールドモデルは散布サンプルの通り極めて正確に未来軌道を予測できました。\n\n追尾タスクの定量評価（表I）では、平均距離誤差がElastic Tracker（古典的ベースライン）の $0.793\\,\\mathrm{m}$、BPTTの $0.835\\,\\mathrm{m}$、DreamerV3の $1.003\\,\\mathrm{m}$ に対し、DiffDreamerは **$0.381\\,\\mathrm{m}$** と半分以下に抑え込みました。機体座標系におけるターゲットの存在密度（図F4 B）を見ても、DiffDreamerは青色のカメラ視野中心に極めてタイトに収まっています。\n\n動的ゲートレース（図F4 D、表II）では、ゲート速度が $1.0, 1.5, 2.0\\,\\mathrm{m/s}$ と上がるにつれてMPCの通過ゲート数が12→4→1と激減するのに対し、DiffDreamerは **16→12→8** を維持し、高速な環境変化に対する圧倒的な頑健性を実証しました。\n\n### IV-E アブレーション実験\n- **オドメトリと相対表現（図F6 左・中央）**: ターゲットの絶対座標を再構成させるモデルに比べ、機体オドメトリを条件付けた相対表現の方が再構成誤差が大幅に小さく、追尾の散らばりも抑えられました。\n- **報酬分解（図F6 右）**: 離散報酬（ゲート通過ボーナス）を抜くと通過ゲート数は 2, 2, 0 に激減し、微分可能運動報酬を抜くと 7, 4, 2 に低下しました。両方の経路が噛み合って初めて最高性能（16, 12, 8）が出ることが確認されました。\n\n### IV-F 実機検証\nJetson Orin NXを搭載した3.5インチプロペラの自作クアッドローターを用い、同定したパラメータをシミュレータに反映させた上で、学習済みポリシーを100Hz超でオンボード推論させました。外部モーションキャプチャのフィードバックを用い、シミュレーション通りのアグレッシブな追尾と動的ゲート通過を実世界で実証しています。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "追尾タスク（上）と動的ゲートレース（下）の学習報酬曲線。DiffDreamer（紫）はPPO（赤）、BPTT（緑）、DreamerV3（青）のいずれよりも極めて速く収束し、高い最終報酬を達成しています。",
+     "caption": "Fig. 5: Training reward curves for aggressive tracking (top) and dynamic-gate racing (bottom). Solid lines and shaded regions represent the mean and standard deviation across five independent random seeds, respectively.",
+     "image": "details/2610.31617/F5.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "(A, C) 追尾およびゲートレースにおける2秒先までの軌道予測結果。EKF（黒）に比べDiffDreamer（青）は真値（橙）を捉えています。(B) 機体から見たターゲットの相対位置ヒートマップ。(D) ゲート移動速度ごとの通過数比較。",
+     "caption": "Fig. 4: The experimental results. (A) The predicted trajectory of the target over a 2-second horizon in aggressive tracking. The scattered points denote imagined trajectory samples. (B) Heatmaps illustrating the spatial distribution of the target within the quadrotor’s body frame. More intense colors correspond to higher spatial density. The region bounded by the blue rays represents the camera’s actual field of view (FOV). (C) The predicted trajectories of the next two gates over a 2-second horizon in dynamic-gate racing. (D) The average number of successfully passed gates during dynamic-gate racing.",
+     "image": "details/2610.31617/F4.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "アブレーション実験結果。左・中央はオドメトリ条件付けと相対表現の有無による再構成誤差と追尾分布の差。右は報酬分解のアブレーションで、離散報酬・微分可能報酬のどちらを欠いてもゲート通過数が大幅に落ちることを示しています。",
+     "caption": "Fig. 6: Ablation studies. Left and center: Odometry/representation ablation: reconstruction-error densities and target distributions in the quadrotor’s XY/XZ planes. Relative and absolute world models are compared with Elastic Tracker (labeled [1]) [ 13 ] ; blue rays bound the camera field of view. Right: Reward ablation: gates passed within 512 steps versus maximum gate speed (m/s), using the full reward or removing the discrete gate-passing or differentiable motion component.",
+     "image": "details/2610.31617/F6.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "実機クアッドローターを用いた飛行実験の様子。急旋回を繰り返すアグレッシブ追尾（左）と、動的ゲートの未来位置を先読みして連続通過するレース（右）の両方で実世界飛行に成功しています。",
+     "caption": "Fig. 3: Real-world experiments using DiffDreamer for aggressive tracking and dynamic-gate racing. Left: flight trajectories and selected consecutive frames showing tight target tracking. Right: dynamic-gate racing, where the quadrotor anticipates the future positions of moving gates.",
+     "image": "details/2610.31617/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめ: 予測と微分可能物理のハイブリッドが切り拓く道",
+   "summary_ja": "DiffDreamerは、外部予測を担う潜在ワールドモデルと自機の物理挙動を担う微分可能シミュレーションを融合し、高機動ドローン制御において優れた収束性と制御精度を達成しました。",
+   "details_ja": "本研究では、外部環境の予測と精密な身体制御が同時に求められるアジャイル飛行タスクに対し、DiffDreamerという新しい枠組みを提案しました。\n\nワールドモデルからロボット自身の剛体運動学習を切り離し、微分可能物理シミュレータに任せることで、モデルバイアスの影響を大幅に低減しました。また、Criticによる非微分タスク報酬の評価と、シミュレータ経由の微分可能運動報酬の直接勾配逆伝播を組み合わせた「デュアル経路最適化」により、探索が困難なタスクでも極めてスムーズなポリシー最適化を実現しています。\n\nシミュレーションでの厳密な評価に加え、アブレーションによる各コンポーネントの有効性の証明、さらには実機飛行による概念実証まで一貫して成し遂げた完成度の高い研究です。",
+   "figures": []
+  },
+  {
+   "heading": "VI Limitations and Discussion",
+   "heading_ja": "今後の課題: 他のロボットへの拡張と完全オンボード知覚",
+   "summary_ja": "現時点の検証はクアッドローターに特化しており、接触や不連続性の多い脚ロボット等への適用や、完全オンボードカメラのみによる外乱・ノイズ耐性の検証が今後の課題です。",
+   "details_ja": "著者らは以下の限界と今後の展望を率直に述べています。\n\n- **対象ロボットの限定**: 本研究では運動が比較的滑らかに定式化できるクアッドローターのみで検証されています。マニピュレータの接触や脚ロボットの足先接地など、物理エンジン側の微分が困難な不連続現象（コンタクトダイナミクス）を含むロボットに適用するには、さらなる工夫が必要です。\n- **外部センシングへの依存**: 今回の実機実験では、ドローン自身のオドメトリおよびターゲット/ゲートの位置取得に外部のモーションキャプチャシステムを使用しています。完全にオンボードのカメラ画像から自己位置推定や動体検出を行うエンドツーエンドの視覚飛行や、実世界の観測ノイズに対するロバスト性の検証は今後の課題として残されています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「物理法則が既知で滑らかなロボット自身の運動」と「未知で予測が難しい外部環境」は、1つのモデルに混ぜず、微分可能シミュレータとワールドモデルに役割分担させるのが極めて合理的である。",
+  "非微分なイベント報酬（ゲート通過等）はCriticに価値推定させ、滑らかな運動ペナルティはシミュレータ経由の一次勾配で最適化する「報酬分解」が極めて有効に機能する。",
+  "正確なシステム同定と微分可能物理エンジンを組み合わせることで、シミュレーション内の高周波レート制御（CTBR）ポリシーを実機へゼロショット転移させることができる。"
+ ],
+ "limitations_ja": [
+  "微分可能シミュレータに依存しているため、激しい接触や摩擦の切り替わりなど勾配が消失・爆発しやすい不連続な接触タスクへの汎用性は未知数である。",
+  "実機検証において外部モーションキャプチャによる高精度な位置姿勢フィードバックに依存しており、完全オンボードの視覚ベース飛行での耐ノイズ性は未検証である。"
+ ],
+ "keywords": [
+  "World Models",
+  "Differentiable Simulation",
+  "Reinforcement Learning",
+  "Agile Quadrotor Flight",
+  "Dynamic-gate Racing"
+ ],
+ "id": "2610.31617",
+ "title": "DiffDreamer: Coupling World Models with Differentiable Simulation for Agile Quadrotor Control",
+ "authors": [
+  "Fanxing Li",
+  "Yuxiang Huang",
+  "Shengyang Wang",
+  "Fangyu Sun",
+  "Shuyu Wu",
+  "Tianbao Zhang",
+  "Dexin Zuo",
+  "Yan Yufei",
+  "Danping Zou",
+  "Wenxian Yu"
+ ],
+ "date": "2026-10-23",
+ "group": "general",
+ "tags": [
+  "drone",
+  "world-model",
+  "simulation",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.31617",
+ "pdf_url": "https://arxiv.org/pdf/2610.31617",
+ "summary_ja": "動的ゲート通過など高速な環境適応と高周波制御が求められるタスクに向け、微分可能強化学習フレームワークDiffDreamerを提案。外乱や環境変化を学習型ワールドモデルで潜在伝播させつつ、ロボット自体のダイナミクスは微分可能シミュレータで忠実に計算して結合することで、モデルバイアスを抑制し極めて高効率な方策最適化を実現した。",
+ "generated": "2026-10-23",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.31617"
+}
