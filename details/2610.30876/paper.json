@@ -1,0 +1,152 @@
+{
+ "title_ja": "LocoManiLab: ヒューマノイドの全身移動操作におけるデータ・方策・制御器・実機展開の統合テストベッド",
+ "tldr_ja": "ヒューマノイドの移動とマニピュレーション（Loco-Manipulation）を包括的に評価するため、234種類の家庭内タスクと51.5時間の遠隔操作データを備えた統合テストベッド「LocoManiLab」を構築しました。12種類の最新ポリシーや5種類の全身コントローラを横断評価した結果、単一スキルでは同等に見えるモデルでも複合タスクや未知環境、外乱下で大きく性能差が現れること、シミュレーション上の順位が実機でも再現されることを示しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "LocoManiLabの全体像です。キッチンやリビングなど5つの家庭シーンにおける多様なタスクスイート、データ収集・生成パイプライン、ポリシーと全身コントローラを接続するアダプタ、そしてシミュレーションと実機（Unitree G1）をつなぐ統合評価環境で構成されています。",
+  "caption": "Figure 1 : Overview of LocoManiLab . Scene categories span kitchens, living rooms, bedrooms, bathrooms, and offices, with affordances including articulated appliances, drawers, object placement, and desk interactions. Data collection combines teleoperation with controller-executed motion generation, while dedicated interfaces connect policies to compatible controllers. Evaluation measures task completion and execution quality on seen tasks, unseen tasks and scenes, and under domain randomization, with a shared workflow.",
+  "image": "details/2610.30876/F1.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットが人間環境で働くには、足元の移動（Locomotion）と手先の操作（Manipulation）を滑らかに連動させる「移動マニピュレーション」が不可欠です。しかし、既存の研究では評価環境やタスクが限定的で、上位の行動計画ポリシー（VLAなど）と下位の全身コントローラ（WBC）の組み合わせや、学習データが実行品質に与える影響を公平に比較できる共通ベンチマークが存在しませんでした。\n\nそこで著者らは、データ収集・生成から学習、コントローラ実行、実機配備までを網羅する統合テストベッド「LocoManiLab」を開発しました。5つの生活空間（キッチン、リビング、寝室、浴室、オフィス）にわたる234種類のタスクを用意し、51.5時間分のシミュレーション遠隔操作データを収集しています。さらに、モーション生成モデル（Kimodo）をPPOで強化学習的にファインチューニングして自動でデモを生成する仕組みも構築しました。\n\nこの環境を用いて、VLAや世界・行動モデル（WAM）など最新12種類のポリシーを共通のコントローラ上で比較したほか、2つのポリシーを5つの全身コントローラで動かして動作品質を測定しました。さらに、Unitree G1実機を用いた実験も行い、シミュレーションとの整合性を検証しています。\n\n実験の結果、学習済みタスクで同等の成功率を持つモデルでも、複数工程が連続する複合タスクや未知の環境では大きく差が開くことが判明しました。また、タスク成功率が高いコントローラが必ずしも省エネで安定した動作をするとは限らないことも示されました。実機評価ではシミュレーションとおおむね一致する順位が得られ、本プラットフォームが信頼性の高い評価基盤であることが実証されました。",
+ "contributions_ja": [
+  "234種類の家庭タスクと51.5時間の遠隔操作デモを備え、データ生成から実機展開までをつなぐヒューマノイド移動マニピュレーションの統合テストベッドを構築したこと",
+  "VLAやWAMを含む最新12種類のポリシーと5種類の全身コントローラを横断し、未知タスク・未知シーン・視覚的摂動下での汎化性と動作品質を体系的に評価したこと",
+  "モーション生成モデル（Kimodo）を強化学習で全身コントローラに合わせてファインチューニングし、高品質なデモ軌道を自動合成するパイプラインを提案・検証したこと",
+  "Unitree G1実機とシミュレーションで対応する3種類のタスクを比較し、シミュレーション上のポリシー順位が実機でも再現されることを示したこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜヒューマノイドの「移動＋操作」には統一テストベッドが必要なのか？",
+   "summary_ja": "ヒューマノイドが家庭で作業するには移動と手先操作の綿密な協調が必要ですが、ポリシーとコントローラの組み合わせやデータ収集法がばらばらで公正な比較が困難でした。本研究は、家庭内の多様な234タスクと標準プロトコルを備えた統合基盤「LocoManiLab」を提案し、この課題を解決します。",
+   "details_ja": "ヒューマノイドロボットは、ナビゲーション、姿勢変更、マニピュレーションを組み合わせて人間環境で活動します。一般的な構成では、視覚や言語から中間指令を生成する高レベルポリシー（VLAなど）と、接触やバランスを保ちながら関節を駆動する全身コントローラ（WBC: Whole-Body Controller）が階層的に結合されています。そのため、ロボットの振る舞いは「どのポリシーとコントローラを組み合わせるか」「どんな指令インターフェースを使うか」「どんなデータで訓練したか」に強く依存します。\n\n既存のベンチマークもタスク範囲の拡大や実機配備を進めてきましたが、多様なタスク・動作品質・コントローラの差異・デモデータの選択を一元的に評価できる枠組みはありませんでした。特に家庭環境の作業は、引き出しを開けるために適切な立ち位置を取り、接触を保ちながら体を支えるなど、移動と操作が密結合しています。また、前の動作の結果が次の姿勢に影響する長時間タスクでは、個々のスキルだけでなくそれらの滑らかな連携が成否を分けます。\n\nこうした背景から開発されたのがLocoManiLabです。本テストベッドは以下の4つの柱で構成されています。\n- 統一テストベッド: 234種類のタスク、共通エピソード形式、コントローラアダプタを整備し、シミュレーションと実機を統合。\n- 多様なポリシーとコントローラ: VLAやWAMなど12種類のポリシーと、5種類の全身コントローラを比較可能に。\n- 大規模タスクとデモ: 5つの家庭シーンにわたる234タスクと、51.5時間分の遠隔操作データ、合成データ生成環境を提供。\n- 厳密なベンチマークと実機検証: 見知ったタスクから未知シーン、視覚的外乱、データ量・データ源の影響を評価し、実機G1での検証も実施。\n\n実験では、学習タスクで高精度なモデルでも未知環境では成功率が急落することや、タスク成功率と動作の安定性・省電力性が必ずしも一致しないことなど、多面的な評価の重要性が明らかになりました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "全身コントローラ、移動マニピュレーション、評価ベンチマークの進化",
+   "summary_ja": "全身コントローラは速度指令から全身軌道追従までインターフェースが多様化しており、高レベルポリシー側もVLAやWAMへと発展しています。しかし、これらを同じ土俵で比較し、指令表現やデータの影響まで切り分けられる包括的ベンチマークは不足していました。",
+   "details_ja": "### 2.1 全身コントローラ（WBC）の動向\nヒューマノイドの全身コントローラは、遠隔操作のための姿勢追従、移動と上半身操作の分離、大規模な参照モーション追従など、目覚ましい発展を遂げています。ここで重要なのは、コントローラへの指令インターフェース（指令表現）がシステムごとに大きく異なる点です。速度指令を受け取って歩容制御をコントローラに任せるものもあれば、全身の関節目標値や学習されたモショントークンを直接要求するものもあります。指令表現が異なれば、高レベルポリシーが担うべき役割も変わるため、公平な比較にはインターフェースの明示が不可欠です。\n\n### 2.2 全身移動マニピュレーション\n人間の動作データからの模倣や物理を考慮した制御により、動的なインタラクションが可能になってきました。最近では、大規模な視覚言語モデルを行動生成に拡張したVLA（Vision-Language-Action）モデルや、視覚の動特性と行動を同時に学習する世界・行動モデル（WAM）がヒューマノイドにも適用され始めています。しかし、これらを共通のプロトコルで比較・検証した例は極めて限定的でした。\n\n### 2.3 操作および移動マニピュレーションのベンチマーク\nアーム単体のマニピュレーション分野では多様なベンチマーク（RoboCasaなど）やクロスエンボディメントデータセットが登場し、標準化が進んでいます。ヒューマノイド向けにもHumanoidBenchやSIMPLE、HumanoidArenaなどが登場していますが、ポリシーの網羅性、コントローラの依存性、デモデータの収集・生成パイプラインまでを一つに統合したプラットフォームは存在していませんでした。LocoManiLabはこれらを包括する枠組みを提供します。",
+   "figures": []
+  },
+  {
+   "heading": "3 LocoManiLab",
+   "heading_ja": "テストベッドの設計：234のタスク、5つのコントローラ、多彩なデータ収集",
+   "summary_ja": "LocoManiLabは、MuJoCo上で動作する5つの家庭シーンと234タスクを備え、12種類のポリシーと5種類の全身コントローラを接続できます。遠隔操作だけでなく、強化学習で適応させたモーション生成モデル（Kimodo）や軌道拡張によるデータ生成パイプラインも統合されています。",
+   "details_ja": "### 3.1 全体アーキテクチャ\nシミュレーション環境はMuJoCoを採用し、RoboCasaやObjaverseのオブジェクト、MolmoSpacesやHolodeckの部屋レイアウトを統合して、リアルで多様な家庭環境を構築しています。共通のエピソード形式と専用アダプタを用意することで、観測や行動表現が異なる様々なポリシーとコントローラを柔軟に接続できるように設計されています。\n\n### 3.2 ポリシーとコントローラの接続\n評価対象として、$\\pi_{0.5}$やGR00T N1.7などのVLA、Fast-WAMなどのWAM、Diffusion Policyベースラインを含む12種類のポリシーをサポートしています。コントローラ側には以下の5種類を統合しました。\n- AMO: 歩行・胴体制御と腕制御を協調させ、バランスを維持しつつ操作。\n- SONIC: 大規模モーショントラッキングで統一された動作表現を学習。\n- HEFT: ノイズの多い遠隔操作から特権情報を用いて頑健に全身追従。\n- ALMI: 下半身の移動と上半身の模倣を敵対的学習で協調。\n- ScaleBFM: Humanoid Transformerにより多様な参照データを追従。\nポリシーは主観RGB画像や関節状態を受け取り、50 Hzでコントローラ指令（SONICの場合は64次元モショントークン＋14次元手指目標など）を出力します。\n\n### 3.3 タスク設計\nキッチン、リビング、寝室、浴室、オフィスの5カテゴリに13の部屋インスタンスを配置し、合計234タスクを用意しました。\n- 基本タスク（Atomic, 102種）: 移動、開閉、ピック＆プレースなど単一のスキル。\n- 複合タスク（Compositional, 132種）: 「移動して引き出しを開け、中の物を取り出して閉める」といった2〜4段階のスキル連携。\n評価時は、学習タスク（Seen）、学習済みシーン内の未知タスク（Unseen Task）、未学習シーンの未知タスク（Unseen Scene）に分割して汎化性能を検証します。\n\n### 3.4 データ収集と生成パイプライン\nVR機器を用いた遠隔操作により、シミュレーションで51.5時間（14,160エピソード）、実機で約9.0時間のデモを収集しました。さらにデータ生成として、モーション生成拡散モデル「Kimodo」をPPO（Proximal Policy Optimization）を用いてファインチューニングし、全身コントローラが追従可能な到達・移動軌道を自動生成する仕組みを導入しました。また、1つの遠隔操作軌道から初期位置やタイミングを摂動させて成功軌道を増やす「軌道拡張」も備えています。\n\n### 3.5 ドメインランダム化と実機検証環境\nテクスチャや照明を変える「Low」、カメラ位置や材質を変える「Mid」、ディストラクタ（邪魔な物体）やレンズ歪みを加える「High」の3段階のドメインランダム化（DR）を用意しました。また、Unitree G1実機向けに3つのタスクを用意し、シミュレーションと実機の間でポリシーの相対的な性能が一致するかを検証できるようにしています。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "LocoManiLabに含まれる環境とインタラクション対象のオブジェクト群です。(a) HolodeckやiTHORから構築された13の家庭シーンと2つの実機対応環境、(b) 開閉可能な家具や容器、日用品など多彩なアセットが用意されています。",
+     "caption": "Figure 7 : Task environments and representative interaction objects. (a) Thirteen household scenes from Holodeck and iTHOR, labeled by room category and scene identifier, followed by two Lab layouts. (b) Thirty-two representative task assets, grouped into articulated objects, containers and surfaces, and movable objects. The groups illustrate affordances for opening and closing, object placement, and manipulation within atomic and compositional tasks. Rooms and objects are individually scaled for visibility and are not shown to a common physical scale.",
+     "image": "details/2610.30876/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "網羅的ベンチマーク結果：汎化の壁、コントローラの個性、実機との整合性",
+   "summary_ja": "12ポリシーの比較では、複合タスクや未知環境でモデル間の差が顕著になり、視覚的外乱で順位が入れ替わる現象も見られました。また、コントローラの選択によって消費電力や転倒率などの動作品質が大きく変わり、実機評価ではシミュレーションとほぼ同じポリシー順位が確認されました。",
+   "details_ja": "### 4.1 基本タスクと複合タスクでの汎化性能\n学習済み環境での基本タスク（Seen Atomic）では、XR-1、DM0.5、$\\pi_{0.5}$、GR00T N1.7がいずれも高い成功率（80%前後）を示しました。しかし、複合タスク（Compositional）になるとXR-1やDM0.5が優位に立ち、単一スキルの評価だけではモデルの実力を測れないことが分かります。\nさらに未知タスク（Unseen Task）では、全モデルで成功率が激減しました。トップのXR-1でも学習済み80.2%から25.2%へと大幅に低下しています。未知シーン（Unseen Scene）に至っては、DM0.5が最高でも15.5%にとどまり、環境変化に対する汎化が依然として極めて困難な課題であることが浮き彫りになりました。\n\n### 4.2 視覚的摂動（DR）に対する頑健性\n外乱なしで好成績だったモデルが、視覚変化に強いとは限りません。外乱が強まる（Low→Mid→High）につれて全体の成功率は下がりますが、XR-1はLowでトップだったものの、MidやHighでは性能低下が小さかったDM0.5が逆転して首位に立ちました。基本タスクでは$\\pi_{0.5}$もHighにおいてXR-1を上回る粘りを見せています。\n\n### 4.3 コントローラによる動作品質の違い\nGR00T N1.7と$\\pi_{0.5}$を用いて5つのコントローラを比較したところ、「タスク成功率が高い＝良い動作」ではないことが実証されました。例えばALMIは高い成功率を記録した一方で、成功エピソード内での転倒率が他より高くなりました。逆にSONICはモータ出力仕事率（消費電力に直結）が最も低く、省エネで安定した動作を実現していました。\n\n### 4.4 デモデータ規模とデータ源の影響\nタスクあたりのデモ数を10、30、50と増やすと概ね成功率は向上しますが、その伸び幅はコントローラやタスク種別に依存します。GR00T N1.7では30から50に増やしても複合タスクの伸びが停滞した一方、$\\pi_{0.5}$は着実に改善しました。また、遠隔操作（T）、合成（S）、拡張（A）のデータ混合実験では、遠隔操作単体が最も強く、自動生成デモを追加しても必ずしも性能が上がらない（モデルやタスクによって効果が分かれる）という実用上重要な知見が得られました。\n\n### 4.5 モーション生成モデル（Kimodo）のファインチューニング効果\nPPOによる強化学習的適応を行った結果、事前学習そのまま（Pretrained）の39.7%に対し、LoRA適応で改善し、全層ファインチューニング（Full）では成功率90.7%まで跳ね上がりました。到達目標位置に対する手先（Palm）や胴体（Root）の追従誤差も大幅に減少し、コントローラと調和した動作生成が可能になりました。\n\n### 4.6 実機（Unitree G1）とシミュレーションの比較\n冷蔵庫開け、カップの運搬、コンベア上の箱移動の3タスクで検証したところ、シミュレーションと実機の両方で「XR-1 > GR00T N1.7 > Fast-WAM」という一貫した総合順位が得られました。実機では冷蔵庫のような関節物体の開閉タスクでモデル間の実力差が最も顕著に現れました。",
+   "figures": [
+    {
+     "key": "F9",
+     "caption_ja": "モーション生成モデル（Kimodo）の適応過程による動作の違いです。事前学習（Pretrained）では目標位置（黄色い球）に手が届きませんが、全層ファインチューニング（Full）を適用することで、適切なアプローチと正確な手先到達が実現されています。",
+     "caption": "Figure 9 : Kimodo training reward over the first 1,425 iterations. Faint curves show per-iteration rewards, and heavier curves show 51-iteration centered moving averages.",
+     "image": "details/2610.30876/F9.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "実機（Unitree G1）とシミュレーションにおけるタスク実行シーケンスの比較です。(a)〜(c)が実機、(d)〜(f)がシミュレーションで、上からコンベアの箱移動、カップ運搬、冷蔵庫開けを示しています。シミュレーションでの評価順位が実機でも再現されました。",
+     "caption": "Figure 5 : Task-execution sequences in real-world (a–c) and simulated (d–f) settings, arranged as real-world sequences in the left column and simulated sequences in the right column. Rows show conveyor box handling, cup transport, and fridge opening. Selected frames progress from left to right within each row. Real and simulated sequences are not temporally aligned, and success is measured separately in each environment. Corresponding rates appear in Table 6 .",
+     "image": "details/2610.30876/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Discussion and Limitations",
+   "heading_ja": "研究の示唆と今後の課題：未知環境の壁とエッジ推論への配慮",
+   "summary_ja": "大半のポリシーは学習済みタスクをこなせるものの、未知シーンへの汎化や視覚外乱への耐性には大きな伸びしろがあります。また、実機検証の規模拡大や、実運用時の通信遅延・計算リソース制約の考慮が今後の重要課題として挙げられています。",
+   "details_ja": "実験結果から得られた最も重要な教訓は、単一スキルの成功率だけでヒューマノイドシステムを評価してはならないということです。移動と操作が連動する複合タスク、未知の部屋、視覚的なノイズが加わった瞬間に、モデル間の優劣が大きく変化します。また、コントローラごとに消費電力や安定性が大きく異なるため、タスク達成率だけでなく動作の質（消費電力やスリップ、転倒率）を併せて評価する重要性が浮き彫りになりました。\n\n一方で、本研究にはいくつかの限界もあります。\n- 対象環境の偏り: 屋内の家庭およびオフィス環境が中心であり、屋外や産業現場のような不整地・特殊環境は含まれていません。\n- 実機評価の規模: Unitree G1を用いた実機実験は3タスク・各10試行に留まっており、より多くのタスクや長時間の試行での検証が望まれます。\n- 計算資源と通信遅延: 今回の実験ではオンボードまたは低遅延の推論を前提としていますが、リソースの限られたロボットでクラウドやエッジサーバ推論を行う場合、ネットワーク遅延やフレーム落ちが制御品質に与える影響も評価する必要があります。",
+   "figures": []
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめ：ヒューマノイド全身自律化に向けた強固な土台",
+   "summary_ja": "LocoManiLabは、データ収集・生成、学習、評価、実機配備を一つに結ぶ統合テストベッドを確立しました。未知タスクや未知環境に対する汎化の難しさを明確にし、シミュレーションが実機評価の良い指標となることを実証した本研究は、今後のヒューマノイド研究の確固たる基盤となります。",
+   "details_ja": "LocoManiLabは、ヒューマノイドの移動マニピュレーションという極めて複雑な課題に対し、家庭内タスク、遠隔操作および自動生成デモ、ポリシー学習、シミュレーションと実機での評価を一気通貫でつなぐテストベッドを提供しました。\n\n本ベンチマークを通じた詳細な分析により、学習済みタスクでは見えなかった各ポリシーの汎化性の限界や、全身コントローラが動作品質に及ぼす影響、そしてデモデータ規模やデータ源の組み合わせがもたらす効果が明らかになりました。さらに、シミュレーション上の評価順位が実機G1での結果とおおむね一致したことは、シミュレーションを活用して効率的にポリシーを選定・改良していく開発サイクルの正当性を強力に裏付けています。本プラットフォームは、今後の全身協調型AIエージェントの開発を加速させる標準テストベッドとして大きく貢献することが期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "付録（Task Suite, Training & Deployment Details）",
+   "heading_ja": "付録：タスク構成、モデル学習設定、実機セットアップの詳細",
+   "summary_ja": "13部屋234タスクの内訳やドメインランダム化の設定、12種類のモデルごとの学習ハイパーパラメータ、実機G1への頭部ステレオカメラ（ZED Mini）の搭載方法など、再現に必要な実装詳細がまとめられています。",
+   "details_ja": "### タスクスイートと評価プロトコル\nタスクは5つの部屋カテゴリ（キッチン、リビング、寝室、浴室、オフィス）に分かれており、基本タスク102種類、複合タスク132種類の合計234タスクで構成されています。シミュレーション評価では、Unitree G1の頭部カメラから得られる $320 \\times 240$ のRGB画像と関節状態を用い、SONICコントローラに対して50 Hzで指令を送信します。ポリシーへの問い合わせは20制御ステップ（約0.4秒）ごとに行われます。\n\n### ポリシーの学習設定\n12種類のポリシーは、公平性を期すためにデータセットに対して約2エポック相当の学習ステップ数を割り当てて個別に最適化されています。\n- 入力・出力: 主観RGB画像と43関節の角度情報（GR00T N1.7は重力ベクトル3次元を追加、StarVLA-$\\alpha$は画像のみ）。出力はSONICの場合、64次元モショントークンと14次元手指目標値。\n- 各モデルの最適化: AdamWオプティマイザやCosine学習率スケジューラを用い、モデル固有のアクションチャンク長（16〜64ステップ）やフロー推論ステップ数（4〜10ステップ）が設定されています。\n\n### 実機G1の配備構成\n実機実験では、Unitree G1の頭部にZED Miniステレオカメラを専用マウントで取り付け、その左目RGB画像（$640 \\times 480$ をリサイズ）を入力として使用しています。実機用の遠隔操作データセットは約9.0時間（567エピソード）収集され、実機実験用モデルはこれらの実データを用いてシミュレーションと同様のレシピでファインチューニングされました。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "タスクスイートに含まれる代表的なタスクの連続フレームです。(a)〜(e)は冷蔵庫開けや本をカゴに入れるなどの基本タスク、(f)〜(j)は引き出しを開けてリンゴを入れて閉めるなど、移動と操作が連携する複合タスクを示しています。",
+     "caption": "Figure 6 : Representative task demonstrations across five scene categories. Upper rows show atomic objectives: (a) open a fridge, (b) place a book in a basket, (c) lift a basket from a stool, (d) close a cabinet, and (e) approach a desk. Lower rows show compositional objectives: (f) open a drawer, place an apple inside, and close it; (g) pack a candle and statue into a basket; (h) approach and open a safe; (i) open a drawer, retrieve a paper roll, and close it; and (j) approach a trash can and lift a box. Each row contains six chronological frames from a recorded SONIC demonstration, rendered through action replay; nonuniform frame intervals highlight task stages.",
+     "image": "details/2610.30876/F6.jpg"
+    },
+    {
+     "key": "F10",
+     "caption_ja": "実機実験で使用されたUnitree G1の頭部カメラ構成です。ZED Miniステレオカメラがマウントされており、ポリシーへの視覚入力として左目側のRGB画像が供給されます。",
+     "caption": "Figure 10 : Head camera used in the real-robot experiments. (a) Front and (b) side views of the ZED Mini stereo camera mounted on the G1 head; policies use its left RGB image.",
+     "image": "details/2610.30876/F10.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "基本タスク（単一スキル）の成功率が高くても、移動と操作が連携する複合タスクや未知環境では大きく性能差が開くため、多段階タスクでの評価が不可欠である",
+  "タスク成功率が高いコントローラが必ずしも優れているとは限らず、消費電力やスリップ、転倒率といった動作品質とのトレードオフを考慮して選定する必要がある",
+  "自動生成や軌道拡張によるデモデータは、単に追加すれば良いわけではなく、モデルやタスクの特性に応じて効果が分かれるため慎重なデータ配合設計が求められる",
+  "シミュレーション環境におけるポリシーの相対評価順位は実機ヒューマノイド（G1）でも再現されるため、シミュレータを指針としたモデル選定・改善は極めて有効である"
+ ],
+ "limitations_ja": [
+  "評価タスクが屋内の家庭・オフィス環境に限定されており、屋外や不整地、産業用途のような動的かつ過酷な環境での検証は含まれていない",
+  "実機検証が3タスク・各モデル10試行と小規模であり、より多様な物体や長期タスクでの統計的検証にはさらなる実験が必要である",
+  "ロボット本体の計算資源制約に伴う通信遅延や推論周期の乱れ（デッドラインミス）が全身制御に与える影響までは評価モデルに含まれていない"
+ ],
+ "keywords": [
+  "Humanoid Loco-Manipulation",
+  "Vision-Language-Action Models",
+  "Whole-Body Control",
+  "Simulation-to-Real",
+  "Testbed and Benchmark"
+ ],
+ "id": "2610.30876",
+ "title": "LocoManiLab: A Unified Testbed for Data, Policies, Controllers, and Deployment in Humanoid Loco-Manipulation",
+ "authors": [
+  "Dewei Wang",
+  "Jinrui Han",
+  "Jiyuan Shi",
+  "Chenyun Zhang",
+  "Xianbo Lu",
+  "Jiabao Wu",
+  "Jiqin Feng",
+  "Jipeng Kong",
+  "Ping Luo",
+  "Chenjia Bai",
+  "Xuelong Li"
+ ],
+ "date": "2026-10-23",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "locomotion",
+  "manipulation",
+  "benchmark"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.30876",
+ "pdf_url": "https://arxiv.org/pdf/2610.30876",
+ "summary_ja": "ヒューマノイドの移動と操作を統合評価するための一貫したテストベッドを提案。家庭内5環境にわたる234種類のタスクと51.5時間の遠隔操作データを備え、12種類の方策と5種類の全身制御器を系統的に比較検証した。シミュレーションと実機実験を通じ、デモンストレーション規模や制御アーキテクチャが外乱適応性やタスク成功率に及ぼす影響を包括的に明らかにしている。",
+ "generated": "2026-10-23",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.30876"
+}
