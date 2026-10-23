@@ -1,0 +1,137 @@
+{
+ "title_ja": "GlobMP: 大域的収束性を持つ連続時間運動計画およびステアリング",
+ "tldr_ja": "軌道全体のあらゆる瞬間で衝突回避や学習ポリシー追従といった非線形制約を厳密に満たしつつ、多項式曲線の細分化によって大域的最適解へ収束することを証明した新しい連続時間モーションプランナ「GlobMP」を提案しました。",
+ "hero_figure": {
+  "key": "F7",
+  "caption_ja": "バイマニュアル・ヒューマノイドによるステアリングの全体像です。上位のメタ推論器（VLM）が幾何学的制約を一度だけ定義し、プランナ（GlobMP）が学習ポリシーの出力軌道を全時間で制約を満たすよう連続時間で補正（ステアリング）して実機を滑らかに制御します。",
+  "caption": "Figure 7: (a) The initial head-camera frame of each task. (b) Steered motion planning on one real toy trial: one meta-reasoner call at reset sets the active blocks and their parameters; ( P ) takes the policy’s chunk as $\\bm{\\rho}$ and returns a curve that is smooth, collision-free and within $\\bar{r}$ of $\\bm{\\rho}$ at every $t$ ; measured events then switch blocks. (c) Real-robot success of GR00T and $\\pi_{0.5}$ per task ( $9$ or $10$ trials per bar): the policy without and with touch input, and steered without and with touch; dash: not run.",
+  "image": "details/2610.30607/F7.jpg"
+ },
+ "overview_ja": "ロボット工学において、滑らかな軌道を生成しながら障害物との衝突を避けるモーションプランニングは最も基本的かつ重要な課題です。近年は機械学習ベースの生成モデルや方策（ポリシー）が提案する動作を、安全制約を満たすように修正（ステアリング）する技術としても広く使われています。しかし、従来の多くの手法には決定的な隙間がありました。時間を細かくサンプリングして制約をチェックする手法ではサンプル点間の衝突を見逃してしまい、自由空間を凸分解する手法では本来の非凸な空間の広さを活かせず、半正定値緩和（SDP）では緩和がタイトでない限り大域的な最適性を保証できません。\n\nそこで著者らは、軌道を区分多項式曲線（ベジエ曲線など）で表現し、時間区間全体 $[0,1]$ において制約値が非負であり続ける条件を、多項式の非負錐（凸錐）への射影問題として捉え直しました。目的関数の勾配降下と制約充足への射影を交互に行う「GlobMP（Global Motion Planning）」を提案し、多項式のピース数 $N$ を増やすことで、任意の制約トレランスの範囲内で連続時間の大域的最適解へと漸近的に収束することを理論的に証明しました。\n\n検証実験では、最大200台のマルチロボットによる過密な交差問題、実機テストベッド「Robotarium」での分散走行、さらには触覚センサを備えた双腕ヒューマノイドでの日用品操作タスクを実施しました。サンプリングや既存の軌道最適化が破綻する過密環境でも100%近い安全走行を達成し、学習ベースポリシーの接触制御性能を大幅に向上させられることを実証しました。",
+ "contributions_ja": [
+  "時間区間全体 $[0,1]$ のあらゆる瞬間で衝突回避・ロボット間分離・ステアリング制約を厳密に満たす連続時間最適化問題を、多項式の非負錐制約として統一的に定式化しました。",
+  "目的関数の勾配ステップと実行可能領域への凸射影ステップを交互に繰り返すアルゴリズム「GlobMP」を提案しました。",
+  "穏やかな仮定のもとで、多項式のピース数を増やすことで連続時間の大域的最適解へ収束する理論的保証（大域的収束性）を証明しました。",
+  "最大200台のマルチロボットシミュレーション、実機Robotariumでの群制御、双腕ヒューマノイドによる触覚を伴う実機マニピュレーションにおいて、強力なベースラインを大きく上回る性能を示しました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "サンプリングの「隙間」をどう埋めるか？連続時間プランニングへの挑戦",
+   "summary_ja": "モーションプランニングはナビゲーションから学習ポリシーの軌道修正まで広く使われますが、離散サンプリング間の衝突見逃しや大域最適性の欠落という課題を抱えていました。本研究は、あらゆる瞬間で制約を満たしつつ大域的最適解への収束を保証する連続時間プランナ「GlobMP」を提案します。",
+   "details_ja": "ロボットが始点から終点まで滑らかに移動する軌道を求める際、滑らかさ（加速度やスナップの二乗積分）を最小化しながら衝突を避ける必要があります。しかし、従来のサンプリングベース手法（RRT*など）は経路平滑化の段階で衝突を起こしやすく、軌道最適化手法（TrajOptなど）は局所解に留まりがちです。特に時間を細かく離散化して制約を課すコロケーション法では、サンプル点同士の間でロボットが障害物へ飛び出してしまう「インターサンプリング衝突」を防げません。\n\nまた、学習ベースの拡散モデルなどが生成する軌道を安全領域へ引き戻す「ステアリング」の需要も高まっています。しかし、滑らかさのコストと全時間区間での非凸な衝突制約を両立した上で、大域的最適解への収束を証明したアルゴリズムはこれまで存在しませんでした。\n\n著者らは、移動障害物や他ロボットとの衝突回避、そして参照軌道の近くに留まるステアリング制約を、単一の連続時間最適化問題 $(P_\\infty)$ として定式化しました。軌道をソボレフ空間 $\\mathcal{H}^k$ 上の曲線として扱い、区分多項式表現と非負錐への射影を組み合わせることで、離散化の穴を完全に塞ぎつつ大域最適解へと至る道筋を切り拓きました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Polynomial formulation and gradient projection",
+   "heading_ja": "多項式の幾何学で解く：非負錐への射影と勾配降下の交互最適化",
+   "summary_ja": "軌道をバーンスタイン基底の多項式で表すことで、全時間での制約充足を係数ベクトルの凸錐所属問題へと変換します。提案法「GlobMP」は、コストを下げる勾配ステップと、違反した制約を凸錐へ引き戻す復元ステップを交互に繰り返して解を探索します。",
+   "details_ja": "### 多項式表現と非負錐への変換\n軌道 $\\bm{\\gamma}(t)$ を次数 $d$ のバーンスタイン基底多項式として表現します。障害物との距離の二乗や参照軌道との乖離度などの制約 $g_j(\\bm{\\gamma}(t), t) \\geq 0$ は、時間 $t \\in [0, 1]$ の多項式になります。この多項式が時間区間全体で常に 0 以上であるという条件は、その係数ベクトル $\\bm{\\pi}_j$ が「非負多項式の閉凸錐 $\\mathcal{K}$」に属することと同値です。ここがポイントで、係数そのものの正負を見るのではなく錐所属を見るため、途中で負にならない真の非負性を正確に判定できます。\n\n### GlobMPアルゴリズムの仕組み\n境界条件（始点・終点での位置や速度などの固定）は制御点に対する線形等式として表されるため、零空間基底 $\\mathbf{N}$ を用いて自由変数 $\\bm{\\Gamma}_{\\mathrm{free}}$ へと座標変換し、境界条件を常に厳密に満たすようにします。GlobMPは以下の2ステップを交互に繰り返します：\n- **コスト低減ステップ**: スムーズネス評価関数（加速度やスナップの二乗積分）の勾配方向に沿って制御点を更新します。\n- **実行可能性復元ステップ（Algorithm 2）**: 制約に違反しているブロックについて、凸錐 $\\mathcal{K}_j$ への最短射影残差を求め、ヤコビ行列を介して制御点を制約充足側へと押し戻します。\n\n凸錐への射影自体は、双対錐の基底を用いた小さな凸最適化（フランク・ウルフ型の貪欲法）として高速に解くことができ、時間計算量はブロック数に対して線形にしかスケールしません。",
+   "figures": []
+  },
+  {
+   "heading": "3 Theory",
+   "heading_ja": "なぜ大域的最適解に届くのか？区分数の増加による収束性の証明",
+   "summary_ja": "適切な刻み幅の初期グリッドからスタートし、多項式のピース数 $N$ を増やすことで、連続時間の大域的最適値に任意の精度で漸近することを理論証明しました。安定な問題設定であれば厳密な大域的最適解が得られます。",
+   "details_ja": "### 大域的収束性（Theorem 1）の枠組み\n衝突制約は制御点に対して非凸ですが、ロボット位置に関しては凸であるため、制御点での線形化は常に真の制約の下側に位置します。この性質を利用し、各反復で構成される局所的な凸実行可能集合 $\\mathcal{C}(\\mathbf{z})$ を用いて復元ステップを解析します。\n\n理論の主定理（Theorem 1）では、以下の事実が示されています：\n- 実行可能な初期値からスタートした場合、GlobMPの反復は常に連続時間での実行可能性を保ち、目的関数値を単調に減少させます。\n- $N$ 個の区分多項式スプライン空間 $\\mathcal{S}_N$ において、制御点グリッドから最もコストの低い点を選んでスタートすると、$N \\to \\infty$ に伴って目的関数値は元の連続時間問題 $(P_\\infty)$ の大域的最適値 $E^\\star_\\infty$ に漸近します。\n- 制約トレランス $\\mu > 0$ を許容する場合、解のコスト差は $\\delta_N = C N^{-r}$ のオーダーで減少し、制約違反量も $\\mu$ 以下に抑えられます。\n\n### 収束レートの具体例\n特に最小スナップ軌道計画（$k=4$）で両端の位置から躍度（jerk, $\\ell=3$）までを固定した場合、要求精度 $\\varepsilon$ を達成するために必要なピース数 $N$ はわずか $\\mathcal{O}(\\varepsilon^{-2/7})$ で済みます。両端でスナップ自体まで固定（$\\ell=k$）すると端部補正のコストが加わり $\\mathcal{O}(\\varepsilon^{-1})$ となりますが、いずれにしても多項式サイズで大域最適解を捉えられる点が強力です。",
+   "figures": []
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "最大200台の群制御から双腕ヒューマノイドまで：圧倒的な安全性の実証",
+   "summary_ja": "合成環境での最大200台ロボットの交差問題、Robotariumでの12台実機走行、触覚付き双腕ヒューマノイドによる日用品操作で評価しました。既存の軌道最適化や生成プランナが衝突する高密度環境でも、GlobMPは100%の連続時間安全性を発揮しました。",
+   "details_ja": "### 合成実験：最大200台の大規模マルチロボット\n球状障害物が存在する空間でロボット同士が位置を交換する過密タスクを評価しました。RRT*、GCS（凸集合グラフ）、SDP-MP（半正定値緩和）などのベースラインと比較したところ、ロボット数が増えるにつれてベースラインは衝突率が跳ね上がり、16台以上では全試行で失敗しました。一方、GlobMPは2台から200台（約82,000個の制約ブロック）まで、全インスタンスにおいて全時間 $t$ で完全な衝突フリーを達成しました。200台の超大規模問題でもGPU上でわずか28秒（CPUで2分）で解を導出しています。\n\n### 実機マルチロボット検証（Robotarium）\nジョージア工科大学のRobotarium（3.2m × 2.0mの領域）で、差動駆動型ロボットGRITSBotを用いた検証を行いました。障害物のある5種類のベンチマーク環境で、最大12台のロボットが交差する過密シナリオを走行させました。拡散モデル系の最新手法（DiRecTやPCD-SHDなど）はロボット数が増えると壁や他機と頻繁に衝突（12台リング走行では全機衝突など）しましたが、GlobMPはすべての時間で最小クリアランス6cm以上を維持し、ほぼ完全なタスク成功率を記録しました。\n\n### 実機双腕ヒューマノイドでの触覚ステアリング\nDexmate Vega-1（両腕・手先で計38自由度）を用い、学習済みVLAポリシー（GR00T N1.7や$\\pi_{0.5}$）の軌道修正を検証しました。ティッシュ引き抜き、物体受け渡し、棚への配置など、接触を伴う4つのタスクを実施しました。大規模言語モデル（Claude Opus 5.5）がシーン画像から進入禁止・把持などの制約を1度だけ定義し、GlobMPがポリシーの出力チャンクを参照軌道として30Hzで連続時間ステアリングを行いました。ポリシー単体では分布外の観測で失敗していたティッシュ引き抜きや受け渡しが、GlobMPを挟むことで全試行成功へと劇的に改善しました。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "Robotarium実機での12台交差走行軌道です。既存手法（DiRecTやFinal Proj.など）では中央の障害物周辺で多数のロボットが衝突（赤枠）していますが、GlobMP（右端）はすべてのロボットが衝突ゼロでスムーズに目標位置へ到達しています。",
+     "caption": "Figure 6: Executed Robotarium trajectories for the $12$ -robot ring instance on Cross-Room and Conveyor . Obstacle-hit counts span the whole run; circles magnify highlighted regions.",
+     "image": "details/2610.30607/F6.jpg"
+    },
+    {
+     "key": "F11",
+     "caption_ja": "Conveyor環境における12台のGRITSBotの実機走行の様子です。障害物とロボットとの最小クリアランスは全時間を通じて6cm確保されており、過密なすれ違いでも厳密に接触が回避されています。",
+     "caption": "Figure 11: GlobMP on the Georgia Tech Robotarium: twelve GRITSBots on Conveyor in the $3.2\\times 2.0$ m arena, at $t=25$ s. The paths the robots drove, starts (circles), goals (squares), and the virtual obstacles drawn from the map. The circle magnifies the run’s closest pass: $6$ cm between the robot’s body and a belt.",
+     "image": "details/2610.30607/F11.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめと今後の展望：連続時間の大域的保証がもたらすロボティクスの新展開",
+   "summary_ja": "GlobMPは、連続時間の厳密な制約充足と大域的収束保証を両立させた画期的なフレームワークです。実機ロボットのマルチエージェント走行や複雑なマニピュレーションにおいて、その実用性と信頼性の高さが証明されました。",
+   "details_ja": "本論文では、区分多項式曲線と非負錐への射影を組み合わせることで、連続時間の制約充足と大域的最適解への収束を保証するモーションプランナ「GlobMP」を確立しました。従来のサンプリング間衝突や局所最適解スタックという長年の課題に対して、理論的にも実用上も明快な回答を与えています。\n\n特に、最新の生成モデルや学習済みポリシーが抱える「安全性の担保」というボトルネックを、ポリシー自体を再学習することなく外部から確実に補正できるステアリング手法としての価値は極めて高いと言えます。今後は、速度制限や移動可能な回廊制約に対する理論保証のさらなる拡張が期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：定式化の拡張（楕円体・壁・回廊）とベンチマーク追加実験",
+   "summary_ja": "障害物表現の楕円体拡張や半空間・回廊制約の多項式基底変換、さらにD3IL障害物回避ベンチマークでの定量的評価についてまとめられています。",
+   "details_ja": "### 制約ブロックの柔軟な拡張\n論文の手法は球状障害物だけでなく、以下のような様々な幾何学的制約を同一の凸錐枠組みで扱えます：\n- **楕円体障害物**: 重み付きノルム $\\|\\mathbf{x}\\|_{\\bm{\\Sigma}}$ を導入することで、回転する楕円体も二次ブロックとして定式化可能です。\n- **壁・回廊制約（半空間）**: 境界壁 $\\mathbf{a}_w^\\top \\bm{\\gamma}(t) - \\xi_w \\geq 0$ は次数 $d$ の多項式ですが、次数引き上げ行列（Degree Elevation）を掛けることで衝突ブロックと同じ次数 $2d$ の錐 $\\mathcal{K}_{2d}$ へと統合できます。\n\n### D3ILベンチマークでの障害物回避\nフランカ・エミカ・アームを用いたエンドエフェクタ回避タスク（D3IL avoiding-v0、100エピソード）において、各種拡散モデル系プランナとの比較が行われました。テスト時に突如追加される柱や進入禁止領域に対して、Classifier GuidanceやProjected Diffusionなどの従来手法が成功率20〜40%台に低迷する中、GlobMPはタスク成功率・安全性ともに95%という圧倒的なスコアを達成しています。",
+   "figures": [
+    {
+     "key": "F14",
+     "caption_ja": "D3ILベンチマーク環境（a, b）と、タスク成功率に対する安全性率の比較プロット（c）です。GlobMP（青点）は右上（成功率・安全性ともに極めて高い領域）に唯一位置しており、他手法を大きく引き離しています。",
+     "caption": "Figure 14: D3IL avoiding-v0 . (a) The environment’s own view; the test-time constraints have no physical counterpart, so they appear only in (b) . (b) The scene as GlobMP sees it, with all ten discs and both half-planes. (c) Safety rate against task success over $100$ episodes, one point per method: a point at the lower right reaches the goal without avoiding, and only the upper right does both. Brackets as in Table 3 .",
+     "image": "details/2610.30607/F14.jpg"
+    },
+    {
+     "key": "F15",
+     "caption_ja": "D3ILにおける全100回の展開軌道です。制約違反軌道（赤）と安全な軌道（紺）で色分けされており、GlobMP（最下段中央）ではほぼすべての軌道がテスト時制約領域（薄紫）を綺麗に避けていることが分かります。",
+     "caption": "Figure 15: All $100$ rollouts of every method on D3IL avoiding-v0 , from the common start (green), GlobMP last. A rollout is drawn red if it violates any of the twelve constraints under the benchmark’s own predicate and navy otherwise, so the fraction of navy is the safety rate in the panel title. The six pillars belong to the environment; the six lavender regions are imposed only at test time.",
+     "image": "details/2610.30607/F15.jpg"
+    },
+    {
+     "key": "F18",
+     "caption_ja": "RobotariumのEmpty環境における12台リング走行のハードウェア実験軌道です。他手法では中央付近でロボット同士の密集・衝突が発生しているのに対し、GlobMPは円周上を秩序正しくすれ違いながら旋回しています。",
+     "caption": "Figure 18: Hardware execution on Empty : every method except PCD-LB, twelve GRITSBots on the Georgia Tech Robotarium. The tracking controller and the virtual obstacles are those of Appendix A4.1 . Each panel reports one execution of the ring instance by the method named above it: a single overhead frame, with the trajectories recovered from the video drawn over it, each marked by a circle at its start and a square at its terminal state. A robot is counted as being in collision when its footprint overlaps an obstacle region. …",
+     "image": "details/2610.30607/F18.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "時間をサンプリングして制約判定するのをやめ、多項式の非負錐への射影を用いることで、時間区間全体のあらゆる瞬間での安全性を厳密に保証できる。",
+  "目的関数の勾配降下と実行可能領域への凸射影を繰り返すシンプルな枠組みでありながら、区分多項式のピース数 $N$ を増やすことで大域的最適解に収束することが理論的に証明された。",
+  "学習済みポリシー（拡散モデルやVLA）の出力をリアルタイムに連続時間修正する「ステアリング」モジュールとして機能し、再学習なしで実機安全性を劇的に高められる。"
+ ],
+ "limitations_ja": [
+  "大域的最適解への理論的収束保証は制御点グリッド探索からのスタートを前提としており、実機実装でヒューリスティックな初期経路（直線など）を用いた場合は局所解に収束する可能性がある。",
+  "速度制限や加速度上限などの微分制約、および複雑な運動学制約（非ホロノミック性など）を組み込んだ場合の大域的収束保証の拡張は今後の課題として残されている。",
+  "多数のロボットや障害物を扱う場合、制約ブロック数がペアの二乗で増加するため、リアルタイム制御ループ（30Hzなど）で回すにはGPU並列化や効率的な枝刈りが必要となる。"
+ ],
+ "keywords": [
+  "Continuous-Time Motion Planning",
+  "Trajectory Optimization",
+  "Global Convergence",
+  "Bernstein Polynomials",
+  "Policy Steering",
+  "Multi-Robot Coordination"
+ ],
+ "id": "2610.30607",
+ "title": "Continuous-Time Motion Planning and Steering with Global Convergence",
+ "authors": [
+  "Mohsen Amiri",
+  "Sima Didari",
+  "Davoud Ataee Tarzanagh",
+  "Hankyu Moon",
+  "Yeongdae Kwon"
+ ],
+ "date": "2026-10-23",
+ "group": "general",
+ "tags": [
+  "planning",
+  "control",
+  "safety"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.30607",
+ "pdf_url": "https://arxiv.org/pdf/2610.30607",
+ "summary_ja": "学習型プランナの軌道修正や障害物回避において、全時間区間で厳密に制約を満たす連続時間運動計画法GlobMPを提案。滑らかさのコストと非凸な衝突回避制約を単一の連続時間最適化問題として定式化し、区分的多項式に対する勾配射影法によって大域的最適解への収束を理論的に保証した。実時間での安全な軌道補正を可能にしている。",
+ "generated": "2026-10-23",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.30607"
+}
