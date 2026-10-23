@@ -1,0 +1,142 @@
+{
+ "title_ja": "注意機構に基づく接触予測によるヒューマノイドの不整地移動制御",
+ "tldr_ja": "全身の関節軌道をそのまま真似るのではなく「身体のどの部位を、いつ、環境のどこに接触させるか」という接触計画を介在させることで、梯子登りや壁越え、飛び降り、転倒からの復帰までを単一の強化学習ポリシーで自律遂行できる枠組みを提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "単一の汎用ポリシーにより、小型ヒューマノイドロボットUnitree G1が梯子登り、壁のよじ登り、狭小空間の匍匐（ほふく）前進、飛び降り、飛び石の踏破など、極めて多様な全身移動スキルを自律的にこなす様子です。動作の参照軌道を実機展開時に一切使わず、車載センサのみで適応的な接触を実現しています。",
+  "caption": "Figure 1 : Agile and robust humanoid mobility in diverse environments. Our holistic controller enables a humanoid robot (the Unitree G1) to dynamically traverse diverse and challenging environments, including (a) ladder climbing, (b,j) stage climbing, (c) crawling, (d) vaulting over thin walls, (e) stair climbing, (f) standing up from the ground, (g) jumping down, (h) walking over stepping stones, and (i) sitting down, using a single generalist policy.",
+  "image": "details/2610.31608/F1.jpg"
+ },
+ "overview_ja": "ヒューマノイドが人間環境で活躍するには、平坦な床を二足歩行するだけでなく、梯子を登ったり、障害物を乗り越えたり、狭い場所を這って進むような「全身を使ったマルチコンタクト（多点接触）移動」が不可欠です。しかし、これを強化学習（RL）だけでゼロから学習させようとすると、手足や胴体を含めた組み合わせの空間が広大すぎて、報酬設計だけでは望ましい全身協調動作を引き出せません。一方で、人間のモーションキャプチャなどの参照動作を追従させる手法は自然な動きを作れるものの、学習データにある軌道から少しでも外れた未知の地形には適応できないという大きな弱点がありました。\n\nそこで著者らは、「人間が不整地を歩くとき、全身の細かな軌道を決めているのではなく、無意識に視覚で未来の接触位置（足の置き場や手の掛け場）を捉えている」という点に着目しました。全身の目標軌道をそのまま追従するのではなく、「身体のどこを、環境のどこに接触させるか」という接触情報だけを仲介表現（インターフェース）にすれば、データから自然な全身協調の事前知識を引き出しつつ、強化学習の柔軟な環境適応力を両立できるのではないかと考えたのです。\n\n提案手法では、LiDARの標高マップと自己受容感覚から未来の接触位置を予測する「アテンション型接触プランナー」と、その接触目標を達成する「接触追従コントローラ」を組み合わせた3段階の学習パイプラインを構築しました。実機（Unitree G1）とシミュレーションによる大規模な検証の結果、実機展開時には参照軌道を一切与えず車載センサのみで、梯子登りや飛び石、壁越え、さらには転倒からの自律復帰まで、多様かつ連続的な全身動作を単一ポリシーで達成できることを実証しました。",
+ "contributions_ja": [
+  "全身の関節軌道ではなく「9箇所の身体部位の接触計画」を仲介表現とすることで、参照動作への過適合を防ぎつつ自然な全身協調動作を獲得する制御フレームワークを確立した点。",
+  "自己受容感覚とゴール指令に基づいて標高マップ上の適切な接触点を直接予測する、自己教師ありのアテンション型接触プランナー（ACP）を開発した点。",
+  "プランナーと追従コントローラをブートストラップ式に相互進化させ、模倣学習から未知の自動生成地形への強化学習ファインチューニングへと繋ぐ3段階学習パイプラインを提案した点。",
+  "梯子の段のような細く張り出した構造物も高精度かつ低遅延に復元できる、LiDARベースのオンボード・ニューラルマッピング手法を実装した点。"
+ ],
+ "sections": [
+  {
+   "heading": "Introduction",
+   "heading_ja": "軌道を真似るのをやめ、「接触」をインターフェースにする発想",
+   "summary_ja": "従来の強化学習は探索空間が広すぎて全身運動の獲得が難しく、動作模倣は未知地形への適応が困難でした。本論文は、全身軌道の追従をやめて「接触位置の決定」を仲介表現に据えることで、両者の利点を統合する新たな枠組みを提案しています。",
+   "details_ja": "不整地や立体的な障害物が散らばる環境をヒューマノイドが移動するには、足裏だけでなく手や膝、骨盤など全身を駆使したマルチコンタクト動作が欠かせません。しかし、これを純粋な強化学習で解こうとすると、「どの部位を・いつ・どこに接触させるか」という組み合わせ爆発に直面します。報酬関数のわずかな重みの違いでロボットの振る舞いが激変してしまい、試行錯誤の泥沼に陥りがちでした。\n\n一方で、人間のモーションデータをロボットにリターゲティングして追従させる模倣学習は、自然で協調的な動作を簡単に再現できます。しかし、事前に用意した参照軌道に縛られるため、未知の地形に直面した途端に破綻します。オンラインで軌道を生成・修正しようにも、手足が断続的に環境と接触する全身運動の実行可能軌道をリアルタイムに生成するのは極めて高コストです。\n\nここで著者らが投げかけた問いが、「そもそもロボットが全身移動を学ぶために、全身の関節軌道すべてを真似る必要があるのか？」という点です。人間が不整地を移動するとき、視覚であらかじめ次の足場や手の掛け場を見定めています。重要なのは「環境との相互作用（接触）がどこで起きるか」であり、接触点どうしを繋ぐ途中の関節の動かし方には無数の自由度があるはずです。\n\nそこで本研究では、参照動作データから「接触の構造」だけを抽出し、認識と制御のインターフェースとして用いるアプローチをとりました。接触プランナーが標高マップから未来の接触位置を予測し、トラッカー（追従コントローラ）が強化学習を通じてその接触を実現するように全身を動かします。これにより、実機展開時には参照軌道を完全に排除し、車載センサとゴール指令だけで動く単一の汎用ポリシーが実現できます。",
+   "figures": []
+  },
+  {
+   "heading": "Results",
+   "heading_ja": "梯子登りから飛び石、転倒復帰まで：実機とシミュレーションで示した圧倒的汎用性",
+   "summary_ja": "実機のUnitree G1を用いて、梯子登りや壁越え、匍匐前進、飛び降りなどの多様な動作と自律的な転倒復帰を実証しました。シミュレーション評価では、既存の拡散モデル型軌道生成手法を大きく上回る踏破成功率（複合コースで92.5%対58.8%）を達成しています。",
+   "details_ja": "### 0.1 機敏で汎用的な全身移動とゴール条件による動作分岐\n実機（Unitree G1）を使った実験では、単一のポリシーが車載センサのみで多様な障害物を踏破しました。驚くべきは、同じ地形であってもユーザーが与えるゴール指令（目標位置と向き）によって全く異なる動作が自律的に選択される点です。\n例えば同じ箱の前に立ったとき、ゴールが低ければそのままステップして登り、高ければ手を使ってよじ登ります。ゴールが背後を向けば腰掛けるように座り、ゴールの向きが横を向いていれば身体を反転させて横向きによじ登ります。さらに、登った先でゴールが奥にあれば低姿勢で匍匐前進し、その後に立ち上がる、といった一連の動作遷移を手動のステートマシンなしに滑らかに繋ぎ合わせることができました。\n\n### 0.2 想定外の転倒にも自力で起き上がる失敗回復能力\n実環境では知覚ノイズや足場の滑りによる失敗がつきものですが、本ポリシーは高い頑健性と創発的な失敗回復動作を示しました。段差から飛び降りて着地に失敗して転倒した際や、梯子を登る途中で膝が引っかかって滑り落ちた際にも、自ら姿勢を立て直して立ち上がり、何事もなかったかのように移動を再開します。これらの回復動作は元のモーションキャプチャデータには含まれておらず、強化学習の探索によって自己獲得されたものです。\n\n### 0.3 シミュレーションによる定量評価とアブレーション\nシミュレーションでは、3つの地形グループ（参照動作のある地形、ファインチューニング用の自動生成地形、完全に未知の複合地形）において詳細な比較を行いました。\n\n- トラッカーへの入力：関節軌道などの全身キネマティクスを追加で与えても成功率は向上せず、接触位置の目標だけで十分（成功率98.5%以上）であることが確かめられました。\n- プランナーの構造：全結合層（MLP）とアテンション機構を比較したところ、足場が離散的な疎な地形やノイズ（無関係な障害物）が存在する環境でアテンションが明確に優れていました。標高マップ上のどこに足を置くべきかを選び取る能力が高いためです。\n- 強化学習ファインチューニングの効果：Stage 3の強化学習を経ることで、疎な全身接触地形の成功率が54.8ポイントも跳ね上がり、接触位置の誤差も大幅に低減しました。\n\n最先端の拡散モデル型軌道生成手法であるMGMTとの比較では、評価した全11カテゴリで本手法が上回りました。特に足場が飛び石のように離散的な環境や梯子など、正確な接触位置決めが要求される環境で大差がついています。8つの過酷な複合コースにおける平均成功率は、MGMTの58.8%に対して本手法は92.5%に達しました。MGMTは空中に手足を出すような物理的に成立しない軌道を生成することがあったのに対し、本手法は標高マップ上の実際の表面に接触点を拘束しているため、確実な支持基底面を確保できています。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "実機Unitree G1による複合的な全身移動の連続写真です。「歩行→梯子登り→飛び降り」や「階段登り→飛び石→階段降り」など、個別のスキルを事前定義された遷移なしにスムーズに繋ぎ合わせて走破しています。",
+     "caption": "Figure 4 : Compositional whole-body motion control. (a) Walking - ladder climbing - jumping down. (b) Walking - stairs climbing - jumping down. (c) Stairs climbing up - stepping stones - stairs climbing down. (d) Stairs climbing up - stairs climbing down - box climbing up - jumping down. (e) Walking - vaulting - box climbing up. (f) Stairs climbing up - beam - jumping down. All motions deployed with a single generalist policy.",
+     "image": "details/2610.31608/F4.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実機における自律的な失敗回復（リカバリー）の様子です。不整地で立ち上がりに失敗して再試行する様子（A）や、飛び降り失敗や知覚エラーで完全に転倒した状態から自力で起き上がって歩行を再開する様子（B, C）、梯子登りで膝が引っかかった状態から脱出する様子（D）が確認できます。",
+     "caption": "Figure 6 : Failure recovery. Our generalist controller enabled failure recovery behaviors including but not limited to: (A) re-attempting to stand up if failed due to uneven ground, (B) and (C) standing up after falling down, and (D) recovering from failures (e.g., knee stuck, slipped down from a rung, etc)",
+     "image": "details/2610.31608/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "シミュレーションによる詳細なアブレーションと定量比較です。（A）接触情報のみで関節軌道入力と同等以上の性能が出る点、（B〜D）アテンション構造と強化学習ファインチューニングの優位性、（E）既存手法MGMTに対する大幅な勝率（複合コースで92.5% vs 58.8%）が示されています。",
+     "caption": "Figure 7 : Simulation-based evaluations. (A) Stage-1 trackers using contacts alone or contacts plus reference kinematics. (B) Attention and MLP systems under three configurations: Stage 2, a frozen Stage-2 planner paired with a Stage-3 tracker, and the fully fine-tuned Stage-3 system. Bars show mean success, with terrain categories weighted equally. (C) Attention-based systems before and after RL fine-tuning. (D) Attention versus MLP after fine-tuning. In C and D, the upper plots show success rates and the lower plots show contact placement errors; foot and whole denote foot-only and whole-body support. …",
+     "image": "details/2610.31608/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Discussion",
+   "heading_ja": "全身移動の本質は「接触の連鎖」にある",
+   "summary_ja": "本研究は、接触を中心とした抽象化がヒューマノイドの制御インターフェースとして極めて有効であることを示しました。一方で、現状は2.5次元的な標高マップに依存しており、頭上の突起にぶら下がる動作や意味理解を伴う大域ナビゲーションには課題が残ります。",
+   "details_ja": "本研究の最大の成果は、接触という物理的な相互作用をインターフェースに据えることで、大規模なモーションデータが持つ「自然な協調性」と、強化学習が持つ「環境適応力・ロバスト性」を矛盾なく融合できた点にあります。全身の関節軌道を縛るのではなく、接触点という本質的な拘束条件だけを渡すことで、ポリシーは環境の凹凸に応じて手足の軌道を臨機応変に変形させることができます。\n\nまた、アテンション機構によって「身体状態とゴールに応じて、環境のどの点に触れるべきか」を選択する設計にしたことで、同じ地形でも意図に応じて異なる動作が引き出せる表現力を手に入れました。歩行も、クライミングも、匍匐も、転倒回復も、すべては「身体と環境の接触シーケンスの違い」として統一的に記述できることが証明されたと言えます。\n\n限界点としては主に3点挙げられます。\n第一に、現在の知覚と接触計画は2.5次元の標高マップをベースにしているため、頭上の雲梯（うんてい）にぶら下がったり、トンネルの天井を手で突っ張ったりするような、完全な3次元空間での接触には対応できません。\n第二に、本システムは数メートル先の局所的なゴールを目指す移動に特化しており、建物全体を移動するような大域的なナビゲーションや意味的な判断はスコープ外です。\n第三に、バク転と垂直跳びのように「接触のシーケンス自体は全く同じ（踏み切って着地するだけ）だが、空中の全身運動が全く異なるアクロバティックな動作」は、接触目標だけでは区別できないため、本手法の枠組みだけでは扱いが難しいという制約があります。",
+   "figures": []
+  },
+  {
+   "heading": "Materials and Methods",
+   "heading_ja": "3段階の学習パイプラインとLiDARニューラルマッピングの全貌",
+   "summary_ja": "人体の動きをロボットに写し取る接触付きリターゲティング、接触を追従するトラッカー学習、接触を予測するアテンションプランナー、そして未知地形への強化学習という3段階パイプラインを構築しました。また、梯子の段を捉えるLiDARマッピングも実装しています。",
+   "details_ja": "### モーションリターゲティングと接触ラベルの抽出\n人間のモーションキャプチャデータをそのままロボットの関節角に変換すると、関節可動域の超過や足の地面めり込みが生じます。そこで非線形逆運動学（IK）を解き、幾何学的な干渉を防ぎつつ、両足・両膝・両手・両肘・骨盤の「計9箇所」の身体部位について、いつ・どこで接触が発生したかを自動抽出しました。\n\n### 接触追従トラッカー（Stage 1）\nトラッカーは3層のMLP（隠れ層512-256-128）で構成され、過去5ステップの自己受容感覚、局所標高マップ（$9\\times 7$点）、9部位の目標接触座標、ゴール指令を入力として受け取ります。出力は23自由度の関節位置オフセット（50 Hz）です。まずは教師データ通りの接触位置を「正解（オラクル）」として与え、動作の後半から徐々に開始地点を前へと戻していくCurriculum State Initialization（CSI）を用いて、確実に接触目標を達成する全身協調制御を学習させます。\n\n### アテンション型接触プランナー（Stage 2）\nプランナーは、ロボットの自己受容感覚とゴール指令をもとに、標高マップ（$17\\times 11=187$点）の中から未来（1.5秒以内）に接触すべき位置を選び出します。マップ上の各点の特徴量（Key/Value）に対し、身体部位ごとにFiLM（Feature-wise Linear Modulation）で変調したQueryをぶつけるマルチヘッドアテンション（32ヘッド、次元数96）を適用します。空間内の3次元座標を直接回帰するのではなく、知覚した表面の点に対するアフォーダンス確率分布として予測するのがミソです。これにより、空中などの無意味な座標を予測する失敗を根本から防いでいます。学習データには、トラッカー自身が成功した試行から接触点を事後的に抽出する「Hindsight Contact Labeling」を用います。\n\n### 強化学習ファインチューニング（Stage 3）\nプランナーが提案した接触点をトラッカーが実行し、成功したデータをプランナーの教師バッファに追加して両者を相互に鍛え上げます。参照動作が存在しない、ランダム生成された段差、飛び石、隙間、傾斜梯子などの環境を導入し、PPO（Proximal Policy Optimization）によってゴール到達報酬と接触追従報酬を与えてファインチューニングします。元の参照動作を忘れないよう、元のデータセットと新しい未知地形を並行してサンプリングします。\n\n### LiDARニューラルマッピング\n実機頭部のLivox MID-360 LiDARから得られる点群を、2.5次元グリッド（解像度3 cm）に投影します。CNNが各グリッドに対して「計測値をそのまま採用」「近傍の平均値」「破棄して空とする」の3つのモードを分類予測し、その不確実性も同時に出力します。梯子のような張り出し構造が下の床面スキャンによって上書き消去されないよう、視線角度に応じた幾何学的ヒューリスティックを融合処理に組み込みました。この処理系全体が車載のJetson Orin NX上で30 ms以内に動作します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "システム全体の概要図です。（A）推論時はマップと自己受容感覚からプランナーが接触位置を予測し、トラッカーが関節トルク指令を出します。（B）Stage 1では参照動作の接触目標を用いてトラッカーを事前学習します。（C）Stage 2ではアテンションを用いて標高マップから9部位の接触位置と接触有無を予測するプランナーを学習します。",
+     "caption": "Figure 2 : Overview, part I. (A) Inference-time pipeline. (B) Stage 1: whole-body controller pretraining. Reference trajectories are sampled from the dataset. Training follows a backward curriculum: the robot is initialized at progressively earlier states along the reference trajectory, advancing to an earlier state only after the current one has been successfully learned. $R_{P},R_{R},R_{v},R_{\\omega}$ , $R_{C}$ , $R_{j,p}$ , and $R_{j,v}$ denote the position, rotation, linear velocity, angular velocity, contact, joint position, and joint velocity tracking reward, respectively. (C) Stage 2: attention-based contact planner. …",
+     "image": "details/2610.31608/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "Stage 3における強化学習ファインチューニングの枠組みです。参照動作の追従環境（左）と、未知の自動生成地形によるゴール到達環境（右）を並行して実行します。成功した試行の接触データをバッファに蓄積してプランナーを再学習させ、プランナーの改善がトラッカーのさらなる探索を促すブートストラップ構造になっています。",
+     "caption": "Figure 3 : Overview, part II. Stage 3: RL fine-tuning. Training combines reference tracking on motions sampled from the demonstration dataset (left) with goal-reaching rollouts on procedurally generated terrains outside the demonstration distribution (right). In the goal-reaching environment, the contact planner predicts contact plans from map scans, robot proprioception, and the goal command; the whole-body controller executes these plans and is fine-tuned with RL using task ( $R_{t}$ ) and contact-tracking ( $R_{C}$ ) rewards. …",
+     "image": "details/2610.31608/F3.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "車載LiDARを用いたニューラル標高マッピングの構成です。（A）点群から2次元グリッドを生成し、CNNで標高と不確実性を推定して大域地図に統合します。（B）CNNは3つの補正モードを分類予測する形式をとることで、点群の疎らさやノイズに対して高い頑健性を誇ります。",
+     "caption": "Figure 8 : Overview of the LiDAR-based neural mapping pipeline for height map observations. (A) At each frame, LiDAR points are projected into x-y grid cells and the highest point per cell is retained, producing a 2D local grid map. A neural network then predicts local elevations with associated uncertainty, and the predictions are fused into the global map using odometry. (B) The network uses CNNs to predict per-grid logits over three fill modes: the exact measured value, the neighborhood average, or leaving the grid empty. The mode with the highest logit determines the grid’s elevation prediction, while the disagreement among modes and logits yields the uncertainty estimate. …",
+     "image": "details/2610.31608/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Supplementary Methods",
+   "heading_ja": "付録：学習を安定させる詳細設計とカリキュラム",
+   "summary_ja": "報酬関数の詳細、ドメインランダム化のパラメータ、PPOの非対称アクター・クリティック構成、そして難易度を段階的に上げるカリキュラム学習の具体的な数値設定についてまとめています。",
+   "details_ja": "### 非対称アクター・クリティックとデュアルCritic\n学習を安定させるため、アクター（ポリシー）には実機で計測可能な情報（ノイズ付き自己受容感覚履歴、局所標高マップ、ゴール指令、接触予測）のみを入力します。一方で価値関数（Critic）には、シミュレータ内の真のベース速度や外乱パラメータなどの特権情報を与えます。さらにStage 3では、参照動作が存在する環境用のCritic（$V_m$）と、自由探索環境用のCritic（$V_{\\mathrm{fs}}$）の2つのネットワークを独立に用意し、報酬スケールの違いによる干渉を防ぎました。\n\n### 接触と報酬のアニーリングスケジュール\nStage 2では、トラッカーへの接触入力を「参照動作の正解接触」から「プランナーの予測接触」へと確率的に徐々に切り替えていきます。この際、入力の切り替えスケジュール（$\\eta_{\\mathrm{obs}}$）に対して、報酬の切り替えスケジュール（$\\eta_{\\mathrm{rew}}$）の開始タイミングを遅らせるという工夫を施しています。まずプランナーの予測値を目にすることに慣れさせてから、その予測を追従することに対する報酬の重みを高めていくことで、方策の崩壊を防いでいます。\n\n### 地形の難易度カリキュラム\nStage 3の自動生成地形では、段差の高さや溝の幅、ステップの間隔などを10段階の難易度レベルに設定しました。ロボットが目標地点の0.5 m以内に到達し、転倒せずにエピソードを完走できた割合（平滑化した成功率）が50%を超えると上のレベルへ昇格し、失敗が続くと降格する自動カリキュラムを採用しています。これにより、ロボットは無理のないステップで高度な全身クライミングや幅跳び動作へと適応していくことができます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "全身の関節軌道をそのまま学習・模倣させるのではなく、「接触点（いつ・どこに触れるか）」という一段抽象化したインターフェースを介在させることが、高自由度ロボットの探索効率と適応力を飛躍的に高める鍵になる。",
+  "接触位置の予測は3次元空間の座標回帰ではなく、観測した環境表面（標高マップ）に対するアテンション（アフォーダンス分布）として定式化することで、空振りを防ぎ極めて高い幾何学的精度が得られる。",
+  "モーションキャプチャなどの実演データは「厳密に従うべき軌道」としてではなく、強化学習の探索をガイドする「接触パターンの事前分布」として活用するのが最も効果的である。"
+ ],
+ "limitations_ja": [
+  "2.5次元の標高マップに依存しているため、頭上につり革やバーがある環境でのぶら下がり動作や、張り出した天井を使った突っ張りなど、完全な3次元幾何構造との相互作用にはそのまま適用できない。",
+  "短時間の接触シーケンスが同一になってしまう動作（例：垂直跳びとバク転のように、離陸と着地の接触点だけでは判別がつかない空中運動）は、現在の接触表現だけでは指定・制御ができない。",
+  "数メートル先の局所的な目標に向けた動作生成に特化しており、部屋の構造を理解して長距離を移動するようなセマンティクスを含む大域ナビゲーションとの統合は今後の課題である。"
+ ],
+ "keywords": [
+  "Humanoid Locomotion",
+  "Whole-Body Control",
+  "Contact Planning",
+  "Reinforcement Learning",
+  "Attention Mechanism",
+  "Neural Mapping"
+ ],
+ "id": "2610.31608",
+ "title": "Humanoid Mobility via Attention-based Contacts",
+ "authors": [
+  "Junzhe He",
+  "Kehan Wen",
+  "Chong Zhang",
+  "Clemens Schwarke",
+  "Zewei Zhang",
+  "Kaixian Qu",
+  "Siyuan Hu",
+  "Matthias M\\\"uller",
+  "Vladlen Koltun",
+  "Marco Hutter"
+ ],
+ "date": "2026-10-23",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "locomotion",
+  "reinforcement-learning",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.31608",
+ "pdf_url": "https://arxiv.org/pdf/2610.31608",
+ "summary_ja": "複雑な地形におけるヒューマノイドの歩行に向け、動作データを事前分布としてのみ活用する強化学習手法を提案。自己教師ありの注意機構付き接触プランナが環境との接触位置を明示的に予測し、追従バイアスに囚われない適応的な全身運動を生成する。階段や障害物など多様な未学習地形においても、自然かつ高い踏破性を持つロバストな移動制御を実現した。",
+ "generated": "2026-10-23",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.31608"
+}
