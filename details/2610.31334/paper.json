@@ -1,0 +1,134 @@
+{
+ "title_ja": "GelSlim 5.0: 単一指先カメラによる視覚と触覚の統合センシング",
+ "tldr_ja": "UV応答性フィルムと照明の切り替えにより、1台の固定カメラで視覚と触覚の同軸画像を取得する指先センサ「GelSlim 5.0」を開発し、物体姿勢と接触形状を高精度に同時推定できるマルチモーダルトランスフォーマー「VisTacFusion」を提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "GelSlim 5.0の全体像。UV照明のON/OFFを切り替えるだけで、同じカメラから視覚（近接）画像と触覚画像を順次取得できます。VisTacFusionが両モーダルの特徴を統合し、物体の平面姿勢と接触部の詳細な形状（深度・法線）を推定します。",
+  "caption": "Fig. 1: GelSlim 5.0 enables visual and tactile feedback with a single fingertip camera. By switching illumination, the sensor operates in proximity mode with UV off, allowing the camera to see through the membrane, and in contact-sensitive tactile mode with UV on. Both modes share the same viewpoint and require no inter-camera extrinsic calibration. VisTacFusion combines their complementary signals to estimate planar object rotation and translation, as well as contact depth and surface normals. The observations are acquired sequentially under approximately stationary contact.",
+  "image": "details/2610.31334/F1.jpg"
+ },
+ "overview_ja": "ロボットが手先で器用に物体を操作するとき、物体の姿勢（位置と向き）と、指先が接触している局所的な接触形状の両方を正確に知ることが不可欠です。しかし、手元を外からカメラで見ようとするとロボットの手や物体自身で隠れてしまい、逆に従来の触覚センサだけでは接触していない部分の情報が全く取れず、姿勢のあいまいさを解消できませんでした。\n\nそこで著者らは、UV（紫外線）に反応する特殊な接触膜を採用した指先センサ「GelSlim 5.0」を開発しました。UVを消すと膜が透明になって外の物体が見え（近接視覚モード）、UVをつけると膜が遮光されて接触による変形がくっきりと映る（触覚モード）仕組みです。たった1台のカメラの照明を切り替えるだけなので、2台のカメラの位置合わせ（外部キャリブレーション）が一切不要で、視覚と触覚が全く同じ視点・画角で手に入ります。\n\nさらに、この2つの信号を活かすマルチモーダルトランスフォーマー「VisTacFusion」を提案しました。物体の大まかな姿勢を捉えるパスと、触覚の細かな空間解像度を残して接触深度や法線を復元するパスを分け、非対称なボトルネック構造で視覚の文脈情報を流し込みます。12種類の物体を用いた実機実験では、視覚と触覚を両方使うことで、触覚単独に比べて深度誤差を61.2%、姿勢角度誤差を72.3%も削減できることを示しました。",
+ "contributions_ja": [
+  "UV応答性インクを塗布した単一層の接触膜と照明切り替えにより、1台の固定カメラで完全同軸の視覚画像と触覚画像を取得できる指先センサ「GelSlim 5.0」を開発したこと",
+  "触覚の空間解像度を保持しながら視覚文脈を取り込み、物体姿勢と接触形状を同時に高精度推定するマルチモーダル構造「VisTacFusion」を提案したこと",
+  "学習時にモーダルを確率的に欠落させるModality Dropoutを導入し、ペア入力だけでなく視覚のみ・触覚のみでも動作可能にしたこと",
+  "実機12物体のデータセットにおいて、単一モダリティに対する両モダリティ併用の優位性やシミュレーション併用学習（Co-training）の有効性を定量的に示したこと"
+ ],
+ "sections": [
+  {
+   "heading": "I INTRODUCTION",
+   "heading_ja": "なぜ指先の1台のカメラで「見ること」と「触ること」を両立したいのか",
+   "summary_ja": "接触を伴うマニピュレーションには物体の全体姿勢と局所接触形状の両方が必要ですが、外部カメラの死角問題や異視点カメラのキャリブレーションが障壁でした。GelSlim 5.0は単一カメラと同軸視点を共有するUV応答膜によってこれらを一挙に解決し、専用モデルVisTacFusionで高度に融合します。",
+   "details_ja": "接触を伴う巧緻なマニピュレーション（Contact-rich manipulation）では、物体が今どういう姿勢にあるかというマクロな情報と、指先でどの部分がどう押されているかというミクロな接触形状情報の両方が必要になります。\n\n視覚は物体全体の文脈を把握するのに優れており、例えば「似たような接触跡でも物体がどちらを向いているか」を識別できます。一方でGelSightやGelSlimに代表される光学式触覚センサは、視覚では陰になって見えない微細な表面の凹凸や局所形状を鮮明に捉えます。つまり、両者は完全に相補的な関係にあります。\n\nしかし、ロボットの外部に置いたカメラでは、マニピュレータ自身や掴んだ物体によって接触部が遮蔽（オクルージョン）されてしまいます。また、指先に独立した視覚カメラと触覚センサを別々に積むと、カメラ同士の位置関係を厳密に校正する外部キャリブレーションが不可欠になり、構造も大型化してしまいます。\n\nここがポイントです。GelSlim 5.0は、GelSlim 4.0の指先構造をベースにしつつ、表面に「UV光で状態が変わる連続的な接触膜」を配置しました。これにより、同じ固定カメラでUVオフのときは「膜を通して外を見る近接視覚画像」を、UVオンのときは「膜の変形を見る触覚画像」を連続して取得できます。同一視点・同一画像座標系を共有するため、カメラ間の位置合わせが原理的に不要になります。この観測を処理するため、本研究では物体の平面姿勢と局所幾何を別々のパスで解くVisTacFusionを提案しています。",
+   "figures": []
+  },
+  {
+   "heading": "II RELATED WORK",
+   "heading_ja": "先行センサの課題と、視覚・触覚表現学習のトレンド",
+   "summary_ja": "半透明膜やPDLC膜、マーカー追跡など様々な視触覚センサが提案されてきましたが、膜のパッチ分割や複雑な機構が課題でした。本研究は、パターン分割のない均一なUV応答膜と、事前学習済みViTモデルを活用したタスク特化型融合アーキテクチャで差別化を図っています。",
+   "details_ja": "### 切り替え可能な視触覚センサの系譜\n指先で「見る」と「触る」を両立する試みはこれまでも盛んに行われてきました。例えば、半透明な膜を用いるSTSやVisTac、液晶調光フィルム（PDLC）で透明度を電気的に変えるProTac、機械的にカメラやスクリーンを動かすLook-to-Touch、あるいは透明な窓と触覚領域を市松模様のように交互に並べたMuxGelなどがあります。しかし、これらは機械機構が複雑になったり、空間的に膜が分割されて触覚の有効面積が狭くなったりする難点がありました。GelSlim 5.0は、膜の表面全体が均一なUV応答膜であり、空間的な分割やマーカーのドットパターンに依存せず、画像のテクスチャと陰影そのものから接触を捉える点が大きく異なります。\n\n### 視覚・触覚の表現学習とシミュレーション\n近年のロボティクスでは、MAEやDINOといった大規模な視覚事前学習済みモデルや、触覚に特化したSparsh、SITRといった事前学習済み表現が広く使われています。本論文は新しい事前学習法をゼロから作るのではなく、これら強力な既存エンコーダ（視覚にMAE、触覚にSITR）を固定バックボーンとして活用し、Attention BottleneckとDPT（Dense Prediction Transformer）を組み合わせた効率的な融合構造に焦点を当てています。また、実データにBlenderレンダリングによるシミュレーションデータを混ぜて学習するCo-trainingアプローチを採用しています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "GelSlim 5.0のハードウェア構成と動作原理。(a) 分解図。表面にUV応答膜が積層されています。(b) UV LEDが点灯すると膜が不透明化して触覚モードになり、消灯すると透明化して視覚モードになります。(c) 直径30mmのセンサヘッド外観。",
+     "caption": "Fig. 2: GelSlim 5.0 hardware and observation states. (a) Exploded assembly with the UV-responsive film at the contact interface. (b) Illumination-controlled visual and tactile acquisition. (c) Prototype in (i) tactile mode and (ii) proximity mode; scale marker: 30 mm.",
+     "image": "details/2610.31334/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "III GELSLIM 5.0: COMMON-VIEW SENSING",
+   "heading_ja": "UVインクを混ぜるだけ？同軸センシングを実現したハードウェアの秘密",
+   "summary_ja": "ベースとなる透明シリコンの上にUV反応性インクを混ぜたシリコン膜をスピンコートし、UV LED照明と組み合わせることで近接視覚と触覚の切り替えを実現しました。同一カメラで準静的に連続撮影するため、視差のない画像ペアが得られます。",
+   "details_ja": "### 柔軟な接触インターフェースの作製\nGelSlim 5.0はGelSlim 4.0の基本設計を引き継ぎつつ、接触膜を2層構造にアップデートしています。土台となるのは厚さ5mmの透明シリコン（Solaris）です。これを脱泡して型に流し込んで硬化させた後、その表面に「UV反応性インク（United Nuclear社製）を10:1の体積比で混合したSolaris」をスピンコートして均一な薄膜を作製します。保護用の追加層はあえて設けておらず、このUV応答層が直接物体と接触します。\n\n### センサ本体と照明切り替え機構\n3Dプリントされたセンサボディの先端開口部は直径30mmの円形で、内部にRaspberry Piカメラが内蔵されています。GelSlimでは従来RGBのLEDリングを使って光度ステレオを実現していましたが、本機では青色チャンネルの代わりにUV LEDを実装しています（赤と緑のLEDはそのまま残してあります）。カスタムドライバ基板上のMOSFETをGPIOで制御することで、UV光のON/OFFを瞬時に切り替えます。\n\n### 視覚と触覚の取得プロトコル\nロボットが物体に接触して静止している（準静的な）状態において、センサは2枚の画像を連続してキャプチャします。\n- UV消灯時：外光や赤・緑照明のもとで膜を透過して物体の外観を直接捉える「近接モード（$I_v$）」\n- UV点灯時：UV光により膜が光学的に不透明化し、接触によるシリコンのへこみを鮮明な陰影として記録する「触覚モード（$I_t$）」\nカメラもレンズも全く動かないため、画角やピクセル座標が完全に一致した画像ペアが得られます。これにより、外部カメラのような面倒な位置校正なしに、視覚と触覚の空間的な対応付けが可能になります。",
+   "figures": []
+  },
+  {
+   "heading": "IV LEARNING OBJECT POSE AND CONTACT GEOMETRY",
+   "heading_ja": "VisTacFusion：姿勢はまとめ、幾何は保つ「非対称」な情報融合",
+   "summary_ja": "提案モデルVisTacFusionは、平面姿勢推定と接触幾何（深度・法線）推定で異なるパスを用意しています。16個の視覚ボトルネックトークンを通じて大局的な視覚文脈を伝達し、Modality Dropoutによって片方の入力だけでも柔軟に推論できます。",
+   "details_ja": "### 入力・出力とバックボーンの構成\n入力は視覚画像 $I_v$ と触覚画像 $I_t$ （$224\\times 224$ ピクセル）です。触覚側にはSITR-B/16、視覚側にはMAE-L/16という固定の事前学習済みViTを使用します。これらから得られたトークンを線形射影で768次元に揃えます。出力は、センサに対する物体の平面姿勢 $\\mathbf{y}=(\\cos\\theta, \\sin\\theta, t_x, t_y)$ と、接触部の密な幾何情報である深度マップ $D\\in\\mathbb{R}^{H\\times W}$ および表面法線マップ $\\mathbf{N}\\in\\mathbb{R}^{H\\times W\\times 3}$ です。\n\n### 物体姿勢推定パス（大域的コンテキストの集約）\n姿勢推定では、触覚のパッチトークンから初期化した196個の空間クエリと1個の姿勢クエリ（計197個）が、16個の学習可能な「ボトルネックトークン」を経由して視覚メモリの情報を読み込みます。直接すべてをCross-Attentionさせるのではなく、ボトルネックを介すことで計算量を抑えつつ、必要な視覚文脈だけを抽出します。4層の処理を経て更新された最終クエリから、姿勢トークンと空間トークンの平均値を結合し、3層MLPによって回転と並進を回帰します。\n\n### 接触幾何推定パス（空間解像度の保持）\n幾何推定では、姿勢パスのようにトークンを集約してしまうと接触のエッジなどの細かな形状情報が失われてしまいます。そこで、触覚エンコーダの第3・6・9・12ブロックからの中間特徴マップをそのまま引き抜きます。それぞれの特徴マップに対し、姿勢パスで得られた最終視覚ボトルネック $B_4$ からCross-Attentionで視覚文脈を注入します。このとき注入ゲートの重み $\\alpha_i$ はゼロ初期化されており、学習初期は純粋な触覚特徴からスタートして徐々に視覚の恩恵を取り入れます。その後、DPT形式のデコーダでマルチスケールに特徴を統合し、解像度 $224\\times 224$ の深度マップと法線マップを出力します。\n\n### Modality Dropoutと損失関数\n実運用では視覚が遮られたり触覚が使えなかったりする状況も想定されます。そこで学習時に「両方入力（確率0.70）」「触覚のみ（確率0.25）」「視覚のみ（確率0.05）」をランダムに切り替えるModality Dropoutを採用しました。損失関数には深度・法線のMSEと回転・並進の誤差を組み合わせ、タスク間の不確実性に基づく自動重み付け手法（Uncertainty weighting）を用いてバランスよく最適化しています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "VisTacFusionのネットワーク構造。上部の幾何パスでは触覚の中間層から空間特徴を保ったままDPTでデコードし、下部の姿勢パスでは16個のボトルネックトークンを介して視覚メモリから文脈を集約します。",
+     "caption": "Fig. 3: VisTacFusion: task-specific estimation of object pose and contact geometry. Frozen encoders provide tactile features and visual memory $M$ . The pose path uses a 16-token visual bottleneck to condition tactile-initialized queries over four layers; the final query state $Q_{4}$ predicts planar pose. The geometry path retains tactile maps from blocks 3, 6, 9, and 12, applies gated conditioning from visual-context state $B_{4}$ , and decodes contact depth and surface normals with DPT. Calibration inputs, embeddings, and pre-normalized residual connections are omitted. Geometry thumbnails illustrate estimation targets; missing-input routing is defined in Sec. IV-E .",
+     "image": "details/2610.31334/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V EXPERIMENTAL EVALUATION",
+   "heading_ja": "12個の物体で検証：両方使うとどれくらい精度が跳ね上がるのか？",
+   "summary_ja": "実機アームで集めた12物体のデータを用い、提案手法の有効性を検証しました。視覚と触覚をペアで入力することで、触覚単独に比べ深度MSEは61.2%、角度誤差は72.3%減少し、シミュレーションデータとのCo-trainingが実機精度の向上に寄与することを実証しました。",
+   "details_ja": "### 実験設定とセンサの耐久性\nKUKA LBR Med R820ロボットアームを用い、六角ナット、鍵、六角レンチ、ネジなど日常的な12種類の物体に対して各約400回（合計約4,800回）の接触データを収集しました。センサの耐久性試験として、球状の圧子で20Nの垂直荷重を45,000回以上繰り返し印加しましたが、膜の破れや剥離、光学的切り替え機能の低下は見られませんでした。\n\n真値となる深度や法線マップは、キャリブレーションされた物体の3D CADモデルとロボットの手先位置から幾何学的に計算しています。また、Blenderでレンダリングした画像と、実データのみで事前学習した深度-触覚変換U-Netを用いて合成触覚画像を生成し、実データとシミュレーションデータを1:1.27の比率で混ぜて学習させました。\n\n### 視覚と触覚の相補的な貢献\n提案モデルVisTacFusionにおいて、入力モダリティを変えたときの比較結果が非常にクリアです。\n- **深度MSE**：視覚のみ（$0.1042\\,\\mathrm{mm}^2$）や触覚のみ（$0.0170\\,\\mathrm{mm}^2$）に比べ、両方入力時は $0.0066\\,\\mathrm{mm}^2$ に大幅改善（視覚比93.7%減、触覚比61.2%減）。\n- **角度誤差**：触覚のみでは $2.350^\\circ$ だったものが、両方使うと $0.652^\\circ$ まで劇的に低下（72.3%減）。視覚のみ（$0.694^\\circ$）よりも優れた数値を記録しました。\n\nつまり、物体姿勢の決定には大域が見える視覚が圧倒的に強く、局所の接触深さの推定には触覚が不可欠であり、両者を組み合わせることで単独モダリティの限界を完全に突破できることが証明されました。\n\n### アブレーションと定性結果\nエンコーダの組み合わせ実験では、視覚にMAEを用いた構成が全触覚バックボーンにおいて最も優秀でした。また、左右対称に特徴を混ぜる標準的なMBT（Multimodal Bottleneck Transformer）と比較したところ、姿勢推定において提案手法の非対称構造（角度誤差 $0.652^\\circ$ vs $0.747^\\circ$）が優位性を示しました。\n\n定性的な推定結果（図F7）を見ると、視覚のみでは細い棒状の突起や角（コーナー）の接触輪郭を見落としがちですが、触覚情報が入ることでくっきりと復元され、逆に触覚のみで見られたデコボコした深度の乱れが視覚の文脈によって滑らかに補正されている様子がよく分かります。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "GelSlim 5.0が取得した4つの物体（六角ナット、鍵、六角レンチ、ネジ）の観測例。上段がUV点灯時の触覚画像、下段がUV消灯時の近接視覚画像です。同一カメラから全くズレのない構図で取れていることが分かります。",
+     "caption": "Fig. 4: Common-view visual–tactile observations. UV-on tactile images (top) and UV-off proximity images (bottom) are acquired sequentially from the same fixed camera under quasi-static contact.",
+     "image": "details/2610.31334/F4.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "実検証サンプルに対する深度および法線の推定結果。視覚のみ（Vis-only）では接触領域のエッジがぼやけたり欠損したりしますが、両モダリティ（Both）を使うことで正解値（Ground truth）に極めて近い鮮明な接触幾何が復元されています。",
+     "caption": "Fig. 7: Depth and normal predictions on real validation samples. Sim inputs are shown for comparison: tactile images are generated from each sample’s reference depth, and visual images are rendered at the corresponding pose. Predictions use the real inputs and one depth-selected checkpoint across all three modes. Depth uses a shared color range within each row, and normals are RGB-encoded.",
+     "image": "details/2610.31334/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI DISCUSSION AND FUTURE WORK",
+   "heading_ja": "見えてきた相乗効果と、実用化に向けた次なるハードル",
+   "summary_ja": "本研究は視覚と触覚が単なる役割分担を超えて互いのあいまいさを解消し合うことを示しました。今後はセンサのさらなる小型化や熱管理、接触面の摩耗評価、未知物体や未知セッションへの汎化性能の検証が課題となります。",
+   "details_ja": "### 議論：Sim-to-Realの最適バランス\nシミュレーションデータを混ぜるCo-trainingの実験から、興味深い知見が得られました。シミュレーションデータを足していくと最初は姿勢や形状のバリエーションが増えて汎化性能が向上しますが、シミュレーション比率を増やしすぎるとかえって実機検証の精度が落ちる現象（ネガティブトランスファー）が見られました。近接視覚における照明の反射やボケ、背景の写り込みといった「シミュレータで完全には再現できない差異」が学習に悪影響を与えるためです。本研究で見出した1:1.27という比率は、データの多様性とドメイン忠実度の絶妙なトレードオフを示しています。\n\n### 今後の展望と課題\nGelSlim 5.0の実用化に向けては、いくつか取り組むべき課題があります。\n- **小型化と熱設計**：現在のプロトタイプはGelSlim 4.0のハウジング（幅約30mm）をそのまま使っており、小型ロボットハンドに搭載するにはまだ大きめです。LEDやカメラモジュールを一体再設計し、消費電力やUV LEDによる発熱を抑える必要があります。\n- **接触面の耐久性と光学的ドリフト**：垂直荷重には45,000回耐えましたが、摩擦を伴う滑り運動に対する耐摩耗性や、インクの経年劣化による光学特性の変化はまだ検証されていません。\n- **汎化性の拡張**：今回の実験は同一セッション内の既知物体12種に限定されているため、未知の物体や異なる環境光条件下でのセッション間汎化性能を評価することが次のステップとなります。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "UV応答性インクを塗布した膜とUV LEDのON/OFF切り替えにより、1台の固定カメラで近接視覚と触覚を同軸・完全同一視点で取得できる",
+  "視覚は物体姿勢の曖昧さを大幅に解消し、触覚は接触深度や微細形状を決定づけるため、両者の統合によって誤差が劇的に縮小する（深度MSE 61%減、角度誤差 72%減）",
+  "マルチモーダル学習において、局所幾何情報を保つパスと全体姿勢を集約するパスを分ける「非対称融合」がタスク精度の両立に効果的である",
+  "シミュレーションデータの併用は有効だが、近接特有の見た目のドメインギャップがあるため、最適な混合比率（本稿では実:シミュ = 1:1.27）の探索が重要になる"
+ ],
+ "limitations_ja": [
+  "静止状態での逐次切り替え撮影を前提としているため、高速に動く物体や動的な接触変化に対してフレームレートや時間的ズレが問題になる可能性がある",
+  "垂直押し込みに対する耐久性は示されているものの、剪断方向の激しい摩擦や引っかきに対する膜の耐久性や、UVインクの劣化特性が未評価である",
+  "評価が同一セッション内の既知物体12種に限られており、未知形状の物体や大きく異なる照明環境下での汎化性能は今後の検証課題である"
+ ],
+ "keywords": [
+  "Visuotactile Sensing",
+  "Tactile Sensors",
+  "Multimodal Fusion",
+  "GelSlim",
+  "Robot Perception",
+  "In-hand Manipulation"
+ ],
+ "id": "2610.31334",
+ "title": "GelSlim 5.0: Unifying Vision and Touch with a Single Fingertip Camera",
+ "authors": [
+  "Xiangdong Wang",
+  "I-Hsuan Huang",
+  "Xiaohao Xu",
+  "Xili Yi",
+  "Nima Fazeli",
+  "Xiaonan Huang"
+ ],
+ "date": "2026-10-23",
+ "group": "general",
+ "tags": [
+  "hardware",
+  "perception",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.31334",
+ "pdf_url": "https://arxiv.org/pdf/2610.31334",
+ "summary_ja": "接触部の死角問題を解決するため、単一カメラとUV応答層を用いて外部視覚と接触面触覚を両立する指先センサGelSlim 5.0を開発。照明切替によって同一視点から膜越しの物体画像と接触触覚画像を順次取得し、外部キャリブレーションを不要にした。マルチモーダルトランスフォーマにより、平面姿勢と三次元接触形状の高精度推定を達成している。",
+ "generated": "2026-10-23",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.31334"
+}
