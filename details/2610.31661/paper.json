@@ -1,0 +1,150 @@
+{
+ "title_ja": "OpenTac: カスタマイズ可能で拡張性の高い3D触覚センシングのためのオープンエコシステム",
+ "tldr_ja": "ロボットのあらゆる表面にフィットする3次元力（垂直・せん断）対応の触覚スキンを、テキストや3Dモデルから自動設計・製造し、シミュレーションや1kHz超の高速サンプリングまでワンストップで実現するオープンエコシステム「OpenTac」を提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "OpenTacで計測された触覚データの例です。ヒートマップは垂直荷重を、水色の矢印はバンプ（突起）ごとのせん断ベクトルを、白い円弧は回転の推定値を表しています。平面からグリッパー指先まで、多様な形状で垂直力とせん断力の両方を綺麗に捉えられていることが分かります。",
+  "caption": "Figure 1 : Tactile samples recorded with OpenTac skins. Heatmaps indicate normal load; cyan arrows denote per-bump shear; white arcs denote rotation estimates. (a) 64×64 skin, twisting a dome and clippers. (b) 9×9 fingertip, opposite thumb twists. (c) UMI gripper, 29×6 finger skins: can and ball rocked in the grasp. (d) Extrinsic contact: screwdriver moved down and up.",
+  "image": "details/2610.31661/F1.jpg"
+ },
+ "overview_ja": "ロボットが人間のように器用に物体を扱うには、接触時の手応えを捉える「触覚」が欠かせません。しかし従来の触覚センサは、形が四角く固定されていたり、垂直方向の力しか測れなかったりして、自由なロボットハンドの曲面に馴染ませるのが非常に困難でした。自作しようにも、回路設計から配線、機械加工、データ読み出しまで高度な専門知識が求められ、研究者にとって大きな参入障壁になっていたのです。\n\nそこで著者らは、安価な感圧フィルムとフレキシブル基板（FPCB）の上に「突起（バンプ）」を並べたエラストマーを重ねるという、シンプルかつ巧妙な構造を思いつきました。突起が横に倒れると下の電極群にかかる圧力バランスが崩れるため、簡単な差分計算だけでせん断力（横滑り方向の力）と垂直力を同時に復元できます。さらに、2D形状や3Dメッシュ、さらには「このロボットの指先に合うセンサを作って」という自然言語プロンプトから製造用CADデータを全自動生成するコンパイラ「OpenTac-CAD」を開発しました。\n\n検証として30種類以上のセンサを実際に製造して動作を確認し、商用センサとの比較やMuJoCoを用いたシミュレータの構築、接触領域だけを賢く部分スキャンして1kHz超で読み出す高速化手法まで包括的に実証しました。その結果、ペグ挿入や鍵回しなどの接触リッチな実機マニピュレーションにおいて、せん断力の取得が成功率を劇的に向上させることが示されました。ハードからソフトまで全てオープンソース化されており、触覚研究の敷居を大きく下げる画期的な成果です。",
+ "contributions_ja": [
+  "突起状エラストマーの変形を利用し、安価な感圧フィルムと単層FPCBで垂直力とせん断力（3次元力）を同時に高精度推定できるスケーラブルな触覚スキン構造を開発した点。",
+  "2D外形線や可展3D曲面、さらには自然言語テキストから基板配線と製造ファイルを完全自動生成するコンパイラ「OpenTac-CAD」を実現した点。",
+  "製造メタデータ（マニフェスト）を核として、FEMに基づく物理シミュレーション（OpenTac-Sim）やセンサ間データ転送（OpenTac-Transfer）を統合したエコシステムを構築した点。",
+  "接触の局所性を活かした適応的サンプリング（OpenTac-Xampling）により、1024素子の触覚アレイにおいて従来のラスタースキャン比19.2倍となる1286Hzの超高速読み出しを達成した点。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "ロボットの手触りを誰もが自在に作れる世界へ",
+   "summary_ja": "接触を伴う器用なマニピュレーションには触覚が必須ですが、既存の触覚センサは形状が固定されているか、垂直力しか測れないという制約がありました。本研究では、自由な形状にフィットし3次元力を測れる触覚スキンと、設計から制御・学習までを網羅する包括的エコシステム「OpenTac」を提案します。",
+   "details_ja": "動的で複雑な実世界でロボットが作業を行うためには、物体に触れた瞬間や滑りの兆候をすばやく感じ取る触覚センシングが極めて重要になります。しかし、ロボットの手先や身体の形状は千差万別です。研究者はこれまで、市販の決められた四角いセンサに合わせてロボット側を設計するか、回路やCADの専門知識を一から学んでカスタムセンサを手作りするしかありませんでした。\n\n薄くて柔軟な「触覚スキン」はロボット表面を覆う理想的なアプローチですが、先行研究（例えばFlexiTacなど）の多くは垂直方向の押し込み（1次元）しか測れず、形状が変わるたびに手動で設計し直す必要がありました。磁気式などの3次元センサも、基板レイアウトが固定されていたり、サンプリング周期が30〜100Hz程度と遅く、数ミリ秒の高速な衝突現象を捉えきれないという課題を抱えていました。\n\nこれらの壁を打ち破るために開発されたのが「OpenTac」です。安価なピエゾ抵抗（感圧）フィルムと単層フレキシブル基板（FPCB）、そして突起構造を持つ弾性カバーを組み合わせることで、ミリ波スケールの解像度で垂直力とせん断力の両方を測定できます。さらに、設計ツールのOpenTac-CAD、物理シミュレータのOpenTac-Sim、異なるセンサ間でデータを移植するOpenTac-Transfer、そして接触部分だけを賢く読み出して1kHz超を叩き出すOpenTac-Xamplingを統合し、誰でもすぐにロボットへ触覚を導入できる環境を整えました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "OpenTacスキンで計測された多様な接触パターンです。(a) 64×64アレイ上でのドームやクリッパーの回転、(b) 9×9指先センサでの親指のひねり、(c) UMIグリッパー指先での缶やボールの転がり、(d) ドライバーの上下運動などを捉えています。垂直荷重（ヒートマップ）だけでなく、局所的なせん断ベクトル（水色矢印）が高精度に取得できていることが視覚的によく分かります。",
+     "caption": "Figure 1 : Tactile samples recorded with OpenTac skins. Heatmaps indicate normal load; cyan arrows denote per-bump shear; white arcs denote rotation estimates. (a) 64×64 skin, twisting a dome and clippers. (b) 9×9 fingertip, opposite thumb twists. (c) UMI gripper, 29×6 finger skins: can and ball rocked in the grasp. (d) Extrinsic contact: screwdriver moved down and up.",
+     "image": "details/2610.31661/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "既存の触覚ハードウェア・シミュレータとの決定的な違い",
+   "summary_ja": "GelSightなどの光学式やuSkinなどの磁気式、伸縮テキスタイルなど多様な触覚センサが存在しますが、カスタマイズ性と3次元力計測、高速性を兼ね備えたものは稀でした。OpenTacは、ロボットのCAD形状から基板設計・シミュレーション・高速読み出しまでを一貫して自動化する点で一線を画しています。",
+   "details_ja": "触覚センシングのハードウェアには、光学式、磁気式、静電容量式、抵抗膜式など様々な方式が存在します。GelSightやGelSlimに代表される視覚型触覚センサは高解像度ですが、カメラや照明を内蔵するため指先が分厚く大型化しがちです。一方、磁気式のReSkinやAnySkinは表面を薄く交換可能にしましたが、回路側の形状は固定されており、ロボットの曲面に自由に沿わせることはできません。\n\n柔軟な触覚スキンを目指した先行研究として、伸縮性ファブリックを用いたRobotSweaterや、FPCBを用いたFlexiTacなどがあります。しかしこれらは垂直方向の圧力しか測れないものが多く、把持の滑りを早期に検知する上で重要なせん断力を捉えられませんでした。機械的な突起（バンプ）を使って横荷重を差動圧力に変換するアイデア自体は存在していましたが、OpenTacはそれを単層FPCBによる自動回路設計と組み合わせた点が画期的です。\n\nソフトウェアやシミュレーションの面でも、TACTOやDiffTactileなどは光学式や特定の幾何形状に特化していました。これに対してOpenTac-Simは、自動生成されたセンサの設計メタデータ（マニフェスト）を直接読み込んで有限要素法（FEM）モデルを自動構築するため、どんな形状のカスタムセンサであっても即座にMuJoCo上でシミュレーション可能です。また、学習済みポリシーの互換性を保つOpenTac-Transferや適応型高速読み出しOpenTac-Xamplingなど、ハードとソフトが密接に連携している点が従来の単発的なセンサ研究と大きく異なります。",
+   "figures": []
+  },
+  {
+   "heading": "3 The OpenTac Ecosystem",
+   "heading_ja": "設計からシミュレーション、超高速駆動を支える4つの柱",
+   "summary_ja": "OpenTacは、3次元力を測るハードウェア構造と、設計自動化（CAD）、物理シミュレーション（Sim）、センサ間データ転送（Transfer）、適応型高速サンプリング（Xampling）の4要素から構成されます。これらはすべて「マニフェスト」と呼ばれる共通仕様ファイルを介してシームレスに連携します。",
+   "details_ja": "### 3.1 OpenTac：垂直力とせん断力を分離するセンサ構造\nハードウェア構成は非常にシンプルです。下から「単層FPCB」「感圧フィルム（Velostat等）」「弾性バンプカバー」の3層を重ねるだけです。FPCB上の行と列の交差部分にくし型電極が配置され、1つの感圧素子（タクセル：taxel）を形成します。ここでの工夫は、小さなタクセルのグリッド（基本は$2\\times 2$の4素子）の真上に1つの突起（バンプ）を配置したことです。垂直に押された場合は4素子すべてに均等に圧力が加わるため同相信号（common-mode）として垂直力$h_z$が得られます。一方、横方向（せん断）に力がかかると突起が傾き、左右や上下のタクセル間で圧力差が生じるため、差動信号（differential response）からせん断力$h_x, h_y$が計算できます。\n\n### 3.2 OpenTac-CAD：幾何形状から製造データを自動生成\nOpenTac-CADは、2D外形線やロボットの3Dメッシュ（可展面を平面に展開）を入力すると、タクセルの配置から基板配線、コネクタ割り当てまでを数秒で自動実行するコンパイラです。タクセルのサイズやピッチ、配線クリアランスを自由に設定でき、配線同士の交差を避けながら最短経路でコネクタへ引き出す輪郭追従ルーティングを行います。さらにLLM（Claude Opusなど）と連携することで、「Allegro Handの指先に合うセンサを設計して」といったテキストプロンプトから基板を自動設計することも可能です。設計完了時には、基板発注用のガーバーファイルと共に、素子の物理座標や電気的配線順序を記録した「マニフェスト（manifest）」ファイルを出力します。\n\n### 3.3 OpenTac-Sim：マニフェストから自動構築される物理シミュレータ\nOpenTac-SimはMuJoCo上で動作し、マニフェストを読み込むだけでセンサ形状に合わせた四面体FEMメッシュを自動生成します。突起が物体と接触して変形する様子を線形弾性FEMで解き、基板にかかる反力を計算して実機と同じ計算式で3軸力を出力します。ロボットの腕やグリッパーと一体化させて、接触リッチなタスクの強化学習や模倣学習をシミュレーション内で行うことができます。\n\n### 3.4 OpenTac-Transfer：形状が違っても触覚データを相互変換\n異なるロボットや異なる解像度のセンサ間でも、マニフェストに記録された物理座標系を基準にして接触面の位置合わせを行い、アフィン変換によるキャリブレーションマップを介して垂直接触力場を相互にマッピングできます。これにより、特定のセンサハードウェアに過度に依存しないデータ再利用が可能になります。\n\n### 3.5 OpenTac-Xampling：接触部だけを追跡して1kHz超で読み出す\n感圧アレイを従来のラスタースキャン（左上から右下まで全素子を順番に読む）で走査すると、素子数$N$に比例してフレームレートが低下し、10ミリ秒以下の素早い接触を見逃してしまいます。そこでOpenTac-Xamplingは「接触は局所的かつ時間的に連続している」という性質を利用し、1フレームあたり$M \\ll N$個のサンプリング予算を設定します。予算の4分の1で全体を粗く探索し、残りの4分の3で直前フレームで接触があった領域を集中的に読み出します。これにより、接触が一部に限られる状況下で超高速サンプリングを実現します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "OpenTac-CADによる設計フローとセンサの基本構造です。(A) YUBI、UMI、LEAP Handなどの3Dモデルから表面を展開し、基板配線が自動生成される様子を示しています。(B) センサの積層構造であり、単層FPCBと感圧フィルムの上に、$2\\times 2$のタクセルを覆う突起（バンプ）が乗る仕組みが分かります。(C) 四角い格子状に並べる従来手法に比べ、輪郭に沿って効率よくタクセルを充填できることを示しています。",
+     "caption": "Figure 2 : OpenTac-CAD creates manufacturable tactile skins for 2D/3D shapes. (A) Selected surfaces (orange) on YUBI, UMI, LEAP Hand, Robotiq 2F-85, and Unitree B2 models and the generated FPCBs; labels give taxel count, pitch, and row-plus-column readout channels. (B) (i) Sensor stack: a printed bump lid places one bump over each $2\\!\\times\\!2$ taxel group above the piezoresistive film and two-layer FPCB. (ii) One generated taxel and (iii) a routed corner of the YUBI board; values in orange are compiler inputs, shown at the YUBI settings, that can be changed to generate a different sensor. …",
+     "image": "details/2610.31661/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "(A) OpenTac-CADを用いて自動生成・製造された31種類の多様なセンサ基板です。指先、掌、足裏などあらゆる形状に対応できます。(B) 共通して使用できる読み出し基板（60ピン用および超小型30ピン用）の構成です。MCUやADC、IMUを搭載し、USB接続で手軽にデータを取得できます。",
+     "caption": "Figure 3 : A. 31 sensors in various form factors designed with OpenTac-CAD and fabricated. All sensors were tested and work. B. We provide two readout board designs, varying in the size and the number of sensor wires they support. Each board contains filtering and readout circuitry, an IMU, and a microcontroller. It can be plugged directly into a USB port to stream data.",
+     "image": "details/2610.31661/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "OpenTac-Simのシミュレーション機構です。(A) 突起（バンプ）の四面体メッシュを作成し、押し込みと横引きによる変形をFEMで解いて実機同様の触覚信号を計算します。(B) MuJoCo内の缶の把持、双腕でのコネクタ挿入、引き出し開けなどの接触リッチなタスクでリアルタイムに触覚フィードバックを生成しています。",
+     "caption": "Figure 4 : OpenTac-Sim enables the simulation of OpenTac sensors, ensuring that normal and shear forces are accurately modeled. We use an FEM model that reads the sensor manifest created by OpenTac-CAD and supports the simulation of sensors of arbitrary shapes and resolutions. A. FEM model uses a tetrahedral mesh to simulate bump deformation and computes normal and shear forces using Eq. 1 . B. OpenTac-Sim includes support for multiple robots from the MuJoCo menagerie, across several contact-rich tasks.",
+     "image": "details/2610.31661/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experimental Evaluation",
+   "heading_ja": "30種以上のセンサ製造、シミュレーション検証、実機での劇的な効果",
+   "summary_ja": "自動生成した31種の基板はすべて正常に動作し、商用センサとの力計測比較でも極めて高い相関（$R^2 \\ge 0.93$）を示しました。さらに実機ロボットを用いたペグ挿入や鍵回しタスクでは、せん断力情報を加えることで成功率が大幅に向上し、適応サンプリングにより1286Hzの超高速検出も実証しました。",
+   "details_ja": "### 4.1 自動設計の評価とLLMによる生成\n実際に様々な形状の基板31種類をコンパイルしてFPCB製造サービスに発注したところ、設計ルール違反（DRCエラー）はゼロで、製造された基板はすべて正常に動作しました。従来の長方形グリッド配置と比較すると、先細りの指先形状（YUBIなど）において有効センサ面積のカバレッジが57%から75%へと18ポイントも向上しました。コンパイル時間はわずか0.7〜2.6秒です。また、LLMエージェントに「Unitree G1の足裏用」「ヤモリのシルエット型」などのプロンプトを与えた実験でも、中央値6.5分で完全に製造可能なCADデータを自律生成することに成功しました。\n\n### 4.2 センサの材料特性と3次元力計測精度\n感圧フィルム（Velostat）の種類や電極間隔、ピッチによる応答の違いをロードセルで評価しました。Chibitronics製フィルムは低荷重で感度が高い一方ですぐに飽和し、LINQSTAT製は60Nまで飽和せず広いダイナミックレンジを持ちます。標準構成（LINQSTAT、ピッチ4.0mm、電極ギャップ0.2mm）を用いて商用の高精度6軸力覚センサ（OptoForce）と比較したところ、決定係数$R^2$は$F_x$で0.95、$F_y$で0.93、$F_z$で0.96を達成し、二乗平均平方根誤差（RMSE）も0.11〜0.16Nと、非常に高精度に3次元力を推定できることが確認されました。\n\n### 4.3 実機マニピュレーション学習における「せん断力」の威力\n触覚情報を模倣学習（Action Chunking Transformer: ACT）に組み込み、SO-101アームと双腕YAMロボットで接触リッチなタスクを検証しました。ペグ挿入タスクでは、関節角度のみ（Pose）の成功率66%に対し、垂直力のみ（1D）では60%に留まりましたが、せん断力を加えたOpenTac-3Dでは82%に跳ね上がりました。さらにミリ単位の位置合わせが求められる「プラグのコンセント挿入」では、垂直力だけでは表面に触れているのか穴に入ったのか区別がつきませんが、OpenTac-3Dはせん断力の変化を捉えることで成功率70%（Poseのみは54%、1Dは改善なし）を達成しました。双腕による「鍵穴へのキー挿入・回転」タスクでも、Poseのみの18%、1Dの43%に対し、OpenTac-3Dは62%と圧倒的な成功率を記録しました。\n\n### 4.4 超高速適応サンプリングと耐久性\n$32\\times 32$（1024タクセル）のスキンにおいて、従来のラスタースキャンでは67Hzだった読み出し速度が、OpenTac-Xamplingでサンプリング予算を$M=16$に絞ることで1286Hz（19.2倍）まで向上しました。高さ30cmから落下させたテニスボールの衝突（約3ミリ秒の瞬間的な接触）を検出する実験では、ラスタースキャンが6試行中2回しか検出できなかったのに対し、適応サンプリングでは全試行で衝突の瞬間を複数フレームにわたって明瞭に捉えることができました。また、ロボットで単一の突起を10時間連続で押し続ける耐久試験では、最初の2時間で若干の初期ドリフトが見られるものの、その後は出力が安定し、相対的な荷重変化を正確に分離し続けられることが実証されました。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "センサのキャリブレーションと特性評価です。(a)〜(c)はフィルム素材、電極ギャップ、素子ピッチを変えたときの垂直荷重に対するADC出力の変化を示しています。(d)は基準力覚センサ（OptoForce）に対する推定力の散乱プロットで、3軸すべてで$R^2 \\ge 0.93$という極めて高い直線性・一致度を示しています。",
+     "caption": "Figure 6 : Sensor calibration. (a–c) Per-taxel response to normal loading against a load cell: median and interquartile range per force bin; diamonds mark saturation onset (5% of pressed taxels at full scale); dashed lines mark the 12-bit ADC limit. (a) Three films (2.0 mm pitch, 0.2 mm gap). (b) Electrode gaps of 0.1–0.5 mm (LINQSTAT, 2.0 mm pitch). (c) Pitches of 1.5, 2.0, and 4.0 mm (LINQSTAT, 0.2 mm gap). (d) In-sample three-axis calibration of a bumped $4\\!\\times\\!4$ patch against an OptoForce reference; the dashed line is $y=x$ , and legends give $R^{2}$ and RMSE.",
+     "image": "details/2610.31661/F6.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "SO-101ロボットによるペグ挿入タスクのシミュレーション環境です。青い球が学習用の開始姿勢、オレンジの立方体がテスト用の開始姿勢を表します。インセット（拡大図）では、ペグが穴の縁に接触した際に突起にかかるせん断力ベクトル（矢印）がリアルタイムに計算されている様子が確認できます。",
+     "caption": "Figure 8 : SO-101 peg insertion with deformable tactile pads. Blue spheres and orange cubes mark training ( $n=100$ ) and held-out evaluation ( $n=50$ ) start poses, respectively. The purple curve shows an expert trajectory, with translucent gripper configurations at multiple timestamps; the dashed gray curve shows an alternative demonstration. Inset shows close-ups of the pads during insertion. Arrows show per-bump tangential displacement.",
+     "image": "details/2610.31661/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "誰でも使える触覚エコシステムが拓くロボティクスの未来",
+   "summary_ja": "OpenTacは、設計から製造、シミュレーション、高速駆動までを垂直統合したオープンな触覚エコシステムです。FPCBの非伸縮性やピエゾ抵抗特有のヒステリシスといった課題はあるものの、ハードウェアとソフトウェアを完全公開することで、ロボット触覚研究の発展に大きく貢献します。",
+   "details_ja": "本論文では、ロボットの表面形状に合わせて自在にカスタムでき、垂直力とせん断力の3次元力を計測可能な触覚スキン「OpenTac」とそのエコシステムを提案しました。CAD自動設計ツール、FEMシミュレータ、センサ間転送、高速サンプリング技術を統合することで、触覚センサの導入ハードルを劇的に下げることに成功しています。\n\n一方で、いくつかの限界も率直に述べられています。まず、標準的なFPCBを用いているため伸縮性がなく、球面板のような二重曲率を持つ面には切り込みを入れずに貼り付けることができません（可展面に限定されます）。また、安価な感圧フィルムを採用している代償として、材料特有のヒステリシスや温度ドリフトが存在します。適応サンプリングも、全面が同時に接触するような状況ではラスタースキャンと同等の速度に低下します。\n\nそれでも、30種類以上のセンサ実証や実機マニピュレーションでの劇的な性能向上、1kHz超のサンプリング性能は非常に魅力的です。全ハードウェア図面、ファームウェア、シミュレーションコードはオープンソース（opentac.github.io）として寛容なライセンスで公開されており、今後のロボティクス・身体性AIコミュニティにおける標準プラットフォームとなることが期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "突起（バンプ）による局所的な圧力差を利用することで、安価な単層感圧フィルムとFPCBだけでも高精度な3次元力（垂直＋せん断）センシングが可能になる。",
+  "ペグ挿入や鍵回しのような接触リッチなタスクでは、垂直圧力だけでなく「せん断力」のフィードバックが模倣学習ポリシーの成功率を大きく左右する。",
+  "幾何情報と配線順序を切り離した「マニフェスト（仕様ファイル）」を共通言語にすることで、CAD生成、FEMシミュレーション、データ転送を完全に自動連携できる。",
+  "接触の局所性と時間的連続性を活かした適応的クアッドツリーサンプリングにより、アレイサイズが大きくなっても1kHz以上の高速読み出しを維持できる。"
+ ],
+ "limitations_ja": [
+  "基板に通常の柔軟FPCBを用いているため伸縮性（stretchability）がなく、球体などの二重曲面には直接貼り付けられない（可展面のみ対応）。",
+  "ピエゾ抵抗（感圧）フィルム特有のヒステリシス、クリープ、温度ドリフトが存在するため、長時間の絶対値計測には定期的なキャリブレーションや相対値利用が推奨される。",
+  "適応的サンプリング（Xampling）は接触が局所的である前提に依存しており、全面が同時に接触するような広域接触ではフレームレートが通常の走査速度まで低下する。"
+ ],
+ "keywords": [
+  "tactile sensing",
+  "shear force sensing",
+  "flexible PCB",
+  "sensor compiler",
+  "contact-rich manipulation",
+  "adaptive acquisition"
+ ],
+ "id": "2610.31661",
+ "title": "OpenTac: An Open Ecosystem for Customizable, Scalable, and Transferable 3D Tactile Sensing",
+ "authors": [
+  "Ariel Slepyan",
+  "Geeta Chandra Raju Bethala",
+  "Jiafeng Gu",
+  "Anagha Rajendra Dangle",
+  "Yinzhe Zhou",
+  "Hongyuan Fu",
+  "Jade Sim",
+  "Tuhin Basu",
+  "Xinyi Yin",
+  "Md Faizal Karim",
+  "Gregory Hager",
+  "Homanga Bharadhwaj",
+  "Anand Bhattad",
+  "Krishna Murthy Jatavallabhula",
+  "Nitish V. Thakor"
+ ],
+ "date": "2026-10-24",
+ "group": "general",
+ "tags": [
+  "hardware",
+  "perception",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO",
+  "eess.SP",
+  "eess.SY"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.31661",
+ "pdf_url": "https://arxiv.org/pdf/2610.31661",
+ "summary_ja": "垂直力だけでなく局所的な剪断力ベクトルを高精度に復元可能な抵抗膜式3D触覚スキンOpenTacを提案した。変形可能なオーバレイ構造により近傍素子の差動応答から剪断力を取得し、ロボットの把持や制御への統合を容易にする。2D図面から製作ファイルを自動生成するオープンソースの設計ツールも提供している。",
+ "generated": "2026-10-24",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.31661"
+}
