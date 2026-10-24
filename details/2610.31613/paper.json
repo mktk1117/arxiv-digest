@@ -1,0 +1,148 @@
+{
+ "title_ja": "Progress Probes: Vision-Language-Actionモデルのための軽量ランタイム監視機構",
+ "tldr_ja": "VLA（視覚・言語・行動モデル）の内部活性化値からタスクの「残り進捗」を線形回帰で読み取ることで、外部の大規模モデルや失敗データを一切使わずに、推論速度数万倍かつ高精度に異常・失敗を検知できる手法を提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "進捗プローブ（$P^2$）の全体概要。成功デモ動画での経過時間から正規化した進捗を定義し、VLAの中間層活性化値からそれを予測する線形プローブを学習します。実行時に予測進捗が想定ペースから大きく遅れた場合に「失敗」と判定します。",
+  "caption": "Fig. 1: Progress Probes ( $P^{2}$ ) decode task progress directly from the VLA’s internal activations. Using only successful demonstrations, we assign each timestep a normalized progress $\\zeta_{t}$ and fit a linear probe to predict it from $z_{t}^{i}$ , the activation at layer $i$ . At runtime, successful executions follow the expected progression through the task, whereas failed executions cause the decoded progress to lag or deviate from this nominal trajectory. Thus, the policy’s own representations enable us to construct a lightweight runtime monitor without failure data or an external foundation model.",
+  "image": "details/2610.31613/F1.jpg"
+ },
+ "overview_ja": "画像と自然言語の指示からロボットの動作を直接生成するVLA（Vision-Language-Actionモデル）は目覚ましい進化を遂げていますが、突然の判断ミスやデッドロックといった予期せぬ失敗を起こすリスクが常に付きまといます。人間が見張り続けなくても実環境へ安心して展開するためには、ロボットが「今、失敗しかけている」ことをリアルタイムに検知するランタイムモニターが欠かせません。\n\nしかし、従来のモニタリング手法は外部の大規模VLM（視覚言語モデル）にロボットのカメラ映像を見せて判定させたり、高コストな動画報酬モデルを用いたりするものが主流でした。これらは計算負荷が非常に重く、数Hzで動き続けるロボット制御ループに組み込むには遅すぎるという問題がありました。また、事前に様々な失敗データを収集・学習させなければならない手法も多く、実用上のハードルになっていました。\n\nそこで著者らは「VLA自身の内部状態（アクティベーション）に、すでに失敗を気づくための手がかりがあるのではないか？」と考えました。最近の機械論的解釈可能性（モデル内部の表現を分析する研究）の知見に着目し、VLAの隠れ層には現在のタスク進捗が線形に埋め込まれているという仮説を立てたのです。提案手法「Progress Probes（$P^2$）」は、成功デモのみから各時刻の残りタスク進捗をラベル付けし、VLAの中間層特徴量からそれを予測するシンプルな線形プローブ（重み行列とバイアス）を学習します。実行時は、VLAが動作生成のためにすでに計算した特徴量をそのままプローブに通し、想定される進捗ペースからどれだけ遅れているかを測るだけで異常を検知します。\n\nシミュレーション（VLABenchの6タスク）および実機Franka Research 3を用いた6種類のマニピュレーションタスクで検証した結果、$P^2$ は失敗データで訓練した既存手法や4Bパラメータの巨大なVLMベースのモニターと同等以上の失敗検知性能（AUROC約0.78〜0.79）を達成しました。さらに、外部VLMに比べて推論速度は数千〜数万倍も高速で、未知タスクへの汎化能力も高いことが確認されました。",
+ "contributions_ja": [
+  "VLA（$\\pi_{0.5}$）の内部表現から、成功デモのみで学習した線形プローブによってタスク進捗が高精度にデコード可能であることを実証した点",
+  "外部VLMや失敗データの事前収集を一切必要とせず、推論のついでに極めて低計算コスト（数ミリ秒以内）で動作するランタイムモニター $P^2$ を設計した点",
+  "シミュレーション6タスクと実機6タスクにおいて、外部VLM（Robometer）や失敗教師あり手法（SAFE）を上回る失敗検知性能と未知タスクへの汎化性を示した点",
+  "ロボットの行動データでファインチューニングされたVLAの内部表現が、画像・テキストのみで事前学習されたVLMよりも進捗検知において本質的に優れていることを明らかにした点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "VLAの失敗をどう見張るか：外部の巨大モデルに頼らない逆転の発想",
+   "summary_ja": "VLAは汎用的なロボット方策として期待される一方で、予測困難な失敗を突発的に起こします。既存の監視手法は外部VLMや失敗データに依存して計算コストが高いため、本論文ではVLA自身の内部活性化値からタスク進捗を読み取る超軽量なモニター手法を提案します。",
+   "details_ja": "$\\pi_{0.5}$ や GR00T に代表されるVLAは、多様な環境やタスクで高い成功率を収めるようになってきました。しかし、言語の接地不良や予期せぬスタックなど、突然の失敗を完全に防ぐことはできません。安全な自律稼働には、方策が脱線した瞬間に気づく「ランタイムモニター」が必要です。\n\n従来のモニターは、大きく2つのアプローチに分かれていました。1つはSentinelのように外部の巨大なVLM（視覚言語モデル）に状況を監視させる方法や、Robometerのような汎用報酬モデルを用いる方法です。これらは高い汎用性を持つ一方で、推論に数百ミリ秒から数秒を要し、計算資源を過大に消費します。もう1つは方策の内部状態を使う手法（SAFEなど）ですが、失敗予測器を学習するために大量の「失敗軌道データ」を人手で用意する必要がありました。\n\n本研究では、機械論的解釈可能性（Mechanistic Interpretability）の研究で明らかになりつつある「トランスフォーマーの隠れ層には高レベルな概念が線形に埋め込まれている」という事実に着目しました。もしVLA自身の活性化値に「タスクがどこまで進んだか」という情報（進捗度）が含まれているなら、それを線形回帰で読み出すだけで、正常な進行からのズレを検知できるはずです。\n\nこのアイデアの利点は3つあります。1つ目は、成功デモの時間情報から自動で進捗ラベルを作れるため、失敗データや人手ラベルが不要なこと。2つ目は、VLAが行動を生成する際の順伝播で得られた中間特徴量をそのまま使い回すため、追加の推論負荷がほぼゼロなこと。そして3つ目は、外部VLMに比べて5倍〜20,000倍も高速に動作することです。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "ロボット方策の解釈可能性とランタイムモニタリングの系譜",
+   "summary_ja": "本研究は、ニューラルネットワーク内部の概念を読み解く「線形表現仮説」に基づく解釈可能性研究と、ロボットの実行時異常検知という2つの研究分野の交差点に位置づけられます。",
+   "details_ja": "本章では、関連する先行研究を2つの系統に整理しています。\n\n### ロボット方策の機械論的解釈可能性\n自然言語処理やコンピュータビジョンでは、モデル内部の特徴量空間において特定の概念が一方向のベクトル（線形表現）として表現されているという「線形表現仮説」が広く支持されています。近年、この分析手法がロボットのVLAにも適用され始め、エンドエフェクタの位置、物体の状態、タスクのフェーズなどが中間層から線形プローブ（単純な線形識別器）で高精度にデコードできることが分かってきました。本論文は、この知見をさらに一歩進め、「タスクの進捗度」という時間的・意味的な大域情報が線形に読み出せるか、そしてそれをロボットの安全監視という実用的な機能へ昇華できるかを問いかけます。\n\n### ロボット基盤モデルのランタイムモニタリング\nVLAの実行時監視手法は、監視に使う「シグナル」の違いで分類できます。\n- **入力レベル**: 入力画像の特徴量空間での異常度や新奇性を測る手法（FIPERのRNDコンポーネントやFAIL-Detectなど）。\n- **出力レベル**: モデルが出力した行動 chunk（連続アクション列）の分布の不確実性や時間的一貫性を評価する手法（STACなど）。\n- **外部モデル・報酬モデル**: 外部のVLMに行画を見せて判断させたり、動画からタスク進捗を測るRobometerのような大規模報酬モデルを用いる手法。\n- **内部特徴量レベル**: ポリシー内部の活性化値から成功・失敗を予測する手法（SAFEなど）。\n\n既存の内部特徴量手法（SAFE）は失敗ラベル付きの軌道データを用いた教師あり学習を前提としていましたが、本手法 $P^2$ は「成功軌道のみ」から自己教師あり的に学習できる点で決定的に異なります。",
+   "figures": []
+  },
+  {
+   "heading": "III Background: Mechanistic Interpretability via Linear Probing",
+   "heading_ja": "背景知識：線形プロービングによる内部状態の解読",
+   "summary_ja": "VLAの中間層から特定の概念を抽出する基礎技術「線形プロービング（Linear Probing）」の定式化を説明します。モデルの重みは一切更新せず、特定層の活性化値に対する単純な線形回帰器をフィッティングします。",
+   "details_ja": "本研究で用いる線形プロービングの枠組みは非常にシンプルです。\n\n観測 $o_t$（画像 $I_t$、プロプリオセプション $q_t$、言語指示 $\\ell_t$）を入力とし、$h$ ステップのアクション chunk $\\mathbf{a}_t$ を出力するVLAポリシー $\\pi$ を考えます。多くのVLAと同様に、本研究で扱う $\\pi_{0.5}$ も視覚言語バックボーン（PaliGemma）を持つトランスフォーマー構造です。\n\n入力トークン列は $L$ 個のトランスフォーマーブロックを通過し、各層 $i$ で中間活性化値 $z_t^i \\in \\mathbb{R}^d$ を生成します。ここで抽出したいターゲット特徴量をスカラー値 $\\zeta \\in \\mathbb{R}$ と置きます。重みベクトル $w$ とバイアス $b$ からなる線形プローブは次式で表されます：\n$$\\hat{\\zeta}(z^i) = w^\\top z^i + b$$\n\nロボットの軌道データセット $\\mathcal{D}$ に含まれる各ステップの観測をVLAに入力して中間活性化値を抽出し、ターゲット値 $\\zeta$ とのペアデータ $\\mathcal{D}_{\\text{probe}} = \\{(z_t^i, \\zeta_t)\\}$ を作成します。あとは通常の線形回帰（最小二乗法）を解くだけで、プローブの重み $w, b$ が求まります。VLA本体の重みは完全に固定（フリーズ）されているため、計算も学習も極めて軽量です。",
+   "figures": []
+  },
+  {
+   "heading": "IV Problem Formulation: Runtime Monitoring",
+   "heading_ja": "ランタイムモニタリング問題の定式化：早く、正確に失敗を見つける",
+   "summary_ja": "ランタイムモニターの役割は、実行中の軌道から異常度スコアを計算し、誤検知を抑えつつ可能な限り早い段階で失敗を検知することです。これを評価するための数学的枠組みを整理します。",
+   "details_ja": "時刻 $t$ までの観測と行動の履歴を $\\bm{\\tau}_t = (o_0, a_0, \\dots, o_t)$、最大許容ステップ数を $H$ とします。エピソード全体の成否を二値変数 $Y \\in \\{0, 1\\}$（1が成功、0が失敗）で定義します。\n\nランタイムモニター $s(\\bm{\\tau}_t) \\in \\mathbb{R}$ は、軌道履歴を受け取って「正常な挙動からどれだけ乖離しているか」を表すスカラー値を返す関数です。あらかじめ設定したしきい値 $\\delta$ を超えた最初の時刻を検知時刻 $T_\\delta = \\inf\\{t \\mid s(\\bm{\\tau}_t) > \\delta\\}$ と呼びます（しきい値を超えなければ $T_\\delta = \\infty$）。\n\n理想的なモニターの設計目標は、次の2つのトレードオフを最適化することです：\n$$\\min_s \\; \\operatorname{FPR}(\\delta, \\bm{\\tau}; s) + \\lambda \\operatorname{DetectTime}(\\delta, \\bm{\\tau}; s)$$\nここで $\\operatorname{FPR}$ は成功軌道なのに誤って失敗と判定してしまう偽陽性率（False Positive Rate）、$\\operatorname{DetectTime}$ は失敗軌道においてどれだけ早いステップで検知できたかを表す平均検知時間です。$\\lambda$ は両者の重要度のバランスをとる重み係数です。つまり、「誤報を出さず、かつ失敗したときは一刻も早くアラートを鳴らす」モニターを、VLAの内部活性化値に対する線形プローブだけで作ることが本研究のゴールです。",
+   "figures": []
+  },
+  {
+   "heading": "V Progress Probes as Runtime Monitors",
+   "heading_ja": "提案手法 $P^2$：進捗の遅れを監視するミニマルなモニター設計",
+   "summary_ja": "成功軌道における残り時間を正規化した「進捗ラベル」を線形プローブで学習します。実行時は、予測進捗が平均ペースからどれだけ遅れているかをスコア化し、しきい値を超えたら失敗とみなします。",
+   "details_ja": "提案手法「Progress Probes（$P^2$）」のコアとなる着想は、「正常な実行であれば、タスクの進捗度は時間とともに単調に進むが、失敗や停滞が起きると内部の進捗度が経過時間から取り残される」という点です。\n\n### 進捗プローブの学習\n長さ $T$ の成功軌道 $\\bm{\\tau} = (o_0, \\dots, o_T)$ において、時刻 $t$ での正規化タスク進捗度 $\\zeta_t$ を「残り時間の割合」として次のように定義します：\n$$\\zeta_t = 1 - \\frac{t}{T}$$\nこの値は開始時（$t=0$）に $1.0$、完了時（$t=T$）に $0.0$ へと線形に減少します。人手による注釈は一切不要で、成功デモのタイムスタンプだけで自動生成できます。\n\n$N$ 本の成功軌道をVLAに通し、特定層の活性化値 $z_t^i$ を取得して、線形回帰により進捗予測値 $\\hat{\\zeta}(z^i) = w^\\top z^i + b$ を学習します。\n\n### 実行時のモニタリング\n成功デモ全体の平均ステップ数を $\\mu_T$ と置くと、時刻 $t$ における「あるべき標準進捗（名目進捗）」は $\\zeta^{\\text{nom}}_t = 1 - \\frac{t}{\\mu_T}$ です。実行時の異常スコア $s(\\bm{\\tau}_t)$ は、現在の予測進捗と標準進捗とのズレとして定義されます：\n$$s(\\bm{\\tau}_t) = \\hat{\\zeta}(z_t^i) - \\zeta^{\\text{nom}}_t$$\n進捗度は開始時が大きく完了時が小さいため、スコアが「正」に大きくなるということは、実際のタスク進行が名目ペースよりも遅れている（進捗が残ったまま停滞している）ことを意味します。ロボットが予定より早く作業を終える（スコアが負になる）ことはペナルティとせず、遅れがしきい値を超えた（$s(\\bm{\\tau}_t) > \\delta$）ときのみ失敗として検知します。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "左から順に：成功デモからの進捗ラベル付け（開始1.0から終了0.0）、VLA内部活性化値からの線形回帰学習、そして実行時の乖離検知の様子。失敗軌道（赤線）では予測進捗が標準線（黒線）から乖離し、検知境界を超えてアラートが発火します。",
+     "caption": "Fig. 1: Progress Probes ( $P^{2}$ ) decode task progress directly from the VLA’s internal activations. Using only successful demonstrations, we assign each timestep a normalized progress $\\zeta_{t}$ and fit a linear probe to predict it from $z_{t}^{i}$ , the activation at layer $i$ . At runtime, successful executions follow the expected progression through the task, whereas failed executions cause the decoded progress to lag or deviate from this nominal trajectory. Thus, the policy’s own representations enable us to construct a lightweight runtime monitor without failure data or an external foundation model.",
+     "image": "details/2610.31613/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Experiments: Simulation",
+   "heading_ja": "シミュレーション検証：巨大VLM並みの精度を1万倍の速さで実現",
+   "summary_ja": "VLABenchの6タスクで評価を実施しました。$P^2$ は失敗データで訓練された先行研究（SAFE）と同等以上の検知精度を達成し、4BモデルのRobometerと比較して推論速度が10,000倍以上高速であることが示されました。",
+   "details_ja": "シミュレーション実験では、10タスク・5,000軌道でファインチューニングされた $\\pi_{0.5}$ をベースに、十分な成功率が得られる6つのマニピュレーションタスクで評価を行いました。\n\n### VI-A 効率性・識別性能・汎化性の評価\n- **推論レイテンシ**: NVIDIA RTX A6000で計測した結果、$P^2$ の推論時間は $2.6 \\times 10^{-2}$ ms（約0.026ミリ秒）と圧倒的な最速を記録しました。SAFE-MLP（0.12 ms）やSAFE-LSTM（0.18 ms）より大幅に高速です。\n- **失敗検知精度**: エピソード全体での成否を判定するEpisode AUROCで $0.909$、タイムステップごとの成否を判定するState AUROCで $0.788$ を達成しました。これは失敗データを用いて学習した教師ありベースライン（SAFE-MLPのState AUROC 0.812など）に肉薄する性能です。\n- **未知タスクへの汎化**: 6タスク中3タスクを訓練、残り3タスクをテストとする全20通りの分割で評価したところ、未知タスクでもEpisode AUROC $0.900$、State AUROC $0.794$ を維持し、高い汎化力を実証しました。\n- **検知の早さ**: 偽陽性率（FPR）を5%に抑えた条件下で、エピソード全体の平均60%の時点（完了前の早い段階）で失敗を検知できました。再帰構造を持つSAFE-LSTM（53%時点）と比べても遜色ありません。\n\n### VI-B 外部VLM（Robometer）との直接対決\n40億パラメータ（4B）を持つ動画報酬モデル「Robometer」と比較しました。RobometerをファインチューニングしたRobometer-FTと同等の識別性能を、$P^2$ はわずか2,000個（2K）のパラメータの線形プローブで達成しました。さらに推論速度は10,000倍以上高速です。\n\n### VI-C なぜVLAの内部表現が良いのか？（行動データの影響）\nロボットのアクション学習を行っていない元のVLM（PaliGemma）やRobometerの特徴量に対して同じ進捗プローブを学習させ、性能を比較しました。成功軌道における進捗予測の決定係数 $R^2$ は、$P^2_{\\pi_{0.5}}$ が $0.83$ だったのに対し、PaliGemmaは $0.69$、Robometer-FTは $0.76$ に留まりました。失敗検知のAUROCもVLA内部表現を使った場合が $0.93$ と最も優れていました。ロボットの行動生成を学習したことで、モデル内部に物理タスクの進行を捉える洗練された特徴表現が自己組織化されていることが裏付けられました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "プローブを学習させたバックボーンごとの進捗予測性能（上段・下段左）と失敗検知AUROC（下段右）。行動データで訓練されたVLA（ProgressProbe, 橙）が、VLM（PaliGemma, 紫）やRobometerよりも高い決定係数（$R^2=0.83$）と失敗検知性能（AUROC 0.93）を示しています。",
+     "caption": "Fig. 2: Simulation: Progress Probe vs. VLMs. ( Top ): Progress prediction results using progress probes trained on different representations. ( Bottom ): Progress prediction mean- $R^{2}$ and failure detection results using progress probes trained on different representations.",
+     "image": "details/2610.31613/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VII Experiments: Hardware",
+   "heading_ja": "実機実験：Frankaロボットアームによる複雑マニピュレーションでの検証",
+   "summary_ja": "実機のFrankaアームを用いた6つの物理タスク（お菓子の袋の配置、コーヒー豆の注ぎ入れなど）で検証しました。$P^2$ は実機においても既存ベースラインを上回る最高水準の検知性能と未知タスク汎化性能を達成しました。",
+   "details_ja": "シミュレーションに続き、実世界での実効性を確かめるため、Franka Research 3ロボットアームとDROIDカメラセットアップを用いた実機実験を行いました。\n\n### ハードウェアタスクと実験設定\nタスクは物理的な複雑さが異なる6種類です：\n- **Candy Bag**: こぼさないように開いたキャンディの袋を拾ってケースに入れる\n- **Coffee Bag**: コーヒー豆の袋をケースに入れる\n- **Coffee Bean**: スプーン等でコーヒー豆をボウルに注ぐ（こぼすと失敗）\n- **Knife Put**: ナイフをボウルに置く\n- **Block Stack**: ジェンガブロックを別のブロックの上に積み上げる\n- **Stacked Utensil**: 皿の上のスプーンを落とさずに別のスプーンを持ち上げる\n\n各タスク60軌道（計360軌道）のデモからプローブを訓練し、成功・失敗が半々の計120ロールアウトで評価しました。\n\n### VII-A 失敗検知性能\n$P^2$ は実機環境において、Episode AUROC（0.65）およびState AUROC（0.78）の両方で全ベースライン中トップの成績を収めました（図F3）。特に Block Stack（AUROC 0.87）や Stacked Utensil（AUROC 0.81）で極めて高い検知精度を示しました。定性的にも、ナイフを掴み損ねたり落としたりした瞬間に、予測進捗が名目ラインからガクンと遅れ、検知境界を横切ってアラートが鳴る様子が確認されています（図F4）。一方、Coffee Beanのように豆の粒が小さく画像上の変化が極めて微小なタスクでは、VLAの内部活性化値に十分な変化が現れず、検知が難しくなるという課題も見られました。\n\n### VII-B 未知タスクへの汎化能力\n実機タスクでも6タスク中3タスクでプローブを訓練し、残り3タスクでテストする汎化実験（全20通り）を行いました。その結果、$P^2$ は未知タスクに対しても平均State AUROC $0.81$ という最高スコアを記録しました。VLAの内部表現が、特定の物体や動作を超えて「作業が順調に進んでいるか」という共通の構造を捉えていることが実世界でも示されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "実機全タスクにおける失敗検知性能（上がEpisodeレベル、下がStateレベル）。$P^2$（一番右の橙色）は、失敗ラベルを使うSAFEやRobometer-FTを含むすべての比較手法を一貫して上回るAUROCを達成しています。",
+     "caption": "Fig. 3: Hardware: Runtime Monitoring. Episode-level and state-level AUROC for failure detection. $P^{2}$ achieves strong discriminability at both levels for runtime monitoring.",
+     "image": "details/2610.31613/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "Knife Putタスクでの定性的な予測軌跡。緑が成功、赤が失敗軌道です。失敗軌道では失敗発生ポイント（赤丸）付近から予測進捗が停滞し、赤色の検知領域（Detection Boundary）に突入して即座に異常が検知されます。",
+     "caption": "Fig. 4: Hardware: Qualitative. Red curves show failed trajectories and $P^{2}$ predictions, while green curves show predictions on successful trajectories for the Knife Put task. $P^{2}$ correctly identifies failures while remaining within the nominal range on successful executions, demonstrating reliable separation between successful and failed behavior.",
+     "image": "details/2610.31613/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VIII Conclusion and Limitations",
+   "heading_ja": "まとめと今後の課題：内部状態を活かした自己完結型ロボットへ",
+   "summary_ja": "VLAの内部活性化値からタスク進捗を線形にデコードする $P^2$ は、外部モデル不要の超高速かつ高精度なランタイムモニターを実現しました。モデルアーキテクチャの多様化やアクション拡散ヘッドの活用が今後の展望です。",
+   "details_ja": "本論文では、VLA自身の内部表現からタスク進捗を読み取る超軽量ランタイムモニター「Progress Probes（$P^2$）」を提案しました。シミュレーションおよび実機での徹底的な比較実験を通じて、高価な外部VLMや失敗教師データを使わずとも、シンプル極まりない線形プローブだけで最高性能のモニターが構築できることを示しました。\n\n一方で、論文内ではいくつかの限界と将来の研究課題も挙げられています：\n- **他アーキテクチャへの適用**: 本研究は $\\pi_{0.5}$（バックボーンはPaliGemma）に焦点を当てています。GR00TやMolmoActなど、異なるバックボーンや事前学習レシピを持つVLAファミリーでも同様に進捗表現が存在するかは今後の検証課題です。\n- **アクションエキスパートの内部状態**: 近年のVLAの多くは、VLMバックボーンの後段に拡散モデル（Diffusion）やフローマッチングを用いた連続アクションエキスパートを備えています。本研究ではVLMの中間層のみをプロービング対象としましたが、行動生成ヘッド側の内部状態を組み合わせることで、さらに高精度な異常検知ができる可能性があります。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "VLAは行動生成の過程で、明示的に学習していなくても自身の内部活性化値の中に「タスク進捗度」を自然と線形に表現している。",
+  "成功デモ動画の時間経過をそのまま「進捗ラベル」とするだけで、失敗データや人手ラベルなしに自己教師あり的にモニターを構築できる。",
+  "外部の大規模VLMに映像を見せて監視させるアプローチに比べ、VLAの内部プローブを使えば1万倍以上高速かつ同等以上の検知精度が得られる。",
+  "単なる視覚言語モデル（VLM）よりも、ロボットの行動データでファインチューニングされたVLAの方が、物理タスクの進捗を正確に内部表現化できている。"
+ ],
+ "limitations_ja": [
+  "検証が特定のVLAアーキテクチャ（PaliGemmaベースの $\\pi_{0.5}$）に限定されており、他系統のVLAモデルへの汎用性は未検証である点",
+  "コーヒー豆のこぼれのように、画像上の変化が極めて局所的で微小な失敗モードでは、VLAの活性化値に有意な変化が現れず検知が遅れる場合がある点",
+  "拡散モデルなどのアクション生成ヘッド内部の状態は活用しておらず、VLMバックボーン側の特徴量のみに依存している点"
+ ],
+ "keywords": [
+  "Vision-Language-Action Models",
+  "Runtime Monitoring",
+  "Linear Probing",
+  "Mechanistic Interpretability",
+  "Failure Detection"
+ ],
+ "id": "2610.31613",
+ "title": "Progress Probes $P^2$: Lightweight Runtime Monitoring for Vision-Language-Action Models",
+ "authors": [
+  "Atiksh Bhardwaj",
+  "Edward W. Duan",
+  "Junwon Seo",
+  "Prithwish Dan",
+  "Wei-Chiu Ma",
+  "Andrea Bajscy",
+  "Preston Culbertson"
+ ],
+ "date": "2026-10-24",
+ "group": "general",
+ "tags": [
+  "vision-language-action",
+  "safety",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.31613",
+ "pdf_url": "https://arxiv.org/pdf/2610.31613",
+ "summary_ja": "VLAモデルの実機運用における予期せぬ失敗を検知するため、外部VLM等に頼らずモデル内部の活性化状態をプローブする軽量監視手法P^2を提案した。中間層の表現からタスクの進行状況や軌道逸脱を高精度かつ超低遅延で判定できる。これによりリアルタイムの閉ループ制御を妨げることなく自律的な異常検知とリカバリが可能となる。",
+ "generated": "2026-10-24",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.31613"
+}
