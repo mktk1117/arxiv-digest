@@ -1,6 +1,273 @@
 {
  "entries": [
   {
+   "date": "2026-10-24",
+   "rank": 0,
+   "id": "2610.31166",
+   "group": "focus",
+   "title": "Memory before Goal: Role of Pre-History Memory for Humanoid Loco-Manipulation",
+   "title_ja": "ヒューマノイドの全身ロコマニピュレーションに向けた事前履歴メモリの役割",
+   "summary_ja": "ヒューマノイドのロコマニピュレーションでは歩行や方向転換に伴い対象物が視野外に消える非マルコフ性が生じる。本研究は、行動開始前の物体イベント履歴を保持して方策が参照できる知覚メモリ機構WholeBodyMemを提案した。Unitree G1を用いたシミュレーションおよび実機タスクからなるベンチマークHuMeGoを構築し、動的環境での有効性を実証した。",
+   "summary_en": "Humanoid loco-manipulation in dynamic scenes suffers from non-Markovian observations as objects disappear from view when the robot turns and walks. This paper proposes WholeBodyMem, an object-guided perceptual memory that stores pre-history object events for whole-body policies to attend via cross-attention. The authors also establish HuMeGo, a benchmark with six simulated and six real-world tasks on the Unitree G1 humanoid to validate the approach.",
+   "authors": [
+    "Chenyuan Chen",
+    "Ran Ding",
+    "Lechen Zhang",
+    "Zewen He",
+    "Yoshihiko Nakamura"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.31166",
+   "image": "figures/2026-10-24/2610.31166.jpg"
+  },
+  {
+   "date": "2026-10-24",
+   "rank": 1,
+   "id": "2610.30500",
+   "group": "focus",
+   "title": "PhysibleMDM: Enforcing Inference-Time Physical Feasibility Constraints on Motion Diffusion Models via Noise Optimization",
+   "title_ja": "PhysibleMDM: ノイズ最適化による運動拡散モデルへの推論時物理実現可能性制約の導入",
+   "summary_ja": "運動拡散モデルが生成する軌道は物理制約に違反しやすく、制御やシミュレーションへの応用の障壁となっていた。PhysibleMDMはモデルの再学習なしに、推論時に拡散ノイズを最適化することで物理的妥当性を満たす軌道を生成する。逆動力学や接地・衝突等の制約を効率的に評価し、シミュレーション可能な運動を生成する。",
+   "summary_en": "Motion Diffusion Models often yield trajectories violating physical constraints, limiting their downstream use in simulation and control. PhysibleMDM optimizes diffusion noise at inference time without retraining to enforce physical feasibility. By combining surrogate kinematic checks and an efficient inverse-dynamics formulation, it produces physically plausible human motions suitable for physics engines and controllers.",
+   "authors": [
+    "Maximilian Stölzle",
+    "David Müller",
+    "Agon Serifi",
+    "Ruben Grandia",
+    "Espen Knoop",
+    "Moritz Bächer"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "control",
+    "simulation",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.30500",
+   "image": "figures/2026-10-24/2610.30500.jpg"
+  },
+  {
+   "date": "2026-10-24",
+   "rank": 2,
+   "id": "2610.31299",
+   "group": "focus",
+   "title": "PiHand: Latent Hand-Object Interaction Priors for Physics-Based Policy Learning",
+   "title_ja": "PiHand: 物理ベース方策学習のための潜在的手・物体相互作用事前分布",
+   "summary_ja": "物理シミュレーション下で器用な手による物体操作を学習させるため、手と物体の相互作用を捉える潜在表現フレームワークPiHandを提案した。モーキャプ軌道を追従するエキスパート方策から幾何情報と接触を考慮した事前分布を抽出し、物理ベース強化学習の探索を効率化する。未知の物体形状に対しても自然で安定した把持・操作方策の学習を可能にした。",
+   "summary_en": "To synthesize physically grounded dexterous hand-object interactions, PiHand introduces a framework learning interaction-aware latent priors. Expert policies tracking mocap demonstrations are distilled into a latent representation capturing hand-object contact dynamics, which guides physics-based reinforcement learning policies. This enables sample-efficient learning of stable, natural grasps across diverse and novel 3D object geometries.",
+   "authors": [
+    "Niklas Berndt",
+    "Xianghui Xie",
+    "Enes Duran",
+    "Yixiao Wang",
+    "Gerard Pons-Moll"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "manipulation",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.31299",
+   "image": "figures/2026-10-24/2610.31299.jpg"
+  },
+  {
+   "date": "2026-10-24",
+   "rank": 3,
+   "id": "2610.31474",
+   "group": "focus",
+   "title": "Skeleton-Grounded Latent Action Model for Robot World Models",
+   "title_ja": "SkeLAM: ロボットワールドモデルのための骨格準拠潜在行動モデル",
+   "summary_ja": "動画から環境ダイナミクスを学ぶワールドモデルにおいて、従来の潜在行動モデルはロボット自身の動作と物体変化を混在させて制御性を損なっていた。提案手法SkeLAMは、ロボットのキネマティクス骨格情報を用いて潜在行動を骨格準拠成分と視覚残差成分に分解する。これによりロボットの実際の制御入力と対応した高精度なワールドモデル予測を実現した。",
+   "summary_en": "Latent action models for robot world models often entangle robot movements with visual scene changes, making action-conditioned control difficult. SkeLAM addresses this by decomposing latent actions into a kinematic component grounded by robot skeleton supervision and a complementary residual visual dynamic component. Cross-modal swap reconstruction aligns RGB and kinematic features, enabling highly controllable robot world modeling.",
+   "authors": [
+    "Qi Lv",
+    "Jiayi Lin",
+    "Yuxin Jiang",
+    "Jianzong Wang",
+    "Xiang Deng",
+    "Mike Shou Zheng"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "control",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.31474",
+   "image": "figures/2026-10-24/2610.31474.jpg"
+  },
+  {
+   "date": "2026-10-24",
+   "rank": 4,
+   "id": "2610.31661",
+   "group": "general",
+   "title": "OpenTac: An Open Ecosystem for Customizable, Scalable, and Transferable 3D Tactile Sensing",
+   "title_ja": "OpenTac: カスタマイズ可能で拡張性の高い3D触覚センシングのためのオープンエコシステム",
+   "summary_ja": "垂直力だけでなく局所的な剪断力ベクトルを高精度に復元可能な抵抗膜式3D触覚スキンOpenTacを提案した。変形可能なオーバレイ構造により近傍素子の差動応答から剪断力を取得し、ロボットの把持や制御への統合を容易にする。2D図面から製作ファイルを自動生成するオープンソースの設計ツールも提供している。",
+   "summary_en": "OpenTac is a tactile skin ecosystem featuring a scalable resistive array capable of measuring both normal force and 3D shear vectors through a deformable overlay. The differential taxel response captures local shear, facilitating sensitive contact detection for robotic manipulation. The authors also release open-source sensor design tools that automatically generate fabrication files from 2D profiles.",
+   "authors": [
+    "Ariel Slepyan",
+    "Geeta Chandra Raju Bethala",
+    "Jiafeng Gu",
+    "Anagha Rajendra Dangle",
+    "Yinzhe Zhou",
+    "Hongyuan Fu",
+    "Jade Sim",
+    "Tuhin Basu",
+    "Xinyi Yin",
+    "Md Faizal Karim",
+    "Gregory Hager",
+    "Homanga Bharadhwaj",
+    "Anand Bhattad",
+    "Krishna Murthy Jatavallabhula",
+    "Nitish V. Thakor"
+   ],
+   "categories": [
+    "cs.RO",
+    "eess.SP",
+    "eess.SY"
+   ],
+   "tags": [
+    "hardware",
+    "perception",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.31661",
+   "image": "figures/2026-10-24/2610.31661.jpg"
+  },
+  {
+   "date": "2026-10-24",
+   "rank": 5,
+   "id": "2610.31613",
+   "group": "general",
+   "title": "Progress Probes $P^2$: Lightweight Runtime Monitoring for Vision-Language-Action Models",
+   "title_ja": "Progress Probes: Vision-Language-Actionモデルのための軽量ランタイム監視機構",
+   "summary_ja": "VLAモデルの実機運用における予期せぬ失敗を検知するため、外部VLM等に頼らずモデル内部の活性化状態をプローブする軽量監視手法P^2を提案した。中間層の表現からタスクの進行状況や軌道逸脱を高精度かつ超低遅延で判定できる。これによりリアルタイムの閉ループ制御を妨げることなく自律的な異常検知とリカバリが可能となる。",
+   "summary_en": "Vision-Language-Action models need robust runtime monitoring to prevent unpredictable failures without expensive external supervisor models. Progress Probes (P^2) monitors policy execution using the internal activations of the VLA itself, tracking task progress and detecting deviations. This approach provides lightweight, real-time safety monitoring with minimal computational overhead during manipulation.",
+   "authors": [
+    "Atiksh Bhardwaj",
+    "Edward W. Duan",
+    "Junwon Seo",
+    "Prithwish Dan",
+    "Wei-Chiu Ma",
+    "Andrea Bajscy",
+    "Preston Culbertson"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "safety",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.31613",
+   "image": "figures/2026-10-24/2610.31613.jpg"
+  },
+  {
+   "date": "2026-10-24",
+   "rank": 6,
+   "id": "2610.30781",
+   "group": "general",
+   "title": "DeXplicit: Making Physical State Explicit in Dexterous Manipulation World Models",
+   "title_ja": "DeXplicit: 器用なマニピュレーション向けワールドモデルにおける物理状態の明示的モデリング",
+   "summary_ja": "手と物体の接触を伴う器用な操作において、動画生成による暗黙的なダイナミクス予測に代わり、3D空間での変形や運動を明示的に予測するワールドモデルDeXplicitを提案した。初期幾何と手の軌道から3Dダイナミクスを予測し、その結果からRGB画像をレンダリングすることで、物理的一貫性と画像生成品質を大幅に向上させた。",
+   "summary_en": "DeXplicit is a world model for dexterous manipulation that explicitly predicts 3D metric motion and deformation before rendering visual frames, moving away from purely implicit 2D video generation. Given the initial scene and future hand trajectories, a lightweight 3D network models object-centric physical interactions, significantly improving physical consistency and rendering fidelity.",
+   "authors": [
+    "Adam Lee",
+    "Mutian Xu",
+    "Yukang Cao",
+    "Shulin Tian",
+    "Ziwei Liu"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "world-model",
+    "manipulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.30781",
+   "image": "figures/2026-10-24/2610.30781.jpg"
+  },
+  {
+   "date": "2026-10-24",
+   "rank": 7,
+   "id": "2610.31371",
+   "group": "general",
+   "title": "Probabilistic Energy Modeling Unifies Versatile Swarm Control",
+   "title_ja": "確率的エネルギーモデリングによる多機能な群ロボット制御の統合",
+   "summary_ja": "群ロボットの多様なミッションに対してコントローラの再設計や再学習を繰り返す課題に対し、確率的エネルギーモデルに基づく統一的表現手法を提案した。ギブス確率場のエネルギー最小化と報酬最大化の対応を利用して基本行動を再利用可能なエネルギー項として定式化し、学習済み分散方策を合成することで未知の複合ミッションにも適応できる。",
+   "summary_en": "Robotic swarms typically require retuning or retraining controllers when tasks change. This work introduces probabilistic energy modeling to unify versatile swarm control, mapping Gibbs random field energy minimization to structured reward maximization. Decentralized policies trained on reusable fundamental energy terms can be dynamically composed into unified controllers for diverse collective behaviors.",
+   "authors": [
+    "Xiang Zhou",
+    "Xiangyu Zhu",
+    "Xintong Wang",
+    "Qingyuan Yang",
+    "Rui Huang",
+    "Feng Xue",
+    "Lin Li",
+    "Qingrui Zhang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.MA"
+   ],
+   "tags": [
+    "multi-robot",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.31371",
+   "image": null
+  },
+  {
+   "date": "2026-10-24",
+   "rank": 8,
+   "id": "2610.31540",
+   "group": "general",
+   "title": "Dispersive Tree Agreements for Multi-Robot Coordination",
+   "title_ja": "分散型ツリー合意による非線形マルチロボットのリアルタイム最適協調制御",
+   "summary_ja": "微分平坦性を有する非線形マルチロボット系において、大域的な結合最適解に漸近するリアルタイム分散動作計画手法を提案した。順伝播コマンドの分散ツリー探索を多ロボット間で分散合意させる仕組みを構築し、エニータイム性を保ちながら衝突回避とチーム全体での準最適軌道生成を実時間で実現した。",
+   "summary_en": "Coordinating nonlinear multi-robot systems near joint optimality has conventionally required centralized, offline planning. This paper develops a decentralized, real-time anytime planner using dispersive tree forward-propagation for differentially flat systems. By establishing multi-robot tree agreements, the system computes collision-free, near-optimal coordinated trajectories in real time.",
+   "authors": [
+    "Shashank A. Deshpande",
+    "Blake T. Edwards",
+    "Jonathan P. How"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.MA",
+    "math.OC"
+   ],
+   "tags": [
+    "multi-robot",
+    "planning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.31540",
+   "image": "figures/2026-10-24/2610.31540.jpg"
+  },
+  {
    "date": "2026-10-23",
    "rank": 0,
    "id": "2610.30876",
