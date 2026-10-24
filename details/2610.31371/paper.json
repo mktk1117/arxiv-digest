@@ -1,0 +1,126 @@
+{
+ "title_ja": "確率的エネルギーモデリングによる多機能な群ロボット制御の統合",
+ "tldr_ja": "群れ全体の局所的な相互作用をギブスランダム場のエネルギーとして定式化し、強化学習の共通報酬に変換することで、再学習なしに多彩な任務へ適応できる単一の分散型スウォーム制御フレームワークを提案しました。シミュレーションと実機実験を通じ、編隊飛行から高速レース、領域探索まで、同一ポリシーでゼロショット転移できることを実証しています。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "確率的エネルギーモデリングによるスウォーム制御の全体像です。鳥や魚の群れに着想を得て、環境との関係（1体項）とドローン同士の関係（2体項）をギブスエネルギーとして定義し、その最小化を強化学習の報酬最大化と結びつけています。学習されたポリシーは軽量なゲーティング回路で統合され、再学習なしで多彩なタスクや実機プラットフォームへゼロショット転移します。",
+  "caption": "Figure 1 : Probabilistic energy modeling for versatile swarm control. (A) Inspired by biological swarms, diverse non-contact swarm tasks are described through several reusable local coordination objectives, encoded as unary and pairwise energy terms. (B) A shared Gibbs energy defines swarm-state probabilities $P(X)\\propto\\exp[-H(X)]$ and the reward $R=-H(X)$ for multi-agent reinforcement learning. (C) Learned neighbor attention varies with spatial organization, safety and motion consensus, and neighbor-specific risk. (D) Reference-distance normalization provides scale-consistent observations for policy reuse. …",
+  "image": "details/2610.31371/F1.jpg"
+ },
+ "overview_ja": "複数のドローンが連携して動くスウォーム（群ロボット）は、探査や警備など幅広い応用が期待されています。しかし、これまでの制御手法は「特定の編隊を保つ」「障害物を避けて移動する」といった単一のタスクごとに専用設計されるのが普通でした。ミッションが変わるたびに、ルールを手作業で調整したり、強化学習の報酬を設計し直してゼロから学習させたりする必要があったのです。\n\nそこで著者らは、生物の群れがシンプルな局所ルールを組み合わせて多彩な振る舞いを生み出している点に着目しました。統計力学で使われる「ギブスランダム場（GRF）」を導入し、凝集や衝突回避、速度一致といった群れの基本ルールをすべて「エネルギー項」として表現することを思いついたのです。エネルギーを最小化することは、強化学習において構造化された報酬を最大化することと数学的に等価になります。これにより、個別のタスクごとに報酬を場当たり的に設計するのではなく、共通のエネルギー関数を重み付けするだけであらゆる任務を表現できるようになりました。\n\n検証では、10〜100機の大規模シミュレーションから、29 gの超小型機Crazyflieや自作の大型屋外機を用いた実機実験まで幅広く実施しました。狭いゲートの通過、高速レース、巡回監視、形状形成、分散探索という性質のまったく異なる6種類のミッションを、ポリシーの再学習を一切行わずに同一の統合コントローラで達成できることを確かめました。\n\nその結果、混雑した環境でも0.96〜1.00という極めて高いタスク成功率を維持し、1機あたりの推論遅延も1〜10 msと機体数に依存しないリアルタイム性を実証しました。さらに、未知の屋内やGPSの使えない森林環境へのゼロショット転移にも成功し、群れ制御における「基底表現」としての実用性を示しました。",
+ "contributions_ja": [
+  "ギブスランダム場のエネルギー最小化と強化学習の報酬最大化の対応関係を用い、群れの相互作用ルールを共通のエネルギー項として統一定式化した点",
+  "局所情報のみから大域的な最適配置を近似できる理論的枠組みを導出し、計算量を機体数に依存しない $O(1)$（1〜10 ms）に抑えた点",
+  "事前学習した専門ポリシーを軽量なゲーティング回路で束ねることで、再学習なしに6種類の異なるミッションへ即座に切り替え可能にした点",
+  "無次元化処理によりスケール差を吸収し、超小型機から大型屋外機、屋内からGPS途絶森林までゼロショット転移を実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "Introduction",
+   "heading_ja": "なぜドローンの群れ制御はタスクごとに作り直す必要があったのか？",
+   "summary_ja": "従来の群ロボット制御はルールベース、最適化（MPC）、強化学習のいずれも単一タスクに特化した設計が主流で、任務の変更には再調整や再学習が必要でした。本論文は、多様な群れ行動を統一的に記述できる共通の数学的表現を見出し、実時間で動く再利用可能な分散ポリシーを実現することを目指しています。",
+   "details_ja": "鳥の群れや魚群は、個体同士のシンプルな相互作用だけで、群れの維持から餌探し、移動ナビゲーションまで滑らかに切り替えています。ロボット研究者も長年これを目指してきましたが、現実のロボットスウォームは「編隊制御専用」「障害物回避専用」といった単一目的のコントローラになりがちでした。これには既存のアプローチが抱える根深いトレードオフが関係しています。\n\n- ルールベース手法（ポテンシャル場など）：計算が軽く分散処理に向いていますが、ヒューリスティックな調整が必要で、想定外の状況でスタックしやすい欠点があります。\n- 最適化ベース手法（分散MPCなど）：安全性や機体ダイナミクスを厳密に扱えますが、機体間で軌道を通信し合ってリアルタイムに最適化を解くため、計算資源の限られた小型ドローンには負荷が重すぎます。\n- 深層強化学習（MARL）：計算負荷をオフライン学習に逃がせるため実機での推論は高速ですが、報酬関数がタスクごとに個別に作り込まれるため、新しい任務には再学習や専用モデルの追加が必要でした。\n\nつまり、「群れとしての汎用性」「リアルタイムな計算性」「タスク間の再利用性」をすべて両立する共通の基盤表現が欠けていたのです。そこで本研究は、統計力学のギブスランダム場に着目しました。環境との関係（1体項）とロボット同士の関係（2体項）をエネルギーとして共通表現化し、再学習なしで多彩なミッションをこなす統合コントローラを提案しています。",
+   "figures": []
+  },
+  {
+   "heading": "Results",
+   "heading_ja": "ひとつの統合ポリシーで実現した多彩なミッションと群れの自律行動",
+   "summary_ja": "提案した統合ポリシーは、凝集や速度追従といった基本動作から、屋内高速レース、巡回、文字型フォーメーション、途絶環境での自律探索まで再学習なしでこなします。大規模シミュレーションでは成功率0.96〜1.00を達成し、実機でも未知の森林や別プラットフォームへのゼロショット転移を成功させました。",
+   "details_ja": "### 手法の概要（Method overview）\n各ロボットを確率変数とみなし、系全体の確率分布をギブスエネルギー $H(X)$ でモデル化します。エネルギーが低いほど望ましい状態を表すため、報酬を $R = -H(X)$ と置くだけで強化学習と直結します。局所観測から大域的な最適配置を導くデカップリング理論とアテンション機構により、他機の行動意図を重み付けしながら、機体数に依存しない $O(1)$（1〜10 ms）の推論速度を達成しました。タスクの切り替えは、凍結された専門ポリシー群を軽量なゲーティング回路で束ねることで、一切の再学習なしに実現しています。\n\n### 基本行動の検証（Elementary behaviors in simple scenarios）\nまず閉ループの基本挙動を検証しました。目標とする機体間距離 $d_{\\mathrm{ref}}$ の急激なステップ変化に対しても、距離の標準偏差を0.5 m以下に抑えながら素早く追従します。半径1.7 mの円軌道を描く速度指令にも位相遅れなく追従し、進行方向に障害物が現れた際には、群れが自律的に二手に分裂して回避し、通過後に再合流しました。最小クリアランスは安全マージン0.1 mを大幅に上回る0.25 m以上を維持しています。\n\n### 多様なミッションへの適応（Versatile swarm control across missions）\n同一の学習済みポリシーを使い、性質の異なる複数タスクを実行させました。\n- トラバースとレース：狭いゲートをくぐり抜けるトラバースでは、秩序パラメータ $\\phi$ を下げて柔軟に形を崩しながら通過し、直後に整列を回復しました。一方の高速レースでは直線部で2 m/s、急旋回で約0.8 m/sまで加減速しながら、リボン状の縦長形状に変形してゲートを高速通過しました。\n- 巡回とパターン形成：情報が時間とともに失われる領域の巡回では、群れが2つのサブグループに自律分散し、平均アイドリング時間2〜3秒、平均再訪間隔6.6秒で領域の不確実性を0.1〜0.2の低水準に抑え込みました。また16機による文字形成（S-Y-S-U）では、デッドロックなく各文字へ40秒以内でスムーズにモーフィングしました。\n- 分散探索と耐故障性：未知領域の探索では、途中で機体が故障脱落しても残った機体が即座に分散し直します。8機通常時で97.7%、各班から1機ずつ脱落しても98.2%、1つの班が丸ごと全滅しても残りの班だけで91.1%のカバレッジを達成しました。\n\n### 従来手法との比較とアテンション解析（Benchmarking and interpreting local interactions）\n10〜100機、障害物10〜50個のシミュレーション環境でDMPCやポテンシャル法などと比較しました。混雑環境で従来手法が局所解や計算破綻により軒並み成功率を落とす中、提案手法は0.96〜1.00の成功率を維持しました。推論時間は機体数が増えても1〜10 msにとどまり、RMS加速度も0.22 $\\mathrm{m/s^2}$ 以下と極めて滑らかな軌道を描いています。またアテンションの解析から、自機に近い個体だけでなく「衝突余裕時間が短い他機」や「自機に向かって旋回してくる他機」、さらには「障害物に近づいて危険な状態にある隣人」に対して高い注意を払っていることが分かりました。\n\n### 実機と未知環境へのゼロショット転移（Zero-shot transfer across platforms and environments）\n基準距離による無次元化処理のおかげで、ポリシーに手を加えることなく、29 gのCrazyflieから自作の大型屋外機へとそのまま移植できました。地下駐車場から屋外への連続遷移、木々が密集するGPS途絶下の森林通過、さらには探索中に目標を発見した1機が監視に残り、残りが探索を継続するといった高度な実ミッションをゼロショットで完遂しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "屋内の入り組んだ環境におけるトラバース（低速・狭所通過）とレース（高速追従）の実験結果です。同じ制御ポリシーでありながら、ゲート通過時は密集を解いて細長く変形し、レース時は直線で2 m/sに達するリボン状の編隊へと自律的に形態を適応させています。",
+     "caption": "Figure 3 : Traversal and racing performance in cluttered indoor environments. ( A ) Traversal. (i) Swarm traversing through gates. (ii) Centroid tracking result. ( B ) Racing. (i) Swarm racing through sequential gates. (ii) Racing trajectories color-coded by instantaneous speed. A(iii) and B(iii) Mean neighbor distance and normalized variance to quantify cohesion and spatial uniformity. A(iv) and B(iv) Minimum neighbor and obstacle clearances. A(v) and B(v) Order parameter and mean speed.",
+     "image": "details/2610.31371/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "巡回監視と文字パターン形成の様子です。(A)では情報の風化に伴う不確実性をサブグループが自律的に最小化し、(B)では16機のドローンが衝突やデッドロックを起こすことなく「S-Y-S-U」の非凸形状へ滑らかに変形し続けています。",
+     "caption": "Figure 4 : Persistent patrol and pattern formation. ( A ) Persistent patrolling with information decay. (i) Spatio-temporal uncertainty maps during persistent patrolling by two sub-swarms. (ii) Global uncertainty statistics, showing rapid decay to a low steady state. (iii) Effective coverage rates under different uncertainty thresholds. (iv) Maximum and mean idleness, characterizing revisit timeliness. (v) Revisit-interval distributions across the monitored region. ( B ) Pattern formation over non-convex geometries. (i) Sequential configurations for the “S–Y–S–U” target shapes, with distance-to-nearest-agent fields indicating spatial uniformity. …",
+     "image": "details/2610.31371/F4.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "機体数10〜100機、障害物数10〜50個におけるベンチマーク結果です。提案手法（Unified Policy）は過密な環境でも0.96〜1.00の高い成功率を維持し、推論計算時間は機体数が増えても1〜10 msの一定範囲（$O(1)$）に収まっています。",
+     "caption": "Figure 6 : Quantitative performance benchmarking. ( A ) Success rate, velocity alignment, and tracking distance for swarm sizes from $10$ to $100$ agents and obstacle densities from $10$ to $50$ , evaluated over ten random seeds. Cells show mean $\\pm$ s.d. ( B ) Per-agent computation time on a logarithmic scale, showing approximately size-independent inference for the unified policy compared with increasing computation time for the baselines. ( C ) RMS acceleration as a measure of trajectory smoothness.",
+     "image": "details/2610.31371/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "学習されたアテンション重みの解析結果です。自機との距離だけでなく、衝突余裕時間（Inv-TTC）や相対旋回角速度、さらには隣のドローンが直面している障害物衝突リスクにも強く反応して配分されていることが分かります。",
+     "caption": "Figure 7 : Interpreting learned neighbor interactions. ( A ) SHAP feature attribution of attention weights predicted by an XGBoost surrogate ( $R^{2}=0.618$ ), ranked by feature importance. ( B ) Attention weight versus topological neighbor rank across local densities. ( C–G ) Attention responses to (C) normalized ego–neighbor distance, (D) ego–neighbor inverse time-to-collision, (E) relative turn rate, (F) neighbor–commanded-velocity alignment, and (G) neighbor–obstacle maximum inverse time-to-collision. Dashed lines indicate the uniform-attention level.",
+     "image": "details/2610.31371/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "実機による屋外・未知環境でのゼロショット転移実験です。地下駐車場から屋外への移行やGPSの使えない高密度な森林の通過、目標発見時の役割分担などが、再学習やファインチューニングを一切行わずに成功しています。",
+     "caption": "Figure 8 : Zero-shot field generalization. ( A ) Cross-environment transition from an underground parking garage to an open outdoor area. ( B ) Traversal through dense, unstructured woodland. ( C–D ) Large-scale formation reconfiguration and subgroup cooperative patrol. ( E ) Decentralized exploration with persistent target monitoring in an unmapped area. ( F ) Integrated mission combining traversal, regrouping, and formation transformation.",
+     "image": "details/2610.31371/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Discussion",
+   "heading_ja": "統一エネルギーモデルが切り拓く群ロボットの未来と残された課題",
+   "summary_ja": "本研究は、構造化された物理的・統計的プライアと深層強化学習を結びつけることで、単一のポリシーが多彩な群れ行動へ汎化できることを示しました。一方で、完全な局所通信への依存や非凸境界での誤差、実機100機規模での検証など、実用化に向けた課題も残されています。",
+   "details_ja": "本論文の最大の成果は、「群れの局所ルールをギブスエネルギーとして定式化する」という共通表現を置いたことで、強化学習のポリシーをタスクごとに使い捨てにする時代から、再利用・拡張可能なモジュールとして扱う道筋を拓いた点にあります。アテンション解析で見られた「他者の危険を察知して注意を向ける」振る舞いは、生物の群れが示す大域的な危険感知とも定性的に一致しており、非常に興味深い挙動です。\n\nしかし、実用化に向けてはいくつかの制限事項も明確にされています。\n- 安全性の理論的保証：本システムは各ドローンの自己位置推定や近隣通信が正常に機能することを前提としており、通信途絶や激しいセンサノイズ下での厳密な衝突回避保証はまだありません。\n- 局所観測の限界：局所情報のみを頼りにするため、極端に入り組んだ非凸形状の障害物空間では局所解に捕まるリスクがあります。\n- 実機実験のスケール：シミュレーションでは100機での $O(1)$ 計算性を確認していますが、実機検証は最大16機にとどまっており、実環境で100機を同時に飛ばす検証は今後の課題です。\n\n今後は、マルチモーダル知覚の統合や、異なる運動性能を持つ異種ロボット混在チームへの拡張が期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "Methods",
+   "heading_ja": "ギブスランダム場から分散強化学習へ：数理的定式化とポリシー統合",
+   "summary_ja": "システム全体を無向グラフ上のギブスランダム場としてモデル化し、大域エネルギーを局所観測で扱える形式へとデカップリングしました。各機はアテンション機構付きPPOで学習され、事前学習した専門ポリシー群をゲーティング回路で束ねることで統合コントローラを構築しています。",
+   "details_ja": "### 確率的エネルギーの定式化（Probabilistic energy formulation）\nロボット群の配置状態を無向グラフ $\\mathcal{G}=(\\mathcal{V}, \\mathcal{E})$ 上の確率変数とみなし、結合確率を $P(X) \\propto \\exp[-H(X)]$ と定義します。全エネルギー $H(X)$ は、環境との関係を表す1体項 $\\psi_i$（目標追従、障害物回避など）と、機体間の相互作用を表す2体項 $\\psi_{ij}$（衝突回避、速度一致、凝集など）の和に分解されます。エネルギー最小化が報酬最大化と一致するため、局所報酬を $r_i = -(\\psi_i + \\frac{1}{|\\mathcal{N}_i|}\\sum_{j\\in\\mathcal{N}_i} \\psi_{ij})$ と設計できます。\nここで重要なのが、大域的な2体エネルギー $H_p$ をそのまま局所計算すると破綻する点です。著者らは数学的証明を通じて、近隣との局所和として定義した分離型エネルギー $\\hat{H}_p$ が、大域エネルギーと同じ三角格子状の平衡状態を導くことを示しました。これにより、各機がローカルな情報だけを見ながら、群れ全体として最適な幾何配置に収束することが保証されます。\n\n### アテンションを用いた分散学習と統合（Decentralized learning with attention）\n各機は2階の運動方程式に従い、行動空間は離散加速度ベクトルと制動用ヒューリスティックを組み合わせたハイブリッド形式を採用しています。他機のリアルタイムな行動は直接見えないため、前ステップの行動 $\\boldsymbol{A}_{j, t-1}$ を意図の代理変数として利用し、平均場近似を行います。\n近隣エージェントの情報集約にはアクション・アテンション機構を導入しました。自機と相手の相対状態からクエリ、キー、バリューを計算し、文脈に応じた重み付け和を求めます。障害物検知にはセクター分割されたLiDAR表現を用い、PPO（Proximal Policy Optimization）による分散学習・分散実行（DTDE）でポリシーを最適化しました。\nさらに、トラバースやレースなどの個別タスクで事前学習した専門ポリシーを固定（フリーズ）し、上位タスク指令と局所観測を入力とする軽量なゲーティングネットワーク $G_e(\\boldsymbol{o}, \\boldsymbol{c})$ でそれらをブレンドする統合モジュールを構築しました。これにより、既存の能力を一切損なうことなく、新しい専門スキルを後から安全に追加・統合できる構造になっています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「ギブスエネルギーの最小化＝強化学習報酬の最大化」という対応付けにより、群ロボットの多種多様なタスク報酬をひとつの統一表現に落とし込める。",
+  "局所情報だけで大域的な格子平衡を達成できるデカップリング設計により、推論計算量をスウォーム規模に依存しない $O(1)$（1〜10 ms）に維持できる。",
+  "専門ポリシーをフリーズしてゲーティング回路で束ねる手法により、破滅的忘却や再学習のコストを完全に回避しながらマルチタスク化が可能になる。",
+  "観測空間の無次元化を徹底することで、シミュレーションから実機、さらには超小型機から大型機へのゼロショット転移が現実的な精度で成立する。"
+ ],
+ "limitations_ja": [
+  "近隣通信と高精度な自己位置推定が前提となっており、過酷な通信途絶環境やセンサ故障時における厳密な安全性保証（セーフティフィルタなど）が確立されていない点。",
+  "局所的な観測とポテンシャルに基づくアプローチであるため、迷路のような極端に入り組んだ非凸障害物環境では局所解（スタック）に陥るリスクがある点。",
+  "実機での検証は最大16機にとどまっており、シミュレーションで示された100機規模の超高密度スウォームが実世界の外乱下でも同様に機能するかは未検証である点。"
+ ],
+ "keywords": [
+  "Swarm Robotics",
+  "Gibbs Random Field",
+  "Multi-Agent Reinforcement Learning",
+  "Zero-Shot Transfer",
+  "Decentralized Control"
+ ],
+ "id": "2610.31371",
+ "title": "Probabilistic Energy Modeling Unifies Versatile Swarm Control",
+ "authors": [
+  "Xiang Zhou",
+  "Xiangyu Zhu",
+  "Xintong Wang",
+  "Qingyuan Yang",
+  "Rui Huang",
+  "Feng Xue",
+  "Lin Li",
+  "Qingrui Zhang"
+ ],
+ "date": "2026-10-24",
+ "group": "general",
+ "tags": [
+  "multi-robot",
+  "control",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.MA"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.31371",
+ "pdf_url": "https://arxiv.org/pdf/2610.31371",
+ "summary_ja": "群ロボットの多様なミッションに対してコントローラの再設計や再学習を繰り返す課題に対し、確率的エネルギーモデルに基づく統一的表現手法を提案した。ギブス確率場のエネルギー最小化と報酬最大化の対応を利用して基本行動を再利用可能なエネルギー項として定式化し、学習済み分散方策を合成することで未知の複合ミッションにも適応できる。",
+ "generated": "2026-10-24",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.31371"
+}
