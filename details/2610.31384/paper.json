@@ -1,0 +1,126 @@
+{
+ "title_ja": "CoHelix：共有射影幾何を用いたイベントカメラによる複数プロペラ回転数の追跡",
+ "tldr_ja": "動くイベントカメラの映像からドローンの4つのプロペラ回転速度を推定するために、4基が同一平面上にある剛体拘束を活かして1つの共有ホモグラフィと各プロペラの独立した回転状態をイベントごとに再帰的に同時更新する手法「CoHelix」を提案しました。従来のプロペラ個別推定に比べて追従維持率（Lock率）が大幅に向上し、激しい自己運動下でも頑健な追従を実証しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "CoHelixの全体概念図です。同一平面上にある4つのプロペラ面から画像への共通ホモグラフィ（射影変換）を保持し、各イベントを逆変換して対応するプロペラに割り当てます。イベントごとに割り当て先の回転状態と全体の幾何状態が相互に更新されます。",
+  "caption": "Figure 1 : Coupled geometry and rotation estimation. The shared homography $\\mathbf{H}$ maps the rotor plane to the image. The filter maps event $e_{i}$ by $\\mathbf{H}^{-1}$ , assigns it to a propeller and applies spatial checks. An admitted event updates its assigned rotation state $\\mathbf{x}_{k}$ , and its accepted geometry measurements correct $\\mathbf{H}$ for later events from every propeller. Each state $\\mathbf{x}_{1},\\ldots,\\mathbf{x}_{4}$ contains phase, rate and acceleration and supplies its own shaft-rate estimate $\\widehat{\\mathrm{RPM}}_{1},\\ldots,\\widehat{\\mathrm{RPM}}_{4}$ . Insets integrate $10$ ms from the highest-motion $4$ m recording; color denotes polarity. …",
+  "image": "details/2610.31384/F1.jpg"
+ },
+ "overview_ja": "ドローンの飛行制御や推力状態の把握において、プロペラの回転速度（RPM）を外部から非接触でリアルタイムに計測することは非常に重要です。超高時間分解能を持つイベントカメラ（輝度変化のみをマイクロ秒単位で出力するセンサ）はこの目的に適していますが、カメラ自身が移動すると背景の輝度変化によって大量の不要イベントが発生し、さらに機体とカメラの相対運動によってプロペラの投影形状が刻一刻と変化・歪曲してしまいます。従来のイベントベース手法は、プロペラを個別に扱ったり、イベントを時間窓で蓄積してから幾何を推定していたため、背景ノイズや幾何変化に弱く、回転速度を半分や2倍と誤認する曖昧さ（エイリアシング）に陥りやすいという課題がありました。\n\nそこで著者らは、クアッドコプターの4つのプロペラが同一平面上に剛体配置されている点に着目しました。4基共通の1つのホモグラフィ（平面射影変換）行列を導入し、各プロペラの回転状態（位相・角速度・角加速度）とは分離しつつ、イベントが1つ到来するごとに拡張カルマンフィルタ（EKF）で両方を逐次更新する手法「CoHelix」を考案しました。あるプロペラで得られた幾何情報が即座に共有ホモグラフィを更新し、それが次の別プロペラのイベント解釈の精度を上げるという相乗効果を生み出します。\n\n評価には、激しいカメラ自己運動を含むベンチマークデータセット（TQE）およびドローン追尾データセットを用い、真値の±2%以内に推定値が留まった時間の割合を示す「Lock率」を導入して検証しました。その結果、従来手法のHelixTrackやEventProを大きく上回る追従性能を達成し、幾何共有とイベントごとの逐次更新が極めて有効であることを明らかにしました。",
+ "contributions_ja": [
+  "4基の同一平面プロペラに対して1つの共有ホモグラフィと独立な回転状態を定義し、1イベントごとに逐次更新する再帰的フィルタ「CoHelix」を提案したこと。",
+  "あるプロペラのイベントによる幾何補正が直後の他プロペラのイベント解釈を改善する仕組みにより、単一プロペラ幾何に比べて大幅に追従安定性が向上することを示したこと。",
+  "時間窓によるバッチ最適化（Gauss-Newton法）よりも、1イベントごとのカルマン幾何更新の方が遅延なく射影を補正でき追従維持率が優れていることを実証したこと。",
+  "2つの異なるドローン実機データセットにおいて、真値±2%以内の追従割合（Lock率）で従来手法を圧倒する最高精度を達成したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜプロペラ速度の推定に「共通の幾何」が必要なのか",
+   "summary_ja": "動くイベントカメラからプロペラ回転速度を推定する際、カメラ運動による射影歪みと背景イベントの混入が大きな壁となります。本研究は、4つのプロペラが同一平面に固定されている拘束を利用して1つの共有ホモグラフィを推定し、イベント単位で幾何と回転を解くCoHelixを提案します。",
+   "details_ja": "マルチコプターの推力や制御入力はプロペラの回転速度に直結するため、その外部計測はドローンの状態推定や侵入検知において極めて重要です。イベントカメラはブレード通過に伴う急峻な輝度変化をフレームを介さずに超高時間分解能で捉えられますが、カメラ自身が動くと背景テクスチャに起因するノイズイベントが大量に混ざり合います。さらに、2枚羽根プロペラは半回転（180度）で外観が一致するため、速度を半分や2倍と見誤る多義性（エイリアシング）も生じます。\n\nこれらのブレードイベントを正しく解釈するには、画像上でプロペラがどこに投影されているかという幾何学的な位置・姿勢の把握が不可欠です。しかし従来手法（HelixTrackやEventProなど）は、プロペラを1つずつ個別に処理したり、ある程度イベントを蓄積した時間窓の中で幾何を更新していました。これではプロペラ同士の幾何拘束を活用できず、急なカメラ運動に追従できません。\n\nここがポイントなのですが、一般的なクアッドコプターの4つのプロペラは剛体フレーム上の同一平面に配置されています。つまり、回転面から画像平面への射影は「たった1つの共有ホモグラフィ行列」で表現できるのです。CoHelixはこの結合関係を巧みに利用し、各プロペラの回転運動は独立に保ちつつ、幾何射影のみを全プロペラで共有してイベントごとに再帰更新するアプローチをとります。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "CoHelixの全体フレームワークです。共有ホモグラフィHによってロータ平面から画像への投影を管理し、イベントが来るたびに逆写像して割り当てと空間チェックを行い、回転状態と共有幾何を即座に更新します。",
+     "caption": "Figure 1 : Coupled geometry and rotation estimation. The shared homography $\\mathbf{H}$ maps the rotor plane to the image. The filter maps event $e_{i}$ by $\\mathbf{H}^{-1}$ , assigns it to a propeller and applies spatial checks. An admitted event updates its assigned rotation state $\\mathbf{x}_{k}$ , and its accepted geometry measurements correct $\\mathbf{H}$ for later events from every propeller. Each state $\\mathbf{x}_{1},\\ldots,\\mathbf{x}_{4}$ contains phase, rate and acceleration and supplies its own shaft-rate estimate $\\widehat{\\mathrm{RPM}}_{1},\\ldots,\\widehat{\\mathrm{RPM}}_{4}$ . Insets integrate $10$ ms from the highest-motion $4$ m recording; color denotes polarity. …",
+     "image": "details/2610.31384/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "従来のイベント追跡法と何が違うのか",
+   "summary_ja": "イベントベースの追跡手法には特徴点追跡や周波数解析、蓄積画像のコントラスト最大化などがありますが、プロペラのような高速回転と激しい自己運動の両立は困難でした。既存のプロペラ速度推定法もプロペラ間の共有幾何をイベント単位で更新する構造にはなっていません。",
+   "details_ja": "イベントカメラを用いた移動体追跡の研究は大きく発展してきましたが、プロペラの回転速度推定には特有の難しさがあります。\n\n- **外観・周期運動ベースの追跡**: ガウスブロッブやコーナーを追う手法、イベントボリュームで学習したテンプレートを用いる手法がありますが、これらは物体の2次元位置を追うものであり、180度回転で同一形状になるプロペラの回転速度は出力できません。また、ピクセルごとの周波数解析や時間窓スライスのアライメントを行う手法（EventProなど）は、カメラが静止している前提が多く、カメラの並進運動や激しい透視歪みに対応する状態を持っていません。\n- **プロペラ特化型手法**: 先行研究のHelixTrackはイベントごとの位相更新を行いますが、プロペラ幾何の更新は半回転ごとのイベント蓄積に基づくGauss-Newton法に依存しており、各プロペラを完全に独立して処理していました。\n- **コントラスト最大化手法**: イベントを候補運動でワープさせて画像の鮮鋭度を最大化するアプローチは強力ですが、時間窓内のイベントを何度も逆変換して最適化計算を繰り返すため計算コストが重く、誤った運動モデルでもシャープな画像が生成されてしまう局所解の問題を抱えています。\n\nこのように、既存手法は「複数プロペラが共有する剛体幾何拘束」と「イベント単位での即時更新」を同時に満たしていませんでした。CoHelixはこの空白を埋める手法として位置づけられます。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "イベント単位で幾何と回転を同時に解き明かすCoHelixの仕組み",
+   "summary_ja": "6自由度の共有ホモグラフィと各プロペラ3次元の回転状態を拡張カルマンフィルタ（EKF）で管理します。イベントが到着するたびにロータ平面へ逆射影して割り当てを行い、幾何残差と位相残差を計算して即座に状態へ反映させます。",
+   "details_ja": "### 3.1 状態量とダイナミクス\nシステム全体の状態量は、4つのプロペラ（$N=4$、羽根数$B=2$）に対して合計18次元です。具体的には、ロータ平面から画像平面への共有ホモグラフィパラメータ $\\mathbf{q} = [\\log s, \\psi, t_x, t_y, h_{31}, h_{32}]^\\top$（6次元）と、各プロペラ $k$ の回転状態 $\\mathbf{x}_k = [\\phi_k, \\omega_k, \\alpha_k]^\\top$（位相、角速度、角加速度の3次元 $\\times$ 4基）から構成されます。スケールを対数表現にすることで常に正の値を保ち、アフィン剪断を排して回転と等方スケールに制限することで安定性を高めています。\n\n計算量を抑えるため、共分散行列は幾何用の $6\\times 6$ 行列 $\\mathbf{P}^q$ と、各プロペラ用の $3\\times 3$ 行列 $\\mathbf{P}^k$ を独立に保持し、相互共分散はあえて保持しません。これにより、イベントごとの更新計算量は $\\mathcal{O}(1)$ に抑えられます。\n\n### 3.2 イベントの受け入れ判定（Admission）\nイベント $e_i = (\\mathbf{z}_i, t_i, p_i)$ が入ってくると、まず画像上のプロペラ周辺領域にあるか簡易チェックし、現在の逆ホモグラフィ $\\mathbf{H}^{-1}$ でロータ平面に逆写像します。そして最も近いプロペラ中心に割り当てます。ロータ平面上で正規化半径 $r$ を計算し、プロペラ環状領域の内外判定（Radial gate）を通過したものだけを正式に受け入れます。この空間判定により、背景の無関係なイベントを素早く除外します。\n\n### 3.3 計測モデルと残差計算\n受け入れられたイベントから、位相残差と複数の幾何残差が作られます。\n- **位相残差**: 予測された羽根の角度とイベントの観測角度との差を計算します。位相の更新にはイノベーションゲーティング（外れ値棄却）を適用しません。なぜなら、位相は周期的な量であり、誤った予測のあとに生じる大きな補正を棄却してしまうと二度と正しい位相に復帰できなくなるからです。\n- **幾何残差**: 半径残差（$r_i - 1$）、内外の境界残差、極性残差、羽根の有限幅を考慮した輪郭通過残差（Signed crossing）や回転シルエット残差（Rotating silhouette）を用います。さらに2,000イベントごとに重心平均から中心残差を計算し、幾何パラメータを補正します。\n\n### 3.4 カルマン更新と妥当性チェック\n幾何残差に対しては正規化イノベーション（NIS）によるゲーティングを行い、おかしな幾何更新が全プロペラに悪影響を及ぼすのを防ぎます。更新後のホモグラフィが正定値性や条件数の限界を満たしているか、またプロペラ領域が無限遠点（地平線）の向こう側に飛び出していないかなどの射影幾何チェックを厳密に行います。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "イベントストリーム上でのプロペラ追跡の様子です。10 msごとの蓄積イベント（暖色・寒色は極性）に対し、CoHelixが推定した緑のプロペラ外形環と、それらを結ぶ共有幾何の枠線（灰色）が激しいカメラ運動下でも正確に重なっていることがわかります。",
+     "caption": "Figure 2 : Event streams and tracked propellers. Each panel integrates $10$ ms of events; warm and cool colors show the two polarities. Columns begin about $0.5$ s after the fixed evaluation cut of each recording and continue every $0.4$ s. These times were chosen without examining tracker output. The first two rows show the highest camera-motion levels at $2$ and $4$ m. The third row shows the target–follower recording in which the camera travels farthest. Green circles are the propeller rings tracked by CoHelix, and grey lines connect their centres under the shared geometry. Sec. S4.2 gives the exact timestamps.",
+     "image": "details/2610.31384/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "実機データでの検証：従来手法を圧倒する追従性能",
+   "summary_ja": "カメラ自己運動を含むTQEデータセットとドローン追尾データセットの2つで評価しました。真値の2%以内に留まる時間を測るLock率において、CoHelixは従来手法（HelixTrack、EventPro）を大きく引き離す圧倒的な性能を達成しました。",
+   "details_ja": "### 4.1 データセットと評価指標\n評価には2つの異なるクアッドコプターデータセットを使用しました。\n- **TQEベンチマーク**: 台座に固定されたドローンを動くイベントカメラ（Metavision EVK4HD）で撮影した12本のデータ。赤外線タコメーターで同期した真値回転速度を取得。\n- **Target-followerデータセット**: 実際に飛行するドローンを上空の後続ドローンから見下ろし撮影した3本のデータ。フォトインタラプタで真値速度を取得。\n\n評価指標には平均絶対誤差（MAE）だけでなく、「Lock率（$\\tau_{\\text{lock}} = 2\\%$）」を採用しています。これは推定回転速度が真値の±2%以内に収まっている時間の割合です。2枚羽根プロペラでは速度が半分や2倍に張り付いてしまう誤推定が起きやすく、平均誤差だけでは真の速度をどれだけ維持できているかが分からないため、このLock率が最も決定的な指標になります。\n\n### 4.2 先行手法との比較\n固定初期速度から開始するLeave-one-recording-out交差検証において、TQEベンチマークでのCoHelixのLock率は **62.9%** を記録し、HelixTrackの **39.8%**、EventProの **22.2%** を大幅に上回りました。さらにTarget-followerデータセットでは、TQEで調整したパラメータをそのまま適用したにもかかわらず、CoHelixは驚異的な **95.9%** のLock率を達成しました（HelixTrackは56.2%、EventProは61.1%）。\n\n### 4.3 アブレーション（要素分解）実験\n- **幾何貢献プロペラ数**: 共有幾何に情報を送るプロペラ数を1基から4基へ増やすと、Lock率は 3.4% $\\rightarrow$ 17.7% $\\rightarrow$ 50.2% $\\rightarrow$ 62.9% と劇的に跳ね上がりました。単一プロペラでは自身の面内回転とブレード位相の区別が曖昧になりますが、複数プロペラが離れた位置にあることで6自由度のホモグラフィが強力に拘束されるためです。\n- **イベント単位更新 vs 時間窓バッチ更新**: 幾何更新を50〜200 $\\mu$sの時間窓によるGauss-Newton法にした場合と比較すると、イベントごとのカルマン更新の方がLock率が **23.1ポイント** も優れていました。幾何の変化を遅延なく即座に逆写像へ反映させることが極めて重要だと分かります。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "カメラ運動レベルの異なる4つのシーンにおける回転速度の時系列追従結果です。破線の真値（GT）に対し、CoHelix（青）は激しい運動（右列）でも正確に追従し続けていますが、HelixTrack（緑）は途中で見失い、EventPro（橙）は推定不能による欠損が多発しています。",
+     "caption": "Figure 3 : Shaft rate over time for one propeller in four recordings spanning the camera-motion range. Rows show CoHelix, HelixTrack [ 26 ] and EventPro [ 4 ] together with the same dashed ground-truth reference, filtered by a centred $55$ ms median for display only; scoring uses the synchronized trace without filtering. The vertical axis ends at $1.25\\times$ the largest filtered reference rate, so larger estimates are clipped. Gaps in the EventPro row are samples for which that method does not report.",
+     "image": "details/2610.31384/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "CoHelixは、共有ホモグラフィと各プロペラの独立した回転状態をイベントごとに再帰推定することで、動くカメラからのプロペラ回転速度追従を大きく前進させました。剛体平面拘束の活用とイベント単位の即時更新が成功の鍵です。",
+   "details_ja": "本研究が示したCoHelixは、同一平面に固定された複数のプロペラというロボットハードウェア特有の幾何拘束を巧みに利用し、カメラ自身の運動による激しい幾何変化と、個々のプロペラの高速回転を綺麗に分離して解くことに成功しました。\n\n実験では、プロペラが1基だけでは幾何の自由度を抑えきれず追従が破綻すること、そして時間窓によるバッチ最適化よりもイベント単位での逐次カルマン更新が決定的な差を生むことが明確に示されました。\n\n本手法はドローンの対空監視、推力異常のリアルタイム診断、編隊飛行における追従ドローンの状態認識など、高速な運動推定が求められる様々なロボティクス応用に新たな道を拓く成果です。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：実装の詳細とさらなる実験的知見",
+   "summary_ja": "各種幾何残差の詳細な数式、共分散行列のブロック化の妥当性検証、初期キャリブレーション誤差に対する感度試験、計算時間と実時間性の分析について詳しく述べています。",
+   "details_ja": "### 計測残差とヤコビアンの設計\n付録S1では、各種計測の数式が定義されています。例えば、イベント極性残差（R5）では、明から暗・暗から明への変化に応じて羽根の表エッジ・裏エッジの位相オフセット（$\\pm 0.25$ rad）を切り替えて幾何ヤコビアンを計算します。また、回転シルエット残差（R7c）は羽根の有限な幅を考慮し、現在の推定位相に応じた外形エンベロープの内外判定を用いています。\n\n### 共分散のブロック対角化の妥当性\n幾何状態とプロペラ位相の相互共分散を真面目に保持する密な共分散行列と、本手法のようにブロックごとに分離して扱う構造を比較したところ、密な共分散を用いてもLock率は $-2.1$ ポイント変化したのみで有意な差はありませんでした。これにより、計算コストの低い分離共分散ブロック構造の採用が正当化されています。\n\n### キャリブレーション感度と計算速度\n- **初期リング半径への感度**: 入力として与える初期プロペラ半径を意図的に $+5\\%$ 狂わせると、Target-followerデータセットのLock率が 95.9% から 65.7% に低下しました。剛体レイアウトのスケール設定にはある程度の正確さが求められます。\n- **計算速度**: 単一CPUスレッドにおける実時間係数（処理時間に対する動画時間の比）は、TQEで 0.0306、Target-followerで 0.0478 であり、現状の実装では実時間（1.0以上）には達していません。ただし、イベント受け入れ判定後の処理がボトルネックであるため、GPU並列化や効率的な枝刈りによるリアルタイム化が今後の課題として挙げられます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "複数物体が剛体フレームを共有している場合、個別に追跡するのではなく「1つの共有射影幾何」として拘束することが劇的なロバスト性向上をもたらす。",
+  "急激な運動変化を伴うイベントカメラ処理では、時間窓で蓄積して最適化するよりも、1イベントごとに幾何を再帰更新して直後の逆変換に反映させる方が優れている。",
+  "周期運動の追従評価では、平均誤差（MAE）だけでなくエイリアシング（2倍・半値の誤認）を排除して真値追従時間を測る「Lock率」のような指標が不可欠である。"
+ ],
+ "limitations_ja": [
+  "プロペラが同一平面上に存在し、フレームのたわみ（非剛体性）がないという幾何学的仮定に依存している。",
+  "開始時にプロペラの大まかな位置と半径のアノテーション（初期化）が必要であり、半径の事前誤差に対して感度が高い。",
+  "現状のC++単一スレッド実装では実時間の約20〜30倍の処理時間がかかっており、実機搭載に向けたリアルタイム化には並列化等の最適化が必要である。"
+ ],
+ "keywords": [
+  "Event Camera",
+  "Propeller Tracking",
+  "Homography Estimation",
+  "Extended Kalman Filter",
+  "Drone State Estimation"
+ ],
+ "id": "2610.31384",
+ "title": "CoHelix: Event-Based Multi-Propeller Rotation-Rate Tracking with Shared Projective Geometry",
+ "authors": [
+  "Radim Spetlik",
+  "Tobiáš Vinklárek",
+  "Jan Klivan",
+  "Tomáš Kestřánek",
+  "Matouš Vrba",
+  "Jiří Matas"
+ ],
+ "date": "2026-10-25",
+ "group": "general",
+ "tags": [
+  "drone",
+  "perception",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.31384",
+ "pdf_url": "https://arxiv.org/pdf/2610.31384",
+ "summary_ja": "移動するイベントカメラから同一平面上にある4基のプロペラ回転数を正確に推定する再帰フィルタ「CoHelix」を提案。背景ノイズや見かけの回転数曖昧性に対し、共有ホモグラフィと個別回転状態を交互に更新することで剛体幾何と高速回転を高精度に分離する。同期真値から2%以内の誤差に収まる継続時間の割合（lock指標）で評価し、高速機動中のドローンに対しても堅牢な回転推定を達成した。",
+ "generated": "2026-10-25",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.31384"
+}
