@@ -1,6 +1,255 @@
 {
  "entries": [
   {
+   "date": "2026-10-25",
+   "rank": 0,
+   "id": "2610.31010",
+   "group": "focus",
+   "title": "Revisiting Distribution Matching for State-to-Vision Policy Distillation in Laparoscopic Robotic Manipulation",
+   "title_ja": "腹腔鏡下ロボット操作における特権状態から視覚方策への蒸留のための分布マッチングの再検討",
+   "summary_ja": "手術ロボット操作において、特権状態を用いた強化学習方策からカメラRGBを入力とする視覚方策へと蒸留する手法の分布マッチングを再検証した論文。従来の単純な行動クローニングが抱える分布シフト問題に対処し、視覚ベースRLの困難さを克服する蒸留フレームワークを提示する。明示的な知覚パイプラインなしにタスク関連の視覚表現を獲得させ、ロバストな閉ループ制御を実現している。",
+   "summary_en": "This paper revisits distribution matching for distilling privileged state-based reinforcement learning policies into RGB-based vision policies for laparoscopic robotic manipulation. The proposed framework addresses distribution shift issues inherent in standard behavior cloning, circumventing the sample inefficiency of pure vision-based RL. It enables the acquisition of task-relevant visual representations and achieves robust closed-loop control.",
+   "authors": [
+    "Mingyu Sheng",
+    "Jianan Fan",
+    "Dongnan Liu",
+    "Guoyan Zheng",
+    "Ron Kikinis",
+    "Weidong Cai"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control",
+    "manipulation",
+    "medical"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.31010",
+   "image": "figures/2026-10-25/2610.31010.jpg"
+  },
+  {
+   "date": "2026-10-25",
+   "rank": 1,
+   "id": "2610.31670",
+   "group": "focus",
+   "title": "Sensorimotor Alignment: A Platonic Proxy for Embodied Policy Success",
+   "title_ja": "感覚運動アライメント：身体化された方策の成功度を測るプラトニックな代理指標",
+   "summary_ja": "ロボット基盤モデルの閉ループ評価の高コスト性を解消するため、訓練不要のオフライン評価指標「Sensorimotor Alignment (S^2)」を提案した論文。プラトニック表現仮説に基づき、モデルの感覚表現の幾何構造が物理運動軌道の幾何構造とどれだけ整合しているかを測定する。高価な実機やシミュレータでの試行を行わずに方策性能を事前予測できる新たな評価枠組みを提供する。",
+   "summary_en": "To eliminate the high cost of closed-loop rollouts for robot foundation models, this paper proposes Sensorimotor Alignment (S^2), a training-free offline metric. Grounded in the Platonic Representation Hypothesis, it measures how well a model's sensory representations align with the geometry of physical motion trajectories. This framework provides an effective, low-cost offline proxy for predicting embodied policy success without requiring simulator or real-world executions.",
+   "authors": [
+    "Yunfei Xie",
+    "Howard H. Qian",
+    "Shiyi Lan",
+    "Kaiyu Hang",
+    "Chen Wei"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "benchmark",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.31670",
+   "image": "figures/2026-10-25/2610.31670.jpg"
+  },
+  {
+   "date": "2026-10-25",
+   "rank": 2,
+   "id": "2610.31275",
+   "group": "focus",
+   "title": "Learning Robot Behavior Priors from Non-Robotic Synthetic Data",
+   "title_ja": "非ロボット合成データからのロボット行動事前分布の学習",
+   "summary_ja": "実機ロボットデータの収集ボトルネックを打破するため、身体を持たない安価な手続き型合成データから有用な行動事前分布を獲得可能か検証した研究。行動予測を事前学習タスクとし、合成データで獲得した構造が実機ロボット環境へと転移することを示した。新規に提案する3つの合成データセットを用いて事前学習を行うことで、実環境データが限られる設定でも方策の汎化性能を大幅に向上させた。",
+   "summary_en": "This study investigates whether embodied models can acquire useful behavioral priors from cheap, procedurally generated synthetic data lacking physical embodiment. By framing action prediction as a pretraining task, the authors show that structures learned from non-robotic synthetic tasks transfer effectively to embodied manipulation settings. Evaluated across three new synthetic datasets, the approach significantly improves policy generalization under data-scarce conditions.",
+   "authors": [
+    "Mateusz Odrowaz-Sypniewski",
+    "Michael Amir",
+    "Jasmine Bayrooti",
+    "Ajay Shankar",
+    "Amanda Prorok"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "imitation-learning",
+    "simulation",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.31275",
+   "image": "figures/2026-10-25/2610.31275.jpg"
+  },
+  {
+   "date": "2026-10-25",
+   "rank": 3,
+   "id": "2610.31194",
+   "group": "focus",
+   "title": "Inside-JEPA: From Prediction to Relational Grounding in Latent World Models",
+   "title_ja": "Inside-JEPA：潜在ワールドモデルにおける予測から関係グラウンディングへ",
+   "summary_ja": "潜在空間で世界モデルを学習するJEPAにおいて、ブラックボックス化しやすい状態表現に関係構造を付与するInside-JEPAを提案。潜在状態内に対象ペアの関係チャネルを配置し、関係ラベルを用いず逆ダイナミクス損失によってこれらをグラウンディングする。ロボット実機データRH20T等において、行動推定に基づく教師付けにより関係性のAUROCが大幅に改善することを示した。",
+   "summary_en": "The paper introduces Inside-JEPA, which embeds relational channels for ordered entity pairs into the latent state of Joint-Embedding Predictive Architectures to make latent world models interpretable and grounded. Using an inverse-dynamics loss without relation labels, these relational channels are self-grounded by recovering actions. On benchmark datasets including RH20T real-robot experiments, this method significantly boosts relational AUROC.",
+   "authors": [
+    "Hossein Resani",
+    "Javen Qinfeng Shi"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.CV",
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "reinforcement-learning",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.31194",
+   "image": "figures/2026-10-25/2610.31194.jpg"
+  },
+  {
+   "date": "2026-10-25",
+   "rank": 4,
+   "id": "2610.31472",
+   "group": "general",
+   "title": "VecTile: A Low-Cost Flexible Tactile Array for 3-DoF Force Sensing",
+   "title_ja": "VecTile：3自由度の力覚センシングを実現する低コスト柔軟触覚アレイ",
+   "summary_ja": "垂直抗力だけでなく接線方向のせん断力も計測可能な、厚さ6mmの柔軟触覚アレイセンサ「VecTile」を開発した研究。感圧抵抗層と独自のシリコン突起構造を組み合わせ、特殊設備なしで内製可能であり、4x4アレイを35米ドル未満の極めて低コストで製作できる。把持の滑り検出や微小な接触制御において重要な3軸力センシングを、実ロボットのグリッパー等に安価かつ容易に統合可能にした。",
+   "summary_en": "VecTile introduces a 6 mm thin, flexible tactile array capable of 3-axis force sensing, capturing both normal and tangential shear forces. Combining a piezoresistive layer with passive silicone nubs, it can be fabricated in-house without specialized equipment for under 35 USD per 4x4 array. It enables accessible integration of shear and normal contact feedback onto robot grippers to aid slip detection and grasp stabilization.",
+   "authors": [
+    "Jian Hou",
+    "Xin Zhou",
+    "Adam J. Spiers"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "grasping",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.31472",
+   "image": "figures/2026-10-25/2610.31472.jpg"
+  },
+  {
+   "date": "2026-10-25",
+   "rank": 5,
+   "id": "2610.31427",
+   "group": "general",
+   "title": "FastHarness: Experience-Driven Review Scheduling for Vision-Language-Action Policies",
+   "title_ja": "FastHarness：Vision-Language-Action方策のための経験駆動型レビュー最適化",
+   "summary_ja": "VLA方策の推論実行を大規模推論モデルが監視・復帰支援するシステムにおいて、監視オーバーヘッドを削減するFastHarnessを提案。成功経験の蓄積に応じて検査頻度を減らす高速パスと、失敗時に集中介入する復帰パスを適応的に切り替える。フリーズされたπ0.5方策に対しGPT-6 Astraによる監督を効率的にスケジューリングし、高精度なエラー復旧とリアルタイム実行の両立を実証した。",
+   "summary_en": "FastHarness adaptively schedules high-level LLM supervision over a frozen Vision-Language-Action (VLA) policy to minimize review latency. A fast path reduces review frequency as successful experience accumulates, while a recovery path concentrates supervision on correcting execution failures. The framework maintains frozen policy inference while dynamically scheduling GPT-6 Astra supervision, achieving effective error recovery alongside efficient execution.",
+   "authors": [
+    "Tao Lin",
+    "Yuxin Du",
+    "Haoxiao Wang",
+    "Zile Zhong",
+    "Bo Zhao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "llm-agent",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.31427",
+   "image": "figures/2026-10-25/2610.31427.jpg"
+  },
+  {
+   "date": "2026-10-25",
+   "rank": 6,
+   "id": "2610.31384",
+   "group": "general",
+   "title": "CoHelix: Event-Based Multi-Propeller Rotation-Rate Tracking with Shared Projective Geometry",
+   "title_ja": "CoHelix：共有射影幾何を用いたイベントカメラによる複数プロペラ回転数の追跡",
+   "summary_ja": "移動するイベントカメラから同一平面上にある4基のプロペラ回転数を正確に推定する再帰フィルタ「CoHelix」を提案。背景ノイズや見かけの回転数曖昧性に対し、共有ホモグラフィと個別回転状態を交互に更新することで剛体幾何と高速回転を高精度に分離する。同期真値から2%以内の誤差に収まる継続時間の割合（lock指標）で評価し、高速機動中のドローンに対しても堅牢な回転推定を達成した。",
+   "summary_en": "CoHelix presents a recursive filter that tracks rotation rates of four coplanar drone propellers using a moving event camera. By jointly estimating a shared homography alongside individual propeller rotation states, it disentangles camera motion geometry from high-speed blade rotations without harmonic rate ambiguities. Evaluated by a 'lock' metric (time within 2% error of ground truth), it demonstrates robust tracking under dynamic maneuvers.",
+   "authors": [
+    "Radim Spetlik",
+    "Tobiáš Vinklárek",
+    "Jan Klivan",
+    "Tomáš Kestřánek",
+    "Matouš Vrba",
+    "Jiří Matas"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "drone",
+    "perception",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.31384",
+   "image": "figures/2026-10-25/2610.31384.jpg"
+  },
+  {
+   "date": "2026-10-25",
+   "rank": 7,
+   "id": "2610.31623",
+   "group": "general",
+   "title": "F2G-Pose: Geometry-Aware Foundation Feature Lifting for Direct RGB-D Category-Level Object Pose Estimation",
+   "title_ja": "F2G-Pose: カテゴリレベル物体姿勢の直接推定に向けた幾何配慮型基盤特徴リフティング",
+   "summary_ja": "CADモデル不要でカテゴリレベルの3D姿勢、メトリックサイズ、および完成形状をRGB-Dから単一パスで直接予測する実時間フレームワークF2G-Poseを提案。中間表現を介さず拡散モデルの遅延も回避するため、幾何構造を考慮した基盤モデル特徴の3Dリフティング技術を採用した。誤差累積を防ぎつつ高い計算効率を維持し、対称性やオクルージョンが存在する実環境物体に対しても高精度な姿勢推定を実現した。",
+   "summary_en": "F2G-Pose is a real-time, single-pass framework that directly estimates category-level 3D pose, metric size, and completed shape from a single RGB-D observation without instance CAD models. By lifting geometry-aware foundation features to 3D, it avoids error accumulation from intermediate representations and the high latency of diffusion models. It achieves fast, robust 6D pose estimation under severe occlusions and intra-class shape variations.",
+   "authors": [
+    "Jinyu Zhang",
+    "Haitao Lin",
+    "Jiashu Hou",
+    "Xiangyang Xue",
+    "Yanwei Fu"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "perception",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.31623",
+   "image": "figures/2026-10-25/2610.31623.jpg"
+  },
+  {
+   "date": "2026-10-25",
+   "rank": 8,
+   "id": "2610.31432",
+   "group": "general",
+   "title": "A Sparse Topometric Graph for Scalable Cross-Session Indoor Navigation",
+   "title_ja": "スケーラブルなセッション間屋内ナビゲーションのための疎なトポメトリックグラフ",
+   "summary_ja": "屋内ナビゲーションにおいて、詳細な密点群マッチングの計算・メモリ負荷を軽減する「疎なトポメトリックグラフ」表現を提案。通過可能な通路構造や部屋間の接続関係といった不変のトポロジーを活用し、シーン変化やセンサ構成の違いに対しても訓練不要で頑健な誘導を行う。局所観測と軽量なグラフ構造を組み合わせることで、マルチセッションにわたる大規模屋内環境でも効率的かつ高精度な自律移動を実証した。",
+   "summary_en": "This paper presents a sparse topometric graph representation for scalable cross-session indoor navigation, bypassing heavy dense point-cloud matching. By leveraging the invariant topological connectivity of navigable passages and rooms, it provides training-free global guidance robust to environmental changes and sensor configurations. Combining lightweight graph nodes with local observations enables efficient, reliable navigation across multi-session deployments.",
+   "authors": [
+    "Eun Sun Lee",
+    "Minkyun Seo",
+    "Gwangtak Bae",
+    "Junho Kim",
+    "Seunggu Kang",
+    "Jaesik Park",
+    "Young Min Kim"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "navigation",
+    "planning",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.31432",
+   "image": "figures/2026-10-25/2610.31432.jpg"
+  },
+  {
    "date": "2026-10-24",
    "rank": 0,
    "id": "2610.31166",
