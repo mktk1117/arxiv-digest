@@ -1,0 +1,141 @@
+{
+ "title_ja": "FORCA: 接触リッチな操作のための力覚対応コーディングエージェント",
+ "tldr_ja": "大規模言語モデルが手首の力覚センサ情報を読み解き、リアルタイム制御コードの生成から失敗時のロジック修正までを実機上で自律的に行う枠組み「FORCA」を提案しました。デモや事前学習なしで、接触が不可欠なドア開けや皮むきなどの難タスクを驚くほど高精度にこなせます。",
+ "hero_figure": {
+  "key": "F3",
+  "caption_ja": "FORCAによるプログラム自動修正の全体サイクルです。キュウリの皮むきを例に、実行結果の画像と力覚ログを突き合わせて接触喪失を診断し、「刃が触れるまで前進を待つ」というフィードバック制御コードを書き加えて問題を解決しています。",
+  "caption": "Fig. 3: Illustrative program revision for cucumber peeling. The agent compares force records with visible peeling gaps and adds a condition that pauses forward motion until contact is restored. Photos are from real runs; force traces and skin patches are idealized, and the code is simplified.",
+  "image": "details/2610.31841/F3.jpg"
+ },
+ "overview_ja": "近年、基盤モデル（LLMやVLM）にPythonコードを書かせてロボットを動かす「コーディングエージェント」が注目を集めています。しかし、従来の枠組みは視覚情報に頼りきりでした。視覚だけでは、透明な物体の正確な位置、物体の重さや摩擦、さらには対象物が動いたときの微妙な接触状態の変化を捉えきれず、接触を伴う「接触リッチ（contact-rich）」な作業で失敗が多発していました。\n\nそこで著者らは、手首の力/トルク（F/T: Force/Torque）センサを活用するエージェント「FORCA」を開発しました。ポイントは、力覚を「実行中のリアルタイム制御」と「試行間のプログラム修正」の2つの時間スケールでフル活用する点です。実行中は、接触検知による位置推定の補正や、100 Hzの高速フィードバックによる押し付け力制御を行います。そして実行後は、記録された力の時系列データとカメラ画像を照合して失敗原因を自ら診断し、制御ロジックそのものを書き直します。\n\n本研究ではデモデータや事前のシミュレーション学習を一切使っていません。実機のUR5eロボットアームを用い、透明な引き出し開け、ドアハンドル操作、ブロック飛ばし、花瓶拭き、キュウリの皮むきという5つの過酷なタスクで検証しました。その結果、視覚のみのエージェントと比べて成功率を大幅に向上させ、拭きや皮むき作業での接触喪失率を劇的に低減できることを実証しました。",
+ "contributions_ja": [
+  "言語指示と画像から、手首の力/トルク計測値を利用した動作計画および力フィードバック制御コードを直接生成するコーディングエージェントを提案した点",
+  "ロボットの実行結果（視覚画像と力覚ログの時系列）を分析し、力制御の条件分岐やパラメータを実機上で反復修正する新しいリファインメント機構を実現した点",
+  "人間のデモやシミュレーションでの強化学習を一切使わずに、実機での試行錯誤のみで高い接触精度・物理適応・接触維持を達成した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜロボットのコード生成に「力覚」が必要なのか？",
+   "summary_ja": "視覚主体のコーディングエージェントは、透明な物体の扱いや力加減の調整が苦手です。FORCAは力覚センサを活用してコードを生成・修正することで、接触リッチな操作を実現します。",
+   "details_ja": "大規模言語モデルをベースにしたコーディングエージェントは、自然言語の指示からロボットの動作プログラムを組み立てる優れた能力を持っています。しかし、その判断の多くは視覚（カメラ画像）と自己受容感覚（関節角度など）だけに依存していました。\n\nここが大きな落とし穴です。実世界での接触を伴う作業では、透明な物体や光を反射する表面で幾何学的な形状が見誤りやすくなります。さらに、物体の質量や摩擦係数は見た目だけでは分かりません。拭き掃除や皮むきのように、対象物が動いたり凹凸があったりする状況で適切に接触を保ち続けることも、視覚フィードバックだけでは極めて困難でした。\n\nそこで提案されたのが「FORCA」です。FORCAは、手首のF/Tセンサから得られる「力」と「トルク」の計測値をコード生成と修正の両方に組み込みます。具体的には、次の3つの接触リッチな操作課題を解決します。\n- 精度マニピュレーション（Precision manipulation）: 触れて探る（接触プロービング）ことで把持位置のズレを力学的に補正します。\n- 物理適応（Physical adaptation）: 物体の質量や摩擦の変化を力学的な応答から把握し、動作パラメータを調整します。\n- 接触調整（Contact regulation）: 表面の凹凸や対象物の動きに合わせて、リアルタイムに押し付け力を一定に保ちます。\n\n引き出し開けやドアハンドル操作、キュウリの皮むきなど5つの実機実験において、視覚のみの手法を圧倒する性能を示しました。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "これまでのロボットエージェントと何が違うのか？",
+   "summary_ja": "従来研究でも力覚を扱う試みはありましたが、固定された動作プリミティブの呼び出しや事前の大量学習が必要でした。FORCAは現場で制御ロジックそのものをゼロから書き、書き換える点が独自です。",
+   "details_ja": "本研究の立ち位置を理解するために、関連する3つの研究系統と比較してみましょう。\n\n### 基盤モデルを用いたマニピュレーション\n言語モデルやVLMを使ってロボットプログラムを作る研究は盛んですが、そのフィードバックは視覚や言語情報が中心でした。力覚を扱う先行研究でも、あらかじめ用意されたコンプライアント制御（柔軟に力を逃がす制御）の関数を呼び出すだけだったり、目標の力を変える程度にとどまっていました。FORCAのように、タスクに応じた力フィードバック制御コード自体を生成し、実行ログからそのロジックを書き直すエージェントは存在しませんでした。\n\n### 接触に基づく知覚と物理特性への適応\n触覚や力覚を使って物体の形状や位置を推定する研究や、質量・摩擦などの潜在的な物理パラメータを同定する手法は昔からあります。しかし、それらは専用の探索動作を設計したり、物理シミュレータとのすり合わせを必要としていました。FORCAは、デプロイ時に「どこをどう触って確かめるか」をLLM自身が判断し、追加のモデル学習なしに適応します。\n\n### リアクティブな力制御マニピュレーション\n力センサを用いたインピーダンス制御や力制御は古典的かつ強力なアプローチです。また、最近では模倣学習や強化学習で力覚を取り込むEnd-to-Endの手法も増えています。しかし、古典手法は職人芸的な閾値調整が必要であり、学習手法は膨大な実機データやデモを要求します。FORCAは古典的な制御の良さを活かしつつ、コントローラのコード記述とパラメータ調整をLLMに肩代わりさせるアプローチを採っています。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "FORCAの仕組み：力を使って書き、動かし、直す",
+   "summary_ja": "FORCAは初期スキルモジュールを組み合わせてタスクコードを生成します。実行中は100 Hzの力フィードバックで動作し、終了後は力覚ログを自ら解析してコードの欠陥を修復します。",
+   "details_ja": "FORCAのパイプラインは、大きく3つの要素で構成されています。\n\n### III-A 力覚を考慮したプログラム生成\nエージェントには、オープンソースツールで構成された初期スキルモジュール群（物体のセグメンテーションを行うSAM 3、把持候補を出すGraspGen、軌道計画を行うPyRoKiなど）が与えられています。エージェントは指示を受けると、これらを組み合わせたPythonスクリプトを生成します。さらに、手首のF/Tセンサから得られるレンチ（力とトルクのベクトル）を読み取るコードを直接書き込み、アプローチの停止判定や、力誤差に基づく速度修正コードを実装します。\n\n### III-B 接触に応答する実機実行\nプログラムがロボット上で走り出すと、基盤モデルへの問い合わせは行わず、生成されたPythonコードが自律的に実行されます。ここでのポイントは2つあります。\n- 幾何情報の修正: 把持の前にグリッパを対象物に軽く接触させ（プロービング）、接触した瞬間のロボットの手先位置から対象物の正確な高さや位置を割り出します。\n- リアルタイム力フィードバック: 接触を保ち続ける作業では、ホストPC上で100 Hzの制御ループがRTDE（URロボットのリアルタイムデータ通信インターフェース）経由でF/Tセンサ値を読み取ります。目標の力との差分に応じてデカルト座標系の速度指令を逐次更新したり、接触が抜けた際に前進を一時停止する処理を高速に回します。\n\n### III-C 実行結果に基づくプログラム修正\n1回の試行（ロールアウト）が終わると、エージェントは撮影された画像と、記録された力覚およびロボット状態の時系列ログを精査します。必要に応じてログ解析用の小さなPythonコードを自作して特定の時間窓を調べることもあります。「なぜ失敗したのか」を特定したら、動作パラメータだけでなく、接触判定の閾値や制御ロジックそのものを書き直します。構文エラーや到達可能性の安全チェックをパスした後、次の試行へ進みます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "エージェントに初期配布されている基本スキルモジュールです。(a) SAM 3による道具の領域抽出、(b) GraspGenによる把持候補の生成とVLMによる選択、(c) PyRoKiによる干渉のない軌道計画、(d) 実際のピッキング動作の実行という流れで道具を獲得します。",
+     "caption": "Fig. 2: Predefined skill modules. The agent is initialized with these modules, assembled from open-source components under human supervision. (a) SAM 3 [ 31 ] localizes the tool named in the instruction. (b) GraspGen [ 32 ] proposes candidate grasps, and the VLM selects one. (c) PyRoKi [ 30 ] plans the trajectory. (d) The robot executes the resulting routine to acquire the tool.",
+     "image": "details/2610.31841/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "キュウリの皮むきにおけるプログラム修正の具体例です。剥き残しがある位置と、力が急落した時間帯が一致していることを突き止め、「力が一定以上になるまで前進を停止する」という条件分岐コードを追加して見事に成功させました。",
+     "caption": "Fig. 3: Illustrative program revision for cucumber peeling. The agent compares force records with visible peeling gaps and adds a condition that pauses forward motion until contact is restored. Photos are from real runs; force traces and skin patches are idealized, and the code is simplified.",
+     "image": "details/2610.31841/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "実機実験：5つの難タスクで力覚の威力を検証する",
+   "summary_ja": "引き出し開け、ドアハンドル操作、ブロック飛ばし、花瓶拭き、皮むきの5タスクで検証しました。視覚のみのエージェントに比べて圧倒的な成功率と接触維持能力を記録しました。",
+   "details_ja": "実験はUR5eアーム、WSG-50グリッパ、RealSense D455カメラを用いて行われました。コーディングエージェントの頭脳にはClaude Fable 5（Claude 3.5 Sonnet）が使われています。比較対象は、同じモデルと基本スキルを持ちながら力覚データへのアクセスを遮断された「視覚のみ（Vision-only）エージェント」です。\n\n### IV-B 1 高精度マニピュレーション（引き出し開け・ドアノブ操作）\n透明な引き出しのノブや、遊びの少ないドアハンドルを回すタスクです。視覚だけでは透明なアクリルノブの位置誤差が大きく、把持に失敗します。FORCAは指先で対象に触れるプロービングを行うことで位置誤差を数ミリ単位まで補正しました。その結果、10回の試行におけるタスク成功率は、引き出し開けで視覚のみの40%から100%へ、ドアハンドル操作では10%から100%へと飛躍的に向上しました。\n\n### IV-B 2 物理条件の変化への適応（ブロック飛ばし）\nキューブを小づいて指定の目標エリア内に滑らせて止めるタスクです。物体の質量（61.9 gのキューブと663.6 gの金属シリンダー）や、床面の材質（ホワイトボードと木板）を変えることで摩擦や反発特性を激変させました。FORCAは、1つの環境で完成したコードを出発点として、わずか数回の追加試行で力積や打撃速度のパラメータを修正し、ゼロから開発するよりも大幅に少ない試行回数で目標領域へピタリと止められるようになりました。\n\n### IV-B 3 オンライン接触調整（花瓶拭き・キュウリの皮むき）\n曲面を持つ花瓶のマーカー消しと、人間が手で持っているキュウリの皮むきを行いました。花瓶拭きでは、静止状態で調整したプログラムを人間が花瓶を動かす動的環境へそのまま適用（ゼロショット転送）しました。視覚のみの手法は花瓶の動きに追従できず接触喪失率が55.9%に達しマーカー除去率も13%に落ち込みましたが、FORCAは100 Hzループで押し付け力を一定に保ち、接触喪失率わずか0.5%、除去率93%を維持しました。キュウリの皮むきでも、FORCAは過剰な力（10 N以上）を出さずに刃を密着させ続け、連続した綺麗な皮むきを達成しました。\n\n### IV-C & IV-D 開発コストと反復修正の分析\n開発時の1反復にかかる時間は、ロボットの動作自体が1〜3分なのに対し、エージェントの思考・推論に4〜10分を要しました。ドアハンドル操作の詳細な分析では、FORCAはハンドルを押し下げた際に突き当たる感覚（力の急上昇）を検知してラッチ解除を判断するなど、力覚情報に基づく質の高いロジック修正を行っていることが確認されました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "引き出し開けとドアハンドル操作の様子です。視覚による初期推定の後、指先で軽く接触して位置を補正（Contact probe）することで、透明なノブや細いハンドルを確実に把持して操作を成功させています。",
+     "caption": "Fig. 4: Example rollouts and outcome comparisons. (a) Drawer opening and (b) door-handle operation. Panels 1–3 show Forca estimating geometry visually, refining it through contact probing, and grasping to pull the drawer or turn the handle. In (a1), dashed and solid outlines mark the estimated pre-grasp and grasp poses; the axes indicate closing and approach directions. Numbered markers in (a2) identify three probe locations on the drawer knob. In (b2), orange markers indicate fingertip contacts, and blue shading marks the door-panel position confirmed by contact. …",
+     "image": "details/2610.31841/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "物理適応タスク（cube-to-target）の様子です。(a) 試行を重ねるごとに力加減を修正し、目標エリア内に停止させています。(b) 質量や摩擦の異なる4通りの物体・床面の組み合わせにも、わずかな追加試行で適応しました。",
+     "caption": "Fig. 5: Cube-to-target adaptation. (a) Object positions across successive attempts. The dashed outline marks the initial pose, and shading indicates the target region. (b) Object and surface configurations.",
+     "image": "details/2610.31841/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "花瓶拭きタスクの比較です。静止した花瓶で調整したコードを、人が手で動かす花瓶に適用したところ、視覚のみでは接触が外れてマーカーが大量に残ったのに対し、FORCAは力のフィードバック制御により追従し続けました。",
+     "caption": "Fig. 7: Vase wiping: (a) static vase and (b) zero-shot transfer to a hand-held vase. Each panel shows representative outcomes (top), execution frames (middle), and force traces (bottom). Both programs are refined in the static setting and transferred without further revision. As the vase moves, Forca maintains more consistent contact and high marker removal, whereas the vision-only program exhibits contact loss and large force variations, leaving substantial residual marks.",
+     "image": "details/2610.31841/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "人が手で持ったキュウリの皮むき実験です。FORCA（上）は目標範囲（4.5〜7.5 N）の力を安定して維持し、途切れのない長い皮（90.6%）を剥くことができましたが、視覚のみ（下）では刃が浮いたり過剰に押し込んだりして失敗しました。",
+     "caption": "Fig. 8: Cucumber peeling rollouts. (a) Hand-held setup and a magnified view of the boxed blade–surface contact. (b) Peeled strips after one representative pass, covering 90.6% of the intended length for Forca and 28.9% for the vision-only agent. (c) Execution frames at the marked instants. (d) Normal contact force. Shaded intervals indicate contact loss; the blue band marks the 4.5–7.5 N target range, and the dashed line marks the 30 N force limit.",
+     "image": "details/2610.31841/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Limitations",
+   "heading_ja": "FORCAが抱える課題と今後の展望",
+   "summary_ja": "試行錯誤にかかる時間の長さ、手首センサによる空間分解能の限界、複雑な長手数タスクでの推論難易度が今後の課題として挙げられています。",
+   "details_ja": "著者らは、実用化に向けて克服すべき課題を3点挙げています。\n\n- 反復試行のコスト: 1回の修正ループに数分〜10分程度かかり、その大半はLLMの推論時間です。また、実機上で直接失敗を繰り返すため、シミュレータである程度事前リファインを行ってから実機に持っていくなどの効率化が求められます。\n- 力覚センシングの限界: 現在使用しているのは手首の6軸F/Tセンサのみです。手首全体にかかる合力は分かりますが、「指先のどこに力がかかっているか」という分布までは分かりません。指先触覚アレイなどを統合することで、より繊細な作業への拡張が期待されます。\n- タスクの複雑さ: 手順が非常に長い作業や、極めてシビアな力制約がある作業では、失敗の原因特定が難しくなり、許容反復回数（20回）以内に収束しない可能性があります。",
+   "figures": []
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "まとめ：物理世界と対話しながら進化するコード",
+   "summary_ja": "FORCAは、力覚フィードバックを伴うコードを自律生成・修正する枠組みです。デモなしで環境に適応し、実世界の接触リッチな操作を劇的に安定化させる新たな道を拓きました。",
+   "details_ja": "FORCAは、ロボットが現場で作業しながら「力覚」を通してコードを育てていく新しいマニピュレーションのパラダイムを示しました。事前学習や人間のティーチングに頼らず、試行錯誤のログから制御ロジックそのものをアップデートしていくアプローチは、家庭や工場など環境が刻一刻と変化する現場において非常に強力です。\n\n今後は、蓄積されたコードライブラリの再利用や、模倣学習・VLA（Vision-Language-Action）モデルをひとつのサブスキルとして組み込むことで、さらに複雑で柔軟な自律作業の実現が期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "接触リッチな作業には視覚だけでなく力覚が必須であり、LLMは手首F/Tセンサの時系列ログから失敗原因（接触喪失や突き当たり）を十分に推論できる。",
+  "「高速なリアルタイム力制御コードの生成」と「試行間の失敗診断によるロジック修正」を分離して組み合わせる二段階の設計が極めて有効である。",
+  "質量や摩擦などの変化に対しても、一度獲得した制御コードを出発点にすれば、わずか数回の実機試行で適応可能である。",
+  "大量のデモ収集やシミュレータ構築を行わなくても、基盤モデルを用いたデプロイ時（現場）の自己修正ループだけで高度な接触タスクが解けることを実証した。"
+ ],
+ "limitations_ja": [
+  "1回のプログラム修正サイクルに4〜10分の推論時間がかかり、実機での試行回数も嵩むため、時間的・物理的な安全コストが大きい。",
+  "手首の6軸力覚センサに依存しているため、複数指の接触位置や局所的な接触状態の把握には限界がある。",
+  "タスクの手順が長大になったり力制約が複雑すぎたりすると、LLMが原因を正しく診断できず反復回数の上限に達してしまう恐れがある。"
+ ],
+ "keywords": [
+  "Coding Agents",
+  "Force/Torque Sensing",
+  "Contact-Rich Manipulation",
+  "Large Language Models",
+  "In-Context Program Revision"
+ ],
+ "id": "2610.31841",
+ "title": "FORCA: A Force-Aware Coding Agent for Contact-Rich Robot Manipulation",
+ "authors": [
+  "Xiao Tan",
+  "Yixuan Wang",
+  "Zhexi Wang",
+  "Wenzhen Yuan"
+ ],
+ "date": "2026-10-26",
+ "group": "general",
+ "tags": [
+  "llm-agent",
+  "manipulation",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.31841",
+ "pdf_url": "https://arxiv.org/pdf/2610.31841",
+ "summary_ja": "力覚・トルク情報と視覚を活用し接触リッチなロボット操作プログラムを自動生成・修正するコーディングエージェントFORCAを提案。デモや事前の強化学習を必要とせず、試行間の力覚履歴と視覚的成否を分析してPythonコードの制御ロジックを自己修正する。5つの実機タスクにおいて、力応答型の動作生成と高いタスク適応能力を実証した。",
+ "generated": "2026-10-26",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.31841"
+}
