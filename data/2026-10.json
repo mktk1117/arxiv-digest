@@ -1,6 +1,301 @@
 {
  "entries": [
   {
+   "date": "2026-10-26",
+   "rank": 0,
+   "id": "2610.32277",
+   "group": "focus",
+   "title": "Delay Randomization Widens the Delay Margin of Learned Humanoid Motion Trackers",
+   "title_ja": "遅延ランダム化による学習済みヒューマノイド運動追従方策の遅延マージン拡大",
+   "summary_ja": "人型ロボットの運動追従方策において、指令遅延が及ぼす影響と訓練時のランダム化の効果を検証した研究。24自由度ヒューマノイドで評価した結果、40msの固定遅延下で生存率が15%まで低下したが、訓練時に遅延を0〜50msでランダム化することで生存率が95%に回復し、遅延マージンが大幅に拡大することを示した。",
+   "summary_en": "This study investigates the impact of command latency on learned humanoid motion-tracking policies and evaluates delay randomization. In tests with a 24-DoF humanoid, a 40 ms constant command delay reduced task survival to 15%, but randomizing delays (0-50 ms) during training restored survival to 95% and substantially widened the delay margin.",
+   "authors": [
+    "Shaoqin Li",
+    "Yi Sun"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "sim-to-real",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.32277",
+   "image": "figures/2026-10-26/2610.32277.jpg"
+  },
+  {
+   "date": "2026-10-26",
+   "rank": 1,
+   "id": "2610.32966",
+   "group": "focus",
+   "title": "ViT-H: Generative Video-To-Humanoid Control with Motion Tracking Feedback",
+   "title_ja": "ViT-H: 動作追従フィードバックを備えた動画からのヒューマノイド制御生成",
+   "summary_ja": "単眼の人物動画からヒューマノイドの全身制御方策を直接獲得する生成追従フレームワークViT-Hを提案。人物姿勢の明示的再構成やリターゲティングを省き、拡散モデルで人型参照動作を生成した上で、追従成否のフィードバックを用いた直接選好最適化（DPO）により生成器を事後学習する。これにより多様で実行可能な全身動作を実現する。",
+   "summary_en": "ViT-H is a video-to-humanoid control framework that bypasses explicit human motion reconstruction and retargeting. It directly generates humanoid reference motions from monocular videos using a diffusion model and post-trains the generator via direct preference optimization (DPO) based on downstream tracking success, achieving diverse and dynamically executable whole-body humanoid behaviors.",
+   "authors": [
+    "Zimo He",
+    "Tianyi Bian",
+    "Zizhong Yang",
+    "Hongjie Li",
+    "Nan Jiang",
+    "Jieming Cui",
+    "Baoxiong Jia",
+    "Yizhou Wang",
+    "Siyuan Huang",
+    "Yixin Zhu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.32966",
+   "image": "figures/2026-10-26/2610.32966.jpg"
+  },
+  {
+   "date": "2026-10-26",
+   "rank": 2,
+   "id": "2610.32460",
+   "group": "focus",
+   "title": "CoCarry: Contact-Support-Structured Retargeting for Dual-Humanoid Cooperative Carrying",
+   "title_ja": "CoCarry: 2体ヒューマノイド協調運搬のための接触支持構造化リターゲティング",
+   "summary_ja": "2体のヒューマノイドによる協調運搬の全身制御に向け、高品質なデータセットCoCarryとリターゲティング手法を提案。2人組の同期データ220系列（21タスク、4種の地形、計約61分）を収集し、共有把持や支持関係を保つ接触支持構造化リターゲティングを開発した。実環境でのロボット間協調動作学習を加速する基盤を提供する。",
+   "summary_en": "This paper presents CoCarry, a cooperative carrying dataset and retargeting framework for dual-humanoid whole-body control. The dataset contains 220 synchronized two-person motion sequences across 21 tasks and 4 terrain types, totaling about 61 minutes. To preserve inter-agent contacts and load distributions, the authors introduce contact-support-structured retargeting, facilitating multi-robot coordination learning.",
+   "authors": [
+    "Ziyu Lin",
+    "Shihang Du",
+    "Tianhang Wang",
+    "Xiaodong Liu",
+    "Runze Zhang",
+    "Zongyou Yu",
+    "Haodong Zhang",
+    "Alois Knoll",
+    "Guang Chen"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "multi-robot",
+    "dataset",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.32460",
+   "image": "figures/2026-10-26/2610.32460.jpg"
+  },
+  {
+   "date": "2026-10-26",
+   "rank": 3,
+   "id": "2610.32909",
+   "group": "focus",
+   "title": "HoloBoxing: A Simple Recipe for Humanoid Boxing with 7 Minutes of Single-GPU Training",
+   "title_ja": "HoloBoxing: 単一GPU・7分の学習で実現するヒューマノイドボクシング",
+   "summary_ja": "単一GPU上でわずか7分の強化学習によりヒューマノイドのボクシング動作を獲得する手法HoloBoxingを提案。事前訓練済みの全身コントローラを固定し、上位プランナーが目標身体位置を指示する階層構造を採用した。32次元行動をデコードする構造化アクションと状態模倣による初期化を組み合わせ、全身制御を再学習することなく迅速なタスク方策学習を実現した。",
+   "summary_en": "HoloBoxing presents an efficient recipe for humanoid boxing, training in just 7 minutes on a single GPU. It decouples task decision-making from whole-body control by freezing a pretrained controller and training a compact planner that outputs target body points. Initialized via measured-state imitation and using a 32-dimensional action decoder, the planner quickly learns interactive boxing without relearning low-level motor skills.",
+   "authors": [
+    "Xihan Ma",
+    "Bo Zhang",
+    "Boxiong Li",
+    "Yuhan Bao",
+    "Ziyue Liu",
+    "Yucheng Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.32909",
+   "image": "figures/2026-10-26/2610.32909.jpg"
+  },
+  {
+   "date": "2026-10-26",
+   "rank": 4,
+   "id": "2610.32855",
+   "group": "focus",
+   "title": "Regularised RL improves sim-to-real transfer",
+   "title_ja": "正則化強化学習によるSim-to-Real転送の改善",
+   "summary_ja": "強化学習におけるエントロピー等の正則化がsim-to-real転送に及ぼす影響を実機検証した研究。ソフトmellowmax価値関数に基づく新たな正則化RLアルゴリズムSMM-ACを提案し、シミュレーションと実機の間にあるダイナミクス誤差に対する頑健性を解析した。実験により、適切な正則化がPPOなどの標準手法よりも大幅にsim-to-real性能を向上させることを示した。",
+   "summary_en": "This paper investigates the role of regularization in reinforcement learning for sim-to-real transfer. The authors propose Soft MellowMax Actor-Critic (SMM-AC), a novel regularized RL algorithm based on the soft mellowmax value function that provides robustness guarantees against dynamics shifts. Empirical evaluations demonstrate that strong regularization significantly improves real-world transfer performance compared to standard weakly regularized methods like PPO.",
+   "authors": [
+    "Danilo Vucetic",
+    "Mohamad H. Danesh",
+    "Florence Clerc",
+    "Hsiu-Chin Lin",
+    "Jonathan Tremblay"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "sim-to-real",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.32855",
+   "image": "figures/2026-10-26/2610.32855.jpg"
+  },
+  {
+   "date": "2026-10-26",
+   "rank": 5,
+   "id": "2610.31859",
+   "group": "general",
+   "title": "Full-Weight VLA Fine-Tuning Without an fp32 Master Copy Silently Erases Most Updates",
+   "title_ja": "fp32マスターコピーなしの全重みVLA微調整は更新の大部分を消失させる",
+   "summary_ja": "fp32マスターコピーを持たずにbf16で全重み微調整を行うと、AdamWの丸め誤差により更新の大部分が消失する問題を指摘した論文。調査した12の主要VLAコードベース中9つがこの方式を推奨しており、LIBERO環境での検証では重み更新の79%以上が無効化されていたことを実証。ロボット基盤モデルの学習設定における重大な落とし穴を警告している。",
+   "summary_en": "This paper reveals that fine-tuning full-weight VLA models in bfloat16 without an fp32 master copy causes AdamW to silently erase most parameter updates smaller than 1/512 of a weight. The author found that 9 of 12 open VLA codebases adopt this flawed practice, and over 79% of weight updates were lost in LIBERO experiments. This finding identifies a critical yet widespread pitfall in training robotic foundation models.",
+   "authors": [
+    "Shubham Singh"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.31859",
+   "image": "figures/2026-10-26/2610.31859.jpg"
+  },
+  {
+   "date": "2026-10-26",
+   "rank": 6,
+   "id": "2610.31834",
+   "group": "general",
+   "title": "WorldMirror: Agentic Real-to-Sim Generation of Interactive Worlds from In-the-Wild Robot Demonstrations",
+   "title_ja": "WorldMirror: 野外ロボット教示データからの対話型世界Real-to-Sim生成",
+   "summary_ja": "野外での実ロボット教示動画から対話型のシミュレーション環境を自動構築するReal-to-SimフレームワークWorldMirrorを提案。汎用エージェントの3D空間推論と特化型生成モデルを組み合わせ、高忠実な外観・幾何再構成と物理的に整合したインタラクションを両立する。手動での環境構築コストを削減し、多様な環境下での方策学習をスケーラブルに支援する。",
+   "summary_en": "WorldMirror is an agentic real-to-sim framework that automatically creates interactive simulation environments from in-the-wild robot demonstrations. Combining general-purpose agents for 3D spatial reasoning with specialized generative models for geometry and appearance, it achieves both high visual fidelity and physical plausibility. This significantly reduces manual effort in simulator design and scales data diversity for robot learning.",
+   "authors": [
+    "Tianling Xu",
+    "Weijie Wan",
+    "Honghao Su",
+    "Kailun Su",
+    "Junyuan Tang",
+    "Huichi Zhou",
+    "Haozheng Zhang",
+    "Qi Xiong",
+    "Ping Luo",
+    "Wenbo Ding",
+    "Tianxing Chen",
+    "Yue Chen"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "simulation",
+    "sim-to-real",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.31834",
+   "image": "figures/2026-10-26/2610.31834.jpg"
+  },
+  {
+   "date": "2026-10-26",
+   "rank": 7,
+   "id": "2610.31829",
+   "group": "general",
+   "title": "SEVI: Safe Evidential Real-World Reinforcement Learning",
+   "title_ja": "SEVI: エビデンシャル不確実性を考慮した実世界安全強化学習",
+   "summary_ja": "実機ロボット上での強化学習において安全介入を行うフレームワークSEVIを提案。エビデンシャル安全性クリティックを導入し、制約違反リスクと認識論的不確実性の両方を単一フォワードパスで推定する。行動が危険と予測されるか十分な根拠がない場合に自動介入することで、接触リッチな実機マニピュレーション課題を安全かつ効率的にオンライン学習可能にした。",
+   "summary_en": "SEVI is a safe reinforcement learning framework designed for real-world robotic learning. It introduces an Evidential Safety Critic that estimates both constraint-violation risk and epistemic uncertainty in a single forward pass. By triggering safe interventions whenever an action is deemed risky or unsupported by evidence, SEVI enables sample-efficient and secure online learning in contact-rich manipulation tasks.",
+   "authors": [
+    "Shaekh Mohammad Shithil",
+    "Lantao Liu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "safety",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.31829",
+   "image": "figures/2026-10-26/2610.31829.jpg"
+  },
+  {
+   "date": "2026-10-26",
+   "rank": 8,
+   "id": "2610.31779",
+   "group": "general",
+   "title": "FLORA: An Open Model Suite for Scaling Robotics Data Engines",
+   "title_ja": "FLORA: ロボティクスデータエンジン拡張のためのオープンモデルスイート",
+   "summary_ja": "GR00Tなどのロボット基盤モデル訓練を支えるデータエンジンFLORAを提案。実機運用のための最終報酬判定、RL事後学習に必要なプロセス報酬付与、事前学習データ選別のためのタイムスタンプ付きキャプション生成を包括的にカバーする。各種ベンチマークでSOTAを達成し、商用API比で約12倍の低コスト運用を実現している。",
+   "summary_en": "FLORA is an industrial-quality open data engine designed to scale robotics foundation models such as GR00T. It unifies outcome reward labeling, process reward generation for RL post-training, and timestamped video captioning for data filtering. FLORA achieves state-of-the-art results on several robotics evaluation benchmarks while operating at roughly one-twelfth the cost of commercial API alternatives.",
+   "authors": [
+    "Sicong Leng",
+    "Yunze Man",
+    "Zhiqi Li",
+    "Jing Wang",
+    "Yuhe Zhang",
+    "Ryan Punamiya",
+    "Siddharth Patki",
+    "Kaiyuan Zheng",
+    "Zi-ang Cao",
+    "Zhiding Yu",
+    "Sifei Liu",
+    "Danfei Xu",
+    "Ben Levin",
+    "Jan Kautz",
+    "Yuke Zhu",
+    "Johan Bjorck",
+    "Linxi \"Jim\" Fan"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "dataset",
+    "benchmark",
+    "vision-language-action",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.31779",
+   "image": "figures/2026-10-26/2610.31779.jpg"
+  },
+  {
+   "date": "2026-10-26",
+   "rank": 9,
+   "id": "2610.31841",
+   "group": "general",
+   "title": "FORCA: A Force-Aware Coding Agent for Contact-Rich Robot Manipulation",
+   "title_ja": "FORCA: 接触リッチな操作のための力覚対応コーディングエージェント",
+   "summary_ja": "力覚・トルク情報と視覚を活用し接触リッチなロボット操作プログラムを自動生成・修正するコーディングエージェントFORCAを提案。デモや事前の強化学習を必要とせず、試行間の力覚履歴と視覚的成否を分析してPythonコードの制御ロジックを自己修正する。5つの実機タスクにおいて、力応答型の動作生成と高いタスク適応能力を実証した。",
+   "summary_en": "FORCA is a force-aware coding agent that generates and iteratively refines Python control programs for contact-rich manipulation using vision and wrist force/torque measurements. Without demonstrations or prior reinforcement learning, it analyzes execution logs and visual outcomes to diagnose failures and update force-feedback logic. Real-robot experiments across five contact-rich tasks demonstrate its effectiveness in synthesizing adaptive physical interaction policies.",
+   "authors": [
+    "Xiao Tan",
+    "Yixuan Wang",
+    "Zhexi Wang",
+    "Wenzhen Yuan"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "llm-agent",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.31841",
+   "image": "figures/2026-10-26/2610.31841.jpg"
+  },
+  {
    "date": "2026-10-25",
    "rank": 0,
    "id": "2610.31010",
