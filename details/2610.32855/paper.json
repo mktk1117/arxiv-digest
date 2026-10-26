@@ -1,0 +1,135 @@
+{
+ "title_ja": "正則化強化学習によるSim-to-Real転送の改善",
+ "tldr_ja": "ポリシー正則化が持つ理論的なロバスト性保証に着目し、連続値制御向けに拡張した新手法「SMM-AC」を提案することで、シミュレーションから実機への転移や実世界での外乱に対する耐性が大幅に向上することを実証した論文です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "実機におけるSim-to-Realのロバスト性評価の様子です。上段のFrankaアームによる持ち上げタスクでは、重心がずれたキューブに対してPPOやFastTD3が把持に失敗する一方、正則化手法であるSACやSMM-ACは安定して持ち上げに成功しています。下段のANYmal-Dによる階段昇降でも、観測ノイズ下で非正則化手法が足を取られるのに対し、正則化手法は走破できています。",
+  "caption": "Figure 1: Overview of the Sim-to-Real Robustness Evaluation. Top: Agents trained on the Franka Lift task in simulation are deployed with a cube with a different center-of-mass than the one seen during training. The first frame shows the initial state, while the second shows the outcome, where the policy either successfully lifts the cube or fails to grasp it. Bottom: Agents trained on the ANYmal-D Rough task are deployed in the real world to climb up stairs. With noise added to the observation, non-regularised methods fail to climb the stairs.",
+  "image": "details/2610.32855/F1.jpg"
+ },
+ "overview_ja": "強化学習をロボットに応用する際、シミュレーションで学習させて実機に配備する「Sim-to-Real」が広く使われています。しかし現場では、いまだにPPOのような正則化の弱い手法が標準的に選ばれており、ポリシー正則化が実世界の転移にどう役立つのかは十分に検証されていませんでした。\n\nそこで著者らは、正則化強化学習とロバスト強化学習の間に存在する理論的双対性（互いに裏表の関係にあること）に着目しました。正則化をかけると、事前に想定しきれない環境変動や外乱に対しても暗黙的な耐性が生まれるはずです。この仮説を検証するため、理論的に広いロバスト範囲を持つとされる「Soft MellowMax（SMM）」価値関数を連続値制御へ拡張し、新たなアクター・クリティック手法「SMM-AC」を開発しました。\n\nMuJoCoベンチマークでのシミュレーション検証に加え、マニピュレータ（Franka）と4足歩行ロボット（ANYmal-D）の2種類の実機を用いて検証を行いました。その結果、SMM-ACはシミュレーション上でSACなどの強豪ベースラインと同等のスコアを達成しつつ、実機環境では最も高いリターンを記録しました。\n\nさらに、観測ノイズや質量・重心の変化、濡れた路面による摩擦低下、ペイロード追加といった実世界の様々な外乱下でも、SMM-ACは性能低下を最小限に抑え、最も高いロバスト性を示しました。正則化はドメインランダム化を単に置き換えるのではなく、両者を組み合わせることで実世界への配備可能性を劇的に高められることが明らかになりました。",
+ "contributions_ja": [
+  "離散空間向けだったSoft MellowMax（SMM）価値関数を連続値制御に拡張し、実用的なオフポリシー強化学習アルゴリズム「SMM-AC」を導出・提案したこと",
+  "MuJoCoベンチマークにおいて、SMM-ACがSACやTD3といった代表的な連続値制御ベースラインと同等の高いサンプル効率と平均リターンを達成することを示したこと",
+  "FrankaアームとANYmal-Dの2種類の実機ロボットを用い、正則化強化学習（特にSMM-AC）がPPOなどの非正則化手法よりも優れたSim-to-Real転移性能と外乱耐性を持つことを実証したこと",
+  "ドメインランダム化（DR）の幅を狭めた際にも正則化手法が実機配備可能性を保つことを示し、正則化とDRが互いを補完する関係にあることを明らかにしたこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ今、Sim-to-Realに正則化強化学習なのか？",
+   "summary_ja": "ロボット制御のSim-to-RealではPPOがデファクトスタンダードですが、実環境で発生する未知のダイナミクス変化や外乱への頑健性が課題です。本章では、正則化強化学習が持つ理論的なロバスト性保証が実機転移にどう貢献するかという問いを立て、連続値制御アルゴリズムSMM-ACの提案に至る背景を述べています。",
+   "details_ja": "ロボット制御の分野では、シミュレーション環境で方策（ポリシー）を学習させてから実機へ移すSim-to-Real転移が主流です。そこではPPOのように正則化が弱いオンポリシー手法が長らく標準として使われてきました。近年では、大規模並列シミュレータ上でオフポリシー強化学習を安定化させ、4足歩行や人型ロボットへ転移させる研究も増えていますが、それらの多くは「学習時と同じ条件下でタスクを完了できるか」という基本性能の評価にとどまっていました。\n\nしかし、現実世界への配備では、事前のシミュレーションで網羅しきれないセンサー観測のズレや環境特性の変化、ロボット自身のダイナミクス変動（いわゆるSim-to-Realギャップ）が必ず生じます。これらに対処する代表格がドメインランダム化（DR）ですが、DRは設計者が想定した変動パラメータをあらかじめ指定しておく必要があります。\n\nこれに対し、ポリシーに正則化項を課す「正則化強化学習」には、数学的に敵対的な外乱に対する頑健性（ロバスト性）を暗黙的にもたらす性質（正則化とロバスト強化学習の双対性）があることが知られています。もしこの理論的保証が現実世界でも有効なら、想定外の外乱に対しても強いポリシーが得られるはずです。\n\n本研究では、エントロピー正則化よりもさらに広い外乱集合に対して頑健とされる「Soft MellowMax（SMM）」に着目しました。SMMは従来、離散アクション空間のQ学習でのみ定義されていましたが、本研究ではこれを連続値制御向けのアクター・クリティック手法「SMM-AC」へと拡張し、実機マニピュレータと4足歩行ロボットにおいてその有効性を徹底検証しています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "実機におけるロバスト性検証の全体像です。上段のFrankaでは学習時と異なる重心のキューブを持ち上げられるかを比較し、下段のANYmal-Dでは観測ノイズがある状態での階段昇降を比較しています。いずれも正則化手法が優れた耐性を見せています。",
+     "caption": "Figure 1: Overview of the Sim-to-Real Robustness Evaluation. Top: Agents trained on the Franka Lift task in simulation are deployed with a cube with a different center-of-mass than the one seen during training. The first frame shows the initial state, while the second shows the outcome, where the policy either successfully lifts the cube or fails to grasp it. Bottom: Agents trained on the ANYmal-D Rough task are deployed in the real world to climb up stairs. With noise added to the observation, non-regularised methods fail to climb the stairs.",
+     "image": "details/2610.32855/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Background & Related Work",
+   "heading_ja": "正則化とロバスト性の深いつながり、そしてSMMとは",
+   "summary_ja": "正則化マルコフ決定プロセス（MDP）の基本定義と、正則化がなぜロバスト性をもたらすのかという理論的背景を整理しています。また、SACなどのエントロピー正則化手法や、より広い頑健性を持つSoft MellowMax価値関数の位置づけを解説しています。",
+   "details_ja": "正則化MDPでは、目的関数にポリシーに対する強凸な正則化項 $\\Omega(\\pi)$ を導入し、ポリシーの極端な偏りや望ましくない振る舞いにペナルティを与えます。たとえば負のエントロピーを正則化項に用いると、アクションの確率分布が均一（一様分布）に近づくよう促され、これがSAC（Soft Actor-Critic）の基本原理となっています。\n\n先行研究により、正則化強化学習は最適化の損失曲面を滑らかにして学習を安定化させるだけでなく、最悪ケースのダイナミクス変動や報酬外乱に対してポリシーが一定のリターンを維持するという「ロバスト保証」を数学的に持つことが示されています。つまり、正則化項や温度パラメータが規定する「頑健な外乱の集合（robust set）」が大きければ大きいほど、未知の環境変化にも耐えうることになります。\n\nここで登場するのが「Soft MellowMax（SMM）」です。SMMは離散アクション空間において、従来のlog-sum-exp（エントロピー正則化に対応）に代わるソフト最大化関数として提案されました。近年の研究では、SMMに基づく強化学習がエントロピー正則化よりもさらに大きなロバスト集合を誘導することが理論的に証明されています。\n\nしかし、連続アクション空間では、SMMが要求する「参照ポリシー（Q値のソフトマックス分布）」に沿った積分が解析的に解けないという大きな壁がありました。これが、これまで連続値ロボット制御でSMMが使われてこなかった理由です。",
+   "figures": []
+  },
+  {
+   "heading": "3 Soft MellowMax Actor-Critic",
+   "heading_ja": "連続値制御への架け橋：3つのネットワークで解く「SMM-AC」",
+   "summary_ja": "連続空間で解析的に計算できないSMMの参照ポリシーを扱うため、アクター、クリティックに加え、緩やかに更新される「参照ネットワーク」を導入した新手法SMM-ACを提案しています。これにより、SACの安定性を保ちながら、より鋭く高リターン領域に絞り込んだ探索が可能になります。",
+   "details_ja": "SMMでは、ポリシーが「Q値のソフトマックス分布で表される参照ポリシー $\\pi^{\\text{ref}}$」から離れすぎないようにKLダイバージェンスで正則化されます。SACが一様分布を基準にしてランダムな探索を促すのに対し、SMMは「現在のQ値から見て有望な領域」を基準にして探索します。いわば、SACのような多様な軌道の発見能力と、PPOのような高リターン領域への引き戻し効果を併せ持つ中間的なアプローチです。\n\nしかし連続空間では、参照ポリシーの分母（分配関数）の積分が計算不能です。そこで著者らは、次の3つのニューラルネットワークを学習させる構成を提案しました。\n\n### クリティック（Critic）の学習\nクリティック $Q_\\theta$ は、正則化された価値関数の1サンプル・モンテカルロ推定量を用いてTDターゲットを計算し、予測誤差を最小化するように更新します。この設計はSACを踏襲しています。\n\n### アクター（Actor）の学習\nアクター $\\pi^{\\text{act}}_z$ は、本来の最適ポリシーであるソフトマックス分布に近づくよう学習します。ただし、生のクリティック出力に対して直接最適化すると学習が極度に不安定化することが判明しました。そこで、後述する参照ネットワークを低分散な代理（サロゲート）として利用することで、クリティックのノイズからアクターを保護し、安定した勾配更新を実現しました。\n\n### 参照ネットワーク（Reference Network）の導入\nここが最大の工夫点です。参照ポリシー $\\pi^{\\text{ref}}_\\phi$ を独立したネットワークとして保持し、アクターよりも大幅に小さい学習率（低速）でSACと同様の損失関数を用いて更新します。これにより、参照ポリシーが安定したアンカーとして機能し、連続空間でも破綻のない学習が可能になります。\n\nこの構造はSACのリプレイバッファやネットワーク構造をそのまま流用できるため、最新の高速オフポリシーフレームワーク（FlashSACなど）へも容易に組み込める利点があります。",
+   "figures": []
+  },
+  {
+   "heading": "4 Experimental results on MuJoCo",
+   "heading_ja": "シミュレーション検証：MuJoCoで実力をチェック",
+   "summary_ja": "MuJoCoの連続値制御ベンチマークにおいて、SMM-ACがSACやTD3、PPOと比較して遜色ない性能とサンプル効率を持つかを確認しました。極端な1環境を除いてSACと同等以上のリターンを達成し、連続値制御アルゴリズムとしての高い基本性能が実証されました。",
+   "details_ja": "まずは基本性能の確認として、MuJoCoの連続値制御ベンチマーク環境（Ant、HalfCheetah、Hopper、Humanoid、Pusher、Swimmer、Walker2dなど）を用いて、SMM-AC、SAC、TD3、PPOの4手法を比較しました。実装には標準的なCleanRLを用いています。\n\nSMM-ACでは参照ポリシーの逆温度を $\\alpha=1$ に固定し、ポリシーの逆温度 $\\omega$ をスイープして評価しました。結果として、InvertedDoublePendulumで学習途中に性能が崩壊する例外を除き、SMM-ACはSACやTD3といった強力なベースラインと肩を並べる学習速度と最終リターンを達成しました。\n\nまた、付録ではGPU並列化された高速フレームワークであるFlashSAC上にSMM-ACを実装した「FlashSMM-AC」の実験も行われており、ここでもFlashSACと同等の性能を示し、FastTD3やPPOを上回る結果が得られています。\n\nここでの重要な教訓は、「SMM-ACはシミュレーション上のスコアだけでSACを圧倒するわけではない」という点です。真価が発揮されるのは、次章の実機環境や外乱への転移であることが示唆されます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "MuJoCoベンチマーク環境における各アルゴリズムの学習曲線（環境ステップ数に対するエピソードリターン）です。SMM-AC（青緑の実線）は、InvertedDoublePendulumを除く大半のタスクでSAC（黒の実線）と同等の高いリターンと収束速度を達成しています。",
+     "caption": "Figure 2: Smoothed episodic returns of SMM-AC, SAC, PPO, and TD3 over the number of steps taken in the environment. The best results were selected according to the performance of the algorithm at the final step.",
+     "image": "details/2610.32855/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Robotic experiments",
+   "heading_ja": "実機ロボット実験：外乱とギャップに打ち勝つ正則化の力",
+   "summary_ja": "FrankaアームとANYmal-D歩行ロボットの計4タスクでSim-to-Real実験を実施しました。SMM-ACはベースラインを上回る実機リターンを達成しただけでなく、センサーノイズや重量変化、滑る床面といった各種外乱に対しても性能低下が最も小さく、際立ったロバスト性を証明しました。",
+   "details_ja": "本研究の核心となる実機実験です。Franka Pandaアーム（目標位置への到達「Reach」、キューブの把持・持ち上げ「Lift」）と、ANYmal-D 4足歩行ロボット（平地および不整地での速度追従）の4つの環境で評価を行いました。\n\n### 5.1 実験設定と加えた外乱\nベースラインにはPPO、FastTD3、SACを採用し、SMM-ACと比較しました。安全性のため、シミュレーション上の外乱テストで失敗率が80%を超えた設定は実機配備しないという事前ルールを設けたところ、PPOとFastTD3はANYmalの外乱実験からすべて除外される結果となりました。\n実機では次のような過酷な外乱を加えています：\n- 観測ノイズ：Frankaの関節・手先位置観測へのガウスノイズ追加、ANYmalの固有受容感覚入力へのノイズ付加（$\\sigma=0.001$）\n- 物理パラメータの変更：Frankaでは通常の2倍の重さのキューブや、重心が15mmずれたキューブの把持\n- 環境特性の変化：ANYmalでの濡れたコンクリート路面（低摩擦）、胴体への7kgの追加ペイロード、平地での外力プッシュ\n\n### 5.2 Sim-to-Real転移性能（外乱なし）\n外乱のない標準環境での転移（表2のnone行）において、ANYmalの歩行タスクでは正則化手法（SAC、SMM-AC）がPPOやFastTD3を大きく上回るリターンを記録し、特に不整地でその差が顕著でした。Franka LiftでもSMM-ACが最高スコアを達成し、乱数シード間のばらつき（標準偏差）もSACやPPOに比べて極めて小さく、安定した配備ができることが分かりました。\n\n### 5.3 配備後の外乱に対するロバスト性\n外乱を加えた際の性能維持率（外乱なし時のリターンに対する割合）と絶対リターンを評価したところ、SMM-ACの強さが圧倒的でした。\n- 観測ノイズへの耐性：全手法とも観測ノイズで最も性能を落としましたが、PPOがほぼ機能停止しSACも大きくリターンを落とす中、SMM-ACは高い性能を維持しました。\n- 物理・環境外乱への耐性：Frankaで重いキューブや重心が偏ったキューブを扱わせた際、ベースラインが失敗する一方でSMM-ACは性能低下がほぼゼロ（100%維持）でした。ANYmalでも低摩擦路面や7kgペイロードに対してSACより明確に高いリターンを維持しました。\n\nこの結果は、正則化がもたらす理論的なロバスト集合の広さが、実世界の過酷な外乱に対するマージンとして見事に機能していることを示しています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "実機における4つの評価環境です。左からFranka Reach（目標到達）、Franka Lift（キューブ持ち上げ）、ANYmal-D平地歩行、ANYmal-D不整地（階段・スロープ）歩行を示しています。ANYmalの写真にある青い矢印は指令速度の方向を表しています。",
+     "caption": "Figure 3: The four real-world evaluation settings: Franka Reach and Lift, and ANYmal-D velocity tracking on flat and rough terrain. For the ANYmal-D tasks, blue arrows indicate the robot’s direction of commanded velocity.",
+     "image": "details/2610.32855/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "SMM-ACの提案と実機実験を通じて、正則化強化学習がSim-to-Realのギャップを埋め、実世界の外乱耐性を高めることを示しました。また、正則化はドメインランダム化を代替するのではなく、互いに補完し合う関係であることも明確になりました。",
+   "details_ja": "本研究では、理論的に優れたロバスト性を持つSoft MellowMax価値関数を、緩やかに更新される参照ネットワークの導入によって連続値制御へ拡張した「SMM-AC」を開発しました。\n\nシミュレーションでの検証を経て、FrankaアームとANYmal-Dを用いた実機実験を行った結果、正則化手法（とりわけSMM-AC）がPPOやFastTD3などの非正則化手法よりも格段に優れた転移性能と外乱耐性を持つことが実証されました。特にセンサー観測ノイズや物体の重心ズレ、路面摩擦の急変など、現場で日常的に遭遇する外乱に対して高い復元力を示しました。\n\nまた、学習時のドメインランダム化（DR）の範囲を狭める実験からは、DRを減らすとすべての手法で性能が落ちるものの、正則化手法は非正則化手法が配備不能になる状況でも安全に動作を継続できることが判明しました。つまり、正則化はDRを不要にする魔法の杖ではなく、DRと併用することで実機配備の信頼性を一段階引き上げる相乗効果を持つ技術です。\n\n今後の課題としては、タスクごとに最適な逆温度パラメータ $\\omega$ が異なるため、ロバスト性を損なわずに温度を自動調整するスケジューリング手法の確立が挙げられています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：ドメインランダム化の削減実験と実装詳細",
+   "summary_ja": "ドメインランダム化（DR）を徐々に狭めた場合のシミュレーション・実機評価の詳細や、SMM-ACの損失関数の導出、FlashSACフレームワークでのハイパーパラメータ設定について補足しています。",
+   "details_ja": "付録では、本編の主張を裏付ける詳細な実験データと数式展開が提供されています。\n\n### ドメインランダム化（DR）削減の詳細実験\nシミュレーションおよび実機において、DRの範囲をレベル1（通常）、レベル2（狭小）、レベル3（ほぼ公称値に固定）と段階的に狭めて学習させました。ANYmalでは摩擦係数の範囲縮小、ベースへの外力プッシュの無効化、初期姿勢ランダム化の完全排除などを行っています。\nこの結果、DRレベルを狭めるにつれて全手法のリターンが低下し、DR 3では平地歩行においてすべてのモデルが実機配備の安全基準（失敗率80%未満）を満たせなくなりました。しかし、DR 2のような中間的な設定では、PPOやFastTD3が脱落する中でもSMM-ACなどの正則化手法は実機で動作を継続でき、SMM-ACが各DRレベルで最高リターンを維持しました。\n\n### SMM-AC損失関数の導出と高速実装\nアクター損失の導出では、アクションに依存しない分母項を除去し、再パラメータ化トリックを用いることで低分散な期待値推定量を構成しています。また、GPU並列シミュレータ環境向けにFlashSACベースで実装したFlashSMM-ACでは、CleanRL実装よりも高い逆温度設定（$\\omega=100 \\sim 400$）でも極めて安定して学習が進むことが確認されました。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "Sim-to-RealパイプラインではPPOが慣例的に使われがちだが、正則化強化学習（SACやSMM-AC）を採用することで実機転移率と外乱耐性を大幅に向上させられる",
+  "正則化強化学習の持つ数学的なロバスト性保証は単なる机上の理論にとどまらず、ロボット実機における観測ノイズや重量・摩擦変化への適応力として明確に実効性がある",
+  "正則化とドメインランダム化（DR）は二者択一ではなく補完関係にあり、両者を組み合わせることで実環境への配備成功率を最大化できる",
+  "連続空間でSMMを扱う際は、低速で更新される参照ネットワークをアンカーとして導入することで、アクターの学習発散を防ぎ安定した最適化が可能になる"
+ ],
+ "limitations_ja": [
+  "タスクや報酬スケールによって最適な逆温度パラメータ（$\\omega$）が大きく異なり、現状のSMM-ACではSACのような温度の自動調整（autotuning）が確立されていない",
+  "MuJoCoのInvertedDoublePendulum環境のように、一部の極端なタスクで学習途中に性能が崩壊する不安定性が残されている",
+  "参照ネットワークを別途保持して学習させる必要があるため、ネットワークの数が増え、ハイパーパラメータの調整空間が広がる"
+ ],
+ "keywords": [
+  "Sim-to-Real",
+  "Regularised Reinforcement Learning",
+  "Soft MellowMax",
+  "Robustness",
+  "Legged Locomotion",
+  "Robot Manipulation"
+ ],
+ "id": "2610.32855",
+ "title": "Regularised RL improves sim-to-real transfer",
+ "authors": [
+  "Danilo Vucetic",
+  "Mohamad H. Danesh",
+  "Florence Clerc",
+  "Hsiu-Chin Lin",
+  "Jonathan Tremblay"
+ ],
+ "date": "2026-10-26",
+ "group": "focus",
+ "tags": [
+  "reinforcement-learning",
+  "sim-to-real",
+  "control"
+ ],
+ "categories": [
+  "cs.LG",
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.32855",
+ "pdf_url": "https://arxiv.org/pdf/2610.32855",
+ "summary_ja": "強化学習におけるエントロピー等の正則化がsim-to-real転送に及ぼす影響を実機検証した研究。ソフトmellowmax価値関数に基づく新たな正則化RLアルゴリズムSMM-ACを提案し、シミュレーションと実機の間にあるダイナミクス誤差に対する頑健性を解析した。実験により、適切な正則化がPPOなどの標準手法よりも大幅にsim-to-real性能を向上させることを示した。",
+ "generated": "2026-10-26",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.32855"
+}
