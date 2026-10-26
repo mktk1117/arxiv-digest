@@ -1,0 +1,159 @@
+{
+ "title_ja": "FLORA: ロボティクスデータエンジン拡張のためのオープンモデルスイート",
+ "tldr_ja": "ロボット基礎モデルの学習に必要な「タイムスタンプ付き動作キャプション」「プロセス報酬」「結果報酬」を、商用最先端VLMと同等の精度かつ約125分の1の計算コストで一括生成できるオープンなデータエンジンFLORAを提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "FLORAが提供するコア機能の全体像です。動画から時間区間を切り出して動作指示文を生成する機能（上段）と、エピソード成否（結果報酬）・ステップごとの成否判定（プロセス報酬）・ルーブリックに基づく柔軟な採点（下段）を単一のオープン基盤でカバーします。",
+  "caption": "Figure 1 : Capabilities. Flora produces timestamped captions by first segmenting videos and then captioning individual segments. Flora can also produce outcome and process rewards, and rewards based on rubrics specified at test-time.",
+  "image": "details/2610.31779/F1.jpg"
+ },
+ "overview_ja": "ロボットの大規模基盤モデル（Foundation Model）をスケールさせる上で、最大のボトルネックは「良質なアノテーションデータの不足」です。事前学習で言語指示と動作を対応付けるには「いつ・何をしたか」というタイムスタンプ付きキャプションが欠かせませんし、強化学習（RL）による事後学習にはステップ単位の進捗を測るプロセス報酬が必要です。さらに、実環境へのデプロイ監視や自動評価にはエピソード単位の結果報酬（Outcome Reward）が求められます。\n\nこれらをすべて手動で付けるのは不可能ですし、GPT-6 Astraのような超巨大な商用VLM（視覚言語モデル）のAPIを数万時間規模の動画に適用すると莫大な費用がかかってしまいます。既存のオープンツールも、キャプション付けか報酬計算のどちらか片方に特化しているものがほとんどでした。\n\nそこでNVIDIAを中心とするチームは、ロボット基盤モデル「GR00T」の学習を支える産業品質のデータエンジン「FLORA」を開発し、オープンソース化しました。FLORAはQwen3.5シリーズをベースに、時間セグメンテーション、文脈付きキャプション生成、そして多様な粒度の報酬予測を統合したモデル群です。512基のGB300 GPUクラスタで1日あたり20万時間分の動画を処理できる実証済みのスケーラビリティを備えています。\n\n各種ベンチマークで評価した結果、FLORAは既存の専門モデルを大幅に上回り、GPT-6 Astraなどのフロンティアモデルと互角以上の性能を叩き出しました。しかも推論コストは約125分の1に抑えられます。物理世界の大規模データパイプラインを誰もが手元で回せる時代を切り拓く、非常に実用的な成果です。",
+ "contributions_ja": [
+  "ロボット動画に対する「時間セグメンテーション」「文脈付きキャプション付け」「結果報酬・プロセス報酬・ルーブリック評価」を統合的にこなすオープンモデルスイートFLORAを構築した点",
+  "新規ベンチマークDenseCaptionBench（300エピソード）やDenseRewardBenchを策定し、多視点・双腕・器用なハンド操作におけるきめ細かなアノテーション能力を体系化した点",
+  "強化学習（GRPO）を用いた時間境界と記述精度の最適化により、キャプション生成や失敗検出においてGPT-6 Astraに匹敵・凌駕する精度を達成した点",
+  "商用API（GPT-6 Astra）と比較して約125分の1という圧倒的な低コストで、1日20万時間のデータを処理できる産業規模のスループットを実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Overview",
+   "heading_ja": "ロボット学習の鍵を握るデータエンジンをオープンに",
+   "summary_ja": "ロボティクス基盤モデルの全ライフサイクルには、事前学習用キャプション、RL用プロセス報酬、評価用結果報酬という3種のラベルが必須です。FLORAはこれらを高精度かつ安価に一括生成できる産業グレードのデータエンジンとして開発されました。",
+   "details_ja": "近年のロボットAIは、単一の機体向けポリシーから、多様で不均質な大規模データセットで学習する汎用モデルへと急速に移行しています。こうしたモデルを賢く育てるには、データそのものだけでなく高品質なラベルが命になります。\n\n必要なラベルは学習のフェーズによって異なります。事前学習フェーズでは、言語指示で条件付けるために「動作の開始・終了時刻と内容」を紐付けたタイムスタンプ付きキャプションが必要です。次に強化学習（RL）による事後学習フェーズでは、言語モデルにおけるStep-level推論の監視と同じように、エピソード内の各ステップの進捗を測る「プロセス報酬（Process Reward）」が不可欠になります。そして最後に、実機へのデプロイや評価フェーズでは、作業全体が成功したかを判定する「結果報酬（Outcome Reward）」が求められます。\n\nしかし、これらすべてをカバーするオープンなシステムは存在せず、フロンティア商用モデルに頼るとデータセットの大規模化に伴いコストが破綻してしまいます。FLORAはこの課題を解決するために作られたエンジンであり、セグメンテーション、キャプション生成、報酬予測の3つのモデルで構成されています。実際にGR00Tモデルの訓練に使われており、512基のGB300 GPUで1日20万時間のデータをラベル付けできる高いスループットを実証しています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "FLORAの主要タスク一覧です。動画の行動分割（01）、文脈を考慮した動作キャプション生成（02）、エピソード成否の結果報酬（03）、時系列での失敗検知を含むプロセス報酬（04）、ユーザー定義ルーブリックによる柔軟な評価（05）を網羅しています。",
+     "caption": "Figure 1 : Capabilities. Flora produces timestamped captions by first segmenting videos and then captioning individual segments. Flora can also produce outcome and process rewards, and rewards based on rubrics specified at test-time.",
+     "image": "details/2610.31779/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Capabilities and Results",
+   "heading_ja": "最先端商用モデルと互角、コストは125分の1",
+   "summary_ja": "公開ベンチマークと独自ベンチマークの両面でFLORAを評価しました。キャプション付けと報酬評価の双方でGPT-6 Astraと競合しつつ既存の特化型モデルを凌駕し、推論コストを約125分の1に削減できることを示しました。",
+   "details_ja": "### 2.1 タイムスタンプ付き動作キャプション\n時間セグメンテーション（区間分割）とキャプション生成の両面から評価を行っています。既存の公開ベンチマーク「WGO-Bench」（100エピソード）において、時間セグメンテーションF1スコアで50.3%を記録し、Refiner（33.4%）などの既存パイプラインを16.9ポイント引き離して首位に立ちました。区間と文の双方が一致しているかを測る結合F1（Joint F1）でも34.5%を獲得し、GPT-6 Astra（39.0%）に次ぐ2位につけています。\nさらに、単一視点・単純グリッパーにとどまらない評価を行うため、人間の作業、並進グリッパーロボット、器用な多指ハンドロボットを各100本集めた「DenseCaptionBench」（300エピソード・多視点）を新設しました。このテストにおいて、人間タスク（Human100）では結合F1で37.4%をマークし、GPT-6 Astra（29.7%）を7.7ポイント上回る最高スコアを達成しました。ロボットタスク（Robot200）でも結合F1で51.0%を記録し、Astra（57.9%）に迫る極めて高い精度を示しています。\n\n### 2.2 報酬ラベル付け\n結果報酬のベンチマーク「RoboRewardBench」では、1〜5段階の成否スコアに対するMAE（平均絶対誤差、100倍値）が40.0となり、GPT-6 Astraの55.4や専門モデルRoboRewardの66.5を大きく下回る最高精度（27.8%のエラー削減）を達成しました。特に「タスクが途中まで成功した状態」を適切に評価できる点が強みです。\nまた、ステップ単位の良し悪しを判定する「DenseRewardBench」（4,861ステップ）ではマクロF1で46.2%を獲得しました。最大の強みは失敗の検出力で、ベースラインモデルが11.7%以下しか検出できなかった失敗ステップを、FLORAは53.3%という高い再現率で検出できています。さらにユーザー定義の基準で採点する「RubricBench」でも、人間評価とのL1距離が6.5となり、比較した10個の汎用モデル中9個を破る成績を収めました。\n\n### 2.3 アノテーション効率とコスト\nDenseCaptionBenchの50エピソードを用いたコスト評価では、8基のGB300環境（10ドル/GPU時）で運用した場合、元動画1時間あたりのアノテーションコストはわずか約0.72ドルと試算されました。これに対し、最高推論設定のGPT-6 Astra APIを使った場合は1時間あたり88.49ドルかかります。つまりFLORAは、同等以上の品質を保ちながら約125分の1のコストでラベル付けを実行できます。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "6つの主要タスクにおけるFLORAと主要フロンティアモデル（Astra、Sol、Gemini、Kimi）の性能比較です。キャプション生成（上段）と各種報酬予測（下段）の全領域で、FLORAが商用最上位モデルと真っ向から勝負できることが分かります。",
+     "caption": "Figure 3 : One data engine, complementary capabilities. Timestamped caption and reward labeling results across six tasks. All values are scaled by 100. Full comparisons appear in Appendix A .",
+     "image": "details/2610.31779/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "WGO-Benchにおける完全なエンドツーエンドパイプラインの比較です。FLORAは既存のRefinerやLeRobotなどのパイプラインに対し、セグメンテーション精度および結合アノテーションF1で大幅なリードを築いています。",
+     "caption": "Figure 4 : Complete pipelines on WGO-Bench. Equal-subset mean scores (%, $\\uparrow$ ), with generation backbones shown. Full results and protocols appear in Appendix B.6 .",
+     "image": "details/2610.31779/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "3 Qualitative Examples",
+   "heading_ja": "微細な失敗も見逃さない、緻密な観察力",
+   "summary_ja": "定性分析により、FLORAが微細なサブアクションを高密度に拾い上げ、GPT-6 Astraが見落としがちな部品の落下や把持ミスを的確に「失敗」として判定できる様子を実証しました。",
+   "details_ja": "実際の動画における出力結果をGPT-6 Astraと比較すると、FLORAの細部に対する観察眼がよく分かります。\n\n時間的なカバレッジの面では、Astraがエピソード全体でわずか4つの大雑把な区間しか検出できなかったのに対し、FLORAは37個中34個のリファレンス区間を正確に捉えました（F1@0.5スコアはAstraの18.2%に対してFLORAは82.9%）。また、配線の挿入作業において、Astraが部品を「花のパーツ」と見誤ったのに対し、FLORAは「左手でコネクタを保持し、右手でワイヤーを挿入する」という両手の役割分担まで正確に言語化できています。\n\nさらに報酬判定の面でも決定的な違いが見られます。おもちゃの組み立て作業で部品が落下したシーンにおいて、Astraは推論テキスト内で「部品が落ちた」と認識しているにもかかわらず、最終判定を「準最適（Suboptimal）」に留めてしまいました。一方、FLORA-Rewarderはタスク継続が不可能になったと判断し、正しく「失敗（Failure）」のラベルを付与しています。また、ボトルを倒したものの机から落とすには至らなかったシーンでは、Astraが完全失敗（1/5）としたのに対し、FLORAは「一部進捗あり」として正解と同じ3/5のスコアを割り当てています。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "FLORAとGPT-6 Astraの定性比較です。細かい動作の区間検出（上段）、両手の役割を捉えたキャプション（中段）、部品落下を確実に失敗と判定するプロセス報酬や部分成功を拾う結果報酬（下段）において、FLORAの的確さが際立っています。",
+     "caption": "Figure 5 : From intended actions to execution quality. Selected examples show temporal coverage (top), human action captions (middle), and failure recognition and partial progress on DenseRewardBench and RoboRewardBench (bottom).",
+     "image": "details/2610.31779/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Methods",
+   "heading_ja": "3つのモデルを強化学習で研ぎ澄ますアーキテクチャ",
+   "summary_ja": "FLORAは時間セグメンテーション、文脈付きキャプション生成、報酬予測の3モデルから構成されます。オープンなQwen3.5をベースに、SFTとGRPO（強化学習）を組み合わせて高い時間精度と客観的評価能力を獲得させました。",
+   "details_ja": "### 4.1 タイムスタンプ付きキャプションパイプライン\n長尺の動画から高密度なキャプションを生成するため、FLORAは2段階の分割統治パイプラインを採用しています。まず「セグメンテーションモデル」が、前後コンテキストを含むスライディングウィンドウを入力として受け取り、中心領域（コア）内で開始・終了したイベントの相対時刻と、ウィンドウ外へ続く継続フラグを出力します。これらを時間的な重なりとフラグに基づいて決定論的に繋ぎ合わせ（Stitching）、エピソード全体のタイムスタンプを復元します。\n次に「キャプション生成モデル」が、切り出された各区間に対して指示文を生成します。このとき、対象区間のフレームだけでなく、直前と直後の非重複イベントから取得したコンテキストフレーム（Before/Target/After）を明示的に与えるのがポイントです。前後の状況が見えることで、対象物の同定や動作の意図（失敗した試行であっても何をしようとしていたか）を正確に言語化できます。多視点カメラの映像は、タイムスタンプごとに1枚のモザイク画像に結合して入力します。\n\n### 4.2 報酬モデル（Flora-Rewarder）\n報酬モデルは単一の重み（Qwen3.5-27Bベース）で、「結果報酬」「プロセス報酬」「ルーブリック評価」の3種類をプロンプトに応じて切り替えて出力します。結果報酬では1〜5の離散トークンの確率分布から期待値を計算して0〜1に正規化します。プロセス報酬では、0.5秒刻みのステップごとに「正常（Normal）」「準最適（Suboptimal）」「失敗（Failure）」の3段階ラベルと不具合の理由を出力します。16秒のウィンドウを10秒ずつスライドさせ、未来のフレーム情報を見た上で過去のステップを振り返って判定（Retrospective labeling）し、後から繋ぎ合わせます。ルーブリック評価では、思考モード（Thinking mode）を用いてステップごとの達成基準を推論し、配分された点数を合計します。\n\n### 4.3 学習戦略（SFTとGRPO）\nセグメンテーションモデルはQwen3.5-9B、キャプションモデルと報酬モデルはQwen3.5-27Bをベースにしています。まず人間がアノテーションした大量のデータセットを用いて教師あり微調整（SFT）を行います。\n続いて、アノテーション品質を極限まで高めるため、GRPO（Group Relative Policy Optimization）を用いた強化学習を導入しました。セグメンテーションモデルには、正解区間とのtIoUに基づくF1スコアや境界精度から計算される検証可能な報酬を与えてLoRAパラメータを更新します。キャプションモデルには、必須要素（動作・対象物・手の役割）の網羅度を加点し、事実誤認を減点するポイント品質報酬を与えて最適化しました。これにより、幻覚が少なく正確な記述が可能になっています。",
+   "figures": []
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "ロボットデータの大規模自動生成へ",
+   "summary_ja": "FLORAはロボット基盤モデル学習のための産業品質データエンジンであり、各種ベンチマークで商用最先端に匹敵する性能を示しました。本モデルスイートのオープンソース化により、コミュニティにおける独自データ拡充や人間からロボットへの転移学習が加速することが期待されます。",
+   "details_ja": "FLORAは、タイムスタンプ付きキャプション、プロセス報酬、結果報酬という、ロボット基盤モデルの学習に必要なあらゆるアノテーションを高い信頼性で生成できるデータエンジンです。NVIDIAのGR00Tモデルの訓練にも実際に活用されており、研究室レベルの実験にとどまらない実用性が担保されています。\n\n性能面ではGPT-6 Astraなどの商用最高峰モデルと互角に渡り合い、既存の専門モデルを明確に凌駕しました。それでいて、ローカルクラスタ上で運用した際の推定コストはAPI利用に比べて約125分の1と桁違いに安価です。これまでコストや手間の問題で諦められていた数万〜数十万時間規模の生データに対する精密なラベル付けが、現実的な計算リソースで実行可能になります。\n\n著者らはFLORAをオープンソースとして公開することで、各研究グループが独自のロボットデータセットを自在にスケールさせ、物理世界における自律的な研究（Physical Auto-Research）や、人間のデモ動画からロボット操作へと知識を転移させるHuman-to-Robot Transferなどの新しい応用分野が大きく進展することを期待しています。",
+   "figures": []
+  },
+  {
+   "heading": "付録（Appendix）",
+   "heading_ja": "多視点モザイク処理と詳細な定性評価の裏側",
+   "summary_ja": "付録では、DenseCaptionBenchの構築基準、多視点映像のモザイク結合ルール、GRPO報酬の数式定義、および定性的な失敗例・成功例の詳細な分析手順が述べられています。",
+   "details_ja": "付録には、FLORAの実装と評価に関する重要なエンジニアリングの知見が凝縮されています。\n\n### 多視点モザイクと入力設計\nロボット操作では手先カメラ（リストカメラ）と俯瞰カメラの同期が極めて重要です。FLORAでは、3〜4台のカメラストリームをタイムスタンプごとに1枚の画像に並べるモザイク処理を行っています。たとえば3視点の場合は横に並べた1152×288ピクセル、4視点の場合は2×2に配置した768×576ピクセルに整流し、動画全体で視覚トークン数が溢れないよう設計されています。また、Qwen3.5のタイムスタンプトークンが動画の絶対秒数を直接指すように内部フレームレートを調整しています。\n\n### 定性評価で見えた得手不得手\n詳細な定性分析（Figure 10, 11）からは、FLORAの明確な特性が浮き彫りになっています。長所としては、短時間の細かな作業を高密度に拾い出せる点や、道具の把持ミス・部品の脱落などの物理的インタラクションの破綻を敏感に「失敗」と見抜ける点があります。一方で短所として、人間にとっては1つの大きな動作（例えば皿を拭くなど）に見える区間を細かく分割しすぎてしまう「過剰セグメンテーション（Over-segmentation）」を起こす傾向や、似たような操作フェーズ（配置とリーチングなど）を取り違えてしまうケースも確認されています。また、失敗に対する感度を極限まで高めた結果、正常な動作の約11%を誤って失敗と判定してしまうというトレードオフも報告されています。",
+   "figures": [
+    {
+     "key": "F9",
+     "caption_ja": "人間、並進グリッパー、多指ハンドの各環境におけるFLORAの出力例です。多視点モザイク映像から、タイムスタンプ付きキャプションとプロセス報酬・結果報酬、およびその判定理由（Rationale）が一貫した形式で構造化されて出力されていることが分かります。",
+     "caption": "Figure 9 : Example episode outputs across embodiments. Timestamped intended-action captions appear above dense execution-quality and outcome labels. Robot mosaics retain synchronized scene and wrist views. Selected captions and rationales illustrate the structured records generated by the engine.",
+     "image": "details/2610.31779/F9.jpg"
+    },
+    {
+     "key": "F11",
+     "caption_ja": "報酬モデルにおけるGPT-6 Astraとの詳細な比較例です。部品の落下（c）や把持ミス（d）において、Astraが「準最適」に甘んじる中、FLORAは正確に「失敗」を検出できています。また部分的な達成（e）に対しても適切な中間スコアを付与しています。",
+     "caption": "Figure 11 : Flora-Rewarder flags failures and credits progress that GPT-6 Astra misjudges. Selected examples. (a–d) DenseRewardBench: Astra calls a falling wing and a missed grasp suboptimal, although its own rationales describe both. (e,f) RoboRewardBench: Astra scores a partial and a full success too low. (a,b) 50 s excerpts with per-second labels. (c,d) the dashed 16 s windows. Right-hand numbers give agreement with the reference (%).",
+     "image": "details/2610.31779/F11.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "ロボットのデータエンジンには「キャプション生成」だけでなく「プロセス報酬」「結果報酬」を統合して扱えるアーキテクチャが極めて有効である点",
+  "単に大規模VLMにプロンプトを投げるだけでなく、GRPO（強化学習）によって時間境界判定や事実性チェックを最適化することが、物理動作の高精度アノテーションに直結する点",
+  "多視点カメラ映像を適切にモザイク統合し、前後の文脈イベント（Before/After）を明示的に入力するパイプライン設計が、意図や対象物の誤認防止に大きく寄与する点",
+  "オープンな27B/9BクラスのVLMであっても、タスクに特化させて最適化すれば、商用最上位APIの100倍以上のコスト効率で同等以上の性能が出せる点"
+ ],
+ "limitations_ja": [
+  "失敗ステップを高感度に検出できる反面、正常な動作の約11%を誤って失敗と判定してしまう偽陽性（False Positive）の傾向がある点",
+  "時間セグメンテーションにおいて、まとまった1つの粗い動作を細切れに切り分けてしまう過剰セグメンテーション（Over-segmentation）が発生しやすい点",
+  "プロセス報酬は後続フレームの文脈を利用して過去を振り返る「レトロスペクティブ（事後判定）」設計となっているため、そのままではリアルタイムのオンライン制御には適用できない点"
+ ],
+ "keywords": [
+  "Robotics Foundation Models",
+  "Data Engine",
+  "Temporal Segmentation",
+  "Process Reward Model",
+  "Vision-Language Model (VLM)",
+  "Reinforcement Learning (GRPO)"
+ ],
+ "id": "2610.31779",
+ "title": "FLORA: An Open Model Suite for Scaling Robotics Data Engines",
+ "authors": [
+  "Sicong Leng",
+  "Yunze Man",
+  "Zhiqi Li",
+  "Jing Wang",
+  "Yuhe Zhang",
+  "Ryan Punamiya",
+  "Siddharth Patki",
+  "Kaiyuan Zheng",
+  "Zi-ang Cao",
+  "Zhiding Yu",
+  "Sifei Liu",
+  "Danfei Xu",
+  "Ben Levin",
+  "Jan Kautz",
+  "Yuke Zhu",
+  "Johan Bjorck",
+  "Linxi \"Jim\" Fan"
+ ],
+ "date": "2026-10-26",
+ "group": "general",
+ "tags": [
+  "dataset",
+  "benchmark",
+  "vision-language-action",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.31779",
+ "pdf_url": "https://arxiv.org/pdf/2610.31779",
+ "summary_ja": "GR00Tなどのロボット基盤モデル訓練を支えるデータエンジンFLORAを提案。実機運用のための最終報酬判定、RL事後学習に必要なプロセス報酬付与、事前学習データ選別のためのタイムスタンプ付きキャプション生成を包括的にカバーする。各種ベンチマークでSOTAを達成し、商用API比で約12倍の低コスト運用を実現している。",
+ "generated": "2026-10-26",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.31779"
+}
