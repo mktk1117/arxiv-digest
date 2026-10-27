@@ -1,6 +1,308 @@
 {
  "entries": [
   {
+   "date": "2026-10-27",
+   "rank": 0,
+   "id": "2610.35852",
+   "group": "focus",
+   "title": "Differentiable Contact Dynamics for Legged Locomotion: Policy Learning and Contact-Implicit Trajectory Optimization",
+   "title_ja": "脚ロボット移動のための微分可能接触力学：方策学習と接触陰的軌道最適化",
+   "summary_ja": "摩擦接触を伴う脚ロボット運動制御において、接触モード遷移をまたぐ勾配を提供するため、Coulomb摩擦錐相補性問題を中央パス緩和した滑らかな解析的勾配を提案。順解析では厳密な剛体接触問題を解いて実行可能性を維持しつつ、逆伝播のみで緩和勾配を用いる。これにより、不連続な接触遷移を含む脚式歩行の接触陰的軌道最適化や強化学習方策の効率的な勾配学習を実現した。",
+   "summary_en": "This paper proposes a smooth analytic gradient for frictional contact and applies it to legged locomotion policy learning and contact-implicit trajectory optimization. By applying central-path relaxation to the Coulomb friction complementarity problem exclusively during the backward pass, the method provides gradients across neighboring contact modes while keeping the hard-contact forward simulation feasible.",
+   "authors": [
+    "Gijeong Kim",
+    "Seungbin Oh",
+    "Dongyun Kang",
+    "Hae-Won Park"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "control",
+    "reinforcement-learning",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.35852",
+   "image": null
+  },
+  {
+   "date": "2026-10-27",
+   "rank": 1,
+   "id": "2610.33508",
+   "group": "focus",
+   "title": "MimicAll: Structured Embodiment Conditioning for Cross-Humanoid Whole-Body Motion Tracking",
+   "title_ja": "MimicAll: 異種ヒューマノイド全身運動追従のための構造化身体条件付け",
+   "summary_ja": "構造やダイナミクスが異なる多様なヒューマノイド間で方策を共有する強化学習フレームワークを提案。構造化された身体記述子を大域・関節対応条件にエンコードし、観測履歴や目標動作から関節指令オフセットを出力する。物理整合性のある身体ランダム化と異種シミュレーションにより、16ファミリー4,096種の変種で学習を行い、464体からなるベンチマークで高い汎化性能を示した。",
+   "summary_en": "MimicAll presents an RL framework for shared whole-body motion tracking across heterogeneous humanoids. It encodes structured embodiment descriptors into global and joint-aligned conditions to predict joint-target offsets. Trained across 4,096 variants from 16 humanoid families via physics-consistent randomization and body-calibrated retargeting, the policy achieves robust cross-embodiment generalization on a 464-body benchmark.",
+   "authors": [
+    "Jia Li",
+    "Lingyun Xu",
+    "Yitang Li",
+    "Hao Zhao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.33508",
+   "image": "figures/2026-10-27/2610.33508.jpg"
+  },
+  {
+   "date": "2026-10-27",
+   "rank": 2,
+   "id": "2610.33172",
+   "group": "focus",
+   "title": "RAIWAY: A Large-Wheeled Bipedal Robot with Contact-Informed Blind Locomotion",
+   "title_ja": "RAIWAY: 接触情報を活用した盲目移動を行う大型車輪型二足歩行ロボット",
+   "summary_ja": "20インチ車輪を持つ独自開発の車輪型二足ロボットRAIWAYと、不整地・段差に対応する接触情報活用型制御手法を提案。シミュレーション中の多点接触イベントを潜在表現に蒸留し、実機配備時には固有受容感覚のみからその潜在状態をオンライン推定することで外力センサなしの走行を可能にした。実機実験において、不連続かつ不整な多様な地形の走破に成功している。",
+   "summary_en": "RAIWAY is an in-house bipedal robot with 20-inch wheels paired with a contact-informed control framework for traversing irregular terrains. Multi-contact events from simulation are distilled into a latent representation that the real-world controller infers online purely from proprioception without contact sensing, enabling blind rolling traversal over discontinuous obstacles.",
+   "authors": [
+    "Kyungmin Nam",
+    "Jiseong Lee",
+    "Donghyuk Choi",
+    "Jeongsoo Park",
+    "Woojin Kim",
+    "Jemin Hwangbo"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "control",
+    "sim-to-real",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.33172",
+   "image": "figures/2026-10-27/2610.33172.jpg"
+  },
+  {
+   "date": "2026-10-27",
+   "rank": 3,
+   "id": "2610.35862",
+   "group": "focus",
+   "title": "Learning Force-Reactive Humanoid Loco-Manipulation",
+   "title_ja": "力適応型ヒューマノイド移動マニピュレーションの学習",
+   "summary_ja": "両手と全身の力協調を要するタスクに向け、力適応型ヒューマノイド移動マニピュレーションフレームワークFLOREを提案。力覚センサ付きハンドヘルドグリッパーと装着型トラッカーを用いて実機なしでデモを収集し、拡散方策が視覚・受容感覚・力計測値から動作と手先目標力を生成する。ハイブリッドコンプライアンス全身制御器により、ドア開放や荷物運搬などで高精度な力追従を実機検証した。",
+   "summary_en": "FLORE is a framework for learning force-reactive humanoid loco-manipulation. Contact wrenches and motions are captured without a physical robot using force-sensing handheld grippers and wearable trackers. A force-reactive diffusion policy predicts actions and wrench commands, which are executed by a hybrid compliance whole-body controller to coordinate multi-contact tasks such as heavy door opening.",
+   "authors": [
+    "Sihang Li",
+    "Xiaofeng Guo",
+    "Jinkun Cao",
+    "Charlie Cheng",
+    "Ruihan Yang",
+    "Chen Feng",
+    "Guanya Shi",
+    "Haozhi Qi"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.35862",
+   "image": "figures/2026-10-27/2610.35862.jpg"
+  },
+  {
+   "date": "2026-10-27",
+   "rank": 4,
+   "id": "2610.33317",
+   "group": "focus",
+   "title": "Active Reachability Learning for Humanoid Recoverability Monitoring",
+   "title_ja": "ヒューマノイドの転倒復旧限界監視のための能動的到達可能性学習",
+   "summary_ja": "ヒューマノイドが転倒不能に陥る前に代替方策を起動するためのランタイム安全監視手法を提案。所与のフォールバック方策の確率的有限時間復旧エンベロープを推定するにあたり、接触リッチ環境でのデータ収集困難とOOD過信に対処するため、価値関数学習と能動的探索を交互に行う統一フレームワークを構築。実機ヒューマノイドにおいて転倒リスクを事前検知し安全性を高めることを実証した。",
+   "summary_en": "This work introduces an active reachability learning framework to monitor the recoverability envelope of humanoid fallback policies. By iterating between value learning and active boundary exploration, it overcomes the data scarcity of contact-rich dynamics and prevents optimistic hallucinations on out-of-distribution inputs, enabling timely fallback triggering before unrecoverable falls occur.",
+   "authors": [
+    "Zeyuan Feng",
+    "Baljeet Singh",
+    "Sarthak Ranjeet Kaingade",
+    "Somil Bansal",
+    "Bryan Trinh"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "humanoid",
+    "safety",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.33317",
+   "image": "figures/2026-10-27/2610.33317.jpg"
+  },
+  {
+   "date": "2026-10-27",
+   "rank": 5,
+   "id": "2610.33582",
+   "group": "general",
+   "title": "Replicate What Varies: Resource Sharing for Domain-Randomized Embodied Simulation",
+   "title_ja": "差分のみを複製する：ドメインランダム化身体シミュレーションのためのリソース共有",
+   "summary_ja": "大規模な並列ドメインランダム化シミュレーションにおけるメモリ消費を劇的に削減するリソース共有システムPatchworkを提案。環境を共通テンプレートと変異パッチに分離する構造を採用することで、不変リソースの重複保持を排除。ランダム化サンプリングと再生を切り離すことで、GPU/CPUメモリを大幅に節約しつつ大規模な方策学習のスループット向上を可能にした。",
+   "summary_en": "Patchwork introduces a resource-sharing system for massively parallel, domain-randomized embodied simulation based on a template-plus-patch representation. By sharing identical assets across instances and storing only mutated parameters, it substantially cuts CPU and GPU memory footprints, enabling high-throughput reinforcement learning at scale.",
+   "authors": [
+    "Zixu Hao",
+    "Weijun Wang",
+    "Xiangyu Li",
+    "Liang Mi",
+    "Hao Wu",
+    "Yunxin Liu",
+    "Ting Cao"
+   ],
+   "categories": [
+    "cs.DC",
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.33582",
+   "image": "figures/2026-10-27/2610.33582.jpg"
+  },
+  {
+   "date": "2026-10-27",
+   "rank": 6,
+   "id": "2610.34717",
+   "group": "general",
+   "title": "VLA-HWBench: Where the Time Goes When VLA Models Run on Edge Hardware",
+   "title_ja": "VLA-HWBench: エッジハードウェア上でVLAモデルを実行した際のレイテンシ内訳",
+   "summary_ja": "ロボット搭載エッジデバイス上でVLAモデルをリアルタイム実行する際のボトルネックを解明するベンチマーク。NVIDIA Jetson AGX ThorやAMD Ryzen AI等の実機上で、18種類のオープンVLAモデルを7段階の推論ステージに分解して網羅的に計測。コンポーネントごとの実行時間特性や最適化バックエンドの効果を明らかにし、オンボードリアルタイム制御に向けた設計指針を示した。",
+   "summary_en": "VLA-HWBench benchmarks 18 open Vision-Language-Action models across edge hardware platforms like NVIDIA Jetson AGX Thor, decomposing latency into a seven-stage execution pipeline. It provides fine-grained insights into computational bottlenecks and software backend optimizations necessary for real-time onboard robot control.",
+   "authors": [
+    "Borui Xu",
+    "Hongshi Tan",
+    "Wenqi Jiang",
+    "Bingsheng He",
+    "Ming Wu",
+    "Jason Zeng",
+    "Michael Heinrich"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "vision-language-action",
+    "benchmark",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.34717",
+   "image": "figures/2026-10-27/2610.34717.jpg"
+  },
+  {
+   "date": "2026-10-27",
+   "rank": 7,
+   "id": "2610.33241",
+   "group": "general",
+   "title": "ORBIT: A Modular Multi-finger Robotic Hand Platform with Rotational Finger Reconfiguration",
+   "title_ja": "ORBIT: 指の回転再構成が可能なモジュール式多指ロボットハンドプラットフォーム",
+   "summary_ja": "多指ハンドの形態が器用な操作に与える影響を系統的に評価するための機構ORBITを開発。円筒状の掌の周囲をベルト駆動で独立した指が移動する回転ナックル機構を備え、分解することなく1秒未満で指の幾何配置を動的に再構成できる。各指は平均角速度1.57 rad/s、根元把持力11.8 Nを発揮し、把持形態の比較や動的適応の検証を可能にする。",
+   "summary_en": "ORBIT is a modular robotic hand platform designed for exploring multi-fingered morphology. Its belt-driven rotating knuckle mechanism allows fingers to orbit around a cylindrical palm, enabling full reconfiguration of finger layouts in under one second without disassembly, facilitating empirical studies on morphological adaptation in dexterous manipulation.",
+   "authors": [
+    "Benito Ribadeneira",
+    "Siqi Shang",
+    "Lillian Chin"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "manipulation",
+    "grasping"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.33241",
+   "image": "figures/2026-10-27/2610.33241.jpg"
+  },
+  {
+   "date": "2026-10-27",
+   "rank": 8,
+   "id": "2610.34527",
+   "group": "general",
+   "title": "How High Can GPT-6 Astra Climb in Contact-Rich Manipulation? PhysLadder: A Hierarchical, Matched Sim-Real Benchmark for Physical Interaction",
+   "title_ja": "接触リッチな操作においてGPT-6 Astraはどこまで登れるか？PhysLadder：物理的インタラクションのための階層的Sim-Real一致ベンチマーク",
+   "summary_ja": "接触を伴うマニピュレーション能力を評価するため、幾何学的接触配置（L1）、持続接触下での力制御（L2）、協調接触遷移と力制御（L3）の3階層からなる16タスクのSim-Real一致ベンチマークを提案。フロンティアモデルのゼロショット評価を行い、L1では80.0%の成功率がL3では0.0%に急落することを明らかにし、力覚制御を伴う高度な接触操作における現在のAIの限界を定量化した。",
+   "summary_en": "PhysLadder is a hierarchical, matched sim-to-real benchmark comprising 16 household manipulation tasks spanning geometric contact selection (L1), sustained force regulation (L2), and coordinated contact reconfiguration (L3). Zero-shot evaluations of frontier models show success dropping from 80.0% at L1 to 0.0% at L3, highlighting gaps in contact-rich reasoning.",
+   "authors": [
+    "Haibao Yu",
+    "Jiaqi Meng",
+    "Zijian Zhang",
+    "Bowen Jing",
+    "Lei Yang",
+    "Yue Hu",
+    "Chenchen Ge",
+    "Yiming Hou",
+    "Chenbo Xin",
+    "Dawen Ye",
+    "Haifang Qin",
+    "Jin Li",
+    "Weitao Zhou",
+    "Jianing Qiu",
+    "Jiankai Sun",
+    "Dandan Zhang",
+    "Zaiqing Nie",
+    "Ping Luo",
+    "Ding Zhao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "benchmark",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.34527",
+   "image": "figures/2026-10-27/2610.34527.jpg"
+  },
+  {
+   "date": "2026-10-27",
+   "rank": 9,
+   "id": "2610.33174",
+   "group": "general",
+   "title": "Bracketing Shows the Way: Adaptive Multi-Exposure Policy as Input for Robust Visual SLAM",
+   "title_ja": "ブラケティングが道を示す：ロバストなVisual SLAMのための適応型マルチ露出方策",
+   "summary_ja": "トンネル出口など急激な照度変化による画像の白飛び・黒潰れで特徴追従が破綻する課題に対し、適応型マルチ露出撮影とSLAMの統合手法を提案。動的レンジをカバーしつつ重なりを保持する露出ブラケティングB-Adaptと、HDR合成を行わずにマルチ露出画像を直接ファクターグラフの制約に組み込むBVSLAMを開発。32 m/s相当の高速明暗変化下でもロバストな追従を実現した。",
+   "summary_en": "This paper addresses visual tracking failures caused by rapid illumination transitions in Visual SLAM. It introduces B-Adapt, an adaptive exposure-bracketing policy, and BVSLAM, which directly incorporates multi-exposure constraints into a factor-graph state estimator without HDR merging, maintaining robust localization at emulated speeds of 32 m/s.",
+   "authors": [
+    "Olivier Gamache",
+    "Anthony Lavertu",
+    "David-Alexandre Duclos",
+    "Jean-Michel Fortin",
+    "Fran\\c{c}ois Pomerleau",
+    "Philippe Gigu\\`ere"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "perception",
+    "control",
+    "autonomous-driving"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.33174",
+   "image": "figures/2026-10-27/2610.33174.jpg"
+  },
+  {
    "date": "2026-10-26",
    "rank": 0,
    "id": "2610.32277",
