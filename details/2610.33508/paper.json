@@ -1,0 +1,153 @@
+{
+ "title_ja": "MimicAll: 異種ヒューマノイド全身運動追従のための構造化身体条件付け",
+ "tldr_ja": "ヒューマノイドの構造・形態・ダイナミクスを明示的な記述子としてエンコードし方策に与えることで、1つの強化学習モデルだけで16系統・4,096種類の異なるロボット身体にわたる全身動作追従を可能にしました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "MimicAllの全体像です。16系統のヒューマノイドテンプレートからランダム化によって4,096種類の身体バリアントを生成し、たった1つの共通方策で照準、低姿勢移動、走行、旋回などの多様な全身運動を追従させています。",
+  "caption": "Fig. 1: One policy across diverse humanoids and motions. Mimic All learns a shared whole-body tracking policy across 4,096 body variants from 16 humanoid families. Retargeting 64 LAFAN1 motion takes to these bodies yields approximately 262K body–motion trajectories totaling 2.93 billion reference frames. Demonstrations include simulated executions illustrating aiming, low-body movement, running and turning across humanoids.",
+  "image": "details/2610.33508/F1.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットに人間の多様な動作を真似させる「全身モーショントラッキング」は近年大きな進展を見せています。しかし既存の学習器は特定のロボット身体に特化して訓練されるのが一般的でした。異なるロボットに同じ動作をさせようとすると、関節構造やリンクの長さ、重量、アクチュエータの応答特性がガラリと変わるため、別々にモデルを学習し直す必要があったのです。\n\nそこで著者らは「ロボットの身体情報（骨格構造・幾何形態・運動力学特性）を明示的な記述子として入力すれば、たった1つの方策ですべてのヒューマノイドを動かせるのではないか？」と考えました。これを実現するために提案されたのが『MimicAll』です。ロボットのモデル情報から自動抽出した構造化記述子をグローバルおよび関節ごとのコンディション特徴量に変換し、動作リファレンスや観測履歴とともに方策に注入します。さらに、物理的に破綻しない身体ランダム化とロボット身体適合リターゲティング、メモリを圧迫しない参照動作のストリーミング機構を組み合わせることで、16系統・4,096バリアントという超大規模な身体バリエーションでの同時学習を可能にしました。\n\n464体におよぶ標準ベンチマークでの検証の結果、単一ロボット専用に学習したモデルに比べ、未知の体格変動に対する頑健性が大幅に向上することが判明しました。例えばランダム化されたUnitree G1において、専用モデルの30秒追従成功率が42.9%にとどまったのに対し、提案手法の共有方策は99.4%を達成しています。身体情報の適切な注入が、クロスエンボディメント制御の鍵であることを明快に示した一連の研究です。",
+ "contributions_ja": [
+  "ロボットの構造・形態・ダイナミクスを統一的に扱う構造化身体記述子と、それを制御方策へ結びつけるコンディショニング機構を設計したこと",
+  "物理的一貫性を保った身体ランダム化、身体適合リターゲティング、参照データストリーミングを統合し、4,096種類の身体で同時強化学習できるスケーラブルな基盤を構築したこと",
+  "464体・5階層の評価セットを整備し、身体記述子の効果、4種の条件付け機構（Concat、変調、Cross-attention、Self-attention）、既知系統内汎化と未知系統への転移限界を体系的に解明したこと"
+ ],
+ "sections": [
+  {
+   "heading": "II Introduction",
+   "heading_ja": "ロボットが変われば制御も変わる：身体の違いをどう越えるか？",
+   "summary_ja": "ヒューマノイドの全身トラッキングにおいて、異なるロボット間で動作知識を共有するには身体ごとの構造や力学特性の差異を吸収する必要があります。本研究では、明示的な身体記述子を導入して単一の強化学習方策を異種ロボット群で共有する「MimicAll」を提案します。",
+   "details_ja": "ヒューマノイドが人間のダイナミックな動きを再現する技術は急速に進化していますが、既存手法の多くは「特定の1体」のために訓練されています。しかしロボットの身体が変わると、関節の並びや幾何構造、アクチュエータのトルク応答がすべて変わるため、同じ参照動作を追従するにしても全く異なる制御指令を出さなければなりません。\n\n近年、複数のロボット間で制御知識を共有する「クロスエンボディメント学習」が注目されています。ここで著者らが着目したのは、「どのような身体情報を表現として方策に渡し、それを各関節の制御とどう相互作用させるべきか？」という根本的な問いです。この問いに答えるため、本研究ではロボットの構造（Structure）・形態（Morphology）・ダイナミクス（Dynamics）を包括する構造化身体記述子（Embodiment Descriptor）を定義し、それをエンコーダでグローバルおよび関節対応の特徴量へと変換して方策に与えるフレームワーク「MimicAll」を提案しました。\n\nこれを数千体規模で学習するために、物理的に整合したランダム化、各ロボットの運動学に合わせた身体適合リターゲティング、GPUメモリを節約するウィンドウ化ストリーミングを統合した学習インフラを構築しました。これにより、16のヒューマノイドファミリーから生成された4,096種類の身体バリアントを用いた大規模な同時強化学習を実現しています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "MimicAllの全体パイプラインです。左で16系統のロボットから4,096バリアントを生成し、中央で身体の構造・形態・力学特性をエンコードして方策に注入し、右で異種ヒューマノイドによる多様な動作追従を可能にしています。",
+     "caption": "Fig. 2: Overview of Mimic All . Left: coupled randomization expands 16 robot templates into 4,096 body variants; body-calibrated retargeting constructs their motion-reference bank. Center: structure, morphology and dynamics are encoded into global and joint-aligned body conditions, integrated through four conditioning variants. Right: a shared policy tracks diverse motions across heterogeneous humanoids. On held-out 100STYLE motions, Flat-MLP encoding with concatenation improves motion completion and reduces pose, velocity and foot-skating errors relative to Mask-only across SS/SI/SO bodies. …",
+     "image": "details/2610.33508/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "全身追従とマルチロボット制御の交差点",
+   "summary_ja": "深層強化学習によるヒューマノイドの全身運動追従と、形態の異なる複数ロボットを単一方策で操る先行研究を概観します。本研究は、明示的な身体パラメータの条件付けと完全な同時学習を組み合わせている点が特徴です。",
+   "details_ja": "本研究の立ち位置を理解するために、関連する4つの系統を整理しておきましょう。\n\n### ヒューマノイドの全身モーショントラッキング\nDeepMimicやPHC、HoloMotionといった先行研究は、参照動作に対するフィードバック制御を強化学習で獲得することに成功してきました。しかしこれらは単一の身体を前提としています。MimicAllはMimicLiteの学習スタックを基礎にしつつ、「動作だけでなく実行する身体自体も変化する」という新しい課題設定に挑んでいます。\n\n### 身体をまたぐクロスエンボディメント制御\nXHugWBCやEAGLEなどは、移動や姿勢制御において複数ロボット間の制御共有を示してきました。また全身追従ではVENOMやAny2Any、X-WBCなどがあります。これらに対しMimicAllは、ロボットごとの固有ネットワークを分けずにパラメータを完全共有し、明示的な数値記述子（質量、慣性、リンク長など）を方策に直接注入するアプローチをとっています。\n\n### 身体表現と条件付けの手法\nハードウェア条件付き方策（Hardware Conditioned Policies）やMetaMorph、ModuMorph、Body Transformerなど、ロボットの形態をトークンやマスク付きアテンションで表現する研究があります。MimicAllではこれらの知見を発展させ、「どのような物理量を記述子に入れるか」「どのエンコーダ構造が良いか」「方策のどこに注入するか」を切り分けて徹底検証しています。\n\n### リターゲティングと参照動作の一貫性\nロボットが追従すべき参照動作は、そのロボット自身の運動学と矛盾していては追従できません。先行研究（GMRやOmniRetarget）を踏まえ、本研究では生成された各バリアントの順運動学に基づいて正確にキャリブレーションされた身体適合リターゲティングを採用しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Structured Embodiment-Conditioned Tracking",
+   "heading_ja": "身体を記述し、制御に織り込む：アーキテクチャの全貌",
+   "summary_ja": "全ロボットを38個の意味的関節スロットにマッピングし、物理パラメータを構造化記述子としてまとめます。これをグラフやMLPで符号化し、4つの異なる注入メカニズムを介して制御方策へと接続します。",
+   "details_ja": "### III-A 共通トラッキングインターフェース\nロボットごとに異なる関節数や配置を統一するため、最大 $J=38$ 個の意味的関節スロットを用意しました。存在マスク $m_j$ で関節の有無を、行動マスク $m^{\\mathrm{act}}_j$ でアクチュエータの有無を管理します。方策の出力は各関節の目標角度オフセット $a_t \\in \\mathbb{R}^J$ であり、PD制御器を通じてトルクに変換されます。観測にはロボットのルート角速度や重力ベクトル、関節状態の履歴（50 Hzで過去0.32秒分）が含まれ、参照動作は先読み（0.08秒分）を含めて入力されます。\n\n### III-B 身体を語る構造化記述子\n記述子 $e = (G, k, d)$ は次の3要素で構成されます:\n- **構造（Structure）$G$**: 関節の親子関係トポロジー、関節タイプ、深さ、意味的役割など。\n- **形態（Morphology）$k$**: 全体の幾何（ルート高さや衝突境界）および関節ごとの公称角度 $q_j^0$、可動域限界、回転軸、親リンクからの相対変換。\n- **ダイナミクス（Dynamics）$d$**: 全体の総質量、重心位置、重心まわりの慣性テンソル、各リンクの質量や慣性、PDゲイン、トルク・速度限界、摩擦など。\n\n### III-C ディスクリプタから身体コンディションへの変換\n記述子はエンコーダによって、ロボット全体を表すグローバルコンディション $h_g \\in \\mathbb{R}^{64}$ と、各関節スロットに対応する関節アラインドコンディション $h_j \\in \\mathbb{R}^{16}$ に変換されます。トポロジーに沿ってメッセージ伝播を行うGraphエンコーダのほか、アブレーションとして全入力を平坦化して全結合層で処理するシンプルなFlat-MLPエンコーダも用意しました。\n\n### III-D 身体情報を制御にどう組み込むか\n得られた身体コンディションを方策のどこでどう使うかについて、4つの手法を比較しました:\n- **Concat**: 観測特徴量の入力層で $h_g$ を単純に連結する軽量な方式。\n- **Adaptive modulation**: グローバルと関節の特徴からスケール・シフト係数を生成し、層を適応的に変調する方式。\n- **Cross-attention**: 行動クエリが身体トークンを参照する方式。\n- **Self-attention**: 行動トークンと身体トークンを連結し、相互の自己注意機構で統合処理する方式。\n後者3つは基本方策に対して残差（Residual）の行動修正を加える構造をとっています。\n\n### III-E 方策と表現の同時学習\nPPOによる強化学習と同時に、記述子の再構成損失、視点間の一貫性損失、特徴量の分散・共分散正則化損失などの補助タスクを解かせることで、制御に真に役立つ身体表現を学習させます。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "検証された4種類の身体条件付け機構です。(A) 入力で単純に連結するConcat、(B) 特徴量を変調するAdaptive modulation、(C) 行動クエリが身体を参照するCross-attention、(D) 行動と身体のトークンを同時に注意処理するSelf-attention。",
+     "caption": "Fig. 4: Four embodiment-conditioning mechanisms. All variants use the same Graph encoder architecture and body-conditioned base action-head design. Concat supplies $h_{g}$ to the feedback backbone; the other three add residual action corrections. The interaction branches use $J=38$ action slots and width-64 tokens, distinct from the encoder’s width-128 tokens.",
+     "image": "details/2610.33508/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Consistent Cross-Embodiment Learning",
+   "heading_ja": "数千体の学習を破綻させないエンジニアリング",
+   "summary_ja": "4,096種類のロボットと26万本以上の軌道を同時に学習させるため、物理的一貫性を保ったモデル生成、GPUメモリを節約する動作ストリーミング、身体特徴のキャッシュ再利用を導入しました。",
+   "details_ja": "### IV-A 身体モデルと参照動作の整合性を保つ生成パイプライン\n16種類の基本ヒューマノイドテンプレートをもとに、質量やリンク長などを物理的に破綻しないよう連動させてランダム化し、4,096種類の身体バリアントを作成します。各バリアントに対し、ターゲットロボットの幾何構造に合わせた逆運動学（IK）ベースのリターゲティングを行い、順運動学（FK）で参照ポーズと速度を生成します。64本のLAFAN1モーションから約26万本の身体固有軌道（計29.3億フレーム）が生成され、モデル記述子・物理シミュレーション・参照動作が完全に一致したデータバンクが構築されます。\n\n### IV-B 異種ロボットを同時シミュレーションする共有ランタイム\n関節数やリンク構成が全く異なるロボット群を、同一の学習プロセス内で並列シミュレーションします。共通の意味的関節インターフェースが各ロボットの生データと方策テンソルを相互変換するため、1回のPPO更新の中に多種多様なロボットのロールアウトを無理なく混ぜ合わせることができます。\n\n### IV-C ウィンドウ化ストリーミングとエンコーディング再利用\n26万本もの動作データをすべてGPUメモリに載せるとメモリがパンクしてしまいます。そこで、学習に必要な現在の時間ウィンドウだけをホストメモリからGPUへオンデマンドで転送する「ウィンドウ化参照ストリーミング」を実装しました。また、同一バリアントの記述子はエピソード中に変化しないため、ロールアウト時は一度計算した身体コンディションをキャッシュして再利用し、重複計算を劇的に削減しています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "クロスエンボディメント学習のシステム全体構成です。ランダム生成されたロボットモデルから記述子・動作参照・物理特性が一貫して抽出され、並列環境と共有方策の間をスムーズにデータが循環します。",
+     "caption": "Fig. 3: Cross-embodiment training and shared-policy inference. Each randomized robot model supplies its embodiment descriptor, retargeting geometry and simulated dynamics. The encoder maps the descriptor to global and joint-aligned body conditions. A shared policy combines them with observations and body-matched references to produce joint-target offsets. Solid arrows denote forward data and control flow; dashed arrows denote training dependencies and parameter updates.",
+     "image": "details/2610.33508/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V A Cross-Embodiment Tracking Benchmark",
+   "heading_ja": "未知の身体をどう評価するか：5つの階層ベンチマーク",
+   "summary_ja": "学習済み・未学習の身体バリアントや未知のロボットファミリーを含む464体のベンチマークを構築。30秒追従成功率や位置誤差など、厳格な評価プロトコルを定義しました。",
+   "details_ja": "### V-A 動作と身体の汎化を切り分ける5つの階層\n方策の汎化性能を正しく評価するために、464体のロボットを次の5つの階層（Strata）に分類しました:\n- **SS（Seen-Support）**: 学習時にサンプリングされた既知の身体バリアント。\n- **SI（Seen-In-support）**: 既知ファミリーの、学習時のランダム化範囲内にある新しい身体。\n- **SO（Seen-Out-of-support）**: 既知ファミリーだが、学習時のランダム化範囲を超えた極端な身体変動。\n- **UI（Unseen-In-support）**: 未知のロボットファミリーで、その公称ジェネレータの範囲内。\n- **UO（Unseen-Out-of-support）**: 未知のロボットファミリーで、かつ範囲外の身体。\n評価用の動作には、学習に使っていないLAFAN1の11クリップと、全く別のデータセットである100STYLEの8クリップを使用します。\n\n### V-B 制御設定と評価指標\n評価は10秒・20秒・30秒のウィンドウで行われます。ロボットの局所座標系で位置誤差0.8 m以上または姿勢誤差1.6 rad以上が5ステップ続くと追従失敗と判定され、完走できた割合を「追従成功率（SR）」とします。さらに失敗までの「有効追従時間（Eff. Time）」や、大域座標での位置誤差（G-MPJPE）、ルート相対位置誤差（L-MPJPE）、ルート位置誤差（RPE）を計測します。また、追従成否とは別に「転倒せずに生き残ったか（No-fall survival）」も記録します。\n\n### V-C 統制された比較実験条件\n公平な比較のため、GPU 8枚、環境数 $8 \\times 8,192$、PPO更新10,500回という固定の計算予算で10種類の設定を比較しました。また、Unitree G1のみで訓練した単一ロボット専用モデル（Specialist）との比較も行っています。",
+   "figures": []
+  },
+  {
+   "heading": "VI Experiments",
+   "heading_ja": "実験結果：単独特化モデルを圧倒、しかし未知の骨格には壁も",
+   "summary_ja": "共有学習は単一特化モデルを大きく上回る頑健性を示しました。身体条件付けでは、完走率にはシンプルなConcatやAdaptive modulationが強く、大域追従精度にはSelf-attentionが秀でているというトレードオフが判明しました。",
+   "details_ja": "### VI-A RQ1: 共有学習による身体変動への頑健性\n未知のスタイル動作（100STYLE）において、Graph + Concat方策はSS/SI/SOの各階層で97.1% / 92.3% / 91.9%という極めて高い30秒追従成功率（SR）を達成しました。特にランダム化の範囲を超えたSO階層でも高い成功率を維持しており、記述子の有効性が実証されました。\n衝撃的だったのは単一ロボット専用モデルとの比較です。標準のG1のみで訓練した専用モデルは、体格がランダム化された24体のG1に対して30秒SRが42.9%まで急落しました。これに対し、同じ総環境ステップ数で全ロボットを同時学習したMimicAllの共有方策は**99.4%**という驚異的な追従成功率を記録しました。多様な身体で同時に学習することが、未知の身体変動に対する強力な頑健性を生み出すことがわかります。\n\n### VI-B RQ2: どのような身体情報と条件付けが制御に効くのか\n- **記述子の内容**: 「構造＋形態」のみ（89.7%）や「ダイナミクス」のみ（89.0%）に対し、両方を統合した完全記述子は100STYLE SOで91.9%に達し、大きな身体変化ほど全要素の統合が効くことが分かりました。\n- **エンコーダの規模**: パラメータ数を揃えた場合、複雑なGraphエンコーダと軽量なFlat-MLP（42）はほぼ同等のSR（100STYLE SOで91.9% vs 91.4%）を達成しました。高度なグラフ構造化を行わなくても、コンパクトなMLPで十分に身体情報を活用可能です。\n- **条件付け機構のトレードオフ**: 追従完走率（SR）ではConcatやAdaptive modulationが優れている一方、大域位置誤差（G-MPJPE）やルート位置誤差（RPE）を最も低く抑えられたのは**Self-attention**でした（LAFAN1でG-MPJPE 660.7 mm、Mask-onlyは958.2 mm）。\n- **介入実験による証明**: Self-attentionモデルにおいて、ロボットに「正しい身体条件」を与えた場合はSR 61.7%でしたが、別のロボットの「誤った身体条件」にすり替えると47.0%へ、条件を「ゼロ」にすると33.7%へと急落しました。この14.6ポイントの有意な差は、方策が身体情報をフィードバック制御に本質的に活用している直接の証拠です。\n\n### VI-C RQ3: 転移の限界とターゲット特化\n既知ファミリー内では圧倒的な強さを見せた一方、学習時に全く見ていない未知ファミリー（UI/UO）に対しては、LAFAN1でのSRが8.2%以下に落ち込みました。記述子の再構成精度を見ても、関節レベルの復元（$R^2 \\approx 0.73\\sim0.79$）に比べて全身レベルの復元（$R^2 \\approx 0.34\\sim0.38$）が大きく低下しており、未知の骨格トポロジーに既知の関節特性を組み合わせる難しさが浮き彫りになりました。\nただし、共有方策で5,000回更新した後に標準G1だけで5,500回ファインチューニング（特化）すると、G-MPJPEが1201.4 mmから545.4 mmへと半減し、専用モデルを超える高い精度が得られることも確認されました。",
+   "figures": [
+    {
+     "key": "F12",
+     "caption_ja": "同一のSelf-attention方策を用いて、質量が20.6 kg（SS）、21.3 kg（SI）、40.1 kg（SO）と大きく異なるG1バリアントで同じ動作を追従させた様子です。半透明の青が参照ポーズで、体重が倍近く異なる身体でも破綻なく追従できていることが分かります。",
+     "caption": "Fig. 12: One motion across body variants. Eight synchronized states per SS, SI and SO G1 body, all controlled by the same Self-attention policy. Model masses are 20.6, 21.3 and 40.1 kg; all three bodies retain 29 active joints.",
+     "image": "details/2610.33508/F12.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VII Discussion and Conclusion",
+   "heading_ja": "汎用ヒューマノイド基底方策への足がかり",
+   "summary_ja": "MimicAllは明示的な身体記述子を用いた大規模共有学習により、ヒューマノイドの身体バリエーションに対する高い頑健性を実現しました。未知系統への転移という今後の課題と展望をまとめます。",
+   "details_ja": "本論文のまとめとして、MimicAllは数千体規模のヒューマノイドバリアントを単一の強化学習方策で制御できることを示しました。特に注目すべき知見は、動作の完走を目指すなら単純なConcatで十分機能する一方で、足の滑りやドリフトを抑えて正確な大域位置を追従するにはSelf-attentionのような密な相互作用機構が有利であるという、制御目的ごとのアーキテクチャ特性です。\n\nまた、単一ロボット向けにどれだけ学習を重ねても未知の体格差には無力であり、「多様なロボットで最初から同時に学ぶ」ことこそが真のロバストネスをもたらすという事実は、今後の基底モデル（Foundation Model）開発において非常に重要な示唆を与えています。\n\n残された最大の課題は、未知の骨格ファミリーに対する転移性能の低さです。既知系統内の変動には適応できても、全く新しい関節構成を持つロボットへゼロショットで移乗するには、学習に含めるファミリー自体の多様性をさらに広げる必要があります。今後は接触を考慮した参照動作生成や実機検証へと展開していくことが期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "付録",
+   "heading_ja": "付録：実装の詳細と追加の可視化",
+   "summary_ja": "38スロットの関節マッピング、補助損失の重み、追加学習プロトコル、および全16系統のヒューマノイドにおける定性的なシミュレーション結果の詳細です。",
+   "details_ja": "### 実装・ネットワーク詳細\n共通インターフェースの連続記述子フィールドは、ロボット全体で18次元、関節ごとに31次元あり、カテゴリ情報やマスクを除いても計1,196次元に達します。Graphエンコーダは幅128、4ヘッドの注意ブロック3層で構成され、グローバル条件64次元・各関節条件16次元を出力します。バックボーンMLPは幅256の3層、残差MLPは幅1024の3層で構成され、PPOオプティマイザにはMuon/AdamWラッパーを採用しています。\n\n### 追加学習（Continuation）と難易度サンプリング\nFlat-MLP（256）モデルについて、障害物動作を除外したTrain49データセットで10,500回から12,500回まで追加更新を行ったところ、LAFAN1でのSRが67.6%から71.7%へと向上しました。動作の位相に基づく難易度サンプリングを導入することで、追従精度をさらに引き上げられることも確認されています。\n\n### 多様なロボットの同時追従\n付録の図F10およびF11では、Booster K1/T1、Agibot X2、Fourier N1、LimX D03/D04、Unitree G1など、外見も関節構造も全く異なる全16系統のロボットが、単一のチェックポイント（Flat-MLP (256) + Concat）によって歩行・走行・キック・しゃがみ移動を華麗にこなす様子が確認できます。",
+   "figures": [
+    {
+     "key": "F10",
+     "caption_ja": "同一の方策チェックポイント（Flat-MLP 256 + Concat）で制御されている、前半8系統のヒューマノイドファミリーによる多様な動作（旋回、歩行、しゃがみ歩行、キック、後退、走行など）のシミュレーション結果です。",
+     "caption": "Fig. 10: One shared policy across heterogeneous humanoids, part I. Each row shows six states at 0.5, 1.2, 1.9, 2.6, 3.3 and 4.0 s. All families use the same Flat-MLP (256) + Concat checkpoint at 10,500 updates and held-out 100STYLE motions.",
+     "image": "details/2610.33508/F10.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "ロボットの質量・慣性・幾何構造を明示的な記述子（Descriptor）として方策に入力することで、1つの共通モデルで多様なヒューマノイドを全身制御できる",
+  "同じ総計算予算であれば、単一ロボット専用に訓練するよりも、多様な身体バリアントを混ぜて同時学習した方が体格変動に対する頑健性が圧倒的に高くなる（42.9% vs 99.4%）",
+  "動作の完走率を高めたいならシンプルなConcatやAdaptive modulationが適しており、大域的な位置ズレを最小化したいならSelf-attentionが最も優れている",
+  "共有方策で事前学習した後に特定ロボットでファインチューニングを行う「ターゲット特化」は、ゼロから単独学習するよりも優れた追従精度をもたらす"
+ ],
+ "limitations_ja": [
+  "学習時に含まれていない全く新しいロボットファミリー（未知の関節トポロジー）に対するゼロショット転移成功率は10%未満と低く、現状では既知系統内の汎化にとどまる",
+  "シミュレーション環境のみでの評価であり、Sim-to-Realのギャップや実機ヒューマノイドでの全身トラッキング検証は今後の課題とされている",
+  "障害物回避や不整地対応、環境との意図的な接触（手をつくなど）を含む複雑な接触遷移のモデリングは除外されている"
+ ],
+ "keywords": [
+  "Cross-Humanoid Whole-Body Control",
+  "Reinforcement Learning",
+  "Embodiment Conditioning",
+  "Motion Tracking",
+  "Sim-to-Sim Generalization"
+ ],
+ "id": "2610.33508",
+ "title": "MimicAll: Structured Embodiment Conditioning for Cross-Humanoid Whole-Body Motion Tracking",
+ "authors": [
+  "Jia Li",
+  "Lingyun Xu",
+  "Yitang Li",
+  "Hao Zhao"
+ ],
+ "date": "2026-10-27",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "control",
+  "reinforcement-learning",
+  "benchmark"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.33508",
+ "pdf_url": "https://arxiv.org/pdf/2610.33508",
+ "summary_ja": "構造やダイナミクスが異なる多様なヒューマノイド間で方策を共有する強化学習フレームワークを提案。構造化された身体記述子を大域・関節対応条件にエンコードし、観測履歴や目標動作から関節指令オフセットを出力する。物理整合性のある身体ランダム化と異種シミュレーションにより、16ファミリー4,096種の変種で学習を行い、464体からなるベンチマークで高い汎化性能を示した。",
+ "generated": "2026-10-27",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.33508"
+}
