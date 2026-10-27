@@ -1,0 +1,133 @@
+{
+ "title_ja": "ブラケティングが道を示す：ロバストなVisual SLAMのための適応型マルチ露出方策",
+ "tldr_ja": "暗いトンネルから眩しい屋外へ飛び出すような急激な明暗変化でも、カメラの露出を自動で複数段階に散らす「B-Adapt」と、HDR合成を挟まずにそのまま因子グラフで最適化する「BVSLAM」を組み合わせることで、トラッキング失敗を劇的に防げることを示しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "トンネル出口（30 lx から 80,000 lx への急変）を時速約 115 km 相当で通過した際の比較です。従来の自動露出（AE）は追従が遅れて真っ白に白飛びし、特徴点が消失してしまいますが、提案手法の B-Adapt は露出を分散させることで常に追従可能な特徴点を確保し続けます。",
+  "caption": "Fig. 1 : Effect of a rapid low-to-high illumination transition on the visual information available for pose estimation. Left : The vehicle exits a dim tunnel ( $30\\text{\\,}\\mathrm{lx}$ ) toward a bright outdoor scene ( $80\\text{\\,}000\\text{\\,}\\mathrm{lx}$ ). Right : Camera images acquired by the vehicle during the tunnel-exit traversal shown on the left. The vertically cropped images show three successive instants ( $t_{0}$ – $t_{2}$ ) during the illumination transition. Colored points indicate the detected visual features. The AE policy adapts too slowly, saturating images, whereas B-Adapt preserves observable content across complementary exposures.",
+  "image": "details/2610.33174/F1.jpg"
+ },
+ "overview_ja": "Visual SLAM（VSLAM）は、ロボットや自動運転車がカメラ画像だけを頼りに自己位置を推定する強力な技術です。しかし、暗いトンネルから強い日差しの屋外へ出るような極端かつ急激な照度変化に直面すると、カメラの自動露出（AE）調整が追いつかずに画面全体が白飛びしてしまいます。その結果、目印となる特徴点が失われ、自己位置を見失ってしまう「トラッキング喪失」が長年の深刻な課題でした。\n\n従来の対策としては、複数露出で撮った画像を合成して1枚のHDR（ハイダイナミックレンジ）画像を作るアプローチがありました。しかし、高速移動中に複数枚を合成すると、ブレやズレ（ゴースト）が発生してしまい、かえってSLAMを狂わせる原因になっていました。そこで著者らは発想を転換し、「HDR合成なんて最初からしなくていいのでは？ 露出を変えながら撮った画像をそのままSLAMの最適化に直接流し込めばいい」と考えました。\n\n本研究では、環境のダイナミックレンジに合わせて露出の下限・上限・中間を動的にコントロールする撮影ポリシー「B-Adapt」と、取得した異なる露出の画像同士をHDR合成なしで直接因子グラフに組み込んで位置推定する「BVSLAM」を提案しています。時速約 115 km（32 m/s）相当の急激なトンネル脱出を模した実機実験では、従来のAE画像を用いた場合と比べて位置推定誤差を 78 % も削減することに成功しました。平穏な通常環境での精度を落とすことなく、過酷な照明外乱への圧倒的な頑健性を達成した実践的な研究です。",
+ "contributions_ja": [
+  "急激な照度変化下でも白飛び・黒つぶれを防ぎつつ、露出間の重なりを維持して撮影する適応型ブラケティング制御「B-Adapt」を提案したこと。",
+  "複数露出の画像列からHDR画像を合成せず、因子グラフの状態推定器で直接幾何拘束として扱う「BVSLAM」を構築したこと。",
+  "通常環境と時速 32 m/s 相当のトンネル脱出シナリオの両方において、最新のSLAM手法や露出制御と比較し、外乱時誤差を 78 % 削減できることを実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜトンネルの出口でロボットの「目」は見失われるのか？",
+   "summary_ja": "トンネル出口のような急激な照度変化では、従来の自動露出（AE）の遅れによって画像が白飛びし、Visual SLAMが完全に破綻してしまいます。本論文では、露出の異なる複数枚を賢く撮る「B-Adapt」と、それらを合成せず直接推定に使う「BVSLAM」という2つのアプローチでこの問題に挑みます。",
+   "details_ja": "Visual SLAMは標準的な環境では非常にうまく機能しますが、急激かつ大きな外乱には依然として脆弱です。特に代表的な外乱がトンネル出口です。トンネル内の暗闇（約 30 lx）から晴天下の屋外（約 80,000 lx）に出ると、光の強さの比率は 120 dB にも達します。これに対し、一般的な8ビットカメラが一度に記録できる理論上のダイナミックレンジはわずか 48 dB 程度しかありません。\n\n通常のカメラは自動露出（AE）で露出時間やゲインを調整しますが、従来のAEは「撮影した画像を見てから次の露出を決める」反応型の制御です。そのため、激しい明暗差の中を高速で突っ切ると、露出調整が間に合わず画像が真っ白に飽和してしまいます。こうなると、位置合わせに必要な特徴点（視覚的対応関係）がゼロになり、SLAMは完全に自己位置を見失ってしまいます。\n\nこの問題に対し、複数枚の露出を変えて撮る「ブラケティング撮影」を行い、それらをHDR画像に合成する手法も存在します。しかし、カメラ自身が移動している状況下で画像を重ね合わせると、位置ズレによるゴーストや歪みが発生し、かえってSLAMを狂わせてしまいます。そこで著者らは、露出を賢く配分する撮影ポリシー「B-Adapt」と、合成処理を一切行わずに直接マルチ露出画像を拘束条件として活用する状態推定器「BVSLAM」という、撮影と推定の二段構えによる新しい解決策を提案しました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "暗いトンネルから極端に明るい屋外へ飛び出す際の状況を示しています。従来の自動露出（AE）では $t_0$ から $t_2$ にかけて画像が完全に白飛びして特徴点（色付きの点）が失われますが、B-Adapt は露出を賢く散らすことで追従に必要な特徴点を維持し続けます。",
+     "caption": "Fig. 1 : Effect of a rapid low-to-high illumination transition on the visual information available for pose estimation. Left : The vehicle exits a dim tunnel ( $30\\text{\\,}\\mathrm{lx}$ ) toward a bright outdoor scene ( $80\\text{\\,}000\\text{\\,}\\mathrm{lx}$ ). Right : Camera images acquired by the vehicle during the tunnel-exit traversal shown on the left. The vertically cropped images show three successive instants ( $t_{0}$ – $t_{2}$ ) during the illumination transition. Colored points indicate the detected visual features. The AE policy adapts too slowly, saturating images, whereas B-Adapt preserves observable content across complementary exposures.",
+     "image": "details/2610.33174/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "露出制御とSLAM：これまで何が試され、何が足りなかったのか",
+   "summary_ja": "単一露出の賢い制御やHDR画像の合成、あるいは特殊なカメラを用いる先行研究が存在しますが、どれも一長一短でした。本研究は、標準的な市販カメラハードウェアを用い、HDR合成の手間やアーティファクトを避けつつ複数露出を直接SLAMに組み込む点で独自性を持っています。",
+   "details_ja": "ロボティクスにおける露出制御とSLAMの先行研究は、大きく3つの系統に分類できます。\n\n### II-A ロボットのための単一露出制御\n従来のAEは画像の平均輝度を一定に保とうとしますが、ロボット向けには画像勾配やエントロピー、SLAMの追跡性能を指標にして露出を決める反応型・予測型のポリシーが数多く提案されてきました。しかし、どのような賢いアルゴリズムを使おうと、1回のシャッターで1枚の露出しか撮らない限り、センサハードウェア固有のダイナミックレンジの壁を超えることはできません。\n\n### II-B 移動ロボットにおけるマルチ露出ブラケティング\nダイナミックレンジ不足を補うために、露出の異なる複数枚を撮影して合成するHDR画像化が研究されてきました。しかし、ロボットが高速に動いている最中にブラケティングを行うと、撮影時刻のズレによる視点の移動が生じます。これらを1枚に合成しようとすると、飽和領域のズレやオクルージョン（遮蔽）によって深刻な歪みやゴーストが生じてしまいます。また、複数露出を同時に取得できる特殊なセンサも提案されていますが、一般的なロボットプラットフォームでは手軽に利用できません。\n\n### II-C 厳しい照明環境下での Visual SLAM\nSLAM側からのアプローチとしては、AirSLAMのように深層学習を用いて照明変化に強い特徴量を抽出する手法や、放射輝度マップを構築する手法があります。しかし、元の画像が完全に白飛び・黒つぶれして情報が失われている場合、後段のアルゴリズムがどれほど優れていても失われたディテールを復元することは不可能です。だからこそ、撮影側で情報を確実に拾い、推定側でそれを直接活かす統合的な設計が求められていました。",
+   "figures": []
+  },
+  {
+   "heading": "III Theory",
+   "heading_ja": "B-Adapt と BVSLAM：合成を捨てて直接つなぐアルゴリズムの仕組み",
+   "summary_ja": "B-Adapt は高輝度側と低輝度側の両端を2つの独立した制御ループで監視し、白飛びと黒つぶれを抑えるように露出範囲を適応制御します。BVSLAM はHDR合成を介さず、露出差が1ステップ以内の画像間だけで特徴点マッチングを行い、因子グラフ上でカメラ軌道と地図を同時に最適化します。",
+   "details_ja": "提案手法の核となる理論は、撮影ポリシー「B-Adapt」と推定アルゴリズム「BVSLAM」の密な連携にあります。\n\n### III-A 適応型ブラケティング撮影ポリシー：B-Adapt\n走行中にシーンのダイナミックレンジをあらかじめ知ることはできません。そこで B-Adapt は、取得した画像から直接、露出範囲の上限（High）と下限（Low）をオンラインで制御します。制御量は対数EV（Exposure Value）空間で表現され、露出時間とゲインを同時に調節します。\n\nここがポイントなのですが、従来のAEのように画像全体の平均輝度を見るのではなく、画像のヒストグラムの両端（裾野）に着目します。Lowブラケットの制御器は明るい領域に焦点を当て、設定値 $I_{\\max}-\\beta$（8ビットなら $255-\\beta$）を超える飽和寸前の画素の割合が、許容外れ値比率 $\\alpha$ 以下になるように抑えます。逆に High ブラケットの制御器は暗い領域に焦点を当て、画素値が $\\beta$ を下回る黒つぶれ画素の割合が $\\alpha$ になるようにコントロールします。\n\nブラケット数 $n=3$ の場合、この2つの境界のちょうど中間に位置する Mid ブラケットを動的に補間します。また、明暗差の小さいシーンで Low と High が近づきすぎて急変への備えを失わないよう、最小離隔制約（minimum separation）を設けています。撮影順序も工夫されており、$\\texttt{Low} \\to \\texttt{Mid} \\to \\texttt{High} \\to \\texttt{Mid} \\to \\texttt{Low}$ のように隣り合う露出同士を順番に撮ることで、急激な露出ジャンプを防ぎ、連続フレーム間の見た目の重なり（測光的一致度）を最大化しています。\n\n### III-B 因子グラフによる直接推定：BVSLAM\nこうして撮影された画像列をどう処理するかですが、BVSLAM はHDR合成を行いません。照明変化に強い SuperPoint（特徴点検出）と LightGlue（特徴点照合）を採用し、異なる露出間で直接ランドマークを対応付けます。\n\nただし、Low と High を直接マッチングしようとしても見た目が違いすぎて失敗します。そこで「露出ステップが1段階以内の画像」かつ「直近 $W$ フレームの過去ウィンドウ内」にある画像ペアの間でのみマッチングを行うという制約をかけました。これにより、誤対応を防ぎつつ、Mid を橋渡しとして Low から High までの観測を確実に結びつけることができます。得られた対応関係は GTSAM を用いた因子グラフに組み込まれ、カメラ姿勢 $\\mathbf{X}_i \\in \\mathrm{SE}(3)$ とランドマーク位置 $\\mathbf{p}_\\ell$ を一括で非線形最小二乗最適化（バンドル調整）します。なお、本研究では純粋に視覚情報の有効性を評価するため、運動モデル（オドメトリ予測など）による補間を意図的に排除したゼロモーション事前分布を設定しています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "提案システムの全体像です。左側（B-Adapt）では、Low と High の露出境界をヒストグラムの両端の目標値（$\\alpha, \\beta$）に基づいて独立にフィードバック制御し、その中間に Mid を配置します。右側（BVSLAM）では、直近 $W$ フレーム内で露出差が1ステップ以内の画像間でのみ特徴点を結びつけ、HDR合成なしで因子グラフを構築して解きます。",
+     "caption": "Fig. 2 : Overview of our proposed B-Adapt and BVSLAM pipeline for $n=3$ , $I_{\\max}=255$ , and $W=5$ . Left : B-Adapt independently regulates the Low and High bounding brackets using one-sided intensity-tail objectives, parameterized by $\\alpha$ and $\\beta$ , while the intermediate Mid exposure is derived from the two bounds. Right : BVSLAM exploits the resulting bracketing sequence by associating features of images within one exposure step and a lookback window of $W$ frames from the current one (grey window). Pose colors indicate the corresponding exposure levels, while the unfilled circles denote landmarks shared across poses through the retained cross-exposure correspondences.",
+     "image": "details/2610.33174/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Methodology",
+   "heading_ja": "時速 115 km を再現せよ！ 過酷なトンネル出口での実証実験デザイン",
+   "summary_ja": "1/5スケールのRCカーに高精度LiDARとステレオカメラを搭載し、カメラのフレームレートを下げることで実車が時速約 115 km（32 m/s）で走る際の移動量を忠実に再現しました。屋内外の通常走行とトンネル脱出の外乱走行の双方で、複数手法を公平に比較評価します。",
+   "details_ja": "提案手法の頑健性を極限環境で確かめるため、徹底した実験環境が構築されました。\n\n### IV-A 実験プラットフォーム\n1/5スケールのラジコン（RC）カーの上に、ハードウェア同期された Basler 製グローバルシャッターステレオカメラ、128レイヤーの RoboSense LiDAR、Xsens IMU、照度計を搭載しました。評価の真値（グランドツルース）には、照度変化の影響を一切受けないLiDAR-Inertialオドメトリを採用しています。RCカーの実車速は $4.3\\text{ m/s}$ 程度ですが、カメラのフレームレートをあえて 4 Hz まで下げることで、フレーム間の移動距離を「30 Hz のカメラを積んだ乗用車が時速 $32\\text{ m/s}$（約 115 km/h）で走行している状態」と幾何学的に等価にエミュレートしました。\n\n### IV-B 実験環境\n実験は2つのレジームで行われました。1つ目は通常走行（Nominal）で、屋内（Indoor）と森林路（Forest）の計 650 m を走行しました。2つ目は急激な外乱走行（Disturbance）で、長さ約 21 m の暗い道路下トンネルを高速で突き抜ける計 55 m のコースです。トンネルの入り口は緩やかに暗くなるため外乱になりませんが、出口は暗闇から直射日光へ一瞬で切り替わるため、カメラの露出にとって極めて苛酷なテストベッドとなります。\n\n### IV-C 比較対象と評価指標\n撮影側は、提案する B-Adapt のほかに、単一露出の標準 AE、固定露出の B-Fixed、そして B-Adapt の画像を合成する HDRFlow の4種類を用意しました。推定側は、BVSLAM に加えて ORB-SLAM3、CuVSLAM、AirSLAM の3つの代表的なSLAM手法を比較対象としました。評価指標には、5 m 移動ごとの相対姿勢誤差（RPE）の二乗平均平方根誤差（RMSE）を用いています。外乱環境では走行のばらつきを抑えるため、同一軌道を5回走行したデータをプールして集計しています。",
+   "figures": []
+  },
+  {
+   "heading": "V Results",
+   "heading_ja": "外乱時の誤差を 78 % カット！ トンネルを出てもロストしない圧倒的強さ",
+   "summary_ja": "通常環境では提案手法も既存手法と同等の高精度を維持しつつ、過酷なトンネル出口では従来のAEを用いた手法が軒並みトラッキングを失う中で、B-Adapt と BVSLAM の組み合わせが圧倒的に低い誤差（1.10 m）を達成しました。",
+   "details_ja": "実験結果は、撮影ポリシーと状態推定アルゴリズムの組み合わせによる劇的な差を浮き彫りにしました。\n\n### V-A 通常環境と外乱環境でのSLAM性能\n通常環境（Nominal）では、AEをベースにした場合、CuVSLAM、AirSLAM、BVSLAM のいずれも 5 m 区間あたりの誤差が約 7 %（0.14〜0.47 m）に収まり、ほぼ同等の良好な性能を示しました。固定露出（B-Fixed）を使うと露出差が開きすぎて CuVSLAM などは破綻してしまいますが、B-Adapt はシーンの明暗差が小さいと自動的に露出間隔を狭めるため、通常環境でも精度を損ないません。\n\n一方、問題のトンネル出口（Disturbance）では明暗が分かれました。標準的な AE を入力とした場合、ORB-SLAM3 は全試行で完全にトラッキングを喪失し、CuVSLAM は 9.80 m、AirSLAM は 11.04 m と、通常時の20〜70倍もの巨大な誤差を叩き出しました。トンネルを出た瞬間に視覚情報が全滅したためです。\n\nこれに対し、B-Adapt と BVSLAM を組み合わせた場合、外乱環境における RPE RMSE はわずか 1.10 m に抑えられました。これは AE を用いた場合（4.97 m）と比較して実に 78 % の誤差削減です。さらに、B-Adapt の画像を HDRFlow で合成して BVSLAM に入力した場合（2.91 m）や固定露出（3.73 m）よりも大幅に優秀でした。移動中の無理なHDR合成はむしろ逆効果であり、複数露出を直接最適化に食わせるアプローチの正しさが数値として実証されました。\n\n### V-B なぜ B-Adapt は生き残れるのか？\nトンネル出口における画像の飽和度と特徴点マッチング数を時系列で追うと、AE は出口で飽和率が 100 % 近くまで跳ね上がり、信頼できる対応点が約1秒間にわたって完全にゼロへ落ち込んでいました。運動モデルを省いた本実験では、これは即座にトラッキング死を意味します。一方の B-Adapt も制御遅れ自体はわずかに存在するものの、あらかじめ低露出（Low）の枠を確保して走っているため、トンネルの外側の風景が Low ブラケットの画像にしっかりと残り、途切れることなく特徴点を結び続けることができていました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "通常環境（上）とトンネル出口外乱（下）における 5 m 区間の相対姿勢誤差（RPE RMSE）を行列で比較した図です。下の右下枠線部が提案手法（B-Adapt × BVSLAM）で、1.10 m という突出して低い誤差を記録し、過酷な外乱下でも破綻していないことが一目で分かります。",
+     "caption": "Fig. 4 : RPE RMSE over $5\\text{\\,}\\mathrm{m}$ windows in the nominal environments ( top ) and during the tunnel-exit disturbance ( bottom ), evaluated across state estimators ( rows ) and acquisition policies ( columns ). Disturbance results are pooled across five repeated trajectories. The outlined cell identifies our proposed combination of B-Adapt and BVSLAM .",
+     "image": "details/2610.33174/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Discussion",
+   "heading_ja": "車速が上がるほど効いてくるブラケティング、そして今後の課題",
+   "summary_ja": "車速を模したフレームレートの検証から、高速移動時ほど従来のAEは破綻しやすく、B-Adapt の優位性が際立つことが判明しました。一方で、制御の応答速度と安定性のトレードオフや、BVSLAM のリアルタイム化が今後の課題として挙げられています。",
+   "details_ja": "著者らはさらに、走行速度（エミュレート速度）の変化がシステムに与える影響と、手法の限界について考察しています。\n\n### VI-A エミュレート速度が与える影響\nカメラのフレームレートを変えて車速の影響を調べたところ、低速時には AE と B-Adapt の差はそれほど大きくありませんでした。しかし速度が上がるにつれて、AE は明暗変化の最中に露出を収束させるための画像枚数が足りなくなり、誤差が急激に跳ね上がりました。対照的に B-Adapt は、速度が上がっても誤差が極めて緩やかにしか増えず、安定した性能を維持しました。つまり、高速走行する自動運転車や高速移動ロボットほど、ブラケティングの恩恵が大きくなります。\n\n### VI-B 本手法の限界\n一方で、いくつかの限界も率直に認められています。\n- **制御遅れの完全な排除は不可**: B-Adapt は事前に露出を広げていますが、フィードバック制御である以上、視野に入ってきた極端な明暗部が画像全体のごく一部である初期段階では露出が即座に反応できません。\n- **オフライン処理にとどまる計算負荷**: 現在の BVSLAM 実装は、視覚制約の有効性を厳密に検証することを主眼としているため、大域的バンドル調整（Global BA）を含むオフライン処理となっており、リアルタイムでは動作しません。スライディングウィンドウの軽量化など、実用化に向けた高速化が今後の課題です。",
+   "figures": []
+  },
+  {
+   "heading": "VII Conclusion",
+   "heading_ja": "まとめ：明暗変化に強いVisual SLAMの新スタンダードへ",
+   "summary_ja": "本研究は、露出の適応制御「B-Adapt」と複数露出の直接因子グラフ最適化「BVSLAM」により、急激な明暗変化下でのVisual SLAMのトラッキング喪失を克服しました。通常環境での精度を保ちつつ外乱を乗り越える本手法は、実環境を駆ける自律ロボットの信頼性を大きく押し上げる成果です。",
+   "details_ja": "本論文では、Visual SLAMにとって致命的な外乱である「急激な照明変化」を解決するため、撮影と推定の両面からアプローチしました。\n\n撮影側では、環境のダイナミックレンジに合わせて露出の上限・下限・中間を動的に配分する「B-Adapt」を提案しました。そして推定側では、動体ブレやゴーストを引き起こす厄介なHDR合成を完全にバイパスし、異なる露出の画像間で直接特徴点を結んで因子グラフで解く「BVSLAM」を確立しました。\n\n実機による過酷なトンネル出口の実験では、時速 32 m/s 相当の高速脱出時において、従来の単一露出AEに対して誤差を 78 % も激減させる劇的なロバスト性を証明しました。高速走行時ほどこの優位性は顕著になります。今後は、制御の応答性と安定性のさらなる両立を図るとともに、BVSLAM のリアルタイム実装を進めることで、より実用的なロボット自律走行システムへの展開が期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「急激な明暗変化で白飛びしてSLAMが落ちる」問題は、単一露出のAEをいくら工夫してもセンサのダイナミックレンジの限界があるため、ブラケティング（複数露出）による事前カバーが本質的に有効。",
+  "移動ロボットにおいてマルチ露出画像を1枚のHDR画像に合成するのは、視点ズレによる歪みやゴーストが生じるため逆効果であり、複数露出のまま直接SLAMの因子グラフに組み込む方がはるかに高精度。",
+  "露出差の大きすぎる画像同士を無理にマッチングせず、露出が1段階以内の画像ペアに限定して因子グラフを構築することで、安定したランドマーク追従が可能になる。",
+  "走行速度が上がれば上がるほどAEの適応遅延は致命的になるため、高速移動する自律走行車両ほど適応ブラケティングの価値が高まる。"
+ ],
+ "limitations_ja": [
+  "現在の BVSLAM 実装は大域バンドル調整を伴うオフライン処理であり、ロボット実機上でのリアルタイム動作には至っていない。",
+  "B-Adapt はフィードバック制御に基づいているため、トンネル出口のような極端な変化が現れた瞬間、画角のごく一部にしか現れない段階では即応できない遅延が原理的に残る。",
+  "ヒストグラムの目標値パラメータ（$\\alpha, \\beta$）や更新係数（$\\lambda$）のチューニングにおいて、応答速度の向上と露出のバタつき（不安定性）のトレードオフが存在する。"
+ ],
+ "keywords": [
+  "Visual SLAM",
+  "Auto Exposure",
+  "Bracketing",
+  "High Dynamic Range",
+  "Factor Graph"
+ ],
+ "id": "2610.33174",
+ "title": "Bracketing Shows the Way: Adaptive Multi-Exposure Policy as Input for Robust Visual SLAM",
+ "authors": [
+  "Olivier Gamache",
+  "Anthony Lavertu",
+  "David-Alexandre Duclos",
+  "Jean-Michel Fortin",
+  "Fran\\c{c}ois Pomerleau",
+  "Philippe Gigu\\`ere"
+ ],
+ "date": "2026-10-27",
+ "group": "general",
+ "tags": [
+  "perception",
+  "control",
+  "autonomous-driving"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.33174",
+ "pdf_url": "https://arxiv.org/pdf/2610.33174",
+ "summary_ja": "トンネル出口など急激な照度変化による画像の白飛び・黒潰れで特徴追従が破綻する課題に対し、適応型マルチ露出撮影とSLAMの統合手法を提案。動的レンジをカバーしつつ重なりを保持する露出ブラケティングB-Adaptと、HDR合成を行わずにマルチ露出画像を直接ファクターグラフの制約に組み込むBVSLAMを開発。32 m/s相当の高速明暗変化下でもロバストな追従を実現した。",
+ "generated": "2026-10-27",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.33174"
+}
