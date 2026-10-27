@@ -1,0 +1,135 @@
+{
+ "title_ja": "ORBIT: 指の回転再構成が可能なモジュール式多指ロボットハンドプラットフォーム",
+ "tldr_ja": "円筒状の手のひらの周りをベルト駆動で独立して周回する回転関節（rotating knuckle）機構を開発し、ハードウェアを組み直すことなく指の配置や本数を自在に変更してハンド形態ごとの性能差を公平に比較できるモジュール型ロボットハンド「ORBIT」を提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "Frankaロボットアームに搭載されたORBITの全体像です。同じハードウェアのまま指の根本を回転移動させることで、(A) 人間型（オフセットされた親指に対向する2本指）、(B) 等方配置（円周上に120度等間隔）、(C) BarrettHand型（中央の親指に対向する2本指）など、多様なハンド形態へ1秒未満で瞬時に切り替えられます。",
+  "caption": "Fig. 1 : Overview of orbit mounted on a robot arm. The same orbit hardware allows us to use rotational movement to switch between different finger morphologies, including: (A) Anthropomorphic style, where two fingers oppose an offset thumb, (B) Isometric, where fingers are evenly distributed around the palm, (C) and Barrett style, where two fingers oppose a central thumb. Scale bars are $50\\text{\\,}\\mathrm{mm}$ .",
+  "image": "details/2610.33241/F1.jpg"
+ },
+ "overview_ja": "ロボットハンドの研究では、人間のような配置から非人間型の多指配置まで多種多様な形態（モルフォロジー）が提案されてきました。しかし、「指は何本が最適か」「親指はどこに配置すべきか」という基本的な問いに対して、異なる形態同士を同じアクチュエータや制御系、同一条件下で公平（apples-to-apples）に比較できる共通プラットフォームは存在していませんでした。\n\nそこで著者らは、指の配置そのものを動的に変更できるモジュール式ロボットハンド「ORBIT」を開発しました。ORBITの最大の特徴は、円筒状の手のひらに設けられたVレール上を、各指のキャリッジがタイミングベルトを介して独立して周回（公転）する「回転ナックル機構」です。指モジュール自体の着脱や交換も容易で、ハンド全体を作り直すことなく指の本数・幾何形状・配置角度を自在に変えられます。\n\n実機の性能評価では、指の根本が平均角速度1.57 rad/sという俊敏さで回転し、50 Nの外力にも耐える十分な保持剛性を持つことを確認しました。この機構を使い、3本指の状態で「人間型」「等方配置（アイソメトリック）」「BarrettHand型」の3形態を再現し、11種類の家庭用品を用いた把持実験や把持力計測を実施しました。\n\nその結果、重心が偏った物体には人間型、球などの対称物には等方配置、軸対称の道具にはBarrett型が適するなど、タスクと最適な形態の対応関係が明瞭に示されました。さらに、指の根本を回す軌道自由度を直接マニピュレーションに利用することで、ミリ単位の極小ネジの精密つまみ上げ、学習不要な1秒未満のキューブ面90度回転、手首を使わないビンのフタ開けといった高度な作業も実現できることを示しました。",
+ "contributions_ja": [
+  "手のひらの周囲をベルト駆動で独立周回し、1秒未満で指配置を動的に再構成できる「回転ナックル機構」の開発",
+  "2自由度の生体模倣リンク指と柔軟素材の人工掌を組み合わせた、モジュール式3本指ロボットハンドの実装と動作特性の評価",
+  "同一ハードウェア上で3つの代表的指配置（人間型・等方型・Barrett型）を再現し、把持力および11種類の物体把持による公平な形態比較実験",
+  "指根本の回転自由度を動的マニピュレーションに活用し、極小ネジのつまみ上げ、キューブの高速面回転、フタのネジ回しを実現"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜハンド形態の「公平な比較」がこれまでできなかったのか？",
+   "summary_ja": "多指ハンドには人間型から非人間型まで多様な設計がありますが、ハードウェアが異なるため公平な性能比較が困難でした。本章では、指の根本を回転させて配置を自在に変えられるモジュール式ハンド「ORBIT」のコンセプトと本論文の貢献を概説します。",
+   "details_ja": "ロボットによる器用なマニピュレーションを目指し、これまで腱駆動やリンク駆動を用いた多くの多指ハンドが作られてきました。代表的なものとしてBarrettHand、Allegro Hand、LEAP Handなどがありますが、親指の配置やサイズは設計ごとに大きく異なっています。近年では指を手のひらに等間隔で配置する非人間型や、奇抜な自由度（DOF）を持つハンドも登場していますが、「結局どの形態が最適なのか」「非人間型の機構は複雑さに見合う価値があるのか」という問いには明確な答えが出ていません。\n\nなぜこの問題が解決しないかというと、従来のハードウェア研究は単一の目標に特化して作られており、異なる形態を「同じモータ・同じリンク・同じ制御条件」で直接比較できるプラットフォームが存在しなかったからです。\n\nそこで本論文が提案するのが、ORBIT（Orbital Reconfigurable Base-actuated Integrated Theta-motion Hand）です。円筒状の手のひらの外周を指キャリッジが独立して周回することで、ハンドを分解・再設計することなく、指の配置角度・幾何形状・指の本数を動的に変更できます。これにより、異なるハンド形態の長所と短所を「条件を揃えた直接対決」で評価できるようになります。",
+   "figures": []
+  },
+  {
+   "heading": "II Design",
+   "heading_ja": "円筒レールを指が回る！ORBITのメカニズムとモジュール設計",
+   "summary_ja": "ORBITの中核である回転ナックル機構と、3Dプリント製リンク指および柔軟パームからなる手先ユニットの構造を詳述します。3DプリンタのVレール機構を円筒に応用し、多方向の力に耐える安定性と容易な着脱性を両立しました。",
+   "details_ja": "### II-A 回転ナックル機構（Rotating Knuckle Mechanism）\nORBITの核となるのは、3Dプリンタの直動Vレール機構を円筒形状へと応用した「回転ナックル機構」です。市販の円筒Vレールは存在しないため、PLA（Polylactic Acid：ポリ乳酸）を用いて2分割構造の円筒台座を3Dプリントしました。2分割してネジ止めする構造にしたことで、溝部にサポート材を使わずに高精度プリントが可能になり、キャリッジの滑らかな走行と車輪の摩耗低減を実現しています。\n\n一般的なVレールは一方向の荷重しか受けませんが、ロボットハンドでは把持時に多方向のモーメントが加わります。そこでキャリッジ側には対向するVホイールを三角形状に配置し、外力やモーメントを均等に分散・支持できる強固な構造を採用しました。各キャリッジには25:1の減速比を持つ小型DCギヤモータが搭載され、1本の共通タイミングベルト（MXL規格）を駆動してレール上を走行します。他のキャリッジが互いのベルトテンショナーの役割を兼ねており、1本のベルトで全指の独立駆動を成立させています。\n\n指モジュールの交換はコネクタを抜いてネジ2本を外すだけで完了します。指の追加や削減もベルトの長さを変えるだけで対応できるため、形態探求のための高いモジュール性を備えています。\n\n### II-B ハンド実装（Hand Instantiation）\n本論文の実証実験では、シンプルさと汎用性のバランスから「3本指ハンド」を構成しました。各指は3自由度（DOF）を備えています。\n- **DOF 1（根本の周回）**：DCモータによる手のひら周囲の回転移動（公転）\n- **DOF 2（内転/外転）**：サーボモータによる根本での左右首振り運動（人間のMCP関節の側方運動に相当）\n- **DOF 3（屈曲/伸展）**：サーボモータで駆動する2段直列4節リンク機構による曲げ伸ばし運動（人間のPIP/DIP関節に相当）\n\n指先には、厚さ5 mmの柔軟スポンジパッドと摩擦テープに加え、先端に1 mm突き出た硬質PLA製の「爪（nail）」を設けました。これにより、丸い指腹では滑ってしまう薄い物体や微小な部品の下に爪を潜り込ませて把持できます。また、各指のバックラッシュやスポンジの変形が受動的なコンプライアンス（柔軟性）となり、複雑な力制御なしでも指先が物体形状になじむ設計です。\n\n手のひらの中央には、人間型の手のひらにある母指球（Thenar）や小指球（Hypothenar）などのふくらみを模した柔軟パームを搭載しました。FormlabsのSilicone 40Aを用いた3Dプリント製で、包み込み把持（パワー把持）の確実性を高めています。制御系はキャリッジごとにArduino Nanoとモータドライバを分散配置し、PCからシリアル通信で目標角度を送信する構成です。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "ORBITの運動自由度と人間の手の生体構造との対応関係です。円周上を回るDOF 1（根本移動）、左右に振るDOF 2（内転/外転）、リンクで屈曲するDOF 3（屈曲/伸展）の3自由度からなり、中央の柔軟パームは母指球や小指球のクッション性を模倣しています。",
+     "caption": "Fig. 2 : Conceptual overview of orbit and its anthropomorphic hand morphology instantiation. Each of orbit ’s DOFs have a biological analogue: (1) root finger displacmeent, (2) abduction / adduction, and (3) flexion / extension. Similarly, the finger joints correspond to the Distal interPhalangeal (DIP), Proximal InterPhalangeal (PIP), MetaCarpoPhalangeal (MCP) joints of the finger, while the soft palm mimics the thenar, hipothenar and Interphalangeal pads on the human palm. Scale bars are $50\\text{\\,}\\mathrm{mm}$",
+     "image": "details/2610.33241/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "ORBITの優れたモジュール性を示す図です。ネジ2本を外すだけで通常指から短い親指モジュールへ素早く交換でき、必要に応じて指の追加や削減もベルト長を合わせるだけで容易に行えます。",
+     "caption": "Fig. 3 : Demonstration of orbit ’s modular architecture. From left to right, we demonstrate how we can swap a standard finger design with a shorter thumb finger design without needing to disassemble the entire hand. We also demonstrate conceptual pictures of how additional finger modules can be added or removed from the rotating knuckle mechanism, creating new hand layouts with the same base architecture. Scale bars are $50\\text{\\,}\\mathrm{mm}$",
+     "image": "details/2610.33241/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "ORBITのハードウェア構成詳細です。左から全体外観、分解図、Vレールと三角配置の車輪からなる回転ナックル機構、そして2段リンクと先端の爪を備えた指モジュールの内部構造が示されています。",
+     "caption": "Fig. 4 : Overview of the specific orbit instantiation we use in the paper. From left to right, general overview of orbit as a whole, exploded view of the two main subassemblies, and detailed information of the rotating knuckle mechanism and finger design. Scale bars are $50\\text{\\,}\\mathrm{mm}$",
+     "image": "details/2610.33241/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "指の屈曲（DOF 3）を駆動するカスケード型4節リンク機構のキネマティクス図です。サーボで駆動される第1ループの動きがギヤ結合を介して第2ループへ伝達され、指全体が協調して自然に屈曲する様子が分かります。",
+     "caption": "Fig. 5 : Kinematic diagram of the finger design with the two cascaded four-bar linkage. Red links are driven inputs, blue links are grounded, green links are couplers and $\\theta$ is the servo-input angle. Scale bars are $50\\text{\\,}\\mathrm{mm}$",
+     "image": "details/2610.33241/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "III Characterization",
+   "heading_ja": "実機の基本性能を測る：1秒未満の高速移動と50 Nの耐荷重",
+   "summary_ja": "回転ナックル機構と指リンク系の位置決め精度、動作速度、耐荷重性能を実験で評価しました。最大移動角度の形態切り替えが0.6秒以下で完了し、50 Nの力に対してもベルト滑りを起こさず指位置を保持できる堅牢性を確認しました。",
+   "details_ja": "### III-A 回転ナックル機構の性能評価\n各キャリッジをロボットアーム上で固定し、重力の影響がニュートラルな状態で性能測定を行いました。\n- **位置精度**：モータ軸のエンコーダ情報と外部ビデオトラッキングによる実位置を比較しました。PID制御の不感帯（dead-band）をモータ軸±30度（キャリッジ角度で約±2.0度）に設定したところ、0.6秒で定常状態に達し、オーバーシュートなく確実に不感帯内に収束することを確認しました。\n- **角速度**：評価対象となる3つの形態間の移動時間をビデオから計測しました。キャリッジの平均角速度は1.57 rad/s、最大角速度は2.36 rad/sを記録しました。最も移動量の大きい76.6度の形態遷移でも0.6秒未満で完了するため、あらゆる形態への切り替えが1秒未満で行えます。\n- **耐荷重（力抵抗）**：指の根本に対し、周方向（回転方向）に垂直な外力を徐々に加えました。10回の試行中9回でフォースゲージの上限である50 Nに達しても位置ズレを起こさず保持できました（残り1回のみ42 Nでベルトが滑動）。把持作業に十分な支持剛性を持っています。\n\n### III-B 指ユニットの性能評価\n指単体を万力に固定し、可動範囲全体（20度〜160度）での挙動を検証しました。\n- **位置精度**：DOF 2はダイレクトドライブのため測定限界以下のズレ（最大偏差2度未満）と高い剛性を示しました。リンクを介するDOF 3では、関節バックラッシュの累積により可動端で最大5.04 mmの先端位置誤差が生じましたが、事前の幾何学モデルと良好に一致しています。\n- **動作速度**：140度の全可動域を動かした際、DOF 2は0.53±0.01秒、リンク駆動のDOF 3は0.96±0.09秒で到達しました。DOF 3がやや遅いのは、リンク間の摩擦と終端での減速制御によるものです。\n\nこれらの結果から、指の根本移動（DOF 1）が単なる静的な組み替え用にとどまらず、マニピュレーション中の動的な動作要素（プリミティブ）としても十分使える速度と強度を持つことが証明されました。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "各自由度の位置決め精度評価です。(A) DOF 1のステップ応答（目標角度に対し0.6秒以内で不感帯内に収束）、(B) DOF 2のトラッキング結果、(C) DOF 3における理論キネマティクスモデルと実測軌道の比較（端部での最大誤差5.04 mm）を示しています。",
+     "caption": "Fig. 6 : Position accuracy characterization of the three DOF’s of orbit (A) DOF 1 DC motor feedback vs video tracking vs target angle. (B) DOF 2 servo motor feedback vs target angle around the video tracked path. (C) DOF 3 Video tracking vs Theoretical model path.",
+     "image": "details/2610.33241/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Grasping performance and discussion",
+   "heading_ja": "3つの形態を徹底比較！得意・不得意の正体と動的軌道の威力",
+   "summary_ja": "人間型・等方型・Barrett型の3形態を同一ハードウェアで再現し、把持力測定と11種類の物体を用いた把持テストを実施しました。さらに、指の根本を動かしながら作業する「軌道自由度」により、極小ネジの把持やキューブの高速面回転を実証しました。",
+   "details_ja": "### IV-A 把持力の比較\n3形態（人間型：20°/60°/270°、等方型：0°/120°/240°、Barrett型：345°/75°/210°）それぞれで全指を最大屈曲させ、ロードセルに球体治具（直径25 mm）および平面治具（20×40 mm）を取り付けて把持力を計測しました。\n\n結果として、人間型が最も高い把持力を記録しました。これは、隣接する2本指が対向する親指に対してより垂直に近い角度で力を伝達できるためです。一方、等方型やBarrett型では指先が接触面に対して斜めに当たる分、垂直方向の測定値が小さくなる傾向が確認されました。\n\n### IV-B 11種類の物体を用いた把持評価\nポテトチップス筒、帽子、クラッカー箱、M3ネジ、バレーボール、小型キューブ5個、イヤホン、ギロ（楽器）、フライパン、グラス、電動ドリルの計11種類の物体を対象に、アーム降下→指定角度まで指を閉じる→100 mm持ち上げて3秒保持、という把持実験を行いました。\n- **人間型（Anthropomorphic）**：重心が偏ったフライパンや電動ドリルで圧倒的な安定性を示しました。オフセットされた親指が、物体の自重による転倒モーメントを効果的に支えられます。\n- **等方型（Isometric）**：バレーボールのような大径球体や、並べた5個の小型キューブの把持に最適でした。120度間隔の3接点が物体の幾何中心に向かって均等に力を集中させるためです。\n- **Barrett型**：ギロのように長手方向の中心でバランスを取る道具の把持でベストな性能を発揮しました。中央に対向する親指が、傾きのない水平な持ち上げを可能にします。また、DOF 2の首振り範囲が広いため、人間型や等方型の特性をある程度エミュレートできる中間的な適応力も見せました。\n\n一方で、430 gのクラッカー箱（指先の摩擦力不足）や、床に置かれたM3×5 mmネジ（根本固定状態では指が寄り切らない）は、どの形態でも失敗となりました。\n\n### IV-C 軌道自由度を活かした動的マニピュレーション\n固定配置での限界を打破するため、把持動作中にDOF 1を動かす実証実験を行いました。\n- **微小ネジ（M3×5 mm）の精密つまみ上げ**：物体の上で2本のキャリッジを動的に接近させ、指先のPLA製「爪」をネジ頭の下に潜り込ませてから指を曲げることで、見事に拾い上げに成功しました。\n- **インハンド・キューブ面回転**：等方配置で5 cm角のキューブを掴んだ状態から、3つのキャリッジを一斉に+30度回転させることで、複雑な強化学習ポリシーなど使わずに、わずか1秒未満でキューブの面を90度回転させました。\n- **ジャム瓶のフタ開け**：等方配置でピーナッツバター瓶のフタを掴み、全キャリッジを反時計回りに連続回転させることで、手首の回転関節を使わずにハンド単体の自由度だけでフタを回して外すことに成功しました。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "把持力測定の実験セットアップです。上段(A)は幾何中心に配置した直径25 mmの球体治具、下段(B)は平面治具を掴む様子を示しています。指の開き角度によって治具へ加わる力の垂直成分が変化し、指間隔の狭い人間型が高い数値を記録しました。",
+     "caption": "Fig. 7 : Grip force experimental setup for the three hand configurations with the two load cell presentations: (A) a spherical layout and (B) a flat layout. Scale bars are $50\\text{\\,}\\mathrm{mm}$ .",
+     "image": "details/2610.33241/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusions and future work",
+   "heading_ja": "まとめと展望：形態の最適化とSim-to-Realへの道",
+   "summary_ja": "ORBITは多指ハンドの形態比較を公平に行える革新的なプラットフォームであることを示しました。今後は力制御や触覚センサの統合、シミュレータ上での形態最適化、そしてORBIT実機を用いたSim-to-Real検証を進める計画です。",
+   "details_ja": "本研究では、独立して周回する回転ナックル機構によって指の配置を動的に変更できるモジュール式ロボットハンドプラットフォーム「ORBIT」を提案・実証しました。代表的な3つのハンド形態（人間型・等方型・Barrett型）を完全に同一の機構・アクチュエータ条件で再現し、それぞれの得意な把持対象や力学的特性の違いを明らかにしました。さらに、指の根元が手のひらを旋回する非人間型の軌道自由度（DOF 1）が、インハンド操作や精密ピンチにおいて強力な武器になることを示しました。\n\n今後の展望として、著者らは以下の課題を挙げています。\n- **センシングと能動制御の高度化**：指先への触覚センサの実装と、位置制御だけでなく力制御に基づいた把持アルゴリズムの導入。\n- **形態空間のシミュレーション最適化**：タスクに応じて「指の本数は何本か」「各指のDOF構成はどうあるべきか」「手のひらの形状はどれが最適か」といった根本的な設計変数をシミュレータ上で自動最適化する研究。\n- **Sim-to-Realの実機検証**：シミュレーションで導き出された最適形態を、ORBITのモジュール性を活かして実際に組み替え、実世界でその妥当性を検証するフレームワークの構築。\n\nORBITは、単一の完成されたハンドにとどまらず、ロボットハンドの「身体性（モルフォロジー）」そのものを深く探求するための強力なテストベッドとして期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「どのハンド形状が最強か」という議論に対し、同一アクチュエータ・同一制御のまま指配置を変えて比較できるORBITのような共通プラットフォームが極めて有効である点",
+  "重心の偏った工具には「人間型」、球対称な物体には「等方型」、軸対称な道具には「Barrett型」と、タスクの幾何学的・力学的特性によって最適な形態が明確に分かれる点",
+  "指の付け根（ナックル）を円周上で動かす自由度は、静的な形態変更だけでなく、フタ回しやキューブ回転、極小物のつまみ上げといった動的マニピュレーションの強力なプリミティブになる点",
+  "3DプリンタのVレール構造を円筒形に応用し、三角配置ホイールで支持する機構設計は、軽量でありながら50 Nに耐える堅牢な回転機構を作る優れたアプローチである点"
+ ],
+ "limitations_ja": [
+  "現状の制御は各指独立のPID位置制御のみであり、力覚フィードバックや触覚センサが統合されていないため、重い物体（クラッカー箱など）の把持で摩擦や押し付け力が不足して滑り落ちる課題がある",
+  "指の本数を変更（増減）する際にはタイミングベルトの長さを手動で交換する必要があり、完全自動での指本数変更までは実現していない",
+  "指の屈曲機構に平歯車とリンクを用いているため、可動域端部で約5 mmのバックラッシュ誤差が蓄積するメカニカルな遊びが存在する"
+ ],
+ "keywords": [
+  "Modular Robotic Hand",
+  "Hand Morphology",
+  "Reconfigurable Mechanism",
+  "Dexterous Manipulation",
+  "In-Hand Manipulation"
+ ],
+ "id": "2610.33241",
+ "title": "ORBIT: A Modular Multi-finger Robotic Hand Platform with Rotational Finger Reconfiguration",
+ "authors": [
+  "Benito Ribadeneira",
+  "Siqi Shang",
+  "Lillian Chin"
+ ],
+ "date": "2026-10-27",
+ "group": "general",
+ "tags": [
+  "hardware",
+  "manipulation",
+  "grasping"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.33241",
+ "pdf_url": "https://arxiv.org/pdf/2610.33241",
+ "summary_ja": "多指ハンドの形態が器用な操作に与える影響を系統的に評価するための機構ORBITを開発。円筒状の掌の周囲をベルト駆動で独立した指が移動する回転ナックル機構を備え、分解することなく1秒未満で指の幾何配置を動的に再構成できる。各指は平均角速度1.57 rad/s、根元把持力11.8 Nを発揮し、把持形態の比較や動的適応の検証を可能にする。",
+ "generated": "2026-10-27",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.33241"
+}
