@@ -1,0 +1,166 @@
+{
+ "title_ja": "接触リッチな操作においてGPT-6 Astraはどこまで登れるか？PhysLadder：物理的インタラクションのための階層的Sim-Real一致ベンチマーク",
+ "tldr_ja": "大規模基盤モデルGPT-6 Astraに対し、接触の複雑さを3段階に分けた16種類の家庭内タスク（PhysLadder）をゼロショットで評価した結果、接触の切り替えと力調整が同時に求められる高度な操作（L3）では成功率が0%となり、局所的な進捗が全体の成功に結びつかないという物理インタラクションの壁が明らかになりました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "PhysLadderが提案する16のタスク群と、シミュレーション（紫）および実世界（橙）で厳密に環境を一致させたセットアップの概要です。タスクは幾何学的整列（L1）、持続的接触下での力調整（L2）、接触再構成と力調整の協調（L3）の3段階に階層化されています。",
+  "caption": "Figure 2: Contact-rich manipulation tasks and representative initial-state variations. (a) The 16 tasks span three interaction levels, identified by task tags colored by level: L1 (5 tasks) emphasizes contact selection and geometric alignment; L2 (7 tasks) adds force regulation within sustained contact; L3 (4 tasks) requires coordinated contact reconfiguration and force regulation. Each task unit pairs a simulated view (left, violet bar) with a real-world view (right, orange bar). (b) Four representative simulation tasks are each shown in three initial configurations, illustrating variations in object positions, relative placement, and orientation. …",
+  "image": "details/2610.34527/F2.jpg"
+ },
+ "overview_ja": "GPT-6 Astraをはじめとする汎用基盤モデル（Foundation Models）は、視覚理解や言語推論において目覚ましい進化を遂げており、ロボットの自律操作への応用も急速に進んでいます。しかし、家庭や工場といった現場で真に役立つためには、単に物体を掴んで運ぶだけでなく、物体同士が強く擦れ合ったり噛み合ったりする「接触リッチ（contact-rich）な操作」を安定してこなせなければなりません。ところが、これまでの評価ベンチマークは個別のタスク成功率を測るにとどまり、「物理的な接触のどの要求がモデルのボトルネックになっているのか」を体系的に切り分けることができませんでした。\n\nそこで著者らは、接触要求の複雑さに応じてタスクを3段階に体系化した階層的ベンチマーク「PhysLadder」を構築しました。レベル1（L1）は把持位置の選定や幾何学的な整列、レベル2（L2）は一定の接触を保ったまま力を加減する力調整、そして最高難度のレベル3（L3）は接触の切り替え（持ち替えなど）と力調整を両立させる協調操作です。さらに、実世界の双腕ロボット環境と、外観や接触力学を高度に合わせたIsaac Simシミュレーション環境をペアで用意し、GPT-6 Astraをゼロショット（タスク固有のデモや学習なし）で評価しました。\n\n実験の結果、実機での成功率はL1で80.0%、L2で47.6%と難易度に伴って低下し、L3ではなんと0.0%（シミュレーションでも66.7%→47.6%→0.0%）と完全に頭打ちになりました。キャップを少し回したり引き出しを途中まで引いたりと局所的な物理的進捗は見られるものの、持ち替えや力の調整を連続して成功させることができず、最終的なタスク完了には至らないことが判明しました。また、16タスク中10タスクで実機とシミュレータの成功回数が完全に一致し、シミュレーションがモデルの物理的限界を調べるスケーラブルな実験場として有効であることも示されています。",
+ "contributions_ja": [
+  "接触配置と力調整の2軸に基づき、物理インタラクションの要求度を3段階（L1〜L3）に体系化した16種類の家庭内操作ベンチマーク「PhysLadder」を提案した点",
+  "外観、幾何形状、質量、摩擦、変形特性まで実機と精緻に対応付けたIsaac Sim環境を構築し、再現性の高いSim-Real評価基盤を整えた点",
+  "最新の汎用基盤モデルGPT-6 Astraをゼロショット評価し、接触再構成と力調整が重なる操作（L3）で成功率0%という物理的操作能力の明確な境界を実験的に突き止めた点",
+  "局所的な進捗がタスク完了に結びつかない原因として、空間推論・接触選定・力調整・協調の4つの相互作用ボトルネックを特定した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜいま「接触リッチ」な操作の階層化が必要なのか",
+   "summary_ja": "汎用基盤モデルをロボットに応用する研究が進んでいますが、実応用で不可欠な「接触を伴う操作」を安定して実行するのは依然として困難です。著者らは、接触配置と力調整の要求度に応じて16のタスクを3段階に整理したベンチマーク「PhysLadder」を開発し、GPT-6 Astraの物理的な限界をSimとRealの両面から明らかにすることを目指しました。",
+   "details_ja": "GPT-6 Astraをはじめとするフロンティアモデルは、指示理解や大まかなタスク計画で高い能力を発揮しています。しかし、家庭や工場などの現場でロボットを動かすには、適切な接触点をみつけ、そこにかかる力を適切に制御し、作業の進行に合わせて持ち替えなどの接触変更を協調させる「接触リッチな操作」が欠かせません。従来のベンチマークは全体の成功率を眺めるだけのものが多く、モデルが物理的な相互作用のどの段階でつまずいているのかを分析できませんでした。\n\nそこで本研究が提案するのが「PhysLadder」です。物理的な接触要求を次の2軸で捉え、累積的な3つのレベルに分類しています。\n- 接触配置（Contact Configuration）: 物体や工具をどこでどのように接触・把持させるか。途中で持ち替え（接触の再構成）が必要か。\n- 力調整（Force Regulation）: 接触面を通じて摩擦や抵抗に打ち勝つ、一定圧力を保つ、あるいは壊さないように変形を抑える力やトルクの制御。\n\nこの2軸により、L1（接触選定と幾何学的整列）、L2（持続接触下での力調整）、L3（接触再構成と力調整の協調）という3段階が定義されます。さらに、実世界環境（Real）と物理的・視覚的に厳密に一致させたシミュレーション環境（Sim）を用意しました。GPT-6 Astraをゼロショットで評価したところ、実機成功率はL1で80.0%、L2で47.6%、L3で0.0%と急落し、シミュレーションでもほぼ同一の傾向が確認されました。モデルは局所的な動きを作れても、それをタスク完了まで積み上げられないことが浮き彫りになったのです。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "基盤モデルの身体性評価とSim-Real対応付けの系譜",
+   "summary_ja": "基盤モデルの身体的評価は高レベルな推論から閉ループ制御へと進んでいますが、接触を伴う物理操作の解析はまだ不十分です。本研究は、既存の接触ベンチマークがカバーしきれていなかった「接触要求の体系化」を行い、Sim-Realの精緻なマッチングによってモデルの物理的限界を捉える位置づけにあります。",
+   "details_ja": "### 2.1 汎用基盤モデルの身体性評価（Embodied Evaluation）\n基盤モデルが視覚や言語の指示を理解し、環境からのフィードバックを受けて動けるかを評価する試み（EmbodiedEvalやEmbodiedBenchなど）が急速に増えています。しかし、GPT-6 Astraのようなフロンティアモデルであっても、高いタスク理解力を見せる一方で、精密なマニピュレーションや動的制御、両腕協調には依然として苦戦しています。タスク理解と信頼性の高い物理操作の間にあるギャップを正確に測定するベンチマークが切望されていました。\n\n### 2.2 接触リッチな操作ベンチマーク\nアセンブリ（はめ込み）や関節物体の操作など、接触を重視したベンチマークはこれまでにも存在しました。しかし、それらは特定のタスク種別（ペグ挿入や家具組み立てなど）に偏っており、「接触の難しさ」そのものを体系的に分解したものではありませんでした。PhysLadderは、タスクの種類や手数ではなく、接触の配置と力の加減という共通の物理的要求に基づいてタスクを整理した点がユニークです。\n\n### 2.3 Sim-Real評価における物理的・視覚的マッチング\nシミュレータ上でモデルの接触性能を正しく評価するには、実世界との見た目や接触ダイナミクスの整合が必須です。近年のシーン再構成技術や柔軟体シミュレーションの知見を取り入れ、実機とシミュレータの間で振る舞いや失敗パターンがどれだけ一致するかを実証的に検証することが、本研究の重要な柱となっています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Hierarchical Benchmark Design for Contact-Rich Manipulation",
+   "heading_ja": "接触の難しさを3段階に分ける「PhysLadder」の設計思想",
+   "summary_ja": "PhysLadderは、16種類の家庭内タスクを物理的インタラクションの要求度に応じてL1〜L3に分類しています。タスク名ではなく「初期状態と拘束条件」によってレベルが決まるのが特徴で、局所的な進捗（有効接触）と最終的なタスク成功を区別して評価します。",
+   "details_ja": "### 3.1 階層設計の基本原則\nPhysLadderの階層は、以下の2つの軸が累積していく構造になっています。\n- **L1: 接触選定と幾何学的整列（Contact Selection & Geometric Alignment）**\n物体を適切に把持し、指定の位置・姿勢へ合わせるタスクです。単なる持ち上げや幾何学的な配置にとどまり、強い抵抗に打ち勝つような力調整は求められません（例: マーカーをカップに入れる、充電器をコンセント穴に合わせる）。\n- **L2: 持続的接触下での力調整（Force Regulation within Sustained Contact）**\n一度確立した接触（グリップや道具の押し当て）を保ったまま、摩擦や抵抗に打ち勝つ、あるいは変形を防ぐために力を加減するタスクです（例: 引き出しの引き戻し、ホワイトボード消し、柔らかいゼリーの把持）。途中で持ち直す必要はありません。\n- **L3: 接触再構成と力調整の協調（Coordinated Contact Reconfiguration & Force Regulation）**\n一度の把持姿勢のままでは作業を完了できず、力を適切に逃がさないようにしながら「持ち替え（接触の再構成）」を挟んで作業を継続する最高難度のタスクです（例: ボトルのキャップを何度も回して外す、ほうきで散らばったブロックをちり取りへ集める）。\n\n重要なのは、レベルがタスクの名前で決まるのではなく「タスクの初期状態や拘束条件（タスクバージョン）」で決まる点です。例えば、ちり取りの目の前にブロックが固まっていれば一度で掃けるためL2ですが、散らばっていれば何度も接触を切り替える必要があるためL3になります。\n\n### 3.2 16のタスク構成と成功判定\nベンチマークはL1が5タスク、L2が7タスク、L3が4タスクで構成されます。剛体だけでなく、オレンジやゼリーのような変形体、引き出しやネジのような機構拘束を持つ物体まで幅広く網羅されています。また、最終的な成功（キャップが外れて指定の高さまで持ち上がるなど）だけでなく、その前段階としてトルクや力が正しく伝わっているかを表す「有効接触（effective contact）」という診断指標を定義し、局所的な進捗を切り分けて追跡できるようにしています。",
+   "figures": []
+  },
+  {
+   "heading": "4 Physically and Visually Matched Sim–Real Environments",
+   "heading_ja": "シミュレーションと実世界をどこまで一致させたか",
+   "summary_ja": "実機には2台の6自由度アーム（ARX R5）と3台のRGBカメラを用い、Isaac Sim上でその外観・力学特性を徹底的に再現しました。質量や幾何形状の実測に加え、摩擦や柔軟体の変形挙動まで実機観察に基づいてキャリブレーションしています。",
+   "details_ja": "### 4.1 実世界セットアップ\n実機環境には、テーブル端に固定された2台のARX R5ロボットアーム（各6自由度、2本指グリッパー）を使用します。単腕操作だけでなく、片腕で物体を支えてもう片腕で回すような双腕協調も可能です。視覚センサとしては、作業台全体を捉える外部カメラ（Orbbec Gemini Pro）1台と、左右の手首にそれぞれ取り付けられたリストカメラ（Orbbec Gemini 305）2台の計3台を配置しました。ロボットには力覚センサ（F/Tセンサ）は搭載されておらず、モデルにはRGB画像のみが渡されます。つまり、力の制御は手先の変位やグリッパーの開閉指令を通じて間接的に行う必要があります。\n\n### 4.2 シミュレーション環境とアセット構築\nシミュレータにはNVIDIA Isaac Simを採用しました。実機シーンの動画から自動セグメンテーションと3次元再構成を行い、テーブルや背景の壁面テクスチャまで再現しています。登場する21種類のアセットは、実物の寸法と外観を反映させ、引き出しのスライド関節やネジの噛み合わせなどの拘束条件を忠実にモデル化しました。特にゼリーやオレンジなどの変形体には有限要素法（FEM）モデルを適用し、グリッパー接触時の弾性変形を再現しています。また、ホワイトボード消しタスクでは、接触力と移動量に応じてインクが消えるカスタムロジックを実装しました。\n\n### 4.3 物理的・視覚的マッチング\nSimとRealのギャップを極限まで縮めるため、以下の4点を調整しました。\n- ワークスペース配置: テーブル寸法や物体の初期配置、ネジの噛み合い初期深度を厳密に合わせました。\n- 接触応答: ゼリーの質量（実測26.4g）を合わせ、把持時のつぶれ具合を実機映像と比較しながら弾性係数をチューニングしました。\n- ロボット機構: オープンソースのARX R5モデルを用い、関節配置や可動域、手先カメラの相対位置を一致させました。\n- カメラ視野: 実機映像をリファレンスに画角や外部カメラの設置位置を合わせ、手元映像と俯瞰映像の視覚的見え方を揃えました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "実機実験のセットアップです。テーブル上に配置された2台のARX R5アームと2本指グリッパー、全体を俯瞰する外部カメラ1台、左右の手首に搭載されたリストカメラ2台で構成されています。",
+     "caption": "Figure 3: Real-world experimental setup. (a) Two ARX R5 arms with two-finger grippers share a tabletop workspace observed by one external Orbbec Gemini Pro camera and two wrist-mounted Orbbec Gemini 305 cameras. The external-camera mount is visible at left; the inset identifies the camera used. (b) Left and (c) right wrist cameras with their two-finger grippers. Photographs show the hardware before task objects are placed.",
+     "image": "details/2610.34527/F3.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "実世界（橙）とシミュレーション（紫）のマッチング精度です。ブロック掃きタスクの全体レイアウトやボルトの噛み合い、マーカーの寸法・テクスチャ、ゼリーの精密な重量測定（26.4g）と把持時の変形状態が見事に一致していることが分かります。",
+     "caption": "Figure 5: Physical and visual matching of real and simulated environments. Violet and orange bars denote simulated and real views, respectively; paired views place simulation to the left of or above the corresponding real view. (a) Workspace appearance and initial object placement for Block Sweeping (left) and the initial screw–nut engagement for Nut Unscrewing (right). (b1) Capped marker geometry with simulated and real lengths, and printed surface texture; the real length is documented by a ruler photograph. (b2) The configured jelly mass in simulation (26.4 g) and the documented scale reading (26.4 g). …",
+     "image": "details/2610.34527/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Evaluation Setup and Protocol",
+   "heading_ja": "GPT-6 Astraをどうやって動かし、評価したか",
+   "summary_ja": "GPT-6 Astra（Codex環境、推論レベルxhigh）をタスク固有のデモなし（ゼロショット）で評価しました。モデルは3台のRGB画像と固有受容感覚を受け取り、閉ループで手先の目標ポーズを出力し、自己検証を行いながらタスク完了を目指します。",
+   "details_ja": "### 5.1 モデル設定とゼロショットの定義\n評価モデルにはGPT-6 Astraを用い、推論努力量（reasoning effort）は「xhigh」に設定しました。実行ランタイムにはCodexを使用しています。本評価は完全なゼロショットであり、タスク固有の軌道デモや過去の成功例、戦略のヒントなどは一切与えられません。モデルは各エピソードの実行中に得られる画像、プロプリオセプション（関節状態やグリッパー開度）、過去のアクション履歴のみを手がかりに自律判断を行います。\n\n### 5.2 入力と閉ループ実行ループ\n毎ステップの判断において、モデルには以下の情報が提供されます。\n- タスク指示文とインターフェース定義: 自然言語によるタスク目標、拘束条件、座標系の定義、利用可能なツール定義です。実機では「Basic Skills」と呼ばれる汎用スキル指示書（座標系の読み方や手先カメラの対応関係など、タスク非依存の基本作法）を介して渡されます。\n- 観測情報: 外部カメラ1視点とリストカメラ2視点の計3枚のRGB画像、手先ポーズ、前ステップの実行フィードバックです。深度画像や力覚センサ値はありません。\n\nモデルはこれらを見て次の手先目標ポーズとグリッパー目標開度を出力します。シミュレーション環境ではcuRoboプランナーが干渉チェックを行いながら軌道を生成し、実機環境ではコントロールサービス経由で安全リミットをかけつつ実行されます。モデルは動作後に「意図した接触が起きたか」を新しい画像から検証し、次の行動やタスク終了宣言を判断します。\n\n### 5.3 評価プロトコルと成功基準\n各タスクは環境ごとに3回ずつ試行されます。シミュレーションでは独立した評価プログラムが幾何学的条件や接触状態をチェックして自動判定します（最大150モデルコールまたは5時間）。実世界では実行ログと動画から人間が厳密に判定します。途中でモデルが「達成不能」と判断して諦めた場合や、アームの特異点や干渉で保護停止がかかった場合、人間の介入が必要になった場合はすべて失敗となります。",
+   "figures": []
+  },
+  {
+   "heading": "6 Results and Analysis: Contact-Rich Capabilities and Limits",
+   "heading_ja": "見えてきたAstraの現在地：なぜL3の成功率は0%だったのか",
+   "summary_ja": "Astraの実機成功率はL1で80.0%、L2で47.6%、L3で0.0%となり、シミュレーションでもほぼ同じ傾向を示しました。局所的にはキャップを回すなどの進捗が見られるものの、空間推論・接触選定・力調整・協調の4つのボトルネックが重なり、タスク全体の完了を阻んでいました。",
+   "details_ja": "### 6.1 インタラクションレベルごとの性能低下\n全16タスクの平均成功率は、実世界で45.8%、シミュレーションで41.7%でした。表2が示す通り、難易度レベルに伴う性能低下は極めて明瞭です。\n- **L1（幾何整列）**: 実機80.0%、Sim 66.7%。マーカー入れや充電器の穴合わせなどは高確率で成功しました。しかし「帽子掛け（Hat Hanging）」のように、持ち上げた後にフックの傾きに合わせて開口部の向きを合わせるような高度な3次元空間推論が絡むと、L1であっても両環境で全試行失敗しました。\n- **L2（持続接触下の力調整）**: 実機47.6%、Sim 47.6%。引き出しの引き戻しや本の引き抜きなど、一定の接触を保ったまま力を加減するタスクでは成功と失敗が半々に分かれました。\n- **L3（接触再構成と力調整の協調）**: 実機0.0%、Sim 0.0%。ボトルキャップ外し、ボルトのナット外し、本の回転押し、ブロック掃きの4タスクすべてで、一度も完全な成功を収めることができませんでした。\n\n### 6.2 実世界とシミュレーションの極めて高い相関\n注目すべきは、16タスク中10タスクで実機とシミュレータの成功回数（3試行中の成功数）が完全に一致し、残る6タスクもわずか1回分の差にとどまった点です。さらに、失敗に至る中間挙動やエラーのパターン（ゼリーを持ち上げられず滑らせる、キャップを回そうとして落とすなど）も両環境で驚くほど一致していました。これは、入念に調整されたシミュレーションが、基盤モデルの物理的限界を評価する上で信頼できるテストベッドになることを力強く裏付けています。\n\n### 6.3 初期条件への敏感性\nタスクの難易度は初期配置に大きく左右されます。例えばブロック掃きタスクにおいて、ブロックがちり取りの入り口付近に集まっている配置（L2相当）では、短い局所的な掃き動作だけで回収に成功しました。しかし、3個のブロックが離れて散らばっている配置（L3相当）になると、ほうきを何度も持ち直してアプローチ角度を変え、掃く力を調整しなければならず、モデルは途端に対処できなくなりました。\n\n### 6.4 4つの相互作用ボトルネック\n著者らは失敗ログを詳細に分析し、モデルの足を引っ張っている4つのボトルネックを特定しました。\n1. 空間推論と実行精度: 物体の位置を検出できても、相対的な向きを正しく合わせて精密に位置決めできない（帽子掛けや充電器合わせ）。\n2. 接触配置の選定と確立: 力が逃げない適切な把持位置を選べない（キャップの端を浅く掴んでしまう、ゼリーを潰すのを恐れてすっぽ抜ける）。\n3. 力調整の限界: 接触後に押し引きの力のバランスを維持できない（本を引き抜く際に上の本を押さえすぎて詰まる、引き出しを最後まで押し込めない）。\n4. 接触再構成と力調整の協調不全: 持ち替え動作（リグラスプ）の前後で力学的な状態を維持できず、局所的に回したキャップを途中で落としてしまう。\nつまり、「キャップを少し緩める」といった局所的な物理進捗は作れても、それを累積させて最終ゴールまで繋げることができないのが、現在のGPT-6 Astraの最大の弱点です。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "実世界とシミュレーションで共通して見られた典型的な失敗パターンです。(a)帽子の向きが合わずフックに掛からない、(b)マーカーのキャップを浅く掴んで外せない、(c)ゼリーを持ち上げられず滑る、(d)キャップを回す途中で滑落させる、(e)ブロックが散乱してしまう様子が対比されています。",
+     "caption": "Figure 7: Failure-pattern comparison across real and simulated executions. (a) Hat–rack alignment. (b) Cap contact during uncapping. (c) Unsuccessful jelly lifting under coupled contact and force demands. (d) Cap slippage. (e) Coordination of spatial reasoning, contact selection, and force regulation during sweeping. Headers give the task ID, interaction bottleneck (Section 6.4 ), and success counts in simulation and the real world (Table 2 ). Multiview images place the wrist views above the external view. Labels describe observable states.",
+     "image": "details/2610.34527/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "局所的な進捗と最終結果の比較です。(a)充電器合わせでは両者ともプラグ穴の直前まで到達していますが、シミュレータの厳密な公差判定でリトライを繰り返し失敗。(b)コップ重ねでの解放後の転倒、(c)本引き抜きでの両腕の力加減の破綻、(d)引き出しを途中まで動かすも完了できない様子を示しています。",
+     "caption": "Figure 8: Comparing local interaction progress and task outcomes across real and simulated environments. Panel (a) concerns assessment granularity: the same alignment criterion was judged visually in the real world and checked with a fixed geometric tolerance in simulation. The unsuccessful simulated trial exhausted its model-call budget during repeated corrections. Panels (b–d) concern final-state stability after release, grasp selection with bimanual force regulation, and local drawer motion and force regulation. Headers follow Figure 7 , except that panel (b) reports an observed outcome without assigning a specific interaction bottleneck.",
+     "image": "details/2610.34527/F8.jpg"
+    },
+    {
+     "key": "F9",
+     "caption_ja": "初期配置の違いが接触要求（レベル）を変える例です。(a)ちり取りの前にブロックが集まっている配置（L2）では単純な掃き込みで回収成功していますが、(b)散らばった配置（L3）では接触の再構成が破綻し未完了に終わっています。",
+     "caption": "Figure 9: Initial configurations change the interaction demands of Block Sweeping. (a) Two blocks near the dustpan entrance are collected through local sweeping under a relatively stable contact mode, consistent with L2. (b) Three dispersed blocks require successive contact reconfiguration and force regulation, consistent with L3; the recorded execution remains incomplete. Each row shows initial, intermediate, and final states. These variants differ in block count, layout, and dustpan orientation; they are not a controlled layout ablation or extra trials in Table 2 .",
+     "image": "details/2610.34527/F9.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "7 Conclusion",
+   "heading_ja": "まとめと物理的知能（Physical AI）への展望",
+   "summary_ja": "PhysLadderを通じてGPT-6 Astraを評価した結果、幾何学的な配置は得意でも、持続的な力制御や接触の切り替えを伴うタスクには大きな壁があることが分かりました。入念に一致させたシミュレーションが実世界の物理的ボトルネックを正確に反映できることも実証され、今後の身体性知能の発展に向けた重要な指針が得られました。",
+   "details_ja": "本論文では、接触リッチなロボット操作の要求度を階層化したベンチマーク「PhysLadder」を提案し、実機とシミュレータの両面からGPT-6 Astraのゼロショット性能を徹底的に評価しました。得られた主要な結論は以下の通りです。\n- Astraは物体の意味理解や単純なピック＆プレースには極めて強いものの、物理的なインタラクション要求が高まるにつれて性能が急落し、接触再構成と力調整が交差するL3タスクでは成功率が0%になりました。\n- 失敗の本質は「局所的な物理進捗をタスク完了まで蓄積できないこと」にあり、空間推論、接触点選定、力調整、そしてそれらの時間的協調がボトルネックになっています。\n- 外観と接触力学を適切にキャリブレーションしたシミュレータは、実機における成否や失敗パターンを驚くほど正確に再現できることが確認されました。\n\n汎用ロボットが真の「物理的知能（Physical Intelligence）」を獲得するためには、単なるタスク計画の賢さだけでなく、接触を維持・更新しながら力を連続的に制御する能力のブレークスルーが不可欠であることが、本研究によって明確に示されました。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "【付録】実装の詳細と評価プロトコルの裏側",
+   "summary_ja": "付録では、各タスクの詳細な仕様、Isaac SimにおけるFEMモデルやインク消去などの物理シミュレーション実装パラメータ、およびCodex上で動くBasic Skillsの具体的なプロンプト構成がまとめられています。",
+   "details_ja": "### A タスク仕様と成功基準の詳細\n付録Aでは、16タスクすべての初期配置、目標、幾何公差、プロセス制約が厳密に定義されています。例えば「L1-02: Charger Alignment」では、プラグを穴に挿入すること自体は求めず、穴の直前で両ピンが正しく整列した状態を成功と定義しています。また、ゼリー操作では傷や破損が一切ないことが絶対条件とされています。\n\n### B Sim-Real実装の技術的詳細\n- 実機側（B.1）: アーム制御はCAN通信を介して行われ、手先カメラ画像は$848\\times 480$（15 fps）、外部カメラは$640\\times 480$（30 fps）で取得されます。モデルへはツール呼び出しに応じてJPEGスナップショットとして渡されます。\n- シミュレーション側（B.2）: Isaac Sim 5.1.0を使用し、cuRoboによって衝突回避軌道をリアルタイム生成しています。FEMを用いたゼリーの弾性体表現や、ホワイトボード消しにおける「法線方向の接触力×移動量」に応じたインクセルの消去アルゴリズムなど、接触を伴う現象を忠実にシミュレートするための工夫が凝らされています。\n\n### C 評価プロトコルとBasic Skills\n実機評価で用いられた「Basic Skills」は、アームの左右割り当てやカメラとアームの幾何関係、グリッパー開閉の単位系、安全な分割移動の作法などを記述したタスク非依存のシステムプロンプト集です。評価タスク固有の解き方は一切含まれておらず、あくまでロボットの身体（Embodiment）を操作するための汎用マニュアルとして機能しています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "基盤モデルの物理操作能力を測るには、タスク名や手数ではなく「接触配置の再構成」と「力調整」の2軸で整理した階層評価が極めて有効である。",
+  "最新のGPT-6 Astraであっても、局所的に力を加えたり動かしたりすることはできるが、持ち替えを挟んで作業を完遂する持続的・協調的な接触操作（L3）はゼロショットでは全く歯が立たない（成功率0%）。",
+  "外観、幾何形状、質量、摩擦、弾性を実測に基づいて丁寧に対応付ければ、シミュレーション（Isaac Sim）は実世界の物理インタラクションの失敗パターンまで高精度に再現できる。",
+  "視覚と言語による高レベル推論だけでは力学的な接触状態の破綻を防げないため、触覚や力覚フィードバックを統合した閉ループ制御の進化が今後の急務である。"
+ ],
+ "limitations_ja": [
+  "実機実験のコストと安全保護停止の制約から、各タスク3試行にとどまっており、統計的なサンプルサイズが小さい。",
+  "Sim-Realの強い一致が確認されたのはGPT-6 Astraという単一のモデルに対してのみであり、他の基盤モデルや強化学習・模倣学習ポリシーでも同様の相関が成り立つかは未検証である。",
+  "力覚センサ（F/Tセンサ）や触覚センサが手先に搭載されておらず、モデルの推論能力の限界なのか、センシング情報の不足による限界なのかを完全には分離できていない。"
+ ],
+ "keywords": [
+  "Contact-Rich Manipulation",
+  "Foundation Models",
+  "Sim-to-Real",
+  "Benchmarking",
+  "Dual-Arm Robotics",
+  "Force Regulation"
+ ],
+ "id": "2610.34527",
+ "title": "How High Can GPT-6 Astra Climb in Contact-Rich Manipulation? PhysLadder: A Hierarchical, Matched Sim-Real Benchmark for Physical Interaction",
+ "authors": [
+  "Haibao Yu",
+  "Jiaqi Meng",
+  "Zijian Zhang",
+  "Bowen Jing",
+  "Lei Yang",
+  "Yue Hu",
+  "Chenchen Ge",
+  "Yiming Hou",
+  "Chenbo Xin",
+  "Dawen Ye",
+  "Haifang Qin",
+  "Jin Li",
+  "Weitao Zhou",
+  "Jianing Qiu",
+  "Jiankai Sun",
+  "Dandan Zhang",
+  "Zaiqing Nie",
+  "Ping Luo",
+  "Ding Zhao"
+ ],
+ "date": "2026-10-27",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "benchmark",
+  "sim-to-real"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.34527",
+ "pdf_url": "https://arxiv.org/pdf/2610.34527",
+ "summary_ja": "接触を伴うマニピュレーション能力を評価するため、幾何学的接触配置（L1）、持続接触下での力制御（L2）、協調接触遷移と力制御（L3）の3階層からなる16タスクのSim-Real一致ベンチマークを提案。フロンティアモデルのゼロショット評価を行い、L1では80.0%の成功率がL3では0.0%に急落することを明らかにし、力覚制御を伴う高度な接触操作における現在のAIの限界を定量化した。",
+ "generated": "2026-10-27",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.34527"
+}
