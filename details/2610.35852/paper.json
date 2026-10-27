@@ -1,0 +1,158 @@
+{
+ "title_ja": "脚ロボット移動のための微分可能接触力学：方策学習と接触陰的軌道最適化",
+ "tldr_ja": "摩擦接触ダイナミクスにおいて、前向きシミュレーションは剛体接触のまま保持しつつ、逆伝播時のみクーロン摩擦円錐全体を緩和して滑らかな解析的勾配を計算する手法を提案しました。これにより、わずか1環境・10万サンプル・2分弱の学習で実機に直接転移可能な四脚歩行方策の獲得に成功しています。",
+ "hero_figure": {
+  "key": "F5",
+  "caption_ja": "提案する微分可能接触フレームワークの全体構成です。フォワードパスでは厳密な剛体接触（Hard Contact）を解いて物理的整合性を保ち、バックワードパスでのみde Saxcé補正に基づく2次錐相補性問題を中心パス（Central Path）に沿って緩和して接触感度を解析的に計算します。",
+  "caption": "Fig. 5 : Overview of the proposed differentiable contact framework. Given $(x_{t},u_{t})$ , the hard-contact forward solve determines the contact impulse $\\lambda$ , contact velocity $\\sigma$ , and next state $x_{t+1}$ under the realized sliding, clamping, or separating mode. For the backward pass, the Signorini condition, Coulomb friction cone, and maximum-dissipation principle are expressed as a single conic complementarity condition using the de Saxcé correction. The hard-contact solution at $\\rho=0$ is relaxed along the central path to $\\rho>0$ , and analytic differentiation yields the relaxed contact sensitivity and transition Jacobians $(f_{x},f_{u})$ . …",
+  "image": "details/2610.35852/F5.jpg"
+ },
+ "overview_ja": "脚ロボットの移動制御では、接触を考慮した軌道最適化（CITO）や微分可能シミュレーションを通じた方策勾配学習（BPTT）が強力なアプローチとして注目されています。しかし、物理シミュレーションを厳密に微分すると、現在の接触モード（離散的な「離れ・固着・滑り」の状態）に固定された勾配しか得られません。つまり、足が地面に固着していると「足を離す」または「滑らせる」方向への1次勾配情報がゼロになってしまい、最適化が現在の接触状態から抜け出せなくなるという致命的な課題がありました。\n\nそこで著者らは、「前向きの計算（フォワードパス）は厳密な剛体接触のまま解き、逆伝播（バックワードパス）の微分計算時だけ接触条件を中心パスに沿って滑らかに緩和する」というアイデアを提案しました。摩擦接触問題をde Saxcé補正によって1つの2次錐相補性問題（SOCCP）に統合し、ジョルダン代数を用いて法線方向と接線方向の感度を連成させたまま解析的に微分します。フォワード計算の解を初期値としたニュートン反復により、緩和された評価点を高速かつ高精度に求めます。\n\nこの勾配を用いることで、四脚ロボットの軌道最適化において障害物や外力に応じた自律的な足の踏み替えや滑りによる減速動作が生成可能になりました。さらに方策学習においては、並列環境を使わない単一環境（1環境）、わずか10万サンプル・108秒という短時間のデスクトップPCでの学習で、実機四脚ロボットにそのまま転移できるトロット・ペース・歩容指定なし歩行方策の学習を達成しました。実機実験でも、瓦礫の踏破や外力への耐性、低摩擦面での滑り回復など高いロバスト性が確認されています。",
+ "contributions_ja": [
+  "フォワードパスの剛体接触計算を崩さず、バックワードパスのみでクーロン摩擦条件全体を中心パス緩和して解析的に連成感度を求める枠組みを構築した点",
+  "離れ・固着・滑りの全接触モード間で連続的であり、緩和パラメータをゼロに近づけると厳密な感度に一致する解析的接触勾配を導出した点",
+  "単一環境のBPTTにより、わずか10万サンプル・2分未満の学習でシミュレーションから実機へ直接転移（zero-shot transfer）可能な四脚歩行方策を実現した点",
+  "接触陰的軌道最適化（CITO）において、既存の厳密勾配や法線のみの緩和勾配では不可能だった自律的な足の踏み替えや滑りブレーキ動作を達成した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "接触の微分が抱える「壁」をどう打ち破るか",
+   "summary_ja": "接触リッチなロボット制御において微分可能シミュレーションは強力ですが、厳密な接触感度は現在の接触モード内に縛られてモード遷移の方向を提示できません。本論文では、フォワード計算の物理整合性を保ったまま、逆伝播時のみ摩擦円錐相補性を中心パス緩和してモード間を滑らかにつなぐ勾配手法を提案します。",
+   "details_ja": "ロボットが地面と接触しながら移動する制御では、大きく分けて2つのアプローチがあります。1つは強化学習をはじめとする方策学習（Policy Learning）、もう1つは接触のタイミングや位置を同時に計画する接触陰的軌道最適化（Contact-Implicit Trajectory Optimization: CITO）です。近年、シミュレータ自体を微分可能にして1次勾配（ヤコビアン）を取り出す手法が注目されていますが、脚ロボットへの適用には大きな壁がありました。\n\nそれは、接触ダイナミクスの厳密な感度（Sensitivity）を計算すると、現在のアクティブセット（接触モード）に閉じた値になってしまうという問題です。たとえば足先が地面に固着（Clamping）している状態では、線形化しても固着が維持される方向しか見えず、足を離す（Liftoff）あるいは滑らせる（Slip）方向の1次情報がゼロになります。そのため、最適化アルゴリズムは初期値の接触モードから抜け出せなくなってしまいます。\n\n先行研究ではフォワード計算そのものをソフト接触に改変したり、法線方向（シニョリーニ条件）のみを緩和したりしてきましたが、前者は物理現象の再現性を損ない、後者は接線方向（摩擦や滑り）の連成情報が得られません。そこで本研究では、de Saxcé補正を用いてクーロン摩擦接触を1つの2次錐相補性問題として定式化し、逆伝播時のみその中心パス（Central Path）に沿って法線・接線を同時に緩和する解析的勾配を提案します。これにより、フォワードパスは厳密な剛体接触の実行可能性を保ったまま、バックワードパスで離れ・固着・滑りの全モード間を遷移する勾配情報を提供できます。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "微分可能接触と軌道最適化の歩み",
+   "summary_ja": "接触シミュレーションの定式化と微分手法、微分可能シミュレーションを用いた方策学習、そして接触陰的軌道最適化（CITO）の従来アプローチを整理します。フォワード計算を改変せず、かつ摩擦円錐全体を逆伝播時に独立して緩和する本手法の新規性を明確にしています。",
+   "details_ja": "本章では先行研究との位置づけを3つの観点から整理しています。\n\n### II-A 接触シミュレーションと微分可能接触\n剛体摩擦接触は、シニョリーニ条件（法線方向の非貫通性）、クーロン摩擦円錐、最大散逸原理（MDP）という3つの連成条件で記述されます。微分を求めるアプローチとしては、有限差分法（計算量が入力次元に比例して爆発）、自動微分（メモリ消費と数値不安定性）、そして収束点での陰関数微分による解析的手法があります。本研究は解析的アプローチに属しますが、剛体接触の解から中心パス上の緩和点へと移って評価する点が決定的に異なります。\n\n### II-B 方策学習のための微分可能シミュレーション\n脚ロボットの移動ではPPOなどのモデルフリー強化学習が主流ですが、報酬に基づくゼロ次推定量（REINFORCE）は分散が大きく、膨大なサンプル数を要します。時間逆伝播（BPTT）を用いた1次学習はサンプル効率に優れますが、接触の不連続性による勾配の爆発や消失が課題でした。先行研究では接触判定をシグモイドで滑らかにしてフォワード計算を歪めたり、単純化した単一剛体モデルのサロゲートを用いたりしていました。本研究は多体剛体の厳密なフォワード計算を維持したまま、単一環境のBPTTで実機に耐えうる方策を学習します。\n\n### II-C 接触陰的軌道最適化（CITO）\nCITOの手法には、接触力を決定変数に含める直交コロケーションなどの直接転写（Direct Transcription）と、シミュレーションの遷移ヤコビアンを利用するシューティング法（DDP/iLQR）があります。シューティング法において接触感度を滑らかにするため、内点法の途中イテレーションを微分する手法や法線のみを緩和する手法が提案されてきましたが、前者は緩和レベルがソルバーの収束過程に縛られ、後者は接線方向の滑り情報が抜け落ちます。本手法はこれらを解決し、逆伝播専用に最適化された完全な摩擦円錐緩和を実現しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Background",
+   "heading_ja": "接触力学と最適制御の基礎：数学的定式化",
+   "summary_ja": "シューティング型DDPやBPTT方策学習に必要な遷移ヤコビアンの構成方法、および時間刻みごとの接触インパルス問題を解説します。さらに、クーロン摩擦を2次錐相補性問題（SOCCP）に書き換えるde Saxcé補正と、モード固定時の厳密感度を導出します。",
+   "details_ja": "本手法の基礎となる数学的枠組みを整理しています。\n\n### III-A 最適制御問題と遷移ヤコビアン\n離散時間ダイナミクス $\\bm{x}_{t+1}=f(\\bm{x}_{t},\\bm{u}_{t})$ に対し、軌道最適化（DDP/iLQR）では開ループ制御入力系列 $\\bm{u}_{0:H-1}$ を、BPTT方策学習ではフィードバック方策のパラメータ $\\theta$ を最適化します。いずれも逆伝播計算には遷移ヤコビアン $f_x := \\partial\\bm{x}_{t+1}/\\partial\\bm{x}_{t}$ および $f_u := \\partial\\bm{x}_{t+1}/\\partial\\bm{u}_{t}$ が不可欠です。\n\n### III-B 多体接触ダイナミクスと接触モード\nセミインプリシット・オイラー法による速度レベルの積分では、次ステップの接触点相対速度 $\\bm{\\sigma}$ と接触インパルス $\\bm{\\lambda}$ はドラサス（Delassus）関係式 $\\bm{\\sigma} = A\\bm{\\lambda} + \\bm{b}$ で結ばれます。ここで $A$ は見かけの逆慣性行列、$\\bm{b}$ は自由運動項です。1点接触において、接触状態は次の3つのモードに分かれます：\n- 離れ（Separating）: 法線インパルス $\\lambda_N = 0$、相対法線速度 $\\sigma_N \\ge 0$\n- 固着（Clamping）: $\\bm{\\sigma} = \\bm{0}$、接線インパルスが摩擦円錐内部 $\\lVert\\bm{\\lambda}_T\\rVert \\le \\mu\\lambda_N$\n- 滑り（Sliding）: $\\sigma_N = 0$、接線インパルスが摩擦円錐境界上 $\\bm{\\lambda}_T = -\\mu\\lambda_N (\\bm{\\sigma}_T / \\lVert\\bm{\\sigma}_T\\rVert)$\n\n### III-C de Saxcé補正によるSOCCP定式化\nシニョリーニ条件、摩擦円錐、最大散逸原理は、de Saxcé補正項 $\\Gamma_\\mu(\\bm{\\sigma}) = (\\mu\\lVert\\bm{\\sigma}_T\\rVert, 0, 0)^\\top$ を法線速度に足し合わせることで、単一の円錐相補性条件に統合できます。これを自己双対な2次錐（Second-Order Cone: SOC）上のジョルダン積 $\\circ$ を用いて表すと、スケーリングされた変数 $\\tilde{\\bm{\\lambda}}$ と $\\tilde{\\bm{\\sigma}}$ に対して $\\tilde{\\bm{\\lambda}} \\circ \\tilde{\\bm{\\sigma}} = \\bm{0}$ という極めて簡潔な相補性問題（SOCCP）に帰着されます。\n\n### III-D 厳密接触感度の限界\nこの条件を接触モード固定のまま微分すると、離れでは $d\\bm{\\lambda}=\\bm{0}$、固着では $d\\bm{\\sigma}=\\bm{0}$ となり、現在と異なるモードへ移行するための勾配情報が完全に失われてしまいます。",
+   "figures": []
+  },
+  {
+   "heading": "IV Problem Setting",
+   "heading_ja": "なぜ摩擦円錐全体の緩和が必要なのか？",
+   "summary_ja": "モード固定の厳密感度では接触遷移を伴う最適化が停滞することを質点モデルの例題で検証します。法線方向のみの緩和では不十分であり、接線方向と法線方向が連成した摩擦円錐全体の緩和が不可欠であることを示しています。",
+   "details_ja": "最適化において、接触点運動を通じた損失関数の微分は $(\\partial\\ell/\\partial\\bm{\\sigma})(d\\bm{\\sigma}/d\\eta)$ と表されます。しかし固着モードではモード制約により $d\\bm{\\sigma}/d\\eta = \\bm{0}$ となり、足を動かせば損失が減る状況であっても勾配がゼロになって最適化が停止してしまいます。\n\n論文ではこの現象を検証するため、平面上を移動する1kgの質点モデルによる3つの到達タスク（初期値ゼロ入力からの最適化）を比較しています：\n1. 上方への到達（固着から離れへの遷移が必要）\n2. 水平方向への到達（固着から足を上げて移動し、再度固着する動作が必要）\n3. 初速を持って行き過ぎた質点の引き戻し（空中の離れから着地し、摩擦でブレーキをかけて目標に戻る連成動作が必要）\n\n厳密勾配（Exact）はどのタスクでも固着したまま動けず失敗しました。シニョリーニ緩和（Signorini-relaxed、法線のみ緩和）は1の上方到達には成功したものの、2と3では接線方向の勾配が得られず目標に到達できませんでした。これに対し、摩擦円錐全体を緩和した提案手法のみが、3つのタスクすべてで混合整数計画法（MIQP）による大域最適解と同様に、適切な跳躍やスライディングブレーキを伴う最適軌道を見出すことができました。つまり、接線・法線の連成緩和こそが接触モード遷移の探索に必須なのです。",
+   "figures": []
+  },
+  {
+   "heading": "V Analytic Contact Sensitivity via Relaxed de Saxcé Conic Complementarity",
+   "heading_ja": "提案手法：緩和されたde Saxcé錐相補性による解析的接触勾配",
+   "summary_ja": "相補性条件を中心パスパラメータ $\\rho > 0$ で緩和し、ジョルダン積を行列化して解析的に微分する手法を導出します。フォワード計算の解を初期値とする残差正則化ニュートン反復によって評価点を求め、数値安定性を高める法線オフセットも導入しています。",
+   "details_ja": "提案手法の数学的中核となる微分計算とアルゴリズムの詳細です。\n\n### V-A 中心パス緩和と統合接触感度\n相補性条件を $\\tilde{\\bm{\\lambda}} \\circ \\tilde{\\bm{\\sigma}} = \\rho \\bm{e}$ （$\\rho > 0$、$\\bm{e}=(1,0,0)^\\top$ は単位元）と中心パス上に緩和します。これにより変数は円錐の境界から内部（$\\mathrm{int}\\,\\mathcal{K}$）へと移動します。この関係式を微分すると、ジョルダン積のアロー行列（Arrow Matrix）$L(\\cdot)$ を用いて以下のように整理されます：\n$$\\mathcal{M}_{\\lambda}\\, d\\bm{\\lambda} + \\mathcal{M}_{\\sigma}\\, d\\bm{\\sigma} = \\bm{0}$$\nここで $\\mathcal{M}_{\\lambda} = L(\\tilde{\\bm{\\sigma}})C$、$\\mathcal{M}_{\\sigma} = L(\\tilde{\\bm{\\lambda}})D(\\bm{\\sigma})$ であり、これらをドラサス関係式の微分 $d\\bm{\\sigma} = A\\,d\\bm{\\lambda} + (dA)\\bm{\\lambda} + d\\bm{b}$ と結合することで、モードを区別しない統一的な感度方程式が得られます：\n$$(\\mathcal{M}_{\\lambda} + \\mathcal{M}_{\\sigma}A)\\, d\\bm{\\lambda} = -\\mathcal{M}_{\\sigma}((dA)\\bm{\\lambda} + d\\bm{b})$$\n\n### V-B ニュートン反復による評価点の計算\nこの微分は、$\\rho > 0$ における緩和解 $(\\bm{\\lambda}^\\star, \\bm{\\sigma}^\\star)$ で評価する必要があります。本手法では、フォワードパスで得られた剛体接触解 $(\\bm{\\lambda}_h, \\bm{\\sigma}_h)$ を初期値とし、残差比例の対角正則化項 $\\beta\\lVert F_\\rho\\rVert I$ を加えたニュートン法を用いて数回のイテレーションで高速に解を求めます。これにより、摩擦境界付近でヤコビアンが特異点に近づく問題を防ぎます。\n\n### V-C 法線自由速度オフセットと理論的整合性\nさらに、数値的安定性と接触離れの探索を促進するため、バックワード計算時のみドラサス項の法線成分に正のオフセット $\\delta$ を加える工夫（$\\hat{b}_N = b_N + \\delta$）を導入しています。なお、緩和パラメータを極限 $\\rho \\to 0^+$（かつ $\\delta=0$）とすると、本手法の感度は離れ・固着・滑りのすべてのモードにおいて厳密なモード固定感度と完全に一致することが理論的にも証明されています。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "提案手法の全体計算フロー。フォワードパスでは厳密剛体接触（Hard Contact）を解き、バックワードパスでのみde Saxcé補正によるSOCCPを中心パス緩和（$\\rho>0$）して評価点 $(\\bm{\\lambda}^\\star, \\bm{\\sigma}^\\star)$ をニュートン法で計算、解析的に感度を導出して方策学習やDDPに渡します。",
+     "caption": "Fig. 5 : Overview of the proposed differentiable contact framework. Given $(x_{t},u_{t})$ , the hard-contact forward solve determines the contact impulse $\\lambda$ , contact velocity $\\sigma$ , and next state $x_{t+1}$ under the realized sliding, clamping, or separating mode. For the backward pass, the Signorini condition, Coulomb friction cone, and maximum-dissipation principle are expressed as a single conic complementarity condition using the de Saxcé correction. The hard-contact solution at $\\rho=0$ is relaxed along the central path to $\\rho>0$ , and analytic differentiation yields the relaxed contact sensitivity and transition Jacobians $(f_{x},f_{u})$ . …",
+     "image": "details/2610.35852/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Implementation",
+   "heading_ja": "四脚ロボットへの実装：BPTTとCITOのセットアップ",
+   "summary_ja": "45kgの四脚ロボットを対象とした実装の詳細を解説します。剛体運動学・動力学微分にはPinocchioを用い、BPTT方策学習では20制御ステップ（0.5秒）のウィンドウを用いた短ホライズン微分を単一環境で行います。",
+   "details_ja": "実機およびシミュレーションへの実装仕様です。\n\n### VI-A 剛体ダイナミクスと遷移ヤコビアンの組み立て\n離散時間ステップ遷移のヤコビアン $f_x, f_u$ を構築する際、接触感度 $\\partial\\bm{\\lambda}/\\partial\\bm{x}_t$ と $\\partial\\bm{\\lambda}/\\partial\\bm{u}_t$ は提案手法から取得します。それ以外の剛体ダイナミクス微分（接触ヤコビアンの微小変化や運動学ヘッシアン $\\partial J_c/\\partial\\bm{q}$ など）は、剛体計算ライブラリ Pinocchio を用いて解析的に計算します。\n\n### VI-B ロボットモデルとコスト設定\n対象ロボットは質量45kgの浮動基地四脚ロボット（状態量37次元、関節トルク入力12次元）です。制御周期は25ms（40Hz）で、足先は点接触・クーロン摩擦としてモデル化しています。CITOおよび方策学習ともに共通の追従コストを用い、目標の浮動基地位置・姿勢、関節目標角度との偏差をペナルティ化します。特定の接触順序（歩容スケジュール）は一切事前指定しません（歩容条件付きタスクのみ足先クリアランスの参考目標を与えます）。\n\n### VI-C BPTT方策学習の実装\nシミュレータには1msステップのRaiSimを用い、1制御ステップあたり25サブステップを進めます。BPTTの微分ウィンドウは $H=20$ 制御ステップ（0.5秒）の短ホライズンとしました。方策ネットワークは2層MLP [256, 128] で、観測値60次元（速度指令、重力方向、関節角・角速度、基地ツイスト、前回の行動など）から関節PD目標値を出力します。学習にはデスクトップPC（Core i9-10900K CPU）を使用しました。\n\n### VI-D 接触陰的軌道最適化（CITO）の実装\n基地姿勢到達タスクに対し、Box-FDDPソルバーを用いてホライズン20ステップ（0.5秒）の最適化を後退ホライズン形式（MPC）で逐次実行します。",
+   "figures": []
+  },
+  {
+   "heading": "VII Policy Learning via Backpropagation Through Time",
+   "heading_ja": "方策学習実験：1環境・2分弱の学習で実機が歩いた！",
+   "summary_ja": "単一環境BPTTによる学習実験を実施し、提案勾配のみが歩容指定のない自律歩行を獲得できることを示しました。学習したトロット方策は10万サンプル・108秒で完了し、シミュレーションから実機へ直接転移（zero-shot）して外力押しや瓦礫、滑りやすい床でも転倒せず歩行できるロバスト性を実証しました。",
+   "details_ja": "提案勾配によるBPTT方策学習の驚異的な性能が示されています。\n\n### VII-A 接触勾配ごとの学習比較\n「歩容指定なし（通常摩擦・低摩擦）」および「歩容指定あり（トロット・ペース）」の4タスクで比較しました。歩容指定なしタスクでは、提案勾配のみが学習に成功しました。厳密勾配やシニョリーニ緩和勾配では、接地足が地面に固着したまま前に進めず、ロボットが前傾して転倒してしまいます。低摩擦環境でもフォワード計算で滑りが発生するだけでは不十分で、逆伝播でモード遷移を促す勾配が不可欠であることが裏付けられました。\n\n### VII-B 実機ロボットへのダイレクト転移とロバスト性\n並列環境を使わない「単一環境（1環境）」のBPTTで学習した方策を、ファインチューニングなしでそのまま45kgの実機四脚ロボットに適用しました。トロットおよびペース方策はわずか10万サンプル・108秒、低摩擦の歩容指定なし方策は16万サンプル・172秒で学習が完了しています。実機実験において、散乱した瓦礫の上を安定して踏破し、横方向からの急激な押しに対しても即座に踏み直して復帰しました。さらに、ホウ酸粉末を散布した極めて滑りやすい床面（摩擦係数 $\\mu \\approx 0.25$）でも、足先の激しい滑りを検知・許容しながら姿勢を立て直して歩行を継続できました。\n\n### VII-C モデルフリー強化学習（PPO）との比較\nPPOとの比較では、PPOがトロットを獲得するために最低128並列環境（約 $10^7$ サンプル、17.7分）を必要としたのに対し、提案手法のBPTTはわずか1環境（約 $10^5$ サンプル、1.8分）で同等以上の追従性能を達成しました。サンプル数で約100倍、実時間で約9.8倍の効率化を実現しています。\n\n### VII-D ニュートン反復の数値挙動\n残差正則化 $\\beta$ と法線オフセット $\\delta$ を両方有効にすることで、8反復以内に許容残差を満たす割合が99.95%に達し、非物理的な解（貫通や摩擦円錐違反など）に収束する偽収束率はわずか0.0058%まで抑制されました。",
+   "figures": [
+    {
+     "key": "F9",
+     "caption_ja": "トロット課題におけるBPTTとPPOの学習効率比較。(a) 提案勾配によるBPTTは1環境から64環境のすべてで高速に報酬が向上。(b) PPOは16〜64環境では学習が停滞し、128環境以上でようやくトロットを獲得。(c) サンプル数対報酬のグラフでは、BPTT（1環境）がPPO（128環境）に比べて約2桁少ないデータ量で同等の報酬に到達していることが分かります。",
+     "caption": "Fig. 9 : Training-reward comparison between BPTT and PPO on the trot command-tracking task. (a) BPTT and (b) PPO training reward over policy iterations for different numbers of environments; curves show the mean and shaded bands denote one standard deviation. (c) Training reward versus cumulative environment steps for BPTT with one environment and PPO with 64 and 128 environments. Among the tested configurations, BPTT learns the trot with one environment, whereas PPO first learns it with 128 environments; PPO with 64 environments does not learn the trot.",
+     "image": "details/2610.35852/F9.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "単一環境BPTTで学習した方策の実機検証結果。(a) トロット、(b) ペース、(c) 歩容指定なし歩行の各スナップショットと推定接触パターン。トロットとペースはわずか108秒、歩容指定なしも172秒の学習時間で獲得され、一切のファインチューニングなしで実機動作に成功しています。",
+     "caption": "Fig. 7 : Hardware deployment of BPTT-trained locomotion policies. Snapshots show the hardware experiments, and the plots show estimated foot-contact patterns. (a) Trot, (b) pace, and (c) gait-free locomotion. Training uses 100,000 control steps in 108 s for the trot and pace policies, and 160,000 steps in 172 s for the gait-free policy.",
+     "image": "details/2610.35852/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "実機におけるロバスト性テスト。(a) 散乱した瓦礫の踏破。(b) 歩行中の横方向からの引っ張り外乱に対する復帰応答（14試行中全試行で速度誤差が収束）。(c) ホウ酸を塗布した低摩擦床面でのスリップ回復。足先が滑留（Sliding）した期間中、ロール・ピッチ角が大きく揺れながらも転倒せずに歩行を継続しています。",
+     "caption": "Fig. 8 : Hardware robustness tests of trotting policies trained with 100,000 samples in under 2 min. Snapshots show representative trials for each experiment. (a) Traversal over scattered debris. (b) Recovery from external pushes. The plot shows lateral-velocity tracking error over 14 trials; gray curves show individual trials, the green curve shows the median, and the shaded interval marks the push. (c) Locomotion on a low-friction surface. Base roll and pitch and estimated foot-contact modes are shown during pronounced foot slippage; the highlighted interval marks the slippage event.",
+     "image": "details/2610.35852/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VIII Contact-Implicit Trajectory Optimization",
+   "heading_ja": "軌道最適化実験：自律的な足の踏み替えと外力回復",
+   "summary_ja": "接触陰的軌道最適化（CITO）において、提案勾配が基地姿勢到達タスクの全範囲で最も低いコストを達成することを示しました。1次情報として接線方向の感度が得られるため、足の固着を解いて自律的に踏み替える動作や、強大な外乱引っ張りに対して滑りブレーキをかけて耐える挙動が生成されます。",
+   "details_ja": "CITOにおける提案勾配の有効性を詳細に検証しています。\n\n### VIII-A 接触順序を指定しない基地姿勢到達タスク\n目標位置への並進（Translation）、ヨー回転（Yaw）、ピッチ回転（Pitch）の3タスクを評価しました。厳密勾配では足が初期位置に張り付いてしまい、胴体を無理に傾けたり捻ったりするため目標が遠くなるほどコストが急増します。シニョリーニ緩和勾配では足を離すことはできますが、接線方向の感度がないため足を最適な位置へ踏み直すことができません。これに対し提案勾配は、法線・接線両方の勾配が常に提供されるため、並進や旋回に合わせて足をスムーズに踏み替え、すべての目標値において最も低い追従コストと姿勢誤差を達成しました。\n\n### VIII-B DDP収束プロセスの詳細解析\n右方向へ移動中の共通の初期解から25反復のDDPを実行したところ、提案勾配はコストを116から39へと大幅に削減しました。最適化の過程で、荷重のかかった後右足が「固着から滑りへ遷移して0.4m横に移動した後に離れて再着地する」という高度な踏み替え軌道が自動生成され、車体の傾きが抑えられました。ベースラインでは足が固着したまま動かず、コストも95〜98までしか下がりませんでした。\n\n### VIII-C モデル予測制御（CI-MPC）による外乱引っ張り耐性\nシミュレーション上でロボットを周期的にワイヤーで強く引っ張る外乱テストを実施しました。耐えられる最大引張力は、厳密勾配が平均81N、シニョリーニ緩和が107Nだったのに対し、提案勾配は平均272N（最大350N）と2.5〜3.4倍もの外乱に耐え抜きました。前方に強く引かれた際、前足をあえて地面に滑らせて摩擦抵抗で減速しつつ支持基底面を前方へ拡大するという、極めて知的な踏ん張り動作が自律的に発現したためです。",
+   "figures": [
+    {
+     "key": "F12",
+     "caption_ja": "CITOによる基地姿勢到達タスクのコスト比較。(a) 並進変位（0.2〜1.6m）、(b) ヨー回転（最大 $\\pi$ rad）、(c) ピッチ回転（0.4〜1.2rad）。厳密勾配（No Relaxation）やシニョリーニ緩和（Signorini-Relaxed）に比べ、全モード・全方向を連成緩和した提案勾配（Proposed）が一貫して最も低い最適化コストと小さな分散を達成しています。",
+     "caption": "Fig. 12 : Comparison of the three backward contact gradients for CITO base-pose reaching. (a) Translation : the reference distance ranges from $0.2$ to $1.6$ m. (b) Yaw rotation : the reference yaw ranges from $0.17$ to $3.14$ rad. (c) Pitch rotation : the reference pitch ranges from $0.4$ to $1.2$ rad. For each target, the finite-horizon objective is averaged over 400 successive solves along a 10-s trajectory. Lines and shaded regions show the mean and one standard deviation over eight translation directions in (a), ten planar offsets within 0.1 m in (b), and ten planar offsets within 0.3 m in (c). …",
+     "image": "details/2610.35852/F12.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IX Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "フォワードパスの物理的厳密性を保ちつつ、バックワードパスのみでクーロン摩擦相補性を中心パス緩和する解析的接触勾配を確立しました。今後は点接触から面接触や不整地への拡張、およびさらなる長ホライズン学習への価値関数導入が期待されます。",
+   "details_ja": "本研究は、脚ロボットの移動制御における「接触モード遷移の微分」という長年の難問に対し、de Saxcé補正と中心パス緩和を組み合わせた逆伝播専用の解析的アプローチによって決定的なブレークスルーをもたらしました。シミュレーションの整合性を一切犠牲にすることなく、数分・単一環境での実機学習や、足の踏み替えを伴う軌道最適化を実現した意義は極めて大きいです。\n\n著者らは今後の課題として、点接触モデルから足平を持つ面接触や不整地地形、任意形状間の接触への拡張（衝突判定の微分が必要）を挙げています。また、今回は0.5秒の短ホライズンBPTTで十分な性能が得られましたが、より長時間のタスクに向けてSHACのような学習型価値関数（Critic）を組み合わせる発展性も示唆されています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「フォワードは剛体接触のまま厳密に解き、バックワードだけ摩擦円錐全体を中心パス緩和する」という分離設計が、物理的破綻を防ぎつつ有用な探索勾配を得るベストプラクティスである",
+  "接触モードの切り替え（踏み替えや滑りブレーキ）には、法線方向だけでなく接線方向と連成した摩擦円錐全体の緩和が決定的な役割を果たす",
+  "高品質な1次勾配情報があれば、大規模並列シミュレーションを用いずとも「単一環境・数分」のBPTTで実機にそのまま適用可能な制御方策が学習できる"
+ ],
+ "limitations_ja": [
+  "現状の実装は平坦地における「点接触（Point contact）」に限定されており、足平形状や不整地における衝突判定自体の微分は含まれていない",
+  "BPTTのホライズンが0.5秒（20ステップ）と短いため、長期的な戦略や極めて複雑な不連続判断を要するタスクには価値関数の導入など追加の拡張が必要である",
+  "緩和解を求めるニュートン反復において、ごく稀（0.0058%）に非物理的な解（貫通など）へ偽収束することがあり、勾配をゼロにして伝播を遮断する例外処理が必要となる"
+ ],
+ "keywords": [
+  "Differentiable Simulation",
+  "Contact-Implicit Trajectory Optimization",
+  "Backpropagation Through Time",
+  "Legged Locomotion",
+  "Second-Order Cone Complementarity"
+ ],
+ "id": "2610.35852",
+ "title": "Differentiable Contact Dynamics for Legged Locomotion: Policy Learning and Contact-Implicit Trajectory Optimization",
+ "authors": [
+  "Gijeong Kim",
+  "Seungbin Oh",
+  "Dongyun Kang",
+  "Hae-Won Park"
+ ],
+ "date": "2026-10-27",
+ "group": "focus",
+ "tags": [
+  "locomotion",
+  "control",
+  "reinforcement-learning",
+  "simulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.35852",
+ "pdf_url": "https://arxiv.org/pdf/2610.35852",
+ "summary_ja": "摩擦接触を伴う脚ロボット運動制御において、接触モード遷移をまたぐ勾配を提供するため、Coulomb摩擦錐相補性問題を中央パス緩和した滑らかな解析的勾配を提案。順解析では厳密な剛体接触問題を解いて実行可能性を維持しつつ、逆伝播のみで緩和勾配を用いる。これにより、不連続な接触遷移を含む脚式歩行の接触陰的軌道最適化や強化学習方策の効率的な勾配学習を実現した。",
+ "generated": "2026-10-27",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.35852"
+}
