@@ -1,6 +1,306 @@
 {
  "entries": [
   {
+   "date": "2026-10-28",
+   "rank": 0,
+   "id": "2610.36825",
+   "group": "focus",
+   "title": "HC2Robot: Hyper-Connection Transformers with Predicted Foresight for Multi-Terrain Humanoid Parkour",
+   "title_ja": "HC2Robot: 予測型先見モジュールとHyper-Connection Transformerによる起伏地形ヒューマノイドパルクール",
+   "summary_ja": "不連続な起伏地形を走破するヒューマノイドパルクールにおいて、学習時の特権情報と実機センサ情報との乖離を埋める枠組みHC2Robotを提案した。将来の足場状態を予測するPredicted Foresight Moduleと知覚・自己受容感覚を密に統合するHyper-Connection Transformerを導入。実機ヒューマノイドにおいて、オンボード知覚のみを用いた動的全身運動制御を実現した。",
+   "summary_en": "To bridge the information gap between privileged simulation training and onboard sensing in humanoid parkour across discontinuous terrains, this paper presents HC2Robot. The framework incorporates a Predicted Foresight Module to estimate future footholds and a Hyper-Connection Transformer to deeply fuse perceptual and proprioceptive representations. This enables dynamic whole-body parkour locomotion deployed directly on humanoid hardware using only onboard sensors.",
+   "authors": [
+    "Wenhao Xu",
+    "Yanheng Mai",
+    "Yifei Fu",
+    "Nan Zheng",
+    "Yanbo Zhou",
+    "Zirui Huang",
+    "Mingsheng Ling",
+    "Xinjue Wang",
+    "Renjing Xu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.36825",
+   "image": "figures/2026-10-28/2610.36825.jpg"
+  },
+  {
+   "date": "2026-10-28",
+   "rank": 1,
+   "id": "2610.36507",
+   "group": "focus",
+   "title": "GRAFT: Geometry-Aware Residual Adaptation for Foundation Trackers",
+   "title_ja": "GRAFT: 凍結された行動基盤モデルに対する幾何認識型残差適応",
+   "summary_ja": "平地動作で学習されたヒューマノイド全身行動基盤モデル（BFM）を不整地へ適応させる枠組みGRAFTを提案した。トラッカー本体を凍結したまま、局所地形の幾何情報に基づいて足配置・遊脚クリアランス・接地タイミングを補正する残差方策を学習する。基盤モデルの再学習コストを回避しつつ知覚系との結合を疎に保ち、起伏のある環境下での高精度な全身運動追従を低計算コストで実現した。",
+   "summary_en": "Humanoid behavior foundation models (BFMs) trained on flat ground struggle to adjust foot placement and contact timing to uneven terrain without costly retraining. This paper introduces GRAFT, a geometry-aware residual adaptation framework for frozen BFMs. By learning a residual policy conditioned on local elevation scans, GRAFT adapts stepping trajectories and contact schedules to local terrain without fine-tuning the base tracker, achieving terrain-adaptive whole-body trac…",
+   "authors": [
+    "Liang Li",
+    "Guoyao Zhang",
+    "Xingyu Chen",
+    "Sikai Wu",
+    "Qianyang Wu",
+    "Yuhang Lin",
+    "Renjing Xu",
+    "Mingliang Zhou",
+    "Diyun Xiang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "control",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.36507",
+   "image": "figures/2026-10-28/2610.36507.jpg"
+  },
+  {
+   "date": "2026-10-28",
+   "rank": 2,
+   "id": "2610.36452",
+   "group": "focus",
+   "title": "Whole-Body Humanoid Control via Stochastic Motion Tokenization",
+   "title_ja": "確率的モショントークン化によるヒューマノイド全身運動制御",
+   "summary_ja": "複雑な全身運動を追従するヒューマノイド強化学習において、将来の所望軌道の情報不足による動作遷移時の破綻を防ぐ制御手法を提案した。高レベルの行動ラベルやテキスト指示から簡潔な確率的モショントークン列を生成し、これを追従方策に直接入力する構造を構築。方策が先を見越した全身運動の準備と制御された偏差を行えるようにし、長期的なタスク成功率と動作遷移の滑らかさを向上させた。",
+   "summary_en": "RL whole-body tracking controllers for humanoids typically lack foresight into desired future motion, making smooth transitions between behaviors difficult. This paper proposes a control architecture using stochastic motion tokenization, where a high-level controller generates concise motion tokens from behavioral or text commands. Providing these tokens to the low-level tracking policy enables controlled deviations and anticipatory adjustments, significantly improving trans…",
+   "authors": [
+    "Michael Drolet",
+    "Oleg Arenz",
+    "Jan Peters"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.36452",
+   "image": "figures/2026-10-28/2610.36452.jpg"
+  },
+  {
+   "date": "2026-10-28",
+   "rank": 3,
+   "id": "2610.36546",
+   "group": "focus",
+   "title": "REACH: An RL-based Hierarchical Humanoid Crawling Framework for Adaptable Confined Space Traversal",
+   "title_ja": "REACH: 狭小空間通過のための変形歩行と匍匐を統合した階層型ヒューマノイド強化学習",
+   "summary_ja": "Unitree G1ヒューマノイドが高さ制約のある環境を走破するための階層型強化学習フレームワークREACHを提案した。全高1.27〜0.50mをカバーする可変高二足歩行と、0.50〜0.20mの極小クリアランスに対応する匍匐運動を学習。接触豊富な匍匐ダイナミクスを履歴条件付き潜在表現で捉えることで、従来のしゃがみ歩行の限界を超えた超低全高空間の安定な連続通過を実機検証も含めて達成した。",
+   "summary_en": "Navigating confined spaces requires continuous height adjustment beyond crouched bipedal walking. This paper introduces REACH, an RL-based hierarchical framework enabling a Unitree G1 humanoid to traverse constrained environments by coordinating variable-height bipedal walking (1.27-0.50 m) and crawling (0.50-0.20 m). By employing a history-conditioned latent representation for contact-rich crawling dynamics, the system achieves robust traversal across challenging height con…",
+   "authors": [
+    "Shengzhang Xu",
+    "Yuning Guo",
+    "Weiyi Hu",
+    "Yifeng Xu",
+    "Zhongyu Li",
+    "He Kong"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.36546",
+   "image": "figures/2026-10-28/2610.36546.jpg"
+  },
+  {
+   "date": "2026-10-28",
+   "rank": 4,
+   "id": "2610.36537",
+   "group": "focus",
+   "title": "A Trainable CPG Framework for Quadruped Locomotion",
+   "title_ja": "CPG-ENN: 四脚歩行のための学習可能な中枢パターン生成器フレームワーク",
+   "summary_ja": "明示的な神経協調と学習に基づく動作実現を融合した四脚歩行フレームワークCPG-ENNを提案した。8ニューロンの対称性中枢パターン生成器（CPG）が歩容リズムを供給し、脚共有ニューラルネットがオンライン逆運動学なしに関節指令へ変換する。単一のフィードバック方策が6つの軌道変数を調整し、個別報酬なしに歩行・速歩・ペース・バウンド・プロンク間を99.39%の遷移成功率で滑らかに切り替えた。",
+   "summary_en": "This paper proposes CPG-ENN, a quadruped locomotion framework coupling explicit neural coordination with learned motion mapping. An 8-neuron symmetry-based central pattern generator (CPG) supplies gait rhythms, while a pretrained, leg-shared execution network maps rhythmic signals to joint targets without online IK. A single feedback policy modulates six trajectory variables, achieving planar velocity tracking across walk, trot, pace, bound, and pronk gaits with a 99.39% tra…",
+   "authors": [
+    "Xiyan Liu",
+    "Yide Liu",
+    "Guoyong Mao",
+    "Shaoxing Qu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.36537",
+   "image": "figures/2026-10-28/2610.36537.jpg"
+  },
+  {
+   "date": "2026-10-28",
+   "rank": 5,
+   "id": "2610.37557",
+   "group": "general",
+   "title": "Learning Visuomotor Quadrotor Flight Through Dynamic Narrow Gaps via Differentiable Simulation",
+   "title_ja": "微分可能シミュレーションを用いた動的狭小隙間を通過するクアッドローターの視覚運動飛行学習",
+   "summary_ja": "移動する狭小な隙間を通過するクアッドローターの高速飛行を、オンボードのカメラ画像とIMU計測値のみから直接推論する方策を提案した。微小なタイミングや姿勢誤差が衝突につながるシビアな課題に対し、微分可能シミュレーションを活用して特権情報や教師方策を介さずにゼロから直接end-to-endで学習。センチメートル精度の空間位置合わせと正確な時間制御を伴う超機敏飛行を実機検証した。",
+   "summary_en": "Flying an autonomous quadrotor through a dynamic narrow gap requires centimeter-level spatial precision and split-second timing. This work presents a visuomotor policy mapping onboard visual and inertial observations directly to body-rate and thrust commands, trained entirely from scratch without privileged states or expert demonstrations. Leveraging a differentiable simulator, the policy discovers agile traversal maneuvers on a narrow feasible manifold and executes high-spe…",
+   "authors": [
+    "Riccardo Bianco",
+    "Yunfan Ren",
+    "Jiaxu Xing",
+    "Davide Scaramuzza"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "drone",
+    "simulation",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.37557",
+   "image": "figures/2026-10-28/2610.37557.jpg"
+  },
+  {
+   "date": "2026-10-28",
+   "rank": 6,
+   "id": "2610.36789",
+   "group": "general",
+   "title": "A fully articulated humanoid dexterous hand with human-level joint structure enabled by linkage-based actuation",
+   "title_ja": "リンク機構駆動により人間レベルの関節構造を実現した完全関節型ヒューマノイド多指ハンド",
+   "summary_ja": "人間の手の関節構造と運動階層を再現した21自由度の完全関節型ロボットハンド「Torch-Hand」を開発した。親指に5自由度、他4指に各4自由度を割り当て、リンク機構駆動によって高負荷耐性、機構の堅牢性、制御の容易性のトレードオフを克服。複雑な非構造化環境において、人間の巧緻性に匹敵する把持・器用なマニピュレーション能力を実機で実証した。",
+   "summary_en": "Humanoid dexterous hands face trade-offs between anthropomorphic kinematic complexity, mechanical robustness, and load capacity. This paper presents Torch-Hand, a 21-DOF fully articulated robotic hand that replicates human joint structures using linkage-based actuation, featuring a 5-DOF thumb and 4 DOFs per finger. The design balances compact mechanical robustness with high payload and actuation simplicity, demonstrating human-level dexterity and robust grasping in unstruct…",
+   "authors": [
+    "Jihao Li",
+    "Jianguo Wang",
+    "Haotian Guo",
+    "Yanzhe Wang",
+    "Guodong Lu",
+    "Huixu Dong"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "manipulation",
+    "humanoid",
+    "grasping"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.36789",
+   "image": null
+  },
+  {
+   "date": "2026-10-28",
+   "rank": 7,
+   "id": "2610.36068",
+   "group": "general",
+   "title": "Rollback: Experience Backtracking in World Models for Policy Improvement",
+   "title_ja": "Rollback: 方策改善のためのワールドモデル内経験バックトラッキング",
+   "summary_ja": "ロボット方策学習においてワールドモデルを「反事実エンジン」として活用する新手法Rollbackを提案した。環境を前方にのみシミュレートする従来手法と異なり、過去の重要な決定ポイントまで状態を巻き戻し、異なる行動への分岐と結果の比較を行う。成功要因を個別の決定に正確に帰属させることで、試行錯誤の想像を高価値な分岐点に集中させ、物理実機や従来のモデルベースRLよりも効率的な方策改善を実現した。",
+   "summary_en": "While action-conditioned world models offer alternatives to costly real-world interaction, existing methods treat them as forward-only simulators. This paper introduces Rollback, a paradigm transforming world models into counterfactual engines that rewind to critical past decision points and branch into alternative actions. By contrasting outcomes to attribute credit directly to individual decisions, Rollback concentrates imagined exploration where it matters most, accelerat…",
+   "authors": [
+    "Jiayi Luo",
+    "Yang Zhang",
+    "Liliang Chen",
+    "Nan Wang",
+    "Chen Gao",
+    "Boxiang Qiu",
+    "Zhuoxuan Li",
+    "Baorui Peng",
+    "Chuankang Li",
+    "Yuxiang Yan",
+    "Si Liu",
+    "Qingyun Sun",
+    "Shuicheng Yan",
+    "Maoqing Yao",
+    "Jianxin Li",
+    "Guanghui Ren"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "world-model",
+    "reinforcement-learning",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.36068",
+   "image": "figures/2026-10-28/2610.36068.jpg"
+  },
+  {
+   "date": "2026-10-28",
+   "rank": 8,
+   "id": "2610.37543",
+   "group": "general",
+   "title": "Rendering-Free Event Frame Simulation for Fast Reinforcement Learning of Autonomous Robot Navigation",
+   "title_ja": "自律ロボットナビゲーションの高速強化学習に向けたレンダリング不要のイベントフレームシミュレータ",
+   "summary_ja": "超小型ドローン等の機敏な移動に適したイベントカメラのための、レンダリングを介さない解析的シミュレータを提案した。フォトリアリスティック描画を介してイベントに変換する従来法と異なり、三次元幾何と自己運動から直接コントラストエッジの変位を合成。GPU上で1フレームあたり17マイクロ秒（従来比400倍以上高速）でイベント観測を生成し、大規模強化学習による自律衝突回避ナビゲーションの学習を劇的に加速させた。",
+   "summary_en": "Event cameras offer low latency and high dynamic range for agile drones, but simulating them via photorealistic rendering severely slows reinforcement learning. This paper proposes a rendering-free analytic event simulator that directly synthesizes event streams from scene geometry and ego-motion. Operating at 17 microseconds per frame on a single GPU (over 400x faster than state-of-the-art simulators), it enables massively parallel RL for training robust navigation policies.",
+   "authors": [
+    "Dequan Ou",
+    "Austin Lopez",
+    "Quentin Missinne",
+    "Christophe De Wagter",
+    "Guido C. H. E. de Croon"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "navigation",
+    "drone",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.37543",
+   "image": "figures/2026-10-28/2610.37543.jpg"
+  },
+  {
+   "date": "2026-10-28",
+   "rank": 9,
+   "id": "2610.36250",
+   "group": "general",
+   "title": "cuArms: GPU-Accelerated Conflict-Based Planning for Multi-Arm Manipulation",
+   "title_ja": "cuArms: マルチアームマニピュレーションのためのGPU加速コンフリクトベース動作計画",
+   "summary_ja": "共有作業空間で複数アームを協調動作させるためのGPU並列コンフリクトベースプランナcuArmsを提案した。各ロボット用の再利用可能なマルチモーダルロードマップを用いて探索空間を分解し、GPUの大規模並列性を活かしてアーム間の干渉やデッドロックを高速に解消する。ロボット台数やタスクホライズンの増加に対しても高いスケーラビリティを示し、従来プランナを大幅に上回るスループットと計画速度を実証した。",
+   "summary_en": "Coordinating multiple robotic arms in a shared workcell requires resolving complex geometric conflicts and deadlocks without prohibitive planning latency. The authors introduce cuArms, a conflict-based planner co-designed with GPU parallelism that decomposes the search space using reusable multi-modal roadmaps for individual arms. The system rapidly resolves inter-robot collisions and deadlocks in parallel, scaling efficiently to high robot counts and long horizons with subs…",
+   "authors": [
+    "Philip Huang",
+    "Fabio Ramos",
+    "Jiaoyang Li",
+    "Caelan Garrett",
+    "Lars Johannsmeier"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.MA"
+   ],
+   "tags": [
+    "planning",
+    "manipulation",
+    "multi-robot"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.36250",
+   "image": "figures/2026-10-28/2610.36250.jpg"
+  },
+  {
    "date": "2026-10-27",
    "rank": 0,
    "id": "2610.35852",
