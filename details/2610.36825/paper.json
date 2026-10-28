@@ -1,0 +1,135 @@
+{
+ "title_ja": "HC2Robot: 予測型先見モジュールとHyper-Connection Transformerによる起伏地形ヒューマノイドパルクール",
+ "tldr_ja": "シミュレータの特権的な接触情報を「次の着地イベントの予測」という形でオンボードセンサから推定させ、マルチストリームなTransformer構造と組み合わせることで、階段やギャップなどの不整地を安定して踏破できるヒューマノイド歩行を実現しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "HC2Robotの全体概要。訓練時にはシミュレータから得られる詳細な足場情報を用いてPFM（着地予測モジュール）を教師あり学習し、実機へのデプロイ時にはオンボードの深度カメラと自己受容感覚のみから着地を予測してポリシーに統合します。これにより過酷な地形でも安全な足場を選択して走破できます。",
+  "caption": "Fig. 1: HC2Robot overview. Simulator foothold descriptors supervise PFM during training; deployment uses predictions from proprioception and depth, fused at the policy head. Lower panels show simulated traversal comparisons and physical deployment.",
+  "image": "details/2610.36825/F1.jpg"
+ },
+ "overview_ja": "段差、隙間（ギャップ）、高台、傾斜といった不連続な地形をヒューマノイドロボットが軽快に移動する「パルクール」は、次の足場（接地位置）や全身動作を数歩先まで見越して計画・制御する必要がある非常に難度の高いタスクです。従来の強化学習では、訓練時にシミュレータ内の特権情報（厳密な接触力や重心位置など）をCriticに与える「非対称Actor-Critic」が主流でした。しかし、実機（Actor）に載せられるのはオンボードの深度カメラと関節センサ（自己受容感覚）だけであり、訓練と実機デプロイの間にある情報ギャップが大きな壁となっていました。\n\nそこで著者らは、「実機デプロイ可能な観測から、シミュレータの特権情報に相当するタスク関連情報を予測してActorに渡せばよい」という着想に至りました。これを具現化したのが「HC2Robot」です。本手法の核となるのは、次の接地タイミング・位置・足場支持の質を予測する「Predicted Foresight Module（PFM）」と、複数の特徴ストリームを行き来させて時系列情報を豊かに再利用する「Hyper-Connection（HC）Transformer」です。\n\nシミュレーション環境（IsaacLab）における評価では、階段・ギャップ・高台・傾斜という4種類の地形において、平均走破成功率97.60%を達成し、既存の強力な視覚ベース歩行ベースラインを大きく上回りました。さらに、小型ヒューマノイドロボット「Unitree G1」を用いた実機実験でも、訓練時とは異なる複合障害物コースを含めてゼロショットでの踏破に成功し、予測に基づく足場選択の有効性を実証しています。",
+ "contributions_ja": [
+  "固定時間先ではなく「次の着地イベント」のタイミング・位置・支持品質・不確実性を連続時間枠組みで予測し、オンボード情報だけで先読みを可能にするPredicted Foresight Module（PFM）を提案したこと",
+  "単一の残差接続を複数の学習可能なストリーム集約・混合へと拡張し、計算量を抑えつつ時系列特徴の再利用性を高めるHyper-Connection（HC）Transformerを制御ポリシーに導入したこと",
+  "4種類の過酷な不連続地形において平均走破成功率97.60%と高い安全足場率を達成し、Unitree G1実機でもゼロショット転移による踏破を示したこと"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "ヒューマノイドが不整地を跳び越えるための「先読み」の壁",
+   "summary_ja": "ヒューマノイドのパルクールには、接触が生じる前に足場や全身の姿勢を適切に調整する高度な先読みが必要です。本論文では、訓練時のシミュレータ特権情報をデプロイ可能な着地予測へと変換するPFMと、時間的推論を強化するHC Transformerを提案し、この課題を解決します。",
+   "details_ja": "階段の昇降、溝の飛び越え、高台への登坂といったヒューマノイドパルクールを成功させるには、ロボットが実際に足を着くかなり前の段階から、視覚情報、接触のタイミング、そして全身のダイナミクスを協調させる必要があります。\n\n大規模並列強化学習によって盲目歩行（自己受容感覚のみ）の頑健性は飛躍的に向上しましたが、目隠し状態のポリシーでは前方に迫る地形の不連続性を予見できません。そこで深度カメラなどの視覚情報を組み込むアプローチが普及してきましたが、実機展開においては依然として次の2つの大きな課題が残されていました。\n\n- **時系列特徴の統合の限界**: 従来の単一残差ストリームを持つTransformerでは、視覚と固有受容感覚の履歴を深く効果的に混ぜ合わせることが難しい点。\n- **訓練時と実機動作時の情報格差**: シミュレータ内では接触力や足裏の支持状態といった特権的な情報をCriticに与えられますが、実機運用時のActorはそれらを直接取得できません。\n\n本研究が提案する「HC2Robot」は、この2つの課題に真っ向から取り組みます。まず、Hyper-Connection（HC）Transformerによって従来の単一残差経路を複数の学習可能ストリームに拡張し、各層の計算コストを増やさずに豊かな時系列特徴の再利用を可能にしました。さらに、Predicted Foresight Module（PFM）を導入し、オンボード観測履歴から「次に来る足の着地イベント（タイミング、位置、足場の安定度）」を直接予測してポリシーに統合します。これにより、実機展開可能なセンサ情報だけで、あたかも特権的な足場情報を知っているかのような安定した接地動作を実現しています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "HC2Robotの全体構成図。訓練時にシミュレータから得られる足場記述子でPFMを学習し、推論時はオンボードの深度と自己受容感覚から未来の接地イベントを予測してポリシーヘッドで統合します。下段は既存手法との足場配置の比較と実機展開の様子です。",
+     "caption": "Fig. 1: HC2Robot overview. Simulator foothold descriptors supervise PFM during training; deployment uses predictions from proprioception and depth, fused at the policy head. Lower panels show simulated traversal comparisons and physical deployment.",
+     "image": "details/2610.36825/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "特権情報の「模倣」から「着地イベント予測」への転換",
+   "summary_ja": "視覚に基づく歩行制御や非対称Actor-Critic、運動事前分布（AMP）などの先行研究を整理しています。HC2Robotは現在の隠れ状態推定や特権ポリシーの模倣にとどまらず、タスクに直結する未来の「着地イベント」そのものを明示的に予測する点で一線を画しています。",
+   "details_ja": "### 視覚的ロコモーションとヒューマノイドパルクール\n強化学習を用いたロコモーションは四足歩行からヒューマノイドへと急速に発展し、近年ではシーケンスモデルやマルチモーダル統合を用いたパルクール制御が提案されています。HC2Robotもこの実機デプロイ可能な視覚駆動の流れを汲んでいますが、単に地形特徴をエンコードするだけでなく、タスクに直結する着地イベントを明示的に予測することで、訓練時と配備時の情報ギャップを埋める点に独自性があります。\n\n### 特権状態を活用する学習パラダイム\n非対称Actor-Critic（訓練時にCriticへ特権情報を渡し、Actorは実環境センサのみで動く枠組み）は広く使われていますが、Teacher-Student方式や現在のダイナミクス潜在変数の推定（RMAなど）では、「現在の状態」の推定や特権ポリシーのアクション模倣が主目的でした。これに対し、本手法のPFMはシミュレータ情報を教師ラベルとしてのみ扱い、次の着地時刻、着地位置、支持特性を自律的に先読みする表現をActor自身が獲得するよう設計されています。\n\n### 足場推論と運動事前分布\n地形の想像や局所領域の注視を行う研究は存在しますが、具体的な次の「接触イベント」そのものを対象とした予測ではありませんでした。また、ParkourFormerのような先行研究が運動シーケンスの自己教師あり学習を行うのに対し、HC2Robotは打ち切り（censoring）を考慮した着地イベント損失を用います。さらに、自然な動作を促すAdversarial Motion Priors（AMP）を導入していますが、着地イベント予測の学習とは明確に分離して勾配を管理しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "着地イベントの先読みとマルチストリームTransformerの構造",
+   "summary_ja": "入力履歴から次の着地タイミングや足場品質を予測するPFMと、情報を複数経路で混ぜ合わせるHC Transformerの数理的設計を解説します。勾配の切り離し（detach）により、各学習コンポーネントが互いに干渉せず安定して最適化される仕組みになっています。",
+   "details_ja": "### III-A 非対称な観測と足場情報の教師データ生成\nActorの入力はオンボードの深度画像系列と、角速度、重力方向ベクトル、速度指令、関節角度・角速度、前回の行動を含む自己受容感覚の履歴 $H_t$ です。これらを深度エンコーダとアクターエンコーダでまとめ、展開可能な特徴量 $x_t$ を作ります。一方、訓練時のCriticには、実機で取れないベース線速度、重心位置、そして両足の支持記述子 $p_t$（接触判定、レイキャストによる足裏支持率、局所的な地形凹凸リスク、荷重支持率など）を特権情報として与えます。\n\n### III-B HC-Transformerバックボーン\n時系列処理には、通常の残差接続 $x + f(x)$ を多重化・一般化したHyper-Connection（HC）構造を採用しています。学習可能なクエリートークンを $S$ 個の並列ストリームに複製し、各レイヤーでは以下の3ステップで処理します。\n- 1. 集約: 各ストリームを学習可能な係数 $\\alpha_r$ で重み付け平均する。\n- 2. 評価: 集約された表現に対して、クロスアテンション（またはFeed-Forward層）を「1回だけ」計算する。\n- 3. 展開と混合: 出力を重み $\\beta_r$ で各ストリームに戻し、さらにストリーム間の残差混合行列 $R_r$ を掛け合わせる。\n\nこの工夫により、計算コストを大きく増やすことなく、層をまたいだ多様な特徴表現の保持と再利用が可能になります。\n\n### III-C Predicted Foresight Module（PFM）とレイトフュージョン\nPFMは「固定の何秒後」を予測するのではなく、足が次に地面に着くイベントそのものを予測します。左右それぞれの足について、次の着地までの時間 $\\tau^*_f$、着地位置 $\\boldsymbol{p}^*_f$、そして支持率や地形リスクなどの支持属性を予測します。着地時間は必ず正の値をとるため対数正規分布、位置と属性は対角ガウス分布としてモデル化し、予測のばらつきから信頼度 $\\kappa_{t,f}$ も算出します。この予測結果はアダプターを介して低次元の潜在特徴量へと変換され、ポリシーヘッドの直前で運動特徴量とレイトフュージョン（遅延結合）されます。\n\n### III-D 訓練と実機展開の切り分け\nシステム全体の最適化では、PPOによる強化学習損失、PFMのイベント予測損失、AMPの識別器損失を個別に適用します。エピソード終了までに着地が発生しなかったフレームについては、生存時間分析の手法（対数正規分布の生存関数）を用いて損失を計算するため、途中で終わるデータのバイアスを防げます。また、勾配の切り離し（detach）を徹底し、PFMの予測誤差がアクターの基礎エンコーダを壊したり、PPOの勾配がPFMを不安定にしたりしないよう設計されています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "HC2Robotのネットワーク構造詳細。(a) 深度と自己受容感覚の履歴から特徴量を生成し、(b) PFMが左右の足の次回着地タイミング・位置・支持品質を予測します。(c) HC Transformerがマルチストリームで時系列特徴を抽出し、最後にPFMの予測特徴量と統合して行動を出力します。",
+     "caption": "Fig. 2: HC2Robot architecture. (a) Observation encoding from depth and proprioceptive histories. (b) Predicted Foresight Module (PFM), forecasting each foot’s next touchdown timing, location, and support quality. (c) Hyper-Connection (HC) Transformer actor with multi-stream temporal routing and late fusion of predicted foresight for action generation.",
+     "image": "details/2610.36825/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "97.6%の踏破率と実機Unitree G1でのゼロショット走破",
+   "summary_ja": "階段、ギャップ、高台、傾斜地の4つの地形でシミュレーション評価を行い、ベースラインを大幅に上回る走破成功率（97.60%）を達成しました。アブレーション実験で各構成要素の必要性を証明するとともに、実機G1での複合障害物踏破にも成功しています。",
+   "details_ja": "### IV-A & IV-B 実験プロトコルと評価指標\nIsaacLab上で4096並列環境を用い、階段（Stairs）、隙間（Gaps）、高台（High Platforms）、傾斜地（Slopes）をランダム生成して学習を行いました。評価指標は、転倒やコースアウトなく踏破できた割合を示す「成功率（SR）」と、足裏に配置した仮想レイから幾何学的に安定した接地ができているかを測る「安全足場率（SFR）」を採用しています。\n\n### IV-C & IV-E 主な実験結果と性能比較\nPFMの予測精度をオフラインで検証したところ、着地時間の誤差はわずか0.79制御ステップ、着地位置の誤差は1.9 cm、支持率の誤差は2.23ポイントと極めて高精度に先読みできていることが確認されました。\n走破性能の比較において、HC2Robotは4地形全体の平均で走破成功率（SR）97.60%、安全足場率（SFR）97.94%を記録しました。これは強力な先行手法であるParkourFormer（SR 94.17%、SFR 94.75%）やHiking-in-the-Wildを一貫して上回る結果です。特に高台ではSRで+7.66ポイント、傾斜地ではSFRで+5.31ポイントと大きな差をつけました。\n\n### IV-F アブレーション実験による分析\n各モジュールの寄与を確かめる実験から、以下の重要な事実が判明しました。\n- **PFMの除去（w/o PFM）**: 平均SRは92.50%へ低下。着地予測が足場選択に直結していることが分かります。\n- **固定ステップ予測との比較（Fixed-horizon）**: 「次の着地時」ではなく「60ステップ後」を予測させた場合、高台のSRが9.08ポイント、ギャップのSFRが6.07ポイント低下しました。可変な接触タイミングそのものを予測することの優位性が明確に示されています。\n- **HC構造の除去（w/o HC）**: 特に傾斜地での性能が急落（SR 75.16%）。複雑な足場での時系列特徴の保持にマルチストリーム構造が不可欠であることが示されました。\n\n### IV-G 実機ロボット「Unitree G1」への展開\nシミュレーションで学習したポリシーを、50 Hzで動作するUnitree G1実機へゼロショットで直接デプロイしました。実機でも階段の昇降、高台の乗り越え、スロープの登坂に成功したほか、それらが連続する未知の複合コースにおいても高い踏破率を記録し、シミュレータと現実のギャップを越えた頑健性が確認されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "シミュレーション評価で用いた地形。(a) 階段、(b) ギャップ、(c) 高台、(d) 傾斜地、および(e) これらを連続して配置した複合コースの外観です。",
+     "caption": "Fig. 3: Evaluation terrains: (a) stairs, (b) gaps, (c) high platforms, (d) slopes, and (e) a mixed course combining stairs, a gap, and a slope.",
+     "image": "details/2610.36825/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "溝越え（上段）および階段降り（下段）における足場配置の比較。ベースライン（左）はエッジに足を引っ掛けて不安定になりがちですが、HC2Robot（右）は十分な支持面積が得られる安全な位置を捉えて接地しています。",
+     "caption": "Fig. 4: Foot placement of the baseline and HC2Robot during gap crossing (top) and stair descent (bottom).",
+     "image": "details/2610.36825/F4.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "Unitree G1実機によるパルクール動作のスナップショット。(a) ベースラインでは足の引っ掛かりや滑りが発生しているのに対し、(b) HC2Robotは高台へのステップアップや階段昇降を安定してクリアしています。",
+     "caption": "Fig. 7: Unitree G1 deployment snapshots: (a) baseline and (b) HC2Robot.",
+     "image": "details/2610.36825/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめ：先読み予測が切り拓くヒューマノイドの機動性",
+   "summary_ja": "HC2Robotは、着地イベント予測（PFM）とマルチストリームTransformer（HC）の融合により、特権情報に頼らない高度なパルクールを実現しました。高精度な足場先読みと優れた時系列推論が、実機ヒューマノイドの走破性能を大きく引き上げることが実証されました。",
+   "details_ja": "本論文では、非対称Actor-Criticにおける訓練時と配備時の情報ギャップを埋めるため、着地イベントの先読みモジュール「PFM」と多重残差経路を持つ「HC Transformer」を統合したヒューマノイドパルクール手法「HC2Robot」を提示しました。\n\nシミュレータ内の特権的な接触記述子をそのままActorに渡すのではなく、オンボード観測から予測可能な潜在表現へと蒸留・予測させるアプローチにより、実機展開時にも安全で確実な足場選択が可能となりました。4種類の極端な地形におけるシミュレーション実験と、実機Unitree G1でのゼロショット走行実験を通じて、その高い走破性と実用性が裏付けられました。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "非対称Actor-Criticにおいて、特権情報をただCriticに与えるだけでなく「実機センサから予測させる補助タスク」として活用することで、Actorの配備時性能を大幅に引き上げられる",
+  "足場や接触の予測を行う際は、「固定時間先（t+k）」ではなく「次のイベント発生時（Time-to-Touchdown）」を予測対象にするイベントベースの定式化が極めて有効である",
+  "Transformerの残差接続を単一経路から複数ストリーム（Hyper-Connection）へ拡張することで、計算量を爆発させずに過酷な地形を制御するための時系列特徴を豊かに保持できる"
+ ],
+ "limitations_ja": [
+  "安全足場率（SFR）の評価指標が足のピッチやロールを考慮しない水平パッチサンプリングに基づいているため、連続した傾斜地などで幾何学的なペナルティが過大に算出される傾向がある",
+  "実機検証で用いられた複合コースは訓練時の地形プリミティブの組み合わせであり、未学習のまったく新しい幾何学的障害物に対する汎化性能までは十分に検証されていない",
+  "PFMによる着地予測は静的な地形を前提としており、崩れる足場や動的に変化する障害物に対するリアルタイムな再適応については言及されていない"
+ ],
+ "keywords": [
+  "Humanoid Parkour",
+  "Reinforcement Learning",
+  "Transformer",
+  "Asymmetric Actor-Critic",
+  "Foothold Foresight",
+  "Sim-to-Real Transfer"
+ ],
+ "id": "2610.36825",
+ "title": "HC2Robot: Hyper-Connection Transformers with Predicted Foresight for Multi-Terrain Humanoid Parkour",
+ "authors": [
+  "Wenhao Xu",
+  "Yanheng Mai",
+  "Yifei Fu",
+  "Nan Zheng",
+  "Yanbo Zhou",
+  "Zirui Huang",
+  "Mingsheng Ling",
+  "Xinjue Wang",
+  "Renjing Xu"
+ ],
+ "date": "2026-10-28",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "locomotion",
+  "reinforcement-learning",
+  "sim-to-real"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.36825",
+ "pdf_url": "https://arxiv.org/pdf/2610.36825",
+ "summary_ja": "不連続な起伏地形を走破するヒューマノイドパルクールにおいて、学習時の特権情報と実機センサ情報との乖離を埋める枠組みHC2Robotを提案した。将来の足場状態を予測するPredicted Foresight Moduleと知覚・自己受容感覚を密に統合するHyper-Connection Transformerを導入。実機ヒューマノイドにおいて、オンボード知覚のみを用いた動的全身運動制御を実現した。",
+ "generated": "2026-10-28",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.36825"
+}
