@@ -1,0 +1,123 @@
+{
+ "title_ja": "自律ロボットナビゲーションの高速強化学習に向けたレンダリング不要のイベントフレームシミュレータ",
+ "tldr_ja": "イベントカメラの本質である「動く明暗エッジ」に着目し、高コストな画像描画を完全に省いて幾何形状から直接イベントを計算する超高速シミュレータを開発。わずか34分で障害物回避ポリシーを強化学習し、56gの超小型ドローン実機に搭載された省電力マイコン上で完全自律飛行（平均成功率82%）を達成しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "本研究の全体像。(a) 重さわずか56gの超小型ドローンが、外付けPCや外部測位に頼らず搭載マイコンとイベントカメラだけで障害物空間を飛行しています。(b〜d) レンダリングを行わない高速プロキシシミュレータ、フォトリアルなIsaac Sim、そして実機のイベントフレームの比較です。見かけの差を乗り越えて同一ポリシーがそのまま動作します。",
+  "caption": "Fig. 1 : (a) A real flight through our test arena: the 56 g Crazyflie (inset) navigates the clutter fully onboard using a GenX320 event camera and an STM32N6 microcontroller. (b–d) Event frames from the three worlds (blue ON, red OFF): (b) the analytic proxy used for training and (c) the Isaac Sim+EVIS [ 1 ] rendered validation, both showing a replica of this arena from a matched viewpoint; (d) the real sensor view in flight.",
+  "image": "details/2610.37543/F1.jpg"
+ },
+ "overview_ja": "イベントカメラは、各画素が輝度の変化をマイクロ秒単位で非同期に検出するバイオインスパイアードなセンサです。極めて低い遅延、120dB以上の広いダイナミックレンジ、数ミリワットの超低消費電力という特徴を持ち、俊敏に飛ぶ小型ドローンのセンサとして理想的です。しかし、これで自律飛行ポリシーを強化学習（RL）しようとすると、シミュレーションが巨大な壁になります。従来のシミュレータは「高フレームレートでCG画像をレンダリングしてから画素ごとの輝度変化を計算する」仕組みだったため、莫大な学習ステップをこなすには遅すぎたのです。\n\nそこで著者らは大胆な割り切りを思いつきました。「イベントカメラが捉えているのは、要するに幾何エッジが動いた瞬間の変化ではないか？」という着想です。フォトリアルな画像を一切描画せず、障害物の輪郭エッジの点群とドローンの自己運動から、数式（幾何計算）で直接イベントフレームを合成する「解析的イベントプロキシ」を構築しました。これにより、1フレームあたりわずか $17\\,\\mu\\text{s}$（従来比400倍以上高速）という驚異的な生成速度を実現しました。\n\nこのプロキシを用いてゴール指向の障害物回避をエンドツーエンドで学習させたところ、わずか34分で学習が収束しました。さらに、学習済みポリシーを追加学習やファインチューニングなしで、フォトリアルな物理シミュレータ（Isaac Sim）や実機のProphesee製GenX320センサへゼロショット転移させました。56gのCrazyflieドローンとSTM32N6マイコンボードに1.2MBのint8モデルを搭載した実機実験では、外部のPCやモーションキャプチャを一切使わず、3つの障害物コースで平均82%のナビゲーション成功率を記録しました。",
+ "contributions_ja": [
+  "画像レンダリングを完全に撤廃し、シーン幾何と自己運動から直接イベントを合成する解析的シミュレータを開発し、RLの学習時間を数日から約30分（3桁の高速化）へ短縮したこと。",
+  "簡易なプロキシ環境で学習したポリシーが、光線追跡を用いた物理ベースのIsaac Simや実機センサへゼロショットでそのまま転移できることを実証したこと。",
+  "56gの超小型ドローンにイベントカメラと市販の省電力マイコンを搭載し、知覚から推論までをすべて機体上で完結させた初の完全オンボード・ゴール指向ナビゲーションを実現したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "超小型ドローンの自律飛行を阻む「重さとシミュレータの壁」",
+   "summary_ja": "狭い空間を自律飛行する超小型ドローンには厳しい重量・電力制約があり、従来の重い深度カメラやGPUは載せられません。イベントカメラは有望ですが、強化学習に必要なシミュレーション速度が致命的なボトルネックでした。本論文は画像描画を全廃した解析的シミュレータによりこの問題を解決します。",
+   "details_ja": "狭隘空間やGPSの届かない環境で活躍が期待される超小型ドローン（ナノドローン）ですが、その自律ナビゲーションは極めて困難です。従来のSLAM（自己位置推定と環境地図作成）や深度カメラ（Intel RealSense D435iなど：約72g、消費電力3.5W）は、機体重量が数十グラム程度のドローンにとっては重すぎ、バッテリーを一瞬で消費してしまいます。ToF（Time-of-Flight：光の飛行時間で測距するセンサ）アレイは軽量ですが、$8{\\times}8$ゾーン程度と粗すぎて細いポールやワイヤーを見落とします。さらに、70〜100gで10〜25Wを消費するNVIDIA Jetsonのような組み込みGPUを搭載する余裕もありません。\n\nそこで注目されるのがイベントカメラです。輝度変化があった画素だけがマイクロ秒精度で発火するこのセンサは、ミリワット級で動き、激しい回転運動でもモーションブラー（ブレ）が発生しません。しかし、強化学習でエンドツーエンドの制御ポリシーを学ばせようとすると、今度は「シミュレータの遅さ」が立ちはだかります。既存のイベントシミュレータは高フレームレートな画像をCG描画してから差分をとるため、数千万ステップの試行錯誤を要する強化学習を回すには絶望的に時間がかかっていました。\n\n本研究では、イベントカメラが本質的に「動く明暗のエッジ」を捉えている点に着目し、画像のレンダリングを完全に迂回する「解析的イベントプロキシ」を提案しました。1フレーム $17\\,\\mu\\text{s}$ という超高速生成により、わずか34分で学習を完了させ、56gのCrazyflie実機でオンボード自律飛行を成立させています。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "先行研究はどう挑み、どこで足踏みしていたのか？",
+   "summary_ja": "イベント駆動型のドローン飛行やシミュレーション高速化の試みは存在したものの、GPU搭載機への依存や、オフラインでの模倣学習にとどまっていました。本研究は、完全なエンドツーエンド強化学習と超低消費電力マイコンでの実機飛行を初めて結びつけました。",
+   "details_ja": "### II-A イベントベースのドローン飛行\n従来のイベントベース飛行には、オプティカルフロー（視流）や衝突時間（Time-to-Contact）、深度などを一度推定してから制御する「間接手法」と、イベントから直接制御入力を出す「直接手法」があります。いずれも優れた成果を挙げていますが、処理を地上局PCに飛ばすか、あるいは10W以上を喰うNVIDIA Jetsonを搭載する大型機に依存していました。一方、ニューロモルフィックチップ（Intel Loihi）を用いた極限の低電力飛行も研究されていますが、市販の安価なマイコン上で動く、障害物の多い環境でのゴール指向ナビゲーションは未踏の領域でした。\n\n### II-B イベントカメラのシミュレーション\n強化学習には試行錯誤できる対話的シミュレータが不可欠ですが、従来のシミュレータ（ESIMやEVISなど）は「一度高解像度・高フレームレートな画像を描画してからイベントへ変換する」というパイプラインを踏んでいます。最近の先行研究（Messikommerら）ではレンダリングを嫌って特権情報からの模倣学習を試みていますが、依然としてオフラインでのレンダリングデータセットに依存していました。本研究はデータセットすら作らず、シミュレータのループ内で数式から直接イベントフレームを吐き出させます。\n\n### II-C 超小型ドローンと学習ベースの飛行制御\nグラム単位・ミリワット単位の超小型自律飛行は、これまで高度に手動設計された軽量アルゴリズムや、フレームベースの小規模ニューラルネットワーク（PULPシリーズなど）で実現されてきました。しかし、強化学習によるエンドツーエンド制御、イベントビジョン、そして超小型マイコン上での推論という3要素をすべて満たしたシステムは、本研究が世界初となります。",
+   "figures": []
+  },
+  {
+   "heading": "III Methodology",
+   "heading_ja": "描画を捨ててエッジを数式で追う：高速シミュレーションとマイコン実装",
+   "summary_ja": "幾何学的なエッジ点群が自己運動によって画像上で掃引される軌跡から、直接イベントフレームを計算するモデルを構築しました。PPOによる強化学習、Isaac Simでの検証、そしてSTM32N6マイコンへのint8量子化実装という一貫したパイプラインを確立しています。",
+   "details_ja": "### III-A イベントプロキシの生成モデル\nターゲットとするセンサ（Prophesee GenX320）の動作モードに合わせ、20msの露光窓で累積された符号付きイベントカウントのフレーム（$64{\\times}64$画素）を直接生成します。環境をポリゴンメッシュではなく、障害物の輪郭や壁の端点といった「3Dエッジ点群」として保持します。カメラの速度 $\\mathbf{v}$ と角速度 $\\boldsymbol{\\omega}$ から、各エッジ点が画像平面上で掃引する線分をピンホール投影で求め、その軌跡沿いにイベント質量を足し合わせます。発火数は、微小画素が敷き詰められたブロックが掃引される幾何関係から導いた飽和ランプ関数でモデル化し、極性（ON/OFF）はエッジの法線方向と運動方向（背景を覆うか暴くか）から物理的に決定します。地面のテクスチャや遮蔽（粗いzバッファ）も解析的に処理し、オフィス内で手持ちで10秒間動かした実センサデータから統計量（発火割合や中央値など）を合わせて5つのパラメータを固定しました。\n\n### III-B 強化学習の設定\nタスクは、障害物が散らばる $22{\\times}22\\,\\text{m}$ の室内で、衝突せずに目標地点へ到達することです。ポリシーへの入力は、直近3フレームのイベント画像（時間スタック）と、機体の現在速度・角速度・目標への相対方位からなる4次元コンテキストベクトルです。出力はヨー角速度と前進速度の2自由度です。マイコンの推論周期に合わせて制御周波数は13.3Hzに固定しました。報酬には目標への接近度合いと、障害物表面からの距離に応じたポテンシャルベースの整形項を用いています。学習アルゴリズムには標準的なPPOを採用し、畳み込み層を持つわずか1.12Mパラメータの軽量なネットワークを使用しました。\n\n### III-C シム・ツー・シム検証（Isaac Sim）\n学習済みポリシーを実機に載せる前に、光線追跡レンダラとEVISプラグインを備えたNVIDIA Isaac Simでテストします。ここでは生解像度 $320{\\times}320$ でフォトリアルにイベントを生成し、実機ファームウェアと同じ処理で $64{\\times}64$ にダウンサンプルして入力します。プロキシには存在しなかった高密度なテクスチャや影が含まれる環境で、ゼロショットの汎化性能を検証します。\n\n### III-D 実機へのマイコン実装\n学習したネットワークをONNX経由でint8に量子化し、STM32N6マイコンのNPU（Neural-ART）向けにコンパイルしました。バイナリサイズはわずか1.2MBです。ドローン本体のCrazyflie（STM32F405）とN6ボードをUARTで繋ぎ、Crazyflie側がオプティカルフローから計算したオドメトリ（目標方位・速度）をN6へ送り、N6が推論した速度コマンドをCrazyflie側の500Hzの内部ループで追従する非同期構成をとっています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "レンダリングを行わないイベントプロキシの生成フロー。(a) 空間を3Dエッジ点群として定義し、(b) カメラの自己運動に伴って画像平面上を動かします。(c) 画素ブロックの掃引量に応じた飽和関数でイベント量を決定し、(d) 符号付きの積算を行うことで、本物のセンサと酷似したイベントフレームを瞬時に合成します。",
+     "caption": "Fig. 2 : The rendering-free event-proxy pipeline: one obstacle (orange) is traced through every stage. (a) A scene is only 3D edge points on depth discontinuities (trunks brown, walls gray, props green; the red triangle is the camera, the arrow its velocity). (b) Visible points project to the image plane and move under ego-motion; arrow color is polarity. (c) The two firing mechanisms: per-cell event mass follows a saturating trigger (the block-level aggregate of binary pixel crossings; its knee—the displacement at which a cell saturates—is fitted to real sensor recordings), and polarity is a hashed contrast class times the covering/revealing side of the moving edge. …",
+     "image": "details/2610.37543/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "34分の学習で実世界へ：シミュレータ比較と56gドローンの実機飛行",
+   "summary_ja": "提案プロキシは1フレーム17マイクロ秒という驚異的な速度を達成し、RTX 4090単体で34分で学習を完了しました。Isaac Simでの未知環境で83%、実機ドローンの自律飛行でも82%の成功率を記録し、実用的な耐環境性を示しました。",
+   "details_ja": "### IV-A 評価設定と指標\nIsaac Sim上で30エピソードの評価プロトコルを構築しました。障害物の配置はランダムで、影が主体の「シャドウ環境」と、床や壁に激しい模様が入った「テクスチャ環境」の2条件を用意しました。指標にはAvoidBenchで使われる成功率（SR）、平均目標到達速度（AGV）、経路最適性（PO）などを採用しています。\n\n### IV-B ゼロショット転移とシミュレーション性能\n学習済みポリシーは、プロキシ訓練環境からIsaac Simの未知シーンへファインチューニングなしでゼロショット転移し、シャドウ環境で83%（AGV 2.38 m/s）、テクスチャ環境でも70%（AGV 1.62 m/s）という高い成功率を維持しました。テクスチャ環境で性能が少し落ちるのは、プロキシが生成しない背景の細かい模様によってイベント密度が急増（約2倍）したためですが、破綻することなく耐性を示しています。int8量子化モデルもfp32版とほぼ同等の性能を維持しました。\n\n### IV-C ベースラインとの比較\n複数の手法と比較を行いました。(1) 特権的な完全深度画像で学習したPPO（上限性能）は成功率100%/97%を記録しましたが、本手法は単眼イベントのみで83%/70%と肉薄しました。(2) 昆虫に学んだ従来のリアクティブ制御則（オプティカルフローのバランス制御）は13〜17%で崩壊しました。(3) Isaac Simレンダリングループ内で丸1日（24時間）学習させたPPOは、レンダリングが遅すぎて19.5万ステップしか回せず、成功率は40〜53%にとどまりました。本手法は1フレーム $17\\,\\mu\\text{s}$ で生成し、レンダリング手法（6.9ms）より400倍以上高速です。同じ4000万ステップの学習にレンダリング手法では推定200GPU日かかるところを、本手法はわずか34分で駆け抜けます。\n\n### IV-D 実機飛行実験\n56gのCrazyflieにGenX320カメラとN6ボードを載せ、障害物（ポール、段ボールタワー、植物、スクリーンなど）が配置されたラボ空間で実験を行いました。環境1（ポールと箱）で5/5（100%）、環境2（タワーや植物を追加）で5/6（83%）、最も狭く密集した環境3で4/6（67%）となり、全体で平均82%の到達成功率を達成しました。墜落は複雑に入り組んだ密集ポケットでのみ発生しており、シミュレーションで見られた失敗傾向と一致しています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "Isaac Sim上でのシム・ツー・シム検証結果。上段がシャドウ環境、中段がテクスチャ環境（光線追跡画像と入力DIFF3Dフレーム）。下段は各環境で30エピソードを飛行した全軌跡です。青線がゴール到達、赤線（×印）が衝突を示しており、テクスチャが激増しても高い走破性を維持しています。",
+     "caption": "Fig. 3 : Simulation evaluation under the shared action interface. Top and middle rows: the two appearance conditions with identical obstacle layouts—the shadow scene (bare surfaces, directional light) and the texture scene (court markings, panels, window bands under diffuse light)—as ray-traced views (left) and simulated $64{\\times}64$ DIFF3D observations (blue ON, red OFF); the texture scene adds background events the shadow scene lacks. Bottom: all 30 evaluation episodes of our policy in each condition (every episode a distinct procedurally generated layout; blue = reached, red $\\times$ = failure, dashed circle = goal), 25/30 and 21/30.",
+     "image": "details/2610.37543/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "実機に用いた56gの超小型ドローンプラットフォーム。Crazyflie 2.1本体（24g）の上に、OpenMV N6ボード（9g）、Prophesee GenX320イベントカメラ（3g）、オドメトリ用のFlow deck（2g）などがぎっしりと組み上げられています。",
+     "caption": "Fig. 4 : The 56 g flight platform. Top: exploded view—Crazyflie 2.1 base (24 g), LiPo battery (9 g), OpenMV N6 board (9 g), Prophesee GenX320 event camera (3 g), printed camera mount (3 g), and flow deck (2 g) for velocity estimation. Bottom: assembled, front and side. The 56 g total includes these components, cables, and a boost converter.",
+     "image": "details/2610.37543/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "実機実験における全飛行軌跡のオーバーヘッド合成図。上から環境1（成功率5/5）、環境2（5/6）、環境3（4/6）です。外部測位や機外PCを一切使わず、機体上のセンサとマイコン推論だけで複雑な障害物を滑らかに回避しています。",
+     "caption": "Fig. 5 : All real flights, overhead composites. Top: environment 1 (poles and boxes), 5/5 reached. Middle: environment 2 (extended course with block towers, plants, and screens), 5/6. Bottom: environment 3 (compact arena with tight passages), 4/6; crashes marked. All flights fully onboard—GenX320 events, int8 policy on the N6, flow-based velocity—with no external processing or positioning.",
+     "image": "details/2610.37543/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "フォトメトリを捨てて本質を掴む：軽量ロボティクスへの新たな指針",
+   "summary_ja": "画像描画を省く解析的シミュレータにより、イベントカメラを用いた強化学習のボトルネックを解消しました。センサ出力の本質的な統計量に合わせるアプローチは、計算リソースの極めて厳しい超小型ロボット開発に新たな道を拓きます。",
+   "details_ja": "本研究は、イベントカメラを用いたロボットナビゲーションにおいて「レンダリングを行わない」という新しいアプローチを提示しました。シーンの幾何形状と自己運動から直接イベントを合成する解析的シミュレータによって、1GPU・34分という短時間で実用的なポリシーの学習を可能にしました。学習された単一のネットワークは、物理シミュレータや実世界のドローン実機へゼロショットで転移し、56gという極小ハードウェアの上で自律飛行を完結させています。\n\n本研究が示した重要な教訓は、「シミュレーションの計算コストの大部分が画像描画（フォトメトリ）にあるセンサの場合、出力統計量をうまく合わせた解析モデルで代替できる」ということです。今回は一定高度での平面的な障害物回避を対象としましたが、今後は3次元空間全体でのアクロバティックな姿勢制御、より高速な制御ループ、そして動的に動く障害物の回避へと拡張していくことが期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "イベントカメラの本質は「動くエッジ」であり、CGレンダリングを介さず幾何計算だけでモデル化しても、実機で通用する強化学習ポリシーを十分に育てられる。",
+  "シミュレーション速度を1ステップ $17\\,\\mu\\text{s}$ まで極限短縮することで、数日〜数週間かかっていた閉ループ強化学習が約30分で完了する。",
+  "1.2MBのint8軽量モデルとイベントカメラの組み合わせにより、重量56g・消費電力1W前後のマイコン環境でも、外部依存ゼロの完全オンボード自律ナビゲーションが可能になる。"
+ ],
+ "limitations_ja": [
+  "解析プロキシはエッジのみをモデル化しているため、実環境で壁面や床面に微細なテクスチャが密集している場合、イベント密度が跳ね上がって性能が低下（83%→70%）する傾向がある。",
+  "高度を一定に保つ2次元平面的な速度制御に限定されており、ロールやピッチを伴うアグレッシブな3次元機動や動的障害物への対応は今後の課題である。",
+  "マイコンの推論とフレーム組み立ての制約により制御周期が13.3Hzにとどまっており、イベントカメラ本来のマイクロ秒級の超高速応答性を完全には引き出しきれていない。"
+ ],
+ "keywords": [
+  "Event Camera",
+  "Reinforcement Learning",
+  "Nano-Drone Navigation",
+  "Simulation-to-Real Transfer",
+  "Microcontroller Inference"
+ ],
+ "id": "2610.37543",
+ "title": "Rendering-Free Event Frame Simulation for Fast Reinforcement Learning of Autonomous Robot Navigation",
+ "authors": [
+  "Dequan Ou",
+  "Austin Lopez",
+  "Quentin Missinne",
+  "Christophe De Wagter",
+  "Guido C. H. E. de Croon"
+ ],
+ "date": "2026-10-28",
+ "group": "general",
+ "tags": [
+  "simulation",
+  "navigation",
+  "drone",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.37543",
+ "pdf_url": "https://arxiv.org/pdf/2610.37543",
+ "summary_ja": "超小型ドローン等の機敏な移動に適したイベントカメラのための、レンダリングを介さない解析的シミュレータを提案した。フォトリアリスティック描画を介してイベントに変換する従来法と異なり、三次元幾何と自己運動から直接コントラストエッジの変位を合成。GPU上で1フレームあたり17マイクロ秒（従来比400倍以上高速）でイベント観測を生成し、大規模強化学習による自律衝突回避ナビゲーションの学習を劇的に加速させた。",
+ "generated": "2026-10-28",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.37543"
+}
