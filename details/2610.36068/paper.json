@@ -1,0 +1,173 @@
+{
+ "title_ja": "Rollback: 方策改善のためのワールドモデル内経験バックトラッキング",
+ "tldr_ja": "実機では不可能な「過去の分岐点に巻き戻して別の手を試す（反事実探索）」をビデオワールドモデル上で実現し、追加の価値関数なしに行動レベルの密な学習信号を抽出してポリシーを大幅に強化する新手法です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "実世界RL（a）の高コストと、従来のワールドモデルRL（b）が無駄な順方向ロールアウトに計算を費やしてしまう課題に対し、提案手法Rollback（c）は過去の意思決定点へ巻き戻して分岐探索を行うことで、高効率な探索と密な行動評価を実現します。",
+  "caption": "Figure 1: From real-world interaction to learning in world models. (a) Real-world RL incurs costly physical interaction. (b) Forward-rollout world-model RL spends much of its interaction budget on less informative exploration. (c) Our proposed Rollback enables high-value exploration and dense supervision through experience-backtracking tree search, while real-world feedback refines the world model.",
+  "image": "details/2610.36068/F1.jpg"
+ },
+ "overview_ja": "ロボット学習において、行動条件付きワールドモデル（シミュレータ）を用いた強化学習が注目されています。しかし従来の研究は、実環境の代わりとしてワールドモデル内で「最初から最後まで行動を順方向に試す」という、実機実験と全く同じ手順を踏んでいました。これでは、結果を左右する重要な場面以外のどうでもよい動作に計算リソースを浪費してしまいます。\n\nそこで著者らは、物理環境では絶対に不可能な「時間を過去の決定点まで巻き戻して、別の行動を取っていたらどうなっていたかを想像する（反事実探索）」というワールドモデルならではの特性に着目しました。これが提案手法「Rollback」です。実機で成功・失敗した軌道から鍵となる場面にタイムトラベルし、そこからモンテカルロ木探索（MCTS）で多様な行動を枝分かれさせて結果を比較します。同じ状況から出た行動同士の成否を直接比べるため、バイアスの原因になりがちな価値関数（Critic）を別途学習することなく、高精度な行動ごとの優劣スコア（アドバンテージ）が得られます。\n\nさらに、実機1台と48基のGPUを非同期につなぎ、実機データでワールドモデルを常時LoRAファインチューニングする「テスト時物理接地（Test-time Physics Grounding）」を導入しました。これによりシミュレータの妄想（ハルシネーション）を防ぎます。ジェンガのブロック引き抜き、ボール投げ、卓上カーリングの難関3タスクで検証したところ、最強ベースラインを成功率で約11%上回り、投擲やカーリングではわずか8時間の学習で人間の平均プレイヤースコアをも凌駕することを実証しました。",
+ "contributions_ja": [
+  "ワールドモデルの潜在コンテキストを復元し、過去の意思決定点から反事実的な未来を分岐探索する新パラダイム「Rollback」を提案したこと",
+  "同じ分岐点から出た兄弟ノード同士の成否を比較することで、別途価値モデルを学習することなく行動単位の精密な相対評価ラベル（アドバンテージ）を抽出する木構造価値推定法を開発したこと",
+  "実機の実行、分散ワールドモデル探索、ポリシー学習、モデル適応を完全に非同期で並行稼働させ、実機データでモデルの物理法則を逐次補正する「テスト時物理接地」システムを構築したこと",
+  "接触リッチな実機3タスクにおいて、最強の従来手法を10〜12%上回る大幅な性能向上を達成し、ボール投げとカーリングでは8時間以内に人間の平均成績を超えたこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ実世界と同じように「最初から再生」していてはダメなのか？",
+   "summary_ja": "ワールドモデルを用いた従来のポリシー学習は、実機と同様に軌道を最初から順方向に転がすだけにとどまっていました。これでは重要な分岐点に探索を集中できず、どの行動が勝敗を分けたかのクレジット割り振りが難しくなります。Rollbackは「巻き戻し」によってこの限界を突破します。",
+   "details_ja": "行動条件付きワールドモデルは、実機を壊したり人間が手動リセットしたりするコストを肩代わりしてくれる有望なシミュレータです。しかし、既存のワールドモデル強化学習には大きな盲点がありました。それは「実機と全く同じように、最初から最後まで順方向に再生（フォワードロールアウト）して、途中のコンテキストを捨ててしまっている」という点です。\n\n物理的な実環境では「あの失敗の瞬間に戻って別の手を打つ」ことは不可能です。しかし、ソフトウェアであるワールドモデルなら、保存しておいた過去の内部状態（コンテキスト）をロードして時間を巻き戻す（Rollbackする）ことができます。ここを活かさない手はありません。\n\n従来の順方向ロールアウトには、大きく3つの壁がありました。\n- **無駄な探索の多さ**: 1つのタスクの中で結果を左右するクリティカルな意思決定はごく一部です。最初からやり直す探索では、重要でない動作ばかりを何度も生成して計算資源を浪費してしまいます。\n- **行動レベルの教師信号の希薄さ**: エピソード全体の成否という疎な結果だけでは、「どの瞬間のどの動きが良かったのか」というクレジット割り当て（Credit Assignment）が極めて困難です。これを補うために価値関数（Critic）を学習させると、推定バイアスが入り込んで学習が不安定になります。\n- **ワールドモデルの予測バイアス**: ポリシーが成長すると、ワールドモデルが事前学習で見たことのない未知の状態に突入し、物理法則を無視した予測誤差をポリシーが悪用してしまいます。\n\nRollbackは、実機やデモの軌道から要所の決定点へ巻き戻してモンテカルロ木探索（MCTS）を行い、同じ状況から異なる行動を取った結果を直接比較することで、これらの課題を一挙に解決します。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "実世界RL（a）、従来のフォワード型ワールドモデルRL（b）、そして提案手法Rollback（c）の比較です。Rollbackは重要な決定点へ巻き戻して分岐させ、結果の差から直接学ぶことで効率的な学習を実現します。",
+     "caption": "Figure 1: From real-world interaction to learning in world models. (a) Real-world RL incurs costly physical interaction. (b) Forward-rollout world-model RL spends much of its interaction budget on less informative exploration. (c) Our proposed Rollback enables high-value exploration and dense supervision through experience-backtracking tree search, while real-world feedback refines the world model.",
+     "image": "details/2610.36068/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "実機強化学習、ビデオワールドモデル、木探索の交差点",
+   "summary_ja": "本章では、ロボットポリシー学習、ロボティクス向けワールドモデル、モデルベース強化学習、モンテカルロ木探索（MCTS）の文脈を整理します。Rollbackは、最新の拡散/フローマッチング型ワールドモデルの可逆性を初めて実機ポリシー改善に接続した位置づけになります。",
+   "details_ja": "本研究の立ち位置を理解するために、関連する4つの研究分野との関係を整理しておきましょう。\n\n### ロボットポリシーのインタラクション学習\n大規模な基盤モデル（OpenVLAやπ0など）を実機データで強化学習（RL）する試み（iRe-VLA、VLA-RL、RECAPなど）が盛んです。しかし、実機での試行錯誤はリセットの手間やハードウェア損耗が激しく、スケールさせるのが極めて困難でした。\n\n### ロボティクス向けワールドモデルの台頭\n実機の代わりに動画生成モデルを使うアプローチ（UniSim、IRASim、GE-Simなど）が進展しています。しかし、これまでの多くはポリシーの「オフライン評価」や「順方向の合成データ生成」に使われるにとどまり、シミュレータ自身が持つ「状態の巻き戻し可能性」は放置されていました。\n\n### ワールドモデルを用いたポリシー改善\nWorld-Env、WMPO、RISEなどはワールドモデル内でRLを行いますが、いずれも最初からロールアウトを行う方式です。特にRISEなどは追加のプログレス価値モデルを学習してアドバンテージを推定しますが、価値関数の学習誤差がポリシーを誤った方向へ導くリスクを抱えていました。\n\n### 木探索と実機学習の融合\nAlphaGoやMuZero、Go-Exploreに見られるように、過去の状態に戻って木探索を行う手法は離散ゲームや完全な物理シミュレータで絶大な威力を発揮してきました。Rollbackは、この木探索の思想を「高次元な連続画像と自己受容感覚を予測する動画ワールドモデル」へと拡張した点が決定的に新しい点です。",
+   "figures": []
+  },
+  {
+   "heading": "3 Preliminaries",
+   "heading_ja": "問題設定と「巻き戻せる環境」としてのワールドモデル",
+   "summary_ja": "マルチビューカメラ画像と関節角度を入力とし、行動チャンクを出力するポリシーの定式化を行います。ワールドモデルの内部コンテキストをキャッシュ・復元することで、共通の過去軌道を再生成せずに何度でも分岐できる「経験巻き戻し」の数式的な基礎を定義します。",
+   "details_ja": "### 3.1 問題の定式化\nロボットへの言語指示を $g$、観測を $o_t$ とします。観測 $o_t$ には3視点のマルチビュー画像と、ロボット自身の自己受容感覚（プロプリオセプション：両腕各7軸＋グリッパーの計16次元）が含まれます。\nポリシー $\\pi_\\theta$ は、時間ホライズン $H$ の連続した行動軌道である行動チャンク $\\mathbf{a}_t \\in \\mathbb{R}^{H \\times d_a}$ を出力します。\n\n行動条件付きワールドモデル $\\mathcal{W}_\\phi$ は、現在の時間的コンテキスト $m_t$ と提案された行動チャンク $\\mathbf{a}_t$ を受け取り、次の観測と更新されたコンテキストを出力します：\n$$(\\hat{o}_{t+1}, m_{t+1}) \\sim \\mathcal{W}_\\phi(\\cdot \\mid m_t, \\mathbf{a}_t, g)$$\nここで極めて重要なのは、$\\hat{o}_{t+1}$ が画像だけでなく**ロボット自身の関節角度やグリッパー状態も同時に予測している**点です。これがないと、ポリシーは曖昧な生成画像だけからアームの姿勢を推定しなければならず、精密な接触タスクが破綻してしまいます。ゴールは実エピソードの成功確率 $J(\\pi_\\theta) = \\mathbb{E}[y_\\tau]$ を最小限の実機試行で最大化することです。\n\n### 3.2 巻き戻し可能な環境としてのワールドモデル\n物理環境と異なり、ワールドモデルの内部コンテキスト $m_t$ は明示的なデータ構造としてGPUメモリにキャッシュできます。つまり、ある過去のステップ $t$ のコンテキスト $m_t$ を呼び出せば、そこから全く別の行動 $\\mathbf{a}_t'$ を取った未来を即座に分岐生成できるのです。これを本論文では「経験巻き戻し（Experience Backtracking）」と呼びます。\n\nこの操作には2つの大きな利点があります。\n- 実機で起きた成功・失敗の決定的瞬間から直接想像をスタートできること\n- そこに至るまでの共通プレフィックス（過去の軌道）を再計算する必要がなく、純粋に新しい分岐の長さ分だけの計算コストで済むこと",
+   "figures": []
+  },
+  {
+   "heading": "4 Proposed Rollback",
+   "heading_ja": "Rollbackの全貌：反事実木探索とCritic不要の価値推定",
+   "summary_ja": "Rollbackの3つのコア要素を解説します。(1)MCTSによる重要局面への巻き戻し分岐探索、(2)同一コンテキストの兄弟ノード比較による相対価値（アドバンテージ）の直接ビン化、(3)実機データによるワールドモデルの継続的適応（テスト時物理接地）です。",
+   "details_ja": "Rollbackは、AlphaGoのような「探索して蒸留する（Search-and-Distill）」枠組みを、動画ワールドモデルと実機ロボットの間で回す画期的なフレームワークです。\n\n### 4.1 経験巻き戻し木探索（MCTS）\nベースとなるワールドモデルには「GE-Sim 2.0」を採用しています。実機軌道やデモ軌道からシードを選び、その行動チャンク境界の観測を決定コンテキストとして木構造を構築します。\n\n- **MCTSによる計算資源の集中**: 連続行動空間を扱うため、Progressive Widening（訪問回数に応じて分岐数を制限する手法）を導入したPUCTスコアで枝を選択します。成功率が高い有望な枝を深掘りしつつ、未探索の枝もケアします。\n- **ポリシーによる候補提案**: 行動空間が無限にあるため、現在のポリシー $\\pi_\\theta$ の最上位品質条件（最高ビン $b=K$）から行動チャンクをサンプリングして拡張します。\n- **不一致駆動の絞り込み（Disagreement-Driven Refinement）**: 同じ親ノードから出た兄弟ノード同士の成否が割れた（一方が成功、他方が失敗）分岐こそが最大の学習材料です。暫定結果が割れている親ノードを優先度キューに入れ、十分な訪問回数 $n_{\\mathrm{conf}}$ に達するまで追加ロールアウトを行ってラベルのノイズを低減します。\n\n### 4.2 木構造による相対価値推定（Critic不要！）\n各行動チャンク $\\mathbf{a}_i$ の価値 $\\hat{q}(v, \\mathbf{a}_i)$ は、そのノード以下のサブツリーに含まれる末端リーフの平均成功率として直接計算します。成否の判定には、GE-Sim 2.0の報酬判定モデル（World Judge）を用います。\n\nここが最大の発明ですが、**同じ親コンテキストから分岐した兄弟ノード間で価値を正規化**します：\n$$b_i = \\left\\lceil K \\cdot \\frac{\\hat{q}(v, \\mathbf{a}_i)}{\\max_{u_j} \\hat{q}(v, \\mathbf{a}_j)} \\right\\rceil \\in \\{1, \\ldots, K\\}$$\n最高性能の兄弟を基準に $K$ 段階のビンに離散化することで、タスク全体の難易度に左右されない「その状況下での相対的優劣（アドバンテージ）」が得られます。あとはRECAPの手法に倣い、このビンラベル $b$ を条件プロンプトとしてフローマッチング型ポリシー（$\\pi_{0.5}$）を学習します。推論時は最高ビン $b=K$ を指定し、Classifier-Free Guidance（CFG）を適用して自信のある行動を生成します。\n\n### 4.3 ワールドモデルとポリシーの共進化：テスト時物理接地\nポリシーが上達すると、初期のワールドモデルが経験したことのない領域に足を踏み入れます。モデルが「あり得ない物理現象（ブロックが倒れないなど）」を予測すると、ポリシーはそのバグを突いて不正に高スコアを得てしまいます。\n\nそこで、ポリシーが実機で走って集めた新たな軌道 $\\mathcal{D}_{\\mathrm{real}}$ を使い、LoRAによる教師ありファインチューニング（400ステップ）とDMD（Distribution Matching Distillation、100ステップ）を定期的に実行します。これを著者は「**テスト時物理接地（Test-time Physics Grounding）**」と名付けました。シミュレータ自身が、実際にポリシーが訪れる状態に特化して物理法則をリアルタイム補正していく仕組みです。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "Rollbackの全体構成です。（a）保存された内部状態を復元して共通プレフィックスを再計算せずに分岐するMCTS、（b）同じコンテキスト下の兄弟ノード同士を比較して直接アドバンテージを離散化する木構造価値推定、（c）実機走行データでワールドモデルを継続更新する共進化ループを示しています。",
+     "caption": "Figure 2: Overview of Rollback. (a) Experience-backtracking tree search restores cached world-model contexts to explore informative branches without regenerating shared prefixes. The world model predicts both multi-view observations and the robot’s proprioceptive state. (b) Tree-structured value estimation aggregates downstream outcomes into relative action-quality labels for policy training without an additional value model. (c) World model–policy co-evolution continually incorporates real trajectories to refine the world model through test-time physics grounding (LoRA SFT followed by DMD) while the policy keeps improving.",
+     "image": "details/2610.36068/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Asynchronous Real–Imagination Training System",
+   "heading_ja": "止まらない実機と48基のGPU：完全非同期の分散インフラ",
+   "summary_ja": "重厚なビデオ生成検索と、物理的な制約を受ける実機実験を無駄なく共存させるクラウド・エッジ分散システムを設計しました。実機、探索ワーカー、ポリシー学習器、ワールドモデル適応器が互いの完了を一切待たずに非同期でデータをやり取りします。",
+   "details_ja": "ワールドモデル内の動画生成探索は極めてGPUヘビーですが、実機ロボットは物理的な時間の制約を受け、台数も限られます。これらを同期実行（データを集めてから探索し、学習が終わるまで待つ）させると、リソースの大部分がアイドル状態になってしまいます。\n\nそこでRollbackでは、クラウドとエッジを疎結合にした完全非同期システムを開発しました。\n\n### 5.1 クラウド・エッジ・デバイスの3層構造\n- **クラウド（48基のNVIDIA H200 GPU）**:\n  - **分散探索プール（40 GPU）**: 各ワーカーがポリシー、ワールドモデル、コンテキストキャッシュを保持します。ワーカー単体で探索木を完結させるため、探索中の巨大な中間テンソルをネットワーク転送する必要がありません。\n  - **共進化学習器（8 GPU）**: ポリシー学習器（DDP）とワールドモデル適応器（LoRA SFT + DMD）がそれぞれ独立に稼働します。\n  - **Experience Fabric**: 実機軌道と木探索から得られた教師データを別々のストリームで蓄積・供給する共有データハブです。\n- **エッジサイトとデバイス**: ロボットの傍らに推論専用ランタイムを置き、クラウドを制御ループから完全に切り離しています。実機エピソードが終わるごとに軌道データをクラウドへアップロードし、バックグラウンドで最新の重みを受け取ります。\n\n### 5.2 コンテキストのローカル再利用とバージョン固定\n探索ワーカーは、割り当てられた木の全ノードのコンテキストをローカルGPUメモリに保持します。これにより、過去の決定点に戻るコストがゼロになります。\nまた、木探索の実行中は**開始時点のポリシーとワールドモデルのバージョンに固定（Version Pinning）**されます。探索の途中でモデルが更新されると兄弟ノード間の比較が破綻するためです。木が完了すると、抽出された教師信号だけが即座にExperience Fabricへ送られます。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "クラウド・エッジ・デバイスに分かれた分散学習インフラです。重い木探索（40 GPU）とモデル訓練（8 GPU）はクラウドで非同期に走り、エッジのロボットは待機時間なしに実機データを収集し続けます。",
+     "caption": "Figure 3: Rollback training infrastructure. The cloud runs tree search on GPU workers, stores real trajectories and tree supervision in the Experience Fabric, and trains the policy and the world model in parallel. Edge sites run policy inference for their robots, buffer trajectories for upload, and cache policy snapshots. Robots send observations to their edge site and execute the returned actions. Policy snapshots are sent to search workers and edge sites; world-model snapshots are sent only to search workers.",
+     "image": "details/2610.36068/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Experiments",
+   "heading_ja": "実機検証：最強ベースラインを圧倒し、8時間で人間超えへ",
+   "summary_ja": "AGIBOT Genie-02実機を用い、ブロック引き抜き、ボール投げ、卓上カーリングの3タスクで評価しました。最強ベースラインであるRISEに対して成功率で絶対値10〜12%の差をつけ、投擲とカーリングでは8時間以内に人間の平均成績を突破しました。",
+   "details_ja": "### 6.1 実験設定\nヒューマノイド型双腕ロボット「AGIBOT Genie-02」を使用し、高難易度な3つのタスクで評価を行いました。\n1. **Block Extraction（ジェンガ抜き）**: タワーを崩さずに指定された木製ブロックを水平に引き抜く（精密な接触と安定性）。\n2. **Ball Tossing（ボール投げ）**: カゴを狙ってボールを投擲する（投擲動作の速度制御と手放すリリースタイミング）。\n3. **Tabletop Curling（卓上カーリング）**: 人間とロボットが2投ずつストーンを滑らせ、中心への近さを競う対戦ゲーム（戦略的配置と力加減）。\n\n比較対象は、模倣学習（SFT）、実機強化学習（RECAP）、そして本手法と同じワールドモデルGE-Sim 2.0上で順方向ロールアウトを行う最新手法「RISE w/ GE-Sim2」です。ハードウェア資源と学習時間（約8時間）は公平に揃えています。\n\n### 6.2 メイン結果：他手法を圧倒する成功率\n実験結果（Table 1）は極めて明快でした。\n- **Block Extraction**: Rollbackは **69.33%** を達成（RISEの58.67%に対し **+10.67%**、RECAPに対し+12.00%）。\n- **Ball Tossing**: Rollbackは **40.00%** を達成（RISEの28.89%に対し **+11.11%**、RECAPに対し+14.44%）。\n- **Tabletop Curling**: Rollbackは **64.44%** を達成（RISEの52.59%に対し **+11.85%**、RECAPに対し+13.33%）。\n\n同じワールドモデルを使っていながら、順方向探索のRISEに対して平均で相対24.0%もの性能向上を叩き出しました。特に一瞬のリリース判断が勝敗を決めるボール投げでは、RISEに対して相対38.5%増という驚異的な伸びを示しています。\n\n### 6.3 アブレーション研究：何が効いているのか？\nジェンガタスクでの内訳分析（Table 2）により、各コンポーネントの必然性が証明されました。\n- **ワールドモデル固定（接地なし）**: 連続引き抜き成功数が2.60個から1.90個へ激減。物理誤差が蓄積し、実機で破綻しました。\n- **直接報酬学習（部分木の平均ではなく単一ロールアウトの成否で学習）**: 成功率が59.33%まで低下。探索木の集約によるノイズ低減が不可欠であることが分かります。\n\n### 6.4 人間プレイヤースコアとの比較\n人間3名の直接手動プレイおよび遠隔操作（テレオペレーション）と比較したところ驚くべき結果が得られました。遠隔操作データは人間プレイより遥かに低いレベル（投擲16.53%、カーリング38.94%）でしたが、Rollbackはこの稚拙なデモからスタートしたにもかかわらず、わずか8時間の学習で人間の平均手動成績（投擲31.48%に対し40.00%、カーリング58.39%に対し64.44%）を明確に追い抜きました。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "卓上カーリングでの経験巻き戻し探索の可視化です。（a）実機軌道（青破線）の要所（ステップ200など）から巻き戻して別の投擲をシミュレーションし、（b, c）同じ状況から「ハウスに届いた成功例」と「手前で止まった失敗例」を対比させています。",
+     "caption": "Figure 7: Experience-backtracking search on Tabletop Curling. (a) Search tree. The blue dashed path is a real attempt and colored paths are imagined continuations; edges are green, red, or purple when the continuations below all succeed, all fail, or are mixed. Purple rings mark branch points at intermediate decisions, each followed by successful and failed continuations. (b) Two world-model continuations from a branch point inside imagination; (c) the real attempt and a world-model alternative from a rollback point. Each panel shows stone tracks overlaid on the frame at the branch (left) and time-aligned frames (right). …",
+     "image": "details/2610.36068/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "テスト時物理接地の効果です。（a）共進化なしの固定モデル（中段）はストーンが勝手にワープするハルシネーションを起こしますが、実機適応したモデル（下段）は実機（上段）通り正確に滑りを再現します。（b）RGB予測誤差も一貫して大幅に抑制されています。",
+     "caption": "Figure 8: World-model fidelity with and without co-evolution on Tabletop Curling. (a) Open-loop predictions of the frozen world model (before co-evolution) and the co-evolved world model under the recorded actions of one validation episode, with the real recording on top. Each cell shows the head camera cropped to the sheet; insets magnify the house, and red boxes mark hallucinated stones. Steps are control steps at 30 Hz. (b) RGB L1 error over control steps, averaged over the 64 validation episodes, with 95% confidence intervals shaded.",
+     "image": "details/2610.36068/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "7 Conclusion",
+   "heading_ja": "まとめ：ワールドモデルを「反事実マシン」へと進化させる",
+   "summary_ja": "Rollbackは、ワールドモデルを単なる前進シミュレータから、過去の決定を問い直す反事実エンジンへと転換させました。実機フィードバックによる物理接地と木探索の組み合わせは、次世代ロボット学習の標準的なパラダイムになる可能性を秘めています。",
+   "details_ja": "本研究では、ワールドモデル内の「経験巻き戻し」を活用した新しいポリシー改善パラダイム「Rollback」を提案しました。\n\n過去の重要な意思決定点へと立ち戻り、同一のコンテキストから枝分かれした代替行動の下流結果を集約・比較することで、別途価値関数を学習することなく、高密度で信頼性の高い行動レベルの教師信号を抽出することに成功しました。また、分散木探索と実機実行を非同期に結びつけ、ポリシーが実際に訪れる状態のダイナミクスを実機データで絶えず補正する「テスト時物理接地」を導入することで、シミュレーションの妄想に起因するポリシーの破綻を克服しました。\n\n実機の双腕ロボットによる3つの過酷な接触・投擲・対戦タスクにおいて、Rollbackは既存の模倣学習やワールドモデルRLを大きく引き離す成果を示し、わずか8時間の学習で人間の平均成績を超える熟練動作を獲得できることを証明しました。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：実装の詳細、失敗分析、および定性評価",
+   "summary_ja": "付録では、30Hz制御インターフェースや実時間チャンキングの詳細、MCTSのアルゴリズム実装、ボール投げにおける4つの典型的な失敗モード、そして生成動画の定性的な挙動について詳述されています。",
+   "details_ja": "### 制御とタスクの詳細設定\nポリシーは頭部および両手首カメラの計3視点（$384 \\times 512$）とアームの自己受容感覚を受け取り、30Hzで動作します。推論時は50ステップの行動チャンクを予測し、6ステップの遅延と32ステップの再計画ストライドを持つリアルタイムチャンキング（RTC）で滑らかに実行されます。\n\n### 典型的な失敗モードの分析\nボール投げタスクにおける実機失敗ログを分析したところ（Figure 15）、以下の4つの要因に分類されました。\n- **飛距離不足（Short）** および **飛びすぎ（Overshoot）**: リリース速度の誤差\n- **リムでの跳ね返り（Rim bounce）**: リリース角度のわずかなズレ\n- **リリース失敗（Failed release）**: グリッパーの開き遅れ\nこれらはすべて「投擲のリリースの瞬間」という極めて短い時間窓の1つの行動チャンクによって結果が決まるため、まさにRollbackのような同一コンテキストからの巻き戻し比較が劇的な威力を発揮した理由を裏付けています。\n\n### 定性的な探索の様子\nFigure 10に見られるように、全く同一の過去コンテキストから提案された4つの兄弟ブランチは、それぞれ異なる美しい放物線を描いており、ポリシーの探索が多様な反事実の未来を捉えられていることが確認できます。",
+   "figures": [
+    {
+     "key": "F10",
+     "caption_ja": "ボール投げタスクにおける同一コンテキストからの4つの兄弟ブランチの比較です。同一の過去履歴から分岐したにもかかわらず、異なる行動チャンクによって多様なボールの飛行軌道とカゴ周辺の挙動がシミュレーションされています。",
+     "caption": "Figure 10: Sibling continuations on Ball Tossing. Left: ball trajectories of four sibling branches expanded from the same context. Right: close-ups around the bucket for each branch.",
+     "image": "details/2610.36068/F10.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "ワールドモデル最大の強みは「実機では不可能な過去への巻き戻し（反事実探索）」にあり、同一コンテキストからの分岐比較を使えばCriticなしで精密なアドバンテージが得られる",
+  "ポリシーが賢くなるとシミュレータ未経験の領域を踏むため、実機データでモデルを継続的に微調整する「テスト時物理接地」が不可欠である",
+  "クラウド（40GPU探索＋8GPU学習）とエッジ実機を完全非同期で回すことで、物理ロボットの待ち時間をゼロにした高効率な共進化ループが組める",
+  "粗雑なテレオペデモ（人間の半分以下の成功率）から始めても、ワールドモデル内の自己対話と探索によって短時間で人間の腕前を追い越せる"
+ ],
+ "limitations_ja": [
+  "タスク完了を判定するための高精度な報酬モデル（World Judge）をタスクごとに個別に学習・調整する必要がある点",
+  "長時間の接触を伴うタスクでは依然としてワールドモデルの予測誤差がステップ数に応じて累積していく点",
+  "現時点では単一のタスクかつ1台の実機ロボットによる検証にとどまっており、マルチタスク基盤モデルへの拡張や複数ロボットでの大規模実証は今後の課題である点"
+ ],
+ "keywords": [
+  "World Models",
+  "Experience Backtracking",
+  "Counterfactual Search",
+  "Robot Policy Improvement",
+  "Test-Time Physics Grounding"
+ ],
+ "id": "2610.36068",
+ "title": "Rollback: Experience Backtracking in World Models for Policy Improvement",
+ "authors": [
+  "Jiayi Luo",
+  "Yang Zhang",
+  "Liliang Chen",
+  "Nan Wang",
+  "Chen Gao",
+  "Boxiang Qiu",
+  "Zhuoxuan Li",
+  "Baorui Peng",
+  "Chuankang Li",
+  "Yuxiang Yan",
+  "Si Liu",
+  "Qingyun Sun",
+  "Shuicheng Yan",
+  "Maoqing Yao",
+  "Jianxin Li",
+  "Guanghui Ren"
+ ],
+ "date": "2026-10-28",
+ "group": "general",
+ "tags": [
+  "world-model",
+  "reinforcement-learning",
+  "planning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.36068",
+ "pdf_url": "https://arxiv.org/pdf/2610.36068",
+ "summary_ja": "ロボット方策学習においてワールドモデルを「反事実エンジン」として活用する新手法Rollbackを提案した。環境を前方にのみシミュレートする従来手法と異なり、過去の重要な決定ポイントまで状態を巻き戻し、異なる行動への分岐と結果の比較を行う。成功要因を個別の決定に正確に帰属させることで、試行錯誤の想像を高価値な分岐点に集中させ、物理実機や従来のモデルベースRLよりも効率的な方策改善を実現した。",
+ "generated": "2026-10-28",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.36068"
+}
