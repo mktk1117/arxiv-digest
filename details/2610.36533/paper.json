@@ -1,0 +1,141 @@
+{
+ "title_ja": "RoboAuto: 多層的物理理解を通じた自律的ロボットプログラム探索",
+ "tldr_ja": "LLMエージェントがロボットの制御コードを自律探索する際に、物体中心の物理知識、視覚による現場グラウンディング、仮説検証型実験を組み合わせることで、複雑な長手数タスクや未知環境でも高精度な動作生成を実現した研究です。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "RoboAutoの全体フレームワークです。左側の階層的ナレッジベースが物体ごとのアフォーダンスや空間関係を保持し、中央のシーン・グラウンディングが現在の画像から幾何量を測定してコードに結びつけます。右側の探索・検証モジュールが多段階の計画と能動的な実験を行い、得られた知見を知識ベースへフィードバックします。",
+  "caption": "Figure 2 : Overview of RoboAuto. The Hierarchical Knowledge Base (left) stores object-centric physical knowledge, comprising affordances, spatial relations, and action effects, together with executable skills. Physical Scene Grounding (middle) binds the entries relevant to a task to quantities measured in the current scene. Search and Exploration (right) plans the task as stages that end in verified state changes and designs experiments that separate competing physical hypotheses. Interaction evidence updates the knowledge, and verified programs return to the knowledge base as new skills. …",
+  "image": "details/2610.36533/F2.jpg"
+ },
+ "overview_ja": "大規模言語モデル（LLM）を使ってロボットの動作プログラムを自動生成・修正する「Code-as-Policy」が注目されています。しかし、これまでの自律エージェントはプログラムを実行してエラーが出たら直すという試行錯誤を繰り返すだけで、「なぜ失敗したのか」「この物体はどう触るべきか」という物理的な理由を理解していませんでした。その結果、本を上から無理につかもうとして倒し続けたり、別サイズのコップの数値をそのまま使い回して空振りを繰り返したりしていました。\n\nそこで著者らは、ロボットが物理現象を多角的に理解しながらプログラムを探索するフレームワーク「RoboAuto」を提案しました。核となるのは3つの要素です。1つ目は、動画データや過去の経験から「物体の扱い方（アフォーダンス）」「空間関係」「動作の効果」を蓄積した階層的ナレッジベースです。2つ目は、Molmo2やSAM 3などの視覚基盤モデルを使って現在の作業環境から把持位置や寸法などの数値を測り取るシーン・グラウンディングです。そして3つ目は、タスクを物理的な状態変化ごとに段階分けして確認しつつ、失敗原因が曖昧なときには専用の検証プログラムを走らせて能動的に謎を解明する仮説検証型の探索機構です。\n\n評価実験では、LIBEROベンチマークの長手数タスクにおいて先行研究ASPIREの2倍以上となる73.4%の成功率を記録しました。さらに、ロボットの構造もシミュレータも異なる環境や、実機のWidowXアームによる精密な片付け・拭き掃除タスクでも抜群の性能を発揮し、物理理解に基づくプログラム探索の有効性を実証しました。",
+ "contributions_ja": [
+  "既存のCode-as-Policy手法における「物理知識の欠如」「現場への未接地」「中間検証の不足」「能動的探索の欠如」という根本的課題を特定しました。",
+  "物体中心の抽象的な物理知識と実行可能なスキルを分離して保持し、相互に拡充する「階層的ナレッジベース」を提案しました。",
+  "視覚モデルを駆使して現場の幾何量を測定するグラウンディングと、中間結果の検証および自律的な仮説検証実験を組み合わせた探索フレームワーク「RoboAuto」を構築しました。",
+  "5つのベンチマークおよび実機ロボット環境において、先行するコード探索エージェントやVLA基盤モデルを大幅に上回る性能と、シミュレータ・ロボット構造を跨ぐ知識の転移性を示しました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "コード生成エージェントが直面する「物理の壁」を突破する",
+   "summary_ja": "LLMによるコード生成でロボットを動かす手法は発展していますが、物理的な因果関係や物体の性質を理解していないため無駄な試行錯誤に陥りがちでした。RoboAutoは、物体・シーン・相互作用の各レベルで物理を正しく捉えることで、この壁を打ち破ります。",
+   "details_ja": "近年、LLMを用いた自律コーディングエージェントが、コードの生成・実行・修正のループを通じて問題を解決する枠組みが広がっています。ロボティクス分野でも、動作をプログラムとして記述する「Code-as-Policy」が研究されてきました。しかし、既存手法の多くは実行結果のエラーや成否判定だけを頼りにコードを書き直すため、物理的な本質を見落としがちでした。\n\n筆者らがベースライン手法を観察したところ、典型的な3つの失敗パターンが見つかりました。1つ目は「不適切な接触戦略への固執」です。例えば、立てて置かれた本を上からつかもうとして何度も倒してしまいます。コードをいくら手直ししても、そもそも「本は横から挟むべき」という物体の物理特性（アフォーダンス）を知らなければ成功しません。2つ目は「幾何的数値の不用意な流用」です。あるマグカップで成功した把持の高さを別のマグカップにそのまま当てはめた結果、空中で指を閉じてしまいます。3つ目は「中間状態の未確認」です。コンロのツマミを回すのに失敗しているにもかかわらず、火がついたかを確認せずにフライパンを乗せてしまいます。さらに、ツマミが回らなかったときに「何度回せばいいのか」という疑問を解く能動的な実験手段もありませんでした。\n\nRoboAutoは、これらを解決するために開発されました。物体中心の知識と実行スキルを分けたナレッジベース、現場の幾何量を測るシーン・グラウンディング、各段階の効果を検証しつつ仮説を実験で確かめる探索機構を統合しています。これにより、ベンチマーク全体で従来手法を圧倒する成功率を達成しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "ベースライン手法に見られる物理理解の不足例です。(a) 本のアフォーダンスを理解せず上からつかもうとして失敗し続ける様子、(b) 別のカップで使った把持高さをそのまま流用して空振りする様子、(c) コンロの点火を確認しないままフライパンを置く様子を示しています。",
+     "caption": "Figure 3 : Unresolved physical assumptions in our baseline runs. In the illustrated ASPIRE and CaP-Agent0 runs, (a) an unsuitable contact strategy persists, (b) a grasp-height rule is transferred without grounding its geometric applicability, and (c) pan placement proceeds without verifying stove activation. The panels show the attempts, outcomes, and retained program choices; Appendix D provides the detailed case studies.",
+     "image": "details/2610.36533/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "基盤モデルや自己改善エージェントの系譜と本研究の立ち位置",
+   "summary_ja": "ロボット学習はVLAなどの端緒からCode-as-Policyへと広がりを見せています。本研究は、パラメータ更新や単純なスキル蓄積にとどまらず、「物理的理解そのものを蓄積・再利用する」という新しいパラダイムを提示します。",
+   "details_ja": "本研究の関連領域は、大きく3つに分類されます。\n\n### ロボット基盤モデル\nDiffusion Policyや、大規模な視覚言語行動（VLA）モデル（OpenVLAや$\\pi_{0.5}$など）、さらには未来の観測を予測する世界モデル（World-Action Models）が急速に発展しています。これらは膨大なデータから直接方策を学習するアプローチですが、RoboAutoはこれらとは異なり、明示的なロボットプログラムを自律的に探索・改善するアプローチをとります。プログラムとして表現することで、動作の修正や検証が人間にも扱いやすく、説明性が高いという利点があります。\n\n### Code-as-Policyと自律的自己改善\n動作を言語モデルにプログラムとして書かせるCode-as-Policyや、実行履歴からスキルライブラリを拡充するASPIRE、反復的に方策リポジトリを改善するRHOなどが提案されてきました。しかし、これらはプロンプトやプログラムコードそのものを蓄積・洗練することに重きを置いていました。RoboAutoはコードだけでなく、「物理的なアフォーダンスや空間関係の知識」を独立した基盤として保持し、継続的にアップデートしていく点で一線を画しています。\n\n### 物理知識とシーン・グラウンディング\nナレッジベースを用いたロボティクスや、3Dシーンの幾何学的制約を取り出す研究も進んでいます。RoboAutoは、タスクに必要な幾何量を選択的に測定するグラウンディング機構と、能動的な実験による知識の更新ループを組み合わせることで、静的な知識の利用を超えた柔軟性を実現しています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "物理を理解し、測り、実験する：RoboAutoの3大コア技術",
+   "summary_ja": "RoboAutoは、「階層的ナレッジベース」「物理シーン・グラウンディング」「探索と能動的実験」の3要素で構成されます。知識を抽象度別に整理し、現場で計測して具体化し、段階ごとの検証と実験で確実なコードを見つけ出します。",
+   "details_ja": "RoboAutoのアーキテクチャは、ロボットが直面する物理的な不確実性を段階的に解消するように設計されています。\n\n### 3.1 階層的ナレッジベース\n知識を2つの抽象度に分離して管理します。\n- **物体中心の物理知識（高レベル）**：タスクや個別のプログラムに依存しない知識です。「薄い板状の物体は側面から挟む」「コンロのツマミを回すと火がつく」といったアフォーダンス、空間関係、アクション効果を記述します。ここには制御コマンドや具体的な数値は書かれておらず、「測定すべき幾何量（開口幅やリムの半径など）」の手順だけが定義されています。\n- **実行可能スキル（低レベル）**：検証済みのプログラムコードそのものです。APIの呼び出し方などが含まれ、過去の成功コードを部品として再利用できます。\n\n### 3.2 物理シーン・グラウンディング\n高レベルの知識を目の前の現場に適用するプロセスです。指示文とカメラ画像からタスク対象を特定し、Molmo2（指示位置の特定）やSAM 3（領域分割）、深度カメラを用いて、把持位置、物体の寸法、姿勢などを実測します。もし初期のカメラ視野からでは情報が足りない場合、ロボットのアームを動かして見やすい位置から撮り直す「能動的視点選択」も行います。これにより、抽象的な知識に必要なパラメータが埋め込まれます。\n\n### 3.3 探索と実験（Search and Exploration）\nタスクを「物理的な状態変化」を基準にした複数のステージに分解して探索します。\n- **多段階計画とグラウンディング検証**：ステージごとに候補プログラムと実行可能な検証コード（Verifier）を生成します。あるステージが成功したと検証されるまで次のステージには進みません。これにより、前の失敗を引きずって無駄なコード修正を繰り返すことを防ぎます。さらに、検証コード自体の誤認を防ぐため、動画とログから独立して成否を判定する「監査役（Auditor）」LLMも組み込まれています。\n- **自律設計された実験**：実行が失敗した際、原因が物理的な不確実性（例：「把持位置が悪かったのか、アームの可動域限界なのか」）にある場合、エージェントはタスク全体をやり直すのではなく、原因を切り分けるための小さなテストコードを独自に作成して実行します。得られた結果は即座にナレッジベースに反映されます。",
+   "figures": [
+    {
+     "key": "F13",
+     "caption_ja": "探索と実験のフローです。Coderがタスクを段階分割して検証コードとともに実行し(1-2)、失敗時はAuditorが動画から厳密に判定します(3)。失敗ステージが特定されたら(4)、原因を突き止めるための単独実験(Experiment)を自律的に設計・実行し、確信を得てからコードの修正に進みます(5)。",
+     "caption": "Figure 13 : Search and Exploration. The coder decomposes the task into stages with intended object states and executable verifiers (1), and the environment executes these stages sequentially (2). When an execution fails, an independent auditor evaluates the stage outcomes from synchronized videos and may reject a state that the program verifier accepted (3). The earliest incomplete stage is returned to the coder (4), which revises the stage or replans the task before executing the next candidate program (5). If the cause remains uncertain, the coder branches into a separately implemented experiment that collects targeted physical evidence before revision continues. …",
+     "image": "details/2610.36533/F13.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "5大ベンチマークと実機で実証された圧倒的な汎化性能",
+   "summary_ja": "シミュレーション5環境と実機WidowXアームで性能を検証しました。長手数タスクでASPIREの2倍以上の成功率を達成したほか、異なるシミュレータやロボット構造への知識転移、知識量に応じたスケーリング性能も確認されました。",
+   "details_ja": "評価は、プログラムの頑健性、長手数操作、接触リッチな制御、未知ロボットへの転移性を網羅する形で行われました。\n\n### 主要なベンチマーク結果\n- **LIBERO-PRO Long（長手数タスク）**：RoboAutoは平均成功率73.4%を記録し、最強のコード探索ベースラインであるASPIRE（30.8%）を2倍以上引き離しました。段階的な検証により、序盤の失敗を後段に波及させない仕組みが効いています。\n- **LIBERO-Plus（視点・配置変動）**：カメラ位置やレイアウトが大きく変化する環境で、ASPIREが44.7%にとどまる中、RoboAutoは90.3%と極めて高い頑健性を示しました。現場グラウンディングによる動的な数値測定の賜物です。\n- **Robosuite（接触リッチなタスク）**：ナットの組み立てなど精密な接触が要求されるタスクにおいて、既存ベースラインが10%未満に低迷する中、RoboAutoは74%を記録（全体平均90.6% vs ASPIRE 81.0%）。LIBEROのデータから構築された知識が、全く異なるタスクでも活用できることを証明しました。\n\n### アブレーションと転移性の検証\n- **コンポーネント分析**：基本ループ単体では成功率5.2%でしたが、探索・実験の導入で19.2%、知識ベース追加で38.4%、そして現場グラウンディングを加えることで一気に91.2%まで跳ね上がりました。知識を正しく測って接地することが決定的に重要です。\n- **クロスエクスボディメント転移（RoboTwin 2.0）**：MuJoCo環境の単腕ロボット（LIBERO）で得た知識を、SAPIEN/PhysX環境の双腕ロボットにそのまま適用しました。知識ベースなしの探索では24.5%しか解けなかったのに対し、RoboAutoの知識を適用した場合は91.5%と驚異的な成功率を達成しました。\n- **知識のスケーリング**：利用可能な知識ベースの項目数を0%、50%、100%と増やすにつれて、探索効率と最終成功率が明確に向上することを確認しました。\n\n### 実機ロボットでの検証\nWidowX AIアームを用い、ボールの仕分け、食器の積み重ね、ホワイトボードの文字消しという3つの長手数・高精度タスクで検証しました。RoboAutoはシミュレーションで得た知識ベースをそのまま使い、全タスクでほぼ完璧なステージ達成スコアを記録しました。一方で、ASPIREは途中で停止し、DROIDでファインチューニングされたVLA基盤モデル$\\pi_{0.5}$はタスクを完遂できませんでした。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "実機WidowXアームによる3つの長手数タスクの実行風景です。上段が滑りやすいピンポン球の仕分け、中段が皿とカップのスタッキング、下段が文字の拭き取りとイレーザーの返却です。各段階が検証されながら確実に進行していることが分かります。",
+     "caption": "Figure 8 : Real-robot rollouts. RoboAuto programs on a WidowX AI arm for three tasks. Each row shows four chronological scene-camera keyframes.",
+     "image": "details/2610.36533/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "物理知識とプログラム探索の融合が拓く自律ロボットの未来",
+   "summary_ja": "RoboAutoは、物理的理解を階層化・接地・実験可能にすることで、ロボットコード探索の精度と効率を大幅に引き上げました。実世界での自律リセットなど運用上の課題は残るものの、自己改善型ロボットの新たなマイルストーンとなる成果です。",
+   "details_ja": "RoboAutoは、LLMエージェントによるロボットプログラム探索に「多層的な物理理解」を明示的に組み込むことで、これまでのCode-as-Policyが抱えていた盲点を克服しました。シミュレーションと実機の双方で示された圧倒的な結果は、転移可能な抽象的物理知識と、現場に即した実行可能プログラムが相補的な関係にあることを如実に物語っています。\n\n一方で、論文では現在の制限事項についても率直に言及されています。最大の限界は、プログラムの自律探索がシミュレーション環境内に限定されている点です。実機ロボットで探索を行う際には、試行ごとの物体の初期化（リセット）や安全監視を人間のオペレーターに頼っています。今後、環境の自動リセット機構や安全ガードレールが統合されれば、実世界でも完全に自律した自己進化ループが実現すると期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：失敗を回避するプロセスの詳細と知識ベースの設計",
+   "summary_ja": "付録では、各モジュールがどのように振る舞いを変えるのかを示すケーススタディや、知識ベースから個別タスクの依存性を排除する具体的な設計指針が詳述されています。",
+   "details_ja": "付録では、RoboAutoの挙動に関する深い分析と実装の詳細が報告されています。\n\n### コンポーネント追加による振る舞いの変化\nコンロに火をつけてフライパンを置く長手数タスクにおいて、各コンポーネントがどのように探索を効率化するかが比較されています。基本ループでは、失敗した理由が分からず毎回300行以上のコード全体を無作為に書き換えていました。これに対し、探索モジュールが加わることで「ツマミを回すステージ」と「フライパンを置くステージ」が切り分けられ、直すべき箇所が局所化されます。さらに知識ベースが加わると、ツマミのつまみ方や取っ手の握り方が最初から適切なものになり、最後にグラウンディングが加わることでツマミの高さやフライパンの正確な寸法が計測され、わずか36回の試行で15シーン中14シーンを解決できるようになりました。\n\n### 知識ベースの汎用性を保証するルール\n初期の知識ベースはLIBERO-90の動画から構築されていますが、評価タスクに対する「カンニング（過学習）」を防ぐため、厳格なルールで記述されています。(1) 関数の呼び出しや具体的な制御コマンドを含まない、(2) 「3cm」のような物理的な数値を直接保持せず測定対象の名前だけを定義する、(3) タスクの指示文を含まない、(4) 特定の物体インスタンス名ではなく「細長い円筒」「ヒンジ付きの扉」などの抽象カテゴリで分類する、という4条件が手動および自動パターン照合で徹底的に検証されています。",
+   "figures": [
+    {
+     "key": "F14",
+     "caption_ja": "コンロ点火・フライパン配置タスクにおけるアブレーション比較です。基本ループ（左上）は全体を書き直して停滞しますが、探索機能（右上）で失敗ステージを特定し、知識ベース（左下）で適切な把持戦略を導入、最終的にグラウンディング（右下）で正確な数値を測ることで成功率が92%に達します。",
+     "caption": "Figure 14 : The four component variants on turning on the stove and placing the pan (LIBERO-PRO Long, task perturbation of turning on the stove and placing the moka pot). Each panel adds one component to the preceding variant. The base loop rewrites the complete program from a per-scene reward. Search and Exploration plans stages whose verdicts localize the failure. The Hierarchical Knowledge Base supplies knob and handle contacts in the first turn but estimates their quantities from segmentation-mask spread and fixed offsets. Physical Scene Grounding measures the knob height and pan geometry and verifies burner activation before the pan is moved.",
+     "image": "details/2610.36533/F14.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "Code-as-Policyの探索効率を高めるには、コードの書き直しだけでなく「物体のアフォーダンス」や「空間関係」という抽象的な物理知識の保持が不可欠である。",
+  "過去の成功パラメータをハードコードして使い回すのではなく、視覚基盤モデル（Molmo2やSAM 3など）を用いて毎回の環境から幾何量を測定（グラウンディング）し直すことが汎化の鍵となる。",
+  "タスク全体を一度に解こうとせず、物理的な状態変化ごとにステージを区切って中間検証し、原因不明な失敗には専用の「実験コード」を走らせて切り分けるアプローチが極めて有効である。",
+  "シミュレータの動画から抽出した抽象的な物理知識は、ロボットの構造（単腕から双腕）やシミュレータ環境、さらには実機ロボットへもそのまま転移できる。"
+ ],
+ "limitations_ja": [
+  "自律探索ループがシミュレーション環境に依存しており、実機での探索時は人間のオペレーターによる環境リセットや安全管理が必要である点。",
+  "物体の幾何量測定や中間状態の監査をMolmo2やSAM 3などの外部視覚モデルに頼っているため、極端な遮蔽や透明物・鏡面物などの認識困難な条件下での振る舞いに制約がある点。"
+ ],
+ "keywords": [
+  "Code-as-Policy",
+  "Large Language Models",
+  "Physical Grounding",
+  "Robotic Manipulation",
+  "Autonomous Program Search",
+  "Hierarchical Knowledge Base"
+ ],
+ "id": "2610.36533",
+ "title": "RoboAuto: Autonomous Robot Program Search through Multi-Level Physical Understanding",
+ "authors": [
+  "Buzhao Liu",
+  "Jianing Ye",
+  "Xiu Yuan",
+  "Yangtong Feng",
+  "Chengsong Huang",
+  "Tyler Dinh",
+  "Yevgeniy Vorobeychik",
+  "Ning Zhang",
+  "Chongjie Zhang"
+ ],
+ "date": "2026-10-29",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "llm-agent",
+  "planning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.CL",
+  "cs.CV",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.36533",
+ "pdf_url": "https://arxiv.org/pdf/2610.36533",
+ "summary_ja": "Code-as-Policyにおけるロボットプログラム自動探索を高度化するため、多層物理理解を統合したRoboAutoを提案。物体アフォーダンス、幾何拘束、成功・失敗の原因といった物理的知見を「物体・シーン・インタラクション」の3層で明示的にモデル化する。単なる実行フィードバック依存から脱却し、複雑な操作タスクにおいて効率的で実行可能なプログラム生成を実現した。",
+ "generated": "2026-10-29",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.36533"
+}
