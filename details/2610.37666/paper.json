@@ -1,0 +1,142 @@
+{
+ "title_ja": "ThinkWorld: 世界想像強化学習によるダイナミクス連鎖推論の強化",
+ "tldr_ja": "ロボットと人間の行動を共通の「ダイナミクスの連鎖（CoD）」として離散トークン化し、その行動が引き起こす未来の環境変化を想像して実際の変化と突き合わせる強化学習を行うことで、行動ラベルのない人間動画からも汎化性の高いロボット操作スキルを獲得できるVLAフレームワークを提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "ThinkWorldのコンセプト概要です。人間とロボットの身体差を超えて共通の離散モショントークン系列（CoD）を定義し、その行動によって世界がどう変化するかを予測・比較することで、行動ラベルのない人間動画からも効果的に学習を進められます。これにより、未知環境への強力な汎化や人間動画からの複合タスク実行を実現しています。",
+  "caption": "Figure 1 : We introduce ThinkWorld , a vision-language-action framework that learns transferable Chain-of-Dynamics (CoD) reasoning from diverse human and robot experiences. CoD captures action-induced dynamics across embodiments and is reinforced through future imagination, enabling robust generalization in the real world and skill composition guided by human videos.",
+  "image": "details/2610.37666/F1.jpg"
+ },
+ "overview_ja": "ロボットが未知の環境や物体に柔軟に対応できるようにするため、視覚・言語・行動を統合したVLA（Vision-Language-Action）モデルの活用が急速に進んでいます。しかし、ロボットの実機軌道データは集めるのが非常に大変で、どうしても行動のバリエーションが不足しがちです。一方、人間の一人称視点動画は世の中に無数に存在し、多様な環境や振る舞いを含んでいますが、ロボットの直接的な制御コマンド（行動ラベル）が含まれていないため、そのままでは模倣学習に使えないというジレンマがありました。\n\nそこで著者らは、「身体（Embodiment）が違っても、行動が引き起こす世界の物理的な変化（ダイナミクス）は共通している」という点に着目しました。まず人間とロボットの手先運動を共通の離散モショントークン系列「Chain-of-Dynamics（CoD）」として表現します。そして、モデルにCoDから1秒後の世界の視覚特徴を「想像（予測）」させ、その予測が実際の動画の未来フレームとどれだけ一致しているかを報酬として強化学習（RL）を行います。\n\nこの工夫により、行動ラベルが一切ない受動的な人間動画であっても、「未来の状態変化」を教師信号にして推論空間を直接鍛えられるようになりました。シミュレーション（LIBERO）および双腕ロボット実機での実験を通して、未知の物体や配置に対する高いゼロショット汎化性能を実証しただけでなく、ロボットには単一の基本スキルしか教えていなくても、人間動画を見るだけでそれらを連続して組み合わせる複合タスクの実行に成功しました。",
+ "contributions_ja": [
+  "人間とロボットの身体差を橋渡しする共通の離散モショントークン表現「Chain-of-Dynamics（CoD）」を定義し、VLMの思考空間に行動ダイナミクスを組み込みました。",
+  "行動が引き起こす未来の視覚特徴変化の予測精度を報酬として用いる「結果接地型強化学習（Consequence-grounded RL）」を提案し、行動ラベルのない動画から推論能力を向上させました。",
+  "実機評価において、ロボットには要素動作のみを学習させた状態で、人間動画で示された作業手順をロボットが自律的に組み合わせて完遂できるスキル合成能力を示しました。",
+  "シミュレーションベンチマーク（LIBERO-PRO）において、環境やタスクの分布シフト下で従来の世界モデル統合型VLA（VLA-JEPAなど）を大幅に上回る頑健性を達成しました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "人間動画の宝の山をどう活かすか？：未来予測で行動推論を鍛える",
+   "summary_ja": "ロボット学習のデータ不足を解決するために人間動画の活用が期待されていますが、直接的な制御信号がないため活用には限界がありました。本論文では、行動が環境に与える結果（未来予測の一致度）を報酬とすることで、ラベルのない動画からも行動推論を洗練できるVLA学習手法「ThinkWorld」を提案しています。",
+   "details_ja": "ロボットに汎用的な操作能力を持たせるには、多種多様なタスクや環境のデータが必要です。しかし、実機ロボットを動かして遠隔操作などで集める軌道データは、コストが非常に高くスケールしません。そこで注目されているのが人間の一人称動画ですが、ここには2つのアプローチとトレードオフが存在していました。\n\n1つ目は潜在行動モデル（Latent Action Model）です。動画フレーム間の変化から潜在変数を推定して行動として扱う方法ですが、カメラの動きや背景の見た目の変化など、タスクと無関係な情報に引きずられやすいという弱点があります。2つ目は手の姿勢推定などを用いて明示的な運動軌道を復元する手法ですが、精度の高いポーズ推定や人間とロボットの対応付け（リターゲティング）が必要で、スケーラビリティに限界がありました。\n\nここで立ち返るべきは、「どの身体であっても、行動のあとには必ず世界の変化が起きる」という普遍的な事実です。動画にはその因果関係が常に記録されています。最近のVLAモデルではテキストや中間トークンを挟んで推論する手法（CoT）が盛んですが、本研究はこれを一歩進めました。中間推論トークンを「世界をどう変化させるか」というダイナミクスに接地させれば、人間とロボットで共通の行動インターフェースになるのではないかと考えたわけです。これが、ThinkWorldの基本的なモチベーションです。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Works",
+   "heading_ja": "先行研究の歩み：汎用ポリシー、人間動画学習、そして世界モデル",
+   "summary_ja": "従来の推論型VLAはロボットデータ内の推論強化にとどまり、人間動画の活用もポーズ推定や潜在変数に依存していました。また世界モデルの多くは制御時のロールアウト生成に計算コストを割いていますが、ThinkWorldは未来予測の一致度を「学習時の強化学習報酬」としてのみ使い、推論空間の強化に絞っている点が決定的に異なります。",
+   "details_ja": "### 汎用ロボットポリシーと推論型VLA\nVLAモデルは基盤視覚言語モデル（VLM）の知識を取り込むことで発展してきましたが、純粋な模倣学習は学習データの範囲を超えにくいという課題がありました。最近ではThinkActやMolmoActのように、言語計画や空間トレースを中間思考として挟む手法が登場しています。しかし、それらはロボットデータ内の行動を補強しているだけで、「その思考が世界にどう影響するか」という物理変化に接地されておらず、未知のスキルへの汎化には限界がありました。\n\n### 人間動画からのロボットポリシー学習\n人間動画から行動を取り出す試みとして、EgoScaleのように人間のインタラクションをロボット制御空間へ変換する手法や、LAPAのように教師なしで離散的な潜在行動を学習する手法があります。しかし前者は対応付けの負担が重く、後者は見た目の変化を行動と誤認しやすい欠点がありました。ThinkWorldは共通のモショントークンを定義し、未来予測の成否によってそれを精緻化するアプローチをとります。\n\n### 世界モデルと視覚予測\nDreamerに代表される世界モデルは、モデルが想像した未来軌道上でポリシーを学習します。また近年の予測型VLAは、未来のピクセルや潜在特徴を予測して制御の誘導に使っています。これに対し、ThinkWorldは未来予測を直接の制御出力や実機実行時のプランニングには使いません。「想像した未来と実際の未来がどれだけ一致しているか」をあくまで学習時の強化学習シグナルとして使い、VLM内部の思考表現を鍛えたあと、実機動作時には未来予測ヘッドを切り離して高速に動作させる点がユニークです。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "ThinkWorldの仕組み：CoDの構築と世界想像による強化学習",
+   "summary_ja": "手先運動の差分をトークン化した「Chain-of-Dynamics（CoD）」を導入し、SFT段階で行動生成と未来特徴予測を同時に学習させます。その後、行動ラベルのない動画からCoDをサンプリングし、想像した未来と観測された未来のDINO特徴量の一致度を報酬としてGRPOで強化学習を行います。",
+   "details_ja": "### 3.1 問題設定\n入力は指示文 $l$、現在画像 $o_t$、過去の観測履歴 $\\mathbf{h}_t$、そしてロボットの場合は自己受容状態（関節や手先姿勢） $s_t$ です。目的は連続的なロボット行動系列 $\\mathbf{a}_t$ を予測することです。ThinkWorldでは行動を単なる制御出力とせず、環境がどう変化していくかを推論する「Chain-of-Dynamics（CoD）」 $\\mathbf{c}_t$ として定式化します。\n\n### 3.2 身体を超える行動推論空間「Chain-of-Dynamics」\nロボットの関節角度などはロボット固有ですが、手先の運動差分（デルタ）に着目すれば人間と共通化できます。ロボットの手先軌道および人間の手首軌道 $\\mathbf{m}_t$ を正規化し、FAST形式の離散モショントークナイザ $\\mathcal{T}(\\cdot)$ で語彙数2048のトークン系列 $\\mathbf{c}_t^\\star$ に変換します。\n\n次に、このCoDが引き起こす変化を予測するため、VLMの末尾に学習可能な未来クエリ $\\mathbf{q}_{t+\\Delta}$ を配置します。物理時間として1秒後（$\\Delta = 1$秒）の未来を予測させます。予測対象はRGB画像そのものではなく、事前学習済みDINOv3から抽出した特徴マップ $\\mathbf{z}_{t+\\Delta}^\\star$ です。DINO特徴を使う理由は、テクスチャの細部や見た目のノイズを無視し、物体の空間的構造や状態変化に集中できるからです。SFT段階では、CoDの言語モデリング損失と未来特徴予測の距離損失 $\\operatorname{dist}(\\cdot,\\cdot)$ を同時に最適化します。\n\n### 3.3 世界想像を通じたCoD推論の強化学習スケーリング\nSFTだけでは、正解CoDを与えられたときの受動的な予測しか学べません。そこで、モデル自身に複数の候補CoDをサンプリングさせ、各候補が導く未来を想像させて実際の未来 $o_{t+\\Delta}$ と比較します。報酬関数には、変化の大きい動的パッチに重みを置いた特徴類似度スコアを用います。これにより、静止した背景の一致だけで高い報酬を得てしまう問題を防止します。\n\n最適化にはGRPO（Group Relative Policy Optimization）を採用し、サンプリングした候補CoDの中で未来を最も正しく予測できたものを強化します。この際、教師ありリプレイ損失を併用してSFTで得た運動の意味付けが崩れないようにします。この強化学習には行動ラベルが不要なので、大量の受動的な人間動画やラベルなしロボット動画をそのまま推論強化の教材として利用できます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "ThinkWorldの構造と2段階の学習パイプラインです。(a) SFT段階では、人間とロボットの運動を共通の離散モショントークン（CoD）に変換し、CoDを条件として1秒後のDINO特徴量を予測します。(b) RL段階では、ラベルのない動画に対して複数のCoDをサンプリングし、想像した未来と実際の未来がどれだけ一致したかを報酬としてGRPOでVLMを更新します。",
+     "caption": "Figure 2 : ThinkWorld architecture and training stages. In stage (a), supervised fine-tuning (SFT) tokenizes robot actions and annotated human hand motions into a unified discrete motion space to ground Chain-of-Dynamics (CoD) reasoning, while CoD-conditioned imagination predicts the future visual feature. In stage (b), reinforcement learning (RL) uses the alignment between imagined and observed futures as a scalable reward for CoD reasoning over human and robot videos, strengthening action reasoning without motion annotations and improving guidance for continuous control.",
+     "image": "details/2610.37666/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiment",
+   "heading_ja": "実機とシミュレーションで検証：未知環境への汎化とスキルの組み合わせ",
+   "summary_ja": "双腕実機ロボット（Bimanual YAM）およびシミュレータ（LIBERO/LIBERO-PRO）で評価を行いました。ThinkWorldは未知の色・物体・配置に対するOOD汎化でベースラインを圧倒し、人間動画から要素スキルの実行順序を学んで実機で複合タスクを達成できること、人間動画の比率を増やすほど性能が向上することを実証しました。",
+   "details_ja": "### 4.1 実験設定\nVLMバックボーンにはQwen3-VL-2B、連続行動を出力するアクションエキスパートにはMolmoAct2を採用しました。ロボット実機には双腕YAMシステムを用い、頭部俯瞰カメラ1台と両手首カメラ2台のRGB画像（深度なし）で15 Hzの制御を行います。\n\n### 4.2 実世界での分布シフトに対する汎化性能\n実機で「カップ掛け」「色合わせ」「物体仕分け」の3タスクを評価しました。訓練時と同じ設定（ID）と、未知の色・物体カテゴリ・未学習の軌道を含む設定（OOD）を用意しました。Diffusion Policy、MolmoAct2、LaWAMと比較したところ、IDでは各手法とも高精度でしたが、OODではベースラインが軒並み20〜40%台に急落する中、ThinkWorldは80〜100%と極めて高い成功率を維持しました（全体ではID 100%、OOD 86.7%）。外見の特徴ではなく、行動がもたらす世界変化に接地して推論している強みがはっきりと表れました。\n\n### 4.3 人間動画からのスキル合成\nロボットには「オーブンを開ける」「右の物を入れる」「左の物を入れる」「閉める」という単一の要素スキルのみを教え、複合的な一連の動作はロボットデータに一切含めない設定を用意しました。そして、人間が「開ける $\\rightarrow$ 左の物を入れる $\\rightarrow$ 閉める」と連続で行う動画を学習させました。結果として、ThinkWorldはこの人間動画から順序構造を抽出し、ロボット実機で一連の複合タスクを1回の試行でスムーズにやり切ることに成功しました。\n\n### 4.4 シミュレーション（LIBERO / LIBERO-PRO）での評価\n環境やタスク目標が大幅に変化する高難度ベンチマークLIBERO-PROにおいて、ThinkWorldは平均成功率55.6%を記録し、世界モデル型VLAの代表格であるVLA-JEPAなどを上回って最高性能を達成しました。特に環境シフト耐性では60.9%に達し、VLA-JEPAに約20ポイントもの大差をつけています。\n\n### 4.5 分析とアブレーション\n- **CoDの特徴表現**: 生成されたCoDトークンの隠れ層特徴をt-SNEで可視化すると、人間とロボットのデータソースに関係なく、手先の移動方向（上下左右）ごとに綺麗にクラスタリングされました。身体の見た目ではなく運動ダイナミクスが共通表現として獲得されている証拠です。\n- **人間動画のスケーリング効果**: ロボットデータ量を固定したまま人間動画の割合を増やすと、LIBERO-PROの成功率が45.4%から47.8%へと単調に向上しました。同データ量のロボット専用対照実験と比べても高く、人間動画の多様性そのものが汎化性に寄与していることが確認されました。\n- **構成要素の効果**: ベースライン（40.1%）に対し、未来予測の追加で50.4%、CoDの導入で54.4%、世界想像RLの適用で55.6%へと着実に性能が積み上がることが確認されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "双腕実機における分布シフト（OOD）汎化の成功率比較です。新しい色・物体・環境・軌道が加わったOOD環境下でも、ThinkWorldはベースラインが大幅に精度を落とす中で極めて高い成功率（80〜100%）を維持しています。",
+     "caption": "Figure 3 : Real-world out-of-distribution (OOD) generalization. Success rates for color matching, cup hanging, and sorting under in-domain and OOD conditions. OOD settings introduce new colors, objects, environments, or sorting trajectories, as illustrated below the plots. ThinkWorld achieves the highest OOD success rates across all three tasks, despite substantial drops for the baselines.",
+     "image": "details/2610.37666/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "人間動画を通じたスキル合成のデモです。ロボットデータには「開ける」「入れる」「閉める」の要素スキルしか存在しませんが、人間がそれらを連続して行う動画を見ることで、実機ロボットが「開ける→左の物を入れる→閉める」という一連の複合タスクを自律完遂できました。",
+     "caption": "Figure 4 : Composing atomic robot skills from a human demonstration. The top shows atomic robot skills, while the middle shows a human demonstration that provides the complete task composition, e.g., open $\\rightarrow$ put-left $\\rightarrow$ close. Guided by this human demonstration, ThinkWorld composes the corresponding robot skills and executes the complete task in a single rollout at the bottom .",
+     "image": "details/2610.37666/F4.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "CoD推論トークンのt-SNE可視化です。マーカーの形（データセット種別）ではなく色（手先の進行方向）ごとに明確なクラスタが形成されており、人間とロボットの身体差を超えて共通の運動ダイナミクス空間が学習されていることが分かります。",
+     "caption": "Figure 6 : Effectiveness of human data. The LIBERO-PRO evaluation success rates (%) on the model variants trained with different amount of human egocentric video, fixing the robot data quantity. Leveraging human data continuously enhances the performance.",
+     "image": "details/2610.37666/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめ：世界の物理変化に根ざした推論がロボット学習を拡張する",
+   "summary_ja": "ThinkWorldは、人間とロボットに共通するダイナミクス推論（CoD）と世界想像強化学習を組み合わせ、行動ラベルのない動画から汎用的な操作能力を引き出す新しい枠組みを確立しました。",
+   "details_ja": "本研究では、行動推論を世界の変化に接地させ、未来の想像と実際の観測との一致度を手がかりに強化学習を行うVLA学習フレームワーク「ThinkWorld」を提案しました。行動ラベルを持たない受動的な動画からでも「結果」を通じて行動の質を評価・向上できるため、これまで十分に活用しきれなかった膨大な人間の一人称動画をロボットのポリシー強化に直接組み込む道を切り拓きました。シミュレーションと実機の双方で示された高い汎化性能とスキル合成能力は、身体の枠組みを超えた基盤モデル開発に向けた強力な一歩を示しています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：実装の詳細、閉ループ予測、および推論時の効率性",
+   "summary_ja": "付録では、モデルアーキテクチャや訓練パイプラインの詳細、SimplerEnvでの追加検証、および推論時の計算効率について解説されています。制御実行時には未来予測モジュールを完全に切り離すため、追加の推論遅延なしに高速な15 Hz制御を維持できる設計になっています。",
+   "details_ja": "### モデル構造とハイパーパラメータ\nVLMにはQwen3-VL-2B-Instructを用い、未来特徴量の正解ターゲットにはDINOv3（ViT-H/16+）の $14 \\times 14$ グリッド（1280次元）を使用しています。VLMには64個の学習可能未来クエリを追加し、Transformerデコーダを通じて1秒後のDINO特徴を予測させます。アクションエキスパートはMolmoAct2を踏襲した36ブロックの非因果的Transformerで構成され、Flow Matchingによって行動系列を生成します。\n\n### 学習と実機制御の工夫\nSFTとRLの事前学習にはそれぞれ128台および64台のNVIDIA H100 GPUを使用しました。RL時には計算負荷を抑えるため $K=4$ の候補CoDをサンプリングしています。実機への展開時は、RTX 3090単体で15 Hzの制御周波数を維持しています。ここでの大きな利点は、実機推論時に未来予測デコーダを完全にバイパスし、VLMの内部表現だけをアクションエキスパートに渡すため、世界モデル型アプローチにありがちな推論遅延が一切発生しない点です。\n\n### 追加検証（SimplerEnv / LIBERO-Plus）\nSimplerEnvによるゼロショット評価では追加のドメイン適応なしで46.51%の成功率を記録し、閉ループ実行中も予測された未来特徴が実際の到達状態と高い整合性を示すことが確認されました。また、センサノイズや照明変化を含むLIBERO-Plusベンチマークでも71.7%の成功率を達成し、DreamVLAなどの既存手法を上回る頑健性が示されています。",
+   "figures": [
+    {
+     "key": "F9",
+     "caption_ja": "実機実験で使用された双腕ロボット「Bimanual YAM」のセットアップです。2本のアームと、頭部俯瞰用および両手首に搭載された合計3台のRealSense D405カメラ（RGBのみ使用）で構成されています。",
+     "caption": "Figure 9 : BimanualYAM setup.",
+     "image": "details/2610.37666/F9.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "「行動ラベルのない動画」でも、行動がもたらす「未来の環境変化（状態遷移）」を正解ラベルと見なせば、強化学習の直接的な報酬源として活用できる。",
+  "人間とロボットの身体差は、手先運動デルタを離散トークン化した「Chain-of-Dynamics」に変換することで、共通の推論言語として吸収できる。",
+  "未来予測は実機推論時のロールアウト生成に使わなくても、学習時にVLMの潜在表現を鍛える補助タスク・報酬として用いるだけで十分な汎化性能向上が得られ、推論遅延も生じない。",
+  "要素スキルしか持たないロボットでも、共通の推論空間があれば人間動画から作業順序の構造を学習して複合スキルを組み立てられる。"
+ ],
+ "limitations_ja": [
+  "学習結果は単一の乱数シードに基づいて報告されており、チェックポイント間での再現性のばらつきが十分に検証されていない点。",
+  "未来の予測対象が「1秒後」という固定タイムホライズンに設定されており、より長期的なタスク因果関係や可変ステップへの対応は今後の課題である点。",
+  "手先デルタ運動をベースにしたトークナイザを採用しているため、二足歩行や全身協調を要するマニピュレーションなど、手先姿勢だけでは表現しきれないタスクへの拡張性。"
+ ],
+ "keywords": [
+  "Vision-Language-Action Models",
+  "World Models",
+  "Chain-of-Dynamics",
+  "Human-to-Robot Transfer",
+  "Reinforcement Learning"
+ ],
+ "id": "2610.37666",
+ "title": "ThinkWorld: World Imagination Reinforces Chain-of-Dynamics Reasoning",
+ "authors": [
+  "Chaehyun Kim",
+  "Chi-Pin Huang",
+  "Jisoo Kim",
+  "Min-Hung Chen",
+  "Yu-Chiang Frank Wang",
+  "Seungryong Kim",
+  "Fu-En Yang"
+ ],
+ "date": "2026-10-29",
+ "group": "focus",
+ "tags": [
+  "reinforcement-learning",
+  "world-model",
+  "vision-language-action"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.37666",
+ "pdf_url": "https://arxiv.org/pdf/2610.37666",
+ "summary_ja": "実機行動ラベルのない人間動画を活用し、世界ダイナミクスに基づく行動推論を行うVLAフレームワークThinkWorldを提案。行動思考を離散運動トークン列であるChain-of-Dynamics（CoD）として表現し、動画から予測される環境状態の推移と連動させる。さらに世界モデルを用いた想像強化学習によりCoDの物理的一貫性と推論能力を大幅に強化した。",
+ "generated": "2026-10-29",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.37666"
+}
