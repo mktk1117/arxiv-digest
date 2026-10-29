@@ -1,0 +1,135 @@
+{
+ "title_ja": "TOPS: マルチタスクロボット操作のためのフローソースと輸送スケジュールの再構築",
+ "tldr_ja": "マルチタスク操作におけるFlow Matchingポリシーに対し、モデル構造を変えずにタスクごとの事前分布の分離と最適輸送に基づく非線形補間スケジュールを導入することで、わずか1ステップの生成で従来以上の成功率と6倍の高速化を達成しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "TOPSの全体フレームワークです。(a) ウォームアップ済みモデルの逆フローを用いてエキスパート行動をノイズ空間へ逆写像し、タスクごとに低ランク混合ガウス分布（MPPCA）を当てはめます。(b) ガウス最適輸送で求めた分散拡大軸に沿って「前半は遅く、後半は速く」遷移するスケジュールを適用し、行動空間へ再投影して学習・推論を行います。",
+  "caption": "Figure 2: Overview of TOPS. (a) We construct task-specific sources by fitting MPPCA models to reverse-mapped expert actions. An instruction selector maps the input language to an index $\\hat{\\tau}$ , identifying the source $q_{\\hat{\\tau}}$ and its associated schedule. (b) In the selected task’s Gaussian OT eigenbasis, we apply slow-then-fast interpolation along expansion directions and linear interpolation elsewhere, then map the interpolated states and velocity targets back to action space.",
+  "image": "details/2610.36694/F2.jpg"
+ },
+ "overview_ja": "言語指示に従って多様な作業をこなすマルチタスクロボットポリシーでは、行動のマルチモーダル性を捉えやすいFlow Matching（フローマッチング）が注目を集めています。しかし、従来のフローモデルは「全タスク共通の標準ガウスノイズから出発し、直線的に目標行動へ補間する」という固定的な設定を使っていました。これでは、タスクごとに全く異なる動作分布を単一のネットワークが無理に復元しなければならず、特に少ない積分ステップでの推論時に性能が大きく落ちる原因になっていました。\n\n著者らは、訓練済みポリシーのフローを逆再生してエキスパート軌道をノイズ空間へ戻す「フロー逆写像」を観察しました。すると、ノイズ空間上ですでにタスクごと、あるいはタスク内の段階ごとに明確なクラスタが形成されていることを発見したのです。そこで提案されたのが「TOPS」です。TOPSはネットワーク構造を一切変更せず、(1) 逆写像データに混合ガウス分布を当てはめて言語指示で切り替える「タスク別事前分布」と、(2) ガウス最適輸送（OT）で特定した分散拡大方向に対して「最初はゆっくり、終盤に素早く」移動させる「タスク別非線形スケジュール」を導入しました。\n\nシミュレーション（LIBERO、CALVIN）および実機マニピュレーション実験において、TOPSは従来の10ステップFlow Matchingを上回る成功率を、わずか1ステップ（2回の速度評価）で達成し、推論時間を約6分の1に削減しました。さらに大規模モデルである $\\pi_{0.5}$ への適用でも汎化性能を大きく向上させています。",
+ "contributions_ja": [
+  "フロー逆写像により得られた行動分布のクラスタ構造に着目し、言語指示で選択可能なタスク特調の混合ガウス事前分布（MPPCA）を構築した点",
+  "ガウス最適輸送のスペクトル分解から分散が拡大する軸を特定し、速度予測リスクの上界を最小化する「前半ゆっくり・後半高速」な非線形補間スケジュールを導出した点",
+  "LIBEROやCALVINにおいて、わずか1ステップの推論で従来の10ステップを凌駕する成功率と約6倍の推論高速化、高いデータ効率を実証した点",
+  "大規模VLAモデル（$\\pi_{0.5}$）への転用や実機ロボット環境での検証を行い、モデル構造を変えずに大幅な成功率向上を確認した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ全タスク共通のノイズから始めるのが問題なのか？",
+   "summary_ja": "マルチタスク操作では動作の多様性が極めて高いため、共通のガウス事前分布と線形輸送に頼るとモデルに過度な負担がかかります。逆フローによる分析から、エキスパート軌道の潜在ノイズにはタスク固有の構造が存在することが判明し、事前分布と輸送経路自体をタスク適応させる発想に至りました。",
+   "details_ja": "ロボットが実世界で多様な作業を行う場合、タスクごとに要求される動作パターンは大きく異なります。Flow Matching（FM）はマルチモーダルな行動分布を表現できるため汎用ポリシーに広く使われていますが、既存研究の多くはモデルの構造（特徴量変調やルーティングなど）を工夫することでマルチタスク対応を図ってきました。\n\nしかし、著者らはより根本的な「生成プロセスそのもの」に着目しました。従来のFMでは、どんなタスクであっても平均0・分散1の同一ガウス分布からサンプリングを開始し、時間に対して線形に目標行動へと補間します。これでは、全く異なる行動分布をすべてノイズ側の表現力なしでネットワークに復元させることになり、無理が生じます。\n\nそこで訓練済みのポリシーを逆向きに積分し、エキスパート行動がノイズ空間のどこへ戻っていくかを可視化したところ、タスクごとに明確に異なる領域へマッピングされ、さらにタスク内でも「接近」「把持」「配置」といった段階ごとの小クラスタを形成していることが分かりました。この発見をもとに、モデル構造を変更することなく、事前分布と補間スケジュールをタスクに合わせて再設計する手法「TOPS」が提案されました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "LIBERO-10におけるエキスパート行動の逆写像t-SNE可視化です。(a) タスクごとに異なる領域を占めており、(b) 単一タスク内でもサブクラスタが存在します。(c) これらに当てはめた混合ガウス分布（MPPCA）からのサンプルであり、元のクラスタ構造が忠実に再現されています。",
+     "caption": "Figure 1: Task-structured reverse images and the fitted source. (a) t-SNE of reverse images from the ten LIBERO-10 tasks: tasks occupy distinct, partially overlapping regions. (b) The same embedding with one task highlighted per view, showing sub-clusters within individual tasks. (c) Samples from fitted per-task source in the same coordinates, reproducing the structure in (a).",
+     "image": "details/2610.36694/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "先行研究との違い：ネットワークを変えずに輸送経路を最適化する",
+   "summary_ja": "言語指示型ポリシー、生成モデルの事前分布設計、フローマッチングの経路最適化という3つの系統を整理しています。TOPSはモデル構造を固定したまま、事前分布のオフラインモデリングと最適輸送に基づく非線形スケジューリングを組み合わせる点が独自です。",
+   "details_ja": "本研究の関連分野は大きく3つに分かれます。\n\n- 言語指示型マルチタスクポリシー：\n従来は視覚特徴の変調や命令に基づくパラメータ生成、Mixture-of-Experts（MoE）のようなルーティングなど、ネットワーク側のアーキテクチャ拡張が主流でした。TOPSはバックボーンや条件付けの仕組みを一切変えずに性能を向上させます。\n\n- 生成ポリシーにおける事前分布の設計：\n過去の行動履歴や固有受容感覚（プロプリオセプション）に基づいて事前分布のガウス分布を調整する研究（LeaPなど）や、潜在変数の混合分布を用いる研究がありました。TOPSは逆写像された行動チャンク全体をオフラインで低ランク混合ガウスモデルに集約し、言語指示によってそれを選択する点が異なります。\n\n- フローマッチングにおける経路と結合の設計：\n端点間の最適輸送結合（OT-CFM）や、軌道を直線化するReFlow、さらには時間積分を平均化するMeanFlowなどが存在します。TOPSは独立な端点サンプリングを保ちつつ、タスクごとの共分散のミスマッチから「分散拡大方向」を特定し、理論的リスク界に基づいて非線形スケジュールを適用する独自のアプローチを採っています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Preliminaries and Motivating Analysis",
+   "heading_ja": "逆フロー解析が見せた潜在ノイズの偏りと構造",
+   "summary_ja": "標準的なFlow Matchingの定式化を振り返り、学習済みポリシーによる逆フロー写像の振る舞いを分析しています。エキスパート行動をノイズ空間に戻すとタスクごとの幾何学的クラスタが現れることが実験的に示されます。",
+   "details_ja": "### 3.1 フローマッチングポリシーの基礎\nFlow Matching（FM）は、事前分布 $p_0$ からデータ分布 $p_{\\mathrm{data}}$ への確率経路に沿う条件付き速度場 $\\mathbf{v}_\\theta$ を回帰学習する枠組みです。通常はノイズ $\\mathbf{x}_0 \\sim \\mathcal{N}(\\mathbf{0}, \\sigma_0^2 \\mathbf{I}_D)$ とエキスパート行動チャンク $\\mathbf{x}_1$ の間を線形補間 $\\mathbf{x}_t = (1-t)\\mathbf{x}_0 + t\\mathbf{x}_1$ で結び、目標速度 $\\mathbf{u}_t = \\mathbf{x}_1 - \\mathbf{x}_0$ を予測させます。\n\n### 3.2 フロー逆写像が明かす事前分布の構造\nベースポリシーをウォームアップ学習させた後、エキスパート行動チャンク $\\mathbf{x}_1$ を逆向きの常微分方程式（ODE）で $t=1$ から $t=0$ まで積分し、逆写像サンプルを収集します。LIBERO-10の10タスクでこの逆写像を可視化（t-SNE）した結果、タスク間が部分的に重なりつつも異なる領域に分かれ、タスク内でも動作段階に応じた局所クラスタが形成されていることが判明しました。\n\nつまり、標準ガウスノイズ全体から闇雲に生成を始めるのではなく、そのタスクに対応したノイズ領域から生成をスタートさせれば、生成器の負担を大幅に減らせるはずだという明確な動機が得られました。",
+   "figures": []
+  },
+  {
+   "heading": "4 Method",
+   "heading_ja": "TOPSの設計：事前分布のクラスタリングと非線形スケジューリング",
+   "summary_ja": "逆写像サンプルへMPPCAを当てはめてタスク別事前分布を構築し、ガウス最適輸送マップの固有値解析から求まる分散拡大軸に沿って「前半ゆっくり、後半急激」に遷移するスケジュールを組み込みます。",
+   "details_ja": "TOPSは大きく2つの要素で構成され、すべてオフラインで計算されてポリシーの追加学習中は固定されます。\n\n### 4.2 タスク特調の事前分布構築\n各タスク $\\tau$ の逆写像バンクに対し、行動チャンク内の相関を捉えるため $M_\\tau$ 個のコンポーネントを持つ確率的主成分分析混合モデル（MPPCA）を当てはめます。低ランク部分空間の次元を $r \\ll D$ とすることで、行動次元間の協調的な分散パターンを効率的にモデル化します。推論時は軽量な言語セレクタ（MiniLM-MLP）がテキスト指示から該当タスクの分布 $q_{\\hat{\\tau}}$ を選び、そこから初期ノイズ $\\mathbf{x}_0$ を抽出します。\n\n### 4.3 最適輸送スペクトルに基づくスケジュール設計\n事前分布を設定しても、事前分布の共分散 $\\mathbf{C}_{\\mathrm{s}}^\\tau$ とエキスパート行動の共分散 $\\mathbf{C}_{\\mathrm{d}}^\\tau$ にはズレが生じます。著者らは両者を結ぶ対称正定値なガウス最適輸送（OT）マップ $\\mathbf{T}_\\tau$ を計算し、その固有値分解を行いました。固有値 $s_{\\tau j} > 1$ となる方向は「事前分布からデータへ分散が拡大する方向（expansion directions）」を意味します。興味深いことに、この拡大方向は全体のわずか7.4〜9.7%の次元しか占めていないにもかかわらず、OT共分散コストの6割以上を担っていました。\n\n理論解析（確率的補間理論に基づくガウス代理モデル）により、分散が拡大する軸では速度予測リスクの上界を最小化するために「生成初期（$t \\approx 0$）はゆっくり遷移させ、後期（$t \\approx 1$）に一気に遷移させる（slow-then-fast）」スケジュールが最適であることが導かれました。TOPSはこの原理に従い、拡大軸のみを非線形に減速・加速させ、それ以外の軸は線形補間を維持します。\n\n### 4.4 学習と推論\n事前分布とスケジュールを固定した状態で、Flow Matching損失によりモデルの追加学習を行います。推論時は2ステージのスケジュール考慮型ソルバを用い、わずか1ステップ（速度関数の評価回数 NFE = 2）で高精度な行動生成を完了します。",
+   "figures": []
+  },
+  {
+   "heading": "5 Experiments",
+   "heading_ja": "わずか1ステップで圧倒的精度と6倍の高速化を実証",
+   "summary_ja": "LIBERO、CALVINのシミュレーションおよび実機ロボットで評価しました。TOPSは1ステップ推論でありながら、10ステップの標準Flow Matchingを大きく上回り、少ないデモ数からの学習や大規模VLA（π0.5）への適用でも一貫した優位性を示しました。",
+   "details_ja": "### 5.1 シミュレーション実験\n- **主要結果と推論速度**：LIBERO-10（分布内）において、10ステップの標準FMが成功率53.44%（遅延49.4ms）だったのに対し、TOPSは1ステップ（NFE=2）で69.67%（遅延8.2ms）を記録しました。成功率を約16ポイント引き上げつつ、推論時間を約6分の1に短縮しています。CALVIN D $\\to$ Dでも平均連続完了タスク長が1.90から2.27へと向上しました。\n- **ロバスト性と環境汎化**：摂動環境であるLIBERO-Plusでは35.29%（標準FMは27.11%、MeanFlowは34.73%）、未知環境への汎化であるCALVIN ABC $\\to$ Dでは完了長1.05（標準FMは0.70、MeanFlowは0.86）と、いずれのOOD環境でも最高性能を達成しました。\n- **データ効率**：訓練デモ数を絞った評価では、CALVIN ABC $\\to$ DにおいてTOPSはわずか30%のデモで完了長1.009を達成し、ベースラインが50%のデータを使って出した記録（最高でもPriorGradの0.925）を軽々と超えました。\n- **大型モデル $\\pi_{0.5}$ への適用**：実機向け大規模基盤モデル $\\pi_{0.5}$（LoRAファインチューニング）にTOPSを導入したところ、LIBERO-Plusの成功率が64.4%から69.0%へ、CALVIN ABC $\\to$ Dのタスク長が3.033から3.744へと大幅に改善しました。\n\n### 5.2 実機ロボット実験\nGalaxea R1 Lite（単腕・2指グリッパー）を用い、引き出し開け（Drawer Opening）、色合わせ（Color Matching）、野菜ピッキング（Pick-Vegetable）の3スイート・計8タスクで検証しました。全160試行の総合成功率は、標準FMの51.25%（82/160）に対し、TOPSは77.50%（124/160）と26.25ポイントの大幅向上（$p < 0.001$）を達成しました。特に上の引き出しを開けるタスクでは、標準FMの20%から80%へと劇的な改善を見せました。\n\n### 5.3 アブレーション研究\n事前分布のみを適用した場合でも改善が見られますが、非線形スケジュールと専用ソルバを組み合わせることでLIBERO-10の成功率が59.17%から69.67%へと跳ね上がります。また、拡大軸ではなくランダムな軸にスケジュールを適用するとCALVINの性能が大きく低下したことから、最適輸送解析による方向特定が極めて重要であることが証明されました。",
+   "figures": []
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "ポリシーのバックボーンを変更することなく、逆フローに基づくタスク別事前分布と最適輸送に基づく非線形スケジュールを導入するTOPSの有効性が示されました。事前分布構築のオフラインコストや固定タスク前提などの限界も述べられています。",
+   "details_ja": "TOPSは、従来の「モデル構造を複雑化してマルチタスクに対処する」アプローチとは一線を画し、生成モデル本来の「ノイズ事前分布」と「補間経路」をタスクに応じて最適化することで、マルチタスク操作の精度・速度・汎化性を同時に引き上げました。\n\n一方で、現時点の限界として、事前分布とスケジュールの構築にオフラインでの計算コストがかかること、事前定義されたタスクラベルに依存しており未知タスクへの即時適応が難しいこと、行動チャンク長が固定されていることなどが挙げられています。今後は、オンラインで漸進的に事前分布を更新する仕組みや、可変ホライズンへの拡張が期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix A Appendix",
+   "heading_ja": "付録：少ステップ生成における「前半減速・後半加速」の理論と挙動",
+   "summary_ja": "2Dトイ問題による少ステップ生成の挙動比較と、速度予測リスクの上界解析の実験的検証が記載されています。分散拡大軸において初期を減速させるスケジューリングが、いかに生成の破綻を防ぐかが視覚的・数値的に裏付けられています。",
+   "details_ja": "付録では、手法の根底にある理論的性質と実験結果の詳細な内訳が補足されています。\n\n### 少ステップ生成におけるスケジュールの影響（2D検証）\n2D空間における少ステップ積分（1〜2ステップ）の挙動を比較すると、線形補間や「前半高速・後半低速（fast-then-slow）」のスケジュールでは、ステップ数が少ない場合にサンプルが目標領域の中間帯に取り残されやすくなります。対照的に、TOPSの「前半低速・後半高速（slow-then-fast）」スケジュールは、2ステップ積分で目標領域への到達率99%を達成（線形は84%、fast-then-slowは40%）し、わずかなステップでも正確にモードを捉えられることが視覚的に実証されました。\n\n### 速度予測リスクの実験的検証\nエキスパート行動と事前分布のペアを用いてMLPによる速度予測誤差を測定したところ、slow-then-fastスケジュールは線形補間に対して時間積分の予測誤差を22.1%削減したのに対し、fast-then-slowは逆に28.0%悪化させました。理論的に導かれた「分散拡大方向では始点の速度変化を小さく抑えるべきである」という法則が、実データでも完全に成立していることが確認されています。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "少ステップ生成における補間スケジュールの比較です。上段が1ステップ、下段が2ステップでの生成結果を示します。線形（Linear）や前半加速型（Fast→slow）に比べ、提案手法の後半加速型（Ours / Slow→fast）は中央の未到達領域に残るサンプルが極めて少なく、2ステップで目標領域（破線部）を99%捉えられています。",
+     "caption": "Figure 7: Interpolation scheduling for few-step generation. The left three columns compare linear (standard), fast-then-slow, and slow-then-fast (ours) scheduling, respectively. The two rows show generated endpoints after one and two integration steps, corresponding to NFE = 2 and 4, respectively. Stars mark the source mean, dashed outlines indicate the target capture regions, and the rightmost column compares the generated $y$ -marginals with the target distribution (gray). With two steps, capture reaches 84%, 40%, and 99%, respectively. With one step, fast-then-slow scheduling leaves 56% of samples in the central band, compared with 22% for linear and 13% for ours. …",
+     "image": "details/2610.36694/F7.jpg"
+    },
+    {
+     "key": "F10",
+     "caption_ja": "非線形スケジュールの理論的・実証的妥当性の検証です。(a) ガウスモデルから予測されたリスク低減率と実データでの推定値が高い相関を示しています。(b) 行動予測MLPの誤差において、slow-then-fast（提案手法）が線形補間より約22%誤差を削減しているのに対し、fast-then-slowは大きく悪化しています。(c) 最適な終端/始端速度比がOT固有値（分散拡大比 $s_{\\tau j}$）にほぼ完全に比例していることを示しています。",
+     "caption": "Figure 10: Empirical support for the slow-then-fast scheduling principle. (a) Gaussian -predicted versus empirically estimated slow-then-fast/linear ratios of time-integrated directional risk terms; each point is an expansion direction, colored by $\\log_{10}s_{\\tau j}$ . (b) Expansion-subspace prediction error of full-state MLP regressors, normalized by the linear baseline after summing over tasks. Gaussian -optimal optimizes the Gaussian bound on expansion directions. (c) Endpoint-speed ratios of numerical optima reconstructed from empirical conditional variances, with the theoretical relation shown as a dashed line. …",
+     "image": "details/2610.36694/F10.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "マルチタスク生成モデルの性能限界は、ネットワーク構造だけでなく「一律なガウスノイズと線形輸送」という前提自体に起因している可能性がある。",
+  "訓練済みモデルの逆フロー写像は、行動データの潜在的なタスク間・タスク内クラスタ構造を綺麗に抽出する強力な分析・設計ツールになる。",
+  "分散が広がる（拡大する）方向への輸送では、「前半はゆっくり、確信度が上がった後半に素早く」遷移させることが予測リスクを抑える鍵となる。",
+  "事前分布とスケジュールを適切に設計すれば、推論ステップ数を1ステップ（NFE=2）まで削っても、従来の10ステップを凌駕する精度と大幅なレイテンシ削減が両立できる。"
+ ],
+ "limitations_ja": [
+  "タスクごとの事前分布（MPPCA）と最適輸送マップを事前にオフライン計算する必要があり、事前準備のオーバーヘッドが存在する。",
+  "既知のタスクカテゴリに依存した言語セレクタを用いているため、訓練時に含まれていない完全に新しいタスク指示へのゼロショット適応は保証されていない。",
+  "行動チャンクの長さ（ホライズン）が固定されており、タスクや状況に応じた可変長の行動生成には現時点で対応していない。"
+ ],
+ "keywords": [
+  "Flow Matching",
+  "Imitation Learning",
+  "Multi-Task Robot Manipulation",
+  "Optimal Transport",
+  "Generative Policy"
+ ],
+ "id": "2610.36694",
+ "title": "TOPS: Reshaping Flow Source and Transport for Multi-Task Robot Manipulation",
+ "authors": [
+  "Tuo An",
+  "Chuhao Zhou",
+  "Jiahua Dong",
+  "Jingliang Li",
+  "Jiaqi Bai",
+  "Jindou Jia",
+  "Jianfei Yang"
+ ],
+ "date": "2026-10-29",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "control",
+  "imitation-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.36694",
+ "pdf_url": "https://arxiv.org/pdf/2610.36694",
+ "summary_ja": "言語指示による多タスク操作において、固定ガウス分布と線形輸送を用いるフローマッチングの課題を解決するTOPSを提案。逆写像された熟練者行動からタスクごとのマルチモーダルな事前分布を構築し、目標までの幾何学的経路に合わせた補間スケジュールを動的に適応させる。ネットワーク構造を変えずに多タスク操作の成功率と軌道精度を大幅に向上させた。",
+ "generated": "2026-10-29",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.36694"
+}
