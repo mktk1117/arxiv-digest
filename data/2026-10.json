@@ -1,6 +1,322 @@
 {
  "entries": [
   {
+   "date": "2026-10-29",
+   "rank": 0,
+   "id": "2610.36859",
+   "group": "focus",
+   "title": "ActiveAlign: Aligning Egocentric Manipulation via Active Perception",
+   "title_ja": "ActiveAlign: 能動的知覚による一人称視点操作の整準",
+   "summary_ja": "受動的知覚に起因するReal2Sim2Realのギャップを能動的知覚により解消するフレームワークActiveAlignを提案。手の能動動作と微分可能レンダリングを用いた手先カメラキャリブレーションと、触覚フィードバックを活用したミリ単位の物体姿勢調整を組み合わせる。実機での操作精度を向上させ、シミュレーションと現実間の整合性を高めた。",
+   "summary_en": "This paper introduces ActiveAlign, an active perception framework designed to close the Real2Sim2Real gap arising from passive sensing errors. It combines ActiveAlign-Waving, which performs hand-eye calibration using active motions and differentiable rendering, with ActiveAlign-Touching, which refines object alignment via tactile feedback to millimeter accuracy. The approach improves real-world manipulation robustness and structured sim-to-real transfer.",
+   "authors": [
+    "Ri-Zhao Qiu",
+    "Bowen Wen",
+    "Yifeng Jiang",
+    "Chen Tessler",
+    "Eric Heiden",
+    "Xue Bin Peng",
+    "Xiaolong Wang",
+    "Stan Birchfield",
+    "Erwin Coumans"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "sim-to-real",
+    "manipulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.36859",
+   "image": "figures/2026-10-29/2610.36859.jpg"
+  },
+  {
+   "date": "2026-10-29",
+   "rank": 1,
+   "id": "2610.37547",
+   "group": "focus",
+   "title": "When, Where, and What to Correct: Human-Guided Adaptive Residual Correction for Robot Policies",
+   "title_ja": "いつ、どこを、何を修正すべきか：人間の介入に基づくロボット方策の適応的残差補正",
+   "summary_ja": "模倣方策が高精度を要する終盤で失敗する課題に対し、人間の介入から残差学習の適用時と補正幾何を決定するARCを提案。凍結した基本方策の上で強化学習（RL）を用いて局所的な残差方策を学習し、人間の修正動作を模倣目標ではなく自律探索の構造化に活用する。全方策の再学習や広域探索を行わずにピンポイントで制御精度を向上させる。",
+   "summary_en": "To address local failures of imitation policies in precision-critical regions, this paper proposes Adaptive Residual Correction (ARC), which utilizes sparse human interventions to structure residual policy learning. ARC determines when to activate residual control and sets the exploration direction from intervention geometry, training a residual policy via RL on top of a frozen policy. This avoids global retraining and improves precision where it is needed most.",
+   "authors": [
+    "Anukriti Singh",
+    "Maxime Caniot",
+    "Pratap Tokekar",
+    "Firas Abi-Farraj"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.37547",
+   "image": "figures/2026-10-29/2610.37547.jpg"
+  },
+  {
+   "date": "2026-10-29",
+   "rank": 2,
+   "id": "2610.37393",
+   "group": "focus",
+   "title": "Learning Quality-Controllable Robot Policies with Iterative Hindsight Relabeling",
+   "title_ja": "反復型後知恵再ラベル付けによる品質制御可能なロボット方策の学習",
+   "summary_ja": "実行速度や動作の滑らかさといった品質属性を推論時に動的制御できるQuality-Controllable Policy（QCP）を提案。目標品質ラベルの下で収集したオンラインロールアウトを成功判定後にヒンジ的に再ラベル付けする反復型後知恵学習ループを構築した。これにより、初期デモの品質範囲を超えて高品質かつ多様な運動特性をオンデマンドで生成可能にした。",
+   "summary_en": "This paper presents Quality-Controllable Policy (QCP), a framework that enables inference-time dynamic control over motion quality attributes such as speed and smoothness. To expand the controllable range beyond initial demonstrations, QCP employs an iterative hindsight relabeling loop that collects online rollouts under target quality labels and relabels successful trajectories. This allows policies to generate diverse, high-quality motions on demand.",
+   "authors": [
+    "Sinjae Kang",
+    "Dong Kyu Shin",
+    "Jaehong Kim",
+    "Kamin Lee",
+    "Hyoeun Kim",
+    "Kaixin Wang",
+    "Li Zhao",
+    "Seonghyeon Ye",
+    "Kimin Lee"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.37393",
+   "image": "figures/2026-10-29/2610.37393.jpg"
+  },
+  {
+   "date": "2026-10-29",
+   "rank": 3,
+   "id": "2610.37666",
+   "group": "focus",
+   "title": "ThinkWorld: World Imagination Reinforces Chain-of-Dynamics Reasoning",
+   "title_ja": "ThinkWorld: 世界想像強化学習によるダイナミクス連鎖推論の強化",
+   "summary_ja": "実機行動ラベルのない人間動画を活用し、世界ダイナミクスに基づく行動推論を行うVLAフレームワークThinkWorldを提案。行動思考を離散運動トークン列であるChain-of-Dynamics（CoD）として表現し、動画から予測される環境状態の推移と連動させる。さらに世界モデルを用いた想像強化学習によりCoDの物理的一貫性と推論能力を大幅に強化した。",
+   "summary_en": "This paper introduces ThinkWorld, a Vision-Language-Action framework that grounds action reasoning in world dynamics using human video data lacking robot action labels. It represents action reasoning as a Chain-of-Dynamics (CoD), a sequence of discrete motion tokens tracking intermediate physical transitions. By leveraging reinforcement learning via world imagination, ThinkWorld substantially reinforces the physical validity and reasoning capacity of the policy.",
+   "authors": [
+    "Chaehyun Kim",
+    "Chi-Pin Huang",
+    "Jisoo Kim",
+    "Min-Hung Chen",
+    "Yu-Chiang Frank Wang",
+    "Seungryong Kim",
+    "Fu-En Yang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "world-model",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.37666",
+   "image": "figures/2026-10-29/2610.37666.jpg"
+  },
+  {
+   "date": "2026-10-29",
+   "rank": 4,
+   "id": "2610.36823",
+   "group": "focus",
+   "title": "TAPESTRY: A Single Backbone for Video Generation and Robot Control",
+   "title_ja": "TAPESTRY: 動画生成とロボット制御を統合する単一バックボーン",
+   "summary_ja": "事前学習済み動画拡散Transformerを推論時の動画生成なしで直接方策として活用する世界行動モデルTAPESTRYを提案。ロボットの行動を動画モデルの潜在空間における単一パッチトークンとして扱い、軽量な線形射影層により埋め込む。推論時の計算コストを抑えつつ、事前学習モデルが持つ物理インタラクションの知識を運動制御に直接転移させることに成功した。",
+   "summary_en": "This paper proposes TAPESTRY, a world action model that repurposes a pretrained video diffusion transformer into a robotic policy without requiring expensive test-time video generation. It treats robot actions as single-patch tokens directly mapped into the latent space of the video model using a lightweight linear projection. This effectively transfers physical interaction priors from video pretraining to robot control while maintaining low inference latency.",
+   "authors": [
+    "Jeremy A. Collins",
+    "Seungjae Lee",
+    "Rachanon Wachakorn",
+    "Krishnan Srinivasan",
+    "Animesh Garg",
+    "Vitor Campagnolo Guizilini",
+    "Paarth Shah"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "world-model",
+    "control",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.36823",
+   "image": "figures/2026-10-29/2610.36823.jpg"
+  },
+  {
+   "date": "2026-10-29",
+   "rank": 5,
+   "id": "2610.36694",
+   "group": "general",
+   "title": "TOPS: Reshaping Flow Source and Transport for Multi-Task Robot Manipulation",
+   "title_ja": "TOPS: マルチタスクロボット操作のためのフローソースと輸送スケジュールの再構築",
+   "summary_ja": "言語指示による多タスク操作において、固定ガウス分布と線形輸送を用いるフローマッチングの課題を解決するTOPSを提案。逆写像された熟練者行動からタスクごとのマルチモーダルな事前分布を構築し、目標までの幾何学的経路に合わせた補間スケジュールを動的に適応させる。ネットワーク構造を変えずに多タスク操作の成功率と軌道精度を大幅に向上させた。",
+   "summary_en": "This paper introduces TOPS (Task-Oriented Priors and Schedules), which enhances flow-based multi-task manipulation policies without changing network architecture. TOPS builds multimodal task priors from reverse-mapped expert demonstrations and dynamically adapts interpolation schedules to task-specific trajectory geometry. This prevents cross-task interference and significantly boosts execution success across varied manipulation tasks.",
+   "authors": [
+    "Tuo An",
+    "Chuhao Zhou",
+    "Jiahua Dong",
+    "Jingliang Li",
+    "Jiaqi Bai",
+    "Jindou Jia",
+    "Jianfei Yang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "manipulation",
+    "control",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.36694",
+   "image": "figures/2026-10-29/2610.36694.jpg"
+  },
+  {
+   "date": "2026-10-29",
+   "rank": 6,
+   "id": "2610.37215",
+   "group": "general",
+   "title": "Retrieve to Act: Motion Primitive Graph Retrieval for Robust VLA Execution",
+   "title_ja": "Retrieve to Act: 頑健なVLA実行のための運動プリミティブグラフ検索",
+   "summary_ja": "VLA方策が直面する視覚的分布外（OOD）変化に対し、運動プリミティブグラフ検索に基づくテスト時スケーリング手法R2Aを提案。成功デモを時空間運動プリミティブグラフとしてオフライン構築し、推論時には脆弱な視覚特徴に頼らず幾何学的クエリ検索により運動軌道を誘導する。外観の激しい変化下でも安定した操作実行性能を達成した。",
+   "summary_en": "This paper proposes Retrieve to Act (R2A), a test-time scaling framework that addresses the out-of-distribution (OOD) visual vulnerability of Vision-Language-Action policies. R2A structures successful training demonstrations into an offline spatiotemporal motion primitive graph and treats OOD robustness as a geometric retrieval problem. By relying on kinematic graph queries rather than fragile visual features, it achieves robust execution under severe visual shifts.",
+   "authors": [
+    "Pham Tri Quang",
+    "Bao-Ngoc Dao",
+    "Minh Duc Nguyen",
+    "Duc-Duy Nguyen",
+    "Hung T. Ho",
+    "Linh Dang Le",
+    "Trong-Bao Ho",
+    "Thien-Loc Ha",
+    "Tan Q. Nguyen",
+    "Tuan Dam",
+    "Vu N. Duong",
+    "Daniel Sonntag",
+    "Ngan Le",
+    "Khoa D. Doan",
+    "Jan Peters",
+    "An Thai Le",
+    "Duy M. H. Nguyen",
+    "Vien Anh Ngo"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.37215",
+   "image": "figures/2026-10-29/2610.37215.jpg"
+  },
+  {
+   "date": "2026-10-29",
+   "rank": 7,
+   "id": "2610.36374",
+   "group": "general",
+   "title": "HIDRA: Hierarchical Dual-Routing Attention for Replay-Free Lifelong Imitation Learning",
+   "title_ja": "HIDRA: リプレイフリーな生涯模倣学習のための階層的デュアルルーティングアテンション",
+   "summary_ja": "過去データを保存・再訪できないリプレイフリーな生涯模倣学習向けに、階層的デュアルアテンションルーターHIDRAを提案。指示レベルのエキスパート検索と文脈依存の洗練処理を分離することで、単一パス学習における表現空間の歪みとルーティング干渉を抑制する。実環境での連続的なタスク習得において破滅的忘却を防ぎ、高い汎化性能を実証した。",
+   "summary_en": "This paper presents HIDRA, a hierarchical dual-routing attention framework for replay-free lifelong imitation learning where past demonstrations cannot be stored. By decoupling instruction-level expert retrieval from context-dependent routing refinement, HIDRA mitigates routing interference caused by representation drift during single-pass sequential updates. The approach effectively prevents catastrophic forgetting and stabilizes continuous robotic skill acquisition.",
+   "authors": [
+    "Fanqi Yu",
+    "Matteo Tiezzi",
+    "Cigdem Beyan",
+    "Tommaso Apicella",
+    "Vittorio Murino"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "imitation-learning",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.36374",
+   "image": "figures/2026-10-29/2610.36374.jpg"
+  },
+  {
+   "date": "2026-10-29",
+   "rank": 8,
+   "id": "2610.36533",
+   "group": "general",
+   "title": "RoboAuto: Autonomous Robot Program Search through Multi-Level Physical Understanding",
+   "title_ja": "RoboAuto: 多層的物理理解を通じた自律的ロボットプログラム探索",
+   "summary_ja": "Code-as-Policyにおけるロボットプログラム自動探索を高度化するため、多層物理理解を統合したRoboAutoを提案。物体アフォーダンス、幾何拘束、成功・失敗の原因といった物理的知見を「物体・シーン・インタラクション」の3層で明示的にモデル化する。単なる実行フィードバック依存から脱却し、複雑な操作タスクにおいて効率的で実行可能なプログラム生成を実現した。",
+   "summary_en": "This paper introduces RoboAuto, a robot program search framework that incorporates multi-level physical understanding into Code-as-Policy workflows. It explicitly structures physical reasoning across object affordances, scene geometry, and interaction outcomes rather than relying solely on raw execution feedback. This structured understanding enables autonomous LLM agents to generate, evaluate, and refine executable programs for complex manipulation tasks.",
+   "authors": [
+    "Buzhao Liu",
+    "Jianing Ye",
+    "Xiu Yuan",
+    "Yangtong Feng",
+    "Chengsong Huang",
+    "Tyler Dinh",
+    "Yevgeniy Vorobeychik",
+    "Ning Zhang",
+    "Chongjie Zhang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CL",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "manipulation",
+    "llm-agent",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.36533",
+   "image": "figures/2026-10-29/2610.36533.jpg"
+  },
+  {
+   "date": "2026-10-29",
+   "rank": 9,
+   "id": "2610.37550",
+   "group": "general",
+   "title": "Kinematic Constraint-Referenced Evaluation for Articulated Object Manipulation",
+   "title_ja": "多関節物体操作のための幾何拘束参照型評価手法",
+   "summary_ja": "二値の成否判定に依存していた多関節物体操作の評価に対し、幾何拘束を参照する新指標CRSを提案。指令されたエンドエフェクタのツイストを物体の関節軸に射影し、進行方向成分と拘束に反する無駄成分に分離して定量化する。熟練デモや学習済みモデルを要さず、方針の失敗原因を幾何学的に明確に診断可能にした。",
+   "summary_en": "To overcome the limitations of binary success metrics in articulated object manipulation, this paper proposes Constraint-Referenced Strategy (CRS). CRS projects the commanded end-effector twist onto the object's joint axis, decomposing motion into functional progress and off-constraint waste without requiring demonstrations or learned evaluators. This provides fine-grained, interpretable diagnostic signatures for policy failure modes across diverse articulated mechanisms.",
+   "authors": [
+    "Baptiste Bonin",
+    "Caro Strickland",
+    "Audrey Durand"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "manipulation",
+    "benchmark",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.37550",
+   "image": "figures/2026-10-29/2610.37550.jpg"
+  },
+  {
    "date": "2026-10-28",
    "rank": 0,
    "id": "2610.36825",
