@@ -1,0 +1,133 @@
+{
+ "title_ja": "ActiveAlign: 能動的知覚による一人称視点操作の整準",
+ "tldr_ja": "静止画からの受動的な認識に頼る従来の Real2Sim2Real とは異なり、手を振る動作による能動的なカメラ自己校正と指先の触覚探索を組み合わせることで、実機ヒューマノイドによるミリメートル精度の微細マニピュレーションを実現した研究です。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "ActiveAlign の全体パイプラインです。オフラインで 3DGS や BundleSDF を使ってシーンやロボットの 3D 資産を構築し、オンラインでは一人称カメラと能動的な動作（手を振る運動と触覚探索）を通じて、実世界とシミュレーションのズレを埋めながら高精度にタスクを実行します。",
+  "caption": "Figure 2 : Method Overview. The pipeline is separated into two stages. During the offline stage, static scene and object reconstructions are collected. During inference-time (online, real time), various real2sim modules turn RGB-D observations into structured simulation models for downstream action planning. Our ActiveAlign framework uses active perception to update the simulation model from observations due to robot actions. (The ArUco code cubes are included to show ability to track objects by their textures only.)",
+  "image": "details/2610.36859/F2.jpg"
+ },
+ "overview_ja": "ロボットがシミュレーション環境で計画を立てて実世界で安全に行動する「Real-to-Sim-to-Real（Real2Sim2Real）」という枠組みが注目を集めています。しかし、従来の多くの手法は、据え置きカメラや単一フレームの静止画から受動的にシーンを認識していました。これでは、一人称視点カメラのキャリブレーション誤差や、運動学的な累積誤差、制御のバックラッシュが積み重なり、ボタン押しやスライダー操作のようなミリ単位の精度が求められる作業ではあっさり失敗してしまいます。\n\nそこで著者らは、人間が無意識に行っている「能動知覚（Active Perception）」に着目しました。人間は頭を動かして遮蔽を回避し、手を振って奥行きの手がかりを得て、手探りで触れながら対象物の位置を微調整します。この着想をもとに提案されたのが「ActiveAlign」です。\n\nActiveAlign は大きく2つのモジュールで構成されます。1つ目は、手を自然に振る動作と微分可能レンダリングを組み合わせてオンラインでカメラ外部パラメータを同定する「ActiveAlign-Waving」。2つ目は、指先で表面を軽くタップして局所的な高さマップを生成し、知覚とアクチュエーションの累積誤差を補正する「ActiveAlign-Touching」です。\n\n実機の Unitree G1 ヒューマノイドロボットを用いたボタン押しやスライダー操作の実験では、視覚のみのベースラインが累積誤差でほぼ全滅したのに対し、提案手法は高い成功率を達成しました。さらに、カメラパラメータが未知の公開ロボットデータセットに対しても高精度な校正とシミュレーション再現ができることを示しています。",
+ "contributions_ja": [
+  "ロボット自身の能動的な動作（手の動きと接触探索）を取り入れて Real2Sim2Real の隙間を埋める初のエンドツーエンドな枠組みを提案した点",
+  "多関節ヒューマノイド特有の不良設定問題を重要度サンプリングと複数姿勢の能動動作で解決する微分可能レンダリング校正法（ActiveAlign-Waving）を開発した点",
+  "重い 3D 表面再構成を行わず、2D 平面上の局所高さマップを触覚で高速に作成してミリ単位の累積誤差を打ち消す接触アライメント（ActiveAlign-Touching）を提案した点",
+  "実機 Unitree G1 ロボットを用いたスイッチ・スライダー等の微細操作と、公開マニピュレーションデータセットの自動校正の両方で有効性を実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜロボットは「手を振って、触る」必要があるのか？",
+   "summary_ja": "実世界で安全に作業するにはシミュレーションと実世界の高精度な一致が不可欠ですが、静止画からの受動的な認識だけではミリ単位の誤差を解消できません。本研究は人間のように能動的に体を動かし触覚で探ることで、この一致問題を根本から解決する ActiveAlign を提案します。",
+   "details_ja": "ロボットが実環境で作業を行う際、物体を正確に発見し、追跡し、位置合わせすることが成否を分けます。ボタンを押したりスライダーを動かしたりする微細マニピュレーションでは、わずか数ミリメートルのズレが致命的な失敗につながるからです。\n\nこの課題に対し、実世界から構造化されたシミュレーション資産を作り出して安全な計画を行う Real-to-Sim-to-Real（Real2Sim2Real）が研究されてきました。しかし、従来の多くの手法は「受動的な知覚」に偏っています。つまり、止まった視点から得られる不完全な観測をもとにシミュレーションを作ろうとするため、実世界とシミュレーションの乖離（Real2Sim ギャップ）を自ら縮めることができませんでした。\n\nここで著者らが注目したのが、人間の行動様式です。人間は奥行きを測るために首を傾げたり手を動かしたりしますし、小さなスイッチを押すときは視覚で大まかに狙いを定めた後、指先で触れて位置を確かめます。これと同じことをロボットの一人称視点マニピュレーションに導入しようというのが、本論文の核となるアイデアです。\n\n具体的には、手を振る運動と微分可能レンダリングによってカメラパラメータをオンライン最適化する「ActiveAlign-Waving」と、指先触覚でミリ単位のズレを解消する「ActiveAlign-Touching」を導入し、完全なエンドツーエンドで実世界とシミュレーションを整合させます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "ActiveAlign の全体構成です。オフラインでの物体・ロボット再構成と、オンラインでの一人称視点カメラ校正（Waving）および触覚高さマップを用いた接触補正（Touching）の流れが示されています。",
+     "caption": "Figure 2 : Method Overview. The pipeline is separated into two stages. During the offline stage, static scene and object reconstructions are collected. During inference-time (online, real time), various real2sim modules turn RGB-D observations into structured simulation models for downstream action planning. Our ActiveAlign framework uses active perception to update the simulation model from observations due to robot actions. (The ArUco code cubes are included to show ability to track objects by their textures only.)",
+     "image": "details/2610.36859/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Method",
+   "heading_ja": "手を振ってカメラを合わせ、触ってミリ単位の誤差を消す",
+   "summary_ja": "本手法はオフラインの資産構築とオンラインのリアルタイム実行で構成されます。オンラインでは、手を振る動作と重要度サンプリングを活用した微分可能レンダリングでカメラ姿勢を校正し、さらに指先の触覚探索で局所高さマップを作って累積誤差を打ち消します。",
+   "details_ja": "### 2.1 パイプラインの基礎と直面する誤差\nActiveAlign はオフラインフェーズとオンラインフェーズの2段階で動作します。オフラインでは、複数フレームの RGB-D 画像から 3D Gaussian Splatting（3DGS）や BundleSDF を使ってシーンや物体の 3D モデルを構築します。オンラインでは、GroundingDINO と SAM2 で物体を発見・セグメンテーションし、FoundationPose で姿勢推定を行って実世界の状況をシミュレーションへリアルタイムに同期します。\n\nしかし、このベースラインには2つの根深い誤差が残ります。(1) マーカーレスな一人称カメラの校正誤差、そして (2) 認識誤差にヒューマノイドの長いキネマティクス鎖やバックラッシュ、制御誤差が積み重なる「累積誤差（compounding error）」です。これを能動知覚で解決していきます。\n\n### 2.2 ActiveAlign-Waving：能動動作によるオンラインカメラ校正\nカメラ外部パラメータ $T_{base\\to cam}$ を自動校正するため、著者らは 3DGS をベースにした微分可能レンダリングを採用しました。ロボットの関節角度 $\\bm{p}$ に応じたメッシュ変形を 3DGS に組み込み、レンダリングされた深度画像と実機の深度画像 $D$ のズレを最小化するようにカメラパラメータを最適化します。\n\nしかし、一人称カメラを搭載した多自由度ヒューマノイドでは、手先しか画角に入らない上に自由度が高すぎるため、最適化が局所解に陥りやすくなります。そこで2つの工夫を導入しました。\n- 重要度サンプリング：関節空間を一様にサンプリングするのではなく、「カメラが作業中の両手先を見ている」という幾何学的な事前知識に基づいて重点的にサンプリングし、破綻のない 3DGS モデルを事前学習します。\n- 能動知覚（手を振る動作）：単一画像ではなく、ロボットが手先を能動的に振るシーケンス（または動作軌跡内の静止区間）から複数フレームを取得し、それらを同時に満たすようにカメラパラメータを最適化します。これにより、一人称視点でも極めて安定した校正が可能になりました。\n\n### 2.3 ActiveAlign-Touching：触覚による微細アライメント\n視覚による姿勢推定が高精度であっても、ロボットが指先を目標に伸ばすと累積誤差のせいで数ミリメートル外れてしまいます。そこで人間がスイッチを探る動作を模倣します。\n\n完全な 3D 形状再構成を触覚で行うと時間がかかりすぎるため、本手法では操作対象の表面を 2D 平面と見なし、$z$ 方向の「局所高さマップ」を作成します。視覚で捉えた関心領域（例：スライダーのノブ中心）の周囲を、指先で一定の接触力しきい値 $T_{\\text{force}}$ に達するまでゆっくり降下させながら密にタッピングします。こうして得られた高さマップとロボットのアクション空間を直接対応付けることで、知覚とアクチュエーションのズレを完全に吸収した微細操作が可能になります。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "視覚で認識したバウンディングボックスと、指先触覚でスキャンして得られた局所高さマップの対応関係です。視覚的に予測した位置と実際の突起位置にミリ単位のズレがあることが高さマップから明瞭に分かります。",
+     "caption": "Figure 3 : Illustration of action to tactile height map correspondence. Note how action-to-height map indexing is different from the visual boxes that accounts for the error. (The height map is up-sampled for visiblity.)",
+     "image": "details/2610.36859/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "3 Experiments",
+   "heading_ja": "実機ヒューマノイドと公開データセットで威力を実証",
+   "summary_ja": "実機 Unitree G1 を用いた微細操作実験では、触覚アライメントの導入によりモデルベース計画の成功率が劇的に向上しました。また、校正情報の存在しない複数の公開ロボットデータセットに対しても、手を振るアプローチで高精度かつ一貫したカメラ校正が行えることを示しました。",
+   "details_ja": "### 実験設定\nカメラ校正の検証には、シミュレーション（照明変化や初期値ノイズを付加）と実機ロボットの両方を用いました。実機には Unitree G1 を使用し、頭部には ZED Mini ステレオカメラ（首振り用 Dynamixel モータ付き）、手先には SensibleRobotics RoboSkin 触覚センサ（80素子のアレイ）を備えた Alt-Bionics Surge ハンドや Dex3 ハンドを搭載しています。微細操作の評価には、DJ コントローラーのスライダーや壁スイッチなど、ミリ単位の精度が求められる3種類のパネルを用意しました。\n\n### 3.1 定量・定性評価：触覚がミリ精度の壁を破る\n視覚による Real2Sim とカメラ校正を済ませた状態でも、ボトルの把持のような大まかなタスクは可能ですが、ボタン押しやスライダー操作ではモデルベースの軌道計画ベースラインは非常に低い成功率にとどまりました。認識から制御に至る累積誤差が原因です。\n\n一方、触覚アライメント（ActiveAlign-Touching）を導入して局所高さマップを構築したところ、すべての操作対象において成功率が大幅に向上しました。視覚で粗くアプローチし、触覚マップで自己の作用点と突起位置のミリ単位のズレを補正する二段階のアプローチが、実機操作において決定的な役割を果たすことが確認されました。\n\n### 3.2 公開データセットでの Real2Sim 汎用性\n提案手法のカメラ校正（ActiveAlign-Waving）が自前の機体以外にも通用するかを確かめるため、カメラ校正情報が含まれていない公開データセット（xdof、Mobile ALOHA、Humanoid Everyday）に適用しました。ロボットの軌跡ログから静止区間を能動動作の観測データとして自動抽出し、最適化を行いました。\n\nその結果、実機マスクとレンダリングマスクの重なり度合いを示す IoU において、単一フレームを最適化する従来手法よりも一貫して高い値を記録しました。また、エピソード間での推定カメラ位置のばらつきも大幅に抑えられ、キャリブレーションされていない既存の大量データから高精度なシミュレーション環境を自動構築できる実用性が示されました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "校正情報のない公開ロボットデータセット（Mobile ALOHA や Humanoid Everyday など）に対する Real2Sim の再現結果です。ActiveAlign-Waving により、実機画像（上段）とシミュレーション（下段）のカメラ位置および手先位置が見事に一致しています。",
+     "caption": "Figure 4 : Real2Sim of public uncalibrated data. ActiveAlign-Waving can be used to calibrate camera parameters of public robot manipulation datasets that do not have camera parameters. It captures static intervals across consecutive trajectories, and optimize for camera parameters. Combined with curated simulation assets, this enables simulation matched to real environments. Note the alignment of cameras and end effectors. The datasets from left to right: Mobile ALOHA [ 10 ] , ABC-130K [ 3 ] , and Humanoid Everyday [ 56 ] .",
+     "image": "details/2610.36859/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Conclusion",
+   "heading_ja": "能動知覚が切り拓く高精度 Real2Sim2Real",
+   "summary_ja": "能動知覚を活用して Real2Sim2Real のギャップを埋める ActiveAlign を提案しました。公開データセットからの高精度なシミュレーション環境構築と、実機 Unitree G1 でのミリメートル級微細操作の両面でその有効性を確立しました。",
+   "details_ja": "本論文では、静止画像に基づく従来の受動的アプローチの限界を打破し、能動知覚によって実世界とシミュレーションをシームレスにつなぐ枠組み「ActiveAlign」を提案しました。\n\n能動的な手の動きを利用したカメラ校正（ActiveAlign-Waving）は、一人称カメラしか持たないヒューマノイドや未校正の公開データセットに対しても頑健な姿勢推定を可能にしました。また、触覚探索による接触面アライメント（ActiveAlign-Touching）は、知覚・校正・制御の連鎖で生じる累積誤差を物理的な接触フィードバックで打ち消し、実機ヒューマノイドによるミリメートル精度のスイッチ操作を実現しました。\n\nロボットが自らの身体を積極的に動かして情報を引き出し、自己修正していく能動知覚のパラダイムは、今後の汎用ヒューマノイドマニピュレーションにおいて不可欠な基盤技術になると期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：ハードウェア構成と重要度サンプリングの秘密",
+   "summary_ja": "車載 Jetson AGX Orin 上で全パイプラインをリアルタイム動作させている計算系の構成や、ヒューマノイドの 3DGS モデル事前学習において重要度サンプリングが不可欠である理由について解説します。",
+   "details_ja": "### 計算系とハードウェア構成\nロボットの実機計算には、消費電力 75W でバッテリー駆動が可能な NVIDIA Jetson AGX Orin（64GB）を採用しています。ロボットの制御信号更新と状態同期スレッドは 60Hz で動作し、物体の発見とセグメンテーション（GroundingDINO および SAM2）は起動時（および必要に応じた周期的呼び出し）に実行されます。姿勢推定器である FoundationPose は、他の並行スレッドと協調しながら Orin 上で 2 FPS で安定動作しています。\n\n### なぜ重要度サンプリングが必要なのか？\n先行研究（DRRobot など）では、ロボットの関節角度空間を一様サンプリングしてレンダリング用 3DGS モデルを学習していました。単一のロボットアームならこれでも機能しますが、29の身体自由度と14の手先自由度を持つ Unitree G1 のような全身ヒューマノイドで一様サンプリングを行うと、関節の組み合わせによって自己遮蔽が頻発し、学習画像において極端に不自然な姿勢ばかりが生成されてしまいます。\n\nその結果、最適化に用いる 3DGS モデルの一部が縮退（degrade）してしまい、カメラ校正の最適化が収束しなくなります。そこで「カメラは手先を見ている」という条件付きの重要度サンプリングを行うことで、破綻のない 3DGS モデルが構築でき、安定したカメラ外部パラメータ最適化が達成されました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "ActiveAlign-Waving でロボットが自然に手を振る様子の連続写真です。人間のように手を動かして複数視点の観測を得ることで、微分可能レンダリングによるカメラパラメータ最適化が局所解に陥るのを防ぎます。",
+     "caption": "Figure 5 : ActiveAlign-Waving uses human-like behavior to wave the hands of the humanoids. This provides more data points to stablize camera pose optimization via differentiable rendering. This technique works for all humanoid robots. (The ArUco cube is used for evaluation purpose only.)",
+     "image": "details/2610.36859/F5.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "「高精度な受動認識」を目指すよりも、「能動的に動いて触って確かめる」ループを作ったほうが、ミリ単位の累積誤差をはるかに頑健に解消できる",
+  "一人称視点ヒューマノイドのマーカーレス校正では、単一フレームに頼らず、手を振る能動動作で複数フレームの幾何拘束を使うことが極めて有効",
+  "触覚による形状補正は完全な 3D 再構成を目指す必要はなく、対象面を 2D 平面とした局所高さマップで十分実用的かつ高速に動作する",
+  "未校正の公開ロボット操作データセットであっても、軌跡中の静止区間を能動観測とみなすことで、後から高精度なシミュレーション資産へ変換できる"
+ ],
+ "limitations_ja": [
+  "触覚探索（ActiveAlign-Touching）は平面上に配置されたスイッチやスライダーなどの突起物を前提としており、複雑な 3D 自由曲面を持つ物体への適用は検証されていない",
+  "触覚高さマップ作成のために指先で局所領域をタッピングする探索時間が追加で必要になるため、タスク全体の即時性とのトレードオフがある",
+  "頭部カメラが手先を捉えられないほど大きく腕を動かしている状況や、視野外での作業では ActiveAlign-Waving の幾何拘束が成立しにくい"
+ ],
+ "keywords": [
+  "Real2Sim2Real",
+  "Active Perception",
+  "Humanoid Manipulation",
+  "Camera Calibration",
+  "Tactile Sensing",
+  "Differentiable Rendering"
+ ],
+ "id": "2610.36859",
+ "title": "ActiveAlign: Aligning Egocentric Manipulation via Active Perception",
+ "authors": [
+  "Ri-Zhao Qiu",
+  "Bowen Wen",
+  "Yifeng Jiang",
+  "Chen Tessler",
+  "Eric Heiden",
+  "Xue Bin Peng",
+  "Xiaolong Wang",
+  "Stan Birchfield",
+  "Erwin Coumans"
+ ],
+ "date": "2026-10-29",
+ "group": "focus",
+ "tags": [
+  "sim-to-real",
+  "manipulation",
+  "perception"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.36859",
+ "pdf_url": "https://arxiv.org/pdf/2610.36859",
+ "summary_ja": "受動的知覚に起因するReal2Sim2Realのギャップを能動的知覚により解消するフレームワークActiveAlignを提案。手の能動動作と微分可能レンダリングを用いた手先カメラキャリブレーションと、触覚フィードバックを活用したミリ単位の物体姿勢調整を組み合わせる。実機での操作精度を向上させ、シミュレーションと現実間の整合性を高めた。",
+ "generated": "2026-10-29",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.36859"
+}
