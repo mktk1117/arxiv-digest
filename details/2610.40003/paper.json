@@ -1,0 +1,140 @@
+{
+ "title_ja": "Humanoid Dodgeball: ヒューマノイドのための高速動的障害物回避動作の学習",
+ "tldr_ja": "飛んでくる障害物を全身を使って瞬時にかわし、倒れずに姿勢を復元するヒューマノイドロボット向けの強化学習フレームワークを提案。実機（PM01）でも時速数十キロ（最大10 m/s）のボールをステップやしゃがみで回避することに成功しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "Humanoid Dodgeball の全体構成です。部位ごとの衝突予測に基づく脅威度計算から回避報酬を導出し、ルートの逃避方向に応じた方向別敵対的モーション事前分布（AMP）で人らしい多様な回避動作を促します。脅威が去った後はキャプチャーポイント報酬により安定した直立姿勢へと復元します。",
+  "caption": "Fig. 2: Overview of Humanoid Dodgeball . During simulation training, predictive and near-field threat for key bodies are computed to characterize incoming projectile hazards and guide threat-aware reward shaping for whole-body evasion. Direction-specific adversarial motion priors, selected according to the root escape direction, regularize the learned behaviors toward diverse and natural human-like dodge motions. When the threat subsides, recovery rewards, including orientation and capture-point objectives, encourage rapid stabilization. During hardware deployment, the trained actor is executed using obstacle positions estimated from the motion-capture system.",
+  "image": "details/2610.40003/F2.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットの運動性能は近年目覚ましく向上し、パルクールやサッカーなど激しい動きもこなせるようになってきました。しかし、「高速で飛んでくるボールや障害物をとっさに避ける」というタスクは依然として大きな難関です。四足歩行ロボットやドローンなら機体を平行移動させたり速度を変えるだけで済みますが、ヒューマノイドは接地自由度が限られ、重心バランスを保ちながら全身の多関節を連動させて避ける必要があるためです。\n\nそこで著者らは、強化学習（RL）を用いてドッジボールのように飛来物を回避するフレームワーク「Humanoid Dodgeball」を構築しました。ポイントは大きく3つあります。1つ目は、ロボットの主要部位ごとに「予測脅威度（何秒後にどこへ衝突するか）」と「近接脅威度（現在どれだけ近いか）」を幾何学的に計算して報酬に組み込んだこと。2つ目は、逃げる方向（前後左右）ごとに個別の敵対的モーション事前分布（AMP）判別器を用意し、後ろに下がるだけでなく前に踏み出したりしゃがんだりといった人間らしい多様な回避行動を引き出したこと。3つ目は、回避後の転倒を防ぐために線形倒立振子モデルに基づくキャプチャーポイント（踏み出せば止まれる位置）報酬を導入したことです。\n\nシミュレーションではUnitree G1とEngineAI PM01の2機種で検証し、最新の比較手法（PAC-MANやREBot）を大きく上回る回避成功率を達成しました。さらにPM01実機にモーションキャプチャを組み合わせてボールを投げつける実験でも、73%（30回中22回）の確率でステップやダッキングを組み合わせて回避し、転倒せずに耐える能力を実証しました。",
+ "contributions_ja": [
+  "全身の各部位に対する衝突予測時間と必要加速度から脅威度を幾何学的に評価し、的確な逃避運動を促す報酬設計を提案したこと。",
+  "前後左右の4方向ごとに独立したAMP判別器を用意することで、特定の回避パターンへの偏りを防ぎ、多様で自然な回避動作を学習させたこと。",
+  "線形倒立振子に基づくキャプチャーポイント誘導を組み込み、激しい全身回避動作の直後でも転倒せず直立状態へ素早く復帰できるようにしたこと。",
+  "シミュレーション上の2プラットフォーム（G1, PM01）に加え、PM01実機での投球実験（球速3〜10 m/s）で全身連動の回避動作が機能することを示したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "I INTRODUCTION",
+   "heading_ja": "迫り来る危険をとっさに避ける：ヒューマノイド最後の難関",
+   "summary_ja": "ヒューマノイドは運動能力を高めているものの、高速で接近する動的障害物の回避は未解決の課題です。高次元な全身ダイナミクスと厳しい接地・バランス制約を両立しつつ、瞬時に回避行動を起こす必要があります。本研究は、脅威認識報酬と方向別モーション事前分布を統合した回避学習フレームワークを提案します。",
+   "details_ja": "大規模な人間動作データを用いた強化学習により、ヒューマノイドはサッカーやテニス、パルクールといった高度なスキルを獲得してきました。また、転倒時の衝撃緩和や静的障害物の歩行ナビゲーションなど、安全性に関わる研究も進んでいます。\n\nしかし、人間や動物が当たり前に行っている「飛んでくる物体をとっさに身をかわして避ける」という能力は、ロボットにとって極めて困難です。空中を飛ぶドローンならその場から急加速して離脱できますし、四足歩行ロボットなら四脚の広い支持基底面を活かして機体をスライドさせることができます。一方、ヒューマノイドは二脚で身体を支えているため、単に身体をずらすだけでは転倒してしまいます。頭や胴体を引っ込めつつ、足の接地位置（フットプレースメント）を適切に運び、かつ着地後も重心を制御し続けなければなりません。\n\nこの課題を解決するため、本論文では「Humanoid Dodgeball」と名付けた強化学習フレームワークを提案しています。飛来物の脅威度を明示的に評価する報酬、逃げる方向ごとの自然な動作を促す敵対的モーション事前分布（AMP）、そして回避後の姿勢安定化を担うキャプチャーポイント報酬を組み合わせることで、敏捷かつ安定した全身回避を実現しています。",
+   "figures": []
+  },
+  {
+   "heading": "II RELATED WORK",
+   "heading_ja": "ドローンや四足の回避とヒューマノイドは何が違うのか",
+   "summary_ja": "動的障害物回避はドローンや四足歩行ロボットで先行して研究されてきましたが、ヒューマノイド特有の課題には十分対応できていません。同時期にヒューマノイド向け回避手法（PAC-MAN）も提案されたものの、回避方向の偏りや限定的な軌道への過学習といった限界がありました。",
+   "details_ja": "ロボットによる高速障害物の回避は、これまで主にドローンや四足歩行ロボットで探求されてきました。\n\n- ドローンの場合：イベントカメラの超低遅延性を活かした人工ポテンシャル場法や、LiDAR点群を入力とするEnd-to-End強化学習などにより、高速飛来物を避ける手法が確立されています。\n- 四足歩行ロボットの場合：俊敏な移動と回復ポリシーを価値関数で切り替えるABSや、反射的な回避運動をステートマシンで切り替えるREBotなどが提案され、全身を使った素早い回避が可能になっています。\n\nしかし、これらのアプローチをそのままヒューマノイドに適用することはできません。ヒューマノイドは自由度（DoF）が非常に高く、足裏の接触面が小さいため、単純な速度指令の変更や台車の並進のような逃げ方が通用しないからです。\n\n本研究と同時期に、制御バリア関数（CBF）に着想を得た報酬と敵対的モーション事前分布（AMP）を組み合わせたPAC-MANというヒューマノイド向け手法も登場しました。しかしPAC-MANは限られた障害物軌道しか扱っておらず、後退ばかり選んでしまうなど回避方向の多様性に欠け、汎化性能に課題が残っていました。本論文の手法は、これらを克服してより広角かつ高速な飛来物に対応できる点に新規性があります。",
+   "figures": []
+  },
+  {
+   "heading": "III METHODS",
+   "heading_ja": "脅威度予測・方向別AMP・キャプチャーポイントを組み合わせた学習アーキテクチャ",
+   "summary_ja": "全身10箇所の部位と障害物を球体近似し、衝突までの余裕時間と必要加速度から「予測脅威度」と「近接脅威度」を計算して報酬を与えます。さらに4つの方向別AMP判別器で人らしい多様な回避動作を生成し、キャプチャーポイント報酬で回避後の直立復帰を安定化させています。",
+   "details_ja": "### III-A 問題設定\n動的障害物回避をマルコフ決定過程（MDP）として定式化します。ポリシーへの観測情報 $\\bm{o}_t$ は、ロボット自身の固有受容感覚（ベース角速度、ロール・ピッチ角、関節位置・速度、前回アクション）と、ベース座標系における障害物の3次元相対位置 $[x^o, y^o, z^o]$ から構成されます。ポリシーのアクション $\\bm{a}_t$ は標準立ちポーズに対する関節位置オフセットであり、PDコントローラを介してトルクに変換されます。転倒（足以外の部位が地面に接地すること）を失敗と定義しています。\n\n### III-B 脅威度に応じた報酬設計\nロボットの主要10部位（頭、胴体、両腕の上下リンク、両脚の上下リンク）と障害物をそれぞれ球体としてモデル化します。\n- 予測脅威度（Predictive Threat）：相対位置と相対速度から、等速直線運動を仮定した最短接近時間 $\\tau_t^{i*}$ と最短距離 $d_t^{i*}$ を計算します。安全領域から外れるために必要な加速度 $a_{\\mathrm{req},t}^i$ を求め、基準加速度 $a_{\\mathrm{ref}}=2\\,\\mathrm{m/s^2}$ を用いて $S_t^i \\in [0, 1]$ という無次元の脅威度に変換します。\n- 近接脅威度（Near-field Threat）：現在の表面距離クリアランス $c_t^i$ をガウスカーネルで $[0, 1]$ に写像した $D_t^i$ を用います。\nこれらに基づき、衝突予測点から遠ざかる方向への速度を促す身体逃避報酬 $r_t^{\\mathrm{escape}}$、近接ペナルティ $r_t^{\\mathrm{distance}}$、そして全身がまとまって正しい水平方向へ逃げるためのルート逃避方向報酬 $r_t^{\\mathrm{root-dir}}$ を設計しました。さらに脅威が去った後は、線形倒立振子モードに基づくキャプチャーポイント（踏み出せば静止できる着地点 $\\bm{p}^{\\mathrm{capture}}$）と両足支持中心との誤差を抑える報酬 $r_t^{\\mathrm{capture}}$ を適用し、激しい運動後の転倒を防ぎます。\n\n### III-C 方向別敵対的モーション事前分布（AMP）\n単一のAMP判別器を使うと頻度の高い動作（後ろへの後退など）に学習が偏るため、前後左右の4方向ごとに独立した4つの判別器 $D_k$ を導入しました。目標とするルート逃避ベクトルが向いている方向の判別器をアクティブにし、90種類の人間回避モーションデータセットに近づくよう正則化をかけます。これにより、前方にダックしながら踏み込むような積極的な回避動作も安定して学習できます。\n\n### III-D 学習の詳細\nシミュレータ「mjlab」上で4096並列環境を用い、Unitree G1およびEngineAI PM01向けにPPOで学習を行いました。障害物は直線だけでなく重力加速度をランダム化した放物線軌道も含め、投てき速度や狙う部位を広範にドメインランダム化しています。アクターには過去20ステップの観測履歴を1次元CNNで圧縮して入力し、障害物速度を直接与えなくても履歴から潜在的に推定できるように工夫しています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "手法のパイプラインです。球体近似による脅威度計算（Threat Calculation）に基づき回避報酬と回復報酬を切り替え、ルート逃避方向に応じた方向別AMP判別器で自然な動作を誘導します。実機へはモーションキャプチャで取得したボール位置を渡してゼロショット転移させます。",
+     "caption": "Fig. 2: Overview of Humanoid Dodgeball . During simulation training, predictive and near-field threat for key bodies are computed to characterize incoming projectile hazards and guide threat-aware reward shaping for whole-body evasion. Direction-specific adversarial motion priors, selected according to the root escape direction, regularize the learned behaviors toward diverse and natural human-like dodge motions. When the threat subsides, recovery rewards, including orientation and capture-point objectives, encourage rapid stabilization. During hardware deployment, the trained actor is executed using obstacle positions estimated from the motion-capture system.",
+     "image": "details/2610.40003/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Simulation experiments",
+   "heading_ja": "過酷な弾道でも高成功率をキープ：ベースラインを圧倒するシミュレーション検証",
+   "summary_ja": "G1とPM01の両プラットフォームで計2304通りの障害物条件を検証した結果、提案手法は先行研究（PAC-MAN, REBot）より一貫して高い回避成功率を達成しました。方向別AMPによって前後左右へバランス良く動けるようになり、キャプチャーポイント報酬が転倒率を大幅に低減させることが確認されました。",
+   "details_ja": "### IV-A 評価設定とベースライン\n障害物の初速（4〜15 m/s）、発射方向（全周16方向）、距離（1.0〜6.5 m）を網羅した2304通りの設定を用意し、各条件で100回試行しました。比較対象は、四足ロボット向け反射回避をヒューマノイドに移植した「REBot」と、同時期に開発されたCBF＋AMPベースのヒューマノイド回避手法「PAC-MAN」です。\n\n### IV-B 回避性能の評価\n衝突までの余裕時間（$\\mathrm{TTH} = \\text{距離} / \\text{速度}$）ごとの成功率において、提案手法はすべての領域で最高値を記録しました。特に反応時間が十分にある $\\mathrm{TTH} \\ge 1.2\\,\\mathrm{s}$ では、REBotが約50%で頭打ちになり、PAC-MANが70〜80%台にとどまる中、提案手法はG1で96.8%、PM01で93.6%という極めて高い成功率を叩き出しました。\n\n方向別のヒートマップを見ると、PAC-MANは正面や真後ろからの飛来に対して顕著に性能が低下する一方、提案手法は全方向に対して均一に高い成功率を維持しています。また被弾部位の分析では、PAC-MANが頭部や胴体によく直撃しているのに対し、提案手法は上半身への被弾が劇的に減少し、接触のほとんどが足元（支持脚としての制約がある部位）に限定されていました。ただし、より素早く激しく動くため、平均消費電力はPAC-MANよりも高くなるトレードオフがあります。\n\n### IV-C 動作の多様性解析\n回避時の運動軌跡をt-SNEで可視化したところ、PAC-MANはほぼ「後退」に偏っており、単一AMP判別器のモデルでも前方向の回避がほとんど出現しませんでした。一方、4方向AMPを採用した提案手法は、前後左右の4象限に均等にクラスタが分散し、状況に応じて多彩なステップや身のこなしを選択できていることが裏付けられました。\n\n### IV-D アブレーション実験\n各報酬項を取り除いた比較では、近接ペナルティ $r^{\\mathrm{distance}}$ や逃避速度報酬 $r^{\\mathrm{escape}}$ を抜くと反応時間が短い領域（$\\mathrm{TTH} < 1.0\\,\\mathrm{s}$）で成功率が大きく低下しました。また、キャプチャーポイント報酬 $r^{\\mathrm{capture}}$ を抜くと転倒率が約1%未満から4%前後に跳ね上がり、単一AMP判別器にした場合は転倒率が最大10%近くまで悪化しました。動作の多様性と安定性の双方において、提案したコンポーネントが不可欠であることが示されています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "障害物回避成功率のヒートマップです。上段の極座標表示では、提案手法（右）がPAC-MAN（左）と比べて全方向で死角なく高成功率を維持していることが分かります。下段の距離・速度マップでも、60%成功率境界（赤線）がより高速・短距離の厳しい領域へと押し広げられています。",
+     "caption": "Fig. 3: Top: Polar heatmaps of obstacle avoidance success rates across different launch distances and approach directions relative to the robot’s heading. Bottom: Success-rate heatmaps across different obstacle launch speeds and distances. The red contour indicates the 60% success-rate boundary.",
+     "image": "details/2610.40003/F3.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "回避動作のt-SNE可視化です。PAC-MAN（右）や単一AMP（中央）では後退（赤）に動作が集中していますが、提案手法（左）は前後左右（前:青、後:赤、左:緑、右:橙）の全方向にバランスよく動作が分布しており、豊かな行動レパートリーを獲得できていることが分かります。",
+     "caption": "Fig. 5: t-SNE visualization of avoidance motions from the evaluation rollouts.",
+     "image": "details/2610.40003/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "アブレーション実験の結果です。(a) 各報酬項を抜くと特に衝突余裕時間（TTH）が短い過酷な領域で成功率が低下します。(b) キャプチャーポイント報酬（橙）の削除や単一AMP判別器（緑）への変更により、転倒率が著しく悪化することが示されています。",
+     "caption": "Fig. 6: Ablation studies under different time-to-hit ( $\\mathrm{TTH}$ ) conditions. (a) Success rate after removing individual reward terms or replacing the direction-specific AMP discriminators with a single discriminator. (b) Fall rate after removing the capture-point recovery reward or using a single AMP discriminator.",
+     "image": "details/2610.40003/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Hardware deployment",
+   "heading_ja": "実機PM01での検証：時速36 kmのボールをステップとダッキングでかわす",
+   "summary_ja": "EngineAI PM01実機を用い、外部モーションキャプチャでボール位置を追跡しながら投球実験を実施しました。球速3.0〜10 m/sのボールに対して73%（30回中22回）の回避成功率を達成し、前方ステップや横ステップ、しゃがみを組み合わせた全身運動が実世界でも機能することを示しました。",
+   "details_ja": "シミュレーションで学習したポリシーを、実機のヒューマノイドロボット「EngineAI PM01」に展開しました。ボール（半径0.12 m）とロボットの位置は外部のモーションキャプチャシステムで計測し、ロボット座標系に変換したボールの相対位置をポリシーへ入力しています。\n\n実験では、様々な角度から球速3.0〜10 m/s（時速約11〜36 km）でロボットに向けてボールを投球しました。ロボットは飛来するボールに反応し、以下のような多彩な全身回避動作を披露しました。\n- 正面胴体へのボールに対し、前方にステップを踏んでかわす動作\n- 頭部を狙ったボールに対し、前方ステップと同時に深く身をかがめる（ダッキング）動作\n- 右肩を狙ったボールに対し、左側へサイドステップしてかわす動作\n- 頭部への投球に対し、右ステップとダッキングを同時に行う複合動作\n\n全30回の実機試行において、22回で回避に成功し、直立姿勢への復帰まで達成しました（成功率約73%）。\n\n失敗した8例の内訳は、ボール直撃が6回、回避動作中の転倒が2回でした。直撃したケースの多くは、胴体に向かって8 m/s以上の超高速で投げられたものであり、ロボットが回避動作を開始したものの物理的な動作完了が間に合いませんでした。また、足元を転がるボールに対して横ステップを踏んだ際、スイングした足がボールに接触してしまうという特有の失敗パターンも観察されました。とはいえ、シム・ツー・リアル（Sim-to-Real）のギャップが存在する中で、これだけ機敏な全身連動ステップを実機で成功させた意義は大きいです。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "EngineAI PM01実機による回避実験の連続写真です。(a) 前方ステップ、(b) 前方ステップ＋しゃがみ、(c) 左へのサイドステップ、(d) 右ステップ＋しゃがみ、と飛来物の軌道や狙われた部位に応じて人間のように柔軟な回避戦略を使い分けています。",
+     "caption": "Fig. 7: Hardware demonstrations on the EngineAI PM01 humanoid under diverse projectile conditions. (a) A ball aimed toward the robot’s center is avoided by stepping forward. (b) A projectile directed toward the head is avoided through a coordinated forward step and ducking motion. (c) A ball aimed at the right shoulder is avoided by stepping laterally to the left. (d) A projectile targeting the head is avoided through a rightward step combined with a ducking maneuver. These examples demonstrate that the learned policy produces diverse whole-body evasive strategies in response to different obstacle trajectories and incoming directions.",
+     "image": "details/2610.40003/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Conclusion and future work",
+   "heading_ja": "まとめと今後の展望：車載カメラ化と日常動作への統合へ",
+   "summary_ja": "脅威度認識報酬、方向別AMP、キャプチャーポイント誘導を統合し、ヒューマノイドによる高速障害物回避をシミュレーションと実機の両方で実証しました。今後はモーションキャプチャへの依存をなくし、オンボードのカメラ・センサによる自律回避や、歩行・作業タスクとの統合を目指します。",
+   "details_ja": "本論文では、飛来物に対して瞬時に身をかわすヒューマノイド制御フレームワーク「Humanoid Dodgeball」を提案しました。シミュレーション（G1, PM01）および実機（PM01）での広範な実験により、既存手法を凌駕する回避率と姿勢安定性を両立できることを証明しました。\n\n一方で、実用化に向けた課題もいくつか残されています。\n- 超高速飛来物への対応：反応時間が極端に短い（$\\mathrm{TTH} < 0.4\\,\\mathrm{s}$）場合、ロボットのアクチュエータ性能の限界から回避が間に合わないことがあります。\n- エネルギー効率との両立：PAC-MANと比較すると、回避率が高い反面、激しいステップを踏むためモータの平均消費電力が大きくなっています。\n- 外部計測への依存：実機実験では外部モーションキャプチャでボール位置を取得しているため、実環境への配備には車載カメラやLiDARなどオンボード知覚への置き換えが必須です。\n\n今後は、アクチュエータモデルの高度化によるSim-to-Realギャップの低減、複数障害物への拡張、そして普段の歩行や荷物搬送といった日常タスクの最中に飛来物を避ける統合ポリシーの開発へと研究を展開していく予定です。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "AMPで多様な動作を出したい場合、単一の判別器に頼るのではなく、意図する逃避方向ごとに判別器を分離（Direction-specific AMP）することが極めて効果的。",
+  "激しい全身回避動作を行わせる強化学習では、幾何学的な逃避報酬だけでなく、線形倒立振子などの古典的指標（キャプチャーポイント）を報酬に混ぜることで着地後の転倒を強力に抑制できる。",
+  "全身を球体近似して各部位の「最短接近時間」と「必要加速度」をオンライン計算する脅威度モデルは、計算が軽量でありながら的確な部位逃避行動を学習させるシグナルとして機能する。"
+ ],
+ "limitations_ja": [
+  "実機検証ではボール位置のトラッキングを外部モーションキャプチャに依存しており、ロボット単体のオンボードセンサのみによる完全自律回避はまだ達成されていない。",
+  "回避成功率を高めるためにダイナミックなステップ運動を多用するため、先行手法（PAC-MAN）に比べてモータ消費電力が高く、回復時間も長くなるトレードオフがある。",
+  "足元を転がるような低い軌道の障害物に対しては、脚部がバランス支持の制約を受けるため回避の自由度が低く、足をスイングした際に接触してしまう失敗が起きやすい。"
+ ],
+ "keywords": [
+  "Humanoid Robots",
+  "Dynamic Obstacle Avoidance",
+  "Reinforcement Learning",
+  "Adversarial Motion Priors",
+  "Sim-to-Real Transfer"
+ ],
+ "id": "2610.40003",
+ "title": "Humanoid Dodgeball: Learning Fast Dynamic Obstacle Avoidance Motions for Humanoids",
+ "authors": [
+  "Aoqian Zhang",
+  "Chunzheng Wang",
+  "Haoran Chen",
+  "Annan Tang",
+  "Cheng Xiang",
+  "Fan Shi",
+  "Shuzhi Sam Ge"
+ ],
+ "date": "2026-10-30",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "locomotion",
+  "reinforcement-learning",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.40003",
+ "pdf_url": "https://arxiv.org/pdf/2610.40003",
+ "summary_ja": "飛来する障害物を俊敏に回避するヒューマノイド向け強化学習フレームワークHumanoid Dodgeballを提案。回避動作の俊敏性と全身運動の自然さ、姿勢安定性を両立するため、脅威認識型報酬設計と接触制約を導入した。シミュレーションおよび実機検証において、高速で接近する投擲物に対してリアルタイムに身をかわす動的な全身回避動作を達成した。",
+ "generated": "2026-10-30",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.40003"
+}
