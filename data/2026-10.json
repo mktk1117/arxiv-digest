@@ -1,6 +1,318 @@
 {
  "entries": [
   {
+   "date": "2026-10-30",
+   "rank": 0,
+   "id": "2610.37974",
+   "group": "focus",
+   "title": "FORGE: Feasible Online Reduced-Order Reference Generation and Whole-Body Execution for Agile Humanoid Locomotion",
+   "title_ja": "FORGE: 俊敏なヒューマノイド歩行のためのオンライン縮約モデル参照生成と全身実行",
+   "summary_ja": "俊敏なヒューマノイド歩行に向け、オンラインの低次元縮約モデル（ROM）参照生成と実機全身追従制御を結びつける2段階学習フレームワークFORGEを提案。単一剛体ダイナミクスと全身運動学からROM参照生成器を学習し、固定した参照を用いてフルダイナミクス環境で追従方策を学習する。これにより広範な速度指令や多様な歩行戦略に対して運動学的・動力学的に整合した全身運動制御を実現した。",
+   "summary_en": "This paper presents FORGE, a two-stage learning framework for agile humanoid locomotion that couples online reduced-order model (ROM) reference generation with whole-body tracking. By learning a kino-dynamically consistent reference generator on a simplified single rigid-body dynamics model and tracking it with a full-order policy, the system achieves agile locomotion across diverse velocity commands and locomotion strategies.",
+   "authors": [
+    "Adrian B. Ghansah",
+    "Yujin An",
+    "Jeeseop Kim",
+    "Soon-Jo Chung"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.37974",
+   "image": "figures/2026-10-30/2610.37974.jpg"
+  },
+  {
+   "date": "2026-10-30",
+   "rank": 1,
+   "id": "2610.40003",
+   "group": "focus",
+   "title": "Humanoid Dodgeball: Learning Fast Dynamic Obstacle Avoidance Motions for Humanoids",
+   "title_ja": "Humanoid Dodgeball: ヒューマノイドのための高速動的障害物回避動作の学習",
+   "summary_ja": "飛来する障害物を俊敏に回避するヒューマノイド向け強化学習フレームワークHumanoid Dodgeballを提案。回避動作の俊敏性と全身運動の自然さ、姿勢安定性を両立するため、脅威認識型報酬設計と接触制約を導入した。シミュレーションおよび実機検証において、高速で接近する投擲物に対してリアルタイムに身をかわす動的な全身回避動作を達成した。",
+   "summary_en": "This paper introduces Humanoid Dodgeball, a reinforcement learning framework enabling humanoids to agilely evade fast-moving obstacles while maintaining stability and natural whole-body motion. By integrating threat-aware reward designs and contact constraints, the policy generates dynamic whole-body evasive maneuvers in real time, successfully dodging fast incoming projectiles while preventing falls.",
+   "authors": [
+    "Aoqian Zhang",
+    "Chunzheng Wang",
+    "Haoran Chen",
+    "Annan Tang",
+    "Cheng Xiang",
+    "Fan Shi",
+    "Shuzhi Sam Ge"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.40003",
+   "image": "figures/2026-10-30/2610.40003.jpg"
+  },
+  {
+   "date": "2026-10-30",
+   "rank": 2,
+   "id": "2610.38027",
+   "group": "focus",
+   "title": "METATRON: A Promptable Whole-Body Execution Layer for Humanoids",
+   "title_ja": "METATRON: ヒューマノイドのための指示可能な全身実行レイヤー",
+   "summary_ja": "ヒューマノイド向けの指示可能な全身実行レイヤーMETATRONを提案。生成型ベース方策とプログラム可能なスキル層を統合し、時間付き部位目標や速度指令、スタイル指示などの部分目標（プロンプト）から多様で整合的な全身運動を生成する。MoCapデータや合成復元軌道を用いて事前学習した方策を凍結し、上位スキルが毎ステッププロンプトを発行することで、タスク固有の再学習なしに複雑な全身動作を実行可能にした。",
+   "summary_en": "This paper presents METATRON, a promptable whole-body execution layer for humanoids that couples a generative base policy with a programmable skill layer. The base policy receives partial goals such as timed body-part targets, velocity commands, and style cues to produce diverse, coordinated whole-body motions. Once pretrained on MoCap and synthetic recovery trajectories, the frozen policy executes diverse tasks directed by skill scripts.",
+   "authors": [
+    "Chen Tessler",
+    "Yifeng Jiang",
+    "Alec Otto",
+    "Yi Shi",
+    "Umar Iqbal",
+    "Gal Chechik",
+    "Xue Bin Peng"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.38027",
+   "image": "figures/2026-10-30/2610.38027.jpg"
+  },
+  {
+   "date": "2026-10-30",
+   "rank": 3,
+   "id": "2610.40364",
+   "group": "focus",
+   "title": "Is It the Curriculum or Just the Easy Start? Benchmarking Unsupervised Environment Design on Quadrupeds",
+   "title_ja": "カリキュラムの成果か、単に初期状態が容易なだけか？四脚ロボットにおける非監視環境設計のベンチマーク",
+   "summary_ja": "四脚ロボットの強化学習において非監視環境設計（UED）の真の効果を検証するベンチマークを構築。MuJoCo MJX上でUnitree Go1/Go2やSpotを含む5種類のロボットに対し、PLRやPAIREDなど14手法のカリキュラムを同一の環境ステップ数および同一のPPO方策で統一評価した。地形難易度の初期設定と探索アルゴリズムの寄与を分離し、四脚歩行における真の頑健性向上要因を定量的に明らかにした。",
+   "summary_en": "This paper benchmarks unsupervised environment design (UED) methods for quadruped locomotion across five diverse robots, including Unitree Go1/Go2 and Spot, using MuJoCo MJX. By evaluating fourteen UED and domain-randomization curricula with identical PPO students and environment-step budgets, the authors disentangle whether performance gains stem from advanced curriculum generation or simply easier starting states, revealing key factors for robust locomotion.",
+   "authors": [
+    "Jakub Gilewicz",
+    "Dominik Galus",
+    "Piotr Wojdas"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "reinforcement-learning",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.40364",
+   "image": "figures/2026-10-30/2610.40364.jpg"
+  },
+  {
+   "date": "2026-10-30",
+   "rank": 4,
+   "id": "2610.37806",
+   "group": "focus",
+   "title": "TACOS: Terrain-Aware COntact Supervision for Visual Footstep Planning",
+   "title_ja": "TACOS: 視覚フットステップ計画のための地形認識接触教師信号",
+   "summary_ja": "脚ロボットの視覚フットステップ計画において、自律的な接触学習を行う手法TACOSを提案。状態推定ファクターグラフの残差からフットステップの不安定性スコアを一貫して算出し、これを過去のカメラ画像に投影して高密度な視覚予測器の教師信号とする。経験の事後情報を利用する手法と因果的ソフトスコアの2種を用意し、直感に頼らない定量的な教師信号により未知地形での安定した足配置計画を実現した。",
+   "summary_en": "This paper presents TACOS (Terrain-Aware COntact Supervision) for visual footstep planning in legged robots. TACOS derives a consistent footstep instability score from the residuals of a factor graph in legged state estimation, which is projected onto prior images to supervise a dense visual predictor. This self-supervised approach eliminates heuristic labels and enables robust footstep planning across varied terrains.",
+   "authors": [
+    "Jean-Michel Fortin",
+    "William Larriv\\'ee-Hardy",
+    "Gabriel Jeanson",
+    "Olivier Gamache",
+    "Daniele De Martini",
+    "Fran\\c{c}ois Pomerleau",
+    "Philippe Gigu\\`ere"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "planning",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.37806",
+   "image": "figures/2026-10-30/2610.37806.jpg"
+  },
+  {
+   "date": "2026-10-30",
+   "rank": 5,
+   "id": "2610.40565",
+   "group": "general",
+   "title": "Gym-Anything for Robotics: Scaling physical simulations with digital agents",
+   "title_ja": "Gym-Anything for Robotics: デジタルエージェントによる物理シミュレーションの拡張",
+   "summary_ja": "高精度なロボティクスシミュレーション環境の構築を自動化・スケーリングするGym-Anythingを提案。物理シミュレータの作成作業をコーディングエージェントのタスクとして定式化し、専門家の手作業を不要にした。エージェントが反復的にコードを生成・修正することで、多様なタスクや物理現象を含む忠実度の高いシミュレーション環境を自動的に拡大可能にした。",
+   "summary_en": "This paper introduces Gym-Anything for Robotics, a framework where coding agents automatically generate realistic robotic simulations. By formulating simulation creation as an agentic coding task, the approach removes the bottleneck of expert engineering. This enables the automated scaling of faithful physical simulation environments across diverse tasks and phenomena to support large-scale embodied AI training.",
+   "authors": [
+    "Pranjal Aggarwal",
+    "Sean Welleck"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "simulation",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.40565",
+   "image": "figures/2026-10-30/2610.40565.jpg"
+  },
+  {
+   "date": "2026-10-30",
+   "rank": 6,
+   "id": "2610.37799",
+   "group": "general",
+   "title": "DexSuite: An All-in-One Framework for Dexterous Manipulation Across Arms, Hands, and Tasks",
+   "title_ja": "DexSuite: 多様なアーム・ハンド・タスクを網羅する器用マニピュレーション統合フレームワーク",
+   "summary_ja": "物理シミュレータGenesis上に構築された、器用なマニピュレーションのための統合フレームワークDexSuiteを提案。10種のアームと12種のエンドエフェクタ（2指から多指ハンドまで）を組み合わせて100種以上の単腕および数千組の双腕ロボットを構築でき、30の課題タスクを提供する。標準化された環境API、遠隔操作、触覚シミュレーションを備え、器用な操作学習のベンチマークを提供する。",
+   "summary_en": "This paper presents DexSuite, an all-in-one simulation framework for dexterous manipulation built on the Genesis simulator. Combining 10 arms and 12 end-effectors, it allows assembling over 100 single-arm robots and thousands of bimanual configurations across 30 tasks. Featuring a standardized API, integrated teleoperation, simulated tactile sensing, and a 16-pair benchmark, it streamlines the full dexterous manipulation workflow.",
+   "authors": [
+    "Anas Houssaini",
+    "Hugo He",
+    "Junming Shi",
+    "Amin Abyaneh",
+    "Ricardo Chahine",
+    "Shuo Wen",
+    "Mohamad H. Danesh",
+    "Charles-\\'Etienne Fr\\'echette",
+    "Mariana Sosa Guzman",
+    "Mathias Desrochers",
+    "Rayan Houssaini",
+    "Adam Landa",
+    "Theophile Soulie",
+    "Charlotte Morissette",
+    "Annie Tims",
+    "Martino Russi",
+    "Jonathan Lussier",
+    "Gregory Dudek",
+    "Doina Precup",
+    "Julen Urain",
+    "Hsiu-Chin Lin",
+    "David Meger"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "simulation",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.37799",
+   "image": "figures/2026-10-30/2610.37799.jpg"
+  },
+  {
+   "date": "2026-10-30",
+   "rank": 7,
+   "id": "2610.40271",
+   "group": "general",
+   "title": "Gaussian Distillation of Flow Policies",
+   "title_ja": "フロー方策のガウス蒸留",
+   "summary_ja": "フロー方策の行動分布がガウス分布で高精度に近似できることに着目し、最終層のみを置き換える蒸留手法Gaussian Action Readout（GAR）を提案。対象状態のわずか0.02%のデータを用いて最終層を学習し、他の重みは固定する。1回の順伝播でサンプリング可能かつ尤度を解析的に計算でき、教師方策と同等の成功率を保ちながら推論速度を最大2倍に高速化した。",
+   "summary_en": "This paper proposes Gaussian Action Readout (GAR), a distillation method for flow policies based on the observation that their continuous action distributions are well-approximated by Gaussians. By training only a Gaussian readout head on just 0.02% of states while freezing the remaining network, GAR enables single-forward-pass action sampling with closed-form likelihoods, matching teacher success while achieving up to 2x faster inference.",
+   "authors": [
+    "Youssef Saied",
+    "Ziyad Sheebaelhamd",
+    "Claire Vernade",
+    "Fran\\c{c}ois Fleuret"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "imitation-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.40271",
+   "image": "figures/2026-10-30/2610.40271.jpg"
+  },
+  {
+   "date": "2026-10-30",
+   "rank": 8,
+   "id": "2610.39044",
+   "group": "general",
+   "title": "Catch It All!: Generalizable Dynamic Catching with a Dexterous Hand",
+   "title_ja": "Catch It All!: 多指ハンドを用いた汎用的な動的キャッチング",
+   "summary_ja": "未知の投擲物を多指ハンドで動的に捕球するSim-to-RealフレームワークCatch It All!を提案。単一の自己中心カメラ画像のみを入力とし、未知の形状や弾性、質量を持つ物体に対する下手投げ・上手投げのキャッチ方策を学習する。物体形状や姿勢に即応する把持報酬と安全性カリキュラムにより、ヒューマノイドロボットの実機において多様な実物体をリアルタイムに捕球することに成功した。",
+   "summary_en": "This paper presents Catch It All!, a sim-to-real dynamic catching framework for humanoid robots using a dexterous hand and a single egocentric camera. Trained with a shape-adaptive grasp reward and safety-aware curricula, the learned policy dynamically generalizes to unseen physical projectiles with varying geometry and elasticity, successfully executing both underhand and overhand catches on real hardware.",
+   "authors": [
+    "Arth Shukla",
+    "Kehlani Fay",
+    "Huaze Liu",
+    "Darin Djapri",
+    "Alexiy Buynitsky",
+    "Nicklas Hansen"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "grasping",
+    "manipulation",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.39044",
+   "image": "figures/2026-10-30/2610.39044.jpg"
+  },
+  {
+   "date": "2026-10-30",
+   "rank": 9,
+   "id": "2610.40333",
+   "group": "general",
+   "title": "RFW-A: Agentic Procedural Generation of 400K Articulated Assets over 500 Categories",
+   "title_ja": "RFW-A: 500カテゴリ・40万件の可動アセットのエージェント型プロシージャル生成",
+   "summary_ja": "多様な可動3Dアセットを大規模生成するフレームワークRFW-Aを提案。同一カテゴリ内で構造生成ロジックを共有できる点に着目し、エージェントによるプログラム合成とプロシージャル生成を融合した。エージェントが再利用可能な構築プログラムを一度作成して大量展開することで、500以上のカテゴリにわたる40万件もの高品質な関節構造アセットの自動生成を実現した。",
+   "summary_en": "This paper presents RFW-A, an agentic procedural generation framework for creating large-scale articulated 3D assets. By pairing agentic program synthesis with procedural generation, coding agents create reusable construction programs that procedural engines execute across variations. This pipeline successfully synthesizes over 400,000 articulated assets across 500 categories, supporting embodied perception and simulation.",
+   "authors": [
+    "Yuanbo Lyu",
+    "Changjian Pan",
+    "Saining Zhang",
+    "Yi Yang",
+    "Peishuo Li",
+    "Zhiheng Li",
+    "Jialu Liu",
+    "Junhao Chen",
+    "Jiawei Weng",
+    "Yupeng Gao",
+    "Weiqing Xiao",
+    "Wenyi Li",
+    "Jiarui Guo",
+    "Rui Zhang",
+    "Jingrun Du",
+    "Weiyi Lin",
+    "Zenan Meng",
+    "Hu Wei",
+    "Lin Qu",
+    "Zongzheng Zhang",
+    "Hao Zhao",
+    "Chaojian Li"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "simulation",
+    "dataset",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.40333",
+   "image": "figures/2026-10-30/2610.40333.jpg"
+  },
+  {
    "date": "2026-10-29",
    "rank": 0,
    "id": "2610.36859",
