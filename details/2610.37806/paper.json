@@ -1,0 +1,139 @@
+{
+ "title_ja": "TACOS: 視覚フットステップ計画のための地形認識接触教師信号",
+ "tldr_ja": "四足歩行ロボットの脚状態推定における因子グラフの残差から「足場の不安定さ」を物理的スコアとして算出し、それを前方のカメラ画像に投影して学習させることで、見た目から危険な足場を事前に予測・回避できる自己教師あり学習フレームワークを提案しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "オフラインの自己教師ありラベル生成パイプラインです。接地判定からスタンス区間を取り出し、因子グラフの接触拘束残差を集約して足場ごとの不安定度スコアを計算します。それを外部オドメトリによって過去の画像座標へ逆投影し、疎な教師ラベルマスクを作成します。",
+  "caption": "Fig. 2 : Offline label-generation pipeline. (Left) Stances are extracted from the onboard contact detector, where F and H denote front and hind, and L and R left and right. (Center) Contact residuals $d_{i,k}$ from a factor graph leg odometry are aggregated over each stance into the instability score $m_{i,\\mathrm{hard}}$ . (Right) Footstep placements are computed in the world frame using exteroceptive odometry and FK ( FK ), then projected into an image acquired before contact and rasterized into a sparse label mask.",
+  "image": "details/2610.37806/F2.jpg"
+ },
+ "overview_ja": "自然の不整地を歩く四足歩行ロボットにとって、どこに足を置くかは生存に直結する大問題です。落ち葉の下に隠れた木の根や泥、滑りやすい斜面などは、見た目の三次元形状（ジオメトリ）だけでは安全かどうか判断できません。人間のように「足を下ろす前に地面の崩れやすさを視覚的に予測する」能力が求められますが、これを自己教師あり学習で実現しようとすると、何をもって「不安定な接触」と定義するかという教師信号の質が常に壁となっていました。\n\nそこで著者らは、ロボティクスの古典技術である「脚状態推定（Legged State Estimation）」に着目しました。ロボットのオドメトリ推定では通常、「地面に接している足は滑らず静止している」という剛体接触の仮定を置きます。足が滑ったり沈んだりすると、この仮定が破綻して因子グラフの最適化残差（予測と計測のズレ）が跳ね上がります。TACOS（Terrain-Aware COntact Supervision）は、この残差そのものを足場の不安定さを示す物理的に自然なスコアとして再利用するアイデアです。\n\n著者らは、最適化ウィンドウ全体を使って高精度に算出する「hardスコア」と、即時利用可能な「softスコア」を定式化しました。これらを事前に撮影したカメラ画像上に投影し、疎なラベルから画像全体への密な不安定度予測モデル（DPT）を学習させます。\n\n1716個の手動アノテーション付き接触データで評価したところ、既存の力覚や運動学ベースの手法に比べ、不安定さの重症度順位付け（VUS）が28%向上しました。さらに未知の屋外環境での視覚予測において順位相関が58%改善し、実機の森の中での閉ループ自律歩行実験でも、泥への足の沈み込みや倒木への接触を巧みに回避できることを実証しました。",
+ "contributions_ja": [
+  "脚式オドメトリの因子グラフにおける接触拘束の残差から、連続値の足場不安定度スコアを抽出する新しい自己教師あり指標（高精度なhard版とリアルタイム向けのsoft版）を提案したこと。",
+  "人手で接触状態を細かく注釈したデータセットと未知の屋外歩行データセットの双方で、提案指標が接触の危険度検出および視覚予測の教師信号として既存手法を大きく上回ることを示したこと。",
+  "カメラの傾きや直前の歩行履歴をコンテキストとして組み込むことで視覚予測精度がさらに向上することを明らかにし、森林環境での実機クローズドループ足場計画でその有効性を実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "足元の見た目だけでは分からない：自然界を歩くための「先読み」",
+   "summary_ja": "森林などの非構造環境では、見た目の形状が平坦でも滑りやすかったり足が沈み込んだりするため、形状情報だけに頼る足場計画は破綻します。本論文では、状態推定の接触モデル残差を利用して足場の不安定さを自己教師ありで学習し、画像から先読みするフレームワークTACOSを提案します。",
+   "details_ja": "四足歩行ロボットは災害救助や森林モニタリングなど過酷な環境での活躍が期待されていますが、自然の不整地を歩くには「信頼できる足場」をどう選ぶかが極めて重要です。しかし、図 F1 にあるように、一見平らに見える落ち葉の下に木の根が潜んでいて足が挟まったり、泥で滑って転倒したりすることは日常茶飯事です。地面の硬さや摩擦といった物理特性は、カメラの三次元幾何（ジオメトリ）だけでは測れません。\n\n人間は歩くとき、視覚から地面の反応を無意識に予測して足の置き場を決めています。ロボットにもこの能力を持たせるため、強化学習や自己教師あり学習が研究されてきました。しかし、高次元な画像を入力とする強化学習はサンプル効率が極めて悪く、自己教師あり学習では「何をもって失敗（不安定）とするか」という教師信号の設計が難題でした。ロボット全体の速度誤差や消費電流を指標にする従来手法では、体全体の応答しか分からず「どの足が滑ったのか」という足単位の空間分解能が欠けてしまいます。一方で足先の力センサを使う手法は、ハードウェアの耐久性やコストの面で実用的ではありません。\n\nここで著者が着目したのが、脚式ロボットの自己位置推定（オドメトリ）の数理です。状態推定では「接地中の足は動かない」という仮定を置くため、足が滑ったり沈んだりすると、その矛盾が因子グラフの残差として現れます。この残差を足場ごとの不安定スコアとして集約し、カメラ画像へ投影して密な画像予測器を訓練するのがTACOSの核となるアプローチです。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "森林環境を歩く四足ロボットです。木の根や落ち葉が散乱する不整地では形状情報だけでは安全性を判断できず、右下のGoPro画像のように足が根に挟まれて転倒（右下白枠）につながってしまいます。",
+     "caption": "Fig. 1 : Quadruped robot traversing unstructured forest terrain, where roots, branches, and leaves create candidate footholds whose supportiveness cannot be inferred from geometry alone. Close-ups show, on the right, the GoPro view of the foot getting stuck, wedged among exposed roots, and on the left, the resulting robot fall.",
+     "image": "details/2610.37806/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "状態推定の「ゴミ」を視覚学習の「宝」に変える",
+   "summary_ja": "先行研究では、脚状態推定における接触の不整合はオドメトリ補正のためのリアクティブな補正情報としてしか使われていませんでした。本研究は、この不整合を「足と地面の相互作用そのものの物理計測」と捉え直し、事後的な修正ではなく将来の視覚予測のための教師信号へと昇華させています。",
+   "details_ja": "### II-A 脚状態推定（Legged State Estimation）\n脚式ロボットの状態推定では、接地している足が地面に対して静止しているという拘束を用いてIMU（慣性計測装置）のドリフトを抑えます。足が滑ったり地面が変形したりすると運動学モデルと矛盾が生じるため、従来のコンタクト認識型オドメトリ（Invariant Smootherなど）は、信頼できない接触を検出してオドメトリの計算から除外または重みを下げる、というリアクティブな使い方をしていました。TACOSは、この捨てられていた不整合情報こそが地面の危険度を表す直接的な観測値であると考えます。\n\n### II-B 足場不安定度の推定手法\n足の不安定さをどう数値化するかについては、従来から力覚ベースと運動学ベースのアプローチがありました。力センサを用いた手法（GRSなど）や関節トルクから外力を推定する手法がありますが、トルク推定は関節摩擦やバックラッシュの影響を受けやすく、足先力センサは市販ロボットには滅多に搭載されていません。一方、力センサを使わずに足の変位や遊脚との相対速度からスリップを検出する手法（OCELOTや各種スライディング指標）も提案されていますが、これらはスリップの有無を二値で判定するものが多く、不安定さの「深刻度」を連続値で捉えるには至っていませんでした。\n\n### II-C 自己教師あり地形学習\nロボット自身の経験から地形を評価する自己教師あり学習としては、速度追従誤差を使うWVNや電流値を見るP-STEER、操作者の好みを埋め込む手法などがあります。しかしこれらは車体全体（ボディレベル）の指標であり、個別の足場を評価できません。また、ロボットが実際に踏んだ場所は画像全体から見ればごく一部（疎）であるため、先行研究の多くは画像セグメンテーションなどで無理にラベルを周囲へ塗り広げていました。しかし不均質な自然環境では、少し隣の見た目が似ていても物理特性が全く異なることがあります。TACOSでは余計な擬似ラベル拡大を行わず、物理的に接地した足跡領域のみを教師信号として維持する方針をとっています。",
+   "figures": []
+  },
+  {
+   "heading": "III Methodology",
+   "heading_ja": "因子グラフ残差から視覚予測器へ：TACOSのアーキテクチャ",
+   "summary_ja": "接触区間の正確な切り出しから、因子グラフ残差の集約によるスコア計算、画像への逆投影、そしてDPTを用いた密な視覚予測器の学習まで、一貫したパイプラインを構築しました。高精度なオフライン用のhardスコアと、リアルタイム動作可能なsoftスコアの2種類を用意しています。",
+   "details_ja": "### III-A 接触検出とスタンス区間の精緻化\n正確なスコアを計算するには、足が地面に着いている区間（スタンス $\\mathcal{S}_i$）を正しく切り出す必要があります。ANYmal標準の接触信号にはノイズが含まれるため、モルフォロジー演算（100 ms未満の微小接触の除去と25 ms未満の途切れの補完）を適用します。さらに離床時に足を引く動作が不安定判定されないよう、離床前150 msの区間で鉛直方向の地面反力（GRF）が50 Nを超えていた最後の瞬間でスタンスを打ち切ります。\n\n### III-B 残差に基づく不安定度スコアの定式化\n固定ラグ（Fixed-lag）の因子グラフ上で、スタンス足の順運動学（FK）から求まる位置と、ワールド座標系における足場位置 $\\mathbf{f}_{i,k}$ との残差 $\\mathbf{d}_{i,k}$ を評価します。残差は経験的に設定した接触共分散 $\\sigma_{\\mathrm{ct}} = 8\\text{ cm}$ で正規化されます。\n- **Hardスコア（$m_{i,\\mathrm{hard}}$）**: スタンス期間中、足場が完全に静止している（単一の $\\mathbf{f}_i$ を共有する）と仮定します。スムーザウィンドウを抜けた後に、スタンス内の正規化残差の最大値をとります。これが本手法の基準ラベルとなります。\n- **Softスコア（$m_{i,\\mathrm{soft}}$）**: 足場位置が微小なランダムウォーク（$\\sigma_{\\mathrm{rw}}^2 = 0.04\\text{ m}^2/\\text{s}$）で動くことを許容します。各ステップの更新直後に因果的（リアルタイム）に残差を計算でき、95パーセンタイル値で集約します。\n\n### III-C 画像への対応付けと投影\n足場位置を過去のカメラ画像に正確に投影するため、スリップの影響を受けないLiDARベースの外部オドメトリ（FAST-LIVO2）のポーズを用います。撮影後10秒以内かつカメラ前方0.5〜3 mにある足場を、直径6 cmの足サイズ円として画像上にラスタライズします。\n\n### III-D 視覚的Instability予測器\nモデルには、凍結したDINOv3-BaseエンコーダとDPT（Dense Prediction Transformer）デコーダを採用しました（図 F3）。さらにロボットの傾き（ロール・ピッチ）と前後足の直近の平均不安定度履歴をコンテキストトークン化し、デコーダの各層でGCA（Gated Cross-Attention）によって融合します。損失関数には、疎な足跡ピクセル部分のみを対象としたマスク付きHuber損失を用います。\n\n### III-E 足場計画（Footstep Planning）\n推論された不安定度マップは、4足の接地位置からフィッティングした平面に投影され、5 m四方（解像度4 cm）のコストマップに統合されます。スイング期ごとに、接触位置追従ポリシーを用いて、公称足場から25 cm以内で最も安全な位置を最小コスト最適化で選択します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "提案するラベル生成パイプラインの全体像です。接地信号のフィルタリング（左）、因子グラフオドメトリからの接触残差の集約（中央）、外部オドメトリによる過去画像への足跡投影とラベルマスク生成（右）の流れを示しています。",
+     "caption": "Fig. 2 : Offline label-generation pipeline. (Left) Stances are extracted from the onboard contact detector, where F and H denote front and hind, and L and R left and right. (Center) Contact residuals $d_{i,k}$ from a factor graph leg odometry are aggregated over each stance into the instability score $m_{i,\\mathrm{hard}}$ . (Right) Footstep placements are computed in the world frame using exteroceptive odometry and FK ( FK ), then projected into an image acquired before contact and rasterized into a sparse label mask.",
+     "image": "details/2610.37806/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "視覚的不安定度予測ネットワークの構成です。凍結されたDINOv3-Bエンコーダの特徴量をDPTデコーダでアップサンプリングし、各ステージでカメラ姿勢や直前の接触履歴をGCA（ゲート付きクロスアテンション）により条件付けします。",
+     "caption": "Fig. 3 : Visual instability predictor. A frozen DINOv3-B encoder feeds a trainable DPT decoder that outputs a dense instability map. Camera roll and pitch ( $\\phi,\\theta$ ), and recent instability history ( $\\bar{m}_{f},\\bar{m}_{h}$ ), enter as context tokens through GCA at each decoder stage. The loss is applied only at projected footstep locations.",
+     "image": "details/2610.37806/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments and Results",
+   "heading_ja": "実験結果：人手アノテーション評価から森の中での実機走行まで",
+   "summary_ja": "手動注釈された1716個の接触において、TACOSは不安定度の検出率および重症度ランキング（VUS）で既存手法を28%上回りました。未知環境での視覚予測でもスピアマン相関が58%向上し、実機による森林トレイルの走行実験では泥や倒木を回避する効果を確認しました。",
+   "details_ja": "### IV-A 不安定度スコアの精度検証\nスケートリンク（氷上）、丸太の山、45度の滑りやすい斜面の3環境でANYmal-Dを歩行させ、足元を映すGoPro映像から人間が1716回の接触（うち不安定275回）を特定・重症度分類（Low, Medium, High）したデータセットで評価しました。\n接触検出のPR曲線下面積（AP）では、先行研究の最良値0.90に対し、hard版が0.96、soft版が0.93を記録しました。さらに重症度の順序付け正解確率を示すVUS（Volume Under the Surface）では、最強のベースライン（0.700）に対してhard版が0.893を達成し、28%もの性能向上を示しました（図 F5）。氷上のような持続的スリップにはhard版が強く、丸太のような急激な動きにはsoft版が強いという相補的な性質も分かりました。\n\n### IV-B 画像からの不安定度予測評価\n大規模なGrandTourデータセットから選定した未見の3つの屋外走行データを用いて、画像からの予測能力を検証しました。図 F6 の定性結果が示すように、ボディ全体を粗くラベル付けするWVNは解像度が低く、力センサPCAに基づくGRSはぼやけてしまいますが、hard TACOSは線路の木製枕木と周囲の砂利、森の小道と脇の草むらを鮮明に識別しています。\n定量評価（スピアマンの順位相関 $\\rho$）でも、hard TACOSは中央値 $\\rho = 0.554$ となり、既存手法に比べ58%の精度向上を示しました。またコンテキスト条件付けのアブレーション（表 II）では、直前の不安定履歴を加えることで相関が25%向上し、地形の物理的性質の連続性をモデルが上手く利用できることが実証されました。\n\n### IV-C 森林環境での実機クローズドループ歩行実験\n車載のNVIDIA Jetson AGX Thor上で予測モデルを10 Hzでリアルタイム推論させ、森の中の50 mコースを走行させました（図 F8）。従来のジオメトリ（高さマップ）のみの制御では、平坦に見える泥溜まり（A地点）で足が深く沈み、踏み越えられるはずの草むら（B地点）を壁と誤認して立ち往生しました。一方TACOSを用いた計画器は、泥溜まりを「危険」と正しく予測して回避し、草むらはそのまま通過し、さらにC地点では倒木を避けて安全な地面に足を接地させることに成功しました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "人手で注釈された不安定重症度（安定・低・中・高）ごとのhard TACOSスコア分布です。重症度が高くなるにつれてスコアが綺麗に右肩上がりにシフトしており、物理的な危険度の大きさを定量的に捉えられていることが分かります。",
+     "caption": "Fig. 5 : Distribution of the proposed hard TACOS metric for stable footholds grouped by annotated instability severity. The insets show representative events recorded by the feet-facing cameras for each severity. Stable footholds concentrate at low values, and the distributions shift upward at each severity level.",
+     "image": "details/2610.37806/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "未見の屋外シーンに対する各手法のコストマップ予測です。上段が入力画像、中段がWVNとGRS、下段が提案手法（Hard TACOS）です。TACOSは線路の木と砂利、小道と草むらを高解像度に分離できています。",
+     "caption": "Fig. 6 : Network predictions on two unseen outdoor scenes for three supervisory signals, with the input image at the top. WVN is supervised at body level, whereas GRS and ours share the same per-footstep labels, while their metrics differ. Darker colors indicate higher predicted cost, each map being normalized between the 5th and 95th percentiles of its own training labels.",
+     "image": "details/2610.37806/F6.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "森林環境での50 m実機歩行比較です。ジオメトリのみ（中央）では泥穴（A）での沈み込みや草むら（B）での誤停止が起きますが、TACOS（右）は泥を避け、草を通り抜け、倒木（C）を避ける足場を選択して走破しました。",
+     "caption": "Fig. 8 : Real-world experiment in forest terrain. ( Left ), the geometric costmap ( Center ), and the TACOS costmap ( Right ). Corresponding locations mark \\raisebox{-.3pt}{\\scriptsizeA}⃝ , terrain associated with foot sinkage; \\raisebox{-.3pt}{\\scriptsizeB}⃝ , a vegetation barrier; and \\raisebox{-.3pt}{\\scriptsizeC}⃝ , fallen branches. The smaller photographs illustrate the robot’s interaction with these obstacles. Red and white curves show trajectories. The red cross marks where the geometric costmap incorrectly treats the traversable vegetation as an impassable barrier.",
+     "image": "details/2610.37806/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "状態推定の因子グラフ残差を自己教師あり信号として活用するTACOSにより、見た目から足場の不安定さを高精度に予測・回避できることを示しました。今後はデプス情報との統合や継続学習への拡張が期待されます。",
+   "details_ja": "TACOSは、脚式オドメトリにおける接触制約の違反度合い（残差）をそのまま「足場の不安定さ」の教師信号として読み替えるという、シンプルながら非常に効果的な枠組みを提示しました。オフラインでの精緻なhard指標とオンライン利用可能なsoft指標の双方が、人手注釈との比較や視覚モデルの学習において既存手法を大幅に凌駕することを実証しています。\n\n一方で、接触判定の誤りや状態推定のドリフト、カメラと脚のタイムスタンプ同期ズレなどにラベル品質が左右されるという実用上の課題も残されています。著者らは今後、RGB画像だけでなくデプスや幾何情報自体も入力に統合することや、ロボットが歩行しながらモデルを更新し続ける継続学習（Continual Learning）への展開を目指すとしています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「状態推定の失敗（残差の増大）」を逆手にとり、物理的な足場危険度の自己教師ありラベルとして活用する着想が極めて強力であること。",
+  "無理にラベルを周囲の画素へ擬似拡張（Densify）するよりも、実際に踏んで検証された足跡のみを教師信号として密な予測器に与える方が、結果的に高品質な境界を学習できること。",
+  "視覚的な足場予測器には、カメラ画像単体だけでなくロボットの姿勢や「直前の足場がどれくらい不安定だったか」という短期履歴をコンテキストとして与えることが大きな精度向上につながること。"
+ ],
+ "limitations_ja": [
+  "正確な接触検出器（スタンス区間の切り出し）や高精度な外部オドメトリ（LiDAR-Inertial SLAMなど）による位置合わせに依存しており、これらが狂うと教師ラベルにノイズが混入する点。",
+  "現在はRGB画像のみから平面近似を用いて三次元マップへ投影しているため、大きな段差や立体障害物が複雑に入り組んだ地形では足場座標の投影誤差が生じる可能性がある点。",
+  "事前学習されたモデルの固定運用が前提となっており、全く異なる未知の土質に遭遇した際にオンラインで適応する継続学習機構はまだ実装されていない点。"
+ ],
+ "keywords": [
+  "Legged Locomotion",
+  "Self-Supervised Learning",
+  "Footstep Planning",
+  "Factor Graph",
+  "Terrain Traversability"
+ ],
+ "id": "2610.37806",
+ "title": "TACOS: Terrain-Aware COntact Supervision for Visual Footstep Planning",
+ "authors": [
+  "Jean-Michel Fortin",
+  "William Larriv\\'ee-Hardy",
+  "Gabriel Jeanson",
+  "Olivier Gamache",
+  "Daniele De Martini",
+  "Fran\\c{c}ois Pomerleau",
+  "Philippe Gigu\\`ere"
+ ],
+ "date": "2026-10-30",
+ "group": "focus",
+ "tags": [
+  "quadruped",
+  "locomotion",
+  "planning",
+  "perception"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.37806",
+ "pdf_url": "https://arxiv.org/pdf/2610.37806",
+ "summary_ja": "脚ロボットの視覚フットステップ計画において、自律的な接触学習を行う手法TACOSを提案。状態推定ファクターグラフの残差からフットステップの不安定性スコアを一貫して算出し、これを過去のカメラ画像に投影して高密度な視覚予測器の教師信号とする。経験の事後情報を利用する手法と因果的ソフトスコアの2種を用意し、直感に頼らない定量的な教師信号により未知地形での安定した足配置計画を実現した。",
+ "generated": "2026-10-30",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.37806"
+}
