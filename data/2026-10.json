@@ -1,6 +1,391 @@
 {
  "entries": [
   {
+   "date": "2026-10-31",
+   "rank": 0,
+   "id": "2610.37865",
+   "group": "focus",
+   "title": "Echo: Scaling Visual Reinforcement Learning with Off-policy Experience",
+   "title_ja": "Echo: オフポリシー経験を用いた視覚強化学習のスケールアップ",
+   "summary_ja": "GPUシミュレータでの視覚強化学習における描画・推論コストの課題を解決する単一ステージのオフポリシーRLフレームワークEchoを提案。逆蒸留により、状態ベースの補助ポリシーが進化中の視覚ポリシーを模倣して安価に描画不要の経験を収集し、視覚計算量を抑えつつオフポリシーな価値学習へ活用する。",
+   "summary_en": "Echo is a single-stage off-policy RL framework that scales experience collection without a proportional increase in visual rendering and inference costs. Through inverse distillation, a state-based auxiliary policy imitates the visual policy to collect inexpensive, unrendered experience for off-policy value learning.",
+   "authors": [
+    "Gagan Khandate"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.37865",
+   "image": "figures/2026-10-31/2610.37865.jpg"
+  },
+  {
+   "date": "2026-10-31",
+   "rank": 1,
+   "id": "2610.38657",
+   "group": "focus",
+   "title": "Explore Where It Matters: Targeted Exploration for Efficient Rover Adaptation",
+   "title_ja": "TERRA: 効率的なローバー適応のための標的型オンライン探索",
+   "summary_ja": "車輪と土壌の相互作用によるsim-to-realギャップを実機展開時に迅速に解消するオンライン適応フレームワークTERRAを提案。報酬重み付き予測損失でシミュレーション学習済み世界モデルを更新し、損失予測器を用いて将来の性能を最も改善する領域を絞り込んで探索することで、最小限の試行で適応を実現する。",
+   "summary_en": "TERRA is an online adaptation framework for rovers traversing deformable terrain that bridges sim-to-real gaps with minimal trial-and-error. It adapts a sim-trained world model using reward-weighted prediction loss and selectively explores data that exposes task-relevant model errors via a loss predictor.",
+   "authors": [
+    "Jacob Levy",
+    "Arthur Bouton",
+    "Tristan D. Hassler",
+    "Hari Nayar",
+    "David Fridovich-Keil"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "sim-to-real",
+    "reinforcement-learning",
+    "world-model",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.38657",
+   "image": "figures/2026-10-31/2610.38657.jpg"
+  },
+  {
+   "date": "2026-10-31",
+   "rank": 2,
+   "id": "2610.40075",
+   "group": "focus",
+   "title": "Learning Safe Flow Matching Robot Policies from Binary Feasibility Oracles",
+   "title_ja": "バイナリ実行可能性オラクルからの安全なフローマッチングロボット方策の学習",
+   "summary_ja": "解析的な定式化が困難な関節制限や衝突制約に対し、ブラックボックスな実行可能性判定のみを利用して安全なフローマッチング方策を学習する手法を提案。順伝播では二値判定クエリで危険な更新を修正し、局所境界情報を抽出して制約を意識した勾配を提供することで安全な行動生成を実現する。",
+   "summary_en": "This work introduces an oracle-guided differentiable safeguard for training safe flow-matching policies under complex constraints without analytical representations. By querying black-box feasibility oracles, it rectifies unsafe actions and extracts boundary information to enforce physical constraints.",
+   "authors": [
+    "Jianming Ma",
+    "Rongjun Jin",
+    "Yizhi Chen",
+    "Yue Gao"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "control",
+    "safety",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.40075",
+   "image": "figures/2026-10-31/2610.40075.jpg"
+  },
+  {
+   "date": "2026-10-31",
+   "rank": 3,
+   "id": "2610.39100",
+   "group": "focus",
+   "title": "Generating Critic-Guided Synthetic Experience in Latent World Models",
+   "title_ja": "潜在世界モデルにおけるCritic誘導による合成経験の生成",
+   "summary_ja": "オフラインRLのデータ収集制約と世界モデルの長期展開における誤差蓄積に対処するため、潜在世界モデル内でCritic誘導を用いて合成経験を局所生成するCGSEを提案。世界モデルを局所遷移生成器として扱い、Criticの勾配で行動候補を洗練してデータセットを拡張することで方策性能を向上させる。",
+   "summary_en": "CGSE leverages latent world models as local transition generators with critic guidance to synthesize refined experience for offline RL. By sampling and iteratively refining candidate actions within the learned dynamics, it augments offline datasets while avoiding compounding rollout errors.",
+   "authors": [
+    "Jorge de Freitas",
+    "Christos Ziakas",
+    "Alessandra Russo"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.AI"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.39100",
+   "image": "figures/2026-10-31/2610.39100.jpg"
+  },
+  {
+   "date": "2026-10-31",
+   "rank": 4,
+   "id": "2610.40030",
+   "group": "focus",
+   "title": "Cheap Retrieval and Observation Credit Assignment from One Quantity: The Value of Information",
+   "title_ja": "単一の情報価値尺度による低コストな記憶検索と観測クレジット割り当て",
+   "summary_ja": "ロボット強化学習におけるメモリ検索の計算遅延と長期クレジット割り当ての課題を、情報価値（VoI）という単一の指標で統一的に扱う手法を提案。学習済み世界モデルからVoIを推定し、最適な検索集合の決定と観測行動のTDターゲット下限設定を同時に実現して計算負荷を削減する。",
+   "summary_en": "This paper addresses latency and credit assignment challenges in memory-augmented RL by unifying retrieval and observation credit assignment via the Value of Information. Using a learned world model, VoI determines optimal retrieval sets and bounds TD targets to lower robotic computational overhead.",
+   "authors": [
+    "Daniel Strauss",
+    "Nikolaos Sotirakis",
+    "Zhenshan Bing",
+    "Alois Knoll"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.40030",
+   "image": "figures/2026-10-31/2610.40030.jpg"
+  },
+  {
+   "date": "2026-10-31",
+   "rank": 5,
+   "id": "2610.39076",
+   "group": "general",
+   "title": "Tactus: Tactile & Pose Sensing Glove for Natural Dexterity Data Collection",
+   "title_ja": "Tactus: 自然な巧緻操作データ収集のための触覚・姿勢計測グローブ",
+   "summary_ja": "自然な手指操作を妨げずに高精度な接触力と姿勢を同時計測するデータ収集グローブTactusを開発。指先厚み1.5mmの3Dニット構造に容量性触覚センサと磁気式ハンドトラッキングを統合し、器用なマニピュレーション学習に必要な高品質実機デモの収集を可能にした。",
+   "summary_en": "Tactus is a wearable sensor glove integrating calibrated fingertip force sensing with occlusion-resilient magnetic tracking in a thin 1.5mm 3D-knit form factor. It captures high-fidelity contact dynamics and natural hand poses for training dexterous robot manipulation policies.",
+   "authors": [
+    "Li Guan",
+    "Rachael Granberry",
+    "Sahar Aseeri",
+    "Sahar Rostami",
+    "Taylor Niehues",
+    "Sai Dhanooshi Marri",
+    "Mia Huang",
+    "Dingtian Zhang",
+    "Ziyi Kou",
+    "Jason Pursel",
+    "Eric Whitmire",
+    "Vatsal Mehta",
+    "Ashish Deshpande",
+    "Tristan Trutna",
+    "Reed Belcher",
+    "Emelia Black",
+    "Julian Blake",
+    "Roger Boldu",
+    "Sean Bonaventure",
+    "Einar Boyovich",
+    "Jordan Brennan",
+    "Elizabeth Casillas",
+    "David Christensen",
+    "Tyler Christensen",
+    "Nicholas Colonnese",
+    "Stuart Dealey",
+    "Gaige DeHaven",
+    "Katie Doran",
+    "Chris Doughty",
+    "Robert Drury",
+    "Silvia Espino",
+    "Gabriel Geyne",
+    "Beth Goodrich",
+    "Kyra Gould",
+    "Joe Grisso",
+    "Susana Guerrero",
+    "Andrew Gwozdziowski",
+    "Monica Ha",
+    "Ehsan Hajiesmaili",
+    "Kate Healy",
+    "Rose Hope",
+    "Michael Hurst",
+    "Claire Ikemiya",
+    "Daisy Isibor",
+    "Rick James",
+    "Yashasvi Joginapally",
+    "Samuel Johnson",
+    "Tyler Jorgensen",
+    "Kristy Jost",
+    "Ben Kamath",
+    "Slava Karulin",
+    "Alexander Keener",
+    "Woo Kim",
+    "Alison Krauskopf",
+    "Ankit Kumar",
+    "Joshua Lang",
+    "Lizzy Li",
+    "Cameron Lynch",
+    "Daniel Ma",
+    "Hector Martinon",
+    "Christina Matos",
+    "Keagan McCurdy",
+    "Lee Mincey",
+    "Stuart Nezlek",
+    "Tiffany Nguyen",
+    "James O'Hara",
+    "Jason Osborne",
+    "Jacky Pai",
+    "Roham Pardakhtim",
+    "David Perek",
+    "Alexandre Poulin",
+    "Nick Raines",
+    "Salwa Rasheed",
+    "Leah Resneck",
+    "Kevin Rhodes",
+    "Ergys Ristani",
+    "Douglas Roberts",
+    "Anik Sarker",
+    "Harrison Scarborough",
+    "Jonas Schmidtler",
+    "Brian Shieh",
+    "Benjamin Shuman",
+    "Garrett Simard",
+    "Forrest Smith",
+    "Udara Somarathna",
+    "Eliot Sosin",
+    "Jonathan Stewart",
+    "Kristine Strom",
+    "Adam Swett",
+    "Hal Talbot-Mantooth",
+    "Julia Tanner",
+    "Sai Sharan Thirunagari",
+    "Curtis Torrey",
+    "Simge Uzun",
+    "Eileen Wachs",
+    "Rylan Wasson",
+    "Henry Wei",
+    "Jesse White",
+    "Beau Woodbyrne",
+    "Antonio Woods",
+    "Noah Young",
+    "Chandler Yount",
+    "Joseph Zhang",
+    "Sean Keller"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.AR",
+    "cs.LG"
+   ],
+   "tags": [
+    "hardware",
+    "manipulation",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.39076",
+   "image": "figures/2026-10-31/2610.39076.jpg"
+  },
+  {
+   "date": "2026-10-31",
+   "rank": 6,
+   "id": "2610.39385",
+   "group": "general",
+   "title": "UMI-Live for In-The-Wild Bimanual Robotics Data Collection",
+   "title_ja": "UMI-Live: 野外環境での双腕ロボットデータ収集システム",
+   "summary_ja": "外部トラッキング設備や環境キャリブレーションを不要とする、オープンソースの双腕UMIデータ収集システムUMI-Liveを開発。LiDAR・カメラ・IMU・オンボード計算機を統合した独自ハードウェアと並行SLAM処理により、非構造化環境での即時データ収集とポリシー学習を実現した。",
+   "summary_en": "UMI-Live is an open-source, untethered bimanual hand-held data collection platform integrating LiDAR-inertial-visual sensors and onboard compute. It allows calibration-free in-the-wild demonstration recording without external tracking systems for robot manipulation learning.",
+   "authors": [
+    "Govind Velamoor",
+    "Adrian Lin",
+    "Sam Jung",
+    "Spencer Mateega",
+    "Brandon Y. Yang",
+    "Amish Sethi"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "hardware",
+    "manipulation",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.39385",
+   "image": "figures/2026-10-31/2610.39385.jpg"
+  },
+  {
+   "date": "2026-10-31",
+   "rank": 7,
+   "id": "2610.39278",
+   "group": "general",
+   "title": "WorldFlow: Joint Video and 3D Motion Prediction via Large-Scale Pretraining",
+   "title_ja": "WorldFlow: 大規模事前学習による映像と3D運動の統合予測",
+   "summary_ja": "ロボット構成に依存しない汎用的な世界モデルとして、将来の映像とクエリに基づく3D軌道を同時に予測するWorldFlowを提案。3D運動を連続変位トークンとして映像グリッドと統合し、Mixture-of-Transformers構造とRectified Flowを用いて物理ダイナミクスを一貫して学習する。",
+   "summary_en": "WorldFlow is a generative world model that jointly predicts future video frames and query-based 3D trajectories using a Mixture-of-Transformers architecture. By aligning continuous displacement tokens with visual grids under rectified flow, it captures grounded physical dynamics.",
+   "authors": [
+    "Yuhao Lu",
+    "Jiongxu Chen",
+    "Hexiang Wei",
+    "Jiajin Wu",
+    "Juelin Li",
+    "Mingjian Liang",
+    "Fan Yang",
+    "Zhuowei Liang",
+    "Zihao Liu",
+    "Zhennan Wang",
+    "Sheng Wang",
+    "Lin Shao"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.39278",
+   "image": "figures/2026-10-31/2610.39278.jpg"
+  },
+  {
+   "date": "2026-10-31",
+   "rank": 8,
+   "id": "2610.37917",
+   "group": "general",
+   "title": "What Actually Matters? A Paired Evaluation of Inference Settings for $\\pi_{0.5}$ on BEHAVIOR-1K",
+   "title_ja": "BEHAVIOR-1Kにおけるpi_0.5の推論・収集設定のペア評価",
+   "summary_ja": "家庭用ロボット向けVLAモデルの推論手法やデータ収集戦略が大規模・多様なタスク群でどう機能するかを、BEHAVIOR-1Kの100タスクで体系的に検証。小規模設定で有効とされた手法が大規模タスク群へ一律には汎化しない実態を定量的に明らかにした。",
+   "summary_en": "This work conducts a systematic paired evaluation of inference and data-collection settings for the pi_0.5 VLA model across all 100 BEHAVIOR-1K tasks. The study reveals that strategies effective in small-scale setups do not consistently transfer to large-scale, diverse environments.",
+   "authors": [
+    "Ruben Hammele",
+    "Samira Huber",
+    "Mohammad Nazeri",
+    "Amirreza Payandeh",
+    "Alexandyr T. Card",
+    "Aaron Nguyen",
+    "Anuj Pokhrel",
+    "Daeun Song",
+    "Xuesu Xiao",
+    "S\\\"oren Pirk"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "vision-language-action",
+    "benchmark",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.37917",
+   "image": "figures/2026-10-31/2610.37917.jpg"
+  },
+  {
+   "date": "2026-10-31",
+   "rank": 9,
+   "id": "2610.38221",
+   "group": "general",
+   "title": "CuraEval: Evaluating Demonstration Curation on Mixed-Skill Robot Data",
+   "title_ja": "CuraEval: 多様な習熟度のロボットデータに対するデモ選別評価フレームワーク",
+   "summary_ja": "模倣学習における操作者の習熟度が混在するデモデータから有効なデータを選別する手法を公平に比較する評価基盤CuraEvalを提案。数式解析とサイズ適合ランダム抽出ベースラインとの対比を通じて、既存の評価スコアが抱える偏りや真の選別性能を明らかにした。",
+   "summary_en": "CuraEval is a benchmarking framework designed to rigorously evaluate demonstration curation methods on mixed-skill imitation learning data. It combines theoretical score analysis with size-matched random baselines, exposing biases in existing demonstration selection protocols.",
+   "authors": [
+    "Jiuyi Xu",
+    "Meida Chen",
+    "Yang Ye",
+    "Yangming Shi"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "imitation-learning",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.38221",
+   "image": "figures/2026-10-31/2610.38221.jpg"
+  },
+  {
    "date": "2026-10-30",
    "rank": 0,
    "id": "2610.37974",
