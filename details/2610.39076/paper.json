@@ -1,0 +1,242 @@
+{
+ "title_ja": "Tactus: 自然な巧緻操作データ収集のための触覚・姿勢計測グローブ",
+ "tldr_ja": "人の自然な手先の動きを邪魔しない薄型ニット構造に、47箇所の触覚センサと16個のIMUを統合したセンシンググローブ「Tactus」を開発し、オクルージョンに強く高精度な接触力・手指姿勢の計測を実現しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "Tactusの全体外観とシステム構成です。指先から手のひらにかけて47箇所の静電容量型触覚センサが編み込まれ、各指節と手の甲に計16個の6軸IMUが配置されており、ワイヤレスかつ自己完結型で動作します。",
+  "caption": "Fig. 1: Form-factor of Tactus digital sensing gloves capable of high-fidelity tactile and pose sensing for natural hand-object manipulation data collection.",
+  "image": "details/2610.39076/F1.jpg"
+ },
+ "overview_ja": "ロボットが器用なマニピュレーション技術を獲得するためには、人間が物体を巧みに扱う「自然なデモンストレーションデータ」が欠かせません。しかし、カメラ映像のみによる自己中心視点の手先追跡は、物体を掴んで隠蔽（オクルージョン）が起きた瞬間に破綻しやすく、接触力を直接測ることも困難でした。一方で、従来の外骨格型デバイスや市販のデータグローブは、指先の感覚を鈍らせたり関節の動きを拘束したりして、人間本来の自然な把持動作を歪めてしまうという大きなジレンマを抱えていました。\n\nそこで著者らは、厚さわずか1.5 mmの3Dニット生地にセンサを直接編み込むことで、素手に極めて近い自然な操作性を保ちながら、接触力と姿勢を高精度に同時計測できるグローブシステム「Tactus」を提案しました。手指の接触頻度マップや皮膚のシワ解析に基づくデータ駆動型のセンサ配置を採用し、空気圧を用いた高精度な工場キャリブレーションと、着用時の個人差を補正するシンプルなオンライン校正手順を確立しています。さらに、自己中心視点カメラとグローブ上の分散IMUを融合することで、手先が物体に完全に隠れた状態でも正確に関節角度を追従し続ける姿勢推定パイプラインを構築しました。\n\n実世界タスクによる検証では、Tactusを装着した状態でのタスク完了時間は素手の106%にとどまり、市販の触覚グローブや外骨格を大きく上回る自然さを実証しました。また、最小検出力0.59 Nという高感度な力計測と、激しい遮蔽下でも11.0 mmの指先追跡誤差を達成しています。これにより、物体の材質推定や微小な滑りの検出、さらには複雑な手と物体の相互作用モデリングが可能になり、次世代の接触を考慮したロボットポリシー学習の強固な基盤となることを示しました。",
+ "contributions_ja": [
+  "指先厚1.5 mmの薄型3Dニット構造により、素手とほぼ同等の作業完了時間（素手比106%）で自然な把持動作を妨げないセンシンググローブを実現した点",
+  "接触頻度と皮膚の屈曲幾何のデータ駆動型解析に基づき、1つのサイズで広範な手のサイズに対して65%の指先カバレッジを確保する触覚センサ配置を最適化した点",
+  "空気圧チャンバーを用いた均一加圧による工場出荷時校正と、着用ごとの1パラメータスケーリングからなる実用的な力キャリブレーションパイプラインを確立した点",
+  "触覚回帰と手指姿勢追跡のための標準ベンチマークプロトコルを策定し、市販の触覚グローブを含む定量的なクロスプラットフォーム比較を実施した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜ今、新しいセンシンググローブが必要なのか",
+   "summary_ja": "模倣学習による器用なロボット操作の学習には質の高い人間デモが必須ですが、既存の視覚のみや外骨格型システムはオクルージョンや動作阻害の壁に直面しています。Tactusは薄型ニットに触覚センサとIMUを統合し、自然な動作を損なわずに信頼性の高い力と姿勢のデータを取得します。",
+   "details_ja": "ロボットが人間に近い器用さを獲得するための有望なアプローチが、人間の実演データからの学習です。しかし、入力となるデモンストレーションデータの質が、最終的なロボットポリシーの性能を大きく左右することが分かっています。現在、人間の手先動作を取得する手段には主に3つの選択肢があります。\n\n1つ目は自己中心視点のコンピュータビジョン（ego-CV）のみを用いる手法です。最も非侵襲的で自然な動きを記録できますが、手と物体が接触して最もデータが欲しい瞬間に深刻なオクルージョン（遮蔽）が発生し、手先姿勢が破綻します。実際、先行研究では生データの10%未満しか学習に使えなかったという報告もあるほどです。また、繊細な作業に不可欠な「接触力」を直接測ることもできません。\n\n2つ目は外骨格（エクソスケルトン）を用いる手法です。高い運動学的精度が得られる反面、指の可動域を制限し、把持戦略そのものを変えてしまいます。3つ目はセンシンググローブですが、これまで校正された力計測とオクルージョンに強い姿勢追跡を、自然な把持を妨げない形状で両立したプラットフォームは存在しませんでした。\n\nこうした課題を解決するため、本研究は「Tactus」を開発しました。指先の積層厚を1.5 mmに抑えた3Dニット構造に、47箇所の静電容量型触覚センサと16個の6軸IMUを統合し、自然な操作感覚を維持したまま、力と姿勢の高精度な同時計測を実現しています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "Tactusのハードウェア構成です。指先から手のひらにかけて配置された47個の静電容量型触覚セルと、各関節の動きを直接捉える15個の指部IMUアイランドおよび手の甲のルートIMU（計16個）が、柔軟な配線で接続されています。",
+     "caption": "Fig. 1: Form-factor of Tactus digital sensing gloves capable of high-fidelity tactile and pose sensing for natural hand-object manipulation data collection.",
+     "image": "details/2610.39076/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "視覚推定・ウェアラブル・姿勢追跡の歩みと限界",
+   "summary_ja": "画像から接触力を間接的に推定する視覚手法や、多数のセンサを並べた先行グローブ、疎なIMUを用いた姿勢推定などが進展してきました。しかし、未校正な信号や指先の過度な拘束、激しいオクルージョン時の追跡破綻といった根本的な課題が残されていました。",
+   "details_ja": "本章では、関連する先行技術を以下の4つの軸から整理しています。\n\n- 視覚のみによる接触・力の推定：皮膚の圧迫による白化現象やシミュレーションを用いたメッシュ変形から力を推定する試みが進んでいますが、あくまで間接的な推論に過ぎず、グランドトゥルースとなる校正された実測データが不足していました。\n- マニピュレーションデータ収集用ウェアラブル：全手で548個のセンサを備えた「STAG」や磁気センサを使った「OSMO」、市販の触覚グローブなどが登場しましたが、センサごとの厳密な校正パイプラインが欠けていたり、実際の作業時の性能が不透明だったりしました。また、外骨格型システムは接触戦略そのものを変えてしまう代償を払っていました。\n- マニピュレーション時の手指姿勢追跡：単眼・複眼カメラによる推定は手と物体の接触時に著しく精度が落ち、光学式モーションキャプチャもマーカーの隠蔽に弱いという欠点があります。一方で歪みセンサやIMUを用いたグローブは、ドリフトや着脱時のヒステリシスが課題でした。近年は疎なIMUと視覚を融合するアプローチが注目されています。\n- 触覚センサのキャリブレーション：伸縮性のある柔軟な布地グローブは、着用状態や手の姿勢によってセンサ特性が変化するため、個別センサの厳密な力校正が極めて困難でした。均一な空気圧を加える手法は剛体や平面センサには使われていましたが、3D形状を持つソフトグローブ全体への適用は未解決でした。",
+   "figures": []
+  },
+  {
+   "heading": "III System Design",
+   "heading_ja": "自然な把持を妨げないための3つの柱とハードウェア実装",
+   "summary_ja": "「厚さ・剛性・摩擦」を最適化することで素手に極めて近い操作性を実現しました。接触頻度解析に基づく触覚センサ配置、各指節に6軸IMUを配したオクルージョン耐性のある骨格トラッキング、そして伸縮性を妨げないスプリング状配線を組み合わせています。",
+   "details_ja": "人間の自然な把持動作を崩さないため、設計チームは物理特性を「厚さ・剛性・摩擦」の3点に絞り込んで最適化しました。\n\n厚さに関しては、指先の厚みが1.5 mmを超えると作業時間が増加し把持テクニックが変わってしまうことが判明したため、センサを布地へ直接編み込むことで指先厚を1.5 mmに抑えました。剛性に関しては、曲げ剛性0.20 N、引張剛性0.22 N（25 mm幅あたり）という極めて柔軟な特性を持たせ、指の複雑な3次元曲面に密着（コンフォーマルフィット）させています。摩擦については、指先にTPUコーティングを施し、静止摩擦係数（COF）を素手に近い0.4に設定しました。\n\n### III-A 触覚センシングの設計\n触覚センサは2層の緯編み（weft knit）構造を持つ静電容量型で、外力によって導電糸間の距離が縮むことで静電力の変化を検出します。センサ配置は3つの実験データに基づいて決定されました。\n\n1つ目はインク転写による接触頻度マップで、親指は尺骨側、他の指は橈骨側の接触頻度が高いことが分かりました。2つ目は指の屈曲によるシワと手のひらのくぼみ（宙に浮く領域）の解析で、これらをセンサ配置の除外領域としました。3つ目は集団カバレッジ解析で、センサ幅を指周囲の50%未満に抑え、弾性率を7 N/cm程度に保つことで、単一のグローブサイズでありながら多様な手の大きさに対して65%の指先カバレッジを維持できるようにしました。最終的に、各指先に4×2配列、その他の指節や手のひらに単一セルを配し、計47箇所のセンサ配置となっています。\n\n### III-B 姿勢トラッキングの設計\n視覚の死角を補うため、各指節に1つずつ、および手の甲に1つの計16個の6軸IMU（加速度＋ジャイロ）を配置しました。磁気干渉を受けやすい地磁気センサを敢えて排除し、200 Hzで関節角度を観測します。\n\n### III-C サポート電子回路と配線\n配線が指の曲げを阻害しないよう、マイラー巻きケブラー芯線にTPUをオーバーモールドしたスプリング形状の伸縮配線（70%以上の伸長が可能）を開発しました。各指節には小型マイコン（PSoC 6）とIMUを統合したアイランド基板を配置し、手の甲のコントローラとUART通信します。900 mAhのバッテリーにより、完全ワイヤレスで3.5時間以上の連続稼働が可能です。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "触覚センサ配置を決定した3つのデータです。(A) 接触頻度マップでセンサを優先配置すべき領域を特定し、(B) 指を曲げた際の皮膚のシワ部分を除外して誤検出を防ぎ、(C) 3Dスキャンによってグローブが浮いてしまう手のひら中央などのデッドゾーンを特定しています。",
+     "caption": "Fig. 4: Sensor layout was informed by three datasets. A) A contact frequency map identifies where sensors are worth placing. B) Inking the flexed hand leaves skin folds un-inked, ruling out those regions because sensors there register self-contact. C) 3D scans of gloved- & bare-hands rule out glove tenting regions, e.g. the palm center, where sensors contact the world first.",
+     "image": "details/2610.39076/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Signal Modeling",
+   "heading_ja": "空気圧チャンバー校正と視覚・IMU融合パイプライン",
+   "summary_ja": "特殊な空気圧チャンバーを用いて全47箇所の触覚センサを23分で一括校正し、着用ごとの個人差は1つのスケーリング係数で即座に補正します。姿勢推定では、実時間EKF、深層学習ベースのアテンション融合、高精度なオフライン最適化の3モードを用意しました。",
+   "details_ja": "柔軟な触覚グローブの実用化において最大の障壁だったのがキャリブレーションです。Tactusでは2段階の校正パイプラインを提案しています。\n\n### IV-A 触覚校正パイプライン\n第1段階は工場出荷時の校正です。手の形状に熱成形された弾性膜を持つ密閉空気圧チャンバーを開発し、義手に装着したグローブに対して均一な空気圧を印加します。全47箇所のセンサに対して0〜15 PSIGの加圧サイクルを同時に行い、センサ出力から圧力への3次多項式伝達関数 $Y = A(X - B)^3 + C$ を23分未満で同定します。\n\n第2段階はセッションごとのオンライン校正です。グローブを人間が着用すると、手の大きさや接地状態によってゲインが変わります。そこで、着用者が基準センサを指先で押す簡単な動作を行い、実測値と基準値の比率から単一のスケーリング係数 $\\alpha$ を同定します。これだけで、中央値RMSEが1.7〜2.9倍改善し、個人差や着脱による変動を劇的に吸収できることが確認されました。\n\n### IV-B 手指姿勢トラッキングパイプライン\nデータ収集の用途に応じて3つの追跡モードを構築しました。\n\n- EKF（拡張カルマンフィルタ）融合：自己中心カメラから26自由度の手指骨格を推定するResNetと、グローブ上のIMUデータを非同期に融合するリアルタイムモードです。\n- AVI-HT（深層学習アテンション融合）：視覚特徴量とIMUトークンを階層的クロスセンサアテンションで結びつけ、オクルージョン下でも運動学的拘束を保ちながらリアルタイムに高精度追跡を行います。\n- オフライン全シーケンス最適化：シーケンス全体の時間的コンテキストを活用した非線形最適化により、後処理で最高精度の姿勢軌道を生成します。ロボットの模倣学習データセット作成に最適です。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "工場出荷時キャリブレーションリグの外観です。手型義手（Hannekin）に被せたグローブに対し、熱成形された空気圧ブラダーが均一な圧力を印加することで、全47箇所の触覚セルを短時間で一括校正します。",
+     "caption": "Fig. 6: Factory calibration rig design. A closed pneumatic chamber in which the glove, donned on a prosthetic hand, is inflated against from above by a thermoformed elastomeric membrane with regulated air pressure.",
+     "image": "details/2610.39076/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Performance Evaluation",
+   "heading_ja": "標準ベンチマークによる客観評価：素手との差・力の正確さ・姿勢精度",
+   "summary_ja": "策定した3つの標準プロトコルにより、自然な動作性、触覚力回帰、手指姿勢推定を市販グローブや外骨格と比較しました。Tactusは素手作業比106%の完了時間を達成し、力計測の最小検出力や遮蔽時の指先追跡精度でも優れた結果を示しました。",
+   "details_ja": "本論文では、触覚グローブを公平に比較するための3つの評価プロトコルを提案・実施しました。\n\n### V-A Protocol Dexterous-Tasks（動作自然性）\n日常生活や標準テストからなる23種類の器用な作業を行い、素手、Tactus、市販触覚グローブ（PPS、JQ）、外骨格デバイスを比較しました。作業完了時間の素手に対する比率は、Tactusが106%とほぼ素手と同等だったのに対し、PPSは133%、外骨格は147%に達しました。NASA-TLXによる主観的作業負荷でも、Tactusは2.97と最も低いスコア（負荷が少ない）を記録し、自然な動作を邪魔しないことが実証されました。\n\n### V-B Protocol Tactile（触覚精度）\n指先での押下タスクを行い、6軸力覚センサ（Nano-17）を真値として比較しました。Tactusは95%信頼区間での最小検出力（MDF）が0.59 Nを達成し、市販のPPS（1.61 N）やJQ（0.93 N）に比べて1.6〜2.7倍の高感度を示しました。また、手の姿勢変化による不要な歪み信号（Pose-Related Artifacts, PRA比）も0.07と最も低く、被験者間の一貫性（0.87）も最高でした。\n\n### V-C Protocol Hand Pose（姿勢追跡精度）\n光学式モーションキャプチャ（OptiTrack）を真値とし、物体操作タスク中の手指関節追跡誤差を評価しました。手首位置をアライメントした指先相対誤差（f.mkpe.t）において、視覚のみのベースライン（13.3 mm）に対し、AVI-HTは11.7 mm、オフライン最適化では11.0 mmまで誤差を削減しました。IMUが関節角度の観測を維持するため、激しいオクルージョン下でも破綻しないことが確認されました。",
+   "figures": []
+  },
+  {
+   "heading": "VI Applications: Force-Dependent Tasks",
+   "heading_ja": "触覚と姿勢の融合が切り拓く3つの応用タスク",
+   "summary_ja": "校正された触覚とオクルージョンに強い姿勢データにより、9種類の材質分類、高精度な滑り検出（F1スコア1.00）、そして手と物体の整合的な3次元インタラクション復元を実現できることを示しました。",
+   "details_ja": "Tactusによって得られる高品質なマルチモーダル信号の有用性を証明するため、視覚のみでは困難な3つの下流タスクを実証しました。\n\n### VI-A 表面材質の粗さ推定\n9種類の異なるテクスチャパッドを指先でなぞった触覚データから、Transformerを用いて粗さを分類しました。画像のみから材質をゼロショット推論する最新の視覚言語モデル（Llama-3.2-11B-Vision-Instruct）と比較したところ、触覚モデルは視覚では判別が難しい微細なテクスチャの違いを捉え、両者を融合することの重要性を示唆しました。\n\n### VI-B 滑りの予兆・発生検出\n回転ステージとバネを用いて制御されたスティックスリップ現象を発生させる専用リグを構築し、指先センサによる滑り検出を行いました。Tactusのセンサは法線圧力のみを測定しますが、接触領域が剪断変形する際の空間的な圧力分布の変化を捉えることで、時間畳み込みネットワーク（CNN）により滑りの開始をF1スコア1.00、発生からわずか0.01秒以内の遅れで検出することに成功しました。\n\n### VI-C 手と物体の相互作用モデリング\nカップなどの物体を操作する際、自己中心視点カメラのみ（HaMeRやFoundationPose）では、指で物体が隠れたり両手が交差したりした瞬間にトラッキングが完全に喪失します。TactusのIMUによる手指姿勢と、触覚による「どの指先が接触しているか」の運動学的幾何拘束を結合最適化に組み込むことで、手と物体の両方の3次元姿勢を高精度かつ安定して復元できることを示しました。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "手と物体のインタラクション追跡の比較です。自己中心視点カメラのみの手法（HaMeR + FoundationPose）ではオクルージョン時に追跡を見失ったりスケールが破綻したりしますが、Tactusの姿勢と触覚拘束を統合することで、激しい隠蔽下でも安定して高精度な手と物体の3次元配置を復元できています。",
+     "caption": "Fig. 8: Multi-modalities from Tactus (Tactile and IMU) enable qualitatively better hand-object interaction recording compared to CV-only HaMeR hand pose and RGBD CV-only FoundationPose object pose. $t_{1}$ : FoundationPose has hard time to pin-point the cup handle orientation for such close-to-symmetric object. $t_{2}$ & $t_{3}$ : HaMeR hand and FoundationPose object loses track completely due to occlusion. $t_{4}$ : although HaMeR recovers both hands, the hands scaling / depth are incorrectly estimated.",
+     "image": "details/2610.39076/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VII Conclusion and Future Work",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "Tactusは薄型ニット形状、データ駆動のセンサ配置、空気圧による高速校正、標準評価プロトコルを統合した計測プラットフォームです。今後は長期使用による劣化評価や、セッション校正のさらなる自動化・簡略化を目指します。",
+   "details_ja": "本論文では、人間の自然な把持動作を保ちながら、校正された接触力と遮蔽に強い手先姿勢を同時取得できるスマートグローブ「Tactus」を提案しました。\n\n指先厚1.5 mmの3Dニット構造、接触頻度解析に基づく最適なセンサ配置、空気圧チャンバーを用いた一括校正パイプライン、そして他デバイスとの比較を可能にする標準ベンチマークプロトコルを確立したことが本研究の主要な成果です。最小検出力0.59 N、激しいオクルージョン下での指先追跡誤差11.0 mm、素手比106%のタスク完了時間という数値は、ロボットの模倣学習やワールドモデル学習に向けた実演データ収集プラットフォームとして極めて高い実用性を示しています。\n\n今後は、被験者数や操作対象のバリエーションを拡大した大規模なユーザースタディを進めるとともに、着用ごとのオンライン校正の手間をさらに軽減する手法の開発や、グローブの長期的なライフサイクルを通じた耐久性・信号劣化の体系的な評価に取り組む予定です。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「センサの薄さ（1.5 mm）と低剛性」を徹底することで、グローブを装着しても素手とほぼ変わらない作業時間・把持戦略を維持できる",
+  "オクルージョンに弱い視覚とドリフトしやすいIMUを相補的に融合することで、物体把持中という最も重要な瞬間の追跡精度を飛躍的に向上できる",
+  "柔軟な触覚グローブでも、「空気圧チャンバーによる工場校正＋着用時の1パラメータ補正」の組み合わせにより、再現性の高い力計測が可能になる",
+  "ロボティクス向けのウェアラブル収集系を評価する際は、静的なセンサ精度だけでなく「動作の自然さ（完了時間比）」や「姿勢起因アーティファクト（PRA）」を指標化することが重要である"
+ ],
+ "limitations_ja": [
+  "着用ごとのオンライン校正（基準センサを指先で押すステップ）が必要であり、大規模データ収集における運用の手軽さに改善の余地がある",
+  "法線圧力センサのみで滑り検出を行っており、原理的に剪断力を直接計測しているわけではないため、多様な予荷重や滑り方向に対する汎化性の検証が不十分である",
+  "着脱や長時間の伸縮に伴う粘弾性疲労により、セッションごとに約3%のフルスパン低下やヒステリシスの増大が見られる"
+ ],
+ "keywords": [
+  "Tactile Sensing Glove",
+  "Dexterous Manipulation",
+  "Hand Pose Tracking",
+  "Sensor Fusion",
+  "Wearable Robotics"
+ ],
+ "id": "2610.39076",
+ "title": "Tactus: Tactile & Pose Sensing Glove for Natural Dexterity Data Collection",
+ "authors": [
+  "Li Guan",
+  "Rachael Granberry",
+  "Sahar Aseeri",
+  "Sahar Rostami",
+  "Taylor Niehues",
+  "Sai Dhanooshi Marri",
+  "Mia Huang",
+  "Dingtian Zhang",
+  "Ziyi Kou",
+  "Jason Pursel",
+  "Eric Whitmire",
+  "Vatsal Mehta",
+  "Ashish Deshpande",
+  "Tristan Trutna",
+  "Reed Belcher",
+  "Emelia Black",
+  "Julian Blake",
+  "Roger Boldu",
+  "Sean Bonaventure",
+  "Einar Boyovich",
+  "Jordan Brennan",
+  "Elizabeth Casillas",
+  "David Christensen",
+  "Tyler Christensen",
+  "Nicholas Colonnese",
+  "Stuart Dealey",
+  "Gaige DeHaven",
+  "Katie Doran",
+  "Chris Doughty",
+  "Robert Drury",
+  "Silvia Espino",
+  "Gabriel Geyne",
+  "Beth Goodrich",
+  "Kyra Gould",
+  "Joe Grisso",
+  "Susana Guerrero",
+  "Andrew Gwozdziowski",
+  "Monica Ha",
+  "Ehsan Hajiesmaili",
+  "Kate Healy",
+  "Rose Hope",
+  "Michael Hurst",
+  "Claire Ikemiya",
+  "Daisy Isibor",
+  "Rick James",
+  "Yashasvi Joginapally",
+  "Samuel Johnson",
+  "Tyler Jorgensen",
+  "Kristy Jost",
+  "Ben Kamath",
+  "Slava Karulin",
+  "Alexander Keener",
+  "Woo Kim",
+  "Alison Krauskopf",
+  "Ankit Kumar",
+  "Joshua Lang",
+  "Lizzy Li",
+  "Cameron Lynch",
+  "Daniel Ma",
+  "Hector Martinon",
+  "Christina Matos",
+  "Keagan McCurdy",
+  "Lee Mincey",
+  "Stuart Nezlek",
+  "Tiffany Nguyen",
+  "James O'Hara",
+  "Jason Osborne",
+  "Jacky Pai",
+  "Roham Pardakhtim",
+  "David Perek",
+  "Alexandre Poulin",
+  "Nick Raines",
+  "Salwa Rasheed",
+  "Leah Resneck",
+  "Kevin Rhodes",
+  "Ergys Ristani",
+  "Douglas Roberts",
+  "Anik Sarker",
+  "Harrison Scarborough",
+  "Jonas Schmidtler",
+  "Brian Shieh",
+  "Benjamin Shuman",
+  "Garrett Simard",
+  "Forrest Smith",
+  "Udara Somarathna",
+  "Eliot Sosin",
+  "Jonathan Stewart",
+  "Kristine Strom",
+  "Adam Swett",
+  "Hal Talbot-Mantooth",
+  "Julia Tanner",
+  "Sai Sharan Thirunagari",
+  "Curtis Torrey",
+  "Simge Uzun",
+  "Eileen Wachs",
+  "Rylan Wasson",
+  "Henry Wei",
+  "Jesse White",
+  "Beau Woodbyrne",
+  "Antonio Woods",
+  "Noah Young",
+  "Chandler Yount",
+  "Joseph Zhang",
+  "Sean Keller"
+ ],
+ "date": "2026-10-31",
+ "group": "general",
+ "tags": [
+  "hardware",
+  "manipulation",
+  "dataset"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.AR",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.39076",
+ "pdf_url": "https://arxiv.org/pdf/2610.39076",
+ "summary_ja": "自然な手指操作を妨げずに高精度な接触力と姿勢を同時計測するデータ収集グローブTactusを開発。指先厚み1.5mmの3Dニット構造に容量性触覚センサと磁気式ハンドトラッキングを統合し、器用なマニピュレーション学習に必要な高品質実機デモの収集を可能にした。",
+ "generated": "2026-10-31",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.39076"
+}
