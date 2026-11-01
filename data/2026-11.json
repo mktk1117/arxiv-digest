@@ -1,0 +1,268 @@
+{
+ "entries": [
+  {
+   "date": "2026-11-01",
+   "rank": 0,
+   "id": "2610.40248",
+   "group": "focus",
+   "title": "LLM-guided Planar Loco-Manipulation for Quadruped Robots",
+   "title_ja": "四脚ロボットのためのLLM誘導型平面ロコマニピュレーション",
+   "summary_ja": "移動可能な障害物が散乱する環境において、自然言語指示から四脚ロボットが障害物を物理的に押してどかしながら目的地へ到達するタスクを解く手法。LoRAで微調整したタスクプランナーによりスキル・対象・目標を共同選択し、MPCと学習済み低レベル制御により頑健なロコマニピュレーションを実現した。",
+   "summary_en": "This paper presents an LLM-guided planar loco-manipulation framework for quadruped robots navigating cluttered environments with movable obstacles. A LoRA-finetuned task planner maps natural-language instructions to sequences of skills, target objects, and geometric goals, which are executed using low-level controllers to physically interact with obstacles and clear paths.",
+   "authors": [
+    "Georges Jetti",
+    "Michael Khayyat",
+    "Jean-Pierre Sleiman",
+    "Stefano Arrigoni",
+    "Francesco Braghin"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "locomotion",
+    "quadruped",
+    "planning",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.40248",
+   "image": "figures/2026-11-01/2610.40248.jpg"
+  },
+  {
+   "date": "2026-11-01",
+   "rank": 1,
+   "id": "2610.40427",
+   "group": "focus",
+   "title": "socx: GPU-Accelerated Chance-Constrained Stochastic Optimal Control using JAX",
+   "title_ja": "socx: JAXを用いたGPU加速によるチャンス制約付き確率的最適制御",
+   "summary_ja": "チャンス制約下の線形確率的最適制御問題を高速に解く、JAX実装のGPU加速ソルバーsocxを提案。スパース性と独立構造を活用して並列可能なLQTと射影問題へ分散最適化し、3Dクアッドロータの検証でMOSEK比最大98倍、SCS比2224倍の高速化を達成し、長ホライズン問題もリアルタイムで解決する。",
+   "summary_en": "The authors propose socx, a GPU-accelerated JAX solver for chance-constrained linear stochastic optimal control. By decomposing lifted convex reformulations into parallel linear-quadratic tracking and Euclidean projection problems, socx achieves up to a 98x speed-up over MOSEK and 2224x over SCS on a 3D quadrotor, effectively solving horizons up to N=1120.",
+   "authors": [
+    "Tanmay Dokania",
+    "Yashwanth Kumar Nakka"
+   ],
+   "categories": [
+    "eess.SY",
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.40427",
+   "image": null
+  },
+  {
+   "date": "2026-11-01",
+   "rank": 2,
+   "id": "2610.40401",
+   "group": "focus",
+   "title": "Continuous-Action World Models: Learning Cross-Embodiment Spatiotemporal Dynamics Priors",
+   "title_ja": "連続行動世界モデル：クロスエンボディメント時空間ダイナミクス事前分布の学習",
+   "summary_ja": "異なるロボット形態や実行周波数にわたる行動生成を支援する連続行動世界モデル（CoAWM）を提案。共通の潜在関数空間により行動の時空間構造を捉え、周波数や形態が異なるロボット軌跡からダイナミクス事前分布を学習することで、異種データソースを活用した方策学習を可能にする。",
+   "summary_en": "The paper introduces Continuous-Action World Models (CoAWM) to learn cross-embodiment spatiotemporal dynamics priors for action generation across diverse embodiments and execution frequencies. By establishing a shared latent function space through trajectory pretraining, it captures underlying dynamics across heterogeneous robot datasets.",
+   "authors": [
+    "Liangyu Li",
+    "Qingwen Liu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "world-model",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.40401",
+   "image": "figures/2026-11-01/2610.40401.jpg"
+  },
+  {
+   "date": "2026-11-01",
+   "rank": 3,
+   "id": "2610.40056",
+   "group": "focus",
+   "title": "Reinforcement Learning Under Runtime Confounding: Policy Learning and Off-Policy Evaluation",
+   "title_ja": "実行時交絡下における強化学習：方策学習とオフ方策評価",
+   "summary_ja": "ログデータ収集時には観測可能だった変数が、倫理やハードウェアの制約により実機展開時に観測不能となる「実行時交絡」下での強化学習手法を提案。動的設定における交絡の時間的伝播を定式化し、展開時に利用可能な特徴量のみに基づく信頼性の高い方策学習およびオフ方策評価を実現した。",
+   "summary_en": "This work addresses reinforcement learning under runtime confounding, where variables observed during offline data collection become unobservable at deployment due to operational or sensory constraints. The authors formalize how confounding propagates dynamically over time and develop reliable policy learning and off-policy evaluation algorithms.",
+   "authors": [
+    "Raphael Kim",
+    "Michele Santacatterina",
+    "Ramin Zabih",
+    "Keith Barnatchez"
+   ],
+   "categories": [
+    "stat.ML",
+    "cs.LG",
+    "stat.ME"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.40056",
+   "image": "figures/2026-11-01/2610.40056.jpg"
+  },
+  {
+   "date": "2026-11-01",
+   "rank": 4,
+   "id": "2610.40502",
+   "group": "focus",
+   "title": "A Two-Wheeled Quadrotor with All-Clockwise Tilted Rotors for Level-Attitude Surface Locomotnion",
+   "title_ja": "水平姿勢を維持した表面移動のための全時計回りチルトロータ型2輪クアッドロータ",
+   "summary_ja": "水平姿勢を保ったまま壁面や天井などの表面を移動できる、全時計回りチルトロータを備えた車輪付きクアッドロータを提案。表面接触を幾何拘束として活用し、機体を傾けることなく推進力を生成する。ロータ回転方向の最適化により、従来の正逆交互回転よりも大きな接触推進力を生み出せることを実証した。",
+   "summary_en": "This paper presents a two-wheeled quadrotor featuring all-clockwise tilted rotors capable of surface locomotion while maintaining a level attitude. By leveraging surface contact as a physical constraint, it generates lateral thrust without tilting. The proposed rotor configuration produces greater tangential force than traditional alternating-spin setups.",
+   "authors": [
+    "Takumi Ito",
+    "Satoshi Nakano"
+   ],
+   "categories": [
+    "cs.RO",
+    "eess.SY"
+   ],
+   "tags": [
+    "locomotion",
+    "control",
+    "hardware",
+    "drone"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.40502",
+   "image": "figures/2026-11-01/2610.40502.jpg"
+  },
+  {
+   "date": "2026-11-01",
+   "rank": 5,
+   "id": "2610.40646",
+   "group": "general",
+   "title": "SwapBot: Tool-Centric Robot Manipulation via Interchangeable End-Effectors and Tactile Sensing",
+   "title_ja": "SwapBot: 交換可能なエンドエフェクタと触覚センシングによるツール中心のマニピュレーション",
+   "summary_ja": "低コストなアダプタにより家庭用調理器具などの一般的なツールを素早くロボットのツールとして換装できるモジュール式エンドエフェクタSwapBotを提案。単一グリッパーへの依存を脱し、固定インターフェースと触覚センサを組み合わせることで、焼き豆腐の調理など接触豊富かつ多様なツールの切替が必要なタスクを実証した。",
+   "summary_en": "SwapBot is a modular end-effector system using low-cost adapters to convert common household tools into interchangeable robot effectors. Combining a unified coupling interface with tactile sensing, it enables robots to autonomously switch and utilize task-appropriate tools for contact-rich tasks like pan-frying tofu.",
+   "authors": [
+    "Yunchu Zhang",
+    "Ray Song",
+    "Junhan Jiao",
+    "Liyiming Ke",
+    "Yuchen Yang",
+    "Ruihan Gao",
+    "Emma Romig",
+    "Siddhartha Srinivasa",
+    "Yiyue Luo"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.40646",
+   "image": "figures/2026-11-01/2610.40646.jpg"
+  },
+  {
+   "date": "2026-11-01",
+   "rank": 6,
+   "id": "2610.40537",
+   "group": "general",
+   "title": "DAWN: Diffusion-based Alignment and unfastening Workflow Network",
+   "title_ja": "DAWN: 拡散モデルに基づく位置合わせとネジ外しワークフローネットワーク",
+   "summary_ja": "家電リサイクル等の自動化に向け、触覚や力覚を含むマルチモーダルセンサを統合してネジの取り外しを行う階層型ロボットフレームワークDAWNを提案。タスクを「位置合わせ・挿入」と「トルク伝達・ネジ外し」の2段階に分解し、拡散方策を用いて不確実性の高い接触リッチな実機作業を頑健に実行する。",
+   "summary_en": "DAWN (Diffusion-based Alignment and unfastening Workflow Network) is a hierarchical framework for autonomous robotic unfastening using multi-modal sensory integration. It decomposes the complex task into alignment/insertion and force-sensitive unfastening stages, leveraging diffusion policies to achieve robust real-world execution.",
+   "authors": [
+    "Hemant Kumar",
+    "Piyush Goenka",
+    "Nikhil Chopra"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.40537",
+   "image": "figures/2026-11-01/2610.40537.jpg"
+  },
+  {
+   "date": "2026-11-01",
+   "rank": 7,
+   "id": "2610.40356",
+   "group": "general",
+   "title": "JEDI: Joint-Embedding Demonstration Compression for In-Context Imitation Learning",
+   "title_ja": "JEDI: インコンテクスト模倣学習のための結合埋め込みデモンストレーション圧縮",
+   "summary_ja": "テスト時デモにより適応するインコンテクスト模倣学習において、長大なマルチモーダル軌跡を圧縮する手法JEDIを提案。軌跡をVideo-JEPA特徴空間で次ステージのキーフレームを予測する潜在スロットへと圧縮し、人間の手の動きを条件付けたロボット実行や多数のデモの効率的な文脈入力（メニーショット）を可能にした。",
+   "summary_en": "JEDI compresses multimodal demonstration trajectories into latent slots trained to predict keyframes in a frozen Video-JEPA space for in-context imitation learning. This compression enables multi-shot demonstrations within context limits and facilitates human-hand conditioning for robotic execution on benchmarks like LIBERO.",
+   "authors": [
+    "Jiazhao Liang",
+    "Zhewen He",
+    "Shuaihang Yuan",
+    "Hao Huang",
+    "Yi Fang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "imitation-learning",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.40356",
+   "image": "figures/2026-11-01/2610.40356.jpg"
+  },
+  {
+   "date": "2026-11-01",
+   "rank": 8,
+   "id": "2610.40539",
+   "group": "general",
+   "title": "PhysVLMM: Interaction-Conditioned Physical Belief Maps for Articulated Objects in Robot Scene Maps",
+   "title_ja": "PhysVLMM: ロボットのシーンマップにおける多関節物体の相互作用条件付き物理信念マップ",
+   "summary_ja": "ドアや引き出しなど多関節物体の物理的挙動（引き方や可動方向）を環境マップ上に保持・更新する手法PhysVLMMを提案。一度の牽引から得られる方向の不確実性を事後分布として保持し、同形状の未接触パーツへ閉形式で伝播することで、プランナーからの動的クエリに効率的かつ正確に応答できる。",
+   "summary_en": "PhysVLMM maintains and updates physical beliefs regarding articulated objects (e.g., doors, drawers) within robot scene maps. By representing movement constraints as posteriors and propagating pull evidence to similar visual parts in closed form, it effectively answers downstream planning queries during physical interaction.",
+   "authors": [
+    "Dibyendu Ghosh"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "perception",
+    "planning",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.40539",
+   "image": "figures/2026-11-01/2610.40539.jpg"
+  },
+  {
+   "date": "2026-11-01",
+   "rank": 9,
+   "id": "2610.40373",
+   "group": "general",
+   "title": "HiFOR: Hierarchical Foresight with Action-Guided World Grounding for Vision-Language-Action Model",
+   "title_ja": "HiFOR: 行動誘導型世界グラウンディングを伴うVision-Language-Actionモデルの階層的先読み",
+   "summary_ja": "操作タスクにおける短期的な環境ダイナミクスと長期的な目標予測を統合するVLAフレームワークHiFORを提案。現在のアクション要求に関連する未来予測を選択・検索して方策に組み込む行動誘導型世界グラウンディング機構を導入し、長期ホライズンのマニピュレーション課題において高い精度と頑健性を実証した。",
+   "summary_en": "HiFOR is a Vision-Language-Action (VLA) framework that integrates hierarchical foresight with action-guided world grounding. By bridging short-term dynamics and long-term task progression while retrieving future predictions specifically relevant to immediate action needs, it enhances robotic manipulation across long horizons.",
+   "authors": [
+    "Rongxing Ding",
+    "Hongyu Qu",
+    "Kehong Wu",
+    "Xudong Wang",
+    "Fan Zhang",
+    "Xinguang Xiang",
+    "Xiangbo Shu"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.40373",
+   "image": "figures/2026-11-01/2610.40373.jpg"
+  }
+ ]
+}
