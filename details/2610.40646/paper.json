@@ -1,0 +1,133 @@
+{
+ "title_ja": "SwapBot: 交換可能なエンドエフェクタと触覚センシングによるツール中心のマニピュレーション",
+ "tldr_ja": "家庭用ツールを1個10ドル以下の3Dプリントアダプタと触覚センサで交換可能なロボット手先に変身させ、触覚フィードバック付きの遠隔操作と模倣学習によって繊細な調理などの複雑な接触作業を実現した研究です。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "SwapBotシステムの全体構成です。左側は電磁結合とツールラックを備えたロボットアーム、中央はピエゾ抵抗膜を用いた触覚センサの積層構造と各種ツールへの配置、右側は電極幅ごとの荷重応答特性を示しています。",
+  "caption": "Fig. 2 : ( Left ) SwapBot setup overview with the robot arm, robot-mounted tool adapter, electromagnetic coupling, the tool dock, and tactile I/O board. ( Middle ) The structure of the instrumented tools with integrated tactile sensing using piezoresistive film, showing sensor layers and placements, with examples for a knife, brush, and tongs. ( Right ) Characterization of tactile sensors, showing force–response curves for electrodes of different sizes. Larger electrode areas exhibit higher sensitivity, but also cause non-smooth signals with sudden jumps under load. Smaller electrodes have smoother signals and a wider measurable range.",
+  "image": "details/2610.40646/F2.jpg"
+ },
+ "overview_ja": "人間は料理をするとき、包丁で切る、ハケでタレを塗る、トングで掴むなど、道具を用途に応じて持ち替えることで器用に作業をこなしています。しかし現在のロボット研究では、1つの高価で複雑な多指ハンドに頼るか、単純な2本指グリッパーで無理やり道具を把持しようとするアプローチが主流でした。前者は制御やメンテナンスが極めて難しく、後者は切断や塗布といった微妙な力加減が要求される作業に対応できません。どちらも接触面での触覚フィードバックが不足しているという共通の課題を抱えていました。\n\nそこで著者らは、手術ロボットがハサミや鉗子を自在に切り替える点に着想を得て、「人間のような万能の手を作るのではなく、ツールを自律交換し、道具の先端で直接触覚を感じ取ればよい」と考えました。こうして開発されたのが「SwapBot」です。市販の日用品ツールに1個10ドル以下の安価なアダプタと独自の薄型触覚センサを取り付け、電磁カップリングによって約10秒で自律交換できる仕組みを構築しました。さらに、ロボットと同じツールを手元で操作する直感的な遠隔操作システムを作り、高品質な作業デモデータを収集できるようにしました。\n\n実験では、焼き豆腐の調理（ハケでソースを塗り、トングでフライパンに移し、まな板に戻して包丁で切る）という、崩れやすく接触リッチな長大タスクに挑戦しました。触覚情報を統合した拡散ポリシー（Diffusion Policy）を学習させた結果、視覚（RGB）のみのポリシーと比べて成功率が15〜25ポイント向上し、全体で60%のタスク完了率を達成しました。ツールを交換可能にして触覚を持たせることが、実用的なロボット作業への強力な近道であることを示しています。",
+ "contributions_ja": [
+  "1個10ドル以下の安価な3Dプリントアダプタと電磁カップリングを用い、受動ツールだけでなくトングなどの関節型ツールも約10秒で自律交換できる汎用インターフェースを開発したこと",
+  "市販の導電性布と感圧膜（Velostat）を用いた薄型触覚センサをツールの刃先や柄に統合し、道具先端の接触力を直接計測可能にしたこと",
+  "ロボットと同一形状のツールを人間が動かし、画面に触覚情報をリアルタイム表示する直感的な遠隔操作システムを構築したこと",
+  "繊細な焼き豆腐調理タスクにおいて、視覚情報に触覚フィードバックを加えることで模倣学習の成功率が大幅に向上し、少ないデモ数でも高い性能が得られることを実機検証したこと"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "万能ハンドを諦め、道具を着替えるアプローチへ",
+   "summary_ja": "家庭内の複雑な作業を単一のハンドでこなすのは機構的・制御的に困難です。本論文では、市販の道具を安価なアダプタで交換可能なエンドエフェクタにし、触覚センサを組み込むことで、器用で頑健なツール操作を実現するSwapBotを提案しています。",
+   "details_ja": "家庭環境でのロボット作業は、切る・塗る・掴むといった多様な動作の連続であり、その多くは道具（ツール）を使うことを前提としています。例えば「焼き豆腐を作る」という一見シンプルな作業でも、豆腐を崩さないように繊細にハケでタレを塗り、トングでしっかり掴んで移動させ、包丁で適度な力を込めて切断する必要があります。\n\nしかし、従来のロボットハンド設計には大きなジレンマがありました。人間の手を模した多指ハンド（anthropomorphic hands）は器用ですが、機構が複雑すぎてメンテナンス費用が高く、制御や学習データの収集が極めて困難です。一方で、広く使われている平行2本指グリッパーは扱いやすいものの、切る・広げるといった繊細で強い物理接触を伴う作業には適していません。さらに、どちらのアプローチも「道具と対象物の接触面」で何が起きているかを直接測る触覚センサが欠けているため、接触リッチなタスクの学習がうまくいきませんでした。\n\n産業界にはCNC工作機械やURロボット用のツールチェンジャーが存在しますが、非常に高価でロボットごとに専用設計されており、トングやハサミのようなアクチュエーション（開閉機構）を要する関節型ツールには対応できません。そこで本研究は、手術支援ロボットが用途に合わせて器具を付け替える仕組みに着想を得て、手先の構造を複雑にするのではなく「ツールの多様性」によって解決する道を選びました。\n\n提案システム「SwapBot」は、わずか10ドル程度の安価な3Dプリント部品で日用品をロボットツール化し、電磁結合によって10秒以内に自律交換できるようにしています。さらに薄型ピエゾ抵抗膜による触覚センサを各ツールに仕込み、人間と同じツールを用いた直感的な遠隔操作システムによって高品質なデモ収集を可能にしました。Franka、UR5、Tychoという3種類の異なるロボットアームに装着可能であり、ロボットの機種を選ばない汎用性も備えています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "SwapBotがTycho、UR5、Frankaの3種類の異なるロボットアームに装着されている様子です。ロボット側の共通インターフェースにより、アームの機種を問わず多様なツールを交換して使用できます。",
+     "caption": "Fig. 3 : SwapBot can be adapted to three different types of robots: Tycho, UR5, and Franka.",
+     "image": "details/2610.40646/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II The SwapBot System",
+   "heading_ja": "低コストなハードウェア結合と階層型ポリシーの仕組み",
+   "summary_ja": "SwapBotは、10ドル以下のアダプタと電磁結合、道具に特化した薄型触覚センサ、直感的な遠隔操作インターフェース、そして高レベルのツール選択と低レベルの拡散ポリシーからなる階層型学習フレームワークで構成されています。",
+   "details_ja": "SwapBotは大きく分けて4つのコンポーネントから成り立っています。\n\n### II-A モジュール式エンドエフェクタ：ツールアダプタと結合機構\n目標は、1個あたり10ドル以下という極めて安価なコストで、誰でも六角レンチなどの基本工具だけで組み立てられること、そして様々なロボットで高速にツール交換できることです。ツール側の骨組みは3Dプリント（PLA材）で製作し、ツールの柄とアダプタの隙間には柔らかいシリコンを流し込んで固定します。これにより、柄の太さや形状が多少違っても同じアダプタを流用できます。\nトングや箸のような開閉動作が必要な関節型ツールを動かす際、ツールごとに個別のモーターを積むと重く高価になります。そこで、駆動力はすべてロボットアーム側に集約しました。アームの手首関節の回転トルクをベアリング経由でツールの開閉動作に変換する設計にし、手首関節がないロボットの場合は小型サーボモーターを1つ追加することで対応しています。ツール着脱には電磁石と機械的なガイドギアを組み合わせた自己調芯型カップリングを採用し、多少の位置ズレがあっても約10秒で確実にドックでのツール交換を完了できます。\n\n### II-B 小型触覚センシング：計装化されたツール\n接触状態を捉えるため、感圧導電フィルム（Velostat）をレーザーカットした導電性布の電極で挟み込んだ3層構造のピエゾ抵抗型触覚センサを自作しました。直交する行と列の交点（グリッド）で圧力を検知するため、$n \\times n$のセンサ配列をわずか$2n$本の配線で構成できます。\n包丁やトングのように面積が広いツールには刃先や先端、そして柄の両方にセンサを取り付けます。一方、ハケや箸のように先端が細いツールでは先端への配置が難しいため、柄の部分にセンサを配置して間接的に接触力を推定します。柄のセンサは外装のTPU層とシリコンの間に挟み込まれており、握り心地を損なわずに安定した出力を得られます。\n\n### II-C 遠隔操作インターフェース：高品質なデモ収集\n模倣学習で最も重要なデモデータの質を高めるため、操作者側にもロボットと同じ実物ツールを持たせる設計にしました。包丁を動かすには包丁型デバイスを、トングを動かすにはトング型デバイスを人間が握ります。これにより操作マッピングの違和感がなくなり、直感的な操作が可能になります。ツールの6自由度姿勢はIntel RealSense T265トラッキングカメラで計測し、トングの開閉は2つのIMU（慣性計測装置）の相対角度から検出します。すべてのデータ（複数カメラのRGB画像、触覚信号、関節状態、行動）は20Hzで厳密に同期収集され、画面上にはリアルタイムの触覚マップがオーバーレイ表示されます。\n\n### II-D ポリシー学習：デモから長大タスクへ\n長大なタスクを実行するため、階層型ポリシーを採用しています。上位の「ツール選択ポリシー $\\pi_{\\text{sel}}$」は、作業台の俯瞰画像 $\\mathcal{O}_{top}$ と目標画像 $\\mathcal{O}_{g}$ を入力とし、ResNetとMLPを用いて次に使うべきツールの確率分布を出力します。ツールが選ばれて交換が完了すると、そのツール専用の低レベル「制御ポリシー $\\pi_{\\text{tool}}$」が起動します。制御ポリシーにはU-Netベースの拡散ポリシー（Diffusion Policy）を用いており、マルチビュー画像、触覚信号、ロボット関節状態を入力として、滑らかなエンドエフェクタ動作を生成します。手先位置の変化量が20ステップ連続で0.005m未満になったらそのスキルの完了と判定し、ロボットは初期位置に戻って次のツール選択へと移行します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "SwapBotハードウェアの分解構成と触覚センサの配置です。ツールごとに最適な位置へセンサが配置され、シリコン層によって様々な柄の形状にフィットする工夫が示されています。",
+     "caption": "Fig. 2 : ( Left ) SwapBot setup overview with the robot arm, robot-mounted tool adapter, electromagnetic coupling, the tool dock, and tactile I/O board. ( Middle ) The structure of the instrumented tools with integrated tactile sensing using piezoresistive film, showing sensor layers and placements, with examples for a knife, brush, and tongs. ( Right ) Characterization of tactile sensors, showing force–response curves for electrodes of different sizes. Larger electrode areas exhibit higher sensitivity, but also cause non-smooth signals with sudden jumps under load. Smaller electrodes have smoother signals and a wider measurable range.",
+     "image": "details/2610.40646/F2.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "階層型ポリシー学習フレームワークの全体図です。左側のツール選択ポリシーが目標画像と現在画像からツールを選び、自律交換後、右側のツール特化型拡散ポリシーがマルチビューRGB画像・触覚信号・関節角度から動作を生成します。",
+     "caption": "Fig. 4 : Overview of the hierarchical policy learning framework. The high-level tool-selection policy $\\pi_{\\text{sel}}$ takes top-view observations $\\mathcal{O}_{top}$ and a goal image $\\mathcal{O}_{g}$ as input and outputs a distribution over candidate tools. The selected tool index $\\tau$ activates the corresponding low-level tool-specific control policy $\\pi_{\\text{tool}}^{\\tau}$ . Each policy conditions on visual observations $\\mathcal{O}_{t}$ , tactile feedback $\\mathcal{T}_{t}$ , and proprioceptive state $s_{t}$ to generate end-effector actions. …",
+     "image": "details/2610.40646/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "III Experiments",
+   "heading_ja": "触覚の威力：遠隔操作の負担を減らし、模倣学習の成功率を底上げする",
+   "summary_ja": "電極幅2mmが触覚センサとして最適であることを同定した後、12名による遠隔操作実験を実施して作業効率の向上と負担軽減を確認しました。さらに焼き豆腐調理タスクにおいて、触覚を入力に加えることで成功率が最大25ポイント向上することを実証しました。",
+   "details_ja": "実験では、触覚センサの特性評価、遠隔操作のユーザビリティ評価、そして実機での模倣学習ポリシー評価の3点から検証を行いました。\n\n### III-A ツール特化型触覚センサの特性評価\n感圧センサの電極幅を変えたテストベッドでの実験を行いました。電極面積を大きくすると感度は上がりますが、荷重がかかった際に信号が急激に跳ね上がり、10ビットのADコンバータ（ADC）が飽和しやすくなることが分かりました。逆に電極が小さすぎると感度が不足します。トレードオフを検証した結果、滑らかな連続値が得られ十分な測定レンジを確保できる「2mm幅の電極」を採用しました。\n\n### III-B ツール中心の遠隔操作の評価\n初心者・中級者・熟練者の計12名の参加者を集め、「ハケ塗り」と「包丁での切断」の2タスクでユーザ実験を行いました。比較条件は、(1)汎用VRコントローラ風ツール、(2)SwapBot（触覚可視化なし）、(3)SwapBot（画面にリアルタイム触覚フィードバック表示あり）の3種類です。評価指標として完了時間、成功率、およびNASA-TLXによる主観的作業負荷を測定しました。その結果、習熟度を問わずSwapBot条件で完了時間が短縮し、成功率が向上しました。特に触覚可視化がある場合、接触の瞬間や荷重の変化が視覚的に分かるため、認知負荷（メンタルワークロード）が最も低く抑えられました。\n\n### III-C 触覚フィードバックを用いた長大タスクのポリシー学習\n実世界タスクとして「焼き豆腐の調理」を実施しました。タスクは、(1)崩れやすい豆腐にハケで優しくタレを塗る、(2)トングで掴んで鍋に移動させて焼く、(3)まな板に戻して包丁で綺麗に2等分する、という過酷な3ステージから成ります。各ステージ100回の遠隔操作デモを収集してポリシーを学習させました。\n各ツールの成功率を比較したところ、RGB画像のみのポリシーに対して、触覚信号を加えた提案手法は圧倒的な強さを見せました。ハケ塗りで85%（RGBのみは65%）、トング把持で70%（RGBのみは50%）、包丁切断で90%（RGBのみは75%）を記録しました。RGBのみでは、トングの先端が豆腐に接触した瞬間やすべりの兆候がオクルージョン（遮蔽）で見えず、豆腐を潰したり落としたりする失敗が頻発しました。また、データ量を減らした低データ環境ほど触覚の恩恵が顕著であり、わずかなデモ数でも高い成功率を維持できることが統計的有意差（$p < 0.05$）をもって確認されました。\n上位のツール選択器はテストセットで96.8%の分類精度を達成し、これらを連結した一連の調理タスク全体での自律実行成功率は60%に達しました。途中で豆腐の位置が手でずらされるような外乱が加わっても、視覚触覚ポリシーが再度アプローチして作業を継続できる頑健性も確認されています。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "ハケ塗りと包丁切断における遠隔操作ユーザ実験の結果です。汎用ツールと比較して、SwapBot（特に触覚可視化あり）は初心者の成功率を大幅に引き上げ、作業負荷スコア（NASA-TLX）を低減させています。",
+     "caption": "Fig. 6 : User study results for brushing (a–c) and cutting (d–f) tasks across three skill levels of participants. Error bars indicate 95 $\\%$ confidence intervals across participants. We compare a general teleoperation tool, SwapBot without visual tactile feedback, and SwapBot with real-time visualized tactile feedback. Overall, the SwapBot interface yields faster completion times, higher success rates, and lower subjective workload than the general teleoperation tool baseline.",
+     "image": "details/2610.40646/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "デモデータ量に対するポリシー成功率の推移です。ハケ、トング、包丁の全タスクにおいて、触覚入力を統合したモデル（赤）がRGBのみ（水色）を一貫して上回り、特にデータ量が少ない領域で大きな性能差を生み出しています。",
+     "caption": "Fig. 7 : Policy learning performance with and without tactile sensing. We average success rates over 20 evaluation rollouts per seed and run three random seeds; we then apply paired $t$ -tests for significance ( $*$ $p<0.1$ , $**$ $p<0.05$ , $***$ $p<0.01$ ). As the amount of data increases, tactile signals consistently provide a boost over RGB-only baselines and yield larger gains in low-data regimes.",
+     "image": "details/2610.40646/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Related Work",
+   "heading_ja": "ツール操作・交換機構・触覚センシングの系譜",
+   "summary_ja": "本研究は、ツールの把持方法を学ぶ従来の研究とは異なり、日用品を触覚付きエンドエフェクタへ直接変換する点でユニークです。工業用チェンジャーの高コストさやGelSightなどの大型さを克服し、安価で薄型な触覚統合を実現しています。",
+   "details_ja": "関連研究は大きく3つの領域に分けられます。\n\n### IV-A ロボットによるツール操作\nロボットに道具を使わせる従来の研究（例えばRoboCookなど）の多くは、「道具のどこを把持すべきか」というアフォーダンス学習やタスク指向型把持に注力してきました。しかし、汎用グリッパーで道具の柄を掴む方式では、強い負荷がかかったときに手の中で道具が滑ったり回転したりしてしまい、切断のような強い力を伴う作業を安定して行うことが困難です。これに対してSwapBotは、道具を把持するのではなく、道具そのものを強固に結合されたエンドエフェクタへと直接変換するため、ツールの持ち替えや把持のズレといった根本的な問題を機械的に排除しています。\n\n### IV-B ツール使用のためのハードウェア設計\n産業用ロボットのツールチェンジャーは高い剛性と精度を持ちますが、非常に高価であり、トングのように外部からのアクチュエーションを必要とするツールへの対応が困難でした。また、手術ロボットの器具交換機構なども研究されていますが、家庭用への応用は想定されていません。SwapBotは、10ドル以下という圧倒的低コストで、受動的な道具から関節駆動が必要な道具までを統一したインターフェースで扱えるようにした点で新規性があります。\n\n### IV-C マニピュレーションのための触覚センシング\nロボットの触覚としては、カメラとシリコンゴムを用いた光学式触覚センサ（GelSightなど）が有名ですが、機構が大型でツール先端や薄い柄に埋め込むのは困難です。一方で、シート状のピエゾ抵抗膜や静電容量膜を用いた触覚スキンは薄型で自由な形状に加工できる利点があります。本研究はこのアプローチを採用し、ツールの形状に合わせてデジタルファブリケーションでカスタム製作することで、作業の邪魔をすることなく、道具と対象物が触れ合う決定的な瞬間の力情報を取得できるようにしました。",
+   "figures": []
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "SwapBotは、道具の交換と触覚センシングを組み合わせることで、接触リッチな日常タスクをこなす実践的な道筋を示しました。今後はセンサの耐久性向上や、サブゴールの自動生成によるエンドツーエンドな自律化が期待されます。",
+   "details_ja": "本論文では、安価なモジュール式アダプタによって日常の道具を触覚付きエンドエフェクタに変換するシステム「SwapBot」を提案しました。道具に合わせた直感的な遠隔操作インターフェースにより高品質なデモ収集が可能となり、触覚情報を組み込んだ模倣学習によって、豆腐の調理のような崩れやすく繊細な作業でも高い成功率を達成できることを実証しました。\n\n一方で、著者らはいくつかの限界も認めています。\n- 触覚センサの解像度が低く、長期間の使用による摩耗や劣化の懸念があること\n- センサの配置場所が現在は人間の直感によって固定されており、最適化されていないこと\n- タスク全体の実行において、サブゴール（中間目標画像）の定義やタスクの区切りが手動で設定されていること\n\n今後は、より耐久性が高く高解像度なセンシング技術の導入、データ駆動による最適なセンサ配置の自動決定、そして手動のサブゴール定義に頼らない完全自律型のポリシーシーケンシングなどが今後の課題として挙げられています。なお、ロボティクスコミュニティでの再現性と普及を促進するため、本システムのハードウェアやコードはオープンソースとして公開されています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「万能な多指ハンド」を作るよりも、「安価に道具を着せ替える」アプローチのほうが、機構の信頼性・コスト・制御の容易さの観点で圧倒的に実用的であること",
+  "接触リッチな作業（切る・掴む・塗る）では、RGB画像だけでなく「道具の先端や柄に配置した触覚信号」を入力することが、模倣学習のデータ効率と頑健性を劇的に引き上げること",
+  "遠隔操作時に人間側にもロボットと同じ道具を持たせ、リアルタイムで触覚を視覚表示することで、操作者の認知的負荷が大幅に下がり、質の高いデモデータが集まること"
+ ],
+ "limitations_ja": [
+  "自作のピエゾ抵抗膜センサは解像度が低く、繰り返しの摩擦や強い負荷による経年劣化・摩耗に弱い点",
+  "各ツールのどこに触覚センサを貼るかが設計者の勘に頼っており、作業に応じた配置の自動最適化ができていない点",
+  "長大タスクの分割と中間目標（サブゴール画像）の系列が事前に手動定義されており、タスク全体の完全自動な計画・失敗復帰には至っていない点"
+ ],
+ "keywords": [
+  "Tool-Centric Manipulation",
+  "Modular End-Effectors",
+  "Tactile Sensing",
+  "Imitation Learning",
+  "Teleoperation"
+ ],
+ "id": "2610.40646",
+ "title": "SwapBot: Tool-Centric Robot Manipulation via Interchangeable End-Effectors and Tactile Sensing",
+ "authors": [
+  "Yunchu Zhang",
+  "Ray Song",
+  "Junhan Jiao",
+  "Liyiming Ke",
+  "Yuchen Yang",
+  "Ruihan Gao",
+  "Emma Romig",
+  "Siddhartha Srinivasa",
+  "Yiyue Luo"
+ ],
+ "date": "2026-11-01",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "hardware"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.40646",
+ "pdf_url": "https://arxiv.org/pdf/2610.40646",
+ "summary_ja": "低コストなアダプタにより家庭用調理器具などの一般的なツールを素早くロボットのツールとして換装できるモジュール式エンドエフェクタSwapBotを提案。単一グリッパーへの依存を脱し、固定インターフェースと触覚センサを組み合わせることで、焼き豆腐の調理など接触豊富かつ多様なツールの切替が必要なタスクを実証した。",
+ "generated": "2026-11-01",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.40646"
+}
