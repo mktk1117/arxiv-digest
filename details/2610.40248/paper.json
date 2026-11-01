@@ -1,0 +1,147 @@
+{
+ "title_ja": "四脚ロボットのためのLLM誘導型平面ロコマニピュレーション",
+ "tldr_ja": "動かせる障害物が散乱する環境において、LoRAで微調整した小規模LLMが「スキルの選択・対象物体・幾何学的目標」を同時に計画し、特化型のエンドツーエンド強化学習ポリシーで障害物を押し退けながらゴールを目指す四足歩行フレームワークです。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "提案フレームワークの実機への適用パイプラインです。上位のLLMプランナーが自然言語指示と構造化されたシーン情報から行動列を計画し、下位の強化学習ポリシー（青：マニピュレーション、赤：ナビゲーション）を実行します。イベント駆動型で動作し、1つの行動が完了するごとに再計画を行います。",
+  "caption": "Fig. 1 : Deployment pipeline of the proposed framework on the quadruped robot. The planner receives observation $o^{\\prime}_{t}$ consisting of a task instruction specified by the user, scene states such as robot and object pose, along with object parameters, and the previous skill that was applied on the environment. The planner, trained on predicting the remaining action sequence to achieve the task objective, applies only the first action in the sequence, and is queried again once that action is complete. Thus, our task planner is an event-driven task planner . Blue robot instances signify that a manipulation policy was used in that stage, whereas Red signifies a navigation policy. …",
+  "image": "details/2610.40248/F1.jpg"
+ },
+ "overview_ja": "従来のロボットナビゲーションは、目的地までの衝突のない経路があらかじめ存在することを前提としていました。しかし、家具や荷物が雑然と置かれた実環境では、障害物を自ら押して動かさないとゴールにたどり着けない状況が頻繁に発生します。この問題は可動障害物下のナビゲーション（NAMO）と呼ばれ、高度な空間認識と移動・操作の連携が求められます。\n\nそこで著者らは、指示文とシーンの幾何構造から高レベルな行動計画を立てるLLMと、俊敏に物体を押して運ぶ強化学習（RL）ポリシーを階層的に組み合わせる手法を提案しました。上位プランナーには、合成データを用いてLoRAで微調整した15億パラメータの小規模モデル（Qwen2.5-1.5B）を採用しています。このモデルが「どのスキルを使うか」「どの物体を動かすか」「どこへ動かすか」を一度に予測します。一方の下位スキルには、四足ロボットの全身を使ってダイナミックに箱を押すエンドツーエンドのRLポリシーを導入しました。\n\nシミュレーションとUnitree Go2実機を用いた実験により、本手法は手作りのヒューリスティックルールやフロンティアLLM（GPT-5.5）によるプロンプト駆動の計画を上回る成功率を示しました。特に、下位の全身押しポリシーは従来比で作業完了時間を60%以上短縮し、実機でも45試行中34回でタスク全体を完遂できることを実証しています。",
+ "contributions_ja": [
+  "合成データとLoRA微調整により、巨大なプロンプトや手動ルールなしで「スキル・対象物体・目標位置」を同時決定する言語条件付きタスクプランナーを実現しました。",
+  "四足ロボットの体格を活かして効率的な押し動作を自律獲得する、エンドツーエンドの全身平面マニピュレーションポリシーを開発しました。",
+  "従来の階層型制御に比べて物体の移動時間を60%以上削減し、未知の質量やサイズに対してもロバストな操作性能をシミュレーションと実機の両方で示しました。",
+  "訓練データに含まれていない「障害物を動かす→目的物へ移動する→目的物を運ぶ」という未知のタスク構造に対しても、高レベルなスキル合成が可能であることを明らかにしました。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "障害物を動かして道を作る：四足歩行ロボットの挑戦",
+   "summary_ja": "環境内に障害物が密集している場合、ロボットが目的地へ行くには物理的な干渉が不可欠です。本章では、既存の幾何学的ルールやプロンプト依存の基盤モデルが抱える課題を挙げ、本研究が目指す軽量LLMと特化型RLポリシーによる階層アプローチの狙いを説明します。",
+   "details_ja": "家庭や倉庫のような実環境では、目的地への道が障害物で完全に塞がれていることが珍しくありません。生物が邪魔な物を押しのけて道を作るように、ロボットにも移動（Locomotion）と操作（Manipulation）をシームレスに組み合わせる「ロコマニピュレーション」が求められます。\n\n従来のNAMO（Navigation Among Movable Obstacles）研究では、幾何学的な経路計画と手動で設計したルールを組み合わせていました。しかし、これでは環境やタスクが変わるたびに膨大な例外処理コードを書く必要があります。一方、最近のLLMやVLMを用いた手法は柔軟な推論ができるものの、巨大なプロンプトが必要で推論の遅延（レイテンシ）が大きく、ロボット自身の物理的な運動制約を考慮しにくいという難点がありました。\n\n四足歩行ロボットによる物体押し操作（マニピュレーション）そのものにも課題がありました。従来はあらかじめ歩行パターンを固定し、その上に速度指令を与える階層構造が一般的でした。しかし、これでは「歩行のための姿勢」に縛られてしまい、重い荷物を強く効率的に押す姿勢を取ることができませんでした。\n\nこれらの課題を打破するため、著者らは2つのアプローチを組み合わせました。上位レイヤでは、軽量なオープンモデル（Qwen2.5-1.5B）を合成データでLoRA微調整し、ミリ秒単位で「スキル」「対象物体」「幾何学的目標座標」をまとめて予測させます。下位レイヤでは、歩行と操作を分離せず、全身の関節を直接動かしてダイナミックに物体を押すエンドツーエンドの強化学習ポリシーを構築しました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "システム全体の実行フローです。ユーザー指示と環境情報を受け取ったLLMが残りの行動シーケンスを予測し、その先頭のアクションを下位の運動ポリシー（移動または操作）が実行します。",
+     "caption": "Fig. 1 : Deployment pipeline of the proposed framework on the quadruped robot. The planner receives observation $o^{\\prime}_{t}$ consisting of a task instruction specified by the user, scene states such as robot and object pose, along with object parameters, and the previous skill that was applied on the environment. The planner, trained on predicting the remaining action sequence to achieve the task objective, applies only the first action in the sequence, and is queried again once that action is complete. Thus, our task planner is an event-driven task planner . Blue robot instances signify that a manipulation policy was used in that stage, whereas Red signifies a navigation policy. …",
+     "image": "details/2610.40248/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Preliminaries",
+   "heading_ja": "前提知識：スキルライブラリと問題の定式化",
+   "summary_ja": "ロボットが実行できる基本動作として「ナビゲーション」と「平面マニピュレーション」の2つの運動スキルを定義します。上位の言語プランナーは、離散的な意思決定ステップごとにこれらのスキルと幾何パラメータを予測する役割を担います。",
+   "details_ja": "本フレームワークでは、プランナーが参照する情報としてロボットと物体の位置姿勢、および物体の2D外形寸法があらかじめ得られていることを前提とします（実機実験ではモーションキャプチャを使用）。下位の運動ポリシーは物体の重さや摩擦係数などの詳細なダイナミクスを知らされずに動作します。\n\n下位の運動スキルには、次の2種類のゴール条件付きマルコフ決定過程（MDP）を用意しました。\n- ナビゲーションスキル（$s=n$）：障害物を避けながら指定された相対目標姿勢へ移動する。\n- 平面マニピュレーションスキル（$s=m$）：四足の身体を使って物体を目的の位置姿勢まで押し運ぶ。\n\nどちらのスキルも、Isaac Lab環境でドメインランダム化を施しながらPPO（Proximal Policy Optimization）を用いて学習させており、シミュレーションから実機へのゼロショット転移（Sim-to-Real）を可能にしています。\n\n上位のタスクプランナーは、自然言語の指示 $G_{\\mathrm{NL}}$ と構造化された環境状態を受け取り、パラメタライズされた行動列 $\\mathbf{a^{HL}}_{k:k+H_k}$ を出力します。ここで各行動は「スキル種別 $s_j$」「対象物体ID $i_j$」「幾何学的目標 $g_j$」の3つ組で構成されます。プランナーは完了までのシーケンス全体を予測しますが、実行するのは最初の1ステップのみです。1つの行動が完了するたびに新しい環境状態を取得して再推論する「後退ホライズン（Receding Horizon）」方式を採用しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Methodology",
+   "heading_ja": "手法詳解：全身押しポリシーと合成データによるLLM微調整",
+   "summary_ja": "低レイヤでは効率的な押し動作を可能にするエンドツーエンド強化学習ポリシーを構築し、高レイヤでは合成データを用いたLoRA微調整によって幾何目標を正確に出力できる言語プランナーを学習させます。",
+   "details_ja": "### III-A 平面マニピュレーションポリシー\n物体を上手に押すため、非対称アクター・クリティック（Asymmetric Actor-Critic）構造を採用しました。方策（アクター）は観測可能な状態のみを入力とし、評価器（クリティック）には学習時限定で特権情報（摩擦や正確な接触力など）を与えて価値関数の推定精度を高めています。出力は関節角度オフセット $\\Delta\\mathbf{q}_{\\text{des}} \\in \\mathbb{R}^{12}$ です。\n\n報酬設計のポイントは、物体の並進誤差と回転（ヨー角）誤差を別々に重み付けするのではなく、物体上に配置した複数のキーポイントの距離誤差として統合した点です。さらに、目標ベクトルに応じた速度指令 $\\mathbf{v}_{cmd}$ を定義し、ゴールに近づくにつれて自然に減速する挙動を誘導しました。また、ロボット自身の前進速度を促す報酬を加えることで、横押しによる不安定化を防ぎ、頭を低く下げて後肢でしっかり踏ん張る安定した押し姿勢を獲得させました。\n\n### III-B ナビゲーションポリシー\nナビゲーションスキルは、障害物を回避しながら目標の平面姿勢（x, y, ヨー角）へ移動する階層ポリシーです。上位LLMが細かな経由地（ウェイポイント）をいちいち出力しなくて済むよう、ゴール姿勢を指定するだけで安全に歩行できるようにしています。\n\n### III-C 高レベルLLMタスクプランナー\nLLMの学習には、Pygameで作成した2D幾何シミュレータによる合成データを用いました。タスクを「障害物なし（Case 1）」「直接移動可能（Case 2）」「物体操作（Case 2.5）」「障害物が進路を妨害（Case 3）」という排他的なカテゴリに分類し、難易度に応じたカリキュラムを形成しています。\n\n手動で作成したベース環境に対し、座標のランダム化、空間反転（ミラーリング）、無関係な物体の追加といったデータ拡張を施し、約8,000本の軌跡（約16,000サンプル）を自動生成しました。モデルにはQwen2.5-1.5B-Instructを採用し、すべての線形層にLoRA（ランク $r=128$）を適用して、次の行動系列を自己回帰的に予測するよう微調整しました。",
+   "figures": []
+  },
+  {
+   "heading": "IV Experiments and Results",
+   "heading_ja": "実験と検証：シミュレーション比較から実機へのSim-to-Real展開",
+   "summary_ja": "下位操作ポリシーの動作効率と、上位プランナーの推論・汎化性能を検証しました。全身押しポリシーは作業時間を60%以上短縮し、LLMプランナーは未知のタスク合成を含む実機実験（45試行中34回完全成功）において高い適応性を示しました。",
+   "details_ja": "### IV-A 予備実験：全身E2Eポリシー vs 階層型ポリシー\nあらかじめ歩行速度コントローラを噛ませる従来の階層型（HRL）と、関節角を直接制御するエンドツーエンド（E2E）ポリシーを比較しました。E2Eポリシーは非同期な歩行リズムと前傾姿勢を自律的に学習し、身体の慣性を効率的に物体へ伝達できることが判明しました。電力消費はHRLの約66Wに対してE2Eは約127Wと高くなりますが、短時間で力強く押す能力に優れています。\n\n### IV-B 低レベル操作ポリシーの性能評価\nシミュレーションにおける1,000エピソードの評価では、提案するE2E操作ポリシーが成功率93.3%を達成しました。HRLベースライン（83.5%）や移動と操作を1つの方策で行うE2Eロコマニピュレーション（84.1%）を明確に上回り、平均エピソード時間はHRLの8.94秒から3.49秒へと60%以上短縮されました。\n実機（Unitree Go2）による段ボール箱（2kg）、プラスチック円筒（4kg入り）、重い直方体（8kg）の押し実験でも、提案手法はHRLより大幅に短い時間で小さな位置姿勢誤差を達成しました。\n\n### IV-C 言語条件付きタスクプランナーの評価\n未知のシーン200環境において、微調整済みLLMプランナーはインタラクティブナビゲーションタスクで109/120の成功を収め、手作りの古典的プランナー（86/120）やGPT-5.5のプロンプト推論（94/120）を凌駕しました。GPT-5.5の失敗の多くは、幾何学的な配置目標が不正確で障害物や壁と干渉してしまう点にありました。\n\nさらに、訓練データに含まれていない「邪魔な障害物を退かす $\\rightarrow$ 目的の荷物へ移動する $\\rightarrow$ 荷物を運ぶ」という未知のタスク構成（$\\mathrm{M} \\rightarrow \\mathrm{N} \\rightarrow \\mathrm{M}$）に対しても、提案プランナーは24/30の試行で正しいスキル順序を生成できました。\n\n### 実機システム全体の評価\nUnitree Go2実機を用いた45回の総合実験（9シナリオ×各5回）において、プランナーは44/45試行で正しいスキル構成を選択し、実環境でのエンドツーエンド完遂率は34/45（約76%）に達しました。失敗の原因の多くは、プランナーが指示した幾何目標が下位ポリシーの得意な接近角度（ロボットの左側からアプローチする傾向）から外れてしまったことによるものでした。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "実機Unitree Go2による平面マニピュレーション実験の様子です。身体全体を前傾させ、箱に対してしっかりと接地しながら押し運んでいます。",
+     "caption": "Fig. 4 : Hardware comparison of the manipulation policies.",
+     "image": "details/2610.40248/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "障害物選択の評価シーンです。固定された障害物と動かせる障害物の位置関係をプランナーが正しく認識し、どちらの障害物を退かすべきかを判断して経路を開拓しています。",
+     "caption": "Fig. 5 : Qualitative hardware examples evaluating object selection. In both scenes, the planner must identify and manipulate the appropriate blocking object before navigating toward the goal.",
+     "image": "details/2610.40248/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "長ホライズンタスク（LH-1）の実行過程です。手前の動かせる障害物へ歩行接近（N）し、安全な場所へ押し退けてスペースを作った（M）後、最終目的地へとナビゲーション（N）しています。",
+     "caption": "Fig. 6 : Long horizon task execution for LH-1. The robot appropriately navigates to the only movable object in the scene, manipulates it to create enough space to then navigate to the goal.",
+     "image": "details/2610.40248/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "スキルの組み合わせによる柔軟な動作の様子です。単一スキルの組み合わせだけでなく、訓練時には見ていない「障害物を除去して別の物体を運ぶ」という新しいスキル列（M→N→M）を実機で実演しています。",
+     "caption": "Fig. 7 : Qualitative hardware examples of skill composition. Scene IN-1 requires $\\mathrm{M}\\rightarrow\\mathrm{N}$ , whereas Scene OM-1 requires $\\mathrm{N}\\rightarrow\\mathrm{M}$ . In Scene IM-2, the planner composes these into the sequence $\\mathrm{M}\\rightarrow\\mathrm{N}\\rightarrow\\mathrm{M}$ , which is excluded from training.",
+     "image": "details/2610.40248/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "合成データによるLoRA微調整LLMとエンドツーエンドの全身操作ポリシーを組み合わせることで、高精度かつ高速な対話型ナビゲーションを実現しました。実機でも高いスキル選択精度を達成し、階層型ロボット制御の新たな可能性を提示しました。",
+   "details_ja": "本研究は、四足歩行ロボットが自律的に障害物を押しのけて道を開くための新しい階層的フレームワークを提案しました。\n\n高レベルのLLMプランナーは、大規模なプロンプトや手動ルールに頼ることなく、シーンの幾何学的関係を学習し、適切なスキルと幾何目標を即座に予測できます。ゼロから学習したモデルとの比較から、構造化された入出力表現を用いれば事前学習なしでもスキルの並び替え自体は学習できる一方、実行可能な幾何目標を正確に出力するには事前学習済み言語モデルの空間表現力が極めて重要であることがわかりました。\n\n低レベルの全身マニピュレーションポリシーは、従来の歩行優先コントローラの制約を取り払うことで、多種多様な形状・重さの物体に対して60%以上の作業時間短縮を達成しました。実機実験でも45試行中44回で正しいスキル選択を行い、34回でタスクを完全成功させています。\n\n現在は上位の目標生成と下位ポリシーの実行可能領域が完全に統合されていないため、今後は両者の結合を深め、より複雑な実環境での適応性を高めることが期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：学習プロセスのダイナミクスと報酬アブレーション",
+   "summary_ja": "全身ロコマニピュレーションを強化学習する際のカリキュラム設定の重要性や、前進速度報酬の有無がロボットの転倒率に与える影響について詳細な補足データを示します。",
+   "details_ja": "### ロコマニピュレーション学習のダイナミクス\n移動と操作を単一のニューラルネットワークで学習させる際、最初から物体操作報酬を与えると目的が衝突してうまく学習が進みません。最初は「物体へ向かって直進する」報酬のみを与えて安定した歩行を獲得させ、一定ステップ後に「物体をゴールへ動かす」報酬を有効化するウォームスタート方式が極めて有効でした。報酬を有効化するタイミングが早すぎても遅すぎても、学習曲線が不安定になることが確認されています。\n\n### 報酬項のアブレーション解析\nマニピュレーションポリシーにおいて、ロボットの前進方向への速度報酬を取り除くと、ロボットが物体を横向きに押す動作を発現させやすくなります。その結果、物体から離れる際に重心が支持多角形から外れて転倒するケースが多発し、転倒率が約10倍に跳ね上がって成功率は20.7%まで低下しました。ロボットの体格上、ロール（左右の傾き）方向よりもピッチ（前後の傾き）方向のほうが耐えられる傾斜範囲が広いため、前傾姿勢でまっすぐ押させる報酬設計が安定性に直結しています。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "エンドツーエンド学習における操作報酬の有効化タイミングの比較です。最初から報酬を与えた場合（橙）や遅すぎた場合（赤）に比べ、400イテレーション付近で切り替えた場合（青）が最も安定して高いリターンを獲得しています。",
+     "caption": "Fig. 8 : End-to-end loco-manipulation policy learning dynamics. Manipulation reward was activated at iteration 0 for the orange curve, iteration 400 for the cyan curve, and iteration 1000 for the red curve.",
+     "image": "details/2610.40248/F8.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "歩行ロボットによる物体押し操作では、固定の歩行パターンを使わずに全身を直接強化学習（エンドツーエンド）で制御したほうが、前傾姿勢による運動量伝達が効いて作業時間が60%以上短縮されます。",
+  "小規模LLM（1.5B）であっても、幾何構造を整理した2Dシミュレータの合成データでLoRA微調整すれば、複雑なプロンプトなしで「スキル・対象・目標座標」を高速かつ高精度に予測できます。",
+  "スキルの順序関係（文法）自体はスクラッチ学習のTransformerでも獲得できますが、実行可能な「幾何学的目標位置」を破綻なく出力するためには事前学習済み基盤モデルの重みが不可欠です。",
+  "上位の計画と下位の制御ポリシーを切り離して設計する場合、下位ポリシーが苦手とする相対位置（例：物体の右側からのアプローチ）を上位プランナーが避けるような協調メカニズムが実機成功率の向上に重要となります。"
+ ],
+ "limitations_ja": [
+  "プランナーへの入力として、外部のモーションキャプチャ等から得られる完全な2D幾何形状と位置姿勢（オラクル情報）を仮定しており、車載カメラからの直接的な点群処理などは含まれていません。",
+  "上位プランナーは下位ポリシーの物理的な実行可能領域（特定の押し方向への偏りなど）を直接考慮していないため、幾何学的には正しくても実機で押しにくい目標を出力して失敗することがあります。",
+  "物体操作は平面上での非把持押し操作（プッシング）に限定されており、持ち上げたり傾けたりするような3次元的なマニピュレーションには対応していません。"
+ ],
+ "keywords": [
+  "Quadruped Robots",
+  "Loco-Manipulation",
+  "Large Language Models (LLM)",
+  "Reinforcement Learning",
+  "Interactive Navigation",
+  "Sim-to-Real Transfer"
+ ],
+ "id": "2610.40248",
+ "title": "LLM-guided Planar Loco-Manipulation for Quadruped Robots",
+ "authors": [
+  "Georges Jetti",
+  "Michael Khayyat",
+  "Jean-Pierre Sleiman",
+  "Stefano Arrigoni",
+  "Francesco Braghin"
+ ],
+ "date": "2026-11-01",
+ "group": "focus",
+ "tags": [
+  "locomotion",
+  "quadruped",
+  "planning",
+  "llm-agent"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.40248",
+ "pdf_url": "https://arxiv.org/pdf/2610.40248",
+ "summary_ja": "移動可能な障害物が散乱する環境において、自然言語指示から四脚ロボットが障害物を物理的に押してどかしながら目的地へ到達するタスクを解く手法。LoRAで微調整したタスクプランナーによりスキル・対象・目標を共同選択し、MPCと学習済み低レベル制御により頑健なロコマニピュレーションを実現した。",
+ "generated": "2026-11-01",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.40248"
+}
