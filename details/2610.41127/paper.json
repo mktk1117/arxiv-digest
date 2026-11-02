@@ -1,0 +1,145 @@
+{
+ "title_ja": "行動理解のための運動表現データセットMotorSense：映像と表面筋電位の統合",
+ "tldr_ja": "手首に装着した筋電位（EMG）センサーと主観視点カメラを同期させた100時間のデータセット「MotorSense」を構築し、映像と筋活動を対照学習で結びつけることで、手のアクション認識や3D手・接触推定の精度を大幅に向上させました。",
+ "hero_figure": {
+  "key": "F3",
+  "caption_ja": "MotorSenseの全体構成です。(A)では主観視点映像と両手のEMG信号をそれぞれエンコーダに通し、同じ時間窓のペアを近づけるCLIPスタイルの対照学習（センサー運動アライメント）を行います。(B)で学習した視覚モデルをアクション認識や3D手の再構成、接触検出などの下流タスクへ転移させるほか、EMG信号から得た離散トークン（モーターコード）を用いて映像拡散モデルを精密に制御します。",
+  "caption": "Figure 3 : Overview of MotorSense . (A) Sensorimotor Alignment. Windows $1,\\dots,N$ of bimanual EMG (left) and egocentric video (right) are embedded by an EMG encoder and a video encoder and aligned with a symmetric contrastive objective (Section 3.2 ): the video and EMG embeddings of the same window ( $V_{i}$ , $E_{i}$ ) are pulled together, while embeddings from different windows are pushed apart. (B) Downstream Tasks. The learned representations are used for downstream tasks: 1) video diffusion consisting of a single reference frame as input along with EMG control signals, 2) action recognition, 3) 3D hand-object Reconstruction, 4) 3D hand contact prediction.",
+  "image": "details/2610.41127/F3.jpg"
+ },
+ "overview_ja": "人間が手を使って器用に物を操るとき、目で見える変化だけでなく、筋肉の力の入れ具合や指の細かな運動感覚を頼りにしています。しかし、従来のコンピュータビジョンモデルはカメラに映るピクセル情報だけから手の動作を学習しており、隠れ（オクルージョン）や接触力の見落としといった根本的な課題を抱えていました。\n\nそこで著者らは、日常的なキッチン操作を中心に、両手首の表面筋電位（EMG）とIMU、頭部装着カメラの主観視点映像を同期記録した100時間の大規模データセット「MotorSense」を構築しました。手首に巻く非侵襲バンドを採用しているため、データグローブのように手の自由な動きを妨げず、遮蔽に強い密な筋活動データを取得できるのが特徴です。\n\nこのデータを用いて、映像エンコーダとEMGエンコーダをCLIPライクな対照学習で揃える「センサー運動アライメント（Sensorimotor Alignment）」を実施しました。事前学習時のみEMGを「特権情報」として活用し、推論時には映像単体で動作する視覚バックボーンを取り出します。さらに、EMGをVQ-VAEで離散トークン化した「モーターコード」を抽出し、画像から動画を生成する拡散モデルの制御信号として活用する試みも行いました。\n\n実験の結果、事前学習された視覚モデルは、アクション認識や3D手形状再構成、手の接触領域予測という多様なタスクにおいて、従来の映像のみを用いた自己教師あり学習ベースラインを一貫して上回る精度を達成しました。また、生成タスクでもテキストや手の軌跡では指定しきれない、微細な力加減を反映した動画生成が可能になることを実証しました。",
+ "contributions_ja": [
+  "自然な両手操作を記録した、100時間におよぶ世界初の主観視点映像・両手首表面EMG・IMU同期データセット「MotorSense」を構築・公開したこと",
+  "映像とEMG信号を対照学習で結びつける「センサー運動アライメント」により、推論時にEMGを必要としない高精度な視覚バックボーンの自己教師あり事前学習法を確立したこと",
+  "事前学習済みモデルが、アクション認識、3D手姿勢推定、接触面推定の全タスクおよび8つの映像ベンチマークにおいて既存の自己教師あり手法を凌駕することを示したこと",
+  "EMG信号を教師なしで離散化した「モーターコード」を用い、微細な接触や力加減を制御可能な動画拡散モデル（Image-to-Video）への適用を示したこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ手の理解に「筋肉の電気信号」が必要なのか？",
+   "summary_ja": "人間が手の動きを学ぶ上で不可欠な体内運動感覚が、従来の映像認識AIには欠落していました。本研究では、手首の表面筋電位（EMG）と主観視点映像を同期させた「MotorSense」を提案し、手と環境の相互作用を遮蔽なく捉える新しい学習基盤を作りました。",
+   "details_ja": "私たちが手先を器用に動かせるのは、視覚フィードバックだけでなく、筋肉がどう収縮しているかという内部の運動感覚があるからです。ところが現在のコンピュータビジョンは、高次元なピクセル配列の変化だけから手の動きを推測しようとしています。これでは、手と物体が接触した瞬間の力加減や、指先が物に隠れたときの詳細な関節配置を捉えるのが極めて困難です。\n\n手作業によるアノテーション（バウンディングボックスや動作ラベルの付与）も行われていますが、莫大なコストがかかる上に主観のブレや遮蔽時の誤りが避けられません。また、従来の圧力測定グローブなどは手に異物を装着するため、自然な手先操作を邪魔してしまう問題がありました。\n\nそこで本研究が着目したのが、前腕表面の筋電位（EMG: Electromyography）です。EMGは皮膚の上から筋肉の電気活動を直接計測する生体信号で、指の屈伸や手首の回転、接触時の力加減を密かつ遮蔽なしに捉えられます。MotorSenseは、装着感の少ない手首バンド型EMGデバイスと主観視点スマートグラスを組み合わせ、約100時間の日常的な手作業（料理など）を記録しました。\n\nこのデータを活かすコア技術が「センサー運動アライメント」です。映像とEMGを共通の埋め込み空間に対照学習（CLIPスタイル）で整列させます。事前学習時にEMGを特権的な教師信号として使い、推論時にはカメラ映像だけを入力とするため、既存のあらゆる視覚認識タスクへそのまま転移できます。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "手のポーズや動作フェーズに応じたEMG信号の変化です。上段では「拳を握る（fist）」「指差す（point）」「手を開く（flat）」の各姿勢で電極ごとに再現性の高い固有の波形パターンが現れています。下段では、物体に手を伸ばして（Pregrasp）、掴み（Grasp）、持ち上げて（Lift）、保持する（Hold）という一連の接触プロセスの変化がEMG振幅の推移として明瞭に記録されています。",
+     "caption": "Figure 1 : EMG captures both categorical and continuous structure of hand actions. (Top) For three discrete hand configurations repeated twice— fist , point , and flat —each pose produces a distinct and reproducible EMG signature: fist is marked by a suppressed purple channel ( $\\#7$ ) with respect to flat and a pronounced red channel ( $\\#1$ ) with respect to point; point exhibits lower overall amplitude, with less purple than flat and less red than fist ; flat is distinguished by pronounced purple and red activation. Sharp grey rectangles reflect the boundaries between hand gestures and rest states. …",
+     "image": "details/2610.41127/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "ジェスチャー入力から「映像表現の教師役」へのパラダイムシフト",
+   "summary_ja": "従来のEMG利用は軽量なジェスチャー識別やVR入力にとどまっており、映像学習と融合させた先行研究は極めて限定的でした。MotorSenseは、非拘束な日常操作の大規模計測と、映像モデルの事前学習・動画生成の制御信号への統合という2つの壁を打ち破りました。",
+   "details_ja": "### EMG計測とジェスチャー認識の歩み\n表面EMGは前腕に巻くことで、指の屈伸や把持力を非侵襲に読み取れるため、義手制御やVR/AR向けのジェスチャー認識で長く研究されてきました。しかし、映像と組み合わせたデータセットとしては「ActionSense」などが存在する程度で、実験室内の限定的なタスクに限られ、映像エンコーダの自己教師あり学習にEMGを直接組み込むような試みは行われていませんでした。\n\n### 動作理解のためのマルチモーダル信号\n映像理解を助ける追加モダリティとして、言語、音声、頭部・身体装着のIMU、3D骨格姿勢、接触力センサーなどが探求されてきました。しかし、言語は「切る」「混ぜる」といった高レベルの指示にとどまり力加減を指定できません。キーポイント座標は接触部でオクルージョンに弱く、力情報を含みません。EMGは、これらのモダリティが欠いていた「遮蔽のない指先運動と接触力」を直接提供できる理想的な信号です。\n\n### 手の映像データセットの限界をどう超えるか\nEPIC-KitchensやEgo4Dなどの大規模主観視点データセットは手と物体の相互作用を含みますが、人手によるラベルは粗く高コストです。またマルチカメラスタジオによるモーションキャプチャは高精度ですが、実験室外での自然な生活動作の収集には向きません。MotorSenseは、市販の軽量EMGバンドを用いることで、自然な日常環境における大規模なマルチモーダル収集を実現しました。",
+   "figures": []
+  },
+  {
+   "heading": "3 Methods",
+   "heading_ja": "映像と筋肉を繋ぐ対照学習と、離散「モーターコード」による動画生成",
+   "summary_ja": "手首装着型デバイスによるデータ収集系を確立し、映像とEMGを共通空間に射影するInfoNCE対照学習パイプラインを構築しました。さらに、EMGをVQ-VAEで離散化したモーターコードを生成モデルのアダプタへ入力し、繊細な手先操作を動画として描画する手法を提案しています。",
+   "details_ja": "### 3.1 データ収集セットアップ\nデータ収集には、両手首に装着するMindRove社製アームバンドを使用しました。各バンドは円周上に等間隔で配置された8個の乾式ステンレス電極（500 Hzサンプリング、24-bit解像度）と、6軸IMU（50 Hz）を備えています。前腕の屈筋群・伸筋群を全周カバーするため、指の曲げ伸ばしや手首の回旋、力みが余すところなく捉えられます。視覚情報にはMeta社のスマートグラス「Project Aria」および頭部装着スマートフォンを用い、ミリ秒単位で時刻同期を行いました。\n\n### 3.2 対照学習によるセンサー運動アライメント\n$1.5$ 秒の短い時間窓を取り出し、映像クリップと両手EMG+IMUをそれぞれ専用のエンコーダに入力します。映像側にはHiera-Baseを用い、EMG側には1次元畳み込みと双方向LSTMを組み合わせたネットワークを採用しました。両者の特徴量を共通の1024次元空間に射影し、L2正規化後にコサイン類似度を用いたCLIPスタイルの対称InfoNCE損失で学習します。ここで重要な設計判断は、各バッチを「同一セッション（同じ被験者・環境）」内の異なる時間窓から構成した点です。セッションを跨ぐと、モデルが動作内容ではなく個人の筋電特性や部屋の背景を一致させて損失を下げてしまう（ショートカット学習）のを防ぐためです。事前学習が終わったらEMGエンコーダは破棄し、強化された映像バックボーンのみを下流タスクに転移させます。\n\n### 3.3 モーターコードによる映像拡散モデルの制御\n生成タスクでは、まず未ラベルのEMG+IMU波形をVQ-VAEに入力し、1秒あたり64トークンの離散表現「モーターコード」を教師なしで抽出します。次に、最初の1フレーム（画像）とモーターコード系列を与えて後続の動画を予測するImage-to-Video拡散モデルを構築しました。巨大な拡散モデル全体を微調整するのではなく、Video2LoRAに着想を得たHyperNetworkを用い、モーターコードから拡散モデルのLoRA重みを動的に予測する軽量な制御アーキテクチャを実現しました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "MotorSenseのハードウェア構成です。中央は両手首に装着したMindRoveアームバンド（8個の電極が環状に配置）。右側は前腕断面の解剖図で、各電極がどの筋肉群に対応しているかを示しています。左側は右手主体の操作タスク中に記録された左右8チャンネルずつのEMG波形例で、活動側の腕だけに強い電気スパイクが現れていることが分かります。",
+     "caption": "Figure 2 : The bimanual EMG sensing setup of MotorSense . Middle : the MindRove Armband used for data collection, worn on the left and right wrists (top and bottom row, respectively), with colored dots marking the electrode sensors equidistantly arranged around the band. Right : cross-sectional anatomy of the lower forearm with each electrode overlaid. Left : example 8-channel EMG recordings from the left and right wristbands gathered during a manipulation task primarily involving the right hand; each colored trace corresponds to one electrode.",
+     "image": "details/2610.41127/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "あらゆる視覚ベースラインを圧倒：認識・3D復元から動画生成まで",
+   "summary_ja": "事前学習した映像モデルを下流タスク（動作認識、3D手姿勢推定、接触面推定）で評価したところ、既存の純粋な視覚事前学習手法を全ベンチマークで上回りました。またEMG条件付き動画拡散モデルも、従来の手法より手の接触や道具の扱いを正確に描写できることを示しました。",
+   "details_ja": "### 4.1 アクション認識と3D幾何タスクでの評価\n動作認識タスク（EPIC-Kitchens-100、Something-Something v2、Ego-Exo4Dなど）において、バックボーンを固定した線形プロービング評価を行ったところ、K400初期化重みや同一動画で学習した自己教師あり手法（$\\rho$SimCLR、$\\rho$MoCoなど）と比較して圧倒的な性能向上を示しました。特にEPIC-Kitchens-100のバックボーン固定時では、動詞認識精度が $+15.9$ ポイントも向上しました。\nさらに、ARCTICやH2Oを用いた3D手姿勢推定では、手関節位置誤差（MPJPE）がImageNet初期化と比べてH2Oで $4.6$ mm低減しました。また、手のどのメッシュ頂点が接触しているかを当てる接触再構成タスクでも、領域の重なり（IoU）が最良の視覚SSL手法（DenseCL等）より $+4.6$ ポイント向上し、力や接触を直接測るEMG信号が幾何認識の学習に極めて有効であることが裏付けられました。\n\n### 4.2 埋め込み空間の分析\n学習後の特徴空間をt-SNEで可視化したところ、映像とEMGの間にはモダリティギャップが存在するものの、同一の動作（例: サラダを混ぜる、ボウルをこそぐ）がカテゴリごとに綺麗にクラスター化していました。映像クエリに対してコサイン類似度で最も近いEMGを検索すると、全く別の被験者・異なるキッチンのクリップから同一の動作が正確にヒットしました。\n\n### 4.3 モーターコードを用いた動画生成\n動画生成（I2V）実験では、FVD（Fréchet Video Distance）や手領域のLPIPS・PSNRで評価しました。テキストプロンプトによる指示や単なる動画履歴条件付けでは、豆腐を炒める動作がお玉ですくう動作に化けたり、スプーンで塗る動作がパンを回す動作に化けたりしましたが、提案手法のモーターコード条件付けでは、意図通りの微細な手の動きを高忠実度で生成できました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "自己教師ありアライメントによって獲得された潜在空間の分析です。(a) t-SNE可視化では映像とEMGのクラスタ間にモダリティギャップがあるものの、(b)のように映像クエリ（左）からEMG側（右）の最近傍を引くと、背景や人物が違っても同じ手の動作が検索されます。(c)のEMG空間内では、教師ラベルなしで学習したにもかかわらず、同じ動詞の動作が綺麗にまとまっています。",
+     "caption": "Figure 4 : Self-supervised sensorimotor alignment organizes video and EMG by hand action. (a) t-SNE plot of the joint embedding space for video ( green ) and EMG ( purple ) derived from the two towers of our self-supervised contrastive model (Section 3.2 ). A \"modality gap\" is observed [ 37 ] between video and EMG clusters. (b) The clips associated with each pair: the video query (left) and the clip whose EMG was retrieved (right). Each retrieved clip performs the query’s hand action—cutting, mixing in a bowl, drying—with a different object, scene, and recording. (c) The EMG embeddings of (a), coloured by verb with marker shape denoting the object. …",
+     "image": "details/2610.41127/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "ARCTICデータセットにおける3D手・物体再構成の定性比較です。左からRGB入力、EMGなしの視覚モデル、MotorSense事前学習（EMGあり）、正解値（GT）です。EMGで事前学習したモデルは、ハサミに指を通す配置やボトルを握り込む手の形を、GTに極めて近い精度で捉えられています。",
+     "caption": "Figure 5 : Qualitative results on ARCTIC [ 20 ] for 3D hand-object reconstruction. Each row shows the RGB input, reconstructions from a vision backbone trained without EMG and with EMG ( MotorSense pre-training), and ground truth. Incorporating EMG during pre-training yields 3D hands and objects that more closely match the ground truth.",
+     "image": "details/2610.41127/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Discussion",
+   "heading_ja": "性能向上の本質は「追加データ」ではなく「EMGという信号の質」にある",
+   "summary_ja": "性能向上が単なるドメイン内映像の追加によるものではなく、EMGが持つ接触力と遮蔽耐性という本質的な情報によるものであることを比較実験から結論づけています。また、次世代VR/ARやロボット遠隔操作、リハビリ支援への広がりについても言及しています。",
+   "details_ja": "本研究の最大の成果は、視覚モデルがEMGとのアライメントを通じて「動作の力学的構造」を自発的に学習できると実証した点にあります。\n\nここで一つの疑問が生じます。「単にキッチンの動画を100時間追加して学習したから精度が上がっただけではないか？」という点です。著者らはこれに対し、全く同一のMotorSense動画を用いて画像のみで自己教師あり学習（$\\rho$SimCLRやDenseCLなど）を行ったバックボーンを用意し、厳密に比較しました。その結果、映像のみの自己教師あり学習はK400事前学習重みと大差ないか、場合によっては精度を落とすことすらありました。一方でEMGを組み合わせたモデルだけが全ベンチマークで大幅な向上を示したため、ゲインの源泉が「EMG信号そのものがもたらす特権情報」であることは明白です。\n\nこの成果は、将来的に手首装着型ウェアラブルが普及するVR/AR分野でのナチュラルなUI開発、人間と協調するロボットの手先動作理解、さらには手術手技のデジタル化やリハビリテーション支援など、幅広い応用分野へ波及すると期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "6 Appendix",
+   "heading_ja": "付録：高品質な生体データ収集の舞台裏と詳細アブレーション",
+   "summary_ja": "アームバンドのズレによるノイズを防ぐフィッティング手順やフィルタ処理などの前処理パイプラインを詳述しています。また、EMGチャンネル数やバッチ構築手法のアブレーション実験により、同一セッション内サンプリングや時間プーリングを省く設計の重要性を実証しました。",
+   "details_ja": "### データ収集プロトコルと前処理\n生体信号の収集には繊細な管理が求められます。各セッションは約1時間で実施され、事前の電極フィッティング確認（強く握りこんでスパイクを確認するクレンチテスト）を経てから本番の非台本操作を記録しました。手首が細すぎると乾式電極が浮いてモーションアーティファクトが発生するため、バンドの密着度には細心の注意が払われています。取得した信号は、直流成分や体の揺れによる低周波ドリフトを除去するため、10 Hzの4次ゼロ位相バターワース高通フィルタを適用し、セッションごとにzスコア正規化を行いました。\n\n### アブレーション実験で得られた知見\n事前学習のハイパーパラメータや構造を検証した結果、以下の重要な指針が明らかになりました。\n- **モダリティ**: EMG単体でも高い効果がありますが、手首の並進・回転を捉えるIMUを併用することで最良のスコアを記録しました。\n- **電極数**: 8チャンネルを4チャンネルや2チャンネルに間引くと、動作認識の精度が如実に低下しました（手の複雑な筋協調を捉えるには全周8極が必須）。\n- **バッチの作り方**: ランダムにセッションを跨いでネガティブ例を引くと、モデルが被験者の肌色や背景で一致を判定してしまい、動作認識精度が著しく落ちました。\n- **時間プーリング**: 特徴量を時間方向に平均プーリングせず、8フレーム分の時間トークンをそのまま残して対照学習を行うことが極めて重要でした。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "フライパンで豆腐を炒めるシーンの動画生成比較です。過去の動画履歴のみを条件としたモデル（上段）は、動作を「お玉ですくう」動きと誤認して豆腐を掬い上げていますが、提案手法のモーターコード条件付け（中段）は、正解（下段）と同様に正確に「炒めてかき混ぜる」手の運動を生成できています。",
+     "caption": "Figure 7 : Qualitative results for video diffusion . We compare our proposed motor conditioning to a video diffusion model conditioned solely on the video history (unimodal conditioning), for a sequence involving the stirring of tofu in a pan. The video conditioning model misinterprets the action performed, generating a video of a scooping action as opposed to a stirring action, whereas our method correctly generates a video of the stirring of tofu.",
+     "image": "details/2610.41127/F7.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "手の操作理解において、手首の表面筋電位（EMG）はピクセルの遮蔽を打ち破る極めて強力な「特権教師信号」として機能する。",
+  "事前学習時のみEMGと対照学習を行い、下流タスク（推論時）はカメラ画像単体で動かすパイプラインにより、既存の視覚認識モデルをノーコストで底上げできる。",
+  "生体信号の対照学習では、被験者や環境への過学習（ショートカット）を防ぐため、バッチ内を同一セッションから抽出する工夫が不可欠である。",
+  "VQ-VAEで離散化したモーターコードは、テキストや手の骨格座標では指示しきれない接触力や細かな指先制御を動画生成モデルに伝える優れた制御信号になる。"
+ ],
+ "limitations_ja": [
+  "使用しているEMGバンドが8チャンネルの市販民生品であり、医療・研究用（16〜128チャンネル以上）の高密度アレイに比べると筋肉の分離能に限界がある点。",
+  "バンドの物理的サイズ制約から手首が細い被験者では電極が浮いてノイズが乗るため、被験者層の体格や性別に偏りが生じている点。",
+  "手作業のドメインが主にキッチン環境に偏っており、工具を使った組み立て作業や清掃など他のドメインに移行した際の汎化性能低下が大きい点。"
+ ],
+ "keywords": [
+  "Electromyography (EMG)",
+  "Egocentric Vision",
+  "Sensorimotor Alignment",
+  "Hand-Object Manipulation",
+  "Video Diffusion",
+  "Self-Supervised Learning"
+ ],
+ "id": "2610.41127",
+ "title": "MotorSense: A Video-EMG Dataset of Motoric Representations for Action Understanding",
+ "authors": [
+  "Eadom Dessalene",
+  "Michael Maynord",
+  "Amir-Hossein Shahidzadeh",
+  "Botao He",
+  "Yasamin Tabatabaee",
+  "Ruoshi Liu",
+  "Ruohan Gao",
+  "Paul Pu Liang",
+  "Yiannis Aloimonos"
+ ],
+ "date": "2026-11-02",
+ "group": "general",
+ "tags": [
+  "dataset",
+  "perception",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.CV",
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.41127",
+ "pdf_url": "https://arxiv.org/pdf/2610.41127",
+ "summary_ja": "主観視点カメラ映像と両腕の表面筋電位（EMG）およびIMUデータを同期記録した初の大規模データセットMotorSenseを構築。100時間の台本なしマニピュレーション作業を収録し、遮蔽に強く指の動きや発揮力を直接捉える筋電信号をロボットの行動理解や動作学習の表現として活用する基盤を提供する。",
+ "generated": "2026-11-02",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.41127"
+}
