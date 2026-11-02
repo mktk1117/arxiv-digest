@@ -1,0 +1,142 @@
+{
+ "title_ja": "エッジデバイス上で32.9Hz動作するリアルタイム・マルチビュー視覚運動方策",
+ "tldr_ja": "視点間特徴融合と視覚圧縮を組み合わせることで、マルチカメラの視覚情報をわずか12個のトークンに圧縮し、4ステップのフローマッチングによってエッジデバイス上で30Hz超のリアルタイム推論と高い操作精度を両立させた視覚運動方策です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "RTPolicyの設計思想と推論遅延、そしてエッジデバイスでの性能比較です。既存手法が視覚エンコーダや大量の視覚トークンで推論時間を圧迫する中、RTPolicyは視覚トークンの大幅な削減と4ステップのフロー生成により、RDK S600などのエッジ基盤上でも圧倒的な低遅延と高い成功率を同時に達成しています。",
+  "caption": "Fig. 1 : RTPolicy design, visual encoding cost, and deployment performance. The top panel shows the lightweight encoder, view-aware feature fusion, visual compression, and four-step flow generation. The middle panel shows that VO-DP spends 52% of its latency on the encoder, while $\\pi_{0.5}$ incurs higher latency from multi-view visual conditioning despite a smaller encoder share. The bottom panels report end-to-end latency against mean success rate on the RDK S100 and RDK S600 in INT8. RTPolicy combines the highest mean success rate with low latency on both devices. The success rates use the GPU evaluation configuration rather than per-device task evaluations.",
+  "image": "details/2610.41625/F1.jpg"
+ },
+ "overview_ja": "ロボットが視覚情報をもとに手先を動かす視覚運動方策（Visuomotor Policy）では、手先の軌道を複数ステップまとめて出力するアクションチャンキングが主流です。しかし実世界では、ロボットの動作中に生じるズレをすばやく修正するため、最新のカメラ画像をもとに高頻度で軌道を再計画（閉ループ制御）する必要があります。従来のモデルは、巨大な視覚エンコーダや複数カメラに起因する膨大な視覚トークン、さらには何十回もの拡散サンプリングを必要とし、低消費電力なエッジデバイスに載せると推論が遅すぎてリアルタイムな修正が追いつかないという大きな壁がありました。\n\nそこで著者らは、視覚エンコードからマルチビューの統合、そして軌道生成に至る全プロセスを徹底的にスリム化した「RTPolicy」を開発しました。凍結した軽量なDINOv3 ConvNeXtエンコーダに学習可能な視点埋め込みを組み合わせ、カメラ間の密な空間情報を交わした直後に、残差ダウンサンプリングとプーリングでトークン数を劇的に圧縮します。この極めてコンパクトな視覚トークンを用いて、わずか4ステップのフローマッチングで軌道を生成する設計に仕上げました。\n\nシミュレーション（RoboTwin 2.0）の50タスクでの比較では、強力なベースラインである$\\pi_{0}$を上回る平均成功率52.26%を達成しました。さらに双腕実機を用いた非同期ストリーミング制御実験では72.0%の成功率を記録し、超小型エッジボード「RDK S600」において30.35 ms（32.9 Hz）という高速なリアルタイム駆動を実証しました。",
+ "contributions_ja": [
+  "視覚エンコード、マルチビュー統合、軌道生成の3つのボトルネックを包括的に軽量化し、エッジ推論に特化したエンドツーエンドの視覚運動方策RTPolicyを提案したこと",
+  "学習可能な視点埋め込みを用いた視点間特徴融合と、空間トークンを75分の1に激減させる視覚圧縮モジュールを導入したこと",
+  "わずか4ステップのオイラー積分で高品質なアクションチャンクを出力するフローマッチングDiTヘッドを設計したこと",
+  "RoboTwin 2.0ベンチマークの50タスクおよび双腕実機タスクにおいて、既存の最先端手法を上回る成功率とリアルタイム推論速度を実証したこと"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜ今、エッジで動く高速なマルチビュー方策が必要なのか",
+   "summary_ja": "実世界での精密なロボット操作には、最新のカメラ画像を取り込みながら軌道のズレを即座に直す閉ループ制御が欠かせません。しかし既存のマルチビュー方策は視覚処理や拡散モデルの計算が重く、エッジデバイスでリアルタイムに動かすことが困難でした。",
+   "details_ja": "ロボットが教示データから滑らかかつ正確に動くためには、複数ステップのアクションを一括で予測して順次実行する「アクションチャンキング」を用いつつ、センサの観測に応じて計画を絶えず補正していく閉ループ制御が必要です。特に制御と推論を並行して回す非同期推論の環境では、推論にかかる遅延がそのまま「どれだけ素早く最新の見た目を軌道へ反映できるか」を決める命綱になります。\n\nところが現在の視覚運動方策には、計算コストが膨らむ3つの大きな要因があります。1つ目は画像特徴を取り出す視覚バックボーンの重さ、2つ目は複数台のカメラを扱うことで急増する視覚トークンの数、そして3つ目はノイズから行動を復元する反復的な拡散サンプリングです。例えばVO-DPでは推論時間全体の52%を視覚エンコーダが占めており、$\\pi_{0.5}$のようにマルチカメラを扱う手法ではトークン数が爆発して後段のアクションモデルが重くなります。また軽量なDiffusion Policy（DP）は単一視点しか扱えず、成功率も低迷していました。\n\nここがポイントです。RTPolicyは、これら「エンコード」「マルチビュー統合」「アクション生成」の3箇所を同時に削ぎ落とすアプローチを取りました。凍結したDINOv3 ConvNeXtを用いつつ、複数カメラの視覚情報をきわめて少数のトークンに圧縮し、4ステップのフローマッチングで軌道を生成します。これにより、必要な空間情報を損なわずに圧倒的な軽さを手に入れました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "RTPolicyの設計概要と推論内訳、エッジ環境での性能比較です。RTPolicyは視覚処理と軌道生成の双方を切り詰めることで、RDK S100/S600といったエッジプロセッサでも突出した高成功率と低遅延を両立しています。",
+     "caption": "Fig. 1 : RTPolicy design, visual encoding cost, and deployment performance. The top panel shows the lightweight encoder, view-aware feature fusion, visual compression, and four-step flow generation. The middle panel shows that VO-DP spends 52% of its latency on the encoder, while $\\pi_{0.5}$ incurs higher latency from multi-view visual conditioning despite a smaller encoder share. The bottom panels report end-to-end latency against mean success rate on the RDK S100 and RDK S600 in INT8. RTPolicy combines the highest mean success rate with low latency on both devices. The success rates use the GPU evaluation configuration rather than per-device task evaluations.",
+     "image": "details/2610.41625/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "先行研究の限界とRTPolicyの立ち位置",
+   "summary_ja": "行動軌道の予測や拡散モデルの高速化に関する研究は数多く進められてきましたが、視覚特徴の統合パスまで踏み込んで軽量化した手法はほとんどありませんでした。RTPolicyはモデル全体の構造から効率性を追求しています。",
+   "details_ja": "### II-A 視覚運動方策の進化と課題\nカメラ画像とロボットの関節角度から直接行動を出力する手法として、Transformerで軌道を回帰するACTや、拡散モデルでマルチモーダルな動作を捉えるDiffusion Policy（DP）が有名です。近年では3次元表現を構築するRVTや、意味特徴と幾何特徴を合体させるVO-DPなどが登場し、幾何的な推論能力が高まってきました。しかしこれらのモデルは精度向上と引き換えに巨大なバックボーンや複雑な幾何処理を抱え込んでおり、エッジデバイスへの実装という観点では極めて重いのが実情です。\n\n### II-B 高速・低遅延な方策を目指す取り組み\n軌道生成の計算を減らすため、蒸留技術を使って1ステップでサンプリングを行うOne-Step Diffusion Policyや、フローマッチングに基づくFlowPolicy、ManiFlow、周波数の一貫性を保つFreqPolicyなどが提案されてきました。さらに積分の途中結果をそのまま出力していくStreaming Flowといったアプローチもあります。しかし、これらはあくまで「アクション生成のステップ数」を削る工夫に留まっており、手前の重たい視覚エンコーダやマルチカメラの統合処理にはメスを入れていませんでした。\n\nつまりRTPolicyの強みは、アクション生成の高速化だけでなく、視覚入力の統合から圧縮に至るパイプラインそのものをモデルアーキテクチャレベルで徹底的に最適化した点にあります。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "高速性と高精度を両立するRTPolicyのアーキテクチャ",
+   "summary_ja": "凍結したDINOv3で画像を特徴量化し、視点埋め込みを与えて視点間アテンションを行った後、残差プーリングでトークン数を75分の1に激減させます。生成ヘッドには4ステップのフローマッチングDiTを採用しています。",
+   "details_ja": "### III-A 問題設定\n制御ステップ $t$ において、方策は $V$ 台のカメラ画像 $\\{I_{t}^{(v)}\\}_{v=1}^{V}$ と、過去のロボット関節状態の系列 $S_{t} \\in \\mathbb{R}^{T_{o} \\times d_{a}}$ を受け取ります。そして未来の関節軌道チャンク $A_{t} \\in \\mathbb{R}^{H_{a} \\times d_{a}}$ を予測します。状態と行動の次元数は $d_{a}$ です。\n\n### III-B 視点対応の統合とトークン圧縮\nまず、パラメータを凍結したDINOv3 ConvNeXtエンコーダを用いて各カメラ画像から密な特徴マップ $F_{t}^{(v)} \\in \\mathbb{R}^{P \\times d_{v}}$ を抽出します。ここで $P$ は視点あたりのトークン数、$d_{v}$ は特徴幅です。\n\n- **視点間特徴融合（View-Aware Feature Fusion）**: どのカメラからの情報かを識別させるため、各視点のトークンに学習可能な視点埋め込み $e_{v}$ を足し合わせます。各視点内のTransformerブロック $\\mathcal{T}_{\\mathrm{intra}}$ で特徴を洗練した後、全視点のトークンを連結して視点間Transformerブロック $\\mathcal{T}_{\\mathrm{cross}}$ に通します。これにより、特徴が密な段階でカメラ同士の空間的な位置関係を相互参照させます。\n- **視覚圧縮（Visual Compression）**: 融合後の特徴 $\\widetilde{F}_{t}^{(v)}$ を元の2次元グリッドに戻し、残差ダウンサンプリングと適応型平均プーリングを適用して、視点あたりわずか $m$ 個のトークンに圧縮します。実機実験の例（3視点、各視点 $P=300$ トークン）では、合計900個あった視覚トークンがわずか12個（$3 \\times 4$ 個、$C_{t} \\in \\mathbb{R}^{12 \\times 1024}$）にまとまります。実に75分の1という圧倒的なトークン削減です。\n\n### III-C フローマッチングによるアクション生成\n行動生成器にはDiffusion Transformer（DiT）を採用しています。固定されたロボット状態 $S_{t}$ とノイズ混じりの未来行動 $Z_{\\tau}$ を結合し、フロー時刻 $\\tau$ の埋め込みとともにDiTに入力します。圧縮された12個の視覚トークン $C_{t}$ はクロスアテンションを通じて注入されます。\n\n学習にはフローマッチング（Flow Matching）を用い、ガウスノイズから目標行動への直線的なベクトル場を直接回帰させます。推論時はオイラー法を用いて $\\tau=0$ から $\\tau=1$ までわずか $K=4$ ステップで数値積分を行います。評価の結果、4ステップで十分な精度が出ることが確認されており、極小の計算量で滑らかな軌道を出力できます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "RTPolicyの全体アーキテクチャです。DINOv3で抽出された画像特徴に視点埋め込みを付与してアテンションで融合した後、空間ダウンサンプリングにより12個のコンパクトなシーン・トークンへ圧縮します。これを条件としてDiTに入力し、4回の評価で未来の行動チャンクを生成します。",
+     "caption": "Fig. 2 : Overview of RTPolicy. A frozen DINOv3 ConvNeXt backbone extracts dense features from multi-view images. View-aware feature fusion refines each view and exchanges information across views before visual compression produces a compact set of visual tokens. A Diffusion Transformer uses these tokens, a fixed robot-state prefix, and the flow time to predict the velocity of the future action chunk. Four integration steps transform Gaussian noise into actions.",
+     "image": "details/2610.41625/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Simulation Experiments",
+   "heading_ja": "RoboTwin 2.0シミュレーションで実証された高い操作性能",
+   "summary_ja": "双腕ロボットのベンチマークRoboTwin 2.0の全50タスクで評価を行い、平均成功率52.3%を達成して既存のトップ手法$\\pi_{0}$を大きく上回りました。アブレーションにより各コンポーネントの必然性も証明されています。",
+   "details_ja": "### IV-A 実験設定\n評価には双腕マニピュレーションベンチマーク「RoboTwin 2.0」を採用しました。左右の手先カメラと頭部カメラの計3台（解像度 $240 \\times 320$）の画像と、14次元のロボット関節状態を入力とします。公式のクリーンな教示データ50本のみを用いて学習し、100試行で評価する「clean2clean」設定で比較を行いました。\n\n### IV-B ベンチマーク結果\n公式リーダーボードのベースライン（$\\pi_{0}$、RDT、ACT、DP）と比較した結果、RTPolicyは代表10タスクの平均で63.0%、全50タスクの平均で52.3%という最高スコアを記録しました。最強のベースラインである$\\pi_{0}$（全タスク平均46.4%）と比べても約6ポイント上回っています。\n\n特にミリ単位の位置合わせが求められる難関タスクで大きな差がつきました。例えば目覚まし時計のボタンを押すタスク（click alarmclock）では$\\pi_{0}$の63%やACTの32%に対して76%、ハンマーでブロックを叩くタスク（beat block hammer）では$\\pi_{0}$の43%に対して76%を達成しています。\n\n### IV-C アブレーション研究\n- **教示データ量の影響**: 教示数を50から100に増やすと、どの手法もスコアが20ポイント以上伸びますが、RTPolicyは常にVO-DPやDPに対して大きなリードを保ち続けました。\n- **積分のステップ数**: フローマッチングの推論ステップ数 $K$ を2から10まで検証したところ、$K=4$ で平均成功率81.4%に達し、10ステップ（78.6%）と遜色ない（むしろわずかに高い）性能を示しました。これにより4ステップの採用が正当化されています。\n- **視点統合と視覚圧縮の効果**: 視点間特徴融合を外すと平均成功率は84.4%から78.0%へ急落し、両方外すと75.4%まで低下しました。シミュレーション環境では画像解像度が低いため圧縮の有無で精度は微減（84.4%→81.4%）にとどまりますが、高解像度を扱う実機展開においてはこの圧縮が推論遅延を劇的に下げる鍵となります。",
+   "figures": []
+  },
+  {
+   "heading": "V Real World Experiments",
+   "heading_ja": "双腕ロボットによる実機検証：非同期ストリーミング制御の実力",
+   "summary_ja": "2本のROKAE AR5アームを用いた実機実験において、3つの多段階タスクで平均成功率72.0%を達成しました。推論と実行を並行させるストリーミング制御により、動作中のズレを瞬時に補正できることが示されました。",
+   "details_ja": "### V-A 実機セットアップとタスク設計\n実機システムには2台のROKAE AR5（各7自由度）と3台のRealSenseカメラ（頭部1台、手先2台、解像度 $480 \\times 640$）を使用しました。テレオペレーションで収集した各タスク200エピソードの教示データで学習させています。\n\n検証したタスクは、①引き出しを開けてブロックを入れ閉める「Drag the drawer」、②2つのブロックを積み重ねてコップを被せる「Stack and cover」、③ベースにマットを敷いて部品を隙間に挿入する「Workpiece assembly」の3つです。いずれも複数のフェーズからなり、高い位置決め精度が要求されます。\n\n- **ストリーミング展開（Streaming Deployment）**: 30 Hzのロボット制御ループの裏で、方策を10 Hzで非同期に推論させます。新しいアクションチャンクが届くたびに、加速度と躍度（ジャーク）を考慮した最適化問題を解き、実行中の軌道と新しい軌道を滑らか（$C^{2}$ 連続）に接続（スティッチング）します。これにより、チャンク全体の完了を待つことなく、わずか1推論サイクル（約100 ms以内）の遅れでリアルタイムな軌道修正が可能になります。\n\n### V-B 実世界での評価結果\n実機50試行の評価において、RTPolicyは全タスクでトップの成績を収め、平均成功率は72.0%に達しました。対する$\\pi_{0.5}$は44.0%、VO-DPは24.7%、DPは4.0%にとどまりました。特に要求精度の高い「Workpiece assembly」では、DPが全滅し$\\pi_{0.5}$が12%に沈む中、RTPolicyは30%の成功を収めています。\n\nなぜここまで差がついたのでしょうか？最大の理由は「遅延の短さ」です。推論周波数を10 Hzから5 Hz、2 Hzへとあえて落とすと、成功率は94%から88%、70%へと大幅に低下しました。前段階で生じたわずかなズレを次のフェーズに入る前に素早く修正できるかどうかが、実世界の成否を決定づけるということです。また実機環境で視覚圧縮を外すと成功率が94%から40%へと激減し、高解像度画像において余分な背景ノイズを削ぎ落とす視覚圧縮が不可欠であることも証明されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "実機実験で使用したハードウェアと対象物です。頭部カメラ1台と両手先カメラ2台を備えた双腕ROKAE AR5プラットフォーム、および各タスクで扱う小物パーツの外観と寸法が示されています。",
+     "caption": "Fig. 3 : Real-world hardware and objects. The platform is equipped with two ROKAE AR5 arms and three cameras. A head camera is mounted above the workspace, and a wrist camera is attached to each gripper. The objects of the three evaluation tasks are shown with their physical sizes.",
+     "image": "details/2610.41625/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "実機で評価した3つの多段階タスクの実行風景です。上から順に「Drag the drawer（引き出しの開閉と収納）」、「Stack and cover（ブロックのスタックとコップ被せ）」、「Workpiece assembly（ワークピースの精密組み立て）」の様子を示しています。",
+     "caption": "Fig. 4 : Real-world tasks. The rows show drag the drawer, stack and cover, and workpiece assembly from top to bottom.",
+     "image": "details/2610.41625/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Efficiency",
+   "heading_ja": "エッジデバイスでの推論速度：どこまで速くなったのか",
+   "summary_ja": "RTX 4090をはじめ、Jetson Orin NXやRDK S600/S100の計4つのプラットフォームで推論遅延を計測しました。RTPolicyはすべてのデバイスで他手法を圧倒するフレームレートを叩き出しています。",
+   "details_ja": "バッチサイズ1における画像入力から行動チャンク出力までのエンドツーエンド遅延を、GPUおよび低消費電力エッジプロセッサで詳細にベンチマークしました。\n\n- **NVIDIA RTX 4090**: RTPolicyはFP32でわずか10.92 ms（91.6 Hz）で動作します。これは単一視点のDPと同等であり、VO-DPより2.3倍、$\\pi_{0.5}$より5.4倍も高速です。\n- **Jetson Orin NX (25W)**: 組み込み向けの標準機であるOrin NXでは、FP32で143.2 ms（7.0 Hz）を記録しました。$\\pi_{0.5}$は遅すぎて実用に耐えず、VO-DPも2.4 Hzに沈む中、RTPolicyはこの消費電力枠でも十分に実用的な速度を維持しています。\n- **RDK S600 (560 TOPS BPU)**: ロボット向けの推論アクセラレータを備えたこのボード上では、INT8量子化により18.59 ms（53.8 Hz）、INT16でも30.35 ms（32.9 Hz）を達成しました。30 Hzを超えるリアルタイム推論をエッジボード単体で軽々と達成しています。\n- **RDK S100 (80 TOPS BPU)**: さらに廉価なエントリークラスのボードでも、INT8で86.56 ms（11.6 Hz）を記録し、目標としていた10 Hzのストリーミング推論周期をきっちり死守しました。他のマルチビュー手法が2 Hz以下に落ち込む中で、驚異的な適応力を見せています。",
+   "figures": []
+  },
+  {
+   "heading": "VII Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "RTPolicyは視覚特徴の効率的な統合・圧縮と4ステップのフローマッチングにより、高い操作精度とエッジ上での超高速推論を両立させました。現在はタスク特化の学習が必要ですが、今後は汎用的な基盤モデルへの拡張が期待されます。",
+   "details_ja": "本研究では、凍結したDINOv3 ConvNeXt、視点間特徴融合、視覚圧縮、そして4ステップのフローマッチングDiTを組み合わせた視覚運動方策「RTPolicy」を提案しました。シミュレーションおよび実機双腕ロボットによる厳密な実験を通じて、既存手法を上回る操作精度と、エッジプロセッサ上でのリアルタイムなストリーミング推論（32.9 Hz）が可能なことを実証しました。\n\n本手法が持つ限界（Limitations）として、視覚表現には自己教師あり学習の事前学習モデルを用いているものの、行動生成器はタスクごとの教示データで個別にファインチューニングしている点が挙げられます。言語指示などによって多種多様な作業を1つの重みでこなす汎用ポリシー（Generalist Policy）には至っていません。今後は大規模なマルチロボットデータセットとタスク条件付けを取り入れ、エッジで動く汎用型方策へと発展させていくことが課題として示されています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "アクションチャンキングにおける非同期ストリーミング制御では、推論遅延の短縮が閉ループ補正の頻度を高め、タスク成功率に直結する",
+  "マルチカメラの視覚トークンは、密な段階で視点間アテンションを交わした後にダウンサンプリングすれば、わずか12トークンまで圧縮しても操作精度を損なわない",
+  "フローマッチングを用いた軌道生成は、わずか4ステップのオイラー積分で十分な精度が出せ、拡散モデルの反復計算コストを劇的にカットできる",
+  "高価なGPUサーバーに頼らずとも、RDK S600のようなエッジBPUボード上で30Hz超のマルチビュー視覚運動方策が実用的に動作する"
+ ],
+ "limitations_ja": [
+  "タスクごとにモデルを個別に学習・ファインチューニングする必要があり、単一の重みで複数の指示をこなす汎用基盤モデル（Generalist Model）にはなっていない点",
+  "カメラ台数が増えた場合や極端なオクルージョン（遮蔽）が生じた場合の圧縮トークンの頑健性については十分検証されていない点",
+  "視覚エンコーダが固定されているため、操作特有の微小な視覚変化にバックボーン自体を適応させることはできない点"
+ ],
+ "keywords": [
+  "Visuomotor Policy",
+  "Flow Matching",
+  "Edge Devices",
+  "Multi-View Fusion",
+  "Real-Time Robot Manipulation"
+ ],
+ "id": "2610.41625",
+ "title": "RTPolicy: Real-Time (32.9 Hz) Multi-View Visuomotor Policy for Robotic Manipulation on Edge Devices",
+ "authors": [
+  "Xianbao Hou",
+  "Zehao Ni",
+  "Yonghao He",
+  "Lingfeng Qian",
+  "Xin Shi",
+  "Hu Su",
+  "Wei Sui",
+  "Cong Yang"
+ ],
+ "date": "2026-11-02",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "perception",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.41625",
+ "pdf_url": "https://arxiv.org/pdf/2610.41625",
+ "summary_ja": "計算資源の限られたエッジデバイス上で32.9Hzの高速推論を実現するマルチビュー視覚運動方策RTPolicyを提案。視点ごとの特徴融合と視覚圧縮を組み合わせることで複数カメラ情報をコンパクトなトークンに集約し、フローティングマッチングを用いた高精度な閉ループマニピュレーション制御を低遅延で実現した。",
+ "generated": "2026-11-02",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.41625"
+}
