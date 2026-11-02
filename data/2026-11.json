@@ -1,6 +1,293 @@
 {
  "entries": [
   {
+   "date": "2026-11-02",
+   "rank": 0,
+   "id": "2610.41654",
+   "group": "focus",
+   "title": "$\\nabla$Mimic: Ultra-Efficient Humanoid Control with Differentiable Simulation",
+   "title_ja": "微分可能シミュレーションを用いた超高効率なヒューマノイド制御",
+   "summary_ja": "微分可能シミュレータの厳密な勾配を用いてヒューマノイドの接触豊富な全身制御を学習する手法を提案。従来の一次手法で問題だった接触ダイナミクスに起因する勾配爆発を克服し、PPOなどのゼロ次手法に比べ桁違いに少ないサンプル数での動作追従学習を可能にした。",
+   "summary_en": "The paper introduces a method for ultra-efficient humanoid whole-body control using exact gradients from differentiable simulators. By resolving the gradient explosion caused by non-differentiable contact dynamics, it overcomes the severe sample inefficiency of zeroth-order methods like PPO, enabling motion tracking with significantly fewer samples.",
+   "authors": [
+    "Weyl Lu",
+    "Yubei Chen"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.41654",
+   "image": "figures/2026-11-02/2610.41654.jpg"
+  },
+  {
+   "date": "2026-11-02",
+   "rank": 1,
+   "id": "2610.41354",
+   "group": "focus",
+   "title": "DiffWBC: Unlocking Steerable General Humanoid Motion Tracking via One-Step Diffusion Whole-Body Control",
+   "title_ja": "ワンステップ拡散全身制御による操向可能な汎用ヒューマノイド動作追従",
+   "summary_ja": "ヒューマノイドの全身運動制御（WBC）をワンステップ拡散モデルによって生成的に定式化するDiffWBCを提案。50Hzの周期において単一のフォワードパスで動作し、RL教師モデルからの蒸留やモデルベースRLによる学習に対応する。未知のベンチマークにおいて従来手法中最小の追従誤差を達成した。",
+   "summary_en": "DiffWBC reformulates humanoid whole-body control into a generative paradigm using a one-step diffusion model running at 50 Hz. It can be distilled from an RL teacher or trained via model-based RL, unifying general tracking and test-time steering while achieving the lowest local tracking error among multiple baselines on held-out benchmarks.",
+   "authors": [
+    "Yifei Huang",
+    "Yazhao Yang",
+    "Weijia Li",
+    "Zhiheng Ma",
+    "Dian Shen"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.41354",
+   "image": "figures/2026-11-02/2610.41354.jpg"
+  },
+  {
+   "date": "2026-11-02",
+   "rank": 2,
+   "id": "2610.41021",
+   "group": "focus",
+   "title": "CuPIQP: A Batched and Differentiable QP Solver on GPUs for Robot Learning and Control",
+   "title_ja": "ロボット学習と制御のためのGPU上バッチ並列・微分可能QPソルバ",
+   "summary_ja": "ロボットの逆運動学や全身制御、MPC、強化学習向けにGPU上で並列動作する微分可能QPソルバcuPIQPを提案。近傍内点法に基づき疎行列・密行列および多段問題を統一的に扱い、GPU上で何千ものQPを同時に解くことが可能である。解に対する微分計算もサポートし、モデルベース学習基盤を提供する。",
+   "summary_en": "The authors present cuPIQP, a batched and differentiable quadratic programming solver running on GPUs using a proximal interior-point method. Supporting dense, sparse, and multistage problems, it can solve thousands of QPs concurrently for inverse kinematics, MPC, and whole-body control, while enabling exact gradient backpropagation for end-to-end learning.",
+   "authors": [
+    "Fenglong Song",
+    "Roland Schwan",
+    "Yuwen Chen",
+    "Yuning Jiang",
+    "Colin N. Jones"
+   ],
+   "categories": [
+    "math.OC",
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "simulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.41021",
+   "image": null
+  },
+  {
+   "date": "2026-11-02",
+   "rank": 3,
+   "id": "2610.41857",
+   "group": "focus",
+   "title": "When the Simulator Fails, Not the Policy: Auditing Contact Artifacts in Simulated Robot Benchmarks",
+   "title_ja": "シミュレータ起因の失敗を監査する：ロボット評価における接触アーティファクトの検出",
+   "summary_ja": "シミュレーションベンチマークでのタスク失敗が方策の不具合ではなく物理エンジンの接触アーティファクト（物体の予期せぬ射出等）に起因する問題を調査。評価環境を変更せず物理ステップごとに異常挙動を記録・検知する監査ツールSimuGuardを開発し、LIBEROやRoboTwin等の環境における誤評価を是正可能にした。",
+   "summary_en": "This paper investigates simulated manipulation benchmark failures caused by simulator contact artifacts, such as object ejection, rather than policy errors. The authors develop SimuGuard, an auditing plugin for benchmarks like LIBERO and RoboTwin that monitors contact states at each physics step without altering the evaluation, accurately isolating simulator glitches.",
+   "authors": [
+    "Alex Zhou",
+    "Junhao Wu",
+    "Xueyang Zhou",
+    "Yixiao Huo",
+    "Hongcheng Gao",
+    "Di Zhu",
+    "Zhenghao Zhang",
+    "Yongchao Chen"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "benchmark",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.41857",
+   "image": "figures/2026-11-02/2610.41857.jpg"
+  },
+  {
+   "date": "2026-11-02",
+   "rank": 4,
+   "id": "2610.42097",
+   "group": "focus",
+   "title": "ROOF: Learning Humanoid Fall Recovery under Overhead Constraints",
+   "title_ja": "頭上制約環境下におけるヒューマノイド転倒回復の強化学習",
+   "summary_ja": "頭上に障害物が存在する制約下でヒューマノイドが転倒から回復して立ち上がるための強化学習手法を提案。障害物との重複を幾何学的に低減する誘導報酬と運動事前知識を導入し、固有受容感覚のみを用いて障害物の回避、支持基底面の構築、起立のタイミングを単一の方策で自己決定させている。",
+   "summary_en": "The paper presents ROOF, a reinforcement learning framework for humanoid fall recovery under overhead height constraints. By combining contact-supported geometric escape guidance with learned motion priors, a single proprioception-only policy learns to clear the obstacle, establish contact support, and stand up without predefined escape trajectories.",
+   "authors": [
+    "Yidan Lu",
+    "Jiayuan Yu",
+    "Zongrui Cai",
+    "Jingwen Sun",
+    "Jinrui Han",
+    "Jing Wang",
+    "Ping Luo",
+    "Peng Lu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.42097",
+   "image": "figures/2026-11-02/2610.42097.jpg"
+  },
+  {
+   "date": "2026-11-02",
+   "rank": 5,
+   "id": "2610.41548",
+   "group": "general",
+   "title": "Contact-based optimization for collision-free motion planning for a million robots",
+   "title_ja": "100万台ロボットの衝突回避動作計画に向けた接触ベース最適化",
+   "summary_ja": "衝突回避制約を受ける最大100万台規模のマルチロボットシステムに対し、接触ベースの最適化による軌道計画手法を提案。ロボット間の接触イベントを活用して非凸な衝突制約を効率的に解くアルゴリズムを構築し、従来の軌道離散化手法では困難だった超大規模群ロボットの最小エネルギープランニングを可能にした。",
+   "summary_en": "The paper presents a contact-based optimization method for collision-free trajectory planning scaling up to one million robots under double-integrator dynamics. By leveraging contact events between robots to tackle non-convex collision constraints, it enables minimum-energy trajectory generation for massive multi-agent fleets where conventional methods fail to scale.",
+   "authors": [
+    "Jan Kamm",
+    "Antonio Terpin",
+    "Raffaello D'Andrea"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "multi-robot",
+    "planning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.41548",
+   "image": "figures/2026-11-02/2610.41548.jpg"
+  },
+  {
+   "date": "2026-11-02",
+   "rank": 6,
+   "id": "2610.41609",
+   "group": "general",
+   "title": "VLA Policies Do Not Know When Not to Act: Unintended Task Execution and Start Suppression",
+   "title_ja": "VLA方策は行動を控えるべき時を知らない：意図しないタスク実行と開始抑制",
+   "summary_ja": "最新のVision-Language-Action（VLA）方策が、指示が空欄や無意味である場合でも勝手に行動を開始してしまう問題（開始抑制の欠如）を実証・分析。LIBERO環境での評価により、多くのモデルが指示なしでもタスクを遂行しようとし、安全上の重大なリスクとなり得ることを明らかにした。",
+   "summary_en": "The authors reveal a critical safety issue in Vision-Language-Action (VLA) models: they lack start-suppression mechanisms. By evaluating six policy checkpoints under empty or invalid instructions in the LIBERO simulation, the study demonstrates that policies still initiate motion and execute arbitrary tasks, highlighting a significant physical safety hazard.",
+   "authors": [
+    "Minsu Jang",
+    "Jae-Woo Choi",
+    "Youngwoo Yoon",
+    "Dohyung Kim"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "vision-language-action",
+    "safety",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.41609",
+   "image": null
+  },
+  {
+   "date": "2026-11-02",
+   "rank": 7,
+   "id": "2610.41028",
+   "group": "general",
+   "title": "Contact Imitation Interface: Transferring Dexterous Skills by Showing How Contact Unfolds",
+   "title_ja": "接触模倣インターフェース：接触の推移提示による器用なスキルの転移",
+   "summary_ja": "ロボットを用いない人間の手指動画デモから多指ロボットハンドへ器用な操作スキルを転移するCIMIを提案。指先視点や接触形状を整合させるインターフェースと、相対的な接触面軌道を計画する階層型方策を導入し、身体構造の差異を越えて接触状態を正確に再現するスキル獲得を実現した。",
+   "summary_en": "The paper introduces Contact Imitation Interface (CIMI) to transfer dexterous manipulation skills from robot-free human demonstrations to multi-fingered robotic hands. By aligning fingertip contact geometry and using a hierarchical policy that plans relative contact-surface trajectories, CIMI enables reliable cross-embodiment skill transfer grounded in physical contact.",
+   "authors": [
+    "Zhixuan Xu",
+    "Yichen Li",
+    "Bingchen Wu",
+    "Rui Wang",
+    "Yiwen Hou",
+    "Zixuan Liu",
+    "Tianyu Qiu",
+    "Lin Shao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "imitation-learning",
+    "teleoperation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.41028",
+   "image": "figures/2026-11-02/2610.41028.jpg"
+  },
+  {
+   "date": "2026-11-02",
+   "rank": 8,
+   "id": "2610.41127",
+   "group": "general",
+   "title": "MotorSense: A Video-EMG Dataset of Motoric Representations for Action Understanding",
+   "title_ja": "行動理解のための運動表現データセットMotorSense：映像と表面筋電位の統合",
+   "summary_ja": "主観視点カメラ映像と両腕の表面筋電位（EMG）およびIMUデータを同期記録した初の大規模データセットMotorSenseを構築。100時間の台本なしマニピュレーション作業を収録し、遮蔽に強く指の動きや発揮力を直接捉える筋電信号をロボットの行動理解や動作学習の表現として活用する基盤を提供する。",
+   "summary_en": "MotorSense is the first large-scale multimodal dataset pairing egocentric video with synchronized bimanual surface electromyography (EMG) and IMU data across 100 hours of unscripted manipulation. It provides an occlusion-free motoric representation capturing finger movements and contact forces, providing a valuable foundation for embodied action understanding and robot learning.",
+   "authors": [
+    "Eadom Dessalene",
+    "Michael Maynord",
+    "Amir-Hossein Shahidzadeh",
+    "Botao He",
+    "Yasamin Tabatabaee",
+    "Ruoshi Liu",
+    "Ruohan Gao",
+    "Paul Pu Liang",
+    "Yiannis Aloimonos"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.RO"
+   ],
+   "tags": [
+    "dataset",
+    "perception",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.41127",
+   "image": "figures/2026-11-02/2610.41127.jpg"
+  },
+  {
+   "date": "2026-11-02",
+   "rank": 9,
+   "id": "2610.41625",
+   "group": "general",
+   "title": "RTPolicy: Real-Time (32.9 Hz) Multi-View Visuomotor Policy for Robotic Manipulation on Edge Devices",
+   "title_ja": "エッジデバイス上で32.9Hz動作するリアルタイム・マルチビュー視覚運動方策",
+   "summary_ja": "計算資源の限られたエッジデバイス上で32.9Hzの高速推論を実現するマルチビュー視覚運動方策RTPolicyを提案。視点ごとの特徴融合と視覚圧縮を組み合わせることで複数カメラ情報をコンパクトなトークンに集約し、フローティングマッチングを用いた高精度な閉ループマニピュレーション制御を低遅延で実現した。",
+   "summary_en": "The authors propose RTPolicy, a real-time multi-view visuomotor policy capable of running at 32.9 Hz on edge devices. By combining view-aware feature fusion with visual compression into compact tokens that condition a flow-matching action head, it drastically reduces inference latency while maintaining high closed-loop manipulation accuracy.",
+   "authors": [
+    "Xianbao Hou",
+    "Zehao Ni",
+    "Yonghao He",
+    "Lingfeng Qian",
+    "Xin Shi",
+    "Hu Su",
+    "Wei Sui",
+    "Cong Yang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "perception",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2610.41625",
+   "image": "figures/2026-11-02/2610.41625.jpg"
+  },
+  {
    "date": "2026-11-01",
    "rank": 0,
    "id": "2610.40248",
