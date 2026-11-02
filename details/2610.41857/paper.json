@@ -1,0 +1,143 @@
+{
+ "title_ja": "シミュレータ起因の失敗を監査する：ロボット評価における接触アーティファクトの検出",
+ "tldr_ja": "ロボットシミュレーション評価で物体が勝手に吹き飛んで失敗判定される原因を突き止め、物理エンジンの衝突判定における定数1つのバグが原因であることを特定して解消しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "シミュレーション評価を改変せずに監査するプラグイン「SimuGuard」の全体アーキテクチャです。各物理ステップの入出力を記録し、異常な加速を検知して完全再現リプレイを行い、シミュレーションパラメータを1つだけ変更した再実行（Rerun）で真の原因を特定します。",
+  "caption": "Figure 2: SimuGuard audits a simulated evaluation without changing it. Attached by an adapter to the benchmark’s own evaluation script, SimuGuard records every physics step, detects contact artifacts, replays the episode exactly, reruns it with the same actions and one change, and scores the rerun with the benchmark’s own success check. Rerun: a heavier object or more solver iterations leave the artifact; the triangle threshold of PhysX 5.4.0 removes it. Inset: the two pieces that start the ejection of Figure 1 are 21 mm apart, and PhysX 5.3.1 reports them 27.5 mm deep; with the threshold of 5.4.0 it reports no contact. …",
+  "image": "details/2610.41857/F2.jpg"
+ },
+ "overview_ja": "ロボットの基盤モデル（VLAや世界行動モデル）の性能比較には、LIBEROやRoboTwinなどのシミュレーション環境が広く使われています。評価はタスクの成否（成功率）という結果だけで測られますが、実は「ポリシーが物体を正しく配置した直後に、シミュレータが突然物体を弾き飛ばして失敗になる」という現象が頻発していました。ベンチマークの成功判定は最終状態しか見ないため、このシミュレータ起因の異常終了もすべてポリシーの失敗として減点されていたのです。\n\n著者らはこの問題に対し、ベンチマークの評価スクリプトに手を加えず物理ステップ単位で挙動を監査・ビット完全再現できるツール「SimuGuard」を開発しました。ロボットの接触や重力では説明のつかない不自然な物体加速（接触アーティファクト）を自動フラグ付けし、どの物理ステップで異常が発生したかを追跡できるようにしました。\n\nRoboTwin上で詳しく調査したところ、驚くべき原因が判明しました。PhysX 5.3.1のGJK距離計算ルーチンにおいて、微小三角形を縮退判定するための面積閾値がスケール不変な固定値（$2^{-23}$）になっており、センチメートル級の薄い壁を持つ容器モデルで誤って縮退と判定されていたのです。その結果、接触していない物体間に約2cmのめり込みが虚偽報告され、ソルバーが1ステップで猛烈な反発速度を与えて物体を弾き飛ばしていました。\n\nこの定数をPhysX 5.4.0で採用された値（$2^{-46}$）に修正したところ、虚偽の接触報告は完全に消滅しました。コンテナタスク5種でのLingBot-VAの成功率は89%から98%へと大幅に向上し、シミュレータ起因の失敗がどれほど評価スコアを歪めていたかが明確に実証されました。",
+ "contributions_ja": [
+  "シミュレーション評価における多くの失敗が、ポリシーではなく物理エンジンの接触アーティファクト（誤判定による物体の射出）に起因していることを発見・実証した。",
+  "評価スクリプトを変更せずに物理ステップごとの監査、完全再現リプレイ、パラメータを変更した再実行を行えるツール「SimuGuard」を開発・公開した。",
+  "RoboTwinの射出現象の真因がPhysX 5.3.1のGJKアルゴリズム内の固定閾値（$2^{-23}$）にあることを突き止め、定数1つの修正でアーティファクトを全滅させた。",
+  "物理エンジンを修正できない既存ベンチマーク向けに、アーティファクト発生エピソードを考慮した適切な成功率の推定・報告フレームワークを提案した。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "ロボットが置いた物体が、次の瞬間に吹き飛ぶ問題",
+   "summary_ja": "シミュレーション評価では、ポリシーの成否が物理エンジンの振る舞いと混同されてカウントされています。物体を正しく配置した後に物理エンジンが勝手に射出する現象の原因を追究し、監査ツール「SimuGuard」を用いて物理エンジンの衝突判定のバグを特定しました。",
+   "details_ja": "現在、ロボットの視覚言語行動（VLA）モデルや世界行動モデルの評価には、LIBERO、RoboCasa、RoboTwinなどのシミュレーション基盤が不可欠です。これらは物理シミュレータが現実を忠実に再現していることを前提にしており、成功率という最終的な数値だけでモデルの優劣を判断します。しかし、実際のエピソードを詳細に確認すると、「ポリシーは物体を正しく置いたのに、その直後にシミュレータが物体を猛烈な勢いで吹き飛ばし、結果として失敗扱いになる」という理不尽なケースが頻繁に起きていました。\n\n例えばRoboTwin 2.0の「缶をバスケットに入れる」タスクでは、LingBot-VAが缶をバスケット内に静かに置いた0.28秒後、わずか4ミリ秒の1物理ステップの間に、缶の速度が0.2 m/sから22 m/sへと跳ね上がります。これは2.4 Jもの運動エネルギーを何もない空間から得た計算になり、缶は1.65メートル先まで吹き飛んで失敗と記録されます。ロボットの指は離れており、接触もしていません。こうした現象を、論文では「接触アーティファクト（contact artifact）」と定義しています。\n\nこの問題に対処するため、著者らは既存の評価コードを一切書き換えることなくステップ単位の物理挙動を監査できるプラグイン「SimuGuard」を構築しました。SimuGuardによって解析を進めた結果、この吹き飛び現象は学習済みポリシー固有のものではなく、ベンチマークに付属する正解スクリプト動作（エキスパート教示）でも全く同様に発生していることが分かりました。そしてその根本原因は、物理エンジンPhysX 5.3.1の衝突検出アルゴリズムに潜む、たった1つの定数設定ミスだったのです。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "缶をバスケットに静置した後、ロボットが触れていないにもかかわらず、わずか4 msの間に缶の速度が0.2 m/sから22 m/sへと跳ね上がり、バスケットの外へ弾き飛ばされて失敗判定となる様子です。",
+     "caption": "Figure 1: A contact artifact turns a correct placement into a failure. After LingBot-VA places the 10 g can in the basket on Place Can Basket (a, b), the can’s speed rises from 0.2 to 22 m/s within one 4 ms physics step, a gain of 2.4 J of kinetic energy, while no robot link touches it and the fastest link moves at under 0.1 m/s (c); the can is ejected from the basket and the benchmark records a failure (d). The time axis has four linear segments, one under each frame.",
+     "image": "details/2610.41857/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "ベンチマークスコアの信頼性と物理エンジンの近似限界",
+   "summary_ja": "ロボット評価やベンチマークの信頼性に関する研究は盛んですが、その多くは物理シミュレータの挙動を前提として結果を集計・分析するに留まっていました。本研究は、エピソード個々の成否そのものが物理エンジンの不具合によって左右されている点に初めて踏み込みました。",
+   "details_ja": "### ロボットポリシーのシミュレーション評価\n近年のロボティクスでは、大規模な事前学習モデルを活用したVLA（OpenVLA、$\\pi_0$など）や、未来の動画予測と行動生成を統合した世界行動モデルが主流となっています。これらはMuJoCo（LIBERO、RoboCasa）やPhysX/SAPIEN（ManiSkill、RoboTwin、Isaac Lab）上で評価されます。最近ではSimplerEnvのように実機との相関を調べたり、Jiangらのようにデータセットのショートカット解法や過学習を監査する研究も現れましたが、いずれも「シミュレータの物理挙動自体は正しい」という前提に立っていました。\n\n### 接触シミュレーションの近似と課題\n剛体物理エンジンはそれぞれ異なる接触近似を採用しています。MuJoCoはめり込みを数ステップかけて解消するソフト拘束を採る一方、PhysXはハード拘束として1ステップ内で急速に押し戻そうとするため、めり込んだ物体が激しく飛び跳ねる挙動が公式ドキュメントでも警告されています。衝突判定のコアであるGJKアルゴリズムは浮動小数点演算の丸め誤差や縮退への耐性が求められますが、先行研究は単体シーンでの比較やアルゴリズム改善に終始しており、固定ベンチマークのスコアにどう影響しているかまでは追跡していませんでした。\n\n### ベンチマーク評価値の信頼性\n試行回数の不足、分散の大きさ、バイナリな成否指標の限界などを指摘する研究（RoboEvalなど）は増えています。しかしこれらも「記録された成否」を集計する方法の改善にとどまり、成否そのものが物理の破綻で作られていないかを疑うものはありませんでした。SimuGuardは、個々の異常接触の報告がタスク成否に直結する因果関係を完全再現によって検証する点で一線を画しています。",
+   "figures": []
+  },
+  {
+   "heading": "3 SimuGuard",
+   "heading_ja": "評価を邪魔せず完全再現・介入監査を行う仕組み",
+   "summary_ja": "SimuGuardは、評価環境を改変せずに各物理ステップの入出力を記録し、異常な接触加速を3段階で検出します。記録データからビット完全な再現リプレイを行い、シミュレーションパラメータを1つだけ変えた再実行によって現象の因果関係を解明します。",
+   "details_ja": "### 3.1 設定\nベンチマークは乱数シードによってシーンを初期化し、ポリシーの行動をミリ秒単位の物理ステップ（RoboTwinは4 ms、LIBEROは2 ms）で進めます。全$N$エピソード中$S$回成功すれば成功率は$S/N$です。接触に起因し、ロボットの動作や重力では説明のつかない急加速を含むエピソードの集合を$A$と定義します。\n\n### 3.2 侵襲のない記録（Recording without intrusion）\nSimuGuardはシミュレータのステップ関数を薄いアダプターでラップする構造になっており、既存コードを一切変更しません。ステップ実行前に入力された制御指令（関節目標値やトルク）、ステップ実行後に全物体の姿勢・速度・接触ペア情報（力積や侵入深さ）を記録します。これにより、監視のON/OFFで物体の軌跡は完全に一致し、オーバーヘッドも1ステップあたり数ミリ秒に抑えられます。\n\n### 3.3 接触アーティファクトの検出（Detecting contact artifacts）\n検出は3ステージで行われます。第一ステージでは、40 ms以内に他物体と接触し、速度が0.5 m/s以上かつ1ステップの速度変化が0.35 m/s以上の物体を候補とし、240 ms以内に4 cm以上移動して自由飛行または激しい接触を続けたものを抽出します。第二ステージでは、自由落下速度 $\\sqrt{2g\\,\\Delta z}$ との比を比較し、単なる落下による加速を除外します。第三ステージでは、ロボットと物体を仲介する物体（箱や台）の移動速度と比較し、ロボットが箱ごと押し運んでいるケースを除外します。\n\n### 3.4 完全再現リプレイ（Exact replay）\nPhysXは接触中の状態を途中から復元しようとすると接触キャッシュのズレで軌道が数ミリ〜数センチ狂うため、SimuGuardは初期状態から記録された制御入力を1ステップずつ流し直す方式を採用しました。さらに、ベンチマーク特有の内部状態の書き換えやグリッパー目標値の参照も忠実に再現することで、ビット単位で完全一致するリプレイを保証しています。\n\n### 3.5 制御された再実行（Controlled reruns）\nパラメータを1箇所だけ変えて再実行します。特に「アーティファクト発生の0.1秒前までは記録通りに進め、そこから押し戻し制限速度（depenetration limit）を有効化する」という時間枠介入を行うことで、その後の結果の違いが接触アーティファクトの回避によるものだと厳密に証明できます。\n\n### 3.6 スコアリング（Scoring）\nアーティファクトを含むエピソード群$A$の成否をどう仮定するかで、真の成功率の範囲を算出します。報告成功率、リプレイで制限をかけた際のReplay成功率、該当エピソードを除外したExclusion成功率、修正済み物理エンジン下で新たにロールアウトしたClosed-loop成功率の4指標を定義しました。",
+   "figures": []
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "原因は定数1つ：PhysXの不具合特定と修正によるスコア改善",
+   "summary_ja": "RoboTwinのコンテナタスクにおける失敗の大多数が接触アーティファクトによるものでした。追跡の結果、PhysX 5.3.1のGJK実装にある固定閾値が原因であることを突き止め、定数を修正したところアーティファクトは全滅し、成功率が89%から98%へ急上昇しました。",
+   "details_ja": "### 4.1 接触アーティファクトの発生箇所\nRoboTwin 2.0でLingBot-VAを評価したところ、薄い壁を持つ容器に物を入れる5つのタスクでアーティファクトが集中していました。これら5タスクにおけるLingBot-VAの全44回の失敗のうち、実に40回にアーティファクトが含まれていました。HyVLAでも10回中6回の失敗が該当しました。さらに、ロボットの学習モデルではなくベンチマーク公式のエキスパート教示スクリプトでも、同様の吹き飛びによる失敗が起きていました。\n\n### 4.2 原因：衝突判定における固定閾値のバグ\nアーティファクト発生の瞬間、PhysXは物体間に実際には存在しないめり込みを報告していました。缶とバスケットが15 mm離れているにもかかわらず、21.5 mmものめり込みが検知され、接触法線が真逆を向いていました。原因はSAPIEN 3.0が採用しているPhysX 5.3.1のGJKアルゴリズムにありました。シンプレックス内の三角形 $abc$ が潰れているかを判定する条件式 $|ab \\times ac|^2 \\le \\epsilon$ の閾値が、ジオメトリの大きさに依存しない $\\epsilon = 2^{-23} \\approx 1.19 \\times 10^{-7}$（単精度機械イプシロン）という固定値になっていたのです。センチメートル級のポリゴン片では正規の三角形であってもこの閾値を下回ってしまい、最近接点の探索が途中で打ち切られ、裏側の面との距離をめり込み深さとして誤判定していました。PhysX 5.4.0ではこの閾値が $\\epsilon^2 \\approx 1.42 \\times 10^{-14}$（7桁小さい値）に修正されています。シミュレータ外でこの計算を検証したところ、誤判定されていた20件すべての接触が、この定数を修正するだけで完全に解消しました。\n\n### 4.3 スコアへの影響\nエンジン内のこの定数1つを修正した環境でLingBot-VAの閉ループ評価を行ったところ、アーティファクトを含むエピソードは12件から0件に激減し、5タスクの成功率は89%から98%へと跳ね上がりました。エキスパート教示が失敗してスキップされていたシード数も49件から36件に減少しました。\n\n### 4.4 他プラットフォームでの検証\nGPU物理エンジンを用いるRoboDojo（Isaac Sim）でも、XR-1モデルの40エピソード中7件で同様の射出失敗が確認されました。一方、MuJoCoを採用しているLIBEROやRoboCasaではアーティファクトの発生は極めて稀で、発生しても速度は1.6 m/s以下と極めて軽微でした。\n\n### 4.5 リプレイと検出の信頼性\nロボティクス研究者5名によるブラインド目視評価を行った結果、SimuGuardが検出したイベントの92.5%が「物理的に不自然な挙動」と一致し、高い検出精度が確認されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "アーティファクト発生直前にめり込み解消速度の上限（1 m/s）を適用する介入を行った例です。上がLingBot-VA、下が公式エキスパート教示であり、どちらも不自然な吹き飛びが抑えられて成功へと結果が反転しています。",
+     "caption": "Figure 3: Two episodes whose outcome the artifact window intervention flips. Each is shown as run and replayed with the depenetration limit switched on 0.1 s before the first artifact; seed, actions and physics up to the switch are identical. Top: LingBot-VA on Place Can Basket. Bottom: one of RoboTwin’s own scripted demonstrations, which the benchmark discards when it fails.",
+     "image": "details/2610.41857/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Discussion and Limitations",
+   "heading_ja": "シミュレータ監査が示す今後のベンチマーク運用のあり方",
+   "summary_ja": "今回の射出現象は学習モデルの問題ではなく、旧バージョンのPhysXとセンチメートル級メッシュの組み合わせによって生じる純粋なエンジン側の欠陥でした。物理エンジンの修正が難しい環境では、記録に基づく不確実性区間の併記が不可欠です。",
+   "details_ja": "### 議論\nRoboTwinで起きていた物体射出は、ポリシーの賢さとは無関係であり、PhysX 5.3.1以前のバージョンとセンチメートルスケールの凸分解メッシュが組み合わさったときに必ず発生する決定論的な不具合でした。単に押し戻し速度制限を常時かけるだけでは、正常なタスクの挙動まで変化させてしまい成功率が半減するケースがあるため、根本治療にはなりません。今後のベンチマーク作成においては、「ステップごとの記録」「異常接触の検出」「原因エンジンの修正」という監査プロトコルを踏むことが極めて重要です。エンジンを即座に変更できない場合は、アーティファクトの有無に応じた成功率の幅を併記すべきです。\n\n### 限界\n修正エンジンでの閉ループ評価は5タスク・各20シード（計100試行）に留まっており、統計的検定における成功率差の有意性（$p=0.11$）は完全には確立されていません（アーティファクトの減少自体は極めて顕著です）。また、RoboDojo（Isaac SimのGPUパイプライン）で発生している虚偽接触の根本原因については、今回特定されたGJKの閾値とは異なる経路であるため、まだ完全なコードレベルの特定には至っていません。",
+   "figures": []
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめ：シミュレータの欠陥をポリシーの失敗として数えないために",
+   "summary_ja": "シミュレーション評価の成功率は、シミュレータ自身のエラーをポリシーの失敗として誤ってカウントしていました。SimuGuardによってその原因がPhysX 5.3.1の定数にあることを解明し、シミュレータ修正によって本来の正当なポリシー性能を正しく評価できるようになりました。",
+   "details_ja": "本研究は、ロボットのシミュレーション評価において「ポリシーの失敗」と記録されていたものの多くが、実は物理エンジンの衝突判定アーティファクトによる不当な失敗であったことを暴き出しました。薄壁コンテナタスクにおける失敗の大部分がこのアーティファクトに起因しており、PhysX 5.3.1内の定数を修正するだけで成功率が大幅に改善することが示されました。PhysX 5.3.1以前をベースにしているベンチマーク環境は速やかに修正版エンジンでの再評価を行うべきであり、それが叶わない場合でも、SimuGuardのようなツールを用いてアーティファクトの影響幅を明示したスコア開示を行うことが、今後のロボティクス研究の健全な発展に求められます。",
+   "figures": []
+  },
+  {
+   "heading": "付録",
+   "heading_ja": "付録：他ベンチマークでの挙動とGJK不具合の詳細メカニズム",
+   "summary_ja": "RoboDojo（Isaac Sim）での虚偽接触の詳細や、LIBEROにおける初期配置の床めり込みバグ、そしてGJKアルゴリズムが誤判定に至る幾何学的メカニズムを解説します。",
+   "details_ja": "### GJKの縮退判定と裏面選択のメカニズム\nPhysX 5.3.1のGJK実装では、三角形の法線ベクトルの長さの2乗が機械イプシロン $\\epsilon = 2^{-23}$ 以下になると縮退とみなされ、線分へと退化処理されます。1.8 cm四方の直角三角形はこの閾値を下回ってしまうため、最近接探索が誤った状態で終了します。その結果、接触点生成ルーチンが物体の反対側（外側を向いた面）を誤って選択し、「離れている距離＋物体の厚み」が丸ごとマイナスの分離度（＝深いめり込み）としてソルバーに渡されていました。\n\n### RoboDojo（Isaac Sim）でのアーティファクト\nIsaac Sim 5.1.0（GPUダイナミクス）を用いたRoboDojoの試験管挿入タスクでも、ラックの薄壁（厚さ2〜5 mm）と試験管の間で約10 mmの虚偽のめり込みが報告され、試験管が4.31 m/sで射出される現象が確認されました。こちらも薄壁の向こう側の面と誤ってペアリングされていることが判明しています。\n\n### LIBEROにおける初期状態のめり込み\nLIBEROの一部のタスクでは、保存されている初期配置データそのものが、床やテーブルに物体を20〜37 mmめり込ませた状態で記録されていました。MuJoCoのソルバーが最初の数ステップ（ポリシーが動き出す前の静置期間中）で物体を1.3〜1.8 m/sで飛び跳ねさせて解消しているため、幸いポリシーの実行中には大きな悪影響を及ぼしていませんでしたが、アセット設定のずさんさを示す実例といえます。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "RoboDojoでの試験管挿入タスクにおけるアーティファクトです。上段では誤った接触判定により試験管が4.31 m/sで射出されて机外へ落下していますが、下段のように介入を行うと飛び跳ねが1.88 m/sに抑えられます。",
+     "caption": "Figure 6: RoboDojo, Insert Tubes (layout 2), XR-1. Head camera frames at fixed times relative to the first artifact, as run (top) and replayed with the depenetration limit of 1 m/s switched on 0.4 s before it (bottom), and the speed of the ejected tube in both runs. As run, the tube leaves the rack at 4.31 m/s within one step, flies off the table and lands 1.7 m away; the later peak of the gray curve is its fall. With the limit it leaves at 1.88 m/s, slows below 0.4 m/s within 0.3 s and stays on the table. Both rows are replays of the recording; the as run replay matches it bit for bit, and the limited one first differs at the artifact step.",
+     "image": "details/2610.41857/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "LIBEROに収録されている初期状態の可視化です。物体があらかじめ床下に20〜37 mmめり込んだ状態で配置されており、シミュレーション開始直後の静置ステップで飛び跳ねてから着地していることがわかります。",
+     "caption": "Figure 7: LIBERO-Object task 0, stored initial state 0 , built as the evaluation builds it (official LIBERO, robosuite 1.4.0, MuJoCo 3.2.3) and run through the 15 settle steps that precede every LIBERO policy step. As stored, the salad dressing, the milk and the alphabet soup sit 37.7, 34.8 and 23.6 mm inside the floor. MuJoCo pushes them out within 10 ms at 1.38, 1.27 and 0.86 m/s; they hop, land within 0.3 s and are at rest before the policy acts at 0.75 s. Depths and peak speeds match the audit of all 2000 stored states, of which 650 start inside a support.",
+     "image": "details/2610.41857/F7.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "シミュレーション評価の失敗ログを動画だけで確認せず、物理ステップ単位の力積や異常加速（接触アーティファクト）を疑うべきである。",
+  "PhysX 5.3.1以前を搭載したSAPIEN環境（RoboTwinなど）でセンチメートル級の薄いメッシュを扱う場合、GJKの閾値バグにより物体が射出されるリスクが極めて高い。",
+  "評価スクリプトを改変せずに完全再現・介入検証が可能な「SimuGuard」のような監査ツールを評価パイプラインに組み込むことが推奨される。",
+  "物理エンジンのアップデートやパッチ適用が難しい環境では、単一の成功率だけでなく、アーティファクトの影響を除外・考慮した上下限レンジを併記することが望ましい。"
+ ],
+ "limitations_ja": [
+  "修正済みエンジンでの閉ループ評価のサンプル数が5タスク各20シード（計100試行）とやや小規模であり、成功率向上幅の統計的有意性は限定的である。",
+  "RoboDojo（Isaac Sim）のGPU接触判定で発生した虚偽接触については、CPU版GJKとは異なるパスを通っており、根本原因コードの特定までは至っていない。",
+  "検出器の人間判断との一致度評価（精度0.925）が、主に1つの代表タスク（Place Can Basket）に偏って検証されている。"
+ ],
+ "keywords": [
+  "Simulation Benchmark",
+  "Physics Engine",
+  "Contact Artifacts",
+  "PhysX",
+  "Collision Detection",
+  "Robot Policy Evaluation"
+ ],
+ "id": "2610.41857",
+ "title": "When the Simulator Fails, Not the Policy: Auditing Contact Artifacts in Simulated Robot Benchmarks",
+ "authors": [
+  "Alex Zhou",
+  "Junhao Wu",
+  "Xueyang Zhou",
+  "Yixiao Huo",
+  "Hongcheng Gao",
+  "Di Zhu",
+  "Zhenghao Zhang",
+  "Yongchao Chen"
+ ],
+ "date": "2026-11-02",
+ "group": "focus",
+ "tags": [
+  "simulation",
+  "benchmark",
+  "safety"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2610.41857",
+ "pdf_url": "https://arxiv.org/pdf/2610.41857",
+ "summary_ja": "シミュレーションベンチマークでのタスク失敗が方策の不具合ではなく物理エンジンの接触アーティファクト（物体の予期せぬ射出等）に起因する問題を調査。評価環境を変更せず物理ステップごとに異常挙動を記録・検知する監査ツールSimuGuardを開発し、LIBEROやRoboTwin等の環境における誤評価を是正可能にした。",
+ "generated": "2026-11-02",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2610.41857"
+}
