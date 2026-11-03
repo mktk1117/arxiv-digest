@@ -1,0 +1,173 @@
+{
+ "title_ja": "ODE Policy: アクション値ではなくアクションダイナミクスを学習するロボット学習",
+ "tldr_ja": "各制御ステップのアクションの値を直接予測するのをやめ、アクションの変化速度を記述するベクトル場（常微分方程式: ODE）を学習することで、物理的に滑らかで極めて学習が速いポリシーを実現しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "従来手法と提案手法（ODE policy）の対比です。左の従来手法は離散ステップのアクション値を直接出力するためチャンク境界で軌道が不連続になりがちですが、右のODE policyはアクションの変化速度を記述するベクトル場を学習し、物理時間で数値積分することで、構造的に滑らかで連続した動作軌道を生成します。",
+  "caption": "Figure 2 : Direct-action policies and ODE policy. Both encode the image history and the instruction (IL) or the reference motion (RL). Left: Direct-action policies, whether a regression head, a generative head, or the actor of RL, map the embedding to action values at discrete control steps. Right: ODE policy instead learns the dynamics of the action, a vector field $\\mathbf{f}_{\\theta}$ , and integrates it in physical time, so that each action follows from the previous one. In RL, each chunk holds a single action.",
+  "image": "details/2611.01729/F2.jpg"
+ },
+ "overview_ja": "現在のロボット学習では、模倣学習（IL）でも強化学習（RL）でも、観測から次のアクション値を直接予測する「直接アクション型（Direct-action）」のポリシーが主流です。しかしロボットは連続した物理世界を動くため、実世界の動作は本質的に滑らかです。従来の方式では、この滑らかさや連続性を大量のデータから暗黙的に学ばせるしかなく、動作のつなぎ目で急激な跳びが生じたり、学習に膨大なデータや時間が必要になったりしていました。\n\nそこで著者らは、「アクションそのもの」ではなく「アクションが物理時間の中でどう変化するかというダイナミクス（速度のベクトル場）」をニューラル常微分方程式（Neural ODE）で直接モデル化する『ODE policy』を考案しました。観測を条件としてアクションの微分（変化率）を出力し、それを物理時間軸に沿って数値積分して軌道を作ります。この積分を短いアクションチャンク（またはRLの1ステップ）ごとに行い、前のアクションからシームレスにつなげていくことで、物理的な連続性を最初から保証した制御が可能になります。\n\nシミュレーション（LIBEROベンチマークやヒューマノイドの模倣）から4種類の実機ロボット（単腕、双腕、双腕ロボットハンド、等身大ヒューマノイド）まで、14種類の強力なベースラインと比較検証を行いました。\n\nその結果、模倣学習ではわずか1エポックで従来手法を圧倒する成功率を達成し、データ効率・パラメータ効率・推論速度のすべてで従来の大規模フローマッチングや拡散ポリシーを凌駕しました。実機の14タスクすべてで最高成功率を記録し、人間の手動操作データよりも滑らかに動作することを確認しています。",
+ "contributions_ja": [
+  "アクションそのものではなく、アクションのダイナミクス（速度ベクトル場）をNeural ODEとして直接モデル化する新しいポリシーパラダイムを提案した点。",
+  "チャンク単位の数値積分と開始点をずらして引き戻す収縮摂動（contractive perturbation）により、安定して超高速に模倣学習を進める学習枠組みを構築した点。",
+  "方向オフセットを与える軽量なダイバーシティヘッドにより、多峰性（マルチモーダル）な動作選択も損なわずに表現できるようにした点。",
+  "模倣学習だけでなく強化学習（SuperMimic）や大規模基盤モデル（π0.5、ImageWAM、GR00T）にもそのまま適用でき、一貫して大幅な効率向上と滑らかな動作を示した点。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜアクションの「値」ではなく「運動法則」を学ぶのか",
+   "summary_ja": "既存のロボットポリシーは離散的な制御ステップのアクション値を直接回帰・生成していますが、物理運動の連続性を自前で暗黙学習しなければならない弱点がありました。本論文では、アクションの連続的な変化を記述する常微分方程式（ODE）を学習し、数値積分によって動作を生成する「ODE policy」を提案します。",
+   "details_ja": "近年のロボット学習は模倣学習・強化学習ともに急速に発展しています。しかし、その多くは「現在の観測から未来の離散アクション値を直接予測する」という同じパラダイムに従っています。この直接予測には共通の限界があります。模倣学習では連続性を学ぶために膨大なデータと計算が必要になり、生成モデルを使うと1回の行動生成に何ステップもの推論がかかってリアルタイム制御が遅れてしまいます。強化学習でも、制御ステップごとに値が振動しやすく、関節に余計な負荷がかかります。\n\nそもそもロボットも人間も、時間的に滑らかに動く物理システムです。ならば、「アクションそのもの」ではなく「アクションがどう変化するかという運動の法則（ベクトル場）」をニューラルネットワークで表現し、それを物理時間で積分すればよいはずです。この発想自体は動物の運動皮質が運動のダイナミクスを生成しているという知見にも一致します。\n\n本論文のODE policyでは、ニューラルODEを用いて観測条件付けされたアクションの速度場を学習します。模倣学習ではチャンク（行動のまとまり）単位で積分して実軌道と照合し、強化学習では1ステップずつ積分します。推論時は前回の到達アクションから次を積分するため、動作の継ぎ目でガクッと跳ぶことが構造的になくなります。さらに、軽量なダイバーシティヘッドを組み合わせることで、複数経路が存在するマルチモーダルな動作も表現可能にしています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "直接アクション型ポリシー（左）とODE policy（右）の比較です。従来手法は離散ステップのアクション値を個別に出力するためチャンクの境界で動作が不連続になりがちですが、ODE policyは同一のベクトル場を物理時間で積分し、前のチャンクの終点から次を滑らかにつなぎます。",
+     "caption": "Figure 2 : Direct-action policies and ODE policy. Both encode the image history and the instruction (IL) or the reference motion (RL). Left: Direct-action policies, whether a regression head, a generative head, or the actor of RL, map the embedding to action values at discrete control steps. Right: ODE policy instead learns the dynamics of the action, a vector field $\\mathbf{f}_{\\theta}$ , and integrates it in physical time, so that each action follows from the previous one. In RL, each chunk holds a single action.",
+     "image": "details/2611.01729/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "これまでの力学系モデルや拡散モデルと何が違うのか",
+   "summary_ja": "力学系を用いたロボット動作生成、状態空間のダイナミクスモデル、そして拡散・フローモデルによる生成手法という3つの系統を整理し、本手法が「物理時間軸上でアクション自体の未拘束なベクトル場を直接学ぶ」という点でユニークであることを明確にしています。",
+   "details_ja": "本研究の位置づけは、大きく3つの先行研究の流れと比較するとよく分かります。\n\n### アクションダイナミクスとしてのODE\nDMP（動的運動プリミティブ）や安定力学系のように、微分方程式でロボット運動を表す研究には長い歴史があります。しかし従来手法はベクトル場の数式構造をあらかじめ固定したり、特定のアトラクタ（目標点）への収束を強制したりしていたため、少数の特定動作にしか適用できませんでした。ODE policyはベクトル場に人為的な制約を課さず、1つの汎用ニューラルネットワークで多様なタスクを丸ごと学習します。\n\n### 状態ダイナミクスとしてのODE\nロボットや環境の「状態遷移」をNeural ODEでモデル化し、その上で制御器を組む研究も一般的です。しかしこれらは状態や潜在変数を積分しているだけで、最終的なアクション値は別途出力されています。本手法は状態ではなく「アクションそのものの時間微分」を学習する点が根本的に異なります。\n\n### 生成プロセスとしてのODE\n拡散ポリシーやフローマッチングも内部で微分方程式を解きますが、そこで積分される時間変数は物理時間とは無関係な「ノイズ除去の仮想時間」です。したがって途中のサンプル値には物理的な意味がありません。一方、ODE policyは実世界の「物理時間」に沿って積分を進め、前の行動の続きから次を滑らかに生み出します。",
+   "figures": []
+  },
+  {
+   "heading": "3 Preliminaries",
+   "heading_ja": "直接アクション型ポリシーとNeural ODEの基礎知識",
+   "summary_ja": "従来型の模倣学習（回帰・拡散・フローマッチング）や強化学習におけるアクション出力の定式化を整理し、本手法の土台となるNeural ODEの基本原理と勾配計算の仕組みを解説しています。",
+   "details_ja": "### 直接アクション型ポリシー（Direct-Action Policy）\n観測画像 $\\mathbf{o}_t$ や言語指示 $\\mathbf{l}_t$ から得られる条件 $\\mathbf{c}_t$、および自己受容状態 $\\mathbf{s}_t$ に対し、従来のポリシーは直接アクション値 $\\mathbf{a}_t$ を出力します。模倣学習では連続する $H$ ステップの行動をまとめて出力する「アクションチャンキング」が標準的ですが、各ステップの値は独立に出力されるため、ステップ間やチャンク間の連続性はデータから暗黙に学習するしかありません。単純な回帰では多峰なデータが平均化されてしまい、拡散モデルやフローマッチングでは高品質な生成ができる代わりに仮想時間での反復推論が必要になります。\n\n### Neural ODE\nNeural ODEは、連続状態 $\\mathbf{x}(t)$ の時間微分をニューラルネットワーク $\\mathbf{g}_\\phi(\\mathbf{x}(t), t)$ で定義し、初期値から数値積分（オイラー法やRK4など）を行うことで軌道を導出します。積分結果と正解データとの誤差の勾配は、数値ソルバの計算グラフを通して直接逆伝播させるか、随伴法（Adjoint method）を用いてメモリを節約しながら計算します。本手法はこの枠組みをロボットのアクション軌道生成に適用します。",
+   "figures": []
+  },
+  {
+   "heading": "4 Method",
+   "heading_ja": "ODE Policyの仕組み: ベクトル場学習、収縮摂動、ダイバーシティヘッド",
+   "summary_ja": "アクションの変化速度をネットワークで表し、チャンクごとに短く積分して教師データにフィットさせます。実機で軌道がずれるのを防ぐ「収縮摂動」や、多峰な行動選択を可能にする「ダイバーシティヘッド」、強化学習への適用法を解説しています。",
+   "details_ja": "### ベクトル場の定式化とチャンク積分\n画像や言語の埋め込み特徴 $\\mathbf{z}_t$ と自己受容状態 $\\mathbf{s}_t$ を条件として、アクションの速度 $\\dot{\\mathbf{a}}(t) = \\mathbf{f}_\\theta(\\mathbf{a}(t), \\mathbf{s}_t, \\mathbf{z}_t)$ をネットワークでモデル化します。決定ステップ $t$ では、前回の最後のアクション $\\hat{\\mathbf{a}}_{t-1}$ を始点とし、物理時間軸に沿って $H$ ステップ分だけ数値積分して将来のアクションチャンクを生成します。入力として現在のアクション $\\mathbf{a}(t)$ を受け取るため、「今のアクション位置に応じて次の変化率が決まる」という自己整合的な軌道が自然に作られます。\n\n### 学習損失と収縮摂動（Contractive Perturbation）\n学習時はデモの開始アクションから $H$ ステップ積分し、デモ軌道との距離（Path loss）を最小化します。チャンクが短いため、随伴法を使わずソルバの計算ステップを通じて直接逆伝播できます。しかし、デモ軌道上だけで学習すると、推論時にわずかなズレが蓄積して戻れなくなります。そこで、訓練チャンクの開始位置をわざとランダムにずらし（$\\bm{\\delta}$）、ステップが進むにつれて幾何級数的にデモ軌道へ引き戻されるように教師信号を与える「収縮摂動」を導入しました。これにより、軌道周辺に局所的な引き込み効果（Contraction）が生まれ、外乱へのロバスト性が格段に高まります。\n\n### 推論時のシームレスチャンキング\n推論時は、計測されたロボット状態ではなく、直前のチャンクで最後に指示した目標アクション $\\hat{\\mathbf{a}}_{t-1}$ から次のチャンクを積分し始めます。これにより、チャンクの境界で指令値がジャンプすることのない完全に連続な動作が実現します。また、1アクション分を積分するごとに即座に制御器へストリーミング送信できるため、チャンク全体の生成を待つ必要がありません。\n\n### 多峰性のためのダイバーシティヘッド\n決定論的なベクトル場だけだと、左右の回避ルートがある場合に真ん中の障害物に突っ込むような平均化問題が起きます。そこで、チャンクの開始時に混合ガウス分布からサンプリングしたオフセット速度をベクトル場に加える軽量な「ダイバーシティヘッド」を追加しました。ベクトルの向きをわずかに変えるだけで積分軌道全体が別のモードへと分岐するため、反復的な生成ステップを踏むことなく多様な行動をきれいに維持できます。\n\n### 強化学習（RL）への展開\n強化学習ではデモデータが存在しないため、チャンク長 $H=1$ として前ステップのアクションからオイラー法で1ステップ積分して行動を決めます。これにより、行動の連鎖に沿って勾配が減衰せずに伝播するようになり、学習が大幅に加速します。",
+   "figures": []
+  },
+  {
+   "heading": "5 Experimental Setup",
+   "heading_ja": "実験設定: シミュレータから4種類の実機ロボットまで網羅的に評価",
+   "summary_ja": "LIBEROシミュレーション、VLAやWAMといった大規模事前学習モデル、強化学習（SuperMimic）、さらに単腕・双腕・ハンド・ヒューマノイドの実機4環境を用意し、14のベースラインと比較する包括的な実験環境を構築しました。",
+   "details_ja": "ODE policyの性能を確かめるため、4つの問い（学習の速さ、推論の速さと滑らかさ、汎化性、多峰性）に沿って多角的な実験を行いました。\n\n### ベンチマーク環境\n- **視覚運動模倣学習**: LIBEROの4スイート（40タスク）で学習し、外乱を加えたLIBERO-plusでゼロショット汎化を評価。\n- **大規模モデルのアクションヘッド**: VLAモデル「$\\pi_{0.5}$」（2.9BパラメータのVLM）および世界アクションモデル「ImageWAM」（3.9Bの画像変換器）のアクションヘッドとして組み込み。\n- **強化学習**: ヒューマノイド（Unitree G1）の全身モーション追従を行うSuperMimicのActorとして評価。\n- **実機ロボット**: Franka単腕アーム、Galaxea R1 Lite双腕ロボット、Sharpaロボットハンド、Unitree G1ヒューマノイド（Inspireハンド装着）の4種類で計14タスクを評価。別研究室の公開データセット（SharpaDex）からのゼロショット移行タスクも含まれます。\n\n### 比較対象（ベースライン）\nフローマッチング（FM-DiT, FM-UNet）、拡散モデル（DDPM-DiT, DDPM-UNet, DDIM-UNet）、A2A-DiT、ACTなど計14種類の手法と比較しました。公平を期すため、エンコーダ構造やデータセット、学習スケジュールは同一条件に揃えています。",
+   "figures": []
+  },
+  {
+   "heading": "6 Simulation Results",
+   "heading_ja": "シミュレーション結果: 驚異的な学習効率と圧倒的な動作の滑らかさ",
+   "summary_ja": "LIBEROにおいてわずか1エポックで79.2%の成功率を記録し、フローマッチングの半分以下のデータ量で同等以上の性能を達成しました。推論速度は10倍以上速く、ジャーク（加加速度）もベースライン中最低でした。",
+   "details_ja": "### 学習効率（データ・パラメータ効率）\nLIBEROでの模倣学習において、ODE policyは最初のエポックから爆発的に学習が進みました。1エポック終了時点で成功率は79.2%に達し、最良のベースライン（約43%）のほぼ2倍を記録しました。85%に達するまでのエポック数はわずか2エポックで、フローマッチング（30エポック）や拡散モデル（50〜60エポック）に比べて桁違いの早さです。\nデータ効率でも、タスクあたり20デモで学習したODE policy（87.7%）が、50デモすべてを使ったFM-DiT（85.4%）を上回りました。さらにパラメータを1.5Mまで削っても、48MのFM-DiTより高い性能を維持しました。\n\n### 大規模モデルと強化学習での効果\n$\\pi_{0.5}$ のアクションエキスパート（430M）を約3%のパラメータ（13.7M）しかないODEヘッドに差し替えたところ、事前学習なしのランダム初期化にもかかわらず1エポック目で96.0%の成功率を記録しました（元のランダム初期化FMは75.5%）。ImageWAMでも同様に1エポック目で82.6% vs 24.6%と大差をつけました。強化学習（SuperMimic）でも、勾配が過去ステップへと減衰せずに伝わるため、初期段階から高いリターンを一貫して獲得しました。\n\n### 推論コストと滑らかさ\nオイラー法を用いた場合、1チャンク（8アクション）の生成時間はわずか5.7msで、FM-DiTの10.8倍、DDPMの約100倍高速でした。また、エンドエフェクタのジャーク（加加速度）はすべてのチェックポイントで最も低く、タスク完了ステップ数も最短でした。\n\n### 多峰性ナビゲーション\n4つの隙間を通る2Dナビゲーションタスクでは、ダイバーシティヘッドを備えたODE policyが1エポック目から4つの経路すべてを均等に探索し、高いモードバランスを示しました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "LIBEROにおける学習効率の比較です。(A) 提案手法（ODE）はわずか2エポックで成功率85%に到達（FM-DiTは30エポック）。(B) デモ数が半分以下でも従来手法を凌駕し、(C) パラメータ数を1.5Mに縮小しても大型のFM-DiT以上の性能を発揮しています。",
+     "caption": "Figure 4 : Learning efficiency in visuomotor imitation learning. Success rates on LIBERO, averaged over the four suites and three random seeds. (A) Success rate during training, with the standard deviation over seeds as shaded bands. The inset lists the first epoch at which each method reaches 85% (dashed line) and its ratio to ODE policy. (B) Gain of ODE policy over FM-DiT in percentage points with different numbers of demonstrations per task and (C) of parameters outside the encoder.",
+     "image": "details/2611.01729/F4.jpg"
+    },
+    {
+     "key": "F10",
+     "caption_ja": "4つの通過口がある2Dナビゲーションタスクでの多峰性評価です。(A) タスク概要、(B) 成功率、(C) 各ルートをバランスよく通れているかを示すモードバランス指標 $\\gamma$ の推移を示します。ODE policyは初期段階から4つの経路を均等にカバーしています。",
+     "caption": "Figure 10 : Multi-modal tests on a 2D navigation task with four feasible routes. (A) The agent moves from the start point through one of four gaps to the target point. (B) Success rate and (C) mode balance $\\gamma$ over training, mean and standard deviation over three random seeds with 100 rollouts each. The arrow marks the ratio of $\\gamma$ between ODE policy and FM-DiT after one epoch.",
+     "image": "details/2611.01729/F10.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "7 Real-World Results",
+   "heading_ja": "実機ロボット検証: 単腕からヒューマノイドまで、全14タスクで最高成功率",
+   "summary_ja": "単腕、双腕、ロボットハンド、等身大ヒューマノイドの4つの実機プラットフォームで評価を行いました。高精度挿入、布の折りたたみ、他研究室データのゼロショット転移、全身協調移動作業など全14タスクでベースラインを上回る最高成績を収めました。",
+   "details_ja": "### 単腕ロボット（Franka Research 3）\nマンゴーを箱に入れて蓋を閉める、鍵をフックにかける、靴下を畳んで引き出しに入れる、ブロックを穴に挿入するという4タスクを評価しました。靴下折りたたみ（20回中15回成功）やブロック挿入（14回成功）など、接触を伴う高難度タスクでベースライン（最良で8回、4回）を大きく突き放しました。チャンク境界での関節角加速度も大幅に低く抑えられています。\n\n### 双腕ロボット（Galaxea R1 Lite）\n細い茎の花瓶挿入、電子レンジへのボウル投入と扉閉め、2本の花の連続挿入、引き出しタスクを評価しました。特に引き出しタスクでは、デモデータに「左手でリンゴを入れて右手で閉める」「右手で入れて左手で閉める」という2つのモードが均等に含まれていましたが、ダイバーシティヘッドのおかげで実機でも左右両方の腕の使い方を成功率60%で再現しました。\n\n### 多指ハンドロボット（Sharpa）\n缶のピック＆プレースに加えて、他研究室が別環境で収集した公開データセット（SharpaDex）をそのまま使い、追加学習なしで自前のラボ環境で動かすゼロショット転移をテストしました。コップを立て直すタスクでは20回中17回成功（FM-DiTは0回）、錠剤をカップ間で移し替えるタスクでも17回成功（FM-DiTは10回）し、優れた環境適応力を実証しました。\n\n### ヒューマノイド（Unitree G1）\n床のオモチャまで歩行してしゃがんで拾いソファーの箱に片付けるタスク、およびテーブルからおにぎりを取って振り返り電子レンジに入れて扉を閉めるタスクを評価しました。GR00T N1.7のアクションヘッドを置き換えることで、歩行・姿勢維持・手先操作の連動が安定し、成功率が30〜35%から60〜70%へと倍増しました。",
+   "figures": [
+    {
+     "key": "F11",
+     "caption_ja": "Franka単腕ロボットでの4タスクの様子です。箱詰め、鍵掛け、靴下畳み、ブロック挿入のいずれにおいても、わずか50エポックの学習でベースライン（DDPM、DDIM、FM、A2A）を上回る最高成功率を記録しました。",
+     "caption": "Figure 11 : Tasks on a real single-arm robot. ODE policy on a Franka Research 3 arm, one row per task. (A) Putting a mango into a box and closing the lid. (B) Hanging a key on a key holder. (C) Folding a sock and putting it into a drawer. (D) Inserting a block into a hole of a board. On the right, success rates over 20 trials, with failed trials hatched and arrows from the best baseline.",
+     "image": "details/2611.01729/F11.jpg"
+    },
+    {
+     "key": "F12",
+     "caption_ja": "Galaxea双腕ロボットでの4タスクです。(A) 花の狭小花瓶挿入、(B) レンジへのボウル出し入れ、(C) 2本連続挿入、(D) 左右どちらの腕でもリンゴを片付けるマルチモーダル引き出しタスク。すべてでベースラインより滑らかで高精度な制御を達成しています。",
+     "caption": "Figure 12 : Four tasks on a real dual-arm robot. ODE policy on the Galaxea R1 Lite, one row per task. (A) Inserting a poppy or a dahlia into the narrow opening of a vase (dashed circle and zoom). (B) Putting a bowl into a microwave, pushing it in, and closing the door. (C) Inserting two flowers one after the other. (D) Either arm puts an apple into the drawer and the other closes it, two frames per mode. On the right, success rates over 20 trials per flower or task, with failed trials hatched and arrows from the best baseline. In (D), the share of trials in which each arm goes for the apple is shown next to it, with the dashed line at the share in the demonstrations.",
+     "image": "details/2611.01729/F12.jpg"
+    },
+    {
+     "key": "F14",
+     "caption_ja": "Unitree G1ヒューマノイドによる全身協調作業（移動・しゃがみ・手先操作）です。(A) 床のオモチャ拾いと箱詰め、(B) おにぎりの電子レンジ投入。GR00Tの元ヘッドと比べて成功率が約2倍に向上しました。",
+     "caption": "Figure 14 : Loco-manipulation tasks on a real humanoid. ODE policy as the action head of GR00T N1.7 on a Unitree G1 with Inspire DFX dexterous hands, one row per task. (A) Walking to a toy on the floor, squatting to grasp it, standing up, and placing it into a box on the sofa. (B) Grasping a rice ball from a table, turning and walking to a microwave, putting the rice ball inside, and closing the door. On the right, success rates over 20 trials, with failed trials hatched and arrows from the baseline.",
+     "image": "details/2611.01729/F14.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "8 Ablation Studies",
+   "heading_ja": "詳細分析: 何が効いていて、何が不要なのか",
+   "summary_ja": "チャンク長、常微分方程式の数値ソルバの種類、収縮摂動、シームレスチャンキング、自己受容感覚の入力位置などを1つずつ検証し、性能を支える真の要因を明らかにしました。",
+   "details_ja": "各コンポーネントの影響を系統的に切り分けるアブレーション実験から、興味深い事実が判明しました。\n\n- **チャンク長 $H$**: $H=1$（毎ステップ画像処理）では成功率が76.4%まで低下しました。現在の模倣学習においてチャンキングによる累積誤差の抑制は必須であり、$H=8$ が計算効率と精度の最良のバランスでした。\n- **数値ソルバ**: ルンゲ・クッタ法（RK4、RK2）から単純なオイラー法（Euler）に変えても、最終的な成功率の差は1%未満でした。つまり、高精度な数値積分器が重要なわけではなく、「同一のベクトル場を物理時間で展開する」というODE定式化そのものが本質的な勝因です。オイラー法を使えば学習も推論もさらに高速化できます。\n- **収縮摂動（Contractive Perturbation）**: これを外すと、初期段階（1エポック目）の成功率が79.8%から58.4%へと大きく落ち込みました。学習初期の不正確なベクトル場がデモ軌道から外れて暴走するのを、収縮摂動が見事に防いでいます。\n- **シームレスチャンキング**: 前のチャンクの終点ではなく、計測された実ロボットの関節角度から次を積分し直すようにすると、チャンク境界でジャンプが発生し、ジャークが1.3〜2.2倍に跳ね上がり、1エポック目の成功率も47.8%へと激減しました。\n- **自己受容感覚の入力先**: ロボット自身の関節状態を画像特徴と混ぜてから渡すより、速度場ネットワークに直接ダイレクトに入力する方が、初期学習が安定することが分かりました。",
+   "figures": []
+  },
+  {
+   "heading": "9 Discussion and Future Directions",
+   "heading_ja": "議論と展望: 行動ラベルなし学習、任意周波数制御、そして意図の展開へ",
+   "summary_ja": "ODE policyが切り拓く応用可能性として、手持ちデバイス等による行動ラベルなしデータへの速度フィードフォワード適用、推論時の制御周波数の自由な変更、接触や離散信号への対応策、そして脳科学的な運動生成モデルとしての解釈を論じています。",
+   "details_ja": "物理時間のベクトル場としてポリシーを捉えることで、従来の直接アクション型にはない新しい可能性が広がります。\n\n### 行動ラベルのないデータからの学習\nUMIなどの手持ち治具や人間の動画データには、制御器に送った目標指令値（コマンド）が含まれず、計測されたポーズしかありません。そのため従来の学習では追従遅れが生じてロボットが遅くなります。しかしODE policyなら追加コストなしで「目標速度」が手に入るため、PD制御器のダンピング項にフィードフォワードとして速度を直接流し込めます。これにより、長時間のタスク完了率が51%から72%へと大きく向上しました。\n\n### 制御周波数の自由な変更\n連続時間のベクトル場であるため、積分の刻み幅を変えるだけで、学習時の20Hzから推論時に40Hzや80Hzといった高周波制御へ追加学習なしで即座に切り替えられます。実機実験でも性能を落とすことなく高周波展開できることが確認されました。\n\n### 離散アクション信号（グリッパー開閉）\n微分方程式は連続変化を前提とするため、二値のグリッパー開閉信号は別の分類ヘッドで予測するのが最も安定していました。これをODEの次元に無理に組み込むとわずかに性能が下がりますが、それでも従来ベースラインよりは依然として優秀でした。ハイブリッド力学系やジャンプ過程の導入が今後の発展先です。\n\n### 意図の展開（脳科学的視点）\n霊長類の運動皮質は、あらかじめ目標座標を符号化しているのではなく、準備状態からダイナミクスに従って運動を自発的に展開（Unfold）させていると言われています。ODE policyも同様に、「チャンクの開始時にどのモードに進むかという離散的な意図を決め、あとはベクトル場に沿って滑らかに運動を展開する」という自然な制御構造を持っています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「アクション値を直接当てる」のではなく「アクションの変化速度（ベクトル場）を学ぶ」ことで、物理的な滑らかさが最初から保証され、驚異的な学習効率とデータ効率が得られる。",
+  "ソルバを高度なRK4から最速のオイラー法に落としても性能がほぼ変わらないため、実運用では計算コストを大幅に削減してリアルタイム性を極限まで高められる。",
+  "前チャンクの終点から次を積分する「シームレスチャンキング」と、近傍の軌道をデモに引き戻す「収縮摂動」の組み合わせが、実機での安定した軌道追従の鍵である。",
+  "学習済みのベクトル場があれば、推論時に積分ステップを変えるだけで制御周波数を自由に変更でき、ロボットごとの周波数差を吸収しやすい。"
+ ],
+ "limitations_ja": [
+  "グリッパーの開閉のような非連続（離散的）な指令値はODE単体で扱うのが苦手であり、現状は独立した分類ヘッドを併用する必要がある。",
+  "モデルフリー強化学習のように、探索のために意図的なステップ間の跳び（不連続性）が必要な設定では、ODEによる平滑化が探索を阻害して有効に働かない場合がある。",
+  "急激な接触や衝突が発生するシーンでは、連続的な速度場モデルの仮定が崩れる可能性があり、イベント検知やハイブリッド力学系の導入が今後の課題である。"
+ ],
+ "keywords": [
+  "Neural ODE",
+  "Imitation Learning",
+  "Action Chunking",
+  "Visuomotor Policy",
+  "Reinforcement Learning",
+  "Robot Foundation Models"
+ ],
+ "id": "2611.01729",
+ "title": "ODE Policy: Robot Learning via Action Dynamics, Not Actions",
+ "authors": [
+  "Jindou Jia",
+  "Jingliang Li",
+  "Kuangji Zuo",
+  "Tuo An",
+  "Yuxuan Hu",
+  "Mengfei Zhao",
+  "Bofan Lyu",
+  "Jiaqi Bai",
+  "Daoyuan Zhu",
+  "Hengyu Dai",
+  "Junpeng Zhang",
+  "Jianfei Yang"
+ ],
+ "date": "2026-11-03",
+ "group": "general",
+ "tags": [
+  "reinforcement-learning",
+  "imitation-learning",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.01729",
+ "pdf_url": "https://arxiv.org/pdf/2611.01729",
+ "summary_ja": "離散ステップのアクション直接出力ではなく、ニューラルODEを用いてアクションのベクトル場（ダイナミクス）を学習する新手法。模倣学習と強化学習の双方に適用可能で、過去のアクションから積分して滑らかな物理軌道を生成し、マルチモーダルな動作にも柔軟に対応する。",
+ "generated": "2026-11-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.01729"
+}
