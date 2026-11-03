@@ -1,0 +1,132 @@
+{
+ "title_ja": "車載単眼ビジョンによるヒューマノイドの機敏なドッジボール回避行動の強化学習",
+ "tldr_ja": "胴体に搭載した単眼RGBカメラの映像のみを使い、高速で飛来するボールを検知・状態推定して転倒せずに回避し、再び相手を見失わずに捕捉するヒューマノイドロボットの全身制御フレームワークを開発しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "提案された知覚-行動統合ループの全体像です。シミュレーション内では幾何学的な解析投影とノイズ注入によりバウンディングボックスを高速生成し、実機ではYOLOv8による検出結果を用います。時系列推定器が相対位置と脅威フラグを推定し、回避・復帰ポリシーと探索・追従ポリシーが全身の29関節を駆動します。",
+  "caption": "Fig. 1: Perception-in-the-loop system. Simulation uses analytic projection and perception randomization to produce bounding-box histories; hardware uses onboard RGB and a fine-tuned detector. The temporal estimator predicts relative ball position and a binary threat flag. The policy block denotes the active whole-body policy: separate dodge/recovery and search/track policies share the estimated-state, proprioceptive, and action interfaces. Ground-truth (GT) states drive the actor in Stages 1–2 and supervise the estimator from Stage 2; the actor uses estimator outputs from Stage 3.",
+  "image": "details/2611.01197/F1.jpg"
+ },
+ "overview_ja": "人間とロボットが同じ空間で活動する現場では、作業中に突然物が飛んできたり落下してきたりする危険が常にあります。このような突発的な脅威に対し、ヒューマノイドはバランスを崩して倒れることなく、素早く全身を動かして避け、すぐに作業可能な姿勢へと復帰しなければなりません。二足歩行ロボットにとって、ボールを避けても転倒してしまえば大失敗だからです。\n\nそこで著者らは、高速回避の検証タスクとして「ドッジボール」に着目しました。しかし、外部のモーションキャプチャや高価なイベントカメラに頼らず、機体に搭載された単眼RGBカメラ1台だけでこれを行うには、大きな課題があります。ロボットが体をひねって回避するとカメラの視野が激変し、激しい運動によって映像がブレて物体検出が途切れてしまう点です。\n\nこの課題を解決するため、著者らは単眼検出結果の履歴からボールの3次元相対位置と「接近中かどうか」を表す脅威フラグを推定する時系列推定器を設計しました。さらに、強化学習の訓練を高速化するためにシミュレーション上の画像描画を幾何学的な解析投影で置き換え、制御の獲得と推定器の学習を分離する「3段階カリキュラム」を提案しました。\n\nUnitree G1実機を用いた実験では、外部トラッキングなしで85%以上の単発回避成功率を記録し、さらに「相手を追従 → 投球を回避 → 全方位探索で再補足 → 次の投球を回避」という一連の連続行動ループの実機動作にも成功しました。",
+ "contributions_ja": [
+  "画像レンダリングを回避して学習を劇的に高速化する解析的球体投影法と、実機の検出誤差を模倣する知覚ランダム化手法を提案したこと。",
+  "単眼バウンディングボックスの履歴から、ボールの3次元相対位置とバイナリ脅威フラグを同時に予測する時系列推定器を開発したこと。",
+  "特権情報を用いた制御の事前学習、推定器の学習、推定値に基づく制御のファインチューニングを段階的に行う3段階カリキュラムを確立したこと。",
+  "回避・復帰と探索・追従という2つのポリシーを組み合わせ、Unitree G1実機において単眼RGBのみで85%以上の回避成功率と連続回避ループを実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "I INTRODUCTION",
+   "heading_ja": "なぜヒューマノイドでドッジボールなのか？",
+   "summary_ja": "ヒューマノイドが実環境で動くには、飛来物に対してバランスを保ちながら瞬時に回避・復帰する能力が欠かせません。本研究ではこの課題を単眼車載カメラのみで行うため、知覚・状態推定・全身制御を統合したシステムを提案しています。",
+   "details_ja": "人間と共存する環境で動くヒューマノイドには、予測できない飛来物や落下物から身を守る反射的な回避能力が求められます。しかし二足歩行ロボットの場合、四足歩行ロボットやドローンと違って「避けたけれどバランスを崩して倒れてしまった」のでは意味がありません。回避しつつ転倒を防ぎ、元の基本姿勢に戻って次の行動に備えるという、極めてシビアな全身協調運動が必要になります。\n\n本研究では、この能力を定量的に評価するためのテストベッドとして「ドッジボール」を取り上げました。ボールの投球は速度・距離・角度を明確にコントロールできるため、知覚と運動に許された猶予時間を厳密に測るのにうってつけだからです。\n\nここで最大の難所となるのが、外界認識を「胴体に固定された1台の単眼RGBカメラ」だけで完結させなければならない点です。胴体を動かしてボールを避けるとカメラの視線方向が大きく変わり、激しい全身運動によって映像が激しく揺れたりボケたりします。つまり、知覚と回避運動がお互いに強く影響し合ってしまうわけです。\n\n著者らはこの相互依存関係を解き明かすため、単眼検出のバウンディングボックス履歴からボールの相対位置と脅威フラグを予測する時系列推定器、そして「回避・復帰」と「探索・追従」を別個に学習して組み合わせる全身制御システムを構築しました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "システム全体のアーキテクチャです。シミュレーション訓練時は解析投影とランダム化を用い、実機展開時はYOLOv8の出力を時系列推定器に通してポリシーへ渡します。特権情報を用いた学習から推定値を用いた運用へと滑らかに移行する構造が示されています。",
+     "caption": "Fig. 1: Perception-in-the-loop system. Simulation uses analytic projection and perception randomization to produce bounding-box histories; hardware uses onboard RGB and a fine-tuned detector. The temporal estimator predicts relative ball position and a binary threat flag. The policy block denotes the active whole-body policy: separate dodge/recovery and search/track policies share the estimated-state, proprioceptive, and action interfaces. Ground-truth (GT) states drive the actor in Stages 1–2 and supervise the estimator from Stage 2; the actor uses estimator outputs from Stage 3.",
+     "image": "details/2611.01197/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II RELATED WORK",
+   "heading_ja": "飛来物回避とヒューマノイド球技のいま",
+   "summary_ja": "高速移動体の回避はこれまでドローンや四足ロボットで主に研究され、イベントカメラ等に頼ることが多くありました。一方、ヒューマノイドの球技研究の多くは外部カメラに依存しており、本研究は車載単眼カメラのみで全身回避と復帰・再補足を両立する点で一線を画しています。",
+   "details_ja": "### 動的障害物の回避研究\nドローンによる高速物体の回避では、通常のフレームベースカメラだけでなく、マイクロ秒単位で輝度変化を捉えるイベントカメラを使ってレイテンシとモーションブラーを抑える試みが盛んに行われてきました。また四足歩行ロボットでも、REBotやAPREBotのように全方位センシングやアクティブカメラを組み合わせて飛来物をかわす研究が登場しています。しかし、二足歩行ロボットは支持基底面が狭く転倒リスクが高いため、四足ロボットや空中浮遊体とは根本的に異なるバランス維持の制約が存在します。\n\n### ヒューマノイドによるボールインタラクション\nヒューマノイドの球技スキルとしては、ゴールキーパーのセービング動作や、卓球・バドミントン・テニスなどのラケット競技が盛んに研究されています。しかし、これらの先行研究のほとんどは外部のモーションキャプチャカメラに頼っていたり、環境にマーカーを配置した制限空間での実験にとどまっていました。\n\n本研究に最も近いものとして、制御バリア関数（CBF）と敵対的運動事前分布を組み合わせたPAC-MANというドッジボールシステムがあります。しかしPAC-MANがセグメンテーション付きの車載デプスカメラを用いていたのに対し、本システムはより身近で安価な単眼RGBカメラのみを使い、さらに飛来物の回避だけでなく全方位探索による再補足までを完結させている点が大きな進歩です。",
+   "figures": []
+  },
+  {
+   "heading": "III METHODS",
+   "heading_ja": "単眼カメラで高速球を捉え、全身で避ける仕組み",
+   "summary_ja": "シミュレーション描画を省く解析投影、時系列推定器による位置と脅威フラグの予測、そして2つの特化ポリシーの協調という3本柱で構成されます。これらを安定して学習させるため、3段階のカリキュラム学習を導入しています。",
+   "details_ja": "### III-A システム構成と課題設定\nロボットには29関節を持つUnitree G1を用います。時間ステップ $t$ において、知覚モジュールは正規化されたバウンディングボックス $\\mathbf{b}_t$（中心座標、サイズ、検出有無フラグ $m_t$）を出力します。時系列推定器はこの履歴から、ロボット基準のボール相対位置 $\\hat{\\mathbf{p}}^r_{b,t}$ と、ボールが迫っているかを示すバイナリ脅威フラグ $\\hat{\\chi}_t$ を出力します。ポリシーはこの推定値と自身の関節状態などの固有受容感覚（プロプリオセプション）を受け取り、29関節の目標角度を出力します。\n\n訓練環境では1エピソードあたり5回の投球をランダムな間隔（2〜4秒）で行い、静止（rest）・投球中（launched）・不在（absent）の3フェーズを遷移させることで、見えているだけで脅威でないボールと、真に避けるべきボールを見分けられるようにしています。\n\n### III-B 高速な解析的バウンディングボックス投影\n強化学習で何千もの並列環境のRGB画像を毎ステップ描画（レンダリング）するのは極めて計算が重くなります。そこで著者らは、ボールが球体であることを利用し、幾何学的な接線方程式から直接画像上の境界ボックスを計算する解析的投影を導入しました。実機展開時にはファインチューニングしたYOLOv8を用いますが、その出力の揺らぎを模倣するため、訓練時には検出のランダムドロップ、中心位置のガウスノイズ、アスペクト比の対数正規ノイズ、30〜50 msの遅延を人工的に注入しています。\n\n### III-C 時系列推定器の学習\n単眼カメラの1フレームだけではボールの奥行きや速度は分かりません。そこで3層MLPを用いてバウンディングボックスの履歴から相対位置と脅威フラグを推定します。エピソード中、ボールが飛んでいる時間はごくわずかであるため、そのまま学習すると「脅威ではない」と予測するバイアスがかかってしまいます。これを防ぐため、飛翔中のウィンドウ抽出や、視野内でランダムに低速運動・静止する合成データを混ぜて訓練しています。\n\n### III-D 全身制御ポリシーと3段階カリキュラム\n制御系は、衝突回避と直立姿勢への復帰を担う $\\pi_{\\mathrm{dodge}}$ と、視界から外れたボールを全身で旋回して探す $\\pi_{\\mathrm{search}}$ の2つのポリシーで構成されます。これらは検出状態のヒステリシスと脅威フラグによって切り替えられます。\n\n最初から不完全な推定値を与えて学習させるとロボットが転倒ばかりしてしまい、結果として推定器にも質の悪い視覚データしか集まりません。そこで次の3段階カリキュラムを導入しました。\n- **Stage 1**: 正解（GT）のボール位置と脅威フラグを与え、まずは転倒せずに回避・復帰する全身動作を獲得します。\n- **Stage 2**: ロボットが安定して立てるようになった後（エピソード長900ステップ以上）、ポリシーのGT入力は維持したまま、生成された視覚履歴を使って推定器の教師あり学習を開始します。\n- **Stage 3**: 回避成功率が90%を超えた段階で、ポリシーのアクターへの入力を推定器の出力へと切り替えます。こうして知覚誤差や遅延に適応させます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "訓練環境の条件範囲（i）と3段階カリキュラムの流れ（ii）です。投球距離2.5〜5.0 m、速度6〜10 m/sの多様な条件で訓練し、安定した制御ポリシーができてから推定器の学習と入力切り替えを行うことで、学習の破綻を防いでいます。",
+     "caption": "Fig. 2: Simulation environment and three-stage curriculum. (i) Each episode samples launch distance, speed, yaw, height, and torso target from the shown ranges, and the ball alternates among rest, launched, and absent phases. (ii) Stage 1 trains the policy with ground-truth (GT) ball position and threat flag. Stage 2 starts supervised estimator training after the episode length exceeds 900 steps while the actor retains these GT inputs. Stage 3 feeds the estimated ball position and threat flag to the actor after dodge success exceeds 0.9; the critic retains privileged training inputs.",
+     "image": "details/2611.01197/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "知覚インターフェースの詳細です。（i）シミュレーションでは球体と視線の接線から解析的にバウンディングボックスを直接算出。（ii）実機搭載カメラ映像からYOLOv8を学習。（iii）313枚の検証データにおいてmAP@0.5が99.5%と高い精度を達成しています。",
+     "caption": "Fig. 3: Perception interface. (i) The simulated ball is transformed into the camera frame and projected analytically from tangent rays. (ii) Hardware data are collected from the onboard camera and labeled for a single ball class. (iii) Validation performance of the fine-tuned detector.",
+     "image": "details/2611.01197/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV EXPERIMENTS",
+   "heading_ja": "実機で85%以上の回避率と連続ループを達成",
+   "summary_ja": "解析投影により観測生成が最大259倍に高速化され、シミュレーション評価では距離5.0 m・時速6 m/sで97%以上の回避率を記録しました。Unitree G1実機でも85%以上の回避に成功し、探索から回避を繰り返す一連のシーケンスを実証しました。",
+   "details_ja": "### IV-A & IV-B 知覚系の精度と圧倒的な効率\n画像レンダリングと幾何学的な解析投影を比較した結果、解析投影は並列環境数を1から64に増やしても処理時間が約0.5 msとほぼ一定でした。一方でレンダリングベースの手法は並列数32で123.67 msに達し、64環境ではGPUメモリ不足でクラッシュしました。解析投影により観測生成速度が10.2〜259.7倍に向上し、GPUメモリ消費も大幅に抑えられています。\n\n### IV-C & IV-D 推定器の精度とカリキュラムの有効性\n実機のYOLOv8出力に含まれるノイズレベルを測定したところ、シミュレーションで設定した「小ノイズ（中心標準偏差2ピクセル程度）」に近い値でした。アブレーション実験では、提案した3段階カリキュラム（Full Stages）が90.8%の回避成功率を達成したのに対し、最初から推定値を使って学習させた場合（Direct Training）は成功率が大きく低下しました。制御の基礎を固めてから知覚と結合する重要性が数値で裏付けられています。\n\n### IV-E システム全体のシミュレーションおよび実機検証\nシミュレーションでの厳密な評価（各条件1000投球）では、距離5.0 m・速度6 m/sの条件で97.8〜100.0%の回避成功率を達成しました。最も過酷な距離2.5 m・速度10 m/s（到達猶予時間わずか0.25秒）でも33.2〜40.8%の成功率を維持しました。\n\nUnitree G1実機を用いた検証では、外部トラッキングを一切使わず、車載カメラと50 Hzの関節制御のみで15回以上の単発投球に対して85%以上の回避成功率（非接触かつ非転倒）を記録しました。さらに、投球者を追従してボールを回避し、その後360度旋回して視界外へ移動した相手を再探索・追従し、2投目を再び回避するという一連の連続行動ループを実機で成功させました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "解析的投影とレンダリングによるバウンディングボックス生成の比較です。左のグラフが示す通り、環境数が増えても計算時間とメモリ使用量が劇的に低く抑えられ、右の表の通り中心誤差1ピクセル未満・IoU 0.91以上と高い忠実度を保っています。",
+     "caption": "Fig. 5: Analytic projection compared with Isaac Lab rendering-based 2D bounding boxes. Left: computation time and peak GPU memory as the number of camera environments increases. Right: center, size, and IoU agreement over a $3\\times 3$ image grid. The measured speedup applies to observation generation rather than complete policy training.",
+     "image": "details/2611.01197/F5.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "投球速度（6 m/s、10 m/s）と距離（5.0 m、2.5 m）、進入角度（左・中央・右）ごとのシミュレーション評価結果です。到達時間が0.25秒と極めて短い至近距離・高速条件でも、推定器の誤差拡大を抑えつつ回避動作を行えていることが分かります。",
+     "caption": "Fig. 4: Controlled policy and estimator evaluation at 6 and 10 m/s. Columns denote left, center, and right approach-yaw bins; rows denote launch distances of 5.0 and 2.5 m. Across the displayed conditions, dodge success ranges from 33.2% to 100.0%, relative-position error from 0.162 to 0.478 m, and threat recall from 0.636 to 0.867.",
+     "image": "details/2611.01197/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V CONCLUSION",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "車載単眼カメラのみを用いたヒューマノイドの高速飛来物回避と再補足システムを提案し、シミュレーションおよび実機Unitree G1でその有効性を実証しました。厳しいセンシング・運動制約下における自律ヒューマノイドの俊敏な行動基盤を確立しました。",
+   "details_ja": "本研究は、車載単眼カメラの視覚情報と時系列推定、そして深層強化学習による全身制御を組み合わせることで、ヒューマノイドロボットが自律的に飛来物を回避し、バランスを回復し、さらに次の脅威を見つけ出す完全な閉ループシステムを実現しました。\n\n特に、画像描画を幾何学投影に置き換える高速な並列学習設計と、制御学習と推定器学習を段階的に結びつけるカリキュラム設計は、センサノイズと激しい全身運動が絡み合う動的タスクにおいて極めて有効であることが示されました。\n\n至近距離からの超高速投球への対応や、ボールサイズの事前知識への依存といった課題は残るものの、外部機器に依存しない真のオンボード自律型ヒューマノイドの実現に向けた大きなマイルストーンとなる成果です。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "画像レンダリングの代わりに球体の幾何学的接線から解析的にバウンディングボックスを計算することで、シミュレーション訓練の観測生成速度が最大250倍以上高速化する。",
+  "制御系と推定系が相互に依存するダイナミックタスクでは、まず特権情報で安定した動作を獲得してから推定器を導入するカリキュラムが不可欠である。",
+  "激しい回避運動でカメラ視界がブレる実機環境でも、適切なノイズ注入と時系列推定を行えば、単眼RGBカメラ1台で85%以上の全身回避成功率を達成できる。"
+ ],
+ "limitations_ja": [
+  "単眼カメラから奥行きを逆算するためにボールの物理的なサイズ（半径）が既知であるという前提を置いており、未知のサイズの飛来物では位置推定精度が低下する。",
+  "学習されたポリシーが特定の方向への回避動作に偏る傾向があり、飛来方向に応じた多彩な回避ステップの使い分けにはさらなる方策蒸留などが必要である。",
+  "胴体カメラが激しく動くため、探索時の高速旋回によってモーションブラーが発生し、物体の検出漏れを引き起こすトレードオフが存在する。"
+ ],
+ "keywords": [
+  "Humanoid Robot",
+  "Dynamic Obstacle Avoidance",
+  "Monocular Vision",
+  "Reinforcement Learning",
+  "Whole-Body Control",
+  "Sim-to-Real"
+ ],
+ "id": "2611.01197",
+ "title": "Learning Agile Humanoid Dodgeball with Onboard Monocular Vision",
+ "authors": [
+  "Feng Tian",
+  "Yulin An",
+  "Chenhao Li",
+  "Matthias Heyrman",
+  "Marco Hutter"
+ ],
+ "date": "2026-11-03",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "reinforcement-learning",
+  "control",
+  "locomotion"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.01197",
+ "pdf_url": "https://arxiv.org/pdf/2611.01197",
+ "summary_ja": "接近する物体を回避しつつバランスを保つヒューマノイドの運動制御システムを提案。単眼カメラからの時系列画像からボール状態と脅威フラグを予測し、3段階カリキュラムRLで学習した回避・復帰方策と探索・追従方策を組み合わせて実機で素早い全身回避を実現した。",
+ "generated": "2026-11-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.01197"
+}
