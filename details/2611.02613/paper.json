@@ -1,0 +1,159 @@
+{
+ "title_ja": "MAPO: 汎用ヒューマノイド動作追従のための交互方策最適化を用いたMoE",
+ "tldr_ja": "MoE方策をPPOで強化学習すると方策ダイバージェンスの推定狂いが生じる問題を解明し、ルーターとエキスパートを交互に最適化する「MAPO」によって極めて高精度で多彩なヒューマノイド全身運動追従を実現しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "MAPOによって実機ヒューマノイド（Unitree G1）およびシミュレータ上で多様な全身動作を高精度に追従できている様子です。PPOを用いたMoEでは転倒してしまう空中座り・急旋回・深屈伸・片足スピンなどの難度の高い動作を、MAPOは安定して成功させています。",
+  "caption": "Figure 1: MAPO resolves the divergence misestimation problem that hinders policy-gradient training of MoE policies, enabling effective humanoid motion tracking. Consequently, MAPO successfully tracks a wide variety of human motions, including complex whole-body motions, such as (a) sitting in mid-air, (b) abrupt full-body turns, (c) deep crouching, and (d) one-footed spinning. Red spheres denote the reference motion targets.",
+  "image": "details/2611.02613/F1.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットに人間のような多彩なタスクをこなさせるためには、歩行やジャンプだけでなく、しゃがみや旋回といった膨大なバリエーションの全身運動を忠実に再現する「万能な動作追従技術」が欠かせません。この多様な動作を1つのニューラルネットワークで学習しようとするとタスク間の干渉が起きてしまうため、複数のサブネットワーク（エキスパート）をゲート（ルーター）が動的に重みづけして切り替える「Mixture of Experts（MoE）」の採用が注目されてきました。\n\nしかし、MoE方策を標準的なPPOなどの方策勾配法で学習させると、期待通りに性能が伸びないという壁にぶつかります。本論文の著者らは、その原因が「方策の乖離（ダイバージェンス）の誤推定」にあることを突き止めました。PPOは学習の安定化のために新旧方策の乖離度合い（KLダイバージェンス）をクリッピング機構で制限しますが、MoEでは「エキスパートの変化」と「ルーターの重み変化」が掛け合わさるため、全体の乖離が見かけ上過大または過小に評価されてしまうのです。過大評価されると必要な更新がブロックされて学習が停滞し、過小評価されると過激な更新によって学習が不安定化します。\n\nそこで著者らは、ルーターとエキスパートを交互に切り離して最適化する極めてシンプルかつエレガントな手法「MAPO（Mixture of Experts with Alternating Policy Optimization）」を提案しました。片方のコンポーネントを更新する間、もう片方の出力をデータ収集時の値に固定することで、それぞれの変化量を正確に測定して適切なクリッピングを行います。大規模モーションキャプチャデータを用いたヒューマノイド動作追従タスクにおいて、MAPOは従来のMoE+PPOでは追従できなかった182種類もの高難度動作を安定して再現し、実機ロボット（Unitree G1）への蒸留デプロイでも卓越した運動追従性能を実証しました。",
+ "contributions_ja": [
+  "MoE構造の方策を方策勾配法で学習する際に、ルーターとエキスパートの干渉によって新旧方策のKLダイバージェンスが過大・過小推定される現象を理論的・実験的に解明したこと。",
+  "ルーターとエキスパートを交互に固定してそれぞれの変化量を正確に評価・クリッピングする新アルゴリズム「MAPO」を提案したこと。",
+  "大規模な人体モーションデータセットを用いたヒューマノイド動作追従において、追従成功率の大幅向上と誤差の削減を達成し、実機ロボットへの展開にも成功したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜヒューマノイドの動作学習にMoEが必要で、なぜ失敗していたのか",
+   "summary_ja": "多様な全身動作を1つの方策で学習するとタスク間干渉が起きるためMoEの導入が期待されますが、既存の方策勾配法で学習すると更新の乖離度合いを誤認する問題が生じます。本研究はこの「ダイバージェンス誤推定」を解決する新手法MAPOを提案します。",
+   "details_ja": "ヒューマノイドロボットは人間と同じような身体構造を持つため、人間環境で多種多様な作業を行うことが期待されています。強化学習（RL）の発展により歩行やパルクールなどの単一スキルは実現されてきましたが、日常のあらゆる動作を再現する「万能な動作トラッカー」を作るには、大規模なモーションキャプチャデータセットから多様な動きを一括して学ばせる必要があります。\n\nしかし、単一の巨大ネットワーク（モノリシックな方策）に多種多様な動作を同時に学習させると、動作モード同士が互いに悪影響を及ぼし合う「タスク間干渉」が発生します。特に似たような姿勢から全く異なる動きに分岐するような局面では、この干渉が深刻化します。そこで、状況に応じて複数のサブネットワーク（エキスパート）をルーターが重みづけ合成する「Mixture of Experts（MoE）」が極めて有効な解決策となります。\n\nところが、MoE構造の方策をロボティクスで標準的なPPOなどの手法で学習させると、なぜかうまく性能が伸びません。著者らはその根本原因が「ダイバージェンス誤推定（Divergence Misestimation）」にあることを発見しました。PPOは方策の急激な破壊を防ぐために新旧方策の乖離（KLダイバージェンス）を測定して更新幅を制限（クリッピング）しますが、MoEでは合成後の分布を見るため、エキスパートとルーターの各変化が干渉し、真の変化量が正しく測れなくなってしまうのです。\n\nこの問題を解決するため、本論文ではルーターとエキスパートを交互に独立して最適化するMAPOを提案します。各コンポーネントの変化を個別に監視することで適切な信頼領域を保ち、MoEの真の表現力を引き出すことに成功しました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "MAPOによって多様な全身動作を高精度に追従できている様子です。PPOを用いたMoEでは姿勢を崩して転倒してしまう難度の高い動作（空中座り、急旋回、深屈伸、片足スピンなど）を、MAPOは安定して追従できています。",
+     "caption": "Figure 1: MAPO resolves the divergence misestimation problem that hinders policy-gradient training of MoE policies, enabling effective humanoid motion tracking. Consequently, MAPO successfully tracks a wide variety of human motions, including complex whole-body motions, such as (a) sitting in mid-air, (b) abrupt full-body turns, (c) deep crouching, and (d) one-footed spinning. Red spheres denote the reference motion targets.",
+     "image": "details/2611.02613/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "強化学習におけるMoEとヒューマノイド全身制御の歩み",
+   "summary_ja": "マルチタスクRLにおけるMoEの有効性や、人型ロボットの動作模倣に向けた近年の研究を整理します。既存研究はモデル構造の工夫に集中しており、方策勾配法との組み合わせによる学習ダイナミクスの破綻は見落とされていました。",
+   "details_ja": "本章では、関連する先行研究を大きく2つの系統に分けて整理しています。\n\n### 強化学習におけるMixture of Experts\nMoEは近年、大規模言語モデル（LLM）のスケールアップで脚光を浴びていますが、もともとは機械学習の古典的な手法です。強化学習の文脈でもマルチタスク学習を中心に研究されてきました。一部のエキスパートのみを選ぶ「スパースMoE」は計算効率に優れるもののルーティングが微分不可能であり、エンドツーエンドの強化学習が難しいという難点があります。一方で、全エキスパートの出力を連続的な重みで足し合わせる「デンス（全結合型）MoE」は完全に微分可能であり、近年の研究でも高い性能が報告されています。しかし、これまでの研究はいずれもネットワーク構造の設計に終始しており、方策勾配法と組み合わせたときに生じる最適化の歪みには誰も踏み込んでいませんでした。\n\n### ヒューマノイドの万能全身制御\n四肢ロボットや脚式マニピュレータでは目標速度などの低次元指令で十分な制御が可能でしたが、自由度の高いヒューマノイドで自然かつ多様な全身動作を生成するには、人間動作データの模倣学習（DeepMimic系のアプローチ）が必須です。近年は大規模データから全身追従ポリシーを学習し、シミュレータから実機へ展開する試みが急速に進んでいます。その表現力強化のためにMoEを採用する事例（CLONE、KungfuBot2、GMT、FASTなど）も現れ始めましたが、標準的なPPOを用いた学習プロセスそのものに起因する最適化の欠陥については見逃されたままでした。",
+   "figures": []
+  },
+  {
+   "heading": "3 Background: Mixture of Experts with Policy Gradient",
+   "heading_ja": "前提知識：PPOのクリッピング機構と信頼領域の数理",
+   "summary_ja": "強化学習の定式化と、学習の安定化を支えるPPOの信頼領域メカニズムを解説します。PPOのクリッピングは、新旧方策のKLダイバージェンスを理論的に一定範囲内へ収める役割を果たしています。",
+   "details_ja": "本研究の土台となる強化学習と方策勾配アルゴリズムの仕組みをおさらいします。\n\n### 3.1 強化学習の基本\nマルコフ決定過程（MDP）において、状態 $s$ に基づいて行動 $a$ を出力する確率的方策 $\\pi(a|s)$ を学習し、将来にわたる累積報酬の期待値を最大化することを目指します。\n\n### 3.2 方策勾配法とPPOのクリッピング\n方策を直接勾配法で最適化する際、一度の更新幅が大きすぎると性能が致命的に崩壊します。TRPOはこの問題を解決するため、新旧方策間のカルバック・ライブラー（KL）ダイバージェンスに制限をかける「信頼領域」を設けました。しかしTRPOは2次最適化を伴うため計算が非常に重いという課題がありました。\n\nそこで広く普及したのがPPO（Proximal Policy Optimization）です。PPOは重要度サンプリング比率 $r_t = \\frac{\\pi^{\\text{new}}(a_t|s_t)}{\\pi^{\\text{old}}(a_t|s_t)}$ を $[1-\\epsilon, 1+\\epsilon]$ の範囲にクリッピングするサロゲート目的関数を採用しています。この単純なクリッピングによって、実はKLダイバージェンスが $O(\\epsilon^2)$ のオーダーに抑えられ、暗黙的な信頼領域が形成されることが数学的に示されています。つまり、「比率をクリップすること」と「方策の変化量を正しく縛ること」がPPOの安定性の生命線となっています。",
+   "figures": []
+  },
+  {
+   "heading": "4 Divergence Misestimation in Mixture-of-Experts Policy Optimization",
+   "heading_ja": "核心の発見：なぜMoEでは方策の変化量が狂ってしまうのか？",
+   "summary_ja": "MoE方策のKLダイバージェンスを展開すると、エキスパート変化とルーター変化の内積項（干渉項）が現れることを示します。この項の符号によって更新幅の過大評価や過小評価が不可避に発生します。",
+   "details_ja": "ここでは、本論文の最も重要な理論的洞察である「ダイバージェンス誤推定」のメカニズムが数式とともに明らかにされます。\n\n平均値がデンスMoEで表現されたガウス方策 $\\pi(a|s) = \\mathcal{N}\\left(\\sum_{e=1}^N w_e \\mu_e, \\sigma^2 I\\right)$ を考えます。新旧方策の平均値の差を分解すると、エキスパート側の変化 $d_\\mu = \\sum w_e^{\\text{old}}(\\mu_e^{\\text{new}} - \\mu_e^{\\text{old}})$ と、ルーター側の変化 $d_w = \\sum (w_e^{\\text{new}} - w_e^{\\text{old}})\\mu_e^{\\text{new}}$ に切り分けることができます。\n\nこのとき、方策全体の実測KLダイバージェンス $\\text{KL}_{\\text{measured}}$ を計算すると、次の関係が成り立ちます：\n\n$$\\text{KL}_{\\text{measured}} = \\text{KL}_{\\text{expert}} + \\text{KL}_{\\text{router}} + \\frac{1}{\\sigma^2} d_w \\cdot d_\\mu$$\n\n問題はこの最後のクロス項 $\\frac{1}{\\sigma^2} d_w \\cdot d_\\mu$ です。各コンポーネントが実際に変化した量の総和（$\\text{KL}_{\\text{expert}} + \\text{KL}_{\\text{router}}$）に対して、内積項が正になると**過大評価（Overestimation）**、負になると**過小評価（Underestimation）**が起きてしまいます。\n\n- **過大評価が起きると：** 各コンポーネントの更新自体は安全な範囲内であるにもかかわらず、全体のKLが見かけ上大きくなりすぎてPPOのクリッピングに引っかかります。その結果、必要な学習が阻止されて極めて保守的になり、性能が頭打ちになります。\n- **過小評価が起きると：** コンポーネントが危険なほど激しく更新されているのに、互いの変化が打ち消し合って全体のKLが小さく見えてしまいます。クリッピングが機能せず、方針が崩壊して学習が不安定化します。\n\nこの内積の正負はルーターとエキスパートの勾配の向きに依存するため、PPOのクリッピング幅 $\\epsilon$ を微調整するだけでは根本的に防ぐことができません。",
+   "figures": []
+  },
+  {
+   "heading": "5 Mixture of Experts for Universal Humanoid Motion Tracking",
+   "heading_ja": "提案手法MAPO：ルーターとエキスパートを交互に更新する処方箋",
+   "summary_ja": "コンポーネントを片方ずつ固定して変化率を測ることで誤推定を排除するアルゴリズム「MAPO」を提案します。さらに特権情報を用いたTeacher方策から実機展開用のStudent方策への蒸留フレームワークを構築しました。",
+   "details_ja": "誤推定をなくす最も素朴なアイデアは、データ収集時のルーター重みをそのまま固定して学習することですが、それではルーター自体が強化学習の報酬で賢くなりません。そこで考案されたのがMAPOです。\n\n### 5.1 MAPOの更新メカニズム\nMAPOの着想は「交互最適化」です。エキスパートを更新するときはルーター重みをロールアウト時の値 $w^{\\text{old}}$ に固定し、ルーターを更新するときはエキスパート出力をロールアウト時の値 $\\mu^{\\text{old}}$ に固定します。それぞれの変化率比率を個別に計算します：\n\n- エキスパート用比率：$r_{\\text{expert}} = \\frac{\\mathcal{N}(\\sum w_e^{\\text{old}} \\mu_e^{\\text{new}}, \\sigma^2 I)}{\\mathcal{N}(\\sum w_e^{\\text{old}} \\mu_e^{\\text{old}}, \\sigma^2 I)}$\n- ルーター用比率：$r_{\\text{router}} = \\frac{\\mathcal{N}(\\sum w_e^{\\text{new}} \\mu_e^{\\text{old}}, \\sigma^2 I)}{\\mathcal{N}(\\sum w_e^{\\text{old}} \\mu_e^{\\text{old}}, \\sigma^2 I)}$\n\nこれにより、それぞれの更新量を正確にPPOサロゲート損失でクリッピングできます。なお「交互」といっても別々のステップで環境を回す必要はなく、1回のロールアウトデータから両方の勾配を独立して計算するため、計算効率も損なわれません。\n\n### 5.2 教師・生徒（Teacher-Student）蒸留フレームワーク\n実機へ安全に展開するため、2段階の学習パイプラインを採用しています。\n\n- **Teacher方策の学習：** ロボット各リンクの線形速度や参照動作の未来フレーム情報など、実機では直接計測できない特権情報（Privileged Information）をふんだんに与え、MAPOを用いてMoE構造のTeacherを学習させます。\n- **Student方策への蒸留：** 実機センサ（関節角度、角速度、IMUなど）のみを入力とする単一の小型ネットワーク（Student）を用意し、DAggerを用いてTeacherの行動を模倣学習（蒸留）させます。これにより、実世界環境への高い適応力を実現します。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "MAPOとPPOの更新挙動の比較です。過大評価が起きた場合、PPO（b）は適切な更新まで誤ってクリップしてしまいますが、MAPO（a）は成分ごとに正しく更新します。過小評価の場合、PPO（d）は過剰な更新を見逃してしまいますが、MAPO（c）は危険な更新を確実にクリップします。",
+     "caption": "Figure 3: Comparison of update mechanisms between MAPO and PPO. Pink, blue, and blue-green indicate the router, experts, and mixed policy, respectively. The bars in the center show the magnitudes of each component and the mixed policy. The shaded regions show the implicit trust regions induced by clipping. (a, c) MAPO measures the KL divergence of each component separately, allowing proper regulation of the updates. (b, d) In contrast, because PPO measures the KL divergence of the mixed policy, the clipping mechanism may fail to regulate the updates properly.",
+     "image": "details/2611.02613/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Experiments",
+   "heading_ja": "実験結果：圧倒的な追従性能とエキスパートの真の専門化",
+   "summary_ja": "シミュレータおよび実機Unitree G1を用いて比較評価を行いました。MAPOは従来手法と比べて高い成功率と最小の誤差を記録し、難関動作182種類でPPOに大差をつけるとともに、実機でも見事な追従を達成しました。",
+   "details_ja": "検証はIsaac Labシミュレータ環境（4096並列、GPU 1台）および実機ヒューマノイドロボット「Unitree G1（29自由度）」で行われました。AMASSとLAFAN1を訓練データ、OMOMOを評価用データとして使用しています。\n\n### 追従性能の比較\n追従成功率（全編にわたり平均位置誤差0.5m未満を維持できる確率）や位置・速度誤差などの指標で比較した結果、MAPOは訓練・テストデータの双方で、単一ポリシのPPO、MoE版PPO、ルーター固定版MAPO、先行研究のHOVERやTWIST 2を大きく上回る最高スコアを獲得しました。エキスパート数を変えたアブレーションでも、一貫してPPO版MoEより優れた性能を示しています。\n\n特に顕著だったのは動作ごとの成功比較です。PPO版MoEが全5回の試行で失敗し、MAPOが一貫して成功した動作が182種類も存在したのに対し、その逆はわずか1種類しかありませんでした。宙に浮いたような姿勢での静止、急激な全身ターン、深いしゃがみ込みなど、全身の緻密な協調が必要な動作で決定的な差がついています。\n\n### なぜMAPOでエキスパートの専門化が進むのか？\nMoEの各エキスパートが役割分担（専門化）するためには、ルーターが状況に応じて特定の重みを鋭く尖らせる（シャープにする）必要があります。しかしPPOでは、重みを大きく動かそうとすると過大評価によるクリッピングが働いてしまい、ルーターの更新が阻害されていました。MAPOはこの制限を解除するため、ルーターの重みが適切に先鋭化し、エキスパート間の出力の多様性（L2距離）が大幅に向上していることが確認されました。\n\n### 各種アブレーション実験\nクリッピング幅 $\\epsilon$ や学習率、エントロピー正則化係数を様々に変更した実験でも、MAPOの優位性は揺らぎませんでした。単に更新の余裕が広がったから強いのではなく、「個別に正しくクリッピングしていること」そのものが本質的であることが裏付けられています。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "(a) 報酬の学習曲線。MAPOは既存ベースラインを大幅に引き離す高い報酬を獲得しています。(b) 入力全体で平均したルーター重みの順位別分布。(c) エキスパート間の出力距離の差（MAPO $-$ PPO）。正の値（青）が多いほど、MAPOの方がエキスパートごとの出力に多様性が生まれ、専門化が進んでいることを示します。",
+     "caption": "Figure 4: (a) Reward learning curves. MAPO achieves substantially higher rewards than the baselines. (b) Sorted mixing weights of MAPO and PPO, averaged at each rank across inputs. The misestimation of PPO prevents the mixing weights from sharpening. (c) Difference in pairwise expert output distances (MAPO $-$ PPO). Positive entries indicate higher expert diversity in MAPO.",
+     "image": "details/2611.02613/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "各種ハイパーパラメータに対する頑健性の検証です。(a) クリッピング幅 $\\epsilon$、(b) エントロピー係数、(c) 固定学習率、(d) PPOの各種正則化バリアント。どのような条件下でもMAPOの一貫した優位性が確認できます。",
+     "caption": "Figure 5: (a) Clipping parameter $\\epsilon$ sweep. (b) Entropy coefficient sweep. (c) Fixed learning rate ablation. (d) Variants of PPO with MoE using a default learning rate of $10^{-4}$ .",
+     "image": "details/2611.02613/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "7 Conclusion",
+   "heading_ja": "まとめ：MoE強化学習の最適化課題を解き、ヒューマノイドの可能性を拓く",
+   "summary_ja": "本研究はMoE方策のダイバージェンス誤推定という構造的問題を明らかにし、交互最適化を行うMAPOによってそれを克服しました。多彩な全身動作を高精度に再現し、実機への蒸留配備までを実証しました。",
+   "details_ja": "本論文では、ヒューマノイドロボットによる万能な動作追従を目指し、MoE方策を方策勾配法で学習する際に生じる根本的な不具合「ダイバージェンス誤推定」を同定・定式化しました。\n\n提案されたMAPOは、ルーターとエキスパートを交互に固定して勾配を計算するという極めて簡潔な工夫により、誤推定を綺麗に排除します。その結果、PPOのクリッピング機構が本来の安全弁として正しく機能し、エキスパートの明確な役割分担と高い追従性能が引き出されました。シミュレーション上での膨大なモーションデータの学習のみならず、実機Unitree G1へ蒸留したポリシーでもスクワットやお辞儀といったバランス要求の高い動作をスムーズに実演できており、今後のヒューマノイド全身制御の標準的な学習基盤となり得る成果です。",
+   "figures": []
+  },
+  {
+   "heading": "8 Limitations",
+   "heading_ja": "本研究の限界と今後の課題",
+   "summary_ja": "エキスパートの専門化をさらに強制する仕組みの不足や、固定分散かつデンスルーティングを前提とした理論解析のスコープが課題として挙げられています。",
+   "details_ja": "著者らは論文の限界として以下のポイントを率直に認めています。\n\n- **エキスパート専門化の能動的促進：** MAPOはPPOによる更新阻害を解消することで自然な専門化を促しますが、エキスパート間の行動を明示的に差別化するような補助損失（教師なしスキル発見などで使われる相互情報量最大化など）は組み込まれていません。\n- **理論解析の前提条件：** 本研究の数理的分析は、全結合型のソフトマックスルーティングを採用し、分散 $\\sigma$ が更新ステップ内で固定されているガウス方策を対象としています。エキスパートごとに分散を個別に学習する場合や、トップ $k$ 個のみを選ぶスパースMoEの場合の挙動解析は今後の課題として残されています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：勾配のバイアス解析と各エキスパートの役割分担",
+   "summary_ja": "交互最適化がもたらす勾配バイアスの理論的影響を評価し、学習された各エキスパートが歩行・しゃがみ・バランス回復・転倒処理などの動作タイプ別に見事に特化していることを確認しています。",
+   "details_ja": "付録では、理論的裏付けと追加の詳細分析が述べられています。\n\n### 交互最適化に伴う勾配バイアスの解析\nMAPOは完全な更新後の方策ではなく、片方を固定した中間的な方策で勾配を計算するため、数学的には真の勾配に対してバイアスが生じます。解析の結果、エキスパート側のパラメータについては各ブロックのスケーリングが変わるだけであり、真の勾配の停留点（勾配がゼロになる点）が完全に保存されることが証明されています。また、ルーター側の勾配に生じる方向のズレ（回転角）も、エキスパート間の更新差の分散によって抑え込まれており、実用上極めて安定して最適化が進むことが示されました。\n\n### エキスパートの動作別アクティベーション\n学習完了後の各エキスパート（E1〜E6）の活性化状況を分析したところ、非常に興味深い住み分けが確認されました：\n\n- **E2：** 通常の歩行および立位での上半身動作全般を担当。\n- **E4・E5：** 歩行の特定の位相（ストライドの進行など）でE2を支援。\n- **E1：** 主にしゃがみ込み（スクワット）動作で強く発火。\n- **E3：** 姿勢が大きく崩れた際のバランス回復動作を担当。\n- **E6：** どうしても回避できない転倒動作の際に活性化。\n\nデータセットを人手で選別（キュレーション）していないため、ロボットの身体構造上どうしても追従不可能な破綻動作も含まれています。そうした無理な動作をE6が一手に引き受けることで、他のエキスパートが正常な動作の学習に集中できるという、MoEならではの優れた防護壁効果が生まれていることがわかりました。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "動作タイプごとのエキスパート活性化（重み）の割合です。(a) 歩行ではE2、(b) しゃがみではE1、(c) バランス回復ではE3、(d) 転倒時にはE6が中心となって機能しており、直感的な役割分担が自然に獲得されていることが分かります。",
+     "caption": "Figure D.1: Per-expert activation according to the motion type.",
+     "image": "details/2611.02613/F7.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "MoE方策にPPOなどのクリッピング付き方策勾配法を素朴に適用すると、新旧方策のKLダイバージェンスが誤推定され、学習の停滞や破綻を招く。",
+  "ルーターとエキスパートを別々に固定してサロゲート損失を計算する「交互最適化」により、余計な計算コストをかけずに誤推定を解消できる。",
+  "更新の不当なブロックがなくなることでルーター重みがシャープになり、エキスパートの自律的な専門化（歩行、しゃがみ、転倒対応など）が劇的に促進される。",
+  "大規模な未キュレーションデータから万能な動作制御器を学習する際、特権情報教師MoEから生徒への蒸留が実機展開において極めて実用的である。"
+ ],
+ "limitations_ja": [
+  "スパースMoE（トップk選択）やエキスパートごとの分散学習設定に対する理論的保証はまだ網羅されていない点。",
+  "エキスパートの差別化が強化学習の報酬に完全に委ねられており、明示的なスキル発見損失などは未導入である点。",
+  "物理的に不可能な動作をE6などの特定エキスパートが吸収しているものの、データセット自体の体系的な選別が行われているわけではない点。"
+ ],
+ "keywords": [
+  "Humanoid Robots",
+  "Reinforcement Learning",
+  "Mixture of Experts",
+  "Policy Optimization",
+  "Motion Tracking"
+ ],
+ "id": "2611.02613",
+ "title": "MAPO: Mixture of Experts with Alternating Policy Optimization for Universal Humanoid Motion Tracking",
+ "authors": [
+  "Seonghyeon Lim",
+  "Hyeonwoo Lee",
+  "Mincheol Kim",
+  "Kimin Lee",
+  "Hyun Myung"
+ ],
+ "date": "2026-11-03",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "reinforcement-learning",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.02613",
+ "pdf_url": "https://arxiv.org/pdf/2611.02613",
+ "summary_ja": "ヒューマノイドの多様な動作追従におけるMoE方策の学習課題に対処する手法。動的ルーティングにより方策勾配法で発生する新旧方策の乖離推定エラーを解消するため、ルーティングとエキスパートパラメータを交互に更新するMAPOを提案し、追従性能の大幅な向上を示した。",
+ "generated": "2026-11-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.02613"
+}
