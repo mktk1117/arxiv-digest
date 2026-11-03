@@ -1,0 +1,147 @@
+{
+ "title_ja": "Anchor 1: 全身マニピュレーションのための高精度かつ安定なヒューマノイド制御",
+ "tldr_ja": "骨盤と両手首・両足首の「5点」だけに絞ったスパース目標と、動作表現から切り離した明示的な誤差フィードバックにより、オンラインリターゲティングなしで極めて高精度かつ転倒しない全身マニピュレーション制御を実現しました。",
+ "hero_figure": {
+  "key": "F10",
+  "caption_ja": "Anchor 1のシステム全体像です。(A) 人体モーションから幾何キャリブレーションで5点スパース参照を作り、オフラインでリターゲティングしたロボットデータとペア化して品質選別します。(B) 動作エンコーダでトークン化しつつ、追従誤差を直接デコーダに渡す誤差分離型構造を採用しています。(C) 実機デプロイ時はテレオペと上位ポリシー（VLA）の両方から柔軟に指令を受け取れます。",
+  "caption": "Figure 10: Overview of Anchor 1. (A) Human motion $H$ is calibrated to obtain $H^{\\prime}$ and retargeted offline to obtain robot references $R$ ; quality control retains matched pairs and shapes the training distribution. (B) The motion encoder produces tokens for control and target reconstruction. A target selector chooses supplied or reconstructed poses for explicit error feedback, which enters the control decoder alongside robot state. Future prediction is used for training only. (C) Teleoperation supplies sparse motion references; higher-level policies can supply sparse references (Mode 1) or motion tokens (Mode 2). …",
+  "image": "details/2611.00193/F10.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットによる全身マニピュレーション（体全体を使った作業）は、ロボティクスにおける長年の夢ですが、同時に極めてシビアな課題でもあります。低い棚の奥に手を伸ばすとき、バランスを崩して意図しない一歩を踏み出してしまうだけで、手先がずれて作業は失敗してしまいます。つまり、手足先を高精度に目標位置へ届かせる「精度」と、動作中に足元が滑ったりよろけたりしない「安定性」を両立させなければなりません。\n\n従来の学習ベースの全身制御では、人間の動作をロボットの関節空間へ変換する「オンラインリターゲティング」に頼るか、潜在的な動作トークンに圧縮してロボットに渡すアプローチが主流でした。しかし前者は変換誤差による急激な関節指令の破綻を招きやすく、後者は圧縮によってミリ単位の細かい位置ずれを修正するシグナルが失われるというジレンマを抱えていました。\n\nそこで著者らは、制御指令を「骨盤・両手首・両足首」の計5点の姿勢（スパース参照）に絞り込み、オンラインの関節変換を行わずに運動学的な冗長性を活かす新しい制御アーキテクチャ「Anchor 1」を考案しました。5点以外の自由度は、オフラインで厳選した高品質な全身動作データセットで学習させることで、物理的に自然で安定した姿勢へと誘導します。さらに、動作トークンの表現空間を汚さないよう、手足の追従誤差フィードバックをエンコーダから切り離してデコーダに直接入力する構造を導入しました。\n\nシミュレーションと実機（Unitree G1）による広範な評価の結果、Anchor 1は既存の最先端コントローラと比較して追従誤差を30%〜80%削減し、足元のステップやスリップも劇的に低減させました。テレオペレーションによるデータ収集効率も大幅に向上し、学習済みVLAポリシーによる自律作業でも高い成功率を実証しています。",
+ "contributions_ja": [
+  "オンラインの関節リターゲティングを排除し、幾何キャリブレーションされた5点のスパース目標姿勢から安定した全身協調動作を補完する制御フレームワークを提案した点",
+  "動作トークンの潜在表現を汚すことなく高精度な追従を実現するために、明示的な追従誤差フィードバックを動作エンコーディングから分離したアーキテクチャを確立した点",
+  "全身マニピュレーションに特化し、追従精度・持続的安定性・到達性を多面的に診断できる包括的な3トラックベンチマークを構築した点",
+  "実機ヒューマノイドにおいて、ミリ単位の高精度な手先作業、激しい全身協調動作、効率的な遠隔操作データ収集、自律的タスク実行を一貫して実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "全身マニピュレーションの壁：なぜ「手先の精度」と「足元の安定」は両立しにくいのか",
+   "summary_ja": "ヒューマノイドが日常環境で作業するには、手先・体幹・足元の精密な協調が不可欠ですが、小さな足踏みやスリップが作業全体の破綻につながります。既存手法が抱えるオンラインリターゲティングの破綻や、動作トークン圧縮による誤差修正能力の低下という根本課題を指摘し、本研究の狙いを整理しています。",
+   "details_ja": "ヒューマノイドロボットが人間向けの環境で働くためには、単に二足歩行ができるだけでなく、手先と足元を高精度に連動させる必要があります。例えば、低い棚に手を伸ばす動作では、手先の位置決めと姿勢・バランスの維持が強く連動します。また、お盆を水平に保ったまま運ぶには、足がステップを踏んでいる間も手先の姿勢をミリ単位で維持しなければなりません。ここで問題になるのが、ロボットが転倒しなくても、意図しない小さな一歩を踏み出したり足が滑ったりするだけで手先がターゲットから大きく外れてしまう点です。\n\n近年の強化学習を用いた全身制御は、人間のモーションキャプチャデータから多様な動作を学習することで大きく発展してきました。しかし、これを遠隔操作（テレオペ）や自律マニピュレーションに応用しようとすると、2つの大きな壁にぶつかります。\n\n第1に「指令の忠実な伝達」です。従来は操作者の動きをオンラインで逆運動学（IK）などを用いてロボットの関節空間へ変換（リターゲティング）するのが一般的でした。しかし、この計算でエラーや関節の不連続性が生じると、ロボットに予期せぬ衝撃が加わったり姿勢が崩れたりします。かといって、人間の骨格モデルをそのまま潜在トークンに圧縮して渡す方式では、操作者とロボットの体格比率の違いによって重要な手先軌道が歪んでしまいます。\n\n第2に「高精度な誤差修正」です。動作トークンを入力とするコントローラは上位ポリシーとの親和性が高いものの、手先の細かな位置ずれを修正するシグナルが圧縮によって隠れてしまいます。一方で、手先の位置誤差を明示的にフィードバックしようとして動作トークンの中に混ぜ込んでしまうと、目標動作そのものの表現と一時的な実行エラーが混ざり合い、上位ポリシーがトークンを予測・再利用することが難しくなります。\n\nこうした背景からAnchor 1では、オンライン関節リターゲティングを捨てて「幾何スケールを合わせた5点（骨盤・両手首・両足首）のスパースな目標姿勢」のみを入力とし、残りの関節の自由度はオフラインで選別したデータ分布で補完する設計をとりました。さらに、動作トークンと追従誤差フィードバックを綺麗に分離することで、上位ポリシーとの接続性とミリ単位の制御精度を両立させました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Results",
+   "heading_ja": "シミュレーションと実機で実証された圧倒的な精度・安定性・実用性",
+   "summary_ja": "独自ベンチマークを用いたシミュレーション比較、実機ロボット（Unitree G1）での追従性能評価、アブレーション検証、そして遠隔操作と自律タスクの実行結果を報告しています。既存の最先端手法を大きく上回る精度と安定性を確認し、データ収集効率や自律タスク成功率の大幅な向上を示しました。",
+   "details_ja": "### 2.1 & 2.2 ベンチマーク評価とシミュレーション結果\n評価は後述する3つのトラック（In-house、Public、Reachability）で実施し、ScaleBFM XL、SONIC v1.1、MimicLite v1.1と比較しました。In-houseトラックにおいて、Anchor 1（グローバル推論モード）はローカル成功率88.4%、グローバル成功率88.7%を記録し、比較対象の中で最も低いルート位置誤差と手足追従誤差を達成しました。特に歩行中の非対称な両手リーチング動作では、最強のベースラインであるScaleBFMが成功率57.0%にとどまったのに対し、Anchor 1は91.2%という圧倒的な安定性を示しました。走る・跳ぶなどの激しい動作を含むPublicトラックや、静止支持を保つReachabilityトラックでも、1動作あたりの平均スリップ数0.06回、不要な追加ステップ0.53回と、極めて安定した支持脚制御を示しました。\n\n### 2.3 実機ロボットにおける追従精度\n実機（Unitree G1）による検証では、手先リーチングを行うReachabilityサブセット（51動作）と、全身協調動作を含むIn-houseサブセット（72動作）で評価しました。Reachabilityサブセットにおいて、Anchor 1の手首・足首のグローバル位置誤差はそれぞれ44.58 mmと35.70 mmを記録しました。これは最強ベースライン（MimicLite）の53.59 mm、50.40 mmを有意に下回っています。しかも、MimicLiteがオンラインリターゲティングを必要とし先読み時間も0.08秒かかるのに対し、Anchor 1はリターゲティング不要かつ0.06秒の短い先読みで達成しています。同じくリターゲティング不要なSONIC-SMPLと比較すると、手首・足首の追従誤差を約73%も削減しました。さらにIn-houseサブセットでは、許容誤差10 cmという最も厳しい判定基準において、ベースラインに41.2ポイントの差をつけて最高の成功率を記録しました。\n\n### 2.4 設計の妥当性検証（アブレーション）\nなぜこれほど高い性能が出るのかを分解検証しています。まず、手先軌道の方向ベクトルの歪み（unit-PDV）を評価したところ、Anchor 1のスパース入力表現はSONICのSMPL入力に比べて歪みが80.2%少ないことが判明しました。また、オンラインリターゲティング（IKベースのGMRや点群ベースのUMR）が途中で関節の不連続性を起こして制御破綻するのに対し、Anchor 1は直接スパース姿勢を受け取るため極めて滑らかに動作を継続できます。\n制御アーキテクチャの比較では、明示的誤差フィードバックを「エンコーダ」ではなく「デコーダ」に直接入力することが極めて重要だと分かりました。エンコーダに入力するとグローバル成功率が落ちてしまいますが、デコーダに渡すことでグローバル成功率が70.9%から88.7%へと跳ね上がります。さらに、動作トークン間を補間する実験では、誤差を分離した構造のほうが関節角度RMSEが大幅に低く、自然な姿勢遷移を維持できることが確認されました。\n\n### 2.5 遠隔操作データ収集と自律作業タスク\nテレオペレーションの実証では、身長165〜188 cm、体重50〜80 kgの異なる操作者や、4種類のモビリティ・モーキャプ機器（Xsens、CHINGMU、PN-LINK、PICO VR）に対して、キャリブレーションパラメータの適用だけで破綻なく追従しました。「段ボール箱を蹴って枠内に入れるタスク」と「低い棚からスリッパを取り出して運ぶタスク」のデータ収集では、1時間あたりの成功デモ収集数がSONICの9回/41回から、Anchor 1では43回/62回へと劇的に増加しました（収集成功率はそれぞれ98.0%、97.4%）。\nさらに、収集したデータでVision-Language-Action（VLA）モデル「GR00T N1.7」を学習させた自律実行実験でも、Anchor 1はベースラインを大幅に上回るタスク成功率を達成しました。特に、トークンから復元した目標姿勢でフィードバックを行う「Recon. feedback」を用いることで、上位ポリシーから直接動作トークンを指令した場合でも高い成功率が維持されることが実証されました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "実機ヒューマノイドによる多彩な全身マニピュレーションの実証です。(A) 狭い通路での皿運びや炊飯器のボタン押し、手先での文字描きなどの精密作業、(B) バレーボールや転がるタイヤの高速迎撃、(C) 片膝立ちや深い前屈姿勢での物体ピッキングなど、姿勢安定性と高精度な手先制御を両立しています。",
+     "caption": "Figure 1: Anchor 1– Precise, responsive, and stable whole-body manipulation. (A) Precision. A.1 navigating a narrow passage; A.2 carrying a plate through a narrow passage; A.3 pressing a rice cooker button; and A.4 tracing characters with the end effector. (B) Low-latency response. B.1 accurately striking a fast-moving volleyball; and B.2 rapidly and precisely intercepting a narrow-profile tire. (C) Postural stability. C.1 holding a wooden stool and place it on the floor. C.2 bending to retrieve an orange in a narrow space; and C.3 picking up a water bottle while stably kneeling on one knee. (D) Whole-body coordination. …",
+     "image": "details/2611.00193/F1.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "オンラインリターゲティング失敗時における動作維持の比較です。上段の人間動作に対し、Anchor 1 (B) は意図を正確に保ちますが、IKベース (C) や学習ベース (D) のリターゲティングを用いたベースラインでは腕の軌道が大きく歪み、関節指令の不連続性による急激な挙動乱れが発生しています。",
+     "caption": "Figure 6: Motion intent preservation and control stability under retargeting failure. All configurations use the same offline human motion trajectory recorded with Pico, with time progressing from left to right. (A) Human reference motion visualized in SMPL-X format. (B) Anchor 1 with direct sparse $H_{5}^{\\prime}$ conditioning. (C) SONIC in G1 encoder mode with robot references generated by GMR, an inverse-kinematics (IK) retargeter. (D) SONIC in G1 encoder mode with robot references generated by UMR, a learned point-cloud-matching retargeter. …",
+     "image": "details/2611.00193/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "動作トークン補間時の姿勢遷移比較です。誤差フィードバックをエンコーダに結合したモデル（オレンジ）は屈んだ姿勢からうまく立ち上がれませんが、フィードバックを分離したモデル（青）は目標姿勢へ滑らかに遷移し、関節角度のRMSEも終盤にかけて大幅に低く抑えられています。",
+     "caption": "Figure 7: Motion token interpolation with coupled and decoupled feedback. Top: reference poses (gray) and robot motion under feedback-coupled (orange) and feedback-decoupled (blue) token interpolation at matching times. Endpoints A and B correspond to 0.4 and 2.0 s, respectively. The feedback-decoupled variant more closely follows the transition from a crouched posture toward the upright endpoint. Bottom: root mean square error (RMSE) across 29 joint angles relative to the reference, in degrees. The shaded region marks the interpolation interval; the feedback-decoupled variant has lower error in its later portion.",
+     "image": "details/2611.00193/F7.jpg"
+    },
+    {
+     "key": "F9",
+     "caption_ja": "学習済みVLAポリシーによる自律タスクの実行風景です。(A) 段ボール箱へ歩み寄って目標エリアへと正確にキックするタスク、(B) 低い棚の前で片膝をついてスリッパを取り出し、立ち上がって指定場所へ運ぶタスクを自律的に完遂しています。",
+     "caption": "Figure 9: Autonomous execution of downstream whole-body manipulation tasks. The robot autonomously performs two tasks: (A) kicking a cardboard box into a marked target area and (B) retrieving slippers from a low shelf and placing them at a designated location. Each row shows the progression from approach through object interaction to task completion, with time advancing from left to right.",
+     "image": "details/2611.00193/F9.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "3 Discussion",
+   "heading_ja": "なぜスパース指定と誤差分離が効くのか？今後の展望と残された課題",
+   "summary_ja": "スパースな目標指定がもたらす運動学的冗長性と、それを補完する学習データの質的重要性を考察しています。また、単一機体に限られた実験や力覚・把持安定性の欠如といった限界点に触れ、物体中心の制御やマルチロボット展開などの将来展望を述べています。",
+   "details_ja": "### 3.1 全身マニピュレーションに対する示唆\n本研究が示した最も重要な知見は、「タスクに直結する手足先のみをスパースに指定し、残りの自由度をオフラインで選別した高品質な全身データで埋める」という役割分担の有効性です。手首や足首の位置・姿勢だけを指定すれば、ロボットは自身の体格やバランスに合わせて体幹の姿勢を柔軟に調節できます。この自由度があるからこそ、厳しいリーチング動作でも足元のスリップを防ぎながら目標に届くのです。\nまた、誤差フィードバックを動作トークンから切り離した設計は、制御工学的にも非常に合理的です。トークンには「何をしたいか（運動意図）」だけを純粋に保持させ、「現在のズレをどう戻すか」という一時的な実行誤差はデコーダ側で直接処理させる。この分離によって、上位ポリシー（VLAなど）が扱いやすい綺麗なトークン表現を保ちながら、低レベル制御ではミリ単位のフィードバックゲインを効かせることが可能になりました。\n\n### 3.2 本手法の限界\n一方で、著者らはいくつかの限界も認めています。\n- 実証が単一のヒューマノイド機体（Unitree G1）に限られており、異なるリンク比率や関節自由度を持つ機体への転移性は未検証である点\n- 制御指令が幾何学的な位置・姿勢（キネマティクス）に留まっており、物体の接触力や把持の滑り、トルク制限などを陽に考慮していない点\n- 動作トークンから近傍目標を復元するブランチ（Recon.）において復元誤差がわずかに残り、完全なスパース参照を直接与えた場合と比べると精度にわずかなギャップが存在する点\n\n### 3.3 今後の方向性\n今後は、机や把持対象物に対する「物体相対座標」を直接制御目標に組み込むことや、接触力を考慮した力覚ハイブリッド制御への拡張が期待されます。また、復元ブランチの精度向上や、長時間のマルチコンタクト作業における閉ループ安定性の理論的解明も重要な研究テーマとなります。",
+   "figures": []
+  },
+  {
+   "heading": "4 Materials and methods",
+   "heading_ja": "Anchor 1のアーキテクチャ詳細：データ選別からネットワーク構造まで",
+   "summary_ja": "高品質な学習データセットの構築と自動スクリーニングの手順、5点スパース目標の抽出方法、誤差分離型エンコーダ・デコーダのネットワーク構造、そしてPPOを用いた強化学習スキームについて詳述しています。",
+   "details_ja": "### 4.1 & 4.2 データセット構築と品質管理\n学習には、自社で収録したモーションキャプチャデータと公開データセット（AMASSなど）を組み合わせた約1,081.4時間（左右反転拡張後で約1億1,680万フレーム、406,222シーケンス）の膨大な動作データを使用しています。そのうち77.3%が自社収録データです。\nデータの品質管理（QC）は極めて厳格に行われています。人体モーションからオフラインでリターゲティングされたロボット動作に対し、長時間の浮遊、関節角度の不連続性、自己衝突、周期的な振動（ジッター）、地面へのめり込みを自動判定アルゴリズムでスクリーニングします。自社収録データについては、さらに人間の目視による全数チェックを行い、少しでも不自然な挙動を含むシーケンスを排除しました。\n\n### 4.5.1 スパース参照の抽出と幾何キャリブレーション\n操作者の身体寸法とロボットの寸法の違いを吸収するため、Tポーズを用いた幾何キャリブレーションを行います。これにより、逆運動学を解くことなく各リンクのスケール係数・回転オフセットを決定し、ロボットスケールの人体骨格表現 $H^{\\prime}$ を生成します。ここから「骨盤、両手首、両足首」の計5点の位置・姿勢を取り出したものが $H^{\\prime}_{5}$ です。配備時にはこの5点姿勢のみをコントローラに渡すため、オンラインのIK計算やネットワークによる関節角度推定が一切不要になります。\n\n### 4.5.2 & 4.5.3 ネットワーク構造と強化学習\n制御モデルは、エンコーダ $E$、有限スカラー量子化器 $Q$、軌道ヘッド $K$、制御デコーダ $D$ から構成されます。\n- 入力：現在のロボットルート座標系における0, 20, 40, 60 ms先の4フレーム分の $H^{\\prime}_{5}$ をエンコーダに入力し、動作トークン $z_t$ を生成します。\n- 誤差分離：手首・足首の現在位置と目標値との位置誤差・姿勢誤差 $e_t$ はエンコーダには渡さず、ロボットの自己受容感覚（固有感覚）観測 $o_t$ とともに制御デコーダ $D$ に直接入力します。\n- 目標復元ヘッド：上位ポリシーからトークン $z_t$ だけが渡された場合のために、軌道ヘッド $K$ が近傍の5点目標姿勢を復元し、フィードバック誤差 $e_t$ を自己完結的に計算できるようにしています。\n\n学習にはProximal Policy Optimization (PPO) を用い、シミュレータ環境で強化学習を行います。報酬関数はペアとなる高品質ロボット参照動作 $R$ に対する追従度合いで評価されます。さらに、近傍目標の復元損失、将来軌道予測損失、サイクル一貫性損失を補助タスクとして同時に最適化しています。\n\n### 4.5.4 デプロイ時の推論モード\n実機への配備時、大域的な軌道を維持する「Globalモード」のほか、テレオペ時に操作者とロボットの位置ずれを自動補正する「Re-locateモード」を備えています。Re-locateモードでは、直前のフレームでロボットの現在位置に目標参照ウィンドウの原点を平行移動させることで、操作者の細かなステップとロボットの進行方向を違和感なく一致させます。",
+   "figures": []
+  },
+  {
+   "heading": "付録",
+   "heading_ja": "ベンチマークの詳細設計と忠実度評価手法",
+   "summary_ja": "全身協調の難所を網羅した3つの評価トラック（In-house, Public, Reachability）の構築手順と、手先動作の方向的忠実度を測る評価指標「unit-PDV」の定義について解説しています。",
+   "details_ja": "### S1 ベンチマークの構成と空間カバレッジ\n全身マニピュレーションの性能を公平かつ包括的に測るため、本研究では3つのトラックを設計しました。\n1. In-houseトラック（15,342シーケンス）：上半身（体幹の屈曲、片手・両手リーチングなど）と下半身（静止立ち、歩行、スクワット、片膝立ちなど）の動作タグを組み合わせてシステマティックに生成された作業動作群です。日常タスクに必要な協調パターンの90%以上を網羅しています。\n2. Publicトラック（2,230シーケンス）：BONES-SEED、CIRCLE、OMOMO、AMASSなどの公開データセットから抽出したシーケンスで、学習データには含まれないジャンプや走行などの激しい動的動作に対する汎化性を評価します。\n3. Reachabilityトラック（3,210参照）：直立、浅いスクワット、深いスクワット、前後開脚、片膝立ちの5つの姿勢において、3次元空間の特定格子点に手首を到達させ、その位置を2秒間維持して元に戻るタスクです。目標到達精度だけでなく、維持フェーズでの支持脚のスリップや追加ステップを厳密にカウントします。\n\n### S2 動作忠実度指標（unit-PDV）の導出\n入力表現が人間の動作意図をどれだけ正確に保持しているかを定量化するため、正規化ペア変位ベクトル乖離度（unit-PDV）を導入しました。時間間隔を一致させた変位ベクトルの向きの誤差を腕長で正規化して計算する指標であり、手先の細かい描画軌道や方向転換のニュアンスがリターゲティングや圧縮によって潰れていないかを厳密に比較できます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「タスク上重要な点（骨盤・手足の5点）だけを指定し、残りの全身の自由度は高品質な学習データ分布に任せる」という設計が、全身制御の精度と安定性を劇的に高める",
+  "オンラインの逆運動学（IK）やリターゲティングに依存しない幾何キャリブレーション手法を採用することで、特異点や不連続性による制御破綻を完全に回避できる",
+  "動作トークンと追従誤差フィードバックを分離する構造（デコーダへの直接注入）により、上位VLAポリシーとの綺麗なインターフェースとミリ単位の制御精度が両立する",
+  "コントローラの性能比較には、単純な平均誤差だけでなく、支持脚のスリップや追加ステップを捉える厳格な全身ベンチマークが不可欠である"
+ ],
+ "limitations_ja": [
+  "検証実験がUnitree G1という単一の機体プラットフォームに限られており、異なる関節構造やサイズを持つヒューマノイドへの一般化性能は未知数である",
+  "手足先の幾何学的な位置・姿勢追従に特化しており、接触力（フォース）の制御や把持の安定性、外力に対するコンプライアンスは考慮されていない",
+  "上位ポリシーからトークンのみを受け取って目標姿勢を復元するモード（Recon.）では、スパース参照を直接入力する場合に比べてわずかに追従精度が低下する"
+ ],
+ "keywords": [
+  "Humanoid Whole-Body Control",
+  "Whole-Body Manipulation",
+  "Sparse Motion Reference",
+  "Reinforcement Learning",
+  "Vision-Language-Action (VLA)",
+  "Teleoperation"
+ ],
+ "id": "2611.00193",
+ "title": "Anchor 1: Precise and Stable Humanoid Control for Whole-Body Manipulation",
+ "authors": [
+  "Archon Robotics",
+  ":",
+  "Caojun Wang",
+  "Checheng Yu",
+  "Gangcheng Jiang",
+  "Guangjun Zeng",
+  "Haoran Jiang",
+  "Hongyang Li",
+  "Huibin Yan",
+  "Huijie Wang",
+  "Jialong Zeng",
+  "Jin Yang",
+  "Kai Cheng",
+  "Li Chen",
+  "Liang Chen",
+  "Lirui Zhao",
+  "Modi Shi",
+  "Penglin Fu",
+  "Shijia Peng",
+  "Tianyu Li",
+  "Wencong Zhang",
+  "Xuechong Lv",
+  "Yixuan Pan",
+  "Yong Zhang",
+  "Yu Qiao",
+  "Yu Zhang",
+  "Ziyan Li"
+ ],
+ "date": "2026-11-03",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "control",
+  "manipulation",
+  "benchmark"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.00193",
+ "pdf_url": "https://arxiv.org/pdf/2611.00193",
+ "summary_ja": "実行誤差に敏感なヒューマノイドの全身操作に向け、高精度と安定性を両立するコントローラAnchor 1を提案。オンラインのリターゲティングを行わずキャリブレーション済みスパース動作参照を用いることで運動学的自由度を残し、物理的に妥当な全身協調動作を可能にした。",
+ "generated": "2026-11-03",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.00193"
+}
