@@ -1,6 +1,322 @@
 {
  "entries": [
   {
+   "date": "2026-11-03",
+   "rank": 0,
+   "id": "2611.01197",
+   "group": "focus",
+   "title": "Learning Agile Humanoid Dodgeball with Onboard Monocular Vision",
+   "title_ja": "車載単眼ビジョンによるヒューマノイドの機敏なドッジボール回避行動の強化学習",
+   "summary_ja": "接近する物体を回避しつつバランスを保つヒューマノイドの運動制御システムを提案。単眼カメラからの時系列画像からボール状態と脅威フラグを予測し、3段階カリキュラムRLで学習した回避・復帰方策と探索・追従方策を組み合わせて実機で素早い全身回避を実現した。",
+   "summary_en": "This paper presents a whole-body control framework for agile humanoid dodgeball evasion using onboard monocular vision. By estimating ball state and threat flags from temporal bounding box histories, the system composes dodge/recovery and search/tracking policies trained via a three-stage reinforcement learning curriculum to achieve dynamic evasion and recovery on a real humanoid.",
+   "authors": [
+    "Feng Tian",
+    "Yulin An",
+    "Chenhao Li",
+    "Matthias Heyrman",
+    "Marco Hutter"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "reinforcement-learning",
+    "control",
+    "locomotion"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.01197",
+   "image": "figures/2026-11-03/2611.01197.jpg"
+  },
+  {
+   "date": "2026-11-03",
+   "rank": 1,
+   "id": "2611.01748",
+   "group": "focus",
+   "title": "CompliantBot: Learning Whole-Body Compliance across Task Interfaces for Humanoid Control",
+   "title_ja": "CompliantBot: ヒューマノイド制御のタスクインターフェースを越えた全身コンプライアンス学習",
+   "summary_ja": "外力に柔軟に追従しつつ元の運動へ復元するヒューマノイド全身制御手法。事前定義された柔軟動作データを用いず、タスク入力を保持したまま動作追従と速度指令歩行の双方でコンプライアンス制御を強化学習し、外力への適応とロバストなタスク復帰を両立させた。",
+   "summary_en": "CompliantBot is a compliance-training framework for humanoid robots that enables yielding to external forces while successfully resuming original tasks. Without relying on preconstructed compliant trajectories or modified interfaces, it trains compliant behavior for both motion tracking and velocity-command locomotion using reinforcement learning.",
+   "authors": [
+    "Haoyang Li",
+    "Keqi Zhu",
+    "Zhanxiang Cao",
+    "Yang Zhang",
+    "Yizhi Chen",
+    "Xuekang Yang",
+    "Yue Gao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "reinforcement-learning",
+    "control",
+    "locomotion"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.01748",
+   "image": "figures/2026-11-03/2611.01748.jpg"
+  },
+  {
+   "date": "2026-11-03",
+   "rank": 2,
+   "id": "2611.00193",
+   "group": "focus",
+   "title": "Anchor 1: Precise and Stable Humanoid Control for Whole-Body Manipulation",
+   "title_ja": "Anchor 1: 全身マニピュレーションのための高精度かつ安定なヒューマノイド制御",
+   "summary_ja": "実行誤差に敏感なヒューマノイドの全身操作に向け、高精度と安定性を両立するコントローラAnchor 1を提案。オンラインのリターゲティングを行わずキャリブレーション済みスパース動作参照を用いることで運動学的自由度を残し、物理的に妥当な全身協調動作を可能にした。",
+   "summary_en": "Anchor 1 is a whole-body controller designed for precise and stable humanoid manipulation. By utilizing calibrated sparse motion references rather than online joint-space retargeting, it preserves critical human motion structure while retaining kinematic freedom, achieving physically plausible whole-body coordination.",
+   "authors": [
+    "Archon Robotics",
+    ":",
+    "Caojun Wang",
+    "Checheng Yu",
+    "Gangcheng Jiang",
+    "Guangjun Zeng",
+    "Haoran Jiang",
+    "Hongyang Li",
+    "Huibin Yan",
+    "Huijie Wang",
+    "Jialong Zeng",
+    "Jin Yang",
+    "Kai Cheng",
+    "Li Chen",
+    "Liang Chen",
+    "Lirui Zhao",
+    "Modi Shi",
+    "Penglin Fu",
+    "Shijia Peng",
+    "Tianyu Li",
+    "Wencong Zhang",
+    "Xuechong Lv",
+    "Yixuan Pan",
+    "Yong Zhang",
+    "Yu Qiao",
+    "Yu Zhang",
+    "Ziyan Li"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "manipulation",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.00193",
+   "image": "figures/2026-11-03/2611.00193.jpg"
+  },
+  {
+   "date": "2026-11-03",
+   "rank": 3,
+   "id": "2611.02613",
+   "group": "focus",
+   "title": "MAPO: Mixture of Experts with Alternating Policy Optimization for Universal Humanoid Motion Tracking",
+   "title_ja": "MAPO: 汎用ヒューマノイド動作追従のための交互方策最適化を用いたMoE",
+   "summary_ja": "ヒューマノイドの多様な動作追従におけるMoE方策の学習課題に対処する手法。動的ルーティングにより方策勾配法で発生する新旧方策の乖離推定エラーを解消するため、ルーティングとエキスパートパラメータを交互に更新するMAPOを提案し、追従性能の大幅な向上を示した。",
+   "summary_en": "This paper proposes MAPO, an alternating policy optimization framework for Mixture of Experts (MoE) policies in humanoid motion tracking. It resolves divergence misestimation issues caused by dynamic routing during policy-gradient updates by alternating between routing and expert updates, substantially improving tracking performance across diverse motions.",
+   "authors": [
+    "Seonghyeon Lim",
+    "Hyeonwoo Lee",
+    "Mincheol Kim",
+    "Kimin Lee",
+    "Hyun Myung"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.02613",
+   "image": "figures/2026-11-03/2611.02613.jpg"
+  },
+  {
+   "date": "2026-11-03",
+   "rank": 4,
+   "id": "2611.02462",
+   "group": "focus",
+   "title": "Learning Purposeful Co-designs of Bio-inspired Quadrupedal Robots",
+   "title_ja": "生体模倣型四足歩行ロボットの形態と制御の目的指向コデザイン学習",
+   "summary_ja": "受動的膝コンプライアンスを持つ生体模倣四足ロボットDoggerに向けた形態と制御の協調最適化枠組み。強化学習で形態条件付き方策を訓練しベイズ最適化で設計を選択することで、ゼロショット実機展開において輸送コストを18.6%〜35%削減することに成功した。",
+   "summary_en": "This work introduces Dogger, a bio-inspired quadruped with passive knee compliance, and a two-stage co-design framework combining RL and Bayesian optimization. By training morphology-conditioned policies and selecting task-specific designs, the zero-shot deployed designs and policies reduce the cost of transport by up to 35%.",
+   "authors": [
+    "Fabio Boekel",
+    "Jiatao Ding",
+    "Cosimo Della Santina"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "reinforcement-learning",
+    "sim-to-real",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.02462",
+   "image": "figures/2026-11-03/2611.02462.jpg"
+  },
+  {
+   "date": "2026-11-03",
+   "rank": 5,
+   "id": "2611.03059",
+   "group": "general",
+   "title": "BeyondContact: A Reinforcement Learning Framework for Airflow-Based Non-Contact Manipulation",
+   "title_ja": "BeyondContact: 気流を利用した非接触マニピュレーションのための強化学習フレームワーク",
+   "summary_ja": "接触に頼らず気流で物体を操作するRL手法に向け、Isaac Lab向けの大規模並列シミュレーション拡張を開発。実験同定された気流モデルを用いて物体に働く空気力を正確に計算し、接触限界を超えた非接触マニピュレーション方策の強化学習を可能にした。",
+   "summary_en": "BeyondContact introduces a robot- and task-agnostic airflow simulation extension for Isaac Lab to train non-contact manipulation policies via massively parallel reinforcement learning. Using experimentally identified airflow models to compute forces, it enables learning effective non-contact manipulation beyond physical reach.",
+   "authors": [
+    "Peiyu Yang",
+    "Mohamad S. Moudallal",
+    "Antonio Langella",
+    "Giulio Turrisi",
+    "Victor Barasuol",
+    "Claudio Semini"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "simulation",
+    "reinforcement-learning",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.03059",
+   "image": "figures/2026-11-03/2611.03059.jpg"
+  },
+  {
+   "date": "2026-11-03",
+   "rank": 6,
+   "id": "2611.01729",
+   "group": "general",
+   "title": "ODE Policy: Robot Learning via Action Dynamics, Not Actions",
+   "title_ja": "ODE Policy: アクション値ではなくアクションダイナミクスを学習するロボット学習",
+   "summary_ja": "離散ステップのアクション直接出力ではなく、ニューラルODEを用いてアクションのベクトル場（ダイナミクス）を学習する新手法。模倣学習と強化学習の双方に適用可能で、過去のアクションから積分して滑らかな物理軌道を生成し、マルチモーダルな動作にも柔軟に対応する。",
+   "summary_en": "ODE Policy learns the continuous dynamics of actions rather than predicting discrete action values directly. By modeling the action vector field with neural ODEs for both imitation and reinforcement learning, it generates smooth, dynamically consistent motion trajectories while capturing multi-modal behaviors.",
+   "authors": [
+    "Jindou Jia",
+    "Jingliang Li",
+    "Kuangji Zuo",
+    "Tuo An",
+    "Yuxuan Hu",
+    "Mengfei Zhao",
+    "Bofan Lyu",
+    "Jiaqi Bai",
+    "Daoyuan Zhu",
+    "Hengyu Dai",
+    "Junpeng Zhang",
+    "Jianfei Yang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "imitation-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.01729",
+   "image": "figures/2026-11-03/2611.01729.jpg"
+  },
+  {
+   "date": "2026-11-03",
+   "rank": 7,
+   "id": "2611.02691",
+   "group": "general",
+   "title": "Closing the Dynamics Gap through Self-Directed Robotic Interaction",
+   "title_ja": "自律的ロボットインタラクションによるSim-to-Realダイナミクスギャップの解消",
+   "summary_ja": "摩擦や反発係数など観測困難な接触力学パラメータを、ロボット自身の試行錯誤インタラクションで同定するCUEを提案。シミュレーション誤差が大きい領域を能動的に探索することで、ビリヤードタスクにおける物体の位置予測誤差をベースライン比で72%削減した。",
+   "summary_en": "This paper presents CUE, an agentic system that closes the dynamic sim-to-real gap through self-directed physical interactions. By actively probing contacts where simulation predictions are least confident, it accurately identifies unobservable physical parameters, reducing prediction errors by 72% in dynamic manipulation tasks.",
+   "authors": [
+    "Xilun Zhang",
+    "Liam Achenbach",
+    "Luis Pabon",
+    "Matthew Foutter",
+    "Marco Pavone"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "sim-to-real",
+    "simulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.02691",
+   "image": "figures/2026-11-03/2611.02691.jpg"
+  },
+  {
+   "date": "2026-11-03",
+   "rank": 8,
+   "id": "2611.03138",
+   "group": "general",
+   "title": "KlaskTron: An Open-Source Platform for Physical Adversarial Multi-Agent RL",
+   "title_ja": "KlaskTron: 物理的な対戦型マルチエージェント強化学習のためのオープンソース基盤",
+   "summary_ja": "ボードゲームKLASKを題材とした、2,500ドル未満で構築可能なオープンソースの実機マルチエージェントRLテストベッド。同定されたアクチュエータモデルによりゼロショットSim-to-Real転移を実証し、実環境における接触豊富な対戦型強化学習の標準評価を支援する。",
+   "summary_en": "KlaskTron is an open-source, low-cost (<$2500) desktop-scale testbed for adversarial multi-agent reinforcement learning based on the game KLASK. Featuring a validated actuator model that enables zero-shot sim-to-real transfer, it provides an accessible physical benchmark for contact-rich multi-agent robotics.",
+   "authors": [
+    "Aswin Ramachandran",
+    "Jona Schulz",
+    "Maurus Derungs",
+    "Carlo Angelini",
+    "Tobias Meier",
+    "Raffaello D'Andrea"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AR",
+    "cs.MA"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "hardware",
+    "benchmark",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.03138",
+   "image": "figures/2026-11-03/2611.03138.jpg"
+  },
+  {
+   "date": "2026-11-03",
+   "rank": 9,
+   "id": "2611.03648",
+   "group": "general",
+   "title": "Pixel: A Co-Designed Full-Stack Robot System for Learning General-Purpose Mobile Manipulation",
+   "title_ja": "Pixel: 汎用モバイルマニピュレーション学習のための統合フルスタックロボットシステム",
+   "summary_ja": "安価な車輪型ヒューマノイド、柔軟ハンド、人間の遠隔操作および非ロボットデータ収集基盤、全身制御を協調設計したPixelを提案。ハードウェアから模倣学習パイプラインまでを一気通貫で設計することで、多様な家庭・オフィス作業の自律実行を実現した。",
+   "summary_en": "Pixel is a co-designed full-stack mobile manipulation platform comprising a low-cost wheeled humanoid, compliant grippers, teleoperation/sensorized human interfaces, whole-body control, and an imitation learning pipeline, bridging the typical gaps between hardware, control, and policy learning.",
+   "authors": [
+    "Tony Tao",
+    "Jason Jingzhou Liu",
+    "Ruslan Salakhutdinov",
+    "Deepak Pathak"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV",
+    "cs.LG",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "manipulation",
+    "hardware",
+    "control",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.03648",
+   "image": "figures/2026-11-03/2611.03648.jpg"
+  },
+  {
    "date": "2026-11-02",
    "rank": 0,
    "id": "2610.41654",
