@@ -1,0 +1,163 @@
+{
+ "title_ja": "MABEL: 遠隔操作とロボット学習のためのオープンソース等身大移動式双腕プラットフォーム",
+ "tldr_ja": "市販品なら1000万円以上する多自由度・全身協調が可能なモバイル両腕ロボットを、オープンソースかつ約8,100ドル（約120万円）の部品代で実現しました。Apple Vision Proによる全身直感遠隔操作から、模倣学習（ACT）による方策獲得・実機デプロイまでを共通の制御パイプラインで一気通貫に繋いでいます。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "開発された等身大モバイル両腕ロボット「MABEL」の実機外観です。56自由度（59個のモータ）を備えながら、部品コスト約8,056ドルという驚異的な低価格と高い機能性を両立しています。",
+  "caption": "Fig. 1: MABEL, a 56-DOF open-source anthropomorphic mobile bimanual robot with a parts cost of US$8.1k. Hardware designs, firmware, control software, simulation models, and the learning pipeline are available at robotmabel.github.io/website .",
+  "image": "details/2611.04083/F1.jpg"
+ },
+ "overview_ja": "ロボット学習が卓上作業から家庭環境全体へと広がるにつれ、台車による移動、高さ調整、首振りによる能動的な視覚探索、そして器用な両腕・多指ハンドの操作が不可欠になってきました。しかし、これらすべてを満たす市販のヒューマノイドや研究用プラットフォームは1,000万円から1,800万円（約6.9万〜12万ドル）以上と極めて高額です。一方で、安価なオープンソース機はホビー用サーボや1自由度グリッパ、固定昇降軸など機能が制限されており、研究者が自作パーツを組み合わせるとソフトウェア統合に莫大な手間がかかっていました。\n\nそこで研究チームは、ハードウェアから制御・遠隔操作・シミュレータ・学習パイプラインまでを完全統合したオープンソースロボット「MABEL」を開発しました。MABELは全方位移動が可能な3輪スワーブベース、昇降リフト、ピッチ軸を持つ胴体、バックドライバブル（外力で関節が押し戻る柔軟性）な2本の7自由度アーム、17自由度多指ハンド、そして3自由度の能動首を備え、部品代わずか約8,056ドル（約120万円）で製作できます。\n\nさらにApple Vision Proを活用し、手持ちコントローラを使わずに頭部と手のトラッキング情報だけで全身の動きへとリターゲティング（関節運動への変換）する直感的な遠隔操作システムを構築しました。ロボットの視界はわずか137ミリ秒の低遅延でヘッドセットに届きます。\n\n実機評価では、位置繰り返し精度1.65 mmや屋外・屋内での全方位移動精度を確認し、食器洗い機へのアクセスや高い棚からの物取りなど多様な家庭内作業の遠隔操作に成功しました。さらに、収集したデータからAction Chunking with Transformers（ACT）を用いて自律的な把持・配置タスクを学習・展開し、一連のパイプラインが実用的であることを実証しています。",
+ "contributions_ja": [
+  "56自由度の全身協調機能（全方位移動・昇降・胴体ピッチ・バックドライバブルな両腕・17自由度多指ハンド・3自由度能動首）を約8,100ドルの部品代で実現した完全オープンソースハードウェアの提供",
+  "コントローラ不要で、Vision Proの頭部・手指の疎なトラッキング情報から全身（台車・リフト・胴体・首・両腕・多指）を直感的に操縦できる低遅延な全身遠隔操作インタフェースの構築",
+  "遠隔操作・シミュレーション・データ収集・方策実行のすべてで同一の指令インタフェースとコンプライアント全身コントローラを共有する統合学習パイプラインの確立と、ACT方策によるエンドツーエンドの実証"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜ今、安価で全身が動くオープンなロボットが必要なのか",
+   "summary_ja": "模倣学習の発展により複雑な家庭内タスクへの挑戦が進んでいますが、実験に必要なロボットが高額すぎることが研究の大きな障壁となっています。本研究が提案する「MABEL」は、市販品の10分の1のコストで全身運動・能動視覚・柔軟接触を実現し、学習パイプラインまで統合した完全オープンな解決策です。",
+   "details_ja": "ロボット学習のフロンティアは、もはや机の上の作業にとどまりません。床から高い棚までの広範なリーチ、部屋を行き来する移動性、自ら見たい場所に視線を向ける能動的な知覚、そして接触を伴う柔軟な両腕・手指操作が求められています。しかし、これらを兼ね備えた市販ロボットは69,000〜120,000ドル以上と非常に高価です。多くの研究室は予算の都合上、安価なホビー用サーボロボットを使うか、バラバラの市販部品を継ぎ接ぎして独自のソフトウェア開発に疲弊していました。\n\nこのギャップを埋めるために生まれたのが「MABEL（Mobile Anthropomorphic Bimanual Embodiment for Learning）」です。部品代8,056ドルでありながら、床面から2.23 mの高さまで届く可動域、外力にしなやかに追従する準直接駆動（QDD）の胴体と両腕、全方位移動台車、能動的な首、そして17自由度の多指ハンドを搭載しています。\n\nさらに、Apple Vision Proを装着するだけでオペレータがロボットの身体に乗り移ったかのように操縦できる全身遠隔操作環境を構築しました。シミュレータ、遠隔操作、学習済み方策の実行がすべて共通のコントローラを通るため、集めたデモデータをそのまま学習に直結できる点も大きな特徴です。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "MABELの作業範囲とカメラ視野の比較です。(a) リフトと胴体屈伸により床から2.23 mまで届く広大な手先空間、(b) 首と胴体の運動により固定カメラの約3倍に広がる視野、(c) 先行のオープンソースロボットや人間基準と比較した到達高さを示しています。",
+     "caption": "Fig. 2: Platform capabilities, cost, reach, and camera coverage. MABEL combines a holonomic mobile base, two 7-DOF arms, 17-DOF hands, a 3-DOF neck, a lift, and a pitching torso at roughly a tenth of the cost of comparable commercial platforms. (a) Kinematic fingertip workspace. (b) Modeled fixed-camera view and cumulative neck/torso visibility ( vertical field of view (FOV)). (c) Fingertip-height ranges against other platforms and a human reference, from joint limits only.",
+     "image": "details/2611.04083/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "先行プラットフォームの限界と、MABELが目指したブレークスルー",
+   "summary_ja": "既存の低コスト機はアームの自由度や可動域、接触柔軟性などがトレードオフになっていました。また遠隔操作手法も台車や視線が別操作になりがちでした。MABELはこれらをすべて統合し、商用機に匹敵する身体性を1桁低いコストで実現しています。",
+   "details_ja": "近年、低コストなロボット基盤が数多く登場してきました。例えば、低コスト遠隔操作の先駆けとなったALOHAや、それを移動可能にしたMobile ALOHAがあります。しかし、これらは位置制御サーボモータ駆動で可搬重量が0.75 kgと小さく、作業空間もテーブルの高さ付近に制限されていました。\n\nまた、XLeRobotのように1,000ドル未満を目指した機体はリーチや自由度が削られ、TidyBot++やYORのように昇降リフトを備えた機体でもカメラが固定されていたり、エンドエフェクタが1自由度のグリッパに限られていました。商用プラットフォームではこれらが統合されているものの、1000万円を優に超える価格に加え、部品故障時に数か月待たされるなど研究の進捗を妨げる要因になっていました。\n\n操縦インタフェースの面でも、これまではマスタースレーブ式のアーム操作と、ペダルやジョイスティックによる台車・昇降操作が分離しているシステムが主流でした。近年増えているVRヘッドセットを用いたシステムでも、上半身のみの追従にとどまるケースが多く見られます。MABELは人間のプロポーションに合わせた設計とアルゴリズムにより、ヘッドセットと手の動きだけで台車・リフト・胴体・首・腕・指のすべてをひとつの身体として直感的に操縦できる環境を実現しました。",
+   "figures": []
+  },
+  {
+   "heading": "III Hardware Design",
+   "heading_ja": "約120万円で56自由度を実現したハードウェア設計の秘密",
+   "summary_ja": "MABELは3輪スワーブベース、市販の昇降デスク用支柱、オープンソース腕「OpenArm」の改良版、17自由度「ORCAハンド」、3自由度首を巧みに統合しています。既製品と3Dプリント、独自PCBを組み合わせ、わずか2週間でゼロから組み立て・動作確認が可能です。",
+   "details_ja": "### III-A 機械設計（モビリティ・腕・胴体）\n足回りには、競技用ロボットで実績のあるREV MAXSwerveモジュールを3基採用しました。一般的な4輪ではなく3輪の非同線配置にすることで、車輪の浮き上がりを防ぎつつ約700ドルのコスト削減に成功しています。支持多角形が小さくなることによる転倒リスクは、後述の重心制御で安全に抑え込んでいます。\n\n腕部にはオープンソースの「OpenArm」をベースにした7自由度アームを2本採用し、ダイレクト調達によって両腕約3,000ドルに抑えました。胴体には $-60^\\circ$ から $15^\\circ$ のピッチ屈伸が可能な準直接駆動（QDD）アクチュエータを配置し、さらに昇降デスク用の電動リフト支柱を組み込むことで、床面から2.23 mまでの到達を可能にしています。また、首には3自由度を持たせることで胴体固定カメラに比べて約3倍の視覚カバレッジを確保しました。手先はモジュール式で、17自由度の腱駆動型ORCAハンドや汎用グリッパを用途に応じて換装できます。\n\n### III-B 電装系・センサ・計算機\n電源分配と通信には、Teensyをベースにしたカスタム基板を開発しました。台車側と上半身側で別々のCANバスに分離し、Ethernet経由でホストPCと通信することで帯域と信頼性を担保しています。ホストPCとしてはRaspberry Pi 5やJetson Orin/Thor、MacBook等に対応しています。電源は24 Vバッテリーで約4時間稼働できるほか、電動工具用バッテリーやACアダプタでの連続給電も可能です。頭部にはステレオカメラ（ZED Mini）、両手首にRGBカメラ（RealSense D405）を搭載しています。\n\n### III-C 製作と再現性\nMABELは市販の既製パーツ、レーザーカット板金、3Dプリント部品で構成されており、Raspberry Pi 5構成時の総部品コストは8,056ドルです。設計ファイルやBOM（部品表）をもとに、2台目の実機を約2週間で組み立て・動作確認まで完了できる再現性の高さを確認しています。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "MABELの内部構造を示したカットアウェイ図です。モータ（黄）、構造体（灰）、センサ（橙）、基板・電装品（紫）、バッテリー（緑）が機能ごとに色分けされ、コンパクトに高密度実装されている様子が分かります。",
+     "caption": "Fig. 4: Annotated cutaway of MABEL, showing actuators, sensors, compute, power, and electronics; colors group components by function.",
+     "image": "details/2611.04083/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Whole-Body Teleoperation and Control",
+   "heading_ja": "Vision Proだけで全身が動く：直感的な遠隔操作と制御の仕組み",
+   "summary_ja": "Apple Vision Proの疎なトラッキング（頭部と両手のみ）から、56自由度のロボット全身運動へと矛盾なく変換するリターゲティング技術を提案しています。スワーブ台車の転倒防止リミッタや、外力にしなやかに逃げるインピーダンス制御も組み込まれています。",
+   "details_ja": "### IV-A 操作デバイスと通信\nコントローラを持たず、Apple Vision Proの頭部姿勢と手先・指先キーポイント情報のみを用いて操縦します。オペレータの両眼にはロボットのステレオ頭部カメラ映像が実寸大スケールで映し出され、人の瞳孔間距離（約63 mm）と合わせたカメラ配置により極めて自然な奥行き感が得られます。映像と制御信号はロボットのWi-Fiホットスポット経由で送受信され、遅延を最小限に抑えています。\n\n### IV-B 疎なトラッキングから全身へのリターゲティング\nVision Proが得られるのは頭と手首・指先のみであり、56自由度を動かすには情報が足りません（不定問題）。そこで約10秒の初期キャリブレーションで操作者の体格を推定し、以下のように賢く運動を分解します。\n\n- **体幹と移動**: オペレータの頭部移動量を「コンフォートボックス」と呼ばれる微小領域で分割します。わずかな前傾・横傾きは「胴体の屈伸ピッチ」に、一定以上の大きな移動は「歩行の意思」とみなして「台車の並進運動」に割り当てます。また頭の上下動はそのまま「リフトの昇降」に直結します。\n- **首と腕**: 首の3関節は胴体に対する頭部の向きをそのまま再現します。腕は肩に対する手首の相対位置を体格比でスケーリングし、逆運動学（IK）を減衰ガウス・ニュートン法で解いて滑らかな関節指令に変換します。\n- **手先**: 17自由度のORCAハンドに対し、指先位置の一致に加えて「親指と各指先の相対ベクトル」に重み $w_{\\mathrm{pinch}}$ を置くことで、細かなつまみ動作のすき間（アパーチャ）が狂わないようにしています。\n\n### IV-C 転倒防止を考慮した台車運動モデル\n3輪スワーブ台車は省スペースですが、リフトを高く伸ばすと重心が上がり転倒リスクが高まります。そこでゼロモーメントポイント（ZMP）の考え方に基づき、リフト高さ $z_{\\mathrm{lift}}$ に応じて許容加速度を動的に制限する「高さ考慮型リミッタ」を実装し、急旋回や急停止による転倒を未然に防ぎます。\n\n### IV-D 全身コントローラと柔軟制御\n腕と胴体には関節空間のインピーダンス制御を採用しています。重力補償 $\\boldsymbol{\\tau}_{\\mathrm{g}}$ と摩擦補償 $\\boldsymbol{\\tau}_{\\mathrm{f}}$ を高精度に行っているため、剛性ゲインを低く設定でき、人が手でロボットの腕や胴体を押し動かしても柔らかく受け流すコンプライアントな動作（接触への追従性）が可能です。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "Vision Proを用いた遠隔操作の全体像です。(a) 人とロボットの座標系対応と全身動作のマッピング、(b) 狭い部屋で足を使わずに操作できる仮想ジョイスティック、(c) オペレータが見ている一人称・三人称の没入型操作画面を示しています。",
+     "caption": "Fig. 5: (a) Operator–robot pose correspondence, labeled frames, and magnified hand detail. (b) Joystick translation, lift, and yaw. (c) First- and third-person interfaces with numbered controls; the third-person background is dimmed. Arrows indicate head direction, torso pitch, lift, and base motion.",
+     "image": "details/2611.04083/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Simulation and Learning Infrastructure",
+   "heading_ja": "デモ収集からポリシー展開まで一気通貫でつなぐソフトウェア基盤",
+   "summary_ja": "シミュレータ環境（MuJoCo / Isaac Lab）と実機で完全に共通化された制御パイプラインを構築しました。遠隔操作で取得したデータはLeRobot形式で保存され、トランスフォーマーを用いた模倣学習モデル（ACT）で容易に訓練・実機展開できます。",
+   "details_ja": "### V-A シミュレーション環境（デジタルツイン）\nMuJoCoおよびIsaac Lab向けに、59個のアクチュエータ関節をすべて含むフルボディモデルと、35種類の静的・動的シーンを提供しています。シミュレーションと実機ハードウェアは同一のハードウェア抽象化レイヤ（HAL）とコマンド仕様を共有しているため、シミュレータで開発したコントローラや学習モデルをコードの修正なしに実機へ移行できます。\n\n### V-B データ収集とフォーマット\nVision Proで操作しながら、アーム（14関節）、両手（34関節）、首（3関節）、胴体ピッチ、リフト、スワーブ台車の計59座標からなる全身状態 $\\boldsymbol{\\mathbf{q}}_t \\in \\mathbb{R}^{59}$ を記録します。頭部ステレオカメラと両手首カメラのRGB映像（30 Hz）に加え、タイムスタンプ付きの関節指令や台車速度指令を同期記録し、標準的なロボット学習フレームワーク「LeRobot v3」形式にエクスポートします。\n\n### V-C ロボット学習モデル（ACT）\n集めたデモデータを用いて、Action Chunking with Transformers（ACT）方策を学習させます。頭部カメラと両手首カメラの画像、および直近1秒間の関節軌道をエンコードし、トランスフォーマーによって未来の $K$ ステップ先（ここでは $K=120$ 、約4秒分）の関節目標値のまとまり（チャンク $\\widehat{\\boldsymbol{\\mathbf{q}}}^*$ ）を一括予測します。この予測値は、遠隔操作時とまったく同じ全身コントローラを通して安全に実機上で実行されます。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "Action Chunking with Transformers（ACT）の学習・展開パイプラインです。頭部カメラと両手首カメラの画像、過去の関節状態を入力として受け取り、全身59座標の未来の関節目標チャンクを一括予測して実機を駆動します。",
+     "caption": "Fig. 7: ACT learning pipeline. Head and wrist images $I_{t}$ and measured joint states $\\boldsymbol{\\mathbf{q}}_{t}$ condition the prediction of a joint-reference chunk $\\widehat{\\boldsymbol{\\mathbf{q}}}_{t:t+K-1}^{*}$ , supervised during training by the demonstrated references $\\boldsymbol{\\mathbf{q}}_{t:t+K-1}^{*}$ . The scene shows the pick-and-place task used for data collection and deployment.",
+     "image": "details/2611.04083/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Experiments and Results",
+   "heading_ja": "実機性能の徹底検証：精度・遅延・家事タスク・模倣学習",
+   "summary_ja": "実機の基本性能として位置繰り返し精度中央値1.65 mm、画像遅延137 msを達成しました。さらに食器洗浄機の扉開閉などの複雑な家庭内作業を遠隔操作で実証し、ACTを用いた自律ピッキングタスクでは80%の成功率を記録しました。",
+   "details_ja": "### VI-A 位置繰り返し精度と軌道追従性\n両手先がホームポジションから4箇所のチェックポイントを往復する試験を10サイクル行い、手先位置の繰り返し精度中央値は $1.65\\text{ mm}$ （最良 $0.46\\text{ mm}$ ）という高い再現性を記録しました。誤差の最大の要因は胴体関節のたわみ（RMSで0.56 mm）でした。またスパイラル等の軌道追従試験では、重力補償を入れることで手先誤差が $194\\text{ mm}$ から $45\\text{ mm}$ へと劇的に低減することを確認しています。\n\n### VI-B ホイールオドメトリの精度\n3輪スワーブベースの車輪エンコーダによる積算位置と、頭部ZEDカメラのVisual-SLAMによる位置を比較しました。5.72 mの走行試験において位置誤差のRMSは $13.5\\text{ mm}$ 、方位角誤差は $1.63^\\circ$ と非常に小さく、センチメートル級の精度で安定して遠隔操作台車を誘導できることが示されました。\n\n### VI-C 遠隔操作の映像遅延\n画面に映したミリ秒クロックを頭部カメラで撮影し、再びヘッドセット画面に表示されるまでの「ガラス・トゥ・ガラス」の遅延時間を測定しました。Wi-Fiホットスポット直接接続では $137 \\pm 5\\text{ ms}$ という低遅延を達成しています。内訳はカメラの露光・読み出しが101〜108 msと大半を占めており、通信自体の遅延はわずか $25\\text{ ms}$ でした。\n\n### VI-D 実機タスクと模倣学習の実証\n遠隔操作の実証として、テーブル拭き、冷蔵庫の開閉、高所棚からの物取り、両腕での洗濯カゴ運搬、食器洗い機のラック押し込みと扉閉めなど、全身の協調を要するタスクを連続して成功させました（図 F6）。\nまた、多指ハンドを用いた小型物体のピッキング＆プレート配置タスクにおいて、117エピソード（計38分間）のデモデータを収集しACTを学習させました。位置をランダムに変えた10回の自律実行トライアルにおいて、8回（80%）のタスク成功を収め、エンドツーエンドの学習パイプラインが実用的に機能することを証明しました。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "実機による遠隔操作タスクの連続写真です。(a) テーブル拭き、(b) 冷蔵庫の開扉、(c) 高い棚の物取り、(d) 両腕でのカゴ運搬、(e) 食器洗浄機の扉閉めを実行しています。(f) では人が腕や胴体を押しても柔軟にいなすコンプライアント制御の様子を示しています。",
+     "caption": "Fig. 6: Teleoperated household tasks on the physical robot, one continuous trial per row, time left to right. Arrows mark lift and door motion, the dashed arrow the gaze, the dotted path the hand, and teal arrows contact forces. Each label names the body part the step relies on: $\\bullet$ head, $\\bullet$ torso, $\\bullet$ lift, $\\bullet$ base, and $\\bullet$ arms and hands. Row (f) shows compliance: a person lifts, pushes, and pulls the robot by hand ( Sec. IV-D ).",
+     "image": "details/2611.04083/F6.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "ハードウェアの精度評価結果です。(a) 4つの目標姿勢を巡回した際の分散楕円、(b) 誤差に対する各関節の寄与（胴体が最大）、(c) 手先繰り返し精度（中央値1.65 mm）、(d, e) 空間軌道追従における追従誤差の推移を示しています。",
+     "caption": "Fig. 8: Hardware repeatability and path following illustration and results. (a) Ten cycles, with return samples and $95\\%$ covariance ellipsoids magnified $30\\times$ . (b) Joint contributions to scatter. (c) True-scale returns; $1\\text{\\,}\\mathrm{m}\\mathrm{m}$ rings, dashed median repeatability (RP). (d) Twelve measured traces; dashed references. (e) Tracking error: mean and range over three trials.",
+     "image": "details/2611.04083/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VII Limitations and Future Work",
+   "heading_ja": "今後の課題：リフトの動作速度とさらなる自律化へ向けて",
+   "summary_ja": "現在の昇降リフトは安価で広範囲ですが動作速度が遅いという課題があります。今後は脚関節や腰関節による屈伸動作への発展や、長時間のタスクをこなす自律プランニング機能の統合が目指されています。",
+   "details_ja": "MABELは優れたコストパフォーマンスを誇りますが、いくつかのトレードオフも存在します。\n\n第一に、昇降リフトは非常に安価で大きな可動域をもたらす反面、動作速度が遅いという欠点があります。将来的には、リフトの代わりに腰・膝・足首に相当する屈伸関節を導入し、より自然で素早い全身屈伸動作を実現することが検討されています。\n\n第二に、ベースとなったOpenArmのリンク比率は人間の骨格比率とは完全には一致していません。人間により近いプロポーションへと改良することで、リーチ性能やリターゲティングの精度をさらに向上させることが可能です。\n\n第三に、今回の自律動作検証は上半身の定置タスクが中心でした。今後は車載LiDARやSLAMをフル活用した長時間の移動マニピュレーション方策の学習や、基盤モデル（VLAなど）を用いた高レベルなタスク計画との統合が期待されています。",
+   "figures": []
+  },
+  {
+   "heading": "VIII Conclusion",
+   "heading_ja": "まとめ：研究コミュニティ全体で育てるオープンロボティクス基盤へ",
+   "summary_ja": "MABELは商用機の10分の1の価格で高度な全身運動と学習パイプラインを実現しました。LinuxがオープンソースOSの礎となったように、MABELがロボット学習コミュニティの共通基盤となることが期待されます。",
+   "details_ja": "MABELは、全身の移動性、広大な作業空間、能動的知覚、多指の器用さ、そして外力にしなやかに逃げる柔軟性を、約8,100ドルという圧倒的な低価格で統合したオープンソースロボットです。ハードウェアのCADデータ、ファームウェア、ROS 2スタック、シミュレータモデル、遠隔操作アプリ、学習スクリプトにいたるまで、すべての成果物が公開されています。\n\nLinuxがオープンな基盤として世界中の開発者に支えられて発展したように、MABELもまた、世界中のロボティクス研究者が共有し、改良を重ねていくオープンな標準プラットフォームとなることが願われています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "約8,100ドル（約120万円）という市販品の約10分の1のコストで、56自由度の全身協調モバイル両腕ロボットを自作・運用できることが示された",
+  "Apple Vision Proの頭部・手先トラッキング情報だけでも、適切な運動学分解（コンフォートボックスによる歩行/前傾の分離など）を行えば全身56自由度の直感的操作が可能である",
+  "遠隔操作・シミュレーション・方策実行で同一のコントローラと指令形式を共有することで、デモ収集からACT等の模倣学習モデル展開までの摩擦を最小化できる",
+  "準直接駆動（QDD）アクチュエータによる重力補償・低ゲインインピーダンス制御によって、安価なハードウェアでも安全な柔軟接触（コンプライアンス）が実現できる"
+ ],
+ "limitations_ja": [
+  "昇降デスク用リフトを利用しているため垂直方向の可動域は広いものの、昇降速度が遅くダイナミックな全身運動には限界がある",
+  "3輪スワーブベースは軽量・低コストである反面、4輪と比べて支持多角形が小さく、リフト上昇時の加減速をソフトウェア的に制限する必要がある",
+  "模倣学習（ACT）の実機自律実験は上半身中心のピッキングタスクにとどまっており、台車移動を伴うエンドツーエンドの自律学習は今後の課題とされている"
+ ],
+ "keywords": [
+  "Mobile Bimanual Manipulation",
+  "Whole-Body Teleoperation",
+  "Imitation Learning",
+  "Action Chunking with Transformers (ACT)",
+  "Open-Source Hardware",
+  "Compliant Actuation"
+ ],
+ "id": "2611.04083",
+ "title": "MABEL: An Open Anthropomorphic Mobile Bimanual Platform for Teleoperation and Learning",
+ "authors": [
+  "Qilong Cheng",
+  "Rooholla Khorrambakht",
+  "Mohamed Yassine Kabouri",
+  "Quang Nam Nguyen",
+  "Luca Macesanu",
+  "Haoran Zhou",
+  "Yipeng Wang",
+  "Ludovic Righetti"
+ ],
+ "date": "2026-11-04",
+ "group": "general",
+ "tags": [
+  "hardware",
+  "manipulation",
+  "teleoperation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.04083",
+ "pdf_url": "https://arxiv.org/pdf/2611.04083",
+ "summary_ja": "56自由度を備え、部品総額8,100米ドルで構築可能なオープンソースの等身大移動式双腕ロボットMABELを開発。7自由度アーム、17自由度ハンド、ピッチング可能な胴体、ホロノミック台車を組み合わせ、床面から高さ2.23mまでの作業域とバックドライバビリティによる柔軟な対人協調を実現する。",
+ "generated": "2026-11-04",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.04083"
+}
