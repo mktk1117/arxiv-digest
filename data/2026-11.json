@@ -1,6 +1,318 @@
 {
  "entries": [
   {
+   "date": "2026-11-04",
+   "rank": 0,
+   "id": "2611.04204",
+   "group": "focus",
+   "title": "Online iLQR-MPC with Whole-Body Control for Robust Humanoid Locomotion",
+   "title_ja": "ロバストなヒューマノイド歩行のための全身制御を統合したオンラインiLQR-MPC",
+   "summary_ja": "単一剛体モデルを用いて接触力と着地点を同時に最適化するiLQR-MPCと、全身制御を統合したヒューマノイド歩行制御手法の提案。ステッププランナーを分離せず単一の後退ホライズン問題として定式化し、外乱に対して足踏み位置と接触レンチを実時間で協調修正することで堅牢な移動を実現する。",
+   "summary_en": "This paper proposes a robust humanoid locomotion framework integrating iLQR-MPC with whole-body control. Using a single-rigid-body model, it jointly optimizes contact forces and footstep locations in a single receding-horizon problem without a separate step planner, enabling real-time coordinated replanning against disturbances.",
+   "authors": [
+    "Xiang Li",
+    "Linlin Ou",
+    "Ruihan Wu",
+    "Xinyi Yu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.04204",
+   "image": "figures/2026-11-04/2611.04204.jpg"
+  },
+  {
+   "date": "2026-11-04",
+   "rank": 1,
+   "id": "2611.04424",
+   "group": "focus",
+   "title": "ReflexArc: Bottom-Up Integration of Instantaneous Tactile Reflexes into Whole-Body Humanoid Control",
+   "title_ja": "ReflexArc: ヒューマノイド全身制御への瞬時触覚反射のボトムアップ統合",
+   "summary_ja": "50Hzの全身制御ポリシーが抱える遅延と過度の追従を解消するため、ミリ秒単位の触覚反射をボトムアップに統合するARCを提案。全身触覚センサから危険な接触を即座に検知して回避姿勢を解き、学習済み全身制御器の出力に低遅延で介入させることで、最初の衝撃ピーク前に反射的な退行動作を可能にする。",
+   "summary_en": "The authors propose ARC, a bottom-up framework integrating instantaneous tactile reflexes into whole-body humanoid control. To overcome the delays of 50 Hz learned policies, it detects hazardous contacts via full-body tactile sensing, computes a whole-body withdrawal pose, and intervenes directly before the first impact peak occurs.",
+   "authors": [
+    "Mingyu Wang",
+    "Si Li",
+    "Ziqing Chen",
+    "He Wang",
+    "Li Yi"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.04424",
+   "image": "figures/2026-11-04/2611.04424.jpg"
+  },
+  {
+   "date": "2026-11-04",
+   "rank": 2,
+   "id": "2611.05113",
+   "group": "focus",
+   "title": "HLO-AMP: Hierarchical Loco-Manipulation from Object-Aware Motion Priors",
+   "title_ja": "HLO-AMP: 物体認識動作事前分布に基づく階層的ロコマニピュレーション",
+   "summary_ja": "物体動力学を考慮した階層的ヒューマノイド・ロコマニピュレーション制御手法。低レベル制御器を単なる追従器ではなく、物体を含めた運動事前分布として学習させることで、腕や胴体に分散する多点接触レンチを正確に再現し、可搬重量限界付近でも破綻しない全身協調動作を実機で達成した。",
+   "summary_en": "This work introduces HLO-AMP, a hierarchical humanoid loco-manipulation framework. By training the low-level controller as an object-aware motion prior rather than a naive whole-body controller with force noise approximations, it accurately captures distributed multi-contact wrenches and reliably handles payloads near physical limits.",
+   "authors": [
+    "Jean-Pierre Sleiman",
+    "Bilal Hammoud",
+    "He Li",
+    "Jonathan Foster",
+    "Sylvain Bertrand",
+    "Jessica K. Hodgins",
+    "Farbod Farshidian"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.05113",
+   "image": "figures/2026-11-04/2611.05113.jpg"
+  },
+  {
+   "date": "2026-11-04",
+   "rank": 3,
+   "id": "2611.04972",
+   "group": "focus",
+   "title": "Caging Vision-Language Navigation for Legged Robots via Barrier-Certified Safety Architecture",
+   "title_ja": "バリア認証安全アーキテクチャによる脚ロボットの視覚言語ナビゲーション保護",
+   "summary_ja": "脚ロボットの言語指示ナビゲーションにおいて、VLAによるエンドツーエンド計画の柔軟性を活かしつつ安全性を保証するアーキテクチャの提案。高レベルVLAプランナーと低レベル制御器の間にコントロールバリア関数（CBF）による安全フィルターを統合し、実世界展開における衝突防止と物理的接地を実機四脚ロボットで実証した。",
+   "summary_en": "This paper presents a safety architecture that cages Vision-Language-Action (VLA) navigation for legged robots using Control Barrier Functions (CBFs). By integrating a high-level VLA planner with a low-level barrier-certified safety filter, it provides formal safety guarantees and physical grounding during real-world quadruped navigation.",
+   "authors": [
+    "Abhijeet M. Kulkarni",
+    "Saimouli Katragadda",
+    "Yuze Du",
+    "Zijun Sha",
+    "Guoquan Huang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "quadruped",
+    "navigation",
+    "vision-language-action",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.04972",
+   "image": "figures/2026-11-04/2611.04972.jpg"
+  },
+  {
+   "date": "2026-11-04",
+   "rank": 4,
+   "id": "2611.04839",
+   "group": "focus",
+   "title": "Coordinating Humanoid Loco-Manipulation through Action-Conditioned Latent Foresight",
+   "title_ja": "行動条件付き潜在事前予測によるヒューマノイド・ロコマニピュレーションの協調",
+   "summary_ja": "ヒューマノイドの全身移動操作における動作生成を事前評価する行動条件付き潜在世界モデルを提案。視覚・言語・ロボット状態から提案された一連の関節指令に対し、エンドポイント予測器がサブゴールへの到達進捗を測り、時間的一貫性を事前分布で評価することで、把持対象の落下や不完全な作業を防ぐ。",
+   "summary_en": "This paper presents action-conditioned latent foresight for humanoid loco-manipulation. By evaluating proposed joint motion-hand command sequences before execution using an endpoint visual feature predictor and a temporal prior, the framework prevents dropped objects and incomplete multi-stage tasks.",
+   "authors": [
+    "Ju Dong",
+    "Xinyu Xiao",
+    "Yiming Zhou",
+    "Tianshuo Yang",
+    "Xuerong Liu",
+    "Lei Zhang",
+    "Jian Chen",
+    "Haocheng Zhao",
+    "Yu Fu",
+    "Yujie Wei",
+    "Diwen Zheng",
+    "Alois Christian Knoll",
+    "Angela P. Schoellig",
+    "Ping Luo",
+    "Jianwei Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.04839",
+   "image": "figures/2026-11-04/2611.04839.jpg"
+  },
+  {
+   "date": "2026-11-04",
+   "rank": 5,
+   "id": "2611.03815",
+   "group": "general",
+   "title": "AIRoA-0: Long-Horizon, Precise, Cross-Embodiment Manipulation from Handheld Data",
+   "title_ja": "AIRoA-0: ハンドヘルドデータからの長大ホライズン・高精度クロスエンボディメント操作",
+   "summary_ja": "ロボット実機データを一切使わず、16,151時間のハンドヘルド器具（YUBI）操作映像のみから学習した双腕操作システムAIRoA-0を提案。手首カメラ2台のみの情報から、未学習環境において小型部品の仕分けや掃除機ブラシの交換、タオル折りなど10種類の長大ホライズン作業を高精度に達成した。",
+   "summary_en": "AIRoA-0 is a bimanual manipulation system trained on 16,151 hours of handheld demonstrations with no robot data. Using only two wrist-mounted cameras, it successfully performs complex, long-horizon tasks such as sorting dozens of parts, maintaining vacuum cleaner brushes, and folding towels in unseen real-world environments.",
+   "authors": [
+    "Yueh-Hua Wu",
+    "Kei Ota",
+    "Hanlong Li",
+    "Hayata Yuasa",
+    "Jason Wang",
+    "Kengo Ikeuchi",
+    "Kensuke Chiyoma",
+    "Makoto Sugiura",
+    "Masafumi Takahashi",
+    "Masatoshi Tateno",
+    "Naoaki Kanazawa",
+    "Nicola Scianca",
+    "Petr Khrapchenkov",
+    "Satoshi Otsubo",
+    "Takehiko Ohkawa",
+    "Takuya Okubo",
+    "Tatsuya Matsushima",
+    "Yuki Noguchi",
+    "Yuma Shin",
+    "Zixuan Zhong"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "manipulation",
+    "imitation-learning",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.03815",
+   "image": "figures/2026-11-04/2611.03815.jpg"
+  },
+  {
+   "date": "2026-11-04",
+   "rank": 6,
+   "id": "2611.04870",
+   "group": "general",
+   "title": "PrimeSim: A Generalist World Model Simulator from Large-Scale Cross-Embodiment Demonstrations",
+   "title_ja": "PrimeSim: 大規模クロスエンボディメント実演データによる汎用世界モデルシミュレータ",
+   "summary_ja": "22種類のロボットにまたがる30,110時間の実機データから学習した、マルチビュー対応の世界モデルシミュレータPrimeSimを提案。統一された行動表現とフレーム整合二重パス条件付けにより指示行動への忠実度を高め、長期予測においても崩壊せず一貫した挙動を生成できるシミュレーション環境を提供する。",
+   "summary_en": "PrimeSim is an action-conditioned, multi-view world model simulator trained on 30,110 hours of demonstrations across 22 robotic platforms. Featuring a unified cross-embodiment action representation and frame-aligned conditioning, it enables faithful action following and coherent long-horizon simulation across viewpoints.",
+   "authors": [
+    "Travis Davies",
+    "Wentao Ma",
+    "Lihao Guo",
+    "Tengfei Ma",
+    "Xiaowen Chang",
+    "Jiafeng Xu",
+    "Shilong Wang",
+    "Yiqi Deng",
+    "Shaowen He",
+    "Xiaoqi Li",
+    "Qian Zhu",
+    "Ran Cheng",
+    "Hao Dong"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "world-model",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.04870",
+   "image": "figures/2026-11-04/2611.04870.jpg"
+  },
+  {
+   "date": "2026-11-04",
+   "rank": 7,
+   "id": "2611.04083",
+   "group": "general",
+   "title": "MABEL: An Open Anthropomorphic Mobile Bimanual Platform for Teleoperation and Learning",
+   "title_ja": "MABEL: 遠隔操作とロボット学習のためのオープンソース等身大移動式双腕プラットフォーム",
+   "summary_ja": "56自由度を備え、部品総額8,100米ドルで構築可能なオープンソースの等身大移動式双腕ロボットMABELを開発。7自由度アーム、17自由度ハンド、ピッチング可能な胴体、ホロノミック台車を組み合わせ、床面から高さ2.23mまでの作業域とバックドライバビリティによる柔軟な対人協調を実現する。",
+   "summary_en": "MABEL is an open-source, 56-DoF anthropomorphic mobile bimanual robot built with an $8,100 parts cost. Integrating dual 7-DoF arms, 17-DoF hands, a pitching torso, and a holonomic base, it provides back-drivable compliant interaction and a wide reach from floor level up to 2.23 meters.",
+   "authors": [
+    "Qilong Cheng",
+    "Rooholla Khorrambakht",
+    "Mohamed Yassine Kabouri",
+    "Quang Nam Nguyen",
+    "Luca Macesanu",
+    "Haoran Zhou",
+    "Yipeng Wang",
+    "Ludovic Righetti"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "manipulation",
+    "teleoperation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.04083",
+   "image": "figures/2026-11-04/2611.04083.jpg"
+  },
+  {
+   "date": "2026-11-04",
+   "rank": 8,
+   "id": "2611.04096",
+   "group": "general",
+   "title": "Online Hamilton-Jacobi Reachability Onboard the Robot Control Loop: A Real-Time GPU Solver for Safety-Critical Autonomy",
+   "title_ja": "ロボット制御ループ内で動作するオンラインHamilton-Jacobi到達可能性解析",
+   "summary_ja": "安全性が重要なロボット制御ループ内で実時間動作する、CUDA実装のHamilton-Jacobi（HJ）到達可能性解析ソルバを開発。高次精度アルゴリズムをFP32で超高速に計算し、2D〜4Dダイナミクスに対して数ミリ秒以内の逆到達可能集合計算を可能にすることで、VLA等のブラックボックス方策に確定的な安全保証を付与する。",
+   "summary_en": "The authors present a real-time GPU solver for Hamilton-Jacobi reachability designed to run directly inside robot control loops. Implementing high-order numerical schemes in CUDA, it computes backward reachable tubes for 2D to 4D dynamics within milliseconds, providing deterministic safety filters for black-box neural policies.",
+   "authors": [
+    "Kevin Weekly",
+    "Alexandre M. Bayen"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "control",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.04096",
+   "image": null
+  },
+  {
+   "date": "2026-11-04",
+   "rank": 9,
+   "id": "2611.04974",
+   "group": "general",
+   "title": "LLMs as MDP Designers: A Dependency-Aware Agentic Framework for Automated Robot Policy Generation",
+   "title_ja": "MDP設計者としてのLLM: ロボット方策自動生成のための依存性配慮型エージェント基盤",
+   "summary_ja": "自然言語のタスク指示から強化学習パイプラインを自動生成するエージェントフレームワークARPGを提案。LLMを実行時の意思決定ではなく「MDP設計者」として位置づけ、依存関係を考慮したMDP定式化、局所検証、モジュール化されたシミュレータ実装を順次自動化することで、実効性の高い方策学習環境を構築する。",
+   "summary_en": "This work introduces ARPG, an agentic framework that employs LLMs as MDP designers to automatically construct robot reinforcement learning pipelines from language descriptions. By structuring sequential MDP modeling, localized verification, and modular simulator implementation, it automates executable RL policy synthesis.",
+   "authors": [
+    "Hong Je-Gal",
+    "Jinwoo Kim",
+    "Chanbin Yi",
+    "Hyun-Suk Lee"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "simulation",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.04974",
+   "image": "figures/2026-11-04/2611.04974.jpg"
+  },
+  {
    "date": "2026-11-03",
    "rank": 0,
    "id": "2611.01197",
