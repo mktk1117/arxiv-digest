@@ -1,0 +1,129 @@
+{
+ "title_ja": "ロバストなヒューマノイド歩行のための全身制御を統合したオンラインiLQR-MPC",
+ "tldr_ja": "接触力と次の着地点（ステップ位置）を1つのiLQR-MPCで同時にオンライン最適化し、高速な全身制御器と組み合わせることで、強烈な外乱プッシュにも倒れず踏みとどまる頑健な二足歩行をモデルベース制御のみで実現しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "提案手法の全体システム構成です。上位のリファレンス計画から得られた重心目標をもとに、単一剛体モデルを用いたiLQR-MPCが接触力と着地点を100 Hzで同時に最適化します。その計画値を下位の全身制御器（WBC）が500 Hzで関節トルクへと変換し、厳しい制約を満たしながら実機挙動へと落とし込みます。",
+  "caption": "Fig. 1: Overall control architecture. A reference-planning module supplies the CoM reference, nominal footholds, and contact schedule. The reduced-model iLQR-MPC computes the contact wrench and footstep placements online from centroidal state feedback, with contact and motion constraints entering the cost $J$ as augmented-Lagrangian and relaxed-barrier penalties. The whole-body controller maps this plan to joint torques via task-priority projection, a dynamics QP, and inverse dynamics, using joint state feedback, with the QP enforcing the floating-base block of the full whole-body dynamics and contact feasibility.",
+  "image": "details/2611.04204/F1.jpg"
+ },
+ "overview_ja": "二足歩行ロボットにとって、外から不意に押されたときにバランスを崩さず歩き続けることは極めて難しい課題です。人間は強く押されると、足裏で地面を踏ん張る力（接触力）を咄嗟に変えるだけでなく、とっさに足を踏み出して新しい接地場所（着地点）を作ることで転倒を防ぎます。しかし従来のロボット制御では、計算負荷の重さから「足を踏み出す場所の決定」と「足裏の力配分の計算」を別々のモジュールに分けて順次処理したり、凸最適化で解くために接触制約を過度に簡略化したりするのが一般的でした。その結果、大きな外乱を受けた際に摩擦限界を越えて滑ってしまったり、ステップの修正が間に合わずに転倒してしまうという問題がありました。\n\nそこで著者らは、単一剛体（SRB: Single-Rigid-Body）モデルをベースに、接触レンチと着地点を同一の有限ホライズン最適制御問題として一括して解く「iLQR-MPC」を提案しました。非線形最適化手法であるiLQR（反復線形2次レギュレータ）のバックワードパスの中に、等式制約を扱う拡張ラグランジュ法（AL）と不等式制約を扱う緩和対数バリア法（ReB）を直接組み込むことで、摩擦ピラミッドや転倒防止条件（ZMP制約）、着地点の可動範囲といった厳しい制約を厳密に考慮しながら、平均8.9 msという100 Hz駆動が可能な超高速な再計画ループを実現しています。\n\nさらに、MPCが求めた重心運動と接触力を、ロボットの全身ダイナミクスに整合させる500 Hzの階層型全身制御器（WBC: Whole-Body Controller）を構築しました。シミュレーション環境MuJoCoにおいて実機スケールのヒューマノイドロボット「Unitree G1」を用いた実験を行った結果、前進歩行中に加えられた245 Nの前方インパルス外乱や、175 Nの側方インパルス外乱から瞬時に足を踏み出して持ちこたえる極めて高い復帰性能を実証しました。強化学習を一切使わず、すべての挙動が数式と物理モデルに基づいて明確に説明できる、非常に完成度の高いモデルベース制御フレームワークです。",
+ "contributions_ja": [
+  "接触力配分と着地点（ステップ位置）の決定を分離せず、単一剛体モデル上の1つのiLQR-MPCで同時にオンライン最適化する枠組みを構築した点",
+  "拡張ラグランジュ法（AL）と緩和対数バリア法（ReB）をiLQRのバックワードパスに統合し、厳しい接触・幾何制約を解きながら100 Hz（平均8.9 ms）での実時間再計画を達成した点",
+  "タスク優先度付きヌルスペース投影、ダイナミクス補正QP、逆動力学を組み合わせ、MPCの計画を500 Hzで破綻なく関節トルクに変換する全身制御器を統合した点",
+  "強化学習のようなプラットフォーム固有の学習を必要とせず、Unitree G1において前方245 N・横方向175 Nの強外乱からの復帰をシミュレーションで実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜ今、接触力とステップ位置の同時最適化なのか",
+   "summary_ja": "ヒューマノイドの歩行制御において、外乱に対処するには足首・股関節・ステップの各戦略を連動させる必要があります。本章では、既存の単純化MPCや強化学習の限界を整理し、接触力と着地点を1つのiLQR-MPCで同時に解く新しいモデルベース制御の意義と本論文の貢献を述べています。",
+   "details_ja": "二足歩行ロボットは浮遊ベース（Floating-base：空中に浮いた胴体）を持ち、自由度が高いうえに、足が接地・離脱するたびに力学モデルが不連続に切り替わるハイブリッドダイナミクスを持っています。転倒を防ぐためには、関節トルクの限界や関節可動域だけでなく、足裏が滑らないための摩擦円錐（Friction Cone）や、足裏が浮き上がらないためのZMP（ゼロモーメント点：床反力によるモーメントがゼロになる点）といった厳しい不等式制約をリアルタイムで守り続ける必要があります。\n\n近年は強化学習によるシミュレーションから実機への転移（Sim-to-Real）が盛んですが、ロボットごとに長時間の学習が必要であり、かつ安全性に関わるハード制約を数理的に保証することができません。一方、従来のモデルベース制御では「低周波（50〜100 Hz）の低次モデルMPC」と「高周波（500〜1000 Hz）の全身制御器（WBC）」を組み合わせる階層構造が標準となっています。\n\nしかし、従来のMPC+WBCパイプラインには大きな課題が2つありました。\n- 制約の単純化による破綻：実時間計算のためにモデルを過度に線形化したり制約を緩めたりしているため、大きな外乱を受けると実機が摩擦限界を越えて滑ってしまうことがありました。\n- 着地点と力の分離：多くの手法では足を踏み出す位置（ステップ計画）と足裏の力配分を別々に決めていました。そのため、押された瞬間に「どれだけ強く踏ん張り、同時にどこへ足を出し直すか」という協調的な最適判断ができませんでした。\n\n本論文は、非線形な最適化を行えるiLQRに着目し、拡張ラグランジュ法（AL）と緩和バリア法（ReB）を組み込むことで、着地点と接触力を同一の最適化ループで100 Hzで同時に解く手法を提案しています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "図1: システム全体の制御アーキテクチャです。上位のリファレンス生成器から重心（CoM）目標と公称歩行スケジュールを受け取り、iLQR-MPCが重心ダイナミクス・接触レンチ・最適着地点を解き、下位のWBCが運動学と動力学の整合性を取りながら関節トルクへ展開します。",
+     "caption": "Fig. 1: Overall control architecture. A reference-planning module supplies the CoM reference, nominal footholds, and contact schedule. The reduced-model iLQR-MPC computes the contact wrench and footstep placements online from centroidal state feedback, with contact and motion constraints entering the cost $J$ as augmented-Lagrangian and relaxed-barrier penalties. The whole-body controller maps this plan to joint torques via task-priority projection, a dynamics QP, and inverse dynamics, using joint state feedback, with the QP enforcing the floating-base block of the full whole-body dynamics and contact feasibility.",
+     "image": "details/2611.04204/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Problem Formulation and Theoretical Background",
+   "heading_ja": "ロボットの動きをどう捉え、どう解くか：SRBモデルとiLQR",
+   "summary_ja": "MPCの内部モデルとして、姿勢ダイナミクスと3軸接触レンチを保持できる単一剛体（SRB）モデルを採用しています。この非線形モデルを局所2次近似しながら高速に最適フィードバック制御則を求めるiLQRの基礎理論を解説しています。",
+   "details_ja": "### II-A システムダイナミクスのモデリング\nMPCの予測モデルとして、ロボット全体を1つの剛体とみなす単一剛体（SRB: Single-Rigid-Body）モデルを採用しています。質点モデル（LIPなど）とは異なり、ロボットのロール・ピッチ・ヨーの3軸姿勢変化や、足裏から受ける力とモーメント（接触レンチ）の完全な関係性を保持できるのが大きな利点です。\n\n状態ベクトル $\\bm{x}$ には、ベースの姿勢角（オイラー角 $\\bm{\\Phi}$）、重心位置 $\\bm{p}$、角速度 $\\bm{\\omega}$、並進速度 $\\bm{v}$ に加え、左右の足先位置 $\\bm{p}_{i}^f$ を含めています。制御入力 $\\bm{u}$ は、各足裏に加わる接触力 $\\bm{F}_i$、接触モーメント $\\bm{\\tau}_i$、および足先速度 $\\bm{v}_i^f$ です。サンプリング時間 $\\Delta t = 5\\,\\mathrm{ms}$、予測ホライズン $N = 10$ ステップ（先読み時間 $50\\,\\mathrm{ms}$）の前進オイラー法で離散化しています。\n\n### II-B iLQRによる解法フレームワーク\niLQR（反復線形2次レギュレータ）は、非線形な状態方程式とコスト関数を行動価値関数 $Q_k$ の周りで2次近似しながら、バックワードパス（逆時間方向の計算）とフォワードパス（順時間方向のロールアウト）を繰り返して解を収束させるDDP（微分動的計画法）系のアルゴリズムです。ダイナミクスの2次テンソル収縮を無視するガウス・ニュートン近似を用いることで計算を大幅に軽量化し、状態フィードバックゲイン行列 $\\bm{K}_k$ とフィードフォワード補正量 $\\bm{k}_k$ を同時に導出できます。",
+   "figures": []
+  },
+  {
+   "heading": "III Constrained MPC Formulation",
+   "heading_ja": "制約を破らないための工夫：AL法と緩和バリア法によるMPCの定式化",
+   "summary_ja": "接触安定性を保つための摩擦ピラミッドやZMP制約、遊脚が満たすべき等式制約を、拡張ラグランジュ法（AL）と緩和対数バリア法（ReB）を用いてコスト関数へ組み込みました。これによりiLQRの計算構造を壊さず、高速な制約付き最適化を成立させています。",
+   "details_ja": "### III-A 接触安定性制約\n足が地面に接しているとき、物理的に破ってはならない制約が4つあります。\n- 鉛直方向の押し付け力のみが許される片側接触制約（$F_{i,z} \\geq 0$）\n- 足裏が滑らないための摩擦ピラミッド制約（摩擦円錐を内接する4面ピラミッドで線形近似したもの）\n- 足裏がめくれて転倒しないためのZMP制約（足裏の長方形支持領域 $L_x, L_y$ の内部にZMPが収まる条件）\n- ヨー方向の接地モーメント上下限制約\n\nこれらは接触レンチ $(\\bm{F}_i, \\bm{\\tau}_i)$ に関する線形不等式として表されます。また、遊脚については、公称着地点の周囲に設定したボックス領域内に着地位置を制限する幾何不等式制約を課します。\n\n### III-B ペナルティ法による制約の組み込み\niLQRは滑らかで2回微分可能なコスト関数を前提とするため、硬い不等式や等式制約をそのまま扱うのが苦手です。そこで本論文では、制約をコスト関数に織り込むペナルティ手法を巧みに使い分けています。\n- 拡張ラグランジュ法（AL）：遊脚の期間中は接触レンチがゼロでなければならないという等式制約に対し、双対変数 $\\bm{\\lambda}_k$ とペナルティ係数 $\\sigma$ を用いたALペナルティを導入しました。これにより制約違反を厳密にゼロへ追い込みます。\n- 緩和対数バリア法（ReB）：摩擦やZMPなどの不等式制約に対しては、通常の対数バリア関数を境界付近で2次多項式へと滑らかに接続するReBを採用しました。通常のバリア関数のように境界で無限大に発散してHessianが吹き飛ぶ現象を防ぎ、バックワードパスの数値的安定性を劇的に向上させています。\n\n### III-C・D ステップ位置の内生化とMPC全体の最適化問題\n足先位置を着地点状態として扱い、歩行ゲート信号 $\\gamma_i$ に応じて「支持脚なら固定、遊脚なら足先速度で移動」という更新式をMPC内部に組み込みました。これにより、外乱を受けたときに「足裏の踏ん張り力」と「次の一歩を踏み出す位置」をまったく同じ1回の最適化で協調して決定できます。",
+   "figures": []
+  },
+  {
+   "heading": "IV Whole-Body Motion Controller",
+   "heading_ja": "計画を関節トルクへ橋渡しする500 Hzの全身制御（WBC）",
+   "summary_ja": "MPCが計画した重心運動と足裏接触力は低次モデルに基づいているため、35自由度のロボット全身ダイナミクスと整合させる必要があります。本章では、ヌルスペース射影、ダイナミクス補正QP、逆動力学の3段階で500 Hz動作する全身制御器の構成を解説します。",
+   "details_ja": "全身制御器（WBC）の目的は、MPCが求めた計画値を受け取り、全身の自由度（Unitree G1では浮遊ベース6自由度＋関節29自由度＝計35自由度）とアクチュエータの動力学を厳密に考慮しながら、各関節のモータトルクを500 Hzで計算することです。制御器は以下の3段階で動作します。\n\n### IV-B ヌルスペース・タスク優先度制御\n最上位の運動学レベルでは、複数の目標タスクに優先度をつけ、下位タスクが上位タスクを邪魔しないように上位タスクのヌルスペース（零空間）へ射影して関節指令を合成します。優先度は「浮遊ベースの姿勢」「足先の軌道」「腕の振り動作」の順序で設定され、最終的に幾何学的に干渉のない公称関節加速度 $\\ddot{\\bm{q}}^{\\mathrm{kin}}$ が求まります。\n\n### IV-C ダイナミクス補正QP（Quadratic Program）\n運動学で求めた加速度は、まだ浮遊ベースの運動方程式や厳密な接触力制約を満たしていません。そこで、ベース加速度の補正量 $\\delta\\ddot{\\bm{q}}_f$（6次元）と接触レンチの補正量 $\\delta\\bm{F}_r$（12次元）の計18次元のみを変数とする非常に軽量なQPを解きます。運動方程式を満たしつつ、補正量を最小化してMPCの計画値に可能な限り近づけます。\n\n### IV-D 関節トルクの算出とPD制御\nQPによって整合性が取れた加速度 $\\ddot{\\bm{q}}^{\\mathrm{opt}}$ と接触力 $\\bm{F}_r^{\\mathrm{opt}}$ を用いて、浮遊ベースの逆動力学（Inverse Dynamics）を直接計算し、フィードフォワード関節トルク $\\bm{\\tau}^{\\mathrm{ff}}$ を一意に決定します。これに関節ごとのPDフィードバックトルクを足し合わせることで、最終的なモータトルク指令を生成しています。",
+   "figures": []
+  },
+  {
+   "heading": "V Simulation Experiments",
+   "heading_ja": "Unitree G1での検証：定常歩行と強力な外乱プッシュへの耐性",
+   "summary_ja": "物理シミュレータMuJoCoを用い、ヒューマノイドロボットUnitree G1で歩行と外乱復帰の実験を行いました。前方245 N、横方向175 Nの激しい外乱にも即座に着地点を修正して転倒を回避し、MPCの計算時間も平均8.9 msと実時間性を実証しました。",
+   "details_ja": "### V-A 実験設定\n評価にはMuJoCoシミュレータとUnitree G1モデルを使用しました。WBCとシミュレーションは500 Hzで同期動作し、iLQR-MPCはホライズン50 ms（$\\Delta t = 5\\,\\mathrm{ms}, N = 10$）で10 msごと（100 Hz）に再計画を実行します。CPUは一般的なデスクトップ用のIntel Core i5-12400Fを使用しています。\n\n### V-B 定常歩行性能\n外乱のない平地を0.1 m/sで約40秒間歩行させたところ、MPCの予測軌道は目標リファレンスを極めて精度よく追従しました。前進方向の位置二乗平均平方根誤差（RMSE）は0.063 m、上下方向のズレはわずか0.001 mであり、安定した歩行サイクルを維持できることが確認されました。\n\n### V-C 外乱復帰（プッシュリカバリ）性能\n歩行中のロボットの胴体に対し、0.12秒間だけ強烈なインパルス外乱（押し力）を加えて限界性能を検証しました。\n- 前方プッシュ（$+x$方向）：最大245 Nの力まで耐えて歩行を継続できました。外乱を受けた瞬間にピッチ角が約0.20 rad傾きますが、MPCが瞬時に次の一歩を大きく前に踏み出すよう着地点を再計画し、角速度を1秒以内に収束させています。\n- 側方プッシュ（$\\pm y$方向）：左から右（$-y$方向）への押しには最大175 Nまで耐えられましたが、右から左（$+y$方向）は80 Nが限界という顕著な非対称性が見られました。これは外乱が加わった瞬間に「支持脚側へ押されたか、遊脚側へ押されたか」の違いによるものです。支持脚側へ押された場合は接触レンチの再配分で踏ん張れますが、支持脚から離れる方向へ押された場合は支持基底面が狭まり、足を踏み出す以外の回復手段がなくなるためです。\n\n### V-D 計算速度の内訳\n約9000回のMPC実行において、エンドツーエンドの平均計算時間はわずか8.93 msでした。1回のiLQR反復にかかる時間は約2.24 msで、外乱を受けた過渡期に最大13.56 msに達することがあったものの、ほぼ全フレームで100 Hz再計画の目標をクリアしています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "図2: 0.1 m/sでの定常歩行時における重心状態のMPC予測と追従結果です。赤の破線が目標軌道、青の実線が予測値を示しており、前進位置（a）や上下動（c）ともに極めて低い追従誤差を達成しています。",
+     "caption": "Fig. 2: MPC horizon prediction of the CoM state. (a)–(c) CoM position; (d)–(f) planar velocity and yaw rate. The reference $\\bm{x}^{\\mathrm{ref}}$ (light red, dashed) and prediction $\\bm{x}^{\\mathrm{pred}}$ (blue) are shown; RMSE is annotated per panel.",
+     "image": "details/2611.04204/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "図3: 前方（+x方向）への245 N外乱プッシュに対する復帰挙動です。左上の連続写真のように大きく前に足を踏み出して持ちこたえており、(a)のピッチ角や(d)の角速度が外乱印加から約1秒で速やかに安定化していることが分かります。",
+     "caption": "Fig. 3: Forward ( $+x$ ) push recovery at $245\\,\\mathrm{N}$ at $15.0\\,\\mathrm{s}$ during $0.1\\,\\mathrm{m/s}$ walking. Left: walking sequence; (c) iLQR solve-time distribution. Right: (a) base orientation; (b) swing-leg vertical contact force; (d) angular velocity.",
+     "image": "details/2611.04204/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "図4: 側方（-y方向）への175 N外乱プッシュに対する復帰挙動です。(a)の横方向重心位置が約0.34 m変位したものの、MPCが即座に足を横へ踏み出し直すことで、(b)のロール角の傾きを抑えて見事に復帰しています。",
+     "caption": "Fig. 4: Left-to-right ( $-y$ ) push recovery at $175\\,\\mathrm{N}$ at $15.0\\,\\mathrm{s}$ during $0.1\\,\\mathrm{m/s}$ walking. Left: walking sequence; (d) iLQR solve-time distribution. Right: (a) CoM lateral position; (b) base orientation; (c) swing-leg vertical contact force; (e) angular velocity.",
+     "image": "details/2611.04204/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "iLQR-MPCとWBCの統合により、解釈可能で高精度な制約充足を伴うヒューマノイド歩行制御系を確立しました。今後は歩行速度の向上、未知外乱の推定、および実機ハードウェアへの展開が目指されます。",
+   "details_ja": "本論文では、ヒューマノイドロボットの頑健な歩行を実現するため、接触力と着地点を同一ループで最適化するオンラインiLQR-MPCと、階層型全身制御器（WBC）を統合したモデルベース制御系を提案しました。拡張ラグランジュ法と緩和バリア法によってiLQR内部で厳密な制約処理を行い、100 Hzでの高速再計画を実証しました。\n\n一方で、著者らは以下の3つの課題と限界を認めています。\n- 歩行速度が0.1 m/sと比較的低速にとどまっている点\n- 外乱過渡期にMPCの計算時間が周期（10 ms）をわずかに超えてしまうケースがある点\n- シミュレーション上では外乱レンチを既知として扱っており、実世界での外乱推定器が未実装である点\n\n今後は、さらなる歩行速度の向上や、外乱知覚のための学習ポリシーの導入、視覚センサに基づく着地点計画の統合、そして実機ロボット（Unitree G1）上での実験検証を進める計画です。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "接触力配分と着地点（ステップ位置）は別々に解くのではなく、SRBモデル上の単一のMPC問題として同時に解くことで、強力な外乱プッシュに対して極めて高い復帰性能を発揮できる。",
+  "非線形iLQRでも、等式制約に拡張ラグランジュ法（AL）、不等式制約に緩和対数バリア法（ReB）を組み合わせることで、Hessianの発散を防ぎながら高速（平均8.9 ms）に制約付き最適化を収束させられる。",
+  "モデルベースの制御アーキテクチャ（MPC+WBC）を突き詰めることで、ブラックボックスな強化学習に頼ることなく、物理的に挙動が解釈可能な高度な二足歩行制御が実現可能である。"
+ ],
+ "limitations_ja": [
+  "歩行速度が0.1 m/sと非常に低速な条件でしか評価されておらず、高速歩行時におけるダイナミクス不整合への耐性が未検証である点",
+  "外乱プッシュの過渡期において、MPCの計算時間が制御周期の10 msを超える（最大13.56 ms）瞬間が存在する点",
+  "シミュレーション実験において外乱レンチが既知として扱われており、実機環境で不可欠となる外乱オブザーバや状態推定器との統合が今後の課題である点"
+ ],
+ "keywords": [
+  "Humanoid Locomotion",
+  "Model Predictive Control",
+  "Iterative Linear Quadratic Regulator",
+  "Whole-Body Control",
+  "Push Recovery"
+ ],
+ "id": "2611.04204",
+ "title": "Online iLQR-MPC with Whole-Body Control for Robust Humanoid Locomotion",
+ "authors": [
+  "Xiang Li",
+  "Linlin Ou",
+  "Ruihan Wu",
+  "Xinyi Yu"
+ ],
+ "date": "2026-11-04",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "locomotion",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.04204",
+ "pdf_url": "https://arxiv.org/pdf/2611.04204",
+ "summary_ja": "単一剛体モデルを用いて接触力と着地点を同時に最適化するiLQR-MPCと、全身制御を統合したヒューマノイド歩行制御手法の提案。ステッププランナーを分離せず単一の後退ホライズン問題として定式化し、外乱に対して足踏み位置と接触レンチを実時間で協調修正することで堅牢な移動を実現する。",
+ "generated": "2026-11-04",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.04204"
+}
