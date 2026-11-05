@@ -1,0 +1,146 @@
+{
+ "title_ja": "シミュレーションからの知覚的ヒューマノイド運動生成基盤",
+ "tldr_ja": "プロシージャル生成された1,000軒の仮想住宅から300時間の視覚・言語・全身動作データを全自動で合成し、未知の実環境6箇所で91%のタスク成功率を達成したヒューマノイド自律制御システム「HALO」の提案。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "HALOのオンボード自律スタック全体像です。最上位のVLMが指示と言語からサブタスクへ分解（約0.5 Hz）し、中位の動作生成器がRGB画像から5秒先までの全身軌道を生成（約3 Hz）、最下位の動作トラッカーが深度情報と自己受容感覚を統合して50 Hzで実機の関節を駆動します。",
+  "caption": "Fig. 2 : Onboard autonomy stack. (A) A VLM ( $\\sim$ 0.5 Hz) processes a natural-language request and egocentric visual input (top left) and outputs a sequence of subtasks. (B) The motion generator ( $\\sim$ 3 Hz) maps each subtask and the corresponding egocentric RGB frames into a $5\\,$ s whole-body motion plan. (C) The motion tracker ( $50\\,$ Hz) executes the motion plan, grounding the trajectory into the physical world using egocentric depth (bottom left) and proprioception.",
+  "image": "details/2611.06908/F2.jpg"
+ },
+ "overview_ja": "近年のヒューマノイドロボットはバク転やダンスといったアクロバティックな動作を披露できるようになりました。しかし、見知らぬ部屋に招かれて「そこの椅子に座って」と頼まれたとき、自律して腰掛けられるロボットはまだ存在しません。なぜなら、従来の敏捷な動作はあらかじめ振り付けられた軌道を盲目的に実行しているだけであり、日常のタスクで求められる「どの物体を指しているか（意味論的知覚）」と「物体に合わせてどう接触するか（物理的知覚）」という2つの知覚が欠けていたからです。これらを解決するには一人称視点の画像、自然言語の指示、そして全身の関節軌道がセットになった大量の教師データが必要ですが、人間が遠隔操作やモーションキャプチャで収集すると、1時間のデータを得るのに1時間以上の人的コストがかかりスケールしません。\n\nそこで著者らは、データ収集の制約を人手から計算量へと解き放つ自律システム「HALO」を開発しました。プロシージャル生成（アルゴリズムによる自動生成）された1,000軒の仮想住宅空間を用い、拡散モデルによって物理的に整合性のある動作軌道を生成・配置することで、300時間分の一人称視覚・言語・動作データを人手介入ゼロで合成しました。\n\nロボットの実機上では、約0.5 HzのVLMオーケストレータ、約3 Hzの動作生成器（Flow-matching DiT）、そして約50 Hzの知覚的強化学習トラッカーという3層の階層スタックが完全にオンボードで協調動作します。実機（Unitree G1）を使った実験では、訓練時に一度も見たことがなく、事前の3Dスキャンも行っていない実世界の住宅6箇所において、椅子に座る、ドアを横歩きで抜ける、机の下を這う・しゃがむ、箱を押すといったスキルを検証しました。その結果、計360試行で91%という極めて高い成功率を記録し、シミュレーション完結型の学習パイプラインが実世界へのゼロショット転移（追加学習なしの適応）を強力に支えることを実証しました。",
+ "contributions_ja": [
+  "人手による遠隔操作や実空間のスキャンを一切排除し、1,000軒のプロシージャル住宅から300時間の一人称視覚・言語・動作データを全自動合成するスケーラブルなパイプラインを提案した点。",
+  "VLMによるタスク分解、VLM+DiTによる5秒先予測の非同期動作計画、そしてオンボード深度を用いた強化学習トラッカーを組み合わせ、完全オンボード駆動する3層階層制御スタックを構築した点。",
+  "非同期生成時の軌道接続問題を、推論時最適化ではなく訓練時のプレフィックス条件付けによって解決し、計算遅延なしに滑らかな動作遷移を実現した点。",
+  "事前学習や環境マッピングを施していない全く未知の実環境6箇所において、6種類の全身運動スキルで計360回の実機検証を行い、91%の成功率でゼロショット転移を達成した点。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜヒューマノイドは見知らぬ部屋の椅子に座れないのか",
+   "summary_ja": "ヒューマノイドが日常空間で自律行動できない根本的な理由は、意味と物理の両面で環境を知覚しながら動くための大規模データが不足しているためです。HALOはシミュレーション内で視覚・言語・全身動作データを全自動合成することでデータ収集の人的ボトルネックを解消し、完全オンボードで動作する3層の自律制御システムを実現しました。",
+   "details_ja": "### アクロバットはできても「座る」ことができない現状\n現代のヒューマノイドは宙返りや華麗なステップを踏めますが、初めて入るリビングで「あの椅子に座って」と言われても実行できません。バク転のような動作は、環境形状を認識せずとも決められた軌道を追従するだけで成立しますが、未知の部屋で椅子に座るタスクは全く異なります。まず「指示された椅子はどれか」を見極める意味論的知覚が必要であり、さらに「椅子の座面が実際にどこにあるか」に合わせて姿勢を調整し、重心を移す物理的知覚が不可欠だからです。\n\n### データ収集のボトルネック：人手から計算機への解放\n自然言語処理ではウェブ上の膨大なテキストによって劇的な汎化能力が生まれましたが、ロボットの「一人称視点画像・指示文・全身動作」のペアデータは自然には存在しません。ALOHAやTWISTのような遠隔操作、あるいはUMIのような装着型デバイスによる収集では、1時間のデータを作るのに1時間以上の人間の労働が必要となり、データ量が人間の体力と時間に縛られてしまいます。HALOはこの制約を打ち破るため、データ生成を完全にシミュレーション内へ移行しました。プロシージャル生成された1,000軒の仮想住宅を舞台に、拡散モデルで動作を生成し、自動検証器で物理的破綻を排除することで、300時間分の高品質なデータを計算機の並列処理だけで作り出しました。\n\n### 3層構造のオンボード自律スタック「HALO」\nHALOの制御系は3つの階層に分かれており、すべて実機上で完結します。\n- **オーケストレータ（約0.5 Hz）**：既製のVLM（視覚言語モデル）を用い、自由な自然言語指示をサブタスクのシーケンスへと分解します。\n- **動作生成器（約3 Hz）**：VLMエンコーダと拡散トランスフォーマー（DiT）を組み合わせ、一人称RGB画像とサブタスクから5秒先までの全身関節角度および骨盤姿勢の計画を生成します。\n- **動作トラッカー（50 Hz）**：実機の深度カメラと自己受容感覚（関節角度や角速度などの内部状態）を統合し、強化学習で訓練されたポリシーが環境との接触やバランスを保ちながら計画軌道を忠実に追従します。\n\n意味の決定（どの椅子か）を上位2層が担い、物理の接地（実際の座面をとらえる）をトラッカーが担うことで、堅牢な全身知覚動作が可能になりました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "HALOのオンボード自律スタックのアーキテクチャです。(A) 上位のVLMが指示と視覚からサブタスクを策定し、(B) 動作生成器が一人称RGB画像から5秒先（150フレーム）の全身軌道を生成、(C) 下位のトラッカーがオンボード深度と自己受容感覚を入力として実機の関節指令値を出力します。",
+     "caption": "Fig. 2 : Onboard autonomy stack. (A) A VLM ( $\\sim$ 0.5 Hz) processes a natural-language request and egocentric visual input (top left) and outputs a sequence of subtasks. (B) The motion generator ( $\\sim$ 3 Hz) maps each subtask and the corresponding egocentric RGB frames into a $5\\,$ s whole-body motion plan. (C) The motion tracker ( $50\\,$ Hz) executes the motion plan, grounding the trajectory into the physical world using egocentric depth (bottom left) and proprioception.",
+     "image": "details/2611.06908/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "動作模倣から階層制御へ：先行研究との決定的な違い",
+   "summary_ja": "ヒューマノイドの動作生成、訓練環境の多様化、階層制御、知覚的低レベル制御に関する先行研究を整理し、HALOの位置づけを明確にしています。遠隔操作に依存せず、プロシージャル生成と知覚統合型トラッカーを組み合わせることで、完全未スキャンの実環境へのゼロショット適応を可能にしました。",
+   "details_ja": "### 動作教師データの生成アプローチ\n従来の全身行動獲得では、光学式モーションキャプチャや遠隔操作スーツ、あるいは単眼動画からリターゲットした人間の動作データが使われてきました。しかしこれらは人手がかかるうえ、生成モデルを使ったアプローチでも足の滑り（フットスケート）や床へのめり込みといった物理的不整合が生じます。先行研究ではサンプリング中の拘束や物理ロールアウトでの検証が行われてきましたが、HALOは動作サンプリング直後に幾何学的検証器を通すことで、無効な軌道を即座に排除して品質を担保しています。\n\n### 訓練環境の多様性とプロシージャル生成\n実環境へ適応するには多様な学習環境が必要です。対象環境があらかじめ分かっている場合はビデオからの3D再構成（NeRFや3D Gaussian Splattingなど）が有効ですが、事前スキャンが必要な時点で真の自律性とは言えません。HALOはInfinigenを活用したプロシージャル生成を導入し、間取りや家具配置が全く異なる1,000軒の仮想住宅を用意しました。特定タスクに限定された従来研究と異なり、多様なレイアウトと多種多様な家具とのインタラクションを扱える点が大きな強みです。\n\n### 階層型全身制御のインターフェース設計\n言語から関節指令値へのマッピングにおいて、End-to-End手法は解釈性や汎化性に課題があります。一方の階層型システムでは、コンパクトな作業空間コマンドやスパースなキーポイントをやり取りするのが一般的でした。HALOは全身のキネマティクス軌道そのものを中間表現として採用し、5秒先まで見通す長めの予測ホライズンを持ちながら、3 Hzという高速な周期で再計画を繰り返す「リシーディングホライズン戦略（後退ホライズン制御）」を導入しています。\n\n### 知覚を備えた低レベル制御と実機評価基準の厳格化\n従来の軌道追従トラッカーの多くは自己受容感覚のみに頼る「盲目」なものであり、計画軌道と現実の環境形状にズレがあると転倒してしまいます。HALOは低レベルトラッカーに一人称深度画像を入力することで、段差や障害物に対して低レベル側で反射的に適応できる能力を与えました。また、評価においても事前スキャン済みの部屋に限定せず、訓練時に一切見ていない6つの実環境で計360回という大規模な実機検証を行っています。",
+   "figures": []
+  },
+  {
+   "heading": "III Methods",
+   "heading_ja": "完全自動の合成データ生成とオンボード階層制御の全貌",
+   "summary_ja": "シミュレーション内でのデータ自動合成、VLM+DiTによる非同期動作生成器、3段階で学習される知覚的動作トラッカー、そして長期タスクを統括するVLMオーケストレータの設計を詳述しています。特に、非同期計画における軌道接続の滑らかさを訓練時条件付けで解いた点や、深度知覚を統合した強化学習の構成が技術的なハイライトです。",
+   "details_ja": "### III-A 合成データの自動生成パイプライン\nデータ生成は「動作生成」「シーン配置」「一人称レンダリング」の3段階で進みます。\n- **動作生成**：タスクを「前進歩行」「旋回」「着席」といったセグメントに分解し、ウェイポイントやキーフレーム（椅子の位置など）の幾何学的拘束を与えます。これらを条件として拡散モデル「Kimodo」に入力し、密な全身動作を生成します。候補軌道を複数生成したうえで、フォワードキネマティクスに基づく幾何検証器（足の滑り、床めり込み、空中浮遊、関節制限の違反）により最もスコアの高い軌道を採用します。\n- **シーン配置**：Infinigenでプロシージャル生成した1,000軒の部屋（リビング、寝室、オフィス）の占有格子地図をもとに、生成した動作と家具の衝突がない配置をサンプリングして埋め込みます。\n- **一人称レンダリング**：大域照明と陰影をあらかじめテクスチャに焼き込む（ベイクする）ことで、高負荷なパストレーシングを回避し、高速なラスタライザで魚眼レンズ映像をレンダリングします。激しい色温度変更やノイズ付加などのドメインランダム化を施し、300時間分のマルチモーダルデータを構築しました。\n\n### III-B 動作生成器（Motion Generator）の訓練と非同期設計\n動作生成器は、入力された一人称RGB画像と自然言語指示から、5秒先（150フレーム、30 Hz）の29関節角度および相対骨盤姿勢を出力します。\n- **モデル構造**：エンコーダには凍結された20億パラメータのVLM（Qwen3.5-2B）を使用し、画像と言語の特徴を抽出します。デコーダには8ブロックのDiffusion Transformer（DiT）を採用し、Flow Matchingによって学習させて推論時は15ステップのオイラー法でサンプリングします。\n- **非同期生成とプレフィックス条件付け**：推論遅延によるロボットの一時停止を防ぐため、トラッカーが現在の計画を実行している最中に並行して次の計画を計算します。しかし、計画の切り替え時に軌道が不連続になるとガタつきが生じます。推論時にオーバーラップ部分を最適化する手法（RTCなど）は遅延が大きいため、HALOでは「すでに実行が確定している最初の15フレーム（0.5秒分）」をノイズのないクリーンなプレフィックスとしてモデルに入力し、残りの135フレームのみをデノイズする訓練を行いました。これにより、推論時追加コストなしで数学的に滑らかな接続が保証されます。\n\n### III-C 深度知覚を備えた動作追従器（Motion Tracker）の3段階学習\nキネマティクス計画を実世界で破綻なく実行するため、トラッカーを3段階で訓練します。\n- **フェーズ1（特化型エキスパート）**：スキルごとに特権情報（完全な地形高低図や将来の計画フレーム）を与えたPPO（Proximal Policy Optimization）エキスパートを個別に訓練します。マニピュレーション系スキルでは手の接近度や物体の変位報酬も追加します。\n- **フェーズ2（マルチティーチャー蒸留）**：オンボードで得られる情報（計画軌道、深度画像、自己受容感覚、IMU）のみを入力とする単一の「生徒ポリシー」に対し、各エキスパートの振る舞いを蒸留（Behavior Cloning + DAgger）します。\n- **フェーズ3（マルチクリティック強化学習）**：蒸留後の生徒に対し、深度を入力ループに入れたまま強化学習でファインチューニングします。スキル間の報酬スケールの違いで学習が不安定化するのを防ぐため、ポリシーネットワークは共有しつつ、批判者（クリティック）のみスキルごとに独立して保持する「Multi-critic PPO」を採用しました。\n- **Sim-to-Real転移**：モーターのローター慣性からPDゲインを解析的に導出し、指令遅延のシミュレーションや、深いしゃがみ込み時に膝モーターへ過度な負の機械的仕事がかからないよう報酬ペナルティを課すことで、実機の回路や減速機を保護しています。\n\n### III-D 長期タスクを解くVLMオーケストレーション\n「座って」という曖昧な指示や、「机の下をくぐってから座る」といった幾何学的前歴が必要なタスクを解くため、最上位にVLM（Qwen3.6-35B-A3B、4-bit量子化）を配置しました。VLMは一人称映像を監視しながらサブタスクを順次発行し、失敗時には能動的にリトライを行います。この処理は機体の背面に搭載したMac mini上で完全にオフライン実行されます。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "合成データ生成と学習パイプラインの全体図です。(A) 動作をセグメントに分解して拡散モデルで生成・結合し、(B) プロシージャル生成されたシーンへ衝突なしに配置。(C) ドメインランダム化を適用して一人称カメラ映像を高速レンダリングし、(D) 模倣学習と強化学習で各モジュールを学習させます。",
+     "caption": "Fig. 3 : Synthetic data generation and training pipeline. (A) Each task is decomposed into segments defined by text prompts and keyframe poses. After sampling target asset locations and routing navigation waypoints, a conditional diffusion model synthesizes motion segments from these constraints, stitching them into a continuous whole-body trajectory. (B) This generated trajectory and its associated assets are embedded into procedurally generated scenes, ensuring collision-free placement. (C) A simulator replays the kinematic motion to render egocentric vision from the robot’s head-mounted cameras. Visual domain randomization is applied to maximize appearance diversity. …",
+     "image": "details/2611.06908/F3.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "動作トラッカーのオンボード推論アーキテクチャです。Jetson Orin NX上で動作し、LiteAnyStereoで生成した深度画像を2D CNNで、過去の自己受容感覚と計画軌道を1D CNNで特徴抽出し、残差MLP（SimBa）を通じて50 Hzで29個の関節目標位置を出力します。",
+     "caption": "Fig. 6 : Motion tracker onboard inference architecture. On the Jetson Orin NX, the tracker runs at $50\\,$ Hz and fuses three onboard streams: (top left) raw stereo IR frames from the RealSense D435i (emitter off) are mapped by LiteAnyStereo [ 45 ] (TensorRT FP16) to a clean $48\\mathbin{\\!\\times\\!}84$ egocentric depth image and encoded by a 2D CNN; (bottom left) a $30$ -step proprioceptive history together with the next $30$ plan frames is encoded by a 1D temporal CNN; and (center) both feature vectors are concatenated with the current proprioceptive state and $5$ -frame motion plan lookahead and passed through a SimBa residual MLP [ 49 ] to output $29$ target joint positions for the low-leve …",
+     "image": "details/2611.06908/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "未知の実環境6箇所で91%の成功率：シミュレーションからの驚異的転移",
+   "summary_ja": "ハードウェア（Unitree G1）にMac mini M4 Proを増設し、完全オンボードで稼働する自律スタックを構築しました。未スキャンの実世界住宅6箇所で6つのタスクを検証し、単一スキルで91%の成功率を達成したほか、マルチタスクの連鎖やアブレーション実験を通じて各コンポーネントの有効性を実証しています。",
+   "details_ja": "### IV-A 計算資源と訓練データ\n300時間の訓練エピソード生成には、250台のH100 GPUを用いて48時間を要しました。人手作業はゼロです。動作生成器は64台のB200 GPUで、トラッカーは4台のH100 GPUで訓練されています。シミュレーション評価および実機評価は、訓練データに一切含まれない完全に未知の環境でのみ実施されました。\n\n### IV-B 実機ハードウェアとオンボード分散処理\n実機にはUnitree G1を採用し、頭部に120°視野のOAK-1Wカメラ、背部バックパックにMac mini M4 Pro（64GBメモリ）を増設しました。Mac mini側ではオーケストレータ（約0.5 Hz）と動作生成器（約3 Hz）が走り、ZeroMQ通信を介してロボット標準のJetson Orin NXに基準軌道を送信します。Jetson側ではPREEMPT_RTリアルタイムカーネル上で動作トラッカーが50 Hzの厳密な周期で動作し、RealSense D435iの下向きステレオIRペアからTensorRT最適化モデル（LiteAnyStereo）を用いて30 Hzで高品質な深度を推定・統合します。\n\n### IV-C 未知環境での単一タスク評価（実機360試行で成功率91%）\n6つの単一タスク（Go-To: 物体接近、Sit: 着席、Door: 半開きドアの横歩き通過、Crouch: しゃがんでの潜り抜け、Crawl: 匍匐前進、Push: 箱押し）を、シミュレーション100環境および実世界6環境で各10試行（シミュレーション計6,000回、実機計360回）評価しました。\n- シミュレーションでの平均成功率は91%、実機でも全く同一の91%という驚異的な転移性能を示しました。\n- 特に「Sit」は実機で88%、「Crouch」は97%、「Door」は85%と、高い全身協調と接触を伴うタスクで優れた安定性を発揮しました。異なる形状のアームチェア、ソファ、高さの異なる机、さらには屋外テラスのテーブル下でも安定して動作しました。\n\n### IV-D 長期的な複合タスク評価と失敗分析\nVLMオーケストレータを介した複合タスク（例：「机をくぐって箱を押す」「ドアを抜けて特定物へ向かう」など）も検証しました。\n- シミュレーションで50環境、実環境で1環境（各10試行）を実施したところ、複合タスクの成功率は70〜80%台となりました。単一タスク成功率の単純な積（例えばDoor→Go-Toで89%×91%≒81%）を下回る71%となり、サブタスク間の依存関係が浮き彫りになりました。\n- 失敗原因を分析すると、前のサブタスクの終了姿勢に起因することが判明しました。例えば「Crouch（しゃがみ）」が終わった瞬間に頭部が目的の箱とは反対を向いていたため、次のGo-Toが箱を発見できず見当違いの方向に歩き出す、といった視野外ロストが失敗の6割を占めていました。今後は「その場で旋回して見回す」といった探索リカバリー行動の導入が必要です。\n\n### IV-E アブレーション実験から見えた重要要素\n「Sit」タスク（シミュレーション100環境）での比較実験により、以下の知見が得られました。\n- **環境の多様性**：配置する仮想住宅を1環境から100環境に増やすと成功率は43%から81%へ激増し、1,000環境で84%に達しました。環境の多様性が汎化の鍵です。\n- **非同期接続**：接続処理を省くと切り替え時の衝撃で成功率は24%に低下。推論時RTC（ガイダンス勾配）では66%に留まりましたが、提案する訓練時プレフィックス条件付けは84%を達成しました。\n- **デコーダの選択**：拡散モデル（DiT）を単純な回帰トランスフォーマーに置き換えると成功率は19%に暴落しました。マルチモーダルな動作分布を捉えきれず、激しい足の滑りが発生したためです。\n- **深度知覚の有無**：トラッカーから深度入力を取り除いて自己受容感覚のみにすると、成功率は74%（-10ポイント）に低下し、未知の座面位置に対する適応力が失われました。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "実機に搭載された計算資源とセンサーの構成です。背面のMac mini M4 ProがOAK-1Wの広角RGB画像をもとに大域的な推論と動作生成を行い、内蔵のJetson Orin NXがRealSense D435iの深度情報とともに50 Hzのリアルタイムループでモーターを駆動します。",
+     "caption": "Fig. 8 : Onboard compute and sensing. A Mac mini M4 Pro in the rear enclosure runs the orchestrator ( $\\sim\\!$0.5\\text{\\,}\\mathrm{H}\\mathrm{z}$$ ) and the motion generator ( $\\sim\\!$3\\text{\\,}\\mathrm{H}\\mathrm{z}$$ ). The robot’s Jetson Orin NX runs the motion tracker in a $50\\text{\\,}\\mathrm{H}\\mathrm{z}$ real-time loop. The OAK-1W supplies the $120^{\\circ}$ RGB the generator reasons over; the RealSense D435i supplies the $55^{\\circ}$ depth the tracker reacts to. All modules run onboard, with external network calls used only when querying an optional cloud VLM for orchestration.",
+     "image": "details/2611.06908/F8.jpg"
+    },
+    {
+     "key": "F9",
+     "caption_ja": "実機における各スキルの実行風景です。上から「机の下の匍匐（Crawl）」「しゃがみ歩き（Crouch）」「半開きドアの横歩き（Sidestep）」「箱押し（Push）」「椅子への着席（Sit）」「人間への接近と追従（Walk to man）」の様子を時系列で示しています。",
+     "caption": "Fig. 9 : Real-world rollouts, one per skill. Each row is one single-task run on the physical robot, filmed by an external camera. The row header is the subtask prompt given to the motion generator. The five frames are spaced through the run, and the time in each frame is measured from the first frame of its row.",
+     "image": "details/2611.06908/F9.jpg"
+    },
+    {
+     "key": "F10",
+     "caption_ja": "実世界での物体や環境の多様性に対する汎化性能です。(a) 異なる部屋での複数人物への追従、(b) 屋外テラスや室内での異なる高さの机に対する匍匐・しゃがみ動作、(c) アームチェアや複数種類のソファへの確実な着席が確認できます。",
+     "caption": "Fig. 10 : Real-world generalization across people, tables, and seats. Each tile is one frame from a separate real-world run. (a) Go-To toward different people in different rooms. (b) Crawl under two tables (outdoors and indoors) and Crouch under three desks of different heights. (c) Sit on a black armchair, a white armchair, two sofas and a corner sofa.",
+     "image": "details/2611.06908/F10.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "シミュレーションが拓くヒューマノイドの未来と残された課題",
+   "summary_ja": "HALOは、シミュレーションがヒューマノイド自律化のためのスケーラブルなデータエンジンになり得ることを証明しました。人間による遠隔操作から解放され、未知の実世界へゼロショットで適応できる道を開きましたが、タスク設計の人手依存や触覚の欠如といった今後の課題も残されています。",
+   "details_ja": "### まとめ：計算量でスケールする身体性知能\n本研究は、完全なシミュレーション環境がヒューマノイドのデータボトルネックを打ち破る強力な武器になることを示しました。人間のオペレーターをデータ収集ループから完全に排除したことで、データ規模を人間の拘束時間ではなく「投下した計算量」に応じて拡大できるようになりました。こうして訓練されたHALOは、事前のスキャンやファインチューニングを一切行うことなく、未知の実世界住宅へゼロショットで転移し、91%の成功率で多様な知覚運動スキルを遂行できます。\n\n### V-1 限界と今後の課題（Limitations and future work）\n一方で、実用化に向けて克服すべき限界も明確になりました。\n- **タスク設計における人間の介在**：データの自動生成は達成したものの、新しいタスクを定義する際には依然として人間がプロンプトを書き、動作のキーフレームを設計する必要があります。スキルのレパートリーを自動拡張する仕組みが求められます。\n- **触覚センシングの欠如**：現在の知覚は主に視覚（RGBおよび深度）に依存しています。そのため、対象物がカメラの死角に入ったり遮蔽されたりすると、物体がまだそこにあるかを検知できず、接触を伴うタスクの精度が低下します。足底や手先への触覚センサの統合が自然な解決策となります。\n- **生成器とトラッカーのインターフェース**：現在のトラッカーは生成された関節軌道をただ追従するだけであり、「何のためにその動きをしているのか（意図する環境状態）」を知りません。世界の将来状態をトラッカーへ共有する設計が望まれます。\n- **より高度なオーケストレーション**：現在のタスク分解レイヤーは比較的シンプルであり、さらに長期的で不確実性の高い日常タスクをこなすには、より自律的なエージェント機能が必要になると考えられます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "プロシージャル生成住宅と動作拡散モデルを組み合わせることで、人間の遠隔操作なしに300時間規模の高品質な視覚・言語・全身動作データを全自動生成できる。",
+  "VLM+DiTによる上位の動作計画において、直近の確定軌道をクリーンなプレフィックスとして条件付けることで、非同期リプランニング時のガタつきを推論遅延ゼロで解消できる。",
+  "盲目的な動作トラッカーではなく、低レベル強化学習ループ内にオンボード深度知覚を統合することで、未知の障害物や家具の幾何的ズレに実機が反射的に適応可能になる。",
+  "シミュレーション内で適切なドメインランダム化とアクチュエータ物理モデリングを行えば、未スキャンの実世界住宅環境に対しても90%以上の成功率でゼロショット適応できる。"
+ ],
+ "limitations_ja": [
+  "新しいスキルを追加する際には、依然として人間がプロンプトやキーフレーム（幾何拘束）を手動で設計・定義する必要がある点。",
+  "接触リッチなタスクにおいて視覚に頼り切っており、死角や遮蔽が生じた際に物体との接触状態を維持・検知できる触覚センシングが統合されていない点。",
+  "前のサブタスクの終了姿勢によってターゲットが視野外に外れるとリカバリーできず、長期タスクの失敗につながる点（探索や見回し動作の欠如）。",
+  "動作生成器から動作トラッカーへの指示が幾何学的な関節軌道のみであり、動作の目的や対象物の物理的意図が下位層へ伝達されていない点。"
+ ],
+ "keywords": [
+  "Humanoid Autonomy",
+  "Sim-to-Real Transfer",
+  "Diffusion Transformers",
+  "Vision-Language-Motion",
+  "Procedural Generation",
+  "Reinforcement Learning"
+ ],
+ "id": "2611.06908",
+ "title": "Perceptive Humanoid Motion from Simulation",
+ "authors": [
+  "Siyuan Hu",
+  "Abulikemu Abuduweili",
+  "Yue Meng",
+  "Shipeng Liu",
+  "Quentin Leboutet",
+  "Chen Chen",
+  "Matthias M\\\"uller",
+  "Vladlen Koltun"
+ ],
+ "date": "2026-11-05",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "simulation",
+  "vision-language-action",
+  "locomotion"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.CV",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.06908",
+ "pdf_url": "https://arxiv.org/pdf/2611.06908",
+ "summary_ja": "画素と自然言語から関節指令へのマッピングにおけるデータ不足を解消するため、手続き型生成された1000件の家庭環境から視覚・言語・運動データを自動合成する自律システムHALOを提案した。人手による遠隔操作データに頼らず計算量に応じてデータをスケールさせ、シミュレーションを通じて多様な家庭環境で適応可能なヒューマノイド知覚・全身制御方策の獲得を可能にした。",
+ "generated": "2026-11-05",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.06908"
+}
