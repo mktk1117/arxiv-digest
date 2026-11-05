@@ -1,6 +1,394 @@
 {
  "entries": [
   {
+   "date": "2026-11-05",
+   "rank": 0,
+   "id": "2611.05507",
+   "group": "focus",
+   "title": "Ctrl-F: Force as an Interface for Humanoid Loco-Manipulation",
+   "title_ja": "Ctrl-F：ヒューマノイドの移動マニピュレーションに向けた力インタフェース",
+   "summary_ja": "ヒューマノイドの動作模倣と環境接触を統合するため、接触点における3次元の明示的な力指令を入力とする階層型フレームワークCtrl-Fを提案した。位置追跡だけでなく「どの程度の強さで接触するか」を力チャネルとして指定することで、高負荷な相互作用タスクに対応する。幾何学的追跡のみに依存しない頑健な移動マニピュレーション制御を実現した。",
+   "summary_en": "To bridge motion tracking and physical interaction for humanoids, the authors propose Ctrl-F, a hierarchical framework that augments motion imitation with explicit 3D force commands at designated contacts. Specifying not just where to make contact but how hard, this force interface enables complex and demanding loco-manipulation tasks beyond pure kinematic tracking.",
+   "authors": [
+    "Mengjie Zhao",
+    "Yuxin Chen",
+    "Yiyang Shao",
+    "Chuye Hong",
+    "Jiakang Chen",
+    "Koushil Sreenath",
+    "Masayoshi Tomizuka"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "locomotion",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.05507",
+   "image": "figures/2026-11-05/2611.05507.jpg"
+  },
+  {
+   "date": "2026-11-05",
+   "rank": 1,
+   "id": "2611.06564",
+   "group": "focus",
+   "title": "Playing Soccer Like Humans Do: Learning Versatile and Agile Humanoid Soccer via Latent Motion Priors",
+   "title_ja": "人間らしいサッカーの実現：潜在運動事前分布による高機動ヒューマノイドサッカーの学習",
+   "summary_ja": "敏捷な移動、ボール操作、衝撃を伴う接触が混在するヒューマノイドサッカー向けに、階層型強化学習フレームワークsoccerbotを提案した。大規模な人間のサッカーモーションキャプチャデータから抽出した構造化潜在運動事前分布上で方策学習を行う。物理的に妥当な運動多様体に制限することで、人間らしい滑らかな動作品質と多様なスキルを単一の方策で両立させた。",
+   "summary_en": "Humanoid soccer demands agile locomotion, dynamic ball manipulation, and impact-rich contacts. The authors present soccerbot, a hierarchical reinforcement learning framework that distills a structured latent motion prior from large-scale human motion capture data. Constraining policy learning within this dynamically plausible manifold allows a single policy to generate human-like motion quality across a versatile set of soccer skills.",
+   "authors": [
+    "Haoyu Shao",
+    "Yunshen Wang",
+    "Jingze Zhang",
+    "Shaohang Zhu",
+    "Yong-Lu Li",
+    "Tianzhu Zhang",
+    "Baoxiong Jia",
+    "Siyuan Huang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.06564",
+   "image": "figures/2026-11-05/2611.06564.jpg"
+  },
+  {
+   "date": "2026-11-05",
+   "rank": 2,
+   "id": "2611.05585",
+   "group": "focus",
+   "title": "Contact-Implicit Whole-Body Trajectory Optimization for Dynamic Humanoid Locomotion on Parameterizable Uneven Terrain",
+   "title_ja": "パラメータ化可能な不整地におけるヒューマノイド動的歩行のための接触陰伏的全身軌道最適化",
+   "summary_ja": "段差や傾斜などの不整地において、接触順序を事前定義せずに動的動作を生成する接触陰伏的全身軌道最適化プランナを提案した。地面形状を滑らかな曲面として近似する数学モデルと新たな接触制約を導入し、完全な動力学と運動学を考慮しながら水平面以外への適用を可能にした。数値シミュレーションにより、複雑な地形で実現可能な二足歩行軌道の自動生成を実証した。",
+   "summary_en": "This paper presents a contact-implicit whole-body trajectory planner for humanoids traversing parameterized uneven terrains without predefined contact sequences. By approximating ground geometry with a smooth surface and introducing novel contact constraints, the formulation handles full kinematics and dynamics on arbitrary smooth terrain profiles. The planner successfully synthesizes feasible bipedal dynamic motions on complex uneven surfaces.",
+   "authors": [
+    "Roberto Mauceri",
+    "Stefano Dafarra",
+    "Giulio Romualdi",
+    "Marco Gabiccini",
+    "Daniele Pucci"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "control",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.05585",
+   "image": "figures/2026-11-05/2611.05585.jpg"
+  },
+  {
+   "date": "2026-11-05",
+   "rank": 3,
+   "id": "2611.06908",
+   "group": "focus",
+   "title": "Perceptive Humanoid Motion from Simulation",
+   "title_ja": "シミュレーションからの知覚的ヒューマノイド運動生成基盤",
+   "summary_ja": "画素と自然言語から関節指令へのマッピングにおけるデータ不足を解消するため、手続き型生成された1000件の家庭環境から視覚・言語・運動データを自動合成する自律システムHALOを提案した。人手による遠隔操作データに頼らず計算量に応じてデータをスケールさせ、シミュレーションを通じて多様な家庭環境で適応可能なヒューマノイド知覚・全身制御方策の獲得を可能にした。",
+   "summary_en": "To overcome the data bottleneck in mapping pixels and language to humanoid joint commands, this work introduces HALO, an autonomy pipeline that synthesizes vision-language-motion data across 1,000 procedurally generated homes. Scaling with compute rather than manual teleoperation, HALO demonstrates the capability to train versatile, perceptive humanoid whole-body policies entirely from simulation.",
+   "authors": [
+    "Siyuan Hu",
+    "Abulikemu Abuduweili",
+    "Yue Meng",
+    "Shipeng Liu",
+    "Quentin Leboutet",
+    "Chen Chen",
+    "Matthias M\\\"uller",
+    "Vladlen Koltun"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "simulation",
+    "vision-language-action",
+    "locomotion"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.06908",
+   "image": "figures/2026-11-05/2611.06908.jpg"
+  },
+  {
+   "date": "2026-11-05",
+   "rank": 4,
+   "id": "2611.06649",
+   "group": "focus",
+   "title": "SCRUB: Contact-Based Surface-Frame Estimation for Force-Motion Control with an Armless Quadruped",
+   "title_ja": "SCRUB：アームレス四足歩行ロボットによる力・運動制御のための接触ベース表面座標系推定",
+   "summary_ja": "アームを持たない四足歩行ロボットが未知のほぼ鉛直な壁面にツールを押し付けながら拭き取りや点検を行う手法SCRUBを提案した。摩擦モデルやツールの速度仮定に依存せず、カルマンフィルタベースの接触表面法線推定器と予測コントローラを組み合わせる。歩行による揺動下でも法線方向の押圧力を一定に保ちながら摺動動作を実行できることを実証した。",
+   "summary_en": "The authors propose SCRUB, a contact-based surface-frame estimation framework allowing an armless quadruped to press and slide a body-mounted tool along near-vertical surfaces. By estimating surface normals via a Kalman filter without requiring friction models or zero-normal-velocity assumptions, the predictive controller reliably regulates contact force while walking and executing wiping motions on unmapped surfaces.",
+   "authors": [
+    "Sourav Selvaraj",
+    "Juan Pablo Espinosa Chessal",
+    "Mahdi Agheli"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "control",
+    "locomotion"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.06649",
+   "image": "figures/2026-11-05/2611.06649.jpg"
+  },
+  {
+   "date": "2026-11-05",
+   "rank": 5,
+   "id": "2611.06913",
+   "group": "general",
+   "title": "cuRoboV2-Fast: Fast Torque-Limited Collision-Free Motion Planning",
+   "title_ja": "cuRoboV2-Fast：トルク制限を考慮した衝突回避高速モーションプランニング",
+   "summary_ja": "可搬重量の変化や関節トルク・躍度制限を満たしつつ超低遅延で動作計画を行うGPU加速プランナcuRoboV2-Fastを提案した。B-スプライン軌道最適化とGPU上での帯行列Newtonソルバにより、固定経路上の速度を最適化する。RTX 5090上で3kg負荷時に平均計画時間4.4msを達成し、従来版cuRoboV2と比べて14.7倍の高速化を実現した。",
+   "summary_en": "The paper introduces cuRoboV2-Fast, a GPU-accelerated motion planner for collision-free, torque-limited, and payload-aware trajectories. By utilizing B-spline optimization and an efficient banded Newton solver for time-optimal parameterization, it handles dynamic limits and variable payloads. With a 3 kg payload, it achieves a 4.4 ms mean planning latency on an RTX 5090, representing a 14.7x speedup over cuRoboV2.",
+   "authors": [
+    "Balakumar Sundaralingam",
+    "Adithyavairavan Murali",
+    "Stan Birchfield"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "planning",
+    "control",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.06913",
+   "image": "figures/2026-11-05/2611.06913.jpg"
+  },
+  {
+   "date": "2026-11-05",
+   "rank": 6,
+   "id": "2611.06627",
+   "group": "general",
+   "title": "Interactive World Simulation with Cosmos for Physical AI",
+   "title_ja": "Physical AIのためのCosmosを用いた対話型世界シミュレーション",
+   "summary_ja": "実時間での対話的シミュレーションを実現するため、Cosmos基盤世界モデルをPhysical AI向けに適応するフレームワークを提案した。行動入力に対する視覚的予測と、外部物理シミュレータの状態からの観測生成の両方をサポートする。カメラナビゲーション、ロボット操作、自動運転のマルチビューシミュレーションなど、多様なドメインで実環境との対話基盤として機能することを示した。",
+   "summary_en": "NVIDIA presents a shared framework adapting Cosmos world foundation models for real-time interactive simulation in Physical AI. It supports streaming visual responses to agent actions as well as generating observations conditioned on physical states from external simulators. The framework is demonstrated across robot manipulation, camera navigation, and multi-view autonomous vehicle simulation.",
+   "authors": [
+    "NVIDIA",
+    ":",
+    "Anis Ahmad",
+    "Jon Allen",
+    "Malik Aqeel Anwar",
+    "Jesse Archer",
+    "Maciej Bala",
+    "Piotr Barejko",
+    "Aarti Basant",
+    "Dan Blick",
+    "Taras Bolzhelarskyi",
+    "Henry Che",
+    "Jin Chen",
+    "Yukang Chen",
+    "Tae Eun Choe",
+    "Yuzhu Dong",
+    "Nat Duca",
+    "Liang Feng",
+    "Francesco Ferroni",
+    "Xiao Fu",
+    "Mohit Gambhir",
+    "Vivek Goel",
+    "Rony Goldenthal",
+    "Aryaman Gupta",
+    "Ali Hassani",
+    "Nathan Hayes-Roth",
+    "Yong He",
+    "Michael Honke",
+    "Shengyu Huang",
+    "Wei Huang",
+    "DeLesley Hutchins",
+    "Suneel Indupuru",
+    "Pooya Jannaty",
+    "Jingyi Jin",
+    "Janmesh Kalra",
+    "Ashna Khetan",
+    "Xin Kong",
+    "Aleksandr Korovko",
+    "Hui Kuang",
+    "Zhengfei Kuang",
+    "George Kurian",
+    "Jean-Francois Lafleche",
+    "Jayjun Lee",
+    "Justin Leung",
+    "William Lew",
+    "Xiang Li",
+    "Zhaoshuo Li",
+    "Chen-Hsuan Lin",
+    "Ming-Yu Liu",
+    "Xiangyu Lu",
+    "Yuhang Lu",
+    "Martin Ding Ma",
+    "Qianli Ma",
+    "Aditya Mahajan",
+    "Miguel Martin",
+    "Janarbek Matai",
+    "Jonathan McCaffrey",
+    "Qing Miao",
+    "Ashkan Mirzaei",
+    "Mustafa Munir",
+    "Sangmin Oh",
+    "David Pankratz",
+    "Trung Pham",
+    "Marilyn Reeb",
+    "Gavriel State",
+    "Jiaxiang Tang",
+    "Shitao Tang",
+    "Yue Tang",
+    "Tolou Tavakkoli",
+    "Alexander Temirov",
+    "Hweimi Tsou",
+    "Sergei Vasilev",
+    "Thomas Volk",
+    "Andrew Z. Wang",
+    "Hao Wang",
+    "Shijie Wang",
+    "Zhonghao Wang",
+    "David Wehr",
+    "Shumian Xin",
+    "Mengyao Xu",
+    "Yao Xu",
+    "Shuai Yang",
+    "Sophia Zalewski",
+    "Pengcuo Zeren",
+    "Cindy Zha",
+    "Jing Zhang",
+    "Yuliya Zhautouskaya",
+    "Kaiwen Zheng",
+    "Andrew Zhu",
+    "Rick Zhuang"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.CV",
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "simulation",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.06627",
+   "image": "figures/2026-11-05/2611.06627.jpg"
+  },
+  {
+   "date": "2026-11-05",
+   "rank": 7,
+   "id": "2611.06905",
+   "group": "general",
+   "title": "Reinforcement Learning Enables Scaling Generalist Robot Policy Improvement",
+   "title_ja": "強化学習による汎用ロボット方策改善のスケーリング",
+   "summary_ja": "事前学習済み汎用ロボット方策を実環境に適応させるため、強化学習（RL）を用いた反復自己改善をマルチタスク設定へと拡張した研究である。単一タスクの微調整に留まっていた既存研究に対し、汎用モデルの多様なタスク能力を維持したまま性能向上させるRLスケーリングの特性と効果を実験的に明らかにした。",
+   "summary_en": "While generalist robot policies show strong zero-shot capabilities, deployment requires adaptation. This paper investigates whether reinforcement learning-based self-improvement can scale beyond narrow single-task adaptation to multi-task settings, systematically evaluating how RL fine-tuning improves multi-task generalist policies while retaining broad capabilities.",
+   "authors": [
+    "Michal Korniak",
+    "Marco Bagatella",
+    "Ralf R\\\"omer",
+    "Michal Nauman",
+    "Yarden As",
+    "Pranav Vignesh",
+    "Manan Agarwal",
+    "Leander Diaz-Bone",
+    "Piotr Zalewski",
+    "Miko{\\l}aj Czarnecki",
+    "Lenart Treven",
+    "Shashwat Saxena",
+    "Sreyas Venkataraman",
+    "Sarvesh Patil",
+    "Zhiyuan Zhou",
+    "Daniel Marta",
+    "Oier Mees",
+    "Nur Muhammad Mahi Shafiullah",
+    "Carmelo Sferrazza",
+    "Bhavya Sukhija",
+    "Angela P. Schoellig",
+    "Andreas Krause",
+    "Max Simchowitz",
+    "Andrew Wagenmaker"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.06905",
+   "image": "figures/2026-11-05/2611.06905.jpg"
+  },
+  {
+   "date": "2026-11-05",
+   "rank": 8,
+   "id": "2611.06673",
+   "group": "general",
+   "title": "Which Physical Tactile Cues Matter for Contact-Rich Imitation Learning? A Controlled Real-Robot Study",
+   "title_ja": "接触リッチな模倣学習においてどの物理的触覚情報が重要か：実機ロボットによる統制比較研究",
+   "summary_ja": "視覚ベース触覚センサから得られる信号を画像として一括処理する従来手法に対し、接触外観、幾何・押し込み深さ、接線変形（マーカーフロー）などの物理信号を分離して寄与を検証した。LeRobotプラットフォームを用いた実機実験により、接触リッチな操作タスクにおいて幾何学的深さやマーカー変位情報が方策学習の性能と頑健性に与える影響を明らかにした。",
+   "summary_en": "Vision-based tactile sensors capture complex interaction cues, but typical policies process them merely as raw images. This paper presents a controlled real-robot study evaluating decoupled, interpretable signals (contact appearance, depth maps, and marker-flow fields) on the LeRobot platform, uncovering which physical tactile representations are critical for contact-rich imitation learning.",
+   "authors": [
+    "Xuhao Qin",
+    "Xiyan Huang",
+    "Haoyu Dong",
+    "Xi Zhang",
+    "Chenxi Xiao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "imitation-learning",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.06673",
+   "image": "figures/2026-11-05/2611.06673.jpg"
+  },
+  {
+   "date": "2026-11-05",
+   "rank": 9,
+   "id": "2611.05295",
+   "group": "general",
+   "title": "GSBR: Geometric Support Behavior Regularization for Online RL",
+   "title_ja": "GSBR：オンライン強化学習のための幾何学的サポート行動正則化",
+   "summary_ja": "事前学習済み拡散方策などをベースとするオンラインRLにおいて、過度な制約による改善制限と逸脱による不安定性のトレードオフを解消するGSBRを提案した。従来のBC正則化や厳密なサポート制約と異なり、ベース方策のデータ多様体の幾何学的サポートに基づいて柔軟に正則化を行い、安全かつ効率的な方策更新を可能にした。",
+   "summary_en": "Regularizing online RL with pretrained base policies improves sample efficiency, but overly strict constraints limit policy improvement. This paper proposes GSBR (Geometric Support Behavior Regularization), which uses the geometric support of base policies to regularize online RL flexibly, avoiding suboptimal mode collapse while allowing policy discovery beyond narrow demonstration distributions.",
+   "authors": [
+    "Charles Xu",
+    "Jacob Berg",
+    "Liyiming Ke",
+    "Sergey Levine"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.05295",
+   "image": "figures/2026-11-05/2611.05295.jpg"
+  },
+  {
    "date": "2026-11-04",
    "rank": 0,
    "id": "2611.04204",
