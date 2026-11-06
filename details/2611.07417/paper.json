@@ -1,0 +1,148 @@
+{
+ "title_ja": "MessyNav: 乱雑な環境におけるマニピュレーションを伴うゼロショットナビゲーション",
+ "tldr_ja": "散らかった実環境で障害物を動かしながらゴールを目指すため、VLMによる明示的なアフォーダンス（操作可能性）推論と行動計画を分離し、追加学習なしで多様な未知物体や文脈に対応できるゼロショット・フレームワークを提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "MessyNavの全体像です。通路を塞ぐ物体のうち、カゴが乗った台車は押しのけ可能（Interactive）と判断して腕で脇へ払い、ブロックが不安定に積まれたコンテナは触れてはいけない（Non-Interactive）と判断して回避しながら、ゼロショットで目的地へ到達します。",
+  "caption": "Figure 1: MessyNav enables zero-shot open-world interactive navigation. [Top] MessyNav reasons zero-shot about object affordances using fine-grained semantic and contextual cues, identifying the utility cart carrying a plastic bin as interactive (swipeable) and the otherwise movable crate carrying unstable stacked blocks as non-interactive. The robot then swipes the cart aside to clear a path and reach the goal without task-specific training or system modifications. [Bottom] MessyNav deployed across diverse real-world indoor and outdoor environments.",
+  "image": "details/2611.07417/F1.jpg"
+ },
+ "overview_ja": "ロボットが散らかった部屋の中を移動しようとすると、床に置かれた椅子や散らばったオモチャに阻まれ、従来の衝突回避ナビゲーションでは「通れる道がない」と立ち往生してしまいます。人間であれば、軽い椅子を押しのけたり、邪魔な物を脇に退けたりしながら進みますよね。ロボットにもこうした「環境に干渉しながら進む」インタラクティブナビゲーションが求められます。\n\nしかし、既存のインタラクティブナビゲーション手法は、シミュレーション環境での強化学習に依存していたり、事前定義された物体カテゴリごとに「椅子は動かせる」と決め打ちしていたりするため、現実世界の多様な状況には対応できませんでした。例えば、空の台車なら押して通れば良いですが、割れやすいガラスのコップが載った台車や「割れ物注意」のシールが貼られたスーツケースは絶対に押してはいけません。つまり、幾何情報や物体のカテゴリ名だけでなく、置かれた状況や文脈（コンテキスト）を踏まえた高度な意味推論が不可欠なのです。\n\nそこで本研究が提案するのが「MessyNav」です。ウェブスケールで事前学習されたビジョン言語モデル（VLM）を活用し、タスク特化の追加学習やシミュレーションを一切行わずにゼロショットでこれを実現します。最大の工夫は、「何に触れてよいか（アフォーダンス推論）」と「どう動かして進むか（タスク計画）」を明示的に分離した2段階のパイプラインにした点です。\n\n散らかった実環境（寝室、会議室、屋外など）を用いた実機ロボット実験において、MessyNavは最強のベースラインと比較して成功率を27ポイント（15シーン中10シーン成功）向上させました。また、状況によって動かせるかどうかが変わる100シーンのアフォーダンス推論ベンチマークでも85.7%の高い精度を達成し、意味的な文脈理解がインタラクティブナビゲーションに極めて重要であることを実証しました。",
+ "contributions_ja": [
+  "未知の物体・多様な環境・文脈変化という3軸に対応する「オープンワールド・インタラクティブナビゲーション」の問題を初めて定式化したこと。",
+  "VLMによる「明示的なアフォーダンス推論」を「タスク計画」の手前に置くことで、文脈に即した安全で適切な行動をゼロショット生成するMessyNavフレームワークを構築したこと。",
+  "物体単体だけでなく周囲の状況（割れ物が載っているか、注意書きがあるかなど）に依存する操作可否を評価するための、100シーン・217物体からなる実世界アフォーダンスベンチマークを公開したこと。",
+  "モバイルマニピュレータ実機を用いた屋内・屋外・夜間などの散らかった環境において、追加学習なしで既存手法を大幅に上回るナビゲーション成功率を実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "散らかった日常空間を動くには「障害物を押しのける知能」が必要",
+   "summary_ja": "従来のナビゲーションは障害物をすべて「避けるべき壁」として扱いますが、散らかった実世界では物を動かして道を切り拓く必要があります。本章では、未知の物体や文脈にゼロショットで適応するオープンワールド・インタラクティブナビゲーションの課題を提起し、本手法MessyNavの狙いを説明します。",
+   "details_ja": "保育園でお母さんが子どものリュックを取りに行く場面を想像してみてください。通路にある椅子を脇へ押しやり、壊れやすいオモチャの電車を器用に避けながら進むはずです。人間にとって、環境にある物体を動かして通路を作ることは極めて自然な振る舞いです。\n\nしかし、ロボットの古典的なナビゲーションアルゴリズムは、軽いオモチャであれ頑丈な壁であれ、あらゆる障害物を一律に「侵入不可な障害物」として扱ってしまいます。その結果、床に物が散らかった環境では「安全な経路が存在しない」と判断して停止してしまいます。そこで必要なのが、経路を塞ぐ物体を自ら操作して道を切り拓く「インタラクティブナビゲーション（Interactive Navigation）」です。\n\n従来の移動計画が主に幾何学的な問題だったのに対し、インタラクティブナビゲーションは「幾何学的制約のもとでの意味的意思決定問題」です。ロボットが何かに阻まれたとき、まず「そもそもそれを動かしてよいのか？」を判断し、次に「どう動かすか」を考える必要があります。同じ台車でも、空なら押せますが、高級なワイングラスが積まれていたら絶対に触れてはいけません。こうした文脈に依存した判断を、幾何形状だけから読み解くことや、限られた学習データだけでカバーすることは不可能です。\n\nそこで本論文では、(1) 未知の物体、(2) 多様な環境、(3) 変化する文脈、という3つの軸にゼロショットで汎化する「オープンワールド・インタラクティブナビゲーション」を定式化しました。そして、インターネット規模の知識を持つVLMを活用し、アフォーダンス推論とタスク計画を明示的に分けたゼロショット・フレームワーク「MessyNav」を提案しています。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "移動ロボットとマニピュレーションの狭間にあった課題",
+   "summary_ja": "移動ロボット、モバイルマニピュレーション、インタラクティブナビゲーションの先行研究を整理し、MessyNavが既存のシミュレーション依存やカテゴリ固定の限界をどう打破しているかを解説します。",
+   "details_ja": "### ロボットナビゲーションの変遷\nNav2に代表される従来のナビゲーションスタックは、グリッド状の占有コストマップを使用するため、通過可能な散乱物であってもすべて通行不可と見なしてしまいます。近年はVLMと3D表現を組み合わせて未学習の単語を手がかりに目的地へ向かうオープンボキャブラリナビゲーションも盛んですが、幾何学的な空きスペースがないと失敗する点では共通しています。MessyNavは、基本の移動回避には古典的なナビゲーションスタックを用いつつ、塞がれたときにVLMの判断でマニピュレーションを起動して道を切り拓くアプローチをとります。\n\n### モバイルマニピュレーション\n移動台車にロボットアームを載せたモバイルマニピュレーションでは、LLMを用いて指示文を「拾う」「置く」といった動作プリミティブ（基本動作）に分解する研究や、模倣学習・強化学習による全身協調制御の研究が進んでいます。しかし、これらは基本的に「指示された対象物を操作すること」そのものが目的（マニピュレーション第一）であり、移動の障害物を排除する手段として腕を使うわけではありませんでした。\n\n### インタラクティブナビゲーションの課題\n障害物を能動的に動かして目的地を目指す研究は従来から存在しますが、大半は物理シミュレータ上での大規模な強化学習や入念な報酬設計に依存しており、実世界への転移（Sim-to-Real）や未知物体への対応が困難でした。最近では言語モデルを取り入れた手法も現れていますが、カテゴリ名（例：「椅子」なら動かす）に依存していたり、幾何学的な押しやすさしか見ていなかったりして、「グラスが載っている」「割れ物シールが貼ってある」といった個別のインスタンスを取り巻く文脈を推論できませんでした。MessyNavは、VLMの意味推論能力を直接引き出すことで、シミュレーションも追加訓練もなしでこの課題を解決します。",
+   "figures": []
+  },
+  {
+   "heading": "3 Problem Formulation",
+   "heading_ja": "「何でも動かせばいい」わけではない：オープンワールドの3つの軸",
+   "summary_ja": "現実世界のインタラクティブナビゲーションを定式化し、システムがゼロショットで対応すべき「未知の物体」「多様な環境」「変化する文脈」という3つの汎化の軸を定義します。",
+   "details_ja": "実世界においてロボットが目的地まで自律移動する際、通路が障害物で塞がれている場合に「干渉が必要かどうか」「干渉するならどの物体をどう動かすか」を判断しなければなりません。本研究では、この問題を現実的なものとするため、以下の3つの汎化軸を定義しています。\n\n- ### (1) 未知の物体（Novel objects）\n事前に登録されていないあらゆる物体に直面します。廊下に転がっているヨガマットや、床を這う精密機械の太いケーブルなど、訓練データにない初見の物体であっても、ロボットの腕で動かせるかどうかを正しく推論しなければなりません。\n\n- ### (2) 多様な環境（Diverse environments）\nリビングやキッチン、狭い通路などの室内だけでなく、屋外環境、さらには昼夜の照明変化も含め、特定の環境向けにパラメータを微調整することなく動作する必要があります。\n\n- ### (3) 変化する文脈（Varied contexts）\nアフォーダンス（操作可能性）は物体そのものの形状や名前だけで決まる静的な属性ではなく、「周囲の状況との関係性」で決まります。例えば、パッケージに入った新品の延長コードなら脇へ押しのけられますが、コンセントに刺さって機器に繋がっているコードは引っ張ってはいけません。積み木も1個なら払いのけられますが、子どもが積み上げたお城になっているなら壊してはならない大切な作品です。\n\nMessyNavは、タスク固有の追加学習やシーンごとのプロンプト変更を一切行わず、これら3つの要求を同時に満たすことを目指しています。",
+   "figures": []
+  },
+  {
+   "heading": "4 Approach",
+   "heading_ja": "アフォーダンス推論とタスク計画の分離がもたらす高い信頼性",
+   "summary_ja": "MessyNavのコア設計は「何に触れてよいか」と「どう動かすか」の分離です。RGB画像からアフォーダンスを明示的に推論するモジュール、行動シーケンスを組むタスクプランナー、そして言語指示を3D座標に接地して実行するスキルライブラリの3要素で構成されます。",
+   "details_ja": "MessyNavのアーキテクチャは、1枚のRGB画像と目的地座標を入力として受け取り、ゼロショットで実行可能な行動計画を出力します。システム全体は大きく3つのモジュールに分かれています。\n\n### 4.1 VLMによるアフォーダンス推論（Affordance Reasoner）\nここが最も重要な設計判断です。タスクプランナーに直接「画像を直接見て計画を作れ」と丸投げするのではなく、手前で独立したアフォーダンス推論を行います。推論は2段階の安全フィルタとして機能します。\n第1段階は「ロボット視点の物理的実行可能性（Physical Feasibility）」です。プロンプトにロボットの可搬重量やアームのリーチを記述しておき、物理的に持ち上げたり押したりできるかを判断します。\n第2段階は「物体視点の干渉安全性（Interaction Safety）」です。物理的に動かせても、物体が高価である、壊れやすい、周囲に警告テープがある、意図的に積み上げられているといった場合は「動かしてはならない」と判定します。例えば「テーブルの上のティーカップ」のように複数が組み合わさっている場合は1つのユニットとして安全性を評価します。最終的に、各物体にはインタラクティブ／ノンインタラクティブのラベルと、安全・壊れやすい・動かせない（safe, fragile, immovable）といった理由属性が付与されます。\n\n### 4.2 VLMタスクプランナー（Task Planner）\nアフォーダンス判定結果とRGB画像、そして利用可能なスキル一覧を受け取り、目的地までの経路上の空きスペースを分析します。そして「小さな物体はpick_upで持ち上げて退かす」「大きな物体はswipeで横に払いのける」といった指針に従い、`move_to()`, `swipe_left()` などの構造化された行動プランを生成します。\n\n### 4.3 オープン言語スキルライブラリ（Open-Language Skill Library）\nプランナーが出力した「スーツケースを左へ払う」といった言語表現を、実空間の3D座標に接地（グラウンディング）して動かします。VLMのオープン語彙ポインティング機能とセグメンテーション機能を用いて対象の画像上位置を特定し、デプス情報とカメラ内部パラメータから3D点群へ逆投影（deprojection）します。用意された基本動作は、Nav2とLiDARを用いた移動を行う`move_to()`、物体を掴んで運ぶ`pick_up()`、横方向にアームで押し退ける`swipe_left()` / `swipe_right()` の4種類です。あえてシンプルな制御系を採用することで、基盤となるVLM推論そのものの貢献度を正確に評価できるようにしています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "MessyNavのシステム構成です。カメラ画像からVLMが各物体の操作可否と属性（安全か・壊れやすいか）を推論し、そのラベルをもとにタスクプランナーが「接近→横へ押しのけ→ゴールへ移動」という行動計画を生成、3D座標へ変換して実行します。",
+     "caption": "Figure 2: MessyNav : A framework for zero-shot open-world interactive navigation. MessyNav consists of an Affordance Reasoner that infers object interactability from an RGB image using a VLM to evaluate both robot-centric physical feasibility and object-centric interaction safety. For example, it will label a cart with a laptop as non-interactive while labeling a wheeled crate with a bin as interactive. …",
+     "image": "details/2611.07417/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Experiments",
+   "heading_ja": "実機ロボットと新ベンチマークで実証した文脈理解の威力",
+   "summary_ja": "100シーンからなるアフォーダンス推論ベンチマーク、15シーンの実機ロボット走行実験、55シーンの大規模オフライン計画評価を実施しました。カテゴリ固定手法やエンドツーエンドVLM計画を大きく引き離す性能を達成しています。",
+   "details_ja": "### 5.1 アフォーダンス推論の単体評価\n新しく作成した100シーン・217物体（屋内69%、屋外31%）の画像データセットを用い、各物体を動かして良いかの分類精度を評価しました。幾何学的な高さ（0.2m以上は回避）だけで判定する`height-only`は59.9%、LLMで生成した固定カテゴリ100種で判定する`closed-set`は24.4%にとどまりました。評価セットに含まれる物体名を事前に知っているオラクル版の`closed-set-oracle`でも66.4%止まりでした。なぜなら、「台車」というカテゴリを知っていても、ガラス器具が載っているか空かという文脈を無視してしまうためです。これに対し、MessyNavは85.7%という極めて高い精度を記録しました。ClaudeやGPT、Geminiなど異なるVLMを用いても85〜87%と一貫して高い性能を示し、推論の頑健性が確認されました。\n\n### 5.2 実機ロボットによるエンドツーエンド走行実験\n車輪型移動台車に7自由度アームとLiDAR、カメラ2台を搭載したTidyBot++プラットフォームを用い、散らかった寝室や会議室の15シーン（計60試行）で走行実験を行いました。MessyNavは15シーン中10シーンで成功（66.7%）し、最高性能を達成しました。一方、アフォーダンス推論を分離せず直接計画させるアブレーションモデル`vlm-planner-only`は6/15成功（40.0%）、固定カテゴリを用いる`closed-set-planner`は4/15成功（26.7%）でした。本の上に本が不安定に積まれたスーツケースと、本が1冊だけ載った金属製ワゴンが並ぶシーンでは、MessyNavだけがスーツケースを「危険」と見抜いてワゴンの方を安全に払いのけ、通路を確保することに成功しました。\n\n### 5.3 55シーンによる大規模オフライン計画評価\n実機実験のばらつきを排除し純粋な意思決定力を測るため、5環境55シーン（キッチンや屋外、夜間を含む）を対象に、各手法15回・計825試行のオフライン評価を行いました。低レベル制御の失敗を除外した場合、MessyNavの計画成功率は62.4%となり、最強のベースライン（55.4%）に対して統計的に有意な差（$+7.0$ポイント、$p<0.001$）をつけました。ただし、夜間の極端に暗い環境では視覚的な手がかりが得にくく、両者とも性能が低下する傾向が見られました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "カテゴリ固定手法（左）とMessyNav（右）の比較です。左の手法は「台車」「スーツケース」というカテゴリ名だけで判断して触れてしまいますが、MessyNavはグラスが載っていることや割れ物注意のシールを認識し、的確に回避対象（Non-interactive）と判断しています。",
+     "caption": "Figure 3: MessyNav reasons about context, not just object category. In this cluttered scene, closed-set-oracle assigns affordances by category alone, misclassifying the rolling cart as interactive (ignoring the glassware it carries) and the suitcase as interactive (ignoring its fragile sticker). In contrast, MessyNav reasons at the instance level. It treats the cart and the glass stemware as a single fragile unit and reads the sticker on the suitcase as a contextual cue, correctly labeling both as non-interactive.",
+     "image": "details/2611.07417/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "計画段階のアブレーション比較です。本が不安定に積まれたスーツケースに対し、明示的アフォーダンス推論を行うMessyNav（左）だけが安全な金属カートを選択してスワイプし、他手法（中・右）は本を崩す危険なスーツケースを動かそうとして失敗しています。",
+     "caption": "Figure 4: Explicit affordance reasoning improves context-dependent task planning. In this scene, a suitcase supporting a stack of books is inherently unstable, while the black cart holding a single book can be safely cleared. [Left] MessyNav reasons about affordances before planning, correctly labeling the suitcase as non-interactive and the cart as interactive, and swiping the cart aside to clear the path. [Middle] vlm-planner-only plans directly from the image without an explicit affordance stage and incorrectly decides to swipe the unstable suitcase. [Right] closed-set-planner assigns fixed category-level affordances that misclassify the suitcase as interactive, leading to an unsafe plan.",
+     "image": "details/2611.07417/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "様々な実環境での定性結果です。キッチンでは紙袋が溢れそうな箱を避けつつ空のカートを押し、夜間の屋外では動かない電動キックボードを避けつつプラスチックケースを払いのけて通路を確保しています。",
+     "caption": "Figure 5: Qualitative Results across Environments. We deploy MessyNav in varied settings to test its zero-shot capability. The robot successfully reasons about affordances and executes interactions across different lighting conditions, environments, and object types.",
+     "image": "details/2611.07417/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "整然とした実験室から、散らかった現実世界へ踏み出す第一歩",
+   "summary_ja": "MessyNavは、VLMによる明示的なアフォーダンス推論を組み込むことで、追加学習なしで散らかった実世界を切り拓くナビゲーションを実現しました。本章では成果の総括と、開ループ制御や記憶の欠如といった今後の研究課題を整理します。",
+   "details_ja": "本論文では、事前学習済みVLMの常識推論能力を引き出し、散らかった未知の環境でも安全に障害物を動かして目的地を目指すゼロショット・フレームワークMessyNavを提案しました。アフォーダンス推論とタスク計画を明示的に切り離すというシンプルな構造改革が、文脈に左右される難度の高い状況において劇的な性能向上をもたらすことを示しました。\n\n一方で、実用化に向けた明確な限界と将来の課題も挙げられています。\n第一に、現状の動作プリミティブは開ループ（事前計算した軌道をそのまま流す）で実行されている点です。今後はVision-Language-Action（VLA）モデルのような閉ループ制御ポリシーを組み込んだり、「割れ物だからより慎重にゆっくり動かす」といったアフォーダンス推論結果に基づく力・速度パラメータの動的調整が求められます。\n第二に、VLM自体の視覚・空間認識能力への依存です。暗闇の中や、単眼RGB画像からの3D幾何関係の推論には依然として課題が残ります。\n第三に、永続的なメモリ（記憶）の欠如です。「このリュックは重すぎて持ち上がらなかった」といった失敗経験を記憶し、行動計画をリアルタイムに修正するインタラクション連動型の空間メモリの統合が、今後の大きな発展の鍵となります。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "【付録】実機システムのハードウェア構成とプロンプト設計の裏側",
+   "summary_ja": "実機実験に用いたモバイルマニピュレータTidyBot++のハードウェア仕様や、VLMにアフォーダンス推論およびキーポイント検出を行わせるための詳細な実装・プロンプト設計について解説します。",
+   "details_ja": "### 実機ロボットの構成\n実験には全方向移動台車と7自由度のKinova製アームを備えた「TidyBot++」を使用しました。自己位置推定とNav2用の障害物検出にはUnitree L2 LiDARを用い、FAST-LIOによるLiDARオドメトリを採用しています。カメラは台車前方のベースカメラと、アーム支柱の右側から前方を見下ろすサイドカメラの2台のZED 2を搭載しています。大域的な状況把握とタスク計画にはベースカメラを使い、対象物に近づいてからの精密なキーポイント検出やセグメンテーションには、対象がアームの死角に入りにくいサイドカメラを活用しています。\n\n### 2段階プロンプトと3Dグラウンディング\nアフォーダンス推論とタスク計画には`gemini-3-flash-preview`（思考モードは最小限設定）を使用しています。推論プロンプトには「ロボットが物理的に動かせるか（重量制限など）」と「動かして安全か（破損リスク、意図的な配置など）」を問うルールが詳細に定義されています。計画された動作を実行する際、対象物体の掴み位置やアプローチ位置を決定するために`gemini-2.5-pro`のオープン語彙キーポイント検出・セグメンテーションを活用しています。これにより、あらかじめ物体3Dモデルを用意していなくても、言語指示から直接ロボット座標系への3D位置合わせが可能になっています。\n\n### 失敗分析\n実機実験における失敗原因の内訳を分析すると、最強のベースラインである`vlm-planner-only`が7件の計画失敗を起こしたのに対し、MessyNavの計画失敗はわずか2件（キャスターの1つが破損していることを見落としたなど、極めて微細な物理欠陥の見落とし）でした。残りの失敗の多くは、VLMがカートの内側の何もない空間を掴み点として指し示してしまうといった、ポインティングの幾何学的な誤差による実行失敗でした。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "実験に使用したTidyBot++のハードウェア外観です。全方向移動台車の上にKinovaアーム、正面カメラ、アーム横のサイドカメラ、LiDAR、車載PCが機能的に配置されています。",
+     "caption": "Figure 6: Hardware: We deploy on the TidyBot++ holonomic mobile manipulator [ 18 ] with two cameras and a LiDAR for perception. An onboard laptop runs the autonomy stack.",
+     "image": "details/2611.07417/F6.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "「動かせるか」のアフォーダンス判定と「どう動かすか」のタスク計画を明示的に分離することで、VLMの幻覚や文脈の見落としを劇的に防ぐことができる。",
+  "物体カテゴリ名だけの固定ルール（椅子＝動かせる）は実世界では通用せず、載っている物や周囲の貼り紙などの文脈を含めたインスタンス推論が不可欠である。",
+  "高度な意味推論（VLM）と古典的な移動ナビゲーション（Nav2/LiDAR）を疎結合に組み合わせることで、シミュレーション訓練なしでも実機で高いゼロショット走破性を発揮できる。",
+  "現状のボトルネックは言語推論そのものよりも、VLMによる画像上の微小な幾何キーポイント検出や開ループ制御の精度にある。"
+ ],
+ "limitations_ja": [
+  "マニピュレーションが事前定義された開ループ動作（横払い、持ち上げ）に限られており、途中で滑ったり引っかかったりした際の閉ループ適応ができない。",
+  "暗所や逆光などの視認性が悪い環境では、VLMが細かな文脈（割れ物マークや不安定な積み重ね）を見落としやすい。",
+  "行動した結果の物理的フィードバック（重くて動かなかったなど）を蓄積する永続メモリがないため、一度失敗した動作を繰り返すリスクがある。"
+ ],
+ "keywords": [
+  "Interactive Navigation",
+  "Vision-Language Models",
+  "Zero-Shot Affordance Reasoning",
+  "Mobile Manipulation",
+  "Open-World Embodied AI"
+ ],
+ "id": "2611.07417",
+ "title": "MessyNav: Zero-Shot Navigation via Manipulation in Messy Environments",
+ "authors": [
+  "Kenneth Llontop",
+  "Cherie Ho",
+  "Dylan Zhou",
+  "Anuva Banwasi",
+  "Priya Sundaresan",
+  "Carlota Par\\'es-Morlans",
+  "Jeannette Bohg"
+ ],
+ "date": "2026-11-06",
+ "group": "general",
+ "tags": [
+  "navigation",
+  "manipulation",
+  "vision-language-action"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.07417",
+ "pdf_url": "https://arxiv.org/pdf/2611.07417",
+ "summary_ja": "障害物で塞がれた経路を物理的に押し開いて進むインタラクティブ・ナビゲーションを、VLMを活用してゼロショットで実現するフレームワークMessyNavを提案。文脈判断（例: 壊れ物の載ったカートは避け、空のカートは押す）を行い、事前学習や手動指示なしに未知環境での移動・操作タスクを達成する。",
+ "generated": "2026-11-06",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.07417"
+}
