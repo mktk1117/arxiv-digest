@@ -1,0 +1,133 @@
+{
+ "title_ja": "FREE-LIVO: 物理的分離かつ強結合なLiDAR・慣性・視覚オドメトリ",
+ "tldr_ja": "LiDARとカメラが固定された台座を持たず、時刻同期すらされていないバラバラな状態でも、生成モデルによるアップサンプリングと特徴量マッチングを因子グラフに統合することで、高精度に各センサの自己位置を同時推定できるオドメトリ手法。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "LiDARとカメラを左右の手でそれぞれ持って別々に動かしている様子と、FREE-LIVOが推定した2本の独立した軌跡、およびそれらから生成された色付き3次元点群マップです。センサ同士が固定されておらず時刻同期がなくても、破綻なくタイトに統合できていることが分かります。",
+  "caption": "Fig. 1: FREE-LIVO estimation results with a physically decoupled LiDAR and camera. (a) The LiDAR and camera are held in separate hands. (b) A colored point cloud generated using the estimated sensor poses. (c) Jointly estimated trajectories of the independently moving LiDAR and camera.",
+  "image": "details/2611.07463/F1.jpg"
+ },
+ "overview_ja": "従来のLiDAR-慣性-視覚オドメトリ（LIVO）は、LiDAR・カメラ・IMUが単一の剛体フレームに強固に固定され、外部パラメータ（相対姿勢）とハードウェア時刻同期が正確に取れていることを大前提としてきました。しかし、センサが可動アクチュエータや別々のロボットに分散配置されるようなモジュール型ロボットシステムでは、この前提が完全に崩れてしまいます。\n\nそこで著者らは、LiDARとカメラの物理的固定も時刻同期も一切仮定しない、新しい密結合LIVOフレームワーク「FREE-LIVO」を考案しました。ポイントは、スパースなLiDAR反射強度画像を生成モデルで高密度化し、事前学習済み特徴量マッチングを用いてカメラ画像との間で直接2D-3D対応点を確立することです。これにより、取得時刻の異なるLiDAR姿勢とカメラ姿勢をダイレクトに結ぶ「LiDAR-カメラ再投影因子」を構成し、IMUや点群マッチングの拘束とともに単一の因子グラフでまとめて最適化します。\n\n公開データセットM3DGRを用いた実験では、外部パラメータを与えない条件でも平均絶対軌道誤差（ATE）RMSEで0.45 mを達成し、既存の最高水準手法と同等の精度を叩き出しました。さらに、最大0.5秒の意図的な時間遅延を与えても精度低下が極めて小さく、2台の異なるロボット（車輪型ローバーと四足歩行ロボット）にLiDARとカメラを別々に載せて動かす実験でも、リアルタイムに両者の軌跡を同時推定できることを実証しました。",
+ "contributions_ja": [
+  "固定されたセンサ台座（リグ）や高精度な時刻同期を一切必要とせず、物理的に分離したLiDARとカメラの軌跡を同時推定できる初の密結合LIVO手法を提案したこと。",
+  "生成モデル（Conditional Rectified Flow）によるLiDAR反射強度画像の高密度化と画像特徴量マッチングを組み合わせ、膨大なLiDAR学習データなしにロバストな2D-3D異種モーダルマッチングを実現したこと。",
+  "取得時刻の異なるLiDARとカメラのポーズを直接結ぶLiDAR-カメラ再投影因子を設計し、点群レジストレーションや視覚追跡、IMU計測とともに単一の因子グラフで最適化するアーキテクチャを確立したこと。",
+  "公開データセットでの時間遅延耐性評価や、四足歩行ロボットとローバーという異種ロボット間での実機走行実験を通じ、独立して動くセンサ群のオドメトリを実時間で安定推定できることを示したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "固定リグも同期もいらない、自由なセンサ統合オドメトリへ",
+   "summary_ja": "従来のLIVOはセンサ間の厳密な固定と同期を前提としており、センサが独立して動く環境では破綻していました。本論文では、生成モデルによるマッチングと因子グラフを組み合わせ、物理的・時間的に制約のない密結合LIVO「FREE-LIVO」を提案します。",
+   "details_ja": "ロボットの自己位置推定と地図作成において、LiDARは正確な3次元形状を取得できる強みがありますが、幾何特徴が乏しい環境（長大な廊下やトンネルなど）では精度が落ちます。一方、カメラは豊富な外観情報を得られますが、照度変化やテクスチャ不足に脆弱です。これらをIMUとともに補完し合うLIVOは極めて強力ですが、既存手法には大きな制約がありました。\n\nそれは、LiDAR・カメラ・IMUが同一の剛体に固定され、高精度な外部パラメータ校正とマイクロ秒単位の時刻同期が完了していることを前提としている点です。しかし、近年のモジュール型ロボットや協調ロボティクスでは、可動アクチュエータや独立して動く移動ユニット、あるいは別々のロボットにセンサを分散配置したい場面が増えています。こうした環境では相対姿勢が刻一刻と変化し、厳密な同期も望めません。\n\nそこで本研究では、固定台座も時刻同期も不要な「FREE-LIVO」を開発しました。スパースな単一LiDARスキャンの反射強度画像を生成モデルで高密度化し、事前学習済みの画像マッチング器でカメラ画像とマッチングします。得られた2D-3D対応関係から「LiDAR-カメラ再投影因子」を導出し、各センサのIMUデータやスキャンマッチング拘束とともに単一の因子グラフでまとめて最適化（密結合）します。これにより、両センサを別々の手で持ったり別々のロボットに載せたりしても、安定した自己位置推定を可能にしました。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "LIVOの発展と異種モーダルマッチングの課題",
+   "summary_ja": "既存のLIO/VIO/LIVOは外部パラメータと同期の誤差に脆弱であり、従来のLiDAR-カメラ対応付け手法の多くは大域的な場所認識向けでした。FREE-LIVOは生成モデルによる表現変換を活かし、オドメトリに必要な連続的かつ詳細な特徴点マッチングを可能にします。",
+   "details_ja": "### II-A LiDAR-Inertial and Visual-Inertial Odometry\n単一モダリティに基づくLIO（FAST-LIO2やGLIMなど）やVIO（VINS-MonoやKimeraなど）は、フィルタリングまたはスライディングウィンドウ型最適化で発展してきました。しかし、LIOは幾何学的な縮退環境、VIOは暗所やテクスチャレス環境で容易に破綻するため、相互のセンサ融合が不可欠とされてきました。\n\n### II-B LiDAR-Inertial-Visual Odometry\n両者を統合するLIVO（LVI-SAM、R3LIVE、FAST-LIVO2など）は高い頑健性を誇ります。しかし、その多くは正確な外部校正と時刻同期に依存しています。わずかな同期ズレや相対姿勢の誤差でも、点群とピクセルが不整合を起こして推定精度が著しく低下します。R3LIVEのように相対姿勢や時間オフセットをオンライン推定する試みもありますが、それらが「時間的に一定である」という仮定からは抜け出せていませんでした。\n\n### II-C Cross-Modal LiDAR-Visual Matching\nLiDAR点群とカメラ画像の大域的な照合（Place Recognition）には深層学習を用いた手法が多く存在しますが、それらは画像と点群のグローバル特徴量を比較するものが主流で、連続的なオドメトリに使えるような密な点単位・ピクセル単位の対応付けは行っていません。また、点群-画像マッチング手法（DeepI2Pや2D3D-MATRなど）は正解ペア付きの大規模なLiDAR-カメラデータセットでの訓練が必要です。本研究では、RGB画像データセットのみで自己教師あり事前学習できる反射強度アップサンプリング手法を活用することで、高価な教師データを必要とせずに高精度なマッチングを実現しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Methodology",
+   "heading_ja": "反射強度画像の高密度化と柔軟な因子グラフ最適化",
+   "summary_ja": "FREE-LIVOは、LiDAR反射強度の生成アップサンプリング、視覚特徴量マッチングによる2D-3D対応付け、そしてそれらをIMUやスキャンマッチングと共に解く因子グラフ最適化で構成されます。時刻の異なるポーズ同士を再投影誤差で結ぶのが最大の肝です。",
+   "details_ja": "### III-A Proposed Pipeline\nパイプラインは、LiDAR-IMU前処理、カメラ-IMU前処理、画像-点群マッチング、および因子グラフ最適化の4つで構成されます。LiDAR座標系 $L$ とカメラ座標系 $C$ は物理的に完全に独立して動くことができ、同期も不要です。\n\n### III-B Image-to-Point Cloud Matching\n単一のLiDARスキャンから得られる反射強度画像 $\\mathcal{I}_i^L$ は非常にスパースです。そこで、生成モデルであるConditional Rectified Flowを用いて、密な反射強度画像 $\\hat{\\mathcal{I}}_i^L$ を生成します。このネットワークは、大規模なRGB画像群（240万枚）に対する欠損復元タスクで事前学習したあと、少数の実測LiDARデータ（80シーン）でファインチューニングされているため、過学習することなく高精細な画像を復元できます。\n復元された画像とRGBカメラ画像 $\\mathcal{I}_j$ を、事前学習済みマッチング器（SuperPoint + LightGlueの異種モーダル向けMINIMA重み）で照合します。マッチしたピクセルにLiDARの深度（5ピクセル以内の最近傍値）を割り当てることで、2D-3D対応点の集合 $\\mathcal{M}_{ij}$ を取得します。\n\n### III-C Factor Graph Optimization\n因子グラフは、LIOパート（GLIMベースのVGICPマッチング因子とIMU事前積分因子）、VIOパート（KLT追跡に基づくスマート投影因子とIMU事前積分因子）、そして両者を結ぶ「LiDAR-カメラ再投影因子」から構成されます。\nこの再投影因子は、時刻の異なるLiDARポーズ ${}^{W}\\boldsymbol{T}_{L_i}$ とカメラポーズ ${}^{W}\\boldsymbol{T}_{C_j}$ を直接拘束します。対応点 $({}^{L}\\boldsymbol{p}_{ik},\\boldsymbol{z}_{jk})$ に対し、LiDARの3次元点をカメラ座標系へ射影したピクセルと観測ピクセルとの残差を次のように定義します:\n\n$$e_{ijk}^{\\mathrm{LC}} = \\pi(({}^{W}\\boldsymbol{T}_{C_j})^{-1} {}^{W}\\boldsymbol{T}_{L_i} {}^{L}\\boldsymbol{p}_{ik}) - \\boldsymbol{z}_{jk}$$\n\nここで $\\pi(\\cdot)$ はカメラの内部パラメータを用いた投影関数です。この誤差に対して点単位のHuber損失と、フレームペア単位の動的共分散スケーリング（DCS）を適用し、外れ値の影響を徹底的に排除します。全体の目的関数 $E_{\\mathrm{total}}$ はこれら全因子の和として表され、iSAM2を用いて5秒間の固定遅延スライディングウィンドウ内でリアルタイムに逐次最適化されます。\n\n### III-D Implementation Details\nRTX 4080 Laptop GPUとTensorRT（FP16）を活用し、生成モデルと特徴量抽出を高速化することで、すべての処理を実時間で動作させています。有効な対応点が50個以上残った場合のみ再投影因子をグラフに追加します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "FREE-LIVOの全体システム構成図です。LiDARとカメラの各パイプラインが独立に動きつつ、中央の画像-点群マッチングによって得られた2D-3D拘束が、右側の単一因子グラフ上で両者をタイトに結合している流れが分かります。",
+     "caption": "Fig. 2: Overview of FREE-LIVO. Upsampled LiDAR intensity images are matched with camera images to obtain 2D–3D correspondences. These are integrated with LiDAR, visual, and IMU constraints in a single factor graph to jointly estimate sensor trajectories without a fixed LiDAR–camera rig or time synchronization.",
+     "image": "details/2611.07463/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "LiDAR-カメラマッチングの流れです。(a) 単一LiDARスキャンのスパースな反射強度画像から、(b) Conditional Rectified Flowによって密な画像が復元され、(c) RGB画像との間で正確な特徴点対応（緑の線）が取れている様子が示されています。",
+     "caption": "Fig. 3: LiDAR–camera matching. (a) Sparse intensity image from a single LiDAR scan. (b) Dense intensity image generated by Conditional Rectified Flow. (c) Feature correspondences between the dense intensity image and the camera image.",
+     "image": "details/2611.07463/F3.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "実行中の因子グラフの構造です。緑のLiDAR軌跡と青のカメラ軌跡が、黄色で示されたLiDAR-カメラ再投影因子によって密に結合されており、5秒間の最適化ウィンドウを抜けた状態は順次マージナライズされます。",
+     "caption": "Fig. 5: Factor graph during operation. LiDAR–camera reprojection factors connect the LiDAR and camera trajectories. The colored point clouds show the reprojection points used by these factors.",
+     "image": "details/2611.07463/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "外部校正なしでも高精度、0.5秒の遅延や独立ロボットでも安定動作",
+   "summary_ja": "M3DGR等のデータセットと実機ロボットを用いて評価しました。FREE-LIVOは外部パラメータなしで平均ATE 0.45 mを達成し、同期ズレ耐性や独立した2台のロボットにおける同時オドメトリ推定でも卓越した性能を示しました。",
+   "details_ja": "### IV-A & IV-B Trajectory Estimation Accuracy on M3DGR\n公開データセットM3DGRの6シーケンス（屋外4、屋内2）を用いて精度を検証しました。ベースラインにはGLIM（LIO）、VINS-Mono（VIO）、LVI-SAM、R3LIVE、FAST-LIVO2（LIVO）を採用しています。他手法には正解の外部パラメータと同期情報が与えられているのに対し、FREE-LIVOにはLiDAR-カメラ間の外部パラメータを一切与えていません。\n結果として、FREE-LIVOの平均ATE RMSEは0.45 mを記録し、ベースとなったGLIM単体の0.71 mから大幅に精度が向上しました。これは、カメラ情報の追加が正しく寄与していることを意味します。また、狭い屋内で動的物体が存在するシーケンス（Dynamic01, Dynamic02）では、ソフトウェア同期の粗さや校正誤差が原因でFAST-LIVO2が破綻（発散）したのに対し、FREE-LIVOは安定して完走しました。\n\n### IV-C Robustness to LiDAR–Camera Synchronization Errors\nカメラデータに0.1秒、0.3秒、0.5秒の人工的な時間遅延を付加して頑健性を評価しました。LVI-SAMは遅延に伴って誤差が急増したのに対し、FREE-LIVOは軌道推定の安定性を維持しました。さらにFAST-LIVO2データセットでの色付き点群マップの視覚比較では、R3LIVEやFAST-LIVO2は0.3秒の遅延で壁面の文字や輪郭が大きく二重にブレて色付けが崩壊したのに対し、FREE-LIVOは幾何形状と色の境界が完全に一致した鮮明な点群を生成し続けました。\n\n### IV-D Ablation Study\nLIOとVIOを別々に最適化して後から緩やかに結合する「Loose」構成（平均ATE 2.10 m）や、高密度化を最近傍補間に置き換えた「NN」構成（平均ATE 0.52 m）と比較しました。単一の因子グラフでまとめて最適化する密結合アーキテクチャが、長距離におけるオドメトリのドリフト抑制に極めて重要であることが実証されました。\n\n### IV-E Evaluation with Physically Decoupled Sensors\n実機検証として、LiDARとカメラを別々の手に持って歩く実験と、四足歩行ロボット（カメラ搭載）と車輪型ローバー（LiDAR搭載）を独立して走行させる実験を行いました。センサ間の相対位置が常に激しく変動し、歩行ロボット特有の周期振動が存在する環境下でも、両センサの3次元軌跡を実時間で破綻なく同時推定できることが確認されました。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "カメラデータに0.3秒の遅延が加わった際の色付き点群の比較です。R3LIVEやFAST-LIVO2は赤色看板の文字や壁のテクスチャが大きくブレているのに対し、FREE-LIVO（右列）は幾何形状と画像の色が見事に一致しています。",
+     "caption": "Fig. 7: Colored point clouds generated by R3LIVE, FAST-LIVO2, and FREE-LIVO on the FAST-LIVO2 dataset, with and without an added 0.3 s camera delay. FREE-LIVO maintains alignment between image colors and LiDAR geometry under the delay.",
+     "image": "details/2611.07463/F7.jpg"
+    },
+    {
+     "key": "F9",
+     "caption_ja": "車輪型ローバーにLiDAR、四足歩行ロボットにカメラを載せて別々に動かした協調実験の様子です。(b) オンラインで生成される色付きマップと、(c) 互いに独立して交差・周回する2台の推定軌跡（緑と青）が正しく得られていることが分かります。",
+     "caption": "Fig. 9: FREE-LIVO estimation with two independently moving robots. (a) LiDAR and camera units mounted on separate robots. (b) Online estimation during operation. (c) Final estimated trajectories.",
+     "image": "details/2611.07463/F9.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "FREE-LIVOは、固定リグや時刻同期の制約からLIVOを解放し、完全な密結合因子グラフ最適化を実現しました。今後は複数セッションにまたがる長期的な状態推定やマルチロボットSLAMへの拡張が期待されます。",
+   "details_ja": "本研究では、LiDARとカメラの厳密な物理的固定や時刻同期を必要としない新しいLIVO手法「FREE-LIVO」を提案しました。生成モデルを用いた高精度なクロスモーダル対応点探索と、時間差のあるフレーム間を結ぶ再投影因子の導入により、従来のLIVOの前提条件を根本から覆しました。\n\n実験では、外部パラメータなしでも最高水準の精度を維持できること、大きな時間遅延に対しても頑健であること、そして別々のロボットに搭載されたセンサ群の軌跡をリアルタイムに同時推定できることを実証しました。著者は今後の展望として、異なるセッション間で収集されたデータを統合する長期的な状態推定や、さらなるマルチロボット協調SLAMシステムへの発展を挙げています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「LIVOには精密な外部校正とハードウェア時刻同期が必須」という従来の固定観念は、生成モデルによる特徴点マッチングと柔軟な因子グラフ設計によって打破できる。",
+  "取得時刻が異なるセンサポーズ同士でも、2D-3D対応関係から直接「再投影因子」を構成してスライディングウィンドウで最適化すれば、時間オフセットを明示的に状態変数として持たなくても密結合できる。",
+  "LiDAR反射強度画像のアップサンプリングにおいて、RGB画像による自己教師あり事前学習＋少数のLiDARデータでのファインチューニングというアプローチが極めて実用的で汎化性が高い。",
+  "カメラとLiDARを別々のロボットに積んで互いをオドメトリで拘束し合えるため、軽量ロボットと重量センサロボットのヘテロジニアスな協調センシングに新たな道を拓いた。"
+ ],
+ "limitations_ja": [
+  "LiDARとカメラの視野（FoV）がある程度重なり合い、マッチング可能なテクスチャが存在しない環境では、LiDAR-カメラ再投影因子が形成できず単なる独立したLIO/VIOになってしまう。",
+  "生成モデル（Rectified Flow）やLightGlue推論をリアルタイム（ノートPC）で回すためにTensorRT等のGPU高速化が前提となっており、極めて低電力なエッジ組み込みシステムへの展開には計算コストの課題が残る。",
+  "本論文のスコープは局所オドメトリ（5秒のスライディングウィンドウ）であり、大規模環境で長期運用する際の大域的なループクローズやマップ整合性維持は今後の課題とされている。"
+ ],
+ "keywords": [
+  "LiDAR-Inertial-Visual Odometry",
+  "Factor Graph Optimization",
+  "Generative Upsampling",
+  "Cross-Modal Matching",
+  "Heterogeneous Robotics"
+ ],
+ "id": "2611.07463",
+ "title": "FREE-LIVO: Physically Decoupled Yet Tightly Coupled LiDAR-Inertial-Visual Odometry",
+ "authors": [
+  "Reon Tabata",
+  "Kenji Koide",
+  "Shuji Oishi",
+  "Taku Okawara",
+  "Mizuho Aoki",
+  "Aoki Takanose",
+  "Masashi Yokozuka",
+  "Jun Miura"
+ ],
+ "date": "2026-11-06",
+ "group": "general",
+ "tags": [
+  "perception",
+  "hardware"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.07463",
+ "pdf_url": "https://arxiv.org/pdf/2611.07463",
+ "summary_ja": "LiDARとカメラの剛体固定やナノ秒単位の厳密な時刻同期を必要としない強結合オドメトリFREE-LIVOを提案。単一LiDAR点群から生成モデルで高密度な反射強度画像を合成し、汎用特徴量マッチングを介してカメラ画像との3D点-ピクセル対応を動的に確立することで高精度な状態推定を可能にした。",
+ "generated": "2026-11-06",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.07463"
+}
