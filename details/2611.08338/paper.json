@@ -1,0 +1,155 @@
+{
+ "title_ja": "GPWM: 3D粒子運動として世界をモデル化する生成的世界モデル",
+ "tldr_ja": "剛体・弾塑性・粉体・布などの多様な力学現象を共通の3D粒子・剛体表現で統一し、Flow MatchingとDiffusion Forcingによって長期予測と接触リッチなプランニングを可能にした3D生成世界モデル。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "GPWMの全体像。上段のParticleWorldsデータセット（6ドメイン）を入力とし、U字型のマルチレゾリューション時空間Transformerで粒子と剛体の未来運動をデノイズ生成します。既存の最高ベースラインに比べ予測誤差を平均31%削減し、画像からの物理シミュレーションや、潜在ノイズ空間の探索による接触を伴うマニピュレーション計画（右下）を実現しています。",
+  "caption": "Figure 1 : GPWM learns 3D particle dynamics across six physical domains. Top: samples from the six domains of ParticleWorlds . Middle: given the observed frames and a noisy future, a U-shaped multi-resolution spatio-temporal transformer denoises the future motion of every particle. Bottom: GPWM (the better of its specialist and unified models in each domain) lowers prediction error relative to the strongest baseline in every domain, by 31% on average, rolls out 55 $\\times$ past its 16-frame training window, simulates 3D dynamics from images, and plans via guided diffusion, succeeding at picking where action-space search fails.",
+  "image": "details/2611.08338/F1.jpg"
+ },
+ "overview_ja": "ロボットが未知の環境で巧みに物体を操作するには、「世界が物理的にどう動くか」を予測し、「目的の状態にするためにどう介入すべきか」を計画できる世界モデルが不可欠です。近年は動画生成モデルによるアプローチが盛んですが、これらは画素レベルの見かけを予測するにとどまり、3次元の正確な物理接触や幾何変化を直接扱えません。一方で従来の3D粒子ベースモデルは、材料ごとに特化していたり、決定論的で長期の誤差蓄積に弱かったりという課題がありました。\n\nそこで著者らは、変形体や粉体を粒子の変位、剛体を剛体変換として統一表現し、Flow MatchingとDiffusion Forcingを組み合わせた生成世界モデル「GPWM」を提案しました。大規模シミュレーションデータセット「ParticleWorlds」（2,550万フレーム）を構築し、剛体・弾性・塑性・粉体・布を含む6つの物理ドメインにまたがる予測モデルを単一の重み（Unifiedモデル）で学習することに成功しました。\n\n実験では、各ドメイン特化モデルおよびUnifiedモデルの双方が先行研究を圧倒し、予測誤差を平均31%削減しました。さらに、ロボットのアクチュエータと物体の運動を同時生成する事前分布を学習することで、直接アクション空間を探索する代わりに「潜在ノイズ空間」を探索してゴールを達成する新しいプランニング手法を提示。プッシングやピッキングといった複雑な接触順序が要求されるタスクにおいて、通常のアクション探索がほぼ失敗するなか、シミュレータ上で見事に動作する計画をオープンループで生成できることを実証しました。",
+ "contributions_ja": [
+  "剛体・変形体・粉体・布を共通の3D粒子・剛体変位として扱い、Diffusion Forcingにより学習窓を大幅に超える長期生成（最大55倍以上）を実現する3D生成世界モデル「GPWM」の提案",
+  "多様な幾何形状・物理パラメータ・ロボット構成（ロッド、グリッパ、多指ハンド）を含む2,550万フレームの大規模3D物理データセット「ParticleWorlds」の構築",
+  "6つの物理ドメインすべてで従来手法を凌駕し（誤差31%削減）、単一のUnifiedモデルが複数ドメインでドメイン特化モデルをも上回る高い汎化性能の実証",
+  "アクチュエータと物体の連動運動を同時生成することで、複雑な接触マニピュレーションを潜在ノイズ最適化によって解く「生成インタラクション事前分布」によるプランニング手法の確立"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "見かけの動画ではなく、本物の3次元物理を生成する世界モデルへ",
+   "summary_ja": "ロボット操作に必要な物理世界モデルは、多様な素材の力学や接触、長期の因果関係を捉える必要があります。既存の動画生成モデルは3次元空間を直接表現できず、従来の3D粒子モデルは決定論的かつ単一素材に特化していました。GPWMはこれらを打破し、単一の生成アーキテクチャで多様な物理現象の予測と接触を伴うプランニングを可能にします。",
+   "details_ja": "汎用的な物理世界モデルを作るには、多様な材質を扱い、接触を伴う力学を長期間破綻なく予測し、さらにロボットの行動計画に役立てられる必要があります。しかし、最近流行りの動画世界モデルは視覚的な「見た目」を生成しているだけで、3次元空間内の物体の運動や接触を直接表現しているわけではありません。一方で、3次元の点群や粒子（パーティクル）を用いる物理シミュレータ型の学習モデルは存在しますが、その多くは決定論的な予測器であり、予測期間が短かったり、特定の材料（剛体のみ、あるいは粘土のみなど）に特化しているという限界がありました。\n\nそこで本論文が問うたのが、「3Dパーティクルの運動を生成モデルとして学習することで、多様な物理ダイナミクスを捉え、長期にわたり予測し、接触を考慮した計画まで行えるか？」という問いです。\n\nGPWM（Generative Particle World Model）は、変形体や布、砂のような粉体を「粒子の変位」で、剛体を「剛体全体の空間変換」で表すことで、あらゆる物理対象を1つの共通表現に乗せました。これにより、数千粒子が入り乱れるシーンでも長期予測を安定させ、さらにはアクチュエータ（ロボットの手先など）の運動も同じ幾何表現で一緒に生成できるように設計されています。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "物理シミュレータ学習と拡散プランニングの交差点",
+   "summary_ja": "物理シミュレータ学習は決定論的モデルから生成モデルへとシフトしつつありますが、大規模化や素材の多様性への対応は未開拓でした。また軌道生成を用いたプランニング研究が進む中、3D接触の豊かな領域への適用には課題がありました。GPWMはこれらを統合し、多解像度処理と潜在ノイズ探索によってスケールと探索効率の両立を図ります。",
+   "details_ja": "### 物理シミュレータと学習型3Dダイナミクス\n従来の学習型シミュレータ（GNSやParticleFormer、PGNDなど）は、主に単一ドメインに特化した決定論的モデルでした。しかし、接触や摩擦には本質的な不確実性があり、物理的にあり得る未来は複数存在するため、決定論的モデルでは解がぼやけたり破綻したりします。GPWMは単一アーキテクチャでありながら、剛体・弾塑性・布・粉体を統一した生成分布として捉える点が決定的に異なります。\n\n### 生成的ダイナミクスと長期予測\nGPWMに最も近い先行研究としてPhysCtrlやPhysiFormerがありますが、これらは固定された短い時間幅でしか訓練できず、シーン全体の全点群をそのままTransformerに入力していたため、数百点程度の小さなシーンに制限されていました。対してGPWMは、マルチレゾリューション（多解像度）構造によって最大12,000粒子までスケールさせ、さらにDiffusion Forcingを導入することで訓練窓を大幅に超える自己回帰的な長期生成を可能にしています。\n\n### プランニングへの生成モデルの応用\nDiffuserなどの軌道生成を用いた強化学習・計画手法が提案されてきましたが、これらを3Dの接触リッチな物理環境へ拡張する試みは限られていました。アクション空間を直接最適化しようとすると、世界モデルの予測誤差の穴（分布外アクション）を突いてしまいシミュレータで動かない計画になりがちです。GPWMは物体とアクチュエータの同時生成分布を学習することで、「物理的に妥当なインタラクションの事前分布」の上で潜在ノイズを探索できる強みを持っています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "多解像度TransformerとDiffusion Forcingが生み出す物理生成メカニズム",
+   "summary_ja": "GPWMは変形体を粒子の変位、剛体を剛体変換として統一的に表現し、多解像度時空間Transformerで処理します。Flow MatchingにDiffusion Forcingを組み合わせ、フレームごとに異なるノイズレベルを割り当てるストリーミング生成によって、訓練幅を超える長期物理予測と潜在ノイズ空間での接触計画を実現しました。",
+   "details_ja": "### 3.1 粒子と剛体の表現\nGPWMはシーンを追跡された粒子群と剛体群として扱います。変形体の粒子（$N_p$個）については、フレーム間の変位 $\\Delta\\mathbf{P}_t^p = \\mathbf{P}_{t+1}^p - \\mathbf{P}_t^p$ を生成変数とします。変位を積算することで位置を復元するため、シーンの全体的な平行移動に対して頑健です。一方、剛体については形状が崩れないよう、フレーム間の並進と回転を表す9次元の剛体変換 $\\Delta\\mathbf{q}_k^t = [\\Delta\\mathbf{t}_k^t, \\Delta\\mathbf{r}_k^t]$ を予測します。アクチュエータ（グリッパや手先）も同様に粒子や剛体リンクとして表され、条件付け入力とするか、計画時に物体と一緒に同時生成します。\n\n### 3.2 多解像度時空間Transformer\n数千個の粒子すべてに対して全結合Attentionを計算すると計算量が爆発します。そこでGPWMではU-Netのような多解像度構造を採用しました。最密レベルからFPS（最遠点サンプリング）でアンカー粒子を選び出し、PointNet++風の局所集約で解像度を下げながら特徴量を coarse なレベルへと圧縮します。Transformerブロック内では時間を追うTemporal Attentionと、フレーム内の空間をつなぐSpatial Attentionを分離（Factorized）して計算します。粗い解像度ではシーン全体の物体間・アクチュエータ間の大局的な相互作用を捉え、デコーダで再び細かい粒子へと補間して戻します。\n\n### 3.3 Flow MatchingとDiffusion Forcing\nモデルの学習にはFlow Matchingを用いますが、ここでのポイントはDiffusion Forcing（未来フレームごとに独立したノイズレベル $\\tau_t \\in [0, 1]$ を割り当てる手法）の導入です。直近のフレームはノイズが低く、遠い未来ほどノイズが高い状態を学習時に模擬します。モデルは速度ベクトルを直接予測するのではなく、クリーンな終点（変位と剛体変換）を予測するエンドポイントパラメータ化を採用し、補助的な物理損失を使わずにL2損失のみで安定して収束させます。\n\n### 3.4 ストリーミング長期生成\n推論時は、直近のフレームから順次デノイズを完了させて確定（コミット）し、時間窓を1ステップ進めて末尾に新しいガウスノイズを補充する「ストリーミング生成」を行います。これにより、モデルの計算窓（例えば16フレーム）を固定したまま、誤差を爆発させずに何百フレームもの長期ロールアウトが可能になります。\n\n### 3.5 生成インタラクション事前分布によるプランニング\n受動的な物体とロボットのアクチュエータの軌道を同時に生成するように学習させておくと、モデルは「もっともらしい物理的接触のパターン」を事前分布として保持します。ゴール（物体の目標位置など）に対するスパースな報酬関数を定義し、フリーズした世界モデルを通して初期ノイズベクトル $\\mathbf{z}$ に対する勾配（Latent Noise Optimization; LNO）や、サンプリングベースのCEM（Noise CEM）で最適ノイズを探索します。無制約なアクション空間を探すのではなく、学習済みの自然なインタラクション多様体の中だけを探すため、非現実的な解に陥らずに済みます。",
+   "figures": []
+  },
+  {
+   "heading": "4 ParticleWorlds Dataset",
+   "heading_ja": "2,550万フレーム、6ドメインを網羅する巨大物理データセット",
+   "summary_ja": "物理現象の多様性を担保するため、剛体・弾塑性・粉体・布および各種ロボット操作を含む「ParticleWorlds」（2,550万フレーム）を構築しました。全ドメインのデータを粒子と剛体変換の共通フォーマットに変換し、数値破綻や接触のめり込みを排除する品質管理を行っています。",
+   "details_ja": "多種多様な物理現象を包括的に学習するため、著者らは合計267,864エピソード、25,463,677フレームに及ぶ大規模シミュレーションコーパス「ParticleWorlds」を構築しました。\n\nデータセットは以下の6つのドメインから構成されています：\n- **Free Fall**: Genesisシミュレータを用い、弾性・塑性・粉体（砂）のブロックや異形物体が落下して衝突・変形するシーン。\n- **Dragging**: 弾性・粘土状の物体表面の一部をつかんで引っ張り、保持し、解放する動作。\n- **Garment Folding**: SIM1環境で2本指グリッパが10カテゴリ・約1,000着の衣服を折りたたむシーン（最大10,000粒子）。\n- **Pushing**: テーブル上のブロックをロッド（棒）またはパラレルグリッパで押し動かすタスク。\n- **Pick and Place**: SkillWeaver由来のデータで、単一物体および物が密集した雑然環境（クラッター）からの把持・配置動作。\n- **Dexterous Hands**: 多指ハンド（XHand1、Sharpa）によるキューブの回転やドライバ回しなどの巧緻操作。\n\nすべてのシミュレータ出力は、粒子IDの追跡が維持された共通の粒子・剛体表現に変換されています。さらに、めり込みや異常な飛散、数値計算の破綻などを厳格な自動監査ルールでスクリーニングし、高品質な物理軌跡のみが抽出されています。",
+   "figures": []
+  },
+  {
+   "heading": "5 Experiments",
+   "heading_ja": "ベースラインを31%凌駕する精度と、ノイズ空間探索がもたらす計画成功",
+   "summary_ja": "剛体・変形体・粉体・布の全6ドメインで先行研究を大幅に上回り、単一のUnifiedモデルが特化モデルをも凌駕する結果を示しました。未知の幾何形状や材料剛性への高い汎化性能を示し、プランニング実験ではアクション空間探索が失敗するプッシングやピッキングをノイズ空間探索で見事に解き明かしました。",
+   "details_ja": "### 5.1 多様な物理領域における予測性能\nGNS、PGND、PointWorld、PhysCtrlといった代表的な3Dダイナミクスモデルと比較しました。GPWMは評価した6つの物理設定すべてで最良の先行手法を凌駕し、平均して予測誤差を31%削減しました（Free Fallで53.0mm→40.0mm、Draggingで7.8mm→6.1mm、Pushingで23.9mm→13.3mmなど）。\nさらに特筆すべきは、全ドメインを1組の重みで学習した「Unified GPWM」の結果です。Unifiedモデルは6ドメイン中5ドメインでベースラインを破り、DraggingおよびPick and Placeではドメイン特化のGPWMモデル（Specialist）の性能をも上回りました。全く異なる物理レジームであっても、共通のモデルで表現を共有し互いに良い影響を与え合えることが実証されました。\n\n### 5.2 幾何形状・物理パラメータ・画像からの汎化\nFree Fall環境で汎化性能を検証しました。学習時は1〜4個の物体でしたが、テスト時に未知形状かつ5〜7個の物体（最大7,168粒子）に増やしても、誤差の増加は37.5mmから45.2mmと極めてわずかでした（PhysCtrlは48.5mmから120.9mmへ大幅悪化）。また、ヤング率（剛性）の補間テストでも誤差増加は2mm未満にとどまりました。\nさらに、単一のRGB画像からSAM 3/3DやMoGe-2を用いて物体メッシュを再構成し、粒子化してGPWMに入力する実験（Real2Sim）でも、自然でリアルな崩落・衝突ダイナミクスを予測できることが示されました。\n\n### 5.3 生成インタラクション事前分布によるプランニング\n接触が不可欠な3つのタスク（Pushing、Pile Manipulation、Picking）で、ゴール状態の達成度（Task Progress; 0〜1）を評価しました。比較対象は、同じGPWMを用いてアクション（変位）空間をCEMで探索するAction CEMや、PointWorldを用いたAction CEMです。\n結果は劇的でした。障害物を回り込んで押す必要があるPushingや、正確に掴んで持ち上げるPickingでは、Action CEMの進捗度が0.01以下（ほぼ完全失敗）だったのに対し、潜在ノイズ最適化（LNO）やNoise CEMは0.40〜0.57という高い達成度を記録しました。複雑な接触のタイミングやアプローチをランダムな行動提案から見つけるのは不可能に近く、モデルが持つ「自然な相互作用の事前分布」の上を探索することの決定的優位性が浮き彫りになりました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "単一のRGB画像からの物理予測（Real2Sim）。画像からセグメンテーション・3Dメッシュ再構成した玩具の車、ピーマン、レモン、ボールなどの実世界物体に対し、材料特性（弾性、砂、粘土など）を与えて落下させた際のリアルな衝突と変形をGPWMが正確に予測しています。",
+     "caption": "Figure 3 : Predictions from a single image. Each row shows the input with the reconstructed objects outlined, their particles, and the predicted motion. Top, a tower of a toy car (elastic, 1 MPa), a pepper (sand, 100 kPa), a lemon (plasticine, 100 kPa), and a ball (elastic, 100 kPa). Bottom, an elastic ball (10 kPa) dropped onto a sand or a plasticine castle (100 kPa).",
+     "image": "details/2611.08338/F3.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "生成インタラクション事前分布によるプランニング例。ゴール（緑の×）に対して潜在ノイズ最適化（LNO）を行うことで、途中に壁（障害物）がある場合でも、アクチュエータが物体を持ち上げて壁を乗り越える高度な接触軌道を自律的に生成できています。",
+     "caption": "Figure 5 : Planning with a generative interaction prior. Latent noise optimization guides a frozen GPWM toward an object-space goal (green $\\times$ ). When a wall blocks the direct path, the generated actuator trajectory lifts the object over it.",
+     "image": "details/2611.08338/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Limitations and Future Directions",
+   "heading_ja": "完全追跡前提からの脱却と、高速なオンライン制御に向けて",
+   "summary_ja": "現時点では完全追跡された3D粒子と既知の物体IDを入力として前提としている点が最大の制約です。また、ドメイン統合による干渉や、拡散プロセスの逆伝播に伴うプランニング計算コストの高さが今後の改善課題として挙げられています。",
+   "details_ja": "本研究にはいくつかの明確な課題が残されています：\n- **知覚との統合**: 実験では完全に追跡された3D粒子状態を仮定しており、生のRGB/RGB-D動画から直接パーティクルと物体IDを復元するパイプラインとのエンドツーエンドな統合は今後の課題です。\n- **特化モデルとのギャップ**: Unifiedモデルは非常に強力ですが、一部のドメインでは特化モデルに及びませんでした。ダイナミクス間の干渉を防ぐためのMixture-of-Experts（MoE）構造や、データサンプリングの最適化が必要です。\n- **プランニングの計算時間**: 潜在ノイズ最適化（LNO）はストリーミング生成の全ステップを通して勾配逆伝播を行うため、時間地平が長くなると計算コストが跳ね上がります。Flow Mapなどの高速な生成パラメータ化を用いたオンライン高速制御への発展が期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "7 Conclusion",
+   "heading_ja": "3Dパーティクル生成が切り拓く物理シミュレーションとロボット制御の統合",
+   "summary_ja": "GPWMは剛体から布までを単一の粒子・剛体表現で統合し、Diffusion Forcingによって驚異的な長期予測安定性を実現しました。さらに、学習された相互作用の事前分布を活用することで、接触の多いロボットマニピュレーションをモデルベース計画として高精度に解く新たな道を切り拓きました。",
+   "details_ja": "GPWMは、物理予測と接触を伴う計画のための新しい3次元粒子世界モデルです。多解像度時空間TransformerとDiffusion Forcingの組み合わせにより、学習窓（16フレーム）の55倍を超える超長期の予測でも破綻しない安定性を達成しました。さらに、ロボットと物体の連動運動を生成事前分布として獲得することで、従来の強化学習ポリシーや参照軌道を与えることなく、目標を指定するだけで接触を伴うマニピュレーション計画を解く強力なフレームワークを提示しました。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：ネットワーク構造・学習の詳細と定性評価",
+   "summary_ja": "4段階の解像度を持つU-Net型Transformerの詳細構成、Muonオプティマイザを用いたハイブリッド学習手法、各ドメインの定性的な比較結果について詳述されています。",
+   "details_ja": "### ネットワークと学習のハイパーパラメータ\nモデルは4段階の解像度レベルを持ち、第1レベル（全粒子）からアンカー数を絞り、第3〜4レベルではボトルネックとして9個のDiTブロックが集中的に処理を行います。剛体トークンはプーリングされず全解像度で保持されます。重み行列の最適化には話題の「Muon」オプティマイザを用い、その他のパラメータにはAdamWを適用するハイブリッド学習を採用しています。\n\n### 定性評価の様子\n自由落下（Free Fall）や物体の牽引（Dragging）における比較では、ベースラインのPhysCtrlやPGNDが粒子の激しい飛散や形状崩壊（薄肉化など）を起こす長時間のロールアウトにおいても、GPWMは物体の体積や剛体形状を極めて綺麗に維持し続けることが確認できます。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "ParticleWorldsデータセットの各ドメインのサンプル。上から自由落下、変形体の牽引、衣服の折りたたみ、ロッドによる押し、グリッパによる押し、雑然環境でのピック＆プレース、多指ハンドによるキューブ回転の様子を示しています。",
+     "caption": "Figure 6 : Examples from the ParticleWorlds domains. Each row shows one recorded episode at four moments, labeled with the time since its first frame; Pushing has one row for each of its two sources. From the top, four objects of three materials fall onto the table, a piggy bank is lifted by a patch on its back and released, two grippers fold a shirt, a rod pushes a block, a gripper pushes an object, a gripper picks up an object from a cluttered table and places it, and a hand turns a cube. Actuated parts are orange, and objects keep the colors of their meshes where available. …",
+     "image": "details/2611.08338/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "自由落下（Free Fall）タスクにおける未知形状に対する予測比較。シミュレータの真値（GT）に対し、Ours（GPWM）は複数物体の衝突後も破綻せず形状を保ち、PhysCtrlやGNSに比べて大幅に低い位置誤差を達成しています。",
+     "caption": "Figure 7 : Free Fall. Two test clips with unseen shapes. Rows show the simulator’s recording and three models, and columns show the last given frame, three moments of the fall and the last predicted frame, labeled with the time since release. Ours has the lowest clip error on 172 of the 200 Free Fall test clips, 84 of 100 with one to four objects and 88 of 100 with five to seven.",
+     "image": "details/2611.08338/F7.jpg"
+    },
+    {
+     "key": "F9",
+     "caption_ja": "変形体牽引（Dragging）における定性比較。未知形状の物体を引っ張って解放した際、PGNDは粒子が散乱・崩壊し、PhysCtrlも誤差が拡大するのに対し、GPWMは正確に変形と弾性回復を追従しています。",
+     "caption": "Figure 9 : Dragging. Two test clips with unseen shapes, laid out as in Figure 7 . The orange arrow shows the direction in which the dragged patch (orange) is pulled at that moment, from the recorded command that every model receives. Ours has the lowest clip error on 81 of the 100 Dragging test clips.",
+     "image": "details/2611.08338/F9.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "動画ピクセルではなく「3Dパーティクル＋剛体変換」を直接生成ターゲットにすることで、幾何学的整合性と物理接触の厳密さを両立できる",
+  "Diffusion Forcing（フレームごとの独立ノイズ制御）とストリーミング生成を組み合わせることで、自己回帰的誤差蓄積を防ぎ、訓練窓の数十倍の長期物理予測が可能になる",
+  "ロボットと物体の運動を同時生成するモデルを作ると、アクション空間ではなく「潜在ノイズ空間」を探索することで、探索が極めて難しい接触リッチな操作計画が容易に解けるようになる",
+  "剛体・弾塑性・粉体・布という全く異なる物理レジームであっても、十分な規模の共通粒子表現とデータセットがあれば単一のUnifiedモデルで学習可能であり、特化モデルを凌駕することすらある"
+ ],
+ "limitations_ja": [
+  "完全な3D位置追跡が可能な粒子および物体セグメンテーション情報が事前に得られていることを前提としており、視覚センサからの直接推定（Perception）は別モジュール頼りである点",
+  "潜在ノイズ最適化（LNO）は拡散生成プロセス全体の勾配計算を必要とするため、長時間のプランニングには相応の計算時間（数十〜数百秒）がかかり、リアルタイム制御にはまだ遠い点",
+  "Unifiedモデルが一部のドメインで専門特化モデル（Specialist）にわずかに及ばず、異種ダイナミクス間のタスク干渉が存在する点"
+ ],
+ "keywords": [
+  "World Models",
+  "Particle Dynamics",
+  "Flow Matching",
+  "Diffusion Forcing",
+  "Contact-Rich Manipulation",
+  "Model-Based Planning"
+ ],
+ "id": "2611.08338",
+ "title": "GPWM: Modeling the World as 3D Particle Motion",
+ "authors": [
+  "Robert Ren",
+  "Matthew Bronars",
+  "He Zhu",
+  "Yikai Tang",
+  "Jianing Zhang",
+  "Sergey Zakharov",
+  "Pavel Tokmakov",
+  "Katerina Fragkiadaki"
+ ],
+ "date": "2026-11-06",
+ "group": "general",
+ "tags": [
+  "world-model",
+  "simulation",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.08338",
+ "pdf_url": "https://arxiv.org/pdf/2611.08338",
+ "summary_ja": "画像ではなく3D物理空間内の粒子と剛体の動態を直接予測する生成的世界モデルGPWMを提案。Flow MatchingとDiffusion Forcingを統合したマルチ解像度トランスフォーマーにより、剛体・変形体・布・粉体を含む2550万フレームの大規模データ上で学習 horizonsを大幅に超える長期的挙動の予測に成功した。",
+ "generated": "2026-11-06",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.08338"
+}
