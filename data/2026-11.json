@@ -1,6 +1,288 @@
 {
  "entries": [
   {
+   "date": "2026-11-06",
+   "rank": 0,
+   "id": "2611.08056",
+   "group": "focus",
+   "title": "Terrain-Indexed Motion Priors and Geometric Support for Extreme Humanoid Parkour",
+   "title_ja": "地形指標付き運動事前分布と幾何学的支持によるヒューマノイドの極限パルクール",
+   "summary_ja": "ヒューマノイドが手や膝の接触を伴うパルクール動作を獲得するための段階的模倣学習フレームワークを提案。特権的模倣で実行可能な参照軌道を生成後、地形指標付き敵対的運動事前分布（AMP）でスキルを獲得し、幾何学的接触誘導により実機形状に合わせた接触適応を行う。",
+   "summary_en": "This paper presents a progressive imitation framework that learns extreme humanoid parkour skills with adaptive hand-knee support. It generates physically executable references via privileged imitation, guides skill acquisition using terrain-indexed adversarial motion priors (AMP), and adapts contact placement through geometric support guidance without prescribing fixed contact patterns.",
+   "authors": [
+    "Chenghao Sun",
+    "Youhao Lyu",
+    "Zizheng Li",
+    "Shuting Zhang",
+    "Ziyang Dong",
+    "Wenhao Cui"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08056",
+   "image": "figures/2026-11-06/2611.08056.jpg"
+  },
+  {
+   "date": "2026-11-06",
+   "rank": 1,
+   "id": "2611.08097",
+   "group": "focus",
+   "title": "STEP: Spatiotemporal Training with Explicit Prediction for Perceptive Humanoid Locomotion",
+   "title_ja": "STEP: 知覚に基づくヒューマノイド歩行のための明示的予測を伴う時空間学習",
+   "summary_ja": "視覚と固有受容感覚を統合したヒューマノイド歩行において、モダリティ間の関係と行動依存の将来状態推移を明示的に予測・学習する単一ステージフレームワークSTEPを提案。不整地において地形特徴の重要度と身体状態の遷移を整合させ、適応性の高いロコモーションを実現した。",
+   "summary_en": "The authors introduce Spatiotemporal Training with Explicit Prediction (STEP), a one-stage framework for perceptive humanoid locomotion. By jointly supervising cross-modal sensory relationships and action-dependent state evolution, STEP effectively captures how terrain geometry couples with body dynamics under robot actions, improving locomotion on complex terrains.",
+   "authors": [
+    "Youhao Lyu",
+    "Chenghao Sun",
+    "Zhenxuan Ding",
+    "Shuting Zhang",
+    "Ziyang Dong",
+    "Wenhao Cui"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08097",
+   "image": "figures/2026-11-06/2611.08097.jpg"
+  },
+  {
+   "date": "2026-11-06",
+   "rank": 2,
+   "id": "2611.07268",
+   "group": "focus",
+   "title": "CRISP: Constraint-Resolved Interactions between Subsystems for Predictive Whole-Body Cooperation",
+   "title_ja": "CRISP: 予測的全身協調のためのサブシステム間拘束解消インタラクション",
+   "summary_ja": "高自由度なヒューマノイドの全身制御を単一剛体幹部と多関節四肢サブシステムに分解し、ホロノミック拘束とラグランジュ未定乗数で肩部等の相互作用レンチを陽に考慮する制御基盤CRISPを提案。双腕協調操作など閉キネマティクス連鎖を含む動的タスクを予測的かつ安定に制御できる。",
+   "summary_en": "CRISP presents a layered whole-body control framework that decomposes humanoid dynamics into a single rigid-body torso and floating-base limb models. By formulating rigid inter-subsystem connections and closed kinematic chains as holonomic constraints parameterized by Lagrange multipliers, it achieves predictive, dynamically coordinated dual-arm manipulation.",
+   "authors": [
+    "Dario Valenzuela",
+    "Jeeseop Kim"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.07268",
+   "image": "figures/2026-11-06/2611.07268.jpg"
+  },
+  {
+   "date": "2026-11-06",
+   "rank": 3,
+   "id": "2611.07679",
+   "group": "focus",
+   "title": "PhySA: Decoupling Aesthetic and Physical Rewards for Humanoid Locomotion",
+   "title_ja": "PhySA: ヒューマノイド歩行における美的報酬と物理的平滑性報酬の分離",
+   "summary_ja": "VLMによる歩行の審美的評価が関節加速度の高さ（相関r=+0.66）を好むという物理的平滑性との相反性を特定し、両者を独立した報酬チャンネルに分離する枠組みPhySAを提案。非同期VLMスコアと関節ジャーク低減ペナルティを併用し、自然で見栄えが良くアクチュエータ負荷の低い歩行方策を獲得した。",
+   "summary_en": "Addressing the counter-intuitive observation that VLM aesthetic scores correlate positively with joint acceleration, PhySA decouples aesthetic preference from physical smoothness into independent reward channels. It combines asynchronous VLM scoring with physics-based smoothness objectives, producing humanoid gaits that are both natural-looking and actuator-friendly.",
+   "authors": [
+    "Yunwan Fu",
+    "Sicheng He",
+    "Jiageng Mao",
+    "Yue Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.07679",
+   "image": "figures/2026-11-06/2611.07679.jpg"
+  },
+  {
+   "date": "2026-11-06",
+   "rank": 4,
+   "id": "2611.07881",
+   "group": "focus",
+   "title": "TactileLab: Sim-to-Real Dexterous Robot Manipulation with Efficient Shear-Sensitive Tactile Simulation",
+   "title_ja": "TactileLab: 高効率なせん断感度触覚シミュレーションによる器用な操作のSim-to-Real",
+   "summary_ja": "IsaacLab上に構築された、せん断力を伴う高速触覚シミュレーション基盤TactileLabを提案。重い軟体計算の代わりに剛体シミュレーションからオプティカルフローに似た接触面接線動態「simulated tactile flow」を効率的に算出し、触覚RLの大規模学習と実機へのゼロショット転移を実現した。",
+   "summary_en": "TactileLab is an IsaacLab-based tactile simulation framework enabling scalable sim-to-real reinforcement learning for dexterous manipulation. Instead of computationally heavy soft-body physics, it estimates dense tangential shear motion via a rigid-body-derived simulated tactile flow representation, supporting efficient large-scale training.",
+   "authors": [
+    "Yijiong Lin",
+    "Wenhao He",
+    "Toby Jack",
+    "Max Yang",
+    "Haoran Li",
+    "Nathan F. Lepora"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "sim-to-real",
+    "manipulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.07881",
+   "image": "figures/2026-11-06/2611.07881.jpg"
+  },
+  {
+   "date": "2026-11-06",
+   "rank": 5,
+   "id": "2611.08338",
+   "group": "general",
+   "title": "GPWM: Modeling the World as 3D Particle Motion",
+   "title_ja": "GPWM: 3D粒子運動として世界をモデル化する生成的世界モデル",
+   "summary_ja": "画像ではなく3D物理空間内の粒子と剛体の動態を直接予測する生成的世界モデルGPWMを提案。Flow MatchingとDiffusion Forcingを統合したマルチ解像度トランスフォーマーにより、剛体・変形体・布・粉体を含む2550万フレームの大規模データ上で学習 horizonsを大幅に超える長期的挙動の予測に成功した。",
+   "summary_en": "GPWM introduces a Generative Particle World Model that predicts physical 3D scene evolution via particle and rigid-body motions. Combining flow matching with diffusion forcing on a 25.5-million-frame corpus, it unifies rigid, deformable, cloth, and granular materials across passive and interactive settings far beyond training horizons.",
+   "authors": [
+    "Robert Ren",
+    "Matthew Bronars",
+    "He Zhu",
+    "Yikai Tang",
+    "Jianing Zhang",
+    "Sergey Zakharov",
+    "Pavel Tokmakov",
+    "Katerina Fragkiadaki"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "simulation",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08338",
+   "image": "figures/2026-11-06/2611.08338.jpg"
+  },
+  {
+   "date": "2026-11-06",
+   "rank": 6,
+   "id": "2611.07275",
+   "group": "general",
+   "title": "Efficient Diffusion Policy Fine Tuning with Latent Noise Representation Bridging",
+   "title_ja": "潜在ノイズ表現の架橋による拡散方策の効率的強化学習微調整",
+   "summary_ja": "事前学習済み拡散・フローマッチング方策をRLで適応させる際、初期ノイズ空間と行動空間の価値が不整合になる「ノイズエイリアシング」問題を解決するLNL-MDPを提案。導出したBridge EquationによりBPTTを伴わずに理論保証付きで価値を整合させ、計算効率とサンプル効率の高い微調整を実現した。",
+   "summary_en": "This paper resolves the 'noise aliasing' issue when fine-tuning diffusion and flow policies with RL by introducing Latent Noise Linear MDPs (LNL-MDP). The derived Bridge Equation aligns noise-space values with action-space values, achieving sample-efficient and computationally lightweight policy adaptation without backpropagation through time.",
+   "authors": [
+    "Yuanchu Liang",
+    "Yue Yang",
+    "An-Chi He",
+    "Hanna Kurniawati"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.07275",
+   "image": "figures/2026-11-06/2611.07275.jpg"
+  },
+  {
+   "date": "2026-11-06",
+   "rank": 7,
+   "id": "2611.07463",
+   "group": "general",
+   "title": "FREE-LIVO: Physically Decoupled Yet Tightly Coupled LiDAR-Inertial-Visual Odometry",
+   "title_ja": "FREE-LIVO: 物理的分離かつ強結合なLiDAR・慣性・視覚オドメトリ",
+   "summary_ja": "LiDARとカメラの剛体固定やナノ秒単位の厳密な時刻同期を必要としない強結合オドメトリFREE-LIVOを提案。単一LiDAR点群から生成モデルで高密度な反射強度画像を合成し、汎用特徴量マッチングを介してカメラ画像との3D点-ピクセル対応を動的に確立することで高精度な状態推定を可能にした。",
+   "summary_en": "FREE-LIVO presents a tightly coupled LiDAR-inertial-visual odometry framework that eliminates the need for rigid sensor mounts and precise sensor synchronization. By generating dense LiDAR intensity images with a generative model and matching them to camera frames, it achieves accurate cross-modal state estimation on modular setups.",
+   "authors": [
+    "Reon Tabata",
+    "Kenji Koide",
+    "Shuji Oishi",
+    "Taku Okawara",
+    "Mizuho Aoki",
+    "Aoki Takanose",
+    "Masashi Yokozuka",
+    "Jun Miura"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "perception",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.07463",
+   "image": "figures/2026-11-06/2611.07463.jpg"
+  },
+  {
+   "date": "2026-11-06",
+   "rank": 8,
+   "id": "2611.07229",
+   "group": "general",
+   "title": "Spatial-UMI-Dream: Scaling World Action Models with Metric Geometry for UMI Manipulation",
+   "title_ja": "Spatial-UMI-Dream: UMIマニピュレーションのための距離幾何を取り入れた世界行動モデルのスケーリング",
+   "summary_ja": "ハンドヘルド双腕データ収集インターフェースUMIにおける暗黙的なスケール喪失を解決するため、RGB・魚眼深度・行動を同時予測する50億パラメータの空間世界行動モデルを提案。605時間のRGB-Dデータセットを用いた2段階学習により、精密操作に必要な3D空間構造の理解と行動生成を大幅に向上させた。",
+   "summary_en": "Spatial-UMI-Dream introduces a 5B-parameter spatial World Action Model pretrained on 605 hours of dual-gripper UMI RGB-D data. By jointly predicting future RGB frames, fisheye metric depth, and actions, it provides explicit metric scale and geometry to overcome the viewpoint limitations of moving gripper cameras.",
+   "authors": [
+    "Weiduo Yuan",
+    "Ze Yuan",
+    "Sihan Liu",
+    "Jionghao Wang",
+    "Liang Heng",
+    "Zhenyu Zhao",
+    "Yue Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "manipulation",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.07229",
+   "image": "figures/2026-11-06/2611.07229.jpg"
+  },
+  {
+   "date": "2026-11-06",
+   "rank": 9,
+   "id": "2611.07417",
+   "group": "general",
+   "title": "MessyNav: Zero-Shot Navigation via Manipulation in Messy Environments",
+   "title_ja": "MessyNav: 乱雑な環境におけるマニピュレーションを伴うゼロショットナビゲーション",
+   "summary_ja": "障害物で塞がれた経路を物理的に押し開いて進むインタラクティブ・ナビゲーションを、VLMを活用してゼロショットで実現するフレームワークMessyNavを提案。文脈判断（例: 壊れ物の載ったカートは避け、空のカートは押す）を行い、事前学習や手動指示なしに未知環境での移動・操作タスクを達成する。",
+   "summary_en": "MessyNav formalizes open-world interactive navigation using vision-language models in a zero-shot manner. By reasoning about object affordances and safety contexts—such as avoiding fragile items while pushing aside light obstacles—it enables mobile robots to clear paths through cluttered real-world environments without task-specific training.",
+   "authors": [
+    "Kenneth Llontop",
+    "Cherie Ho",
+    "Dylan Zhou",
+    "Anuva Banwasi",
+    "Priya Sundaresan",
+    "Carlota Par\\'es-Morlans",
+    "Jeannette Bohg"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "navigation",
+    "manipulation",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.07417",
+   "image": "figures/2026-11-06/2611.07417.jpg"
+  },
+  {
    "date": "2026-11-05",
    "rank": 0,
    "id": "2611.05507",
