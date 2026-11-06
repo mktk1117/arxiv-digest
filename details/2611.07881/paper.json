@@ -1,0 +1,163 @@
+{
+ "title_ja": "TactileLab: 高効率なせん断感度触覚シミュレーションによる器用な操作のSim-to-Real",
+ "tldr_ja": "剛体シミュレータ上で接触面の接線方向の動きを「模擬触覚フロー（Simulated Tactile Flow）」として高速に計算し、実機の触覚画像からそのフローと接触深度へ変換する仕組みを構築することで、計算コストの高い柔軟体シミュレーションを使わずに高度なSim-to-Real触覚マニピュレーションを実現しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "TactileLabの全体フレームワークです。IsaacLabを基盤としたGPU並列剛体シミュレーション上で「触覚フロー」を効率計算し、PETS-Netによる方策学習、実機触覚画像からのReal-to-Sim変換を経て、双腕追従や多指ハンドでの物体回転をゼロショットで実機展開しています。",
+  "caption": "Figure 1 : TactileLab is an end-to-end framework for efficient, shear-sensitive tactile robot learning. Built on IsaacLab, it integrates GPU-accelerated tactile simulation with a novel sensing modality, simulated tactile flow , for diverse contact-rich tasks and heterogeneous robotic systems. The framework includes modules for tactile policy and representation learning, a real-to-sim transfer pipeline supporting several real tactile sensors, and sim-to-real deployment of tactile reinforcement learning policies for various robots. …",
+  "image": "details/2611.07881/F1.jpg"
+ },
+ "overview_ja": "ロボットが手先で器用に物体を操る接触リッチな作業では、物体と触覚センサが擦れ合う「せん断（すべりや接線方向のズレ）」の情報が決定的に重要になります。しかし、従来の触覚シミュレータはジレンマを抱えていました。エラストマー（弾性ゴム）の変形を忠実に解く柔軟体シミュレータは計算が重すぎて大規模な強化学習には使えず、一方で高速な剛体シミュレータは法線方向の「押し込み深さ（接触深度）」しか扱えないことが多く、せん断を捉えられませんでした。\n\nそこで著者らは、剛体シミュレーションの高速性を保ったまま、接触面における密な接線運動をオプティカルフローのように表現する「模擬触覚フロー（Simulated Tactile Flow）」を考案しました。これにより、複雑な有限要素法などを使わずに、接触面の幾何形状（深度）と接線方向の運動（フロー）をペアにした高次元な触覚表現を大規模にシミュレーション可能にしました。\n\nさらに、実機展開（Sim-to-Real）の壁を乗り越えるため、実機の連続する触覚画像からシミュレーション空間の触覚フローを予測する画像変換モデル「TacFlowNet」を開発し、複数の触覚センサ（TacTip、GelSight Mini、9DTactなど）で検証しました。\n\n双腕ロボットによる物体の接触追従タスクや、16自由度の多指ハンド（LEAP Hand）による手先での物体連続回転タスクで実験を行った結果、触覚フローを取り入れた方策は従来手法を大きく上回る頑健性を発揮しました。シミュレーションではカプセル型物体しか見ていないにもかかわらず、実機では角や平面を持つ未知の立方体や果物などを落とさずに回し続けることに成功しています。",
+ "contributions_ja": [
+  "柔軟体物理を用いず、剛体接触の幾何と運動学から密な接線方向運動を効率的に算出する「模擬触覚フロー（Simulated Tactile Flow）」を提案したこと。",
+  "IsaacLabをベースに、GPU並列強化学習に対応したスケーラブルなマルチモーダル触覚シミュレータ「TactileLab」を構築したこと。",
+  "長い固有感覚・行動履歴と高次元触覚空間を周波数エンコーディングと時空間ネットワークで効率良く統合する方策アーキテクチャ「PETS-Net」を提案したこと。",
+  "実機の連続触覚画像からシミュレーションの触覚フローを予測するpix2pixベースの「TacFlowNet」を開発し、異種センサに対応するReal-to-Sim変換を実現したこと。",
+  "双腕追従や多指ハンドでのインハンド物体回転において、シミュレーション学習済み方策を実機へ転移させ、未知形状物体に対する優れた汎化性能を示したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "I INTRODUCTION",
+   "heading_ja": "なぜ触覚に「せん断」が必要で、なぜシミュレーションが難しかったのか",
+   "summary_ja": "接触リッチな作業にはせん断やすべりの知覚が不可欠ですが、従来の柔軟体シミュレータは重すぎ、剛体シミュレータは法線深度しか扱えないというトレードオフがありました。TactileLabは剛体シミュレーションから密な接線運動ベクトルを直接計算する「模擬触覚フロー」を導入し、この課題を解決します。",
+   "details_ja": "ロボットが物体を繊細に操るためには、指先と物体の間で生じる小さな力の変化やすべりの兆候をすばやく感じ取る必要があります。カメラを内蔵した視覚型触覚センサ（Vision-based Tactile Sensor）は高解像度な情報が得られるため非常に魅力的ですが、これをシミュレーション環境で再現して強化学習を行おうとすると大きな壁にぶつかります。\n\n従来のシミュレータは主に2種類に分かれていました。1つは有限要素法（FEM）などを用いる柔軟体シミュレータで、ゴムの変形を忠実に再現できるものの計算負荷が極めて高く、数万・数億ステップを要する並列強化学習には向きません。もう1つは剛体物理エンジンに基づくシミュレータで、動作は非常に高速ですが、センサ表面への「めり込み深さ（接触深度）」しか出力できないものが大半でした。しかし、法線方向の深さ情報だけでは、物体が今どの方向にすべろうとしているか、あるいはねじれているかといった「せん断」の動態を捉えきれません。その結果、似たような深さ画像であっても未来の接触状態が異なってしまい、部分観測問題によって方策の学習が困難になっていました。\n\nここが本論文の出発点です。著者らは、高価な柔軟体計算を行わずに、剛体シミュレーションから接触面の相対的な接線運動をオプティカルフロー風の2次元ベクトル場として直接算出する「模擬触覚フロー（Simulated Tactile Flow）」を考案しました。これにより、法線方向の接触幾何（深度マップ）と接線方向の運動（触覚フロー）をセットで提供する、高速かつ高次元な触覚プラットフォーム「TactileLab」を実現しました。",
+   "figures": []
+  },
+  {
+   "heading": "II RELATED WORK",
+   "heading_ja": "触覚シミュレータとSim-to-Real研究のこれまで",
+   "summary_ja": "先行の剛体シミュレータはせん断の表現に乏しく、近年のせん断対応手法も対象物体のSDF（符号付き距離関数）を事前要求する制約がありました。また、多指ハンドのSim-to-Realは固有感覚や低次元な接触点情報に依存しており、密な時間的触覚フローを用いた研究は未開拓でした。",
+   "details_ja": "### II-A 触覚シミュレーションの系譜\n従来の触覚シミュレータは、剛体ベース（Tactile Gym、TACTOなど）と柔軟体ベースに大別されます。前者は押し込み深さなどから高速に接触を生成しますが、瞬間的な法線接触が主でせん断は無視されがちでした。後者はマーカー変形や弾性体を解くため表現力は高いものの、並列強化学習を回すにはスループットが低すぎます。近年ではTacSLやHydroShearのように剛体上でせん断力を近似する試みも登場しましたが、対象物体のSDF（Signed Distance Function: 符号付き距離関数）をあらかじめ用意する必要があるなど、適用範囲に制約がありました。TactileLabは物体のSDFを要求せず、純粋な剛体接触の運動学から密なフロー場を直接導出できる点が大きく異なります。\n\n### II-B 触覚を用いたSim-to-Real方策\nアーム型のロボットでは、シミュレーションの深度画像と実機の触覚画像を対にして画像変換するSim-to-Real手法（Tactile Gymシリーズなど）が確立されつつありました。一方、多指ハンド（Dexterous Hand）の世界では、関節角度の履歴から潜在変数を推定するHORAのような手法や、バイナリな接触有無（Touch Dexterity）、接触位置と法線力のみを取り出す低次元表現（AnyRotateなど）が主流でした。しかし、異種センサや異なるロボット形態をまたいで共通して使える「密で時間的な触覚表現」を用いたSim-to-Realは、これまで十分に探索されていませんでした。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "TactileLabのシミュレーションパイプラインと触覚フローの計算手順です。剛体シミュレーションで得られた接触パッチを触覚カメラの画像平面に投影し、センサと物体の相対運動から各ピクセルの変位ベクトルを求めることで、エラストマーの変形を直接解かずに密な触覚フローを生成します。",
+     "caption": "Figure 2 : Overview of the TactileLab simulation framework and simulated tactile-flow computation. The rigid-body simulation pipeline computes contact geometry and generates low-dimensional contact descriptors, contact-depth images, and dense tactile-flow fields for policy learning. Simulated tactile flow is obtained by projecting the three-dimensional contact patch onto the tactile image plane and calculating the image-space displacement induced by the relative motion between the tactile sensor and the contacted object.",
+     "image": "details/2611.07881/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "III Multimodal Tactile Robotic Simulator",
+   "heading_ja": "剛体シミュレータ上で「触覚のすべり・ねじれ」をどうやって計算するのか",
+   "summary_ja": "TactileLabはIsaacLab上で動作し、接触力などの低次元情報に加え、接触深度画像と模擬触覚フローという2つの高次元情報を出力します。触覚フローは接触領域内の物体表面点の微小相対変位をカメラ画像平面へ投影することで、柔軟体計算なしに高速算出されます。",
+   "details_ja": "### III-A & III-B TactileLabの全体像とマルチモーダル触覚\nTactileLabはNVIDIA IsaacLabをベースにしており、GPUによる大規模並行シミュレーションに完全対応しています。ここで得られる触覚モダリティは、大きく低次元情報と高次元情報に分かれます。\n- 低次元接触情報 $\\mathbf{c}_t$：接触力、接触位置、せん断ベクトルなどの物理量です。これらは主に特権的な情報や解析用途に用いられます。\n- 高次元接触情報：局所的な法線押し込み深さを表す接触深度画像 $\\mathbf{D}_t \\in \\mathbb{R}^{H \\times W}$ と、接線方向の変位場を表す模擬触覚フロー $\\mathbf{F}_t \\in \\mathbb{R}^{H \\times W \\times 2}$ から構成されます。\n\n### III-C 模擬触覚フロー（Simulated Tactile Flow）の計算法\nでは、剛体シミュレーションからどうやって触覚フローを求めるのでしょうか。仕組みは明快です。\nまず、接触深度マップ $\\mathbf{D}_t$ の値が閾値 $\\epsilon$ を超えるピクセル領域を接触マスク $C_t$ とします。このマスク内の各ピクセルについて、センサの弾性表面にめり込んでいる物体表面上の3次元点 $\\mathbf{x}_t$ を特定します。次のタイムステップ $t+\\Delta t$ までの間にセンサと物体が相対的に剛体運動すると、その3次元点は $\\mathbf{x}_{t+\\Delta t}$ へと移動します。これらをセンサ内部の仮想カメラへ光線投影関数 $\\Pi$ で投影し、画像座標上での差分ベクトル $\\Delta \\mathbf{p} = \\Pi(\\mathbf{x}_{t+\\Delta t}) - \\Pi(\\mathbf{x}_t)$ を計算します。接触していない背景ピクセルの変位はゼロとします。\n\nつまり、ゴムが擦れる物理シミュレーションを真面目に解くのではなく、「接触面にある物体の表面点が画像上でどちらに動いたか」を幾何学的に求めているわけです。深度画像が「どこがどれだけ当たっているか」を教え、触覚フローが「接触面がどちらに滑ろうとしているか」を教えるため、2つを合わせることでせん断を伴うダイナミクスが完全に把握できるようになります。",
+   "figures": []
+  },
+  {
+   "heading": "IV Multimodal Tactile Policy Learning",
+   "heading_ja": "長周期の固有感覚と高次元な触覚を束ねる新構造「PETS-Net」",
+   "summary_ja": "強化学習には特権情報を用いたTeacherから実機観測を用いるStudentへと知識蒸留する2段階学習を採用しています。Student側の適応モジュールとして、位置エンコーディングと時空間ネットワークを融合したPETS-Netを提案し、急激な接触変化への適応能力を高めました。",
+   "details_ja": "### IV-A & IV-B 2段階のマルチモーダル学習フレームワーク\n方策学習には、Sim-to-Realで実績のあるTeacher-Student方式を採用しています。\n- Stage 1（Teacher学習）：シミュレータ内でしか得られない物体の質量、摩擦係数、外乱トルク、物体の正確な姿勢といった特権的な外生変数 $\\mathbf{e}_t$ をエンコーダ $E_\\psi$ で潜在ベクトル $\\mathbf{z}_t$ に圧縮し、短い固有感覚・行動履歴 $\\mathbf{o}^{\\mathrm{base}}_t$ とともに基本方策 $\\pi_\\theta$ へ入力して強化学習（PPOなど）で訓練します。\n- Stage 2（Student蒸留）：基本方策 $\\pi_\\theta$ を固定した上で、特権エンコーダの代わりに実機で取得可能な観測履歴（関節角度、過去の行動、接触深度、触覚フロー）から $\\mathbf{z}_t$ を予測する適応モジュール（Adaptation Module）を訓練します。二乗誤差損失 $\\mathcal{L}_{\\mathrm{adapt}} = \\|\\mathbf{z}_t - \\hat{\\mathbf{z}}_t\\|_2^2$ による蒸留です。\n\n### IV-C PETS-Net（Positional-Encoding Temporal-Spatial Network）の構造\n多指ハンドによる接触リッチな操作では、指が離れたり当たったりする接触モードの切り替わりが激しく、高周波な状態変化を捉える必要があります。しかし、通常のニューラルネットワークは低周波な関数の学習に偏る性質（Spectral Bias）があります。\nそこで提案されたのがPETS-Netです。特徴は3点あります。\n- 固有感覚・行動履歴への周波数バンド位置エンコーディング（Positional Encoding: PE）：関節角度や行動系列に対し、$K$ 個の周波数成分を持つ正弦・余弦波エンコーディングを適用して表現力を引き上げます。\n- 空間触覚エンコーダ（Spatial Encoder）：接触深度画像と触覚フローをそれぞれ専用の畳み込み層（CNN）に通し、局所的な幾何と運動の特徴量を抽出します。\n- 時間統合エンコーダ（Temporal Encoder）：抽出された触覚特徴と位置エンコーディング済み固有感覚特徴を結合し、TCN（Temporal Convolutional Network）を用いて過去 $l$ ステップにわたって統合します。\nこれにより、接触画像の空間パターンと、接触がどう遷移したかという時間的文脈の双方が高精度に潜在表現へ集約されます。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "(a) 多指ハンド操作におけるマルチモーダル触覚学習の全体構成です。未知のランダム外乱が加わる過酷な環境下で、特権情報を持つTeacherからStudentへと蒸留します。(b) 提案するPETS-Netの構造。固有感覚への位置エンコーディングと、深度・フロー画像へのCNN空間エンコードをTCNで時間統合しています。",
+     "caption": "Figure 3 : (a) Overview of multimodal tactile policy learning for dexterous in-hand manipulation. To evaluate the benefit of our rich tactile observations, unknown random force and torque perturbations are applied to the manipulated object, making the task more challenging and requiring robust and informative tactile feedback. (b) The structure of the proposed PETS-Net for high-dimensional tactile policy learning.",
+     "image": "details/2611.07881/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Real-to-Sim Tactile Transfer",
+   "heading_ja": "実機の連続触覚画像をシミュレーションの触覚フローへ写像する「TacFlowNet」",
+   "summary_ja": "実機センサの連続する2枚の触覚画像から、シミュレーション空間と画素レベルで一致する触覚フローを直接予測する「TacFlowNet」を提案しました。従来の静的な接触深度変換と組み合わせることで、実機入力をそのままシミュレーション学習済み方策へと接続します。",
+   "details_ja": "### V-A & V-B 触覚フローの実機-シミュレーション間変換\nシミュレーションで学習した方策を実機に持っていくには、実機のカメラ画像からシミュレーションと同じ形式の入力を復元しなければなりません。単一画像から法線方向の接触深度を復元するReal-to-Sim手法は過去にも存在しましたが、本研究のキモは「2枚の連続する実機画像から動的な触覚フローを予測する」点にあります。\n\n連続する2枚の実機触覚画像 $\\mathbf{I}_t, \\mathbf{I}_{t+\\Delta t}$ をチャンネル方向に連結したテンソルを入力とし、pix2pixスタイルの生成器（Generator）$G$ を用いて、シミュレーション定義の2チャンネル触覚フロー $\\hat{\\mathbf{F}}$ を画素単位で予測させます。これが「Real-to-Sim-TacFlowNet（TacFlowNet）」です。\n\n学習には、敵対的損失 $\\mathcal{L}_{\\mathrm{adv}}$ と、接触マスク $\\mathbf{C}_i$ 内でのみ誤差を計算するマスク付きL1再構成損失 $\\mathcal{L}_{\\mathrm{flow}}$ を組み合わせたハイブリッド損失関数を用います。\n\nここでの重要なポイントは、TacFlowNetが出力するのは「実画像上のオプティカルフローそのもの」ではない点です。実画像の見た目の変形パターンから、シミュレータが定義している「物理的な相対運動ベクトル場」へと直接変換しているのです。そのため、センサ表面にマーカーが印刷されていなくても、ゴムの微妙な陰影やパターンの変化からせん断フローを直接導出することができます。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "Real-to-Sim-TacFlowNetの構成図です。連続する2枚の実機触覚画像を入力とし、pix2pixベースの生成器がシミュレーションの触覚フロー場を出力します。接触マスク領域内のL1損失と敵対的損失により、高精度かつ物理的に整合した密なフローが生成されます。",
+     "caption": "Figure 4 : Overview of Real-to-Sim-TacFlowNet. A pair of real tactile images is concatenated and passed to a pix2pix-style generator $G$ , which predicts a pixel-level simulated tactile-flow field. During training, the predicted flow is supervised by a paired simulated tactile-flow target through a reconstruction loss and by a discriminator $D$ through an adversarial loss. The HSV flow images are used only for visualization; the network output is a two-channel flow field $\\widehat{\\mathbf{F}}$ .",
+     "image": "details/2611.07881/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Experiments",
+   "heading_ja": "実験の設計：データ収集プロトコルと2つの接触リッチタスク",
+   "summary_ja": "押し込み・すべり・傾き・ねじりを含む自動接触プロトコルにより対になる実機・シミュレーションデータを収集しました。評価タスクとして、せん断が鍵を握る「双腕物体追従」と、未知外乱が加わる「16自由度多指ハンドでの物体回転」を設定しました。",
+   "details_ja": "### VI-A Real-to-Simのための触覚データ収集プロトコル\n変換モデルTacFlowNetを学習させるため、実機とシミュレータで同一の6次元接触ポーズ $\\boldsymbol{\\xi}_i = (x, y, z, \\alpha, \\beta, \\psi)$ および相対運動 $\\Delta \\boldsymbol{\\xi}_i$ をサンプリングするプロトコルを用意しました。実機ではロボットアームが接触後に規定の運動を行い、開始時と終了時の画像ペアを記録します。シミュレータ側でも全く同じ幾何・運動条件を再現し、正解となる接触深度と触覚フローを生成してペアデータセットを構築します。このデータには「押し込み（press）」「すべり（slide）」「傾き（tilt）」「ねじり（twist）」といった代表的な接触挙動が網羅されています。\n\n### VI-B 双腕物体追従タスク（Dual-Arm Object-Following）\nリーダー腕が未知の6自由度軌道で動かす物体に対し、フォロワー腕が触覚センサを目標相対ポーズで押し当て続けながら追従するタスクです。物体が横にズレたり回転したりすると接触面に強いせん断が生じるため、深度画像だけでは追従が遅れ、触覚フローの有無が成否を分けます。\n\n### VI-C 多指インハンド物体回転タスク（In-Hand Manipulation）\n16自由度のAllegro HandおよびLEAP Handを使用し、手のひらの支えを使わずに指先だけで物体を目的軸周りに無限回転させるタスクです。本研究ではさらに難易度を上げるため、手先の向き（重力方向）をランダムに変化させ、物体に対して未知のランダムな外乱力およびトルクを連続的に印加しています。落とさずに回し続けるには、極めて高精度なすべりの検知と指の協調運動が要求されます。",
+   "figures": []
+  },
+  {
+   "heading": "VII Results and Analysis",
+   "heading_ja": "触覚フローの圧倒的な効果、PETS-Netの妥当性、そして実機での大旋回",
+   "summary_ja": "シミュレーション実験では触覚フローの導入により収束速度・最終報酬・落下率が劇的に改善し、指同士が交互に接触を切り替える歩行動作（ピンチ・ゲイティング）が創発しました。実機実験でも、未知形状の箱や果物を落とさずに安定回転させる高い汎化性能を達成しました。",
+   "details_ja": "### VII-A 触覚モダリティのアブレーション\n多指ハンド操作において入力モダリティを比較したところ、明確な差が出ました。\n- 固有感覚のみ（HORA風 baseline）や低次元接触情報（AnyRotate風 baseline）に比べ、接触深度や触覚フローといった高次元情報を与えた方策は学習速度・最終報酬ともに圧倒的でした。\n- 深度単体と触覚フロー単体を比べると、常に触覚フローの方が高い性能を示しました。法線方向の深さよりも接線方向の運動情報の方が、物体の回転制御には支配的だからです。もちろん、両方を組み合わせたモデルが最速で学習し、シミュレーション内の物体落下率も最小（学習分布内物体で11.76%、未知物体で18.69%）を記録しました。\n- さらに、高次元な触覚入力を与えると、過去履歴の長さがわずか5〜10ステップで性能が飽和することが分かりました。観測自体が情報リッチであるため、長い時間履歴から状態を推定する負担が軽減されたことを意味します。\n- 触覚フローを与えた方策では、2本の対向する指で物体を保持しつつ、残りの指が交互に接触と離脱を繰り返して回転トルクを生み出す「ピンチ・ゲイティング（Pinch-Gaiting）」動作が自然に創発しました。\n\n### VII-B PETS-Netのアブレーション\n適応モジュールPETS-Netの構成要素を検証しました。\n- 位置エンコーディング（PE）を適用することで、生の値を用いるよりも学習が大幅に加速しました。周波数成分数は $K=2$ が最適で、それ以上増やすと次元肥大化により最適化が難しくなりました。\n- 時間統合器としてTCN、GRU、LSTM、Transformerを比較した結果、TCNが最も高い最終報酬と優れたメモリ効率を両立しました。Transformerは同等の性能に達せず、大量のVRAMを消費しました。\n\n### VII-C 異種センサでのReal-to-Sim精度検証\nマーカー付きセンサ（GelSight Mini with markers、TacTip）だけでなく、マーカーのないGelSight Miniや9DTactでも検証を行いました。マーカーレスなGelSight Miniでは、実画像を直接回帰させると並進速度推定の平均絶対誤差（MAE）が $1.79\\,\\mathrm{mm/s}$ でしたが、TacFlowNetを経由させることで $0.34\\,\\mathrm{mm/s}$ まで大幅に改善（決定係数 $R^2$ は -0.02 から 0.98 へ急上昇）しました。変形が視認できるセンサであれば、実機画像を触覚フローへ高精度に翻訳できることが証明されました。\n\n### VII-D 実機展開の結果\n- 双腕追従タスクでは、剛体キューブだけでなく、シミュレーションで一度も学習していない柔軟なボールや不規則な脳型スクイーズ玩具に対しても、位置誤差6.5 mm以下、姿勢誤差0.06 rad以下で追従し続けました。\n- LEAP Handを用いたインハンド回転タスクでは、円柱形、球形、そして立方体形状の未知物体計10種類をテストしました。シミュレーションでは「カプセル型」しか学習させていないにもかかわらず、提案手法（深度＋フロー）は立方体を含むすべての物体を30秒間一度も落とさずに平均1.95回転させました。低次元接触表現（AnyRotate）が角やエッジで接触が破綻して平均0.28回転にとどまったのに対し、高次元な触覚フローが未知の不連続な接触変化にも極めて頑健に適応できることが実証されました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "多指ハンド操作におけるモダリティと履歴長の比較結果です。触覚フロー（Tactile Flow）を加えることで報酬が跳ね上がり、また履歴長がわずか5〜10ステップで最高性能付近に到達していることが分かります。",
+     "caption": "Figure 5 : Ablation studies of tactile observation richness and temporal history in the in-hand manipulation task. (a) Policy input modalities compared with proprioception-only HORA [ 28 ] and LD contact AnyRotate [ 20 ] . (b) Comparison of contact depth, tactile flow, and their combination. (c) Final reward across modalities and history lengths, with percentages showing gains over the preceding shorter history. Dense tactile observations, particularly tactile flow, approach saturation with shorter histories. Solid curves show the mean over three random seeds, with shaded regions denoting ±1 standard deviation. Values in (c) report mean ± standard deviation across three random seeds.",
+     "image": "details/2611.07881/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "高次元な触覚深度とフローによって創発した「ピンチ・ゲイティング」動作です。親指と他の指が交互に接触と解放を繰り返し、安定して物体を回し続けている様子がフローのパターンからも見て取れます。",
+     "caption": "Figure 7 : Emergent Contact-Aware Pinch-Gaiting Behaviour with Dense Contact-Depth and Tactile-Flow Feedback. Dotted circles denote in-contact while solid ones denote no contact.",
+     "image": "details/2611.07881/F7.jpg"
+    },
+    {
+     "key": "F10",
+     "caption_ja": "平坦型センサ（Flat TacTip、9DTact、GelSight Mini with markers）におけるテスト時のReal-to-Sim変換結果です。すべりやねじりの運動に対して、実画像からシミュレーションと極めて一致度の高い密なフロー場が正しく生成されています。",
+     "caption": "Figure 10 : Test-time demonstration of tactile real-to-sim transfer for representative sliding and twisting motions using flat tactile sensors: Flat TacTip, 9DTact, and GelSight Mini withmarkers. In each example, the large image on the left shows the real-world sensor setup, while the panels on the right show the real tactile images, real vs. generated sparse flow fields, the generated pixel-level dense flow field, and simulated vs. generated sparse flow fields. The results demonstrate real-to-sim tactile-flow transfer across sensors with different sensing principles.",
+     "image": "details/2611.07881/F10.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VIII Discussion",
+   "heading_ja": "触覚フローがもたらしたパラダイムシフトと今後の展望",
+   "summary_ja": "多指ハンドのように接触が多点で時間変動する環境では、低次元パラメータ化が破綻するため、密な触覚フローが不可欠であることが示されました。実機-シミュレーション間の共通表現として機能するため、センサのハードウェア依存性を切り離せる点も大きな強みです。",
+   "details_ja": "### VIII-A & VIII-B なぜ触覚フローが決定打となったのか\nアームによる単純な追従タスクであれば、接触位置やせん断ベクトルといった低次元な変数を手作業で抽出し、PID制御を組むことも可能でした。しかし、多指ハンドによるマニピュレーションでは接触点が絶えず移り変わり、外乱や微小な滑りが連続して発生します。このような高自由度な系において、接触を少数のスカラー量に丸めるアプローチは組み合わせ爆発を起こし、情報落ちによる強い部分観測性を招きます。時間統合された密な触覚フローは、接触ダイナミクスの「十分統計量」に近い役割を果たし、システムの可観測性を回復させたと言えます。\n\n### VIII-C センサ非依存な共通中間表現としての価値\nTactileLabのもう1つの優れた設計思想は、シミュレーションと実機の間に「接触深度と触覚フロー」という共通の物理的中間表現を挟んだ点です。センサのゴムの光学特性やハードウェアの見た目をシミュレータ側で無理に一致させる必要はありません。センサごとにTacFlowNetのような変換器を用意しさえすれば、同じ強化学習方策をTacTipでもGelSightでもそのまま動かすことができます。\n\n### VIII-D 限界と今後の課題\n論文では以下の限界が率直に述べられています。\n- スティック接触の仮定：現在のReal-to-Sim変換は、センサ表面が物体に密着して変形する領域（Stick）を前提としており、完全なすべり（Slip）が発生した瞬間の挙動はモデル化しきれていません。\n- 剛体近似の制約：剛体計算からフローを近似しているため、極端に複雑な三次元曲面同士が接触した際の変形パターンには誤差が生じます。著者らは、計算資源が許すなら柔軟体シミュレーションから同様の触覚フローを抽出する拡張も視野に入れています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "接触リッチな操作では法線方向の「深度」だけでなく接線方向の「せん断・すべり」が支配的であり、密な触覚フローを与えることで方策の学習効率と頑健性が劇的に向上する。",
+  "重い柔軟体シミュレーションに頼らなくても、剛体の接触幾何と運動学から相対運動ベクトル場を計算する工夫により、強化学習に耐える高速なせん断シミュレーションが実現できる。",
+  "「実機画像 → 深度＆フロー場 → 強化学習方策」というように、解釈可能な物理場を中間表現として挟むことで、異種触覚センサへの横展開やSim-to-Real転移が極めてスムーズになる。",
+  "密で高次元な触覚フィードバックが手に入れば、方策が必要とする過去観測の履歴ステップ数を大幅に削減できる。"
+ ],
+ "limitations_ja": [
+  "実機とセンサの接触面がすべらずに変形している（スティック接触）状態を主に想定しており、激しい動的すべり（スリップ）が起きた際のシミュレーションと実機のギャップは未解決である点。",
+  "剛体運動学による幾何学的近似に基づいているため、接触面の曲率が複雑な場合やエラストマー自体の大きな非線形弾性変形を伴う場合には、生成されるフローにズレが生じる可能性がある点。",
+  "表面のテクスチャや特徴量が極めて乏しいマーカーレス型センサの場合、実画像から接線方向のフローを正確に抽出することが難しく、センサの物理構造に依存する限界がある点。"
+ ],
+ "keywords": [
+  "Tactile Sensing",
+  "Dexterous Manipulation",
+  "Sim-to-Real Transfer",
+  "Optical Flow",
+  "Reinforcement Learning",
+  "Rigid-body Simulation"
+ ],
+ "id": "2611.07881",
+ "title": "TactileLab: Sim-to-Real Dexterous Robot Manipulation with Efficient Shear-Sensitive Tactile Simulation",
+ "authors": [
+  "Yijiong Lin",
+  "Wenhao He",
+  "Toby Jack",
+  "Max Yang",
+  "Haoran Li",
+  "Nathan F. Lepora"
+ ],
+ "date": "2026-11-06",
+ "group": "focus",
+ "tags": [
+  "simulation",
+  "sim-to-real",
+  "manipulation",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.07881",
+ "pdf_url": "https://arxiv.org/pdf/2611.07881",
+ "summary_ja": "IsaacLab上に構築された、せん断力を伴う高速触覚シミュレーション基盤TactileLabを提案。重い軟体計算の代わりに剛体シミュレーションからオプティカルフローに似た接触面接線動態「simulated tactile flow」を効率的に算出し、触覚RLの大規模学習と実機へのゼロショット転移を実現した。",
+ "generated": "2026-11-06",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.07881"
+}
