@@ -1,0 +1,129 @@
+{
+ "title_ja": "Spatial-UMI-Dream: UMIマニピュレーションのための距離幾何を取り入れた世界行動モデルのスケーリング",
+ "tldr_ja": "手持ちグリッパ（UMI）による教示データにステレオ由来のメトリック深度を統合し、未来のRGB-D映像とロボット動作を同時予測する5B空間世界行動モデル「Spatial-UMI-Dream」を提案しました。シミュレータおよび実機双腕タスクにおいて、既存の強力なVLAやWAMを大きく上回る高い成功率と優れたロボット間転移性能を実証しています。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "Spatial-UMI-Dreamの全体構造と2段階学習の流れです。左右の手先カメラから得られるRGBとメトリック深度を1枚のキャンバスにまとめ、Wan2.2動画生成基盤モデルをベースに「世界モデルへの適応」と「行動との同時生成」を順を追って学習させています。",
+  "caption": "Fig. 2 : Model architecture and two-stage training of Spatial-UMI-Dream . In both stages, dual-gripper RGB and metric depth (Fig. 3 ) form a unified RGB-D canvas. The Wan VAE encodes observation history and current RGB-D inputs into visual tokens, while a text encoder supplies language tokens through cross-attention. The shared world-action transformer uses block-causal attention to condition prediction on preceding visual history. Stage 1: world-only adaptation predicts future RGB-D observations, decoded through the Wan VAE and supervised by $\\mathcal{L}_{\\mathrm{world}}$ . Stage 2: the transformer backbone is initialized from the Stage 1 world-only adaptation checkpoint. …",
+  "image": "details/2611.07229/F2.jpg"
+ },
+ "overview_ja": "Universal Manipulation Interface（UMI）は、実機ロボットがその場にいなくても人間が手持ちグリッパを動かすだけで大規模に教示データを集められる画期的なシステムです。しかし、手先に固定された広角の魚眼カメラは手先の動きと一緒に激しく動くため、映像の変化がカメラ自身の移動なのか、対象物の動きなのか、それとも空間の奥行き構造によるものなのかが絡み合ってしまいます。従来のRGB画像のみを予測するWorld Action Model（WAM：未来の映像と行動を同時に予測する世界行動モデル）では、3次元の絶対的な距離やスケール（メトリック幾何）をRGBの見た目から暗黙的に推論せざるを得ず、ミリ単位の位置合わせが求められる精密な把持や受け渡しで失敗しやすいという課題がありました。\n\nそこで著者らは、手先に搭載されたステレオカメラから実スケールのメトリック深度を復元し、RGB画像と同一のキャンバスに並べて動画生成基盤モデル（Wan2.2-TI2V-5B）に入力・予測させる空間世界行動モデル「Spatial-UMI-Dream」を開発しました。605時間ものRGB-D UMIデータセットを用い、まず動く魚眼視点とRGB-Dキャンバスの予測に慣れさせる「世界モデル適応」、次に行動予測を同時に学習させる「世界・行動共同学習」という2段階の学習レシピを採用しています。\n\nさらに、ロボットに依存せず集めた教示データが異なるロボット機体へどれほど転移できるかを厳密に検証するため、20種類のタスクを含むシミュレーションベンチマーク「RoboTwin-UMI」を構築しました。評価の結果、RoboTwin-UMIにおいてドメイン内成功率79.10%を達成し、機体変更と照明変化が重なる過酷な環境でも72.15%を記録し、最良のベースラインを10.30ポイント引き離しました。実機双腕ロボットによる6つのタスクでも平均85.0%の成功率を収め、空間幾何を取り入れた世界モデルの圧倒的な頑健性と有効性を実証しています。",
+ "contributions_ja": [
+  "左右グリッパの魚眼RGBと位置合わせされたメトリック深度を1つの動画キャンバスに統合し、未来のRGB-Dと行動を同時予測する5Bパラメータの空間世界行動モデル「Spatial-UMI-Dream」を提案したこと",
+  "605時間のRGB-D UMIデータを用い、動画基盤モデルを「世界適応」から「世界・行動の共同学習」へと段階的に適用する効率的な2段階事前学習レシピを確立したこと",
+  "手持ち教示データに含まれる実行不可能な動作の除去と、実機グリッパの応答遅延を解消する指令値補償法を導入したこと",
+  "ロボット機体の違いと環境照明の変化に対する汎化性能をゼロショットで独立・複合評価できる20タスクのシミュレーション環境「RoboTwin-UMI」を構築したこと"
+ ],
+ "sections": [
+  {
+   "heading": "I INTRODUCTION",
+   "heading_ja": "なぜRGB動画だけでなく「実スケールの幾何」を予測させるのか？",
+   "summary_ja": "UMIによる手持ち教示収集は画期的ですが、手先魚眼カメラの激しい動きによりRGB単体から正確な3次元スケールを推定するのは困難でした。本論文は、メトリック深度を世界モデルに直接統合した5Bモデル「Spatial-UMI-Dream」と、機体転移と環境汎化を評価できる新ベンチマーク「RoboTwin-UMI」を提案します。",
+   "details_ja": "ロボットの自律操作を学習させるアプローチとして、言語と画像から直接行動を出力するVision-Language-Actionモデル（VLA）と、未来の視覚変化と行動を同時に予測するWorld Action Model（WAM）が注目を集めています。特にWAMは、動画拡散モデルが持つ物理現象や運動の事前知識を活用し、行動の結果として環境がどう変化するかを予測できる強力な枠組みです。\n\nしかし、手持ちグリッパで手軽に教示を集める「UMI（Universal Manipulation Interface）」のデータを従来のWAMに適用する場合、大きな壁が2つありました。\n\n- **RGB画像だけでは3次元の距離感が掴めないこと**：UMIには固定された俯瞰カメラ（三人称視点）がなく、手先に装着された魚眼カメラ映像しかありません。カメラ自体が手先と一緒に動くため、画像の変化がカメラの移動なのか対象物の動きなのかが混ざり合ってしまいます。特に双腕操作では、左右の手先が別々に動きながら共通の3次元空間で協調する必要があるため、見た目（RGB）だけでミリ単位の距離を推し量るのは極めて困難でした。\n- **集めたデータの「ロボット機体間転移」を正しく評価できていないこと**：UMIの最大の利点は「特定のロボットがなくても人間が集められる」点にあります。それならば、学習した方策が別のロボット機体や新しい照明環境でもそのまま動くのかを検証しなければ、真の価値は分かりません。\n\nこれらの課題を解決するため、著者らはステレオカメラから求めたメトリック深度（実スケールの絶対距離）をRGBと一緒に世界モデルの入力・予測対象として組み込んだ「Spatial-UMI-Dream」を提案しました。さらに、2つの異なるロボット機体と照明変化のもとでゼロショット転移性能を網羅的にテストできるベンチマーク「RoboTwin-UMI」を用意し、その有効性を徹底的に示しています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "Spatial-UMI-Dreamの全体アーキテクチャです。左手と右手のRGB画像、そしてそれぞれのメトリック深度画像を1つの四分割キャンバスにまとめ、Wan2.2動画基盤モデルとフロー・マッチングによって未来のRGB-D映像とロボット行動を同時に生成します。",
+     "caption": "Fig. 2 : Model architecture and two-stage training of Spatial-UMI-Dream . In both stages, dual-gripper RGB and metric depth (Fig. 3 ) form a unified RGB-D canvas. The Wan VAE encodes observation history and current RGB-D inputs into visual tokens, while a text encoder supplies language tokens through cross-attention. The shared world-action transformer uses block-causal attention to condition prediction on preceding visual history. Stage 1: world-only adaptation predicts future RGB-D observations, decoded through the Wan VAE and supervised by $\\mathcal{L}_{\\mathrm{world}}$ . Stage 2: the transformer backbone is initialized from the Stage 1 world-only adaptation checkpoint. …",
+     "image": "details/2611.07229/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II RELATED WORK",
+   "heading_ja": "ロボット基盤モデル、3D幾何、そしてUMIの進化",
+   "summary_ja": "先行するロボット基盤モデルは行動予測のみに集中するか、RGBのみの未来予測にとどまっていました。本研究は、明示的な3次元エンコーダを別途追加することなく、メトリック深度を世界モデルの予測対象そのものとして統一的に扱う新しいアプローチをとっています。",
+   "details_ja": "### ロボット基盤モデルと世界行動モデルの潮流\nこれまでの代表的なロボット基盤モデル（$\\\\pi_0$などのVLA）は、視覚と言語から直接行動トークンを予測する「行動中心」の設計でした。しかし、この構成では行動によって周囲の環境がどう変化するかという因果関係が明示されません。そこで近年、未来の映像を予測して計画に役立てる手法や、未来の視覚と行動を同時に生成するWorld Action Model（WAM）が登場しました。ただし従来のWAMはRGB画像のみを対象としており、空間の絶対的な寸法や幾何構造はモデルの内部表現に暗黙的に委ねられていました。\n\n### 幾何構造を取り入れたロボット学習\n把持や精密な位置合わせには、点群や深度画像などの幾何情報が不可欠です。既存研究では、明示的な3Dエンコーダを用意して点群特徴量を抽出したり、事前学習済み3Dモデルの特徴量をRGBポリシーへ蒸留（教師なし学習で埋め込みを近づける手法）したりしてきました。これに対しSpatial-UMI-Dreamは、専用の3Dエンコーダや蒸留用教師モデルを一切使わず、位置合わせ済みのメトリック深度を「予測すべき世界の状態」として動画キャンバスに直接組み込む点が画期的です。\n\n### UMIデータとその評価基盤\nUMIは実機に依存しないデータ収集を可能にしましたが、従来の評価は単一環境での成功率に偏りがちでした。UMIの真価である「環境変化への頑健性」と「異なるロボット機体への転移（クロス・エンボディメント）」を同一タスク・同一カメラ仕様で公正かつ再現性高く比較できるシミュレーション基盤として、本研究の「RoboTwin-UMI」が位置づけられます。",
+   "figures": []
+  },
+  {
+   "heading": "III METHOD",
+   "heading_ja": "メトリックRGB-Dの統合キャンバスと2段階学習の仕組み",
+   "summary_ja": "ステレオカメラから復元したメトリック深度をカラーマップ化し、RGBと合わせた2×2キャンバスとして動画基盤モデルWan2.2に入力します。学習は「世界予測適応」と「行動との共同学習」の2段階で行い、さらに実機配備時の遅延を打ち消す制御補償も組み込んでいます。",
+   "details_ja": "### III-A メトリックRGB-D表現の構築\n各グリッパには3つのカメラが搭載されており、中央と右のカメラがステレオペアを構成しています。まず画像の歪みを補正・平行化（エピポーラ幾何に基づく整流）し、Fast FoundationStereoを用いて視差を推定、実スケールの$Z$深度へと変換します。これを中央カメラの魚眼座標系へ再投影することで、RGBとピクセル単位で完全に重なり合うメトリック深度画像 $D_t^e$ を得ます。\n\nこの深度をデータセット全体で共通の範囲（$d_{\\min}=0.01$m、$d_{\\max}=1.5$m）で正規化し、Turboカラーマップを通して3チャンネル画像に変換します。そして、左手・右手のRGBとカラー深度の計4枚を上下左右に並べた $320\\times 320$ ピクセルの「統合キャンバス」を作ります。これにより、既存のWan2.2動画VAEをそのまま流用でき、専用の深度エンコーダなしに幾何情報を処理できます。\n\n### III-B 世界・行動の共同モデリング\n統合キャンバスの潜在特徴と行動トークンは、共通のTransformerブロックに入力されます。過去の視覚系列を条件とし、現在の世界・行動ブロック内では双方向のアテンションを用いて未来のRGB-Dと行動チャンクを同時にフロー・マッチング（Flow Matching）目的関数でデノイジング予測します。\n\n### III-C 2段階の世界・行動事前学習\n605時間のRGB-D UMIコーパスを用い、以下の2ステップでモデルを鍛えます。\n- **第1段階（World-only adaptation）**：行動ブランチを切り離し、過去の視覚・言語から未来のRGB-Dキャンバスを予測するタスクのみを学習します。動画基盤モデルに、激しく動く魚眼視点とRGB-Dキャンバスのダイナミクスを馴染ませます。\n- **第2段階（Joint world-action training）**：行動エンコーダ・デコーダとロボット状態の入力を有効化し、映像予測損失 $\\mathcal{L}_{\\mathrm{world}}$ と行動予測損失 $\\mathcal{L}_{\\mathrm{action}}$ を重み $\\lambda_a=1$ で同時に最適化します。\n\n### III-D 軌道フィルタリングと指令値遅延補償\n手持ちの教示動作には、実機ロボットの関節可動域や速度制限を超える動きが含まれることがあります。そこで逆運動学（IK）を解き、シミュレータ（ManiSkill）上で再現できない軌道や、速度・加速度・躍度（ジャーク）が上位1%を超える極端なエピソードを事前に除外します。また、実機グリッパの応答遅延に対しては、事前に同定した1次遅れ系モデルを逆変換したフィードフォワード補償を適用し、狙い通りのタイミングで把持できるようにしています。\n\n### III-E RoboTwin-UMI ベンチマーク\nRoboTwin上にUMIの手先魚眼カメラとグリッパを忠実に再現した20タスクの評価環境を構築しました。Aloha（AgileX）とARX-X5という2種類の双腕ロボットをサポートし、通常照明とランダム照明を組み合わせた計4通りの設定で、追加ファインチューニングなしのゼロショット転移性能を厳密に比較できます。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "手先カメラからのメトリック深度構築プロセスです。手先のステレオカメラから視差を推定して絶対距離を求め、中央の魚眼RGBカメラの視野とピクセル単位で一致するように逆歪み補正・再投影を行います。",
+     "caption": "Fig. 3 : Metric depth construction for UMI observations. Each UMI gripper has three cameras. We undistort and rectify the middle and right camera views, then use Fast FoundationStereo to recover metric depth. We map the depth back to the original middle-camera fisheye view to align it with the RGB observation.",
+     "image": "details/2611.07229/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV EXPERIMENTS",
+   "heading_ja": "実機とシミュレータで検証する圧倒的な制御精度と転移能力",
+   "summary_ja": "RoboTwin-UMIの20タスクと実機6タスクで評価を実施しました。Spatial-UMI-Dreamはドメイン内だけでなく、未知の機体や照明変化に対しても最高の成功率を記録し、特に両手での物体の受け渡しなど精密な距離推定が求められる場面でベースラインを圧倒しました。",
+   "details_ja": "### IV-A 実験設定とベースライン\n実機評価では移動双腕ロボットDexmate Vega1を用い、ぬいぐるみの配置、ブロックの両手受け渡し、バーコード読み取り、箱詰め、水やり、テーブル拭きという多様な6タスク（計20エピソードずつ）をテストしました。比較対象には、最先端VLAである $\\pi_{0.5}$ やRDT2-FM、WAMベースラインとしてFast-WAMおよびLingBot-VAを採用しました。\n\n### IV-B ドメイン内での性能比較\n実機6タスクの平均成功率において、Spatial-UMI-Dreamは **85.0%** を達成し、最も強力だった $\\pi_{0.5}$ の 60.8% を 24.2 ポイントも引き離しました。特に「双腕での木製ブロックの受け渡し（Bimanual Handover）」では、$\\pi_{0.5}$ が 45.0% にとどまったのに対し、本手法は **80.0%** の成功率を記録しました。手先カメラが動く中で相手側のグリッパへ渡すにはミリ単位の距離認識が必要ですが、メトリック深度が明示的な距離の手がかりとなったことが勝因です。\nシミュレータ（RoboTwin-UMI）でも、本手法はドメイン内成功率 **79.10%** を記録し、$\\pi_{0.5}$（74.45%）や最強のWAMであるFast-WAM（61.20%）を明確に上回りました。\n\n### IV-C 機体転移と環境汎化性能\n学習に使用したAlohaから未知の機体ARX-X5へそのまま方策を移した際、$\\pi_{0.5}$ は成功率が大きく低下したのに対し、Spatial-UMI-Dreamはその差を 14.00 ポイントにまで広げて圧倒的な強さを見せました。また、照明がランダムに変化する環境と機体変更を同時に課した最も過酷な条件下でも **72.15%** の成功率を維持し、次点のベースラインを 10.30 ポイント上回りました。\n失敗例の分析では、RGBのみのFast-WAMが目覚まし時計のボタンの手前で止まってしまったり、照明変化で見失ったコースターからずれた位置にコップを置いたりしたのに対し、本手法は深度情報に支えられて確実なアプローチと接触を維持できました。\n\n### IV-D アブレーション研究：幾何と2段階学習の恩恵\n- **深度情報の効果**：トークン数を揃えるためRGB画像を複製した「RGB単体版」と比較したところ、メトリック深度を加えることでシミュレーションのドメイン内成功率が 5.75 ポイント、複合変化環境では 8.25 ポイント向上しました。実機でも平均成功率が 80.8% から 85.0% に上昇しています。\n- **2段階学習の効果**：動画基盤モデルを直接下流タスクで微調整した場合は 39.50% にすぎませんでしたが、世界適応を経ることで 61.25%、さらに世界・行動の共同事前学習を経ることで **79.10%** まで性能が跳ね上がりました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "実機Dexmate Vega1で実施した6種類の双腕マニピュレーションタスクです。高精度な位置合わせが必要な配置から、手から手への受け渡し、道具使用、液体注ぎまで、幅広い操作を自律実行しています。",
+     "caption": "Fig. 4 : Real-world task suite. We show egocentric keyframes from six real-world tasks, including unimanual manipulation and bimanual coordination. These views are for visualization only and are not used as policy inputs.",
+     "image": "details/2611.07229/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V CONCLUSION",
+   "heading_ja": "空間幾何がもたらす次世代マニピュレーション",
+   "summary_ja": "手持ちデータ収集の柔軟性と、メトリック深度を予測する世界モデルの強みを融合させました。空間幾何を明示的に組み込む事前学習が、ロボットの精密操作と機体転移において極めて有効であることが示されました。",
+   "details_ja": "本論文では、605時間のRGB-D UMIデータで学習した5B空間世界行動モデル「Spatial-UMI-Dream」と、ロボット機体間転移および環境汎化を評価できる新ベンチマーク「RoboTwin-UMI」を提案しました。\n\n手先魚眼カメラという激しく動く視点であっても、位置合わせされた実スケールの深度情報を世界モデルの予測対象に組み込むことで、双腕協調や精密な接触を伴うタスクの成功率が大幅に向上することが実証されました。さらに、ロボットに依存しない手持ち収集の強みを最大限に活かし、未知のロボット機体に対しても性能低下を最小限に抑えて動作させられることが確認されました。幾何情報を統合した世界モデルの事前学習は、今後の汎用ロボット基盤モデル研究における強力な標準指針となるはずです。",
+   "figures": []
+  },
+  {
+   "heading": "APPENDIX",
+   "heading_ja": "付録：実装の詳細とシミュレーション環境の設計",
+   "summary_ja": "Wan2.2モデルの凍結・学習設定やハイパーパラメータ、およびRoboTwin-UMIにおける4視点パノラマ合成を用いた魚眼レンダリングと双腕PyRoKi動作計画の詳細が記載されています。",
+   "details_ja": "### 事前学習のハイパーパラメータと最適化設定\nベースモデルには事前学習済みの Wan2.2-TI2V-5B を使用しています。学習時は動画拡散Transformerの全パラメータを更新し、テキストエンコーダ、画像エンコーダ、動画VAEは凍結しています。オプティマイザはAdamW（学習率 $10^{-5}$、ウェイトディケイ $10^{-5}$）を採用し、bfloat16とDeepSpeed ZeRO-2を用いて24台のNVIDIA RTX PRO 6000 GPUで各ステージ30,000ステップ学習させました。下流タスクへのファインチューニングでは8台のGPUを使用しています。\n\n### RoboTwin-UMIの魚眼合成と双腕動作計画\nシミュレータ上で実機UMIの広角魚眼カメラを再現するため、共通の光学中心を持つ4つのピンホールカメラ（前方92度、周囲3方向106度）からシーンをレンダリングし、Kannala–Brandt（KB4）歪みモデルを用いて $320\\times 240$ ピクセルの魚眼画像へとリサンプリング合成しています。\nまた、双腕の軌道計画には従来のMPLib等に代わり、PyRoKiとjaxlsを用いた12自由度の全身同時最適化プランナを導入しました。これにより、自己干渉や環境との衝突を確実に回避しながら、速度・加速度・ジャークの限界を満たす滑らかで実行可能な教示軌道を自動生成しています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "動画基盤モデル（WAM）にメトリック深度を予測させる際、専用の3Dエンコーダを用意しなくてもカラーマップ化してRGBと同一キャンバスに並べるだけで驚くほど高い効果が得られる",
+  "手先カメラ視点のように視点自体が激しく動くタスクでは、RGB単体よりも絶対距離（幾何情報）の明示がミリ単位の接触や把持の精度を大きく左右する",
+  "「世界モデルへの適応」と「行動との共同学習」という2段階の事前学習レシピを踏むことで、下流タスクの成功率とロボット機体間転移の耐性が飛躍的に向上する",
+  "UMIのようなロボット非依存の教示データを評価する際は、同一機体内での成功率だけでなく、未知機体へのゼロショット転移性能を検証することが本質的である"
+ ],
+ "limitations_ja": [
+  "ステレオカメラから深度を復元しているため、テクスチャのない平坦な表面や透明・光沢物体では深度推定の欠損やノイズが生じやすい",
+  "5Bパラメータのフロー・マッチング拡散モデルを閉ループで推論するため、オンボード計算資源でのリアルタイム制御（高周波制御）には一定のハードウェア要求と推論遅延が伴う",
+  "シミュレータでの機体転移はグリッパ形状や手先カメラ仕様が共通であることを前提としており、手先カメラの配置やグリッパ形状そのものが大きく異なるロボット間での転移は未検証である"
+ ],
+ "keywords": [
+  "World Action Model",
+  "Universal Manipulation Interface",
+  "Metric Depth",
+  "Cross-Embodiment Transfer",
+  "Bimanual Manipulation",
+  "RoboTwin-UMI"
+ ],
+ "id": "2611.07229",
+ "title": "Spatial-UMI-Dream: Scaling World Action Models with Metric Geometry for UMI Manipulation",
+ "authors": [
+  "Weiduo Yuan",
+  "Ze Yuan",
+  "Sihan Liu",
+  "Jionghao Wang",
+  "Liang Heng",
+  "Zhenyu Zhao",
+  "Yue Wang"
+ ],
+ "date": "2026-11-06",
+ "group": "general",
+ "tags": [
+  "world-model",
+  "manipulation",
+  "dataset"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.07229",
+ "pdf_url": "https://arxiv.org/pdf/2611.07229",
+ "summary_ja": "ハンドヘルド双腕データ収集インターフェースUMIにおける暗黙的なスケール喪失を解決するため、RGB・魚眼深度・行動を同時予測する50億パラメータの空間世界行動モデルを提案。605時間のRGB-Dデータセットを用いた2段階学習により、精密操作に必要な3D空間構造の理解と行動生成を大幅に向上させた。",
+ "generated": "2026-11-06",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.07229"
+}
