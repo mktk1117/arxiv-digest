@@ -1,0 +1,126 @@
+{
+ "title_ja": "地形指標付き運動事前分布と幾何学的支持によるヒューマノイドの極限パルクール",
+ "tldr_ja": "人間のパルクール動作を模倣させつつ、学習が進むにつれて模倣の拘束を緩めて手や膝の接触位置をロボットの身体に合わせて適応させる3段階フレームワークを提案。実機ヒューマノイドにおいて、実環境でのファインチューニングなしに高さ1mの障害物を含む連続パルクール走破を達成しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "提案された学習フレームワークの全体構成です。右側で人間のモーションデータをロボットが物理的に実行可能な参照データへ変換し、中央のマルチヘッド識別器（AMP）で地形に応じたスキルを獲得させます。さらに下部の幾何学的支持候補モジュールによって、手や膝の接触位置をロボットの身体に合わせて柔軟に適応させます。",
+  "caption": "Fig. 2: Overview of the training framework. Motion preprocessing (right) retargets human demonstrations and physically refines them into robot reference rollouts with kinematic, height-scan, and dynamic information. Terrain-indexed adversarial supervision compares reference and policy motion windows to provide a routed style reward. Geometric hand–knee candidates (bottom) guide precontact placement, while contact evaluation and state transitions determine support and retention terms. Task, style, and support rewards are combined with the weights in Eq. 1 for actor–critic training. The actor and critic use gated expert networks, distinct from the discriminator heads. …",
+  "image": "details/2611.08056/F2.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットに壁登りや跳び箱のような極限のパルクール動作をさせようとするとき、人間のモーションキャプチャ（実演データ）を模倣させるアプローチが有力です。しかし、人間とロボットでは手足の長さやアクチュエータの出力限界、利用できる支持面が大きく異なります。そのため、人間の接触パターンをそのままロボットに無理やりトレースさせようとすると、物理的に破綻したり、少し足場が変わるだけで転倒してしまったりするという根本的な難しさがありました。\n\nそこで著者らは、「模倣はスキル獲得のための補助輪（足場）として使い、学習が進んだら模倣の縛りを緩めて、ロボット自身の幾何学的な支持適応に委ねる」という progressive（段階的）なアプローチを考案しました。具体的には、まず物理的に破綻しない参照動作を作成し、次に地形ごとに整理された敵対的運動事前分布（AMP）で地形適応スキルを学習します。そして最終段階では、模倣の重みを半分に減らしつつ、障害物のエッジや平面形状から計算した手や膝の「幾何学的支持候補」への引き寄せと接触評価を与えることで、接触順序を固定せずに安定した接触姿勢を探索させました。\n\n検証には23自由度の実機ヒューマノイド「Noetix E1」を用い、高さ0.4m（Low）、0.6m（Mid）、1.0m（High）の障害物や、これらが連続するハイブリッドコースで評価を行いました。シミュレーションではハイブリッド走破で96.34%の成功率を記録し、先行研究の単一AMPやスキル蒸留ベースの手法を大幅に上回りました。\n\nさらに驚くべきことに、実機へのZero-Shot転移（実機での追加学習なし）においても、個別障害物で29/30回、連続ハイブリッドコースで4/5回の走破に成功しました。この結果は、人間の実演から大まかな運動意図を学びつつ、接触の細部はロボット自身の身体と幾何形状に合わせて解き放つ設計が極めて有効であることを示しています。",
+ "contributions_ja": [
+  "人間の実演からスキルを獲得したのち、その拘束を緩めてロボット固有の接触形態へと適応させる3段階のプログレッシブ模倣学習フレームワークの提案",
+  "共通の特徴抽出幹と地形ごとの個別識別器ヘッドにより、歩行とパルクールの干渉を防ぐ「地形インデックス付き敵対的運動事前分布（AMP）」の構築",
+  "接触順序を事前に固定せず、手や膝の接近誘導（引力）と接触保持評価を組み合わせた幾何学的支持ガイダンスの設計",
+  "単一ポリシー・外部スキル指令なしで、実機ヒューマノイド（Noetix E1）による連続パルクール走破と学習範囲外の段差に対する頑健性の実証"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "人間のパルクールをそのまま真似るだけではダメな理由",
+   "summary_ja": "ヒューマノイドの全身パルクールでは、人間とロボットの身体構造やアクチュエータの違いから単純な模倣が破綻します。本論文では、模倣をスキルの土台作りに留め、徐々に模倣の縛りを緩めて手膝の幾何学的支持へ適応させる3段階アプローチを着想しました。",
+   "details_ja": "ヒューマノイドが全身を使って障害物を乗り越えるパルクールは、従来の二足歩行を大きく超える運動性能を切り拓きます。障害物に飛び乗り、支持し、越えて着地する一連の動作では、手・膝・足の全身接触を精密に連携させる必要があります。人間の実演データはその優れた見本になりますが、プロポーションやトルク限界、接触可能な面の配置が人間とは異なるため、人間の動きをそのまま再現しようとしても限界があります。\n\nここには密接に絡み合った3つの困難が存在します：\n- 人間の動作をそのままロボットにリターゲットしただけでは、トルクや関節可動域などの物理法則に違反してしまう点\n- 物理的に実行可能な参照軌道を作っても、目の前の地形に対してどのスキルを適用すべきかが自明でない点\n- 人間の実演通りの接触パターンに縛られると、ロボットにとって無理のない別の接触姿勢（例えば手や膝の置き場所）を探索できない点\n\nつまり、「物理的に動けること」と「地形に合わせること」、そして「ロボット自身の支持形態に適応すること」は別問題なのです。そこで本研究のデザイン指針は、模倣学習をスキル獲得の『足場（足がかり）』として使い、スキルが身についたら運動事前分布（Prior）の影響を緩め、代わりに幾何学的な支持ガイダンスを強めるというものです。これにより、パルクールで達成したい大まかな運動を維持したまま、接触の物理的な実現形態をロボット自身に合わせて柔軟に変える道を開きました。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "パルクール制御・運動事前分布・接触誘導の歩み",
+   "summary_ja": "先行研究は強化学習による視覚パルクール、敵対的運動事前分布（AMP）のマルチスキル拡張、足先などの接触誘導に大別されます。本研究はこれらを統合し、全身接触（手や膝）に対応した幾何学的支持と事前分布の動的緩和を導入した点に新しさがあります。",
+   "details_ja": "本研究の位置づけを理解するために、関連する3つの系統の研究を整理しておきましょう。\n\n### II-A 視覚に基づく全身パルクール走破\n四足ロボットでは参照動作なしに視覚ポリシー単体で障害物を越える研究が進んでいますが、ヒューマノイドでは自由度の高さと不安定さから、人間の動作情報を活用するアプローチが主流です。例えば、個別のスキルごとにエキスパートを学習させてから単一ポリシーに蒸留する手法（APEXやPerceptive Humanoid Parkourなど）が提案されてきました。本研究は蒸留に頼るのではなく、運動事前分布と幾何学的支持誘導を巧みに組み合わせることで、単一ポリシーで直接スキル獲得から接触適応までを完結させます。\n\n### II-B 複数・条件付き運動事前分布（AMP）\nAMP（Adversarial Motion Priors）は、タスク報酬と識別器によるスタイル報酬を組み合わせて自然な動きを促す強力な枠組みです。しかし、単一の識別器に多種多様なスキルを詰め込むと、頻出する歩行動作と稀にしか起きない跳躍動作が競合してしまいます。これを解決するため、先行研究では識別器を分けたり条件付けたりする手法が模索されてきました。本研究ではAMPの入力に運動学（キネマティクス）情報だけでなく、トルク、接触状態、ハイトスキャン（局所地形）を統合し、地形と動作のダイナミクス適合性を直接識別できるように拡張しています。\n\n### II-C ロボット歩行における接触事前分布\n足の着地点（フットホールド）を幾何学的に誘導する手法はこれまでにも存在しました（着地可能な候補点へ足を誘導するCReFやSSRなど）。しかしこれらは足先に特化したものが大半でした。極限パルクールでは、足だけでなく手や膝をどこに突くかが死活問題になります。本研究は、手と膝という異なる身体部位の到達範囲や支持特性を考慮した幾何学的候補を生成し、接触前・接触後の双方から誘導を行う点で一線を画しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "3段階の学習パイプラインと幾何学的支持誘導のしくみ",
+   "summary_ja": "提案手法は、参照動作の精緻化（Stage 1）、地形インデックス付きAMPによるスキル学習（Stage 2）、AMPを緩めて手膝の幾何学的支持へ適応させる接触適応（Stage 3）の3段階で構成されます。配備時には地形ラベル不要で、車載深度カメラと自己受容感覚のみで自律動作します。",
+   "details_ja": "提案手法の全体パイプラインは、模倣の役割を段階的に変化させていく3つのステージから成り立っています。\n\n### III-A フレームワークの全体像と3段階学習\n- **Stage 1（参照軌道の準備）**：人間のモーションデータをロボットの関節構造へリターゲットし、トルク制限や接触を考慮した物理シミュレーション内で模倣学習（Privileged Mimic）を行うことで、物理的に破綻のない参照ロールアウトを作成します。\n- **Stage 2（スキル獲得）**：地形ごとに分類された参照動作プールを用いて、地形インデックス付きAMPにより走行ポリシーに地形適合スキルを学習させます。\n- **Stage 3（支持適応）**：AMPの重み係数 $\\beta$ を $1.0$ から $0.5$ へと半減させ、代わりに手と膝の幾何学的支持報酬 $S_t$ の重み $\\alpha$ を $0$ から $1$ へと増やします。これにより、人間の接触順序の真似から脱却し、ロボット固有の接触配置へとシフトさせます。\n\nポリシーの制御周期ネットワークは非対称アクター・クリティック構成です。アクターは78次元の自己受容感覚・コマンド履歴（HIMモジュールで速度推定値と16次元潜在変数へ圧縮）と、$24\\times 24$ の車載深度画像特徴（32次元）を合わせた129次元を入力とし、4つのゲーテッド・エキスパート層を通じて各関節の目標位置を出力します。訓練時には特権情報として地形ラベルやハイトスキャンを使いますが、実機配備時にはこれらは一切不要で、すべて車載センサだけで完結します。\n\n### III-B 地形インデックス付きAMP\n識別器には、共通のハイトスキャン抽出器・共通トランク（隠れ層512, 256）と、地形クラスごとの4つの独立した出力ヘッド（Low, Mid, High, 平地）を採用しました。入力には各関節の位置・速度、24個の局所身体位置、ルート速度に加え、接触フラグ、関節トルク、ヨー軸に整列したハイトスキャンを含む合計402次元の拡張表現を用います。全プールに基本の立ち・歩行動作を含めることで、日常的な移動動作を損なわずに地形固有のパルクール動作を安定して学習できるように工夫されています。\n\n### III-C 手・膝の幾何学的支持候補（Support Candidate）\n接触順序を固定的に教え込むのではなく、ロボットが自然に安定した支持を見つけられるように、次の2段階で幾何学的報酬を設計しました：\n- **接触前の引き寄せ（Precontact Attraction）**：障害物の上面やエッジから、法線・平坦度・クリアランスを満たす支持候補点をサンプリングします。各四肢のアンカー周りに設定した楕円体ボリュームで到達可能な候補（最大8個）を絞り込み、手先や膝の予測位置 $\\hat{p}_\\ell = p_\\ell + \\delta \\dot{p}_\\ell$（$\\delta=0.12$ 秒）が候補点に近づくほど高い報酬を与えます。\n- **実際の接触評価（Actual Contact）**：実際に接触が生じた際、支持面マスクの端から十分なクリアランスがあるか、適切な力で保持されているかを判定します。さらに、高さ0.9m以上の高い障害物では、横方向のホールド姿勢（手を含む2点以上の有効接触）をラッチして評価します。この「引き寄せ」と「評価」により、特定の接触シーケンスを強制することなく、滑り落ちない安全な場所へ手足を置く動作が自然に創発します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "提案学習フレームワークのブロック図です。Stage 1で生成された物理的参照動作を用い、Stage 2で地形インデックス付きAMPによるスタイル報酬を与え、Stage 3で幾何学的支持候補による接触報酬（Precontact/Actual Contact）を加えながら事前分布の重みを緩和していきます。",
+     "caption": "Fig. 2: Overview of the training framework. Motion preprocessing (right) retargets human demonstrations and physically refines them into robot reference rollouts with kinematic, height-scan, and dynamic information. Terrain-indexed adversarial supervision compares reference and policy motion windows to provide a routed style reward. Geometric hand–knee candidates (bottom) guide precontact placement, while contact evaluation and state transitions determine support and retention terms. Task, style, and support rewards are combined with the weights in Eq. 1 for actor–critic training. The actor and critic use gated expert networks, distinct from the discriminator heads. …",
+     "image": "details/2611.08056/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "驚異の成功率：シミュレーションと実機で見せた圧倒的走破性",
+   "summary_ja": "シミュレーション評価では、提案手法がハイブリッド連続コースで96.34%の成功率を記録し、比較手法を圧倒しました。また実機Noetix E1によるZero-Shot検証でも、個別障害物で29/30回、連続コースで4/5回の走破に成功し、接触適応の有効性を証明しました。",
+   "details_ja": "提案手法の有効性を検証するため、シミュレーション（Isaac Lab）と実機ヒューマノイド（Noetix E1：23自由度、Jetson Orin NX搭載）を用いて徹底的な実験を行いました。\n\n### IV-A フレームワーク比較（シミュレーション）\n高さの異なる3種の障害物（Low: 0.4m, Mid: 0.6m, High: 1.0m）、これら3つが連続するハイブリッドコース、さらに訓練時より高さが1〜3cm外れた未知環境（OOD）で評価しました（各条件2,048環境）。\n- **提案手法（Ours）**：Lowで100%、Midで98.44%、Highで98.14%、そしてハイブリッドで96.34%、OODで93.46%という驚異的な走破成功率を叩き出しました。\n- **ベースラインとの比較**：AMPなしの速度追従のみ（Velocity Tracking）や、単一の識別器を用いたSingle AMPはHighやハイブリッドで走破率がほぼ0%に沈みました。先行研究ベースのスキル蒸留（Multi-Skill Distillation）はLowやMidこそ高水準だったものの、難度の高いHighでは64.75%、ハイブリッドでは73.83%にとどまり、提案手法の優位性が明確になりました。\n- **アブレーション**：Stage 2（AMP学習）を省くとハイブリッド走破率は0%になり、Stage 3（接触適応）を省くとHighが79.69%、ハイブリッドが83.59%に低下しました。\n\n### IV-B 地形とスキルの時間的対応関係\n連続走行中にロボットが適切にスキルを切り替えているかを動的時間伸縮法（DTW）で解析しました。関節角度の軌道を各参照動作と比較したところ、High用プラットフォーム接近時にはHigh参照との距離が最小（1.50〜4.88秒）となり、続いてMid（4.88〜8.00秒）、Low（8.00〜12.54秒）へと自律的に切り替わっていることが確認されました。外部からのスキル指令なしに、視覚と自己受容感覚だけで動作が滑らかに遷移しています。\n\n### IV-C 支持適応のアブレーション\n接触適応（Stage 3）の真価を試すため、よりシビアな「上面が1m四方しかない高さ1mのプラットフォーム」での横方向移動タスクを検証しました。支持候補報酬を抜いた場合（w/o Candidates）の走破率は46.24%、AMPの緩和を行わなかった場合（w/o Relaxation）は58.89%に激減したのに対し、提案手法は93.46%を維持しました。模倣を緩めずに人間の姿勢に固執すると、エッジぎりぎりに手をついて滑落してしまうのに対し、提案手法はプラットフォームの内側の安全な位置へと適切に手を置き直している様子が確認されました。\n\n### IV-D 実機でのZero-Shot走破性能\nシミュレーションで学習した単一ポリシーを、実機Noetix E1へファインチューニングなしでそのまま配備しました。結果は、Lowで10/10回、Midで9/10回、Highで10/10回（単一障害物合計で29/30回）の成功を収めました。さらに、3つの障害物を連続して越えるハイブリッドコースでも5回中4回の完走に成功し、訓練外の高さ（OOD）でも13/15回成功しました。実環境のダイナミクスギャップに対しても、獲得した幾何学的支持適応が極めて頑健に機能することが実証されました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "連続障害物走破時における関節軌道のDTW（動的時間伸縮法）距離の推移です。障害物の通過に伴い、最も距離が近い参照動作がHigh→Mid→Lowへと自然に切り替わっており、単一ポリシーが視覚情報に基づいて自律的にスキルを選択していることが分かります。",
+     "caption": "Fig. 4: Supplementary evidence for terrain–skill correspondence. Top: a simulation montage of sequential obstacle traversal. Middle: joint-angle DTW distances (rad) to the High, Mid, and Low references. Bottom: lowest-distance intervals, with the dominant sequence High $\\rightarrow$ Mid $\\rightarrow$ Low. The interval labels identify reference matches rather than independently measured terrain boundaries.",
+     "image": "details/2611.08056/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "接触適応（Stage 3）の有無による手つき位置の比較です。上段（適応なし）では障害物の端（エッジ）ぎりぎりに手を置いて不安定になっていますが（赤丸）、下段（提案手法）では幾何学的支持誘導により安全な内側へ手を置き直していることがシミュレーション・実機の双方で確認できます。",
+     "caption": "Fig. 5: Qualitative support comparison. Top: w/o Stage 3; bottom: Ours. Each row combines a simulation contact close-up (left) and hardware traversal snapshots (right). Red circles in the upper row highlight hand-contact regions near the platform edge. The comparison illustrates support adaptation rather than a measured contact-force or stability margin.",
+     "image": "details/2611.08056/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実機Noetix E1によるハイブリッドコース連続走破のスナップショットです。外部からのスキル指示やリセットを挟むことなく、車載センサのみで異なる高さの障害物を連続して乗り越えていく様子が捉えられています。",
+     "caption": "Fig. 6: Supplementary real-world hybrid traversal sequence. Snapshots are ordered from left to right, top to bottom, with timestamps relative to $t_{0}$ . The two rows show different obstacle-crossing maneuvers within the same trial, illustrating terrain-dependent skill switching by a single perception-conditioned policy without external skill-selection commands.",
+     "image": "details/2611.08056/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "模倣から適応へ：ヒューマノイド極限運動の新たな指針",
+   "summary_ja": "本研究は、地形に応じた運動事前分布でスキルを獲得した後に事前分布を緩和し、幾何学的な支持適応へと移行させるフレームワークを提案しました。シミュレーションおよび実機での圧倒的なパルクール走破性能は、人間の模倣とロボット固有の接触適応を分離・調和させる設計思想の正しさを証明しています。",
+   "details_ja": "本論文では、人間の実演からパルクールスキルを学びつつ、ロボット特有の支持形状に合わせて接触を進化させるプログレッシブ模倣学習フレームワークを示しました。\n\n「まず模倣で全身の運動レパートリーを獲得させ、その後に模倣の拘束を緩めてロボットの幾何学的支持適応へと解き放つ」というアイデアは、人間とロボットの身体的乖離を埋める上で非常に汎用性の高いアプローチです。実機ヒューマノイドNoetix E1において、シミュレーションから実機へのファインチューニングなしで高さ1mの障害物や連続コースを走破できたという事実は、今後のヒューマノイド全身運動制御における重要なマイルストーンと言えます。\n\n著者らは今後の展望として、さらに多様な参照動作の拡充や、凹凸のある不整地・非平坦な表面に対する幾何学的支持候補の動的生成手法の確立を挙げています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「模倣は最初のアシスト（足場）として使い、後から緩める」というカリキュラム設計が、人間とロボットの身体構造の差を克服する鍵になる",
+  "AMPを地形ごとにマルチヘッド化し、トルク・接触・局所地形（ハイトスキャン）を入力に加えることで、通常歩行と極限スキルの干渉を防げる",
+  "接触順序を決め打ちせず、「接触前の引き寄せ引力」と「接触後の支持評価」で誘導することで、環境に応じた柔軟な手膝の置き方が創発する",
+  "視覚・自己受容感覚・速度指令のみを入力とする単一ポリシーでも、適切な報酬設計と履歴推定器（HIM）があれば、実機Zero-Shotで連続パルクールが可能になる"
+ ],
+ "limitations_ja": [
+  "幾何学的支持候補の生成が平坦な面を前提としており、階段状でない瓦礫や不規則な曲面形状への対応は今後の課題である点",
+  "実機の失敗例において、腕の支持抜けや、低い障害物に対してアクロバティックな動作を選択してしまうようなスキル選択の誤解釈が一部見られた点",
+  "各学習ステージ（Stage 2、Stage 3）のイテレーション数が固定されており、追加の訓練ステップ数と各損失項の寄与が完全には分離評価されていない点"
+ ],
+ "keywords": [
+  "Humanoid Parkour",
+  "Adversarial Motion Priors",
+  "Geometric Support Guidance",
+  "Reinforcement Learning",
+  "Sim-to-Real Transfer"
+ ],
+ "id": "2611.08056",
+ "title": "Terrain-Indexed Motion Priors and Geometric Support for Extreme Humanoid Parkour",
+ "authors": [
+  "Chenghao Sun",
+  "Youhao Lyu",
+  "Zizheng Li",
+  "Shuting Zhang",
+  "Ziyang Dong",
+  "Wenhao Cui"
+ ],
+ "date": "2026-11-06",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "locomotion",
+  "reinforcement-learning",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.08056",
+ "pdf_url": "https://arxiv.org/pdf/2611.08056",
+ "summary_ja": "ヒューマノイドが手や膝の接触を伴うパルクール動作を獲得するための段階的模倣学習フレームワークを提案。特権的模倣で実行可能な参照軌道を生成後、地形指標付き敵対的運動事前分布（AMP）でスキルを獲得し、幾何学的接触誘導により実機形状に合わせた接触適応を行う。",
+ "generated": "2026-11-06",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.08056"
+}
