@@ -1,0 +1,118 @@
+{
+ "title_ja": "MOMASPLAT: モバイルマニピュレーションのための動的新規視点デモ拡張",
+ "tldr_ja": "ロボットが目的地の少し手前で止まってしまっても操作を成功させるため、ナビゲーション時とマニピュレーション時のカメラ映像から背景と動く物体を別々に3D再構成し、未知の台車位置から見た操作軌道と行動データを丸ごと合成する手法を提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "元の台車位置（赤白のロボット）で収集した教示軌道から、周囲の未教示な台車位置（黄色の枠線）における視点映像と手先行動を丸ごと合成します。接触後に物体が動くシーンも一貫して再レンダリングできるため、実環境での配置ズレ（青色の枠線）に対しても頑健にタスクを実行できます。",
+  "caption": "Fig. 1 : MoMaSplat . Starting from mobile-manipulation data collected at the original base pose (white and red robot), MoMaSplat synthesizes demonstrations from sampled novel base poses ( yellow -outlined gray robot). The top-right sequence shows the source manipulation demonstration, while the bottom-right shows the corresponding synthesized trajectory, including the dynamic object as it is moved by the robot. Augmenting the source manipulation dataset with these demonstrations enables execution from unseen deployment-time base poses ( blue -outlined gray robot).",
+  "image": "details/2611.08372/F1.jpg"
+ },
+ "overview_ja": "画像を入力としてロボットの手先を直接制御する視覚行動（Visuomotor）ポリシーは、模倣学習で手軽に訓練できる一方、カメラ視点のわずかな変化に極めて弱いという深刻な課題を抱えています。特に台車とアームを併せ持つ移動マニピュレーション（MoMa）では、自己位置推定のドリフトや障害物回避の都合上、教示時とミリ単位で同じ位置にロボット台車を停車させることは困難です。結果として、作業現場でロボットが目にする画角は教示時とズレてしまい、ポリシーが途端に破綻してしまいます。\n\n近年、少数のデモから新規視点画像（Novel-View Synthesis: NVS）をレンダリングして学習データを水増しする試みが進んでいますが、従来の技術はシーン全体が静止していることを前提にしていました。そのため、ロボットが物体に触れて動かす「最も肝心な接触後フェーズ」で動く物体を正しく再レンダリングできず、幾何学的な破綻が起きていました。\n\nそこで著者らは、日常的なMoMaのデータ収集手順そのものに着目しました。ロボットは作業位置へ移動するナビゲーション中に静止した作業環境を多角的に観察しており、その後のマニピュレーション中には動く対象物を間近で観察しています。本研究「MoMaSplat」は、この2種類のデータから静的な背景と動的な物体をそれぞれ独立に3Dガウススプラッティング（3DGS）や3D基盤モデルで再構築し、未知の台車位置から見たシーン・物体・アームを合成して、幾何学的に整合した手先行動へと再マッピングします。\n\n実世界における剛体・開閉機構付き物体の計5タスクおよびシミュレーションで評価した結果、MoMaSplatは未知の台車位置において既存の最良手法の2倍以上の平均成功率（37%対17%）を達成しました。さらにベースラインが全滅するような30〜40 cmの大幅な位置ズレでも動作を完遂できる驚異的な頑健性を示しました。",
+ "contributions_ja": [
+  "接触後に動く物体とのインタラクションを含め、未知の台車位置からの完全なマニピュレーション軌道を合成する新規視点デモ拡張フレームワークを提案したこと。",
+  "ナビゲーションログと操作ログの特性を活かし、静的シーンと動的物体を分離して3D再構成し、手先行動と固有感覚を幾何学的に正しくリターゲットする一貫したパイプラインを確立したこと。",
+  "実環境の剛体・リンク機構物体を含む5つの移動マニピュレーションタスクにおいて、未教示の停車位置に対する頑健性を大幅に向上させ、先行研究が破綻する大域的な位置ズレでも高いタスク成功率を実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "I INTRODUCTION",
+   "heading_ja": "なぜ移動マニピュレーションは「視点のズレ」にこれほど弱いのか？",
+   "summary_ja": "視覚模倣学習はカメラ位置の変動に極めて脆弱ですが、移動ロボットでは走行誤差により毎回異なる位置に停止するため致命的な問題となります。既存の新規視点合成によるデータ拡張は静止環境を仮定しており、物体が動く接触フェーズを拡張できない限界がありました。そこで本論文は、移動時の広角映像と操作時の接近映像を組み合わせて動的物体ごと3D再構成し、未知の台車位置からの完全なデモを合成する手法を提案します。",
+   "details_ja": "画像から直接ロボットの関節や手先変位を予測するVisuomotorポリシーは強力ですが、訓練時に見せた狭いカメラ画角の分布に強く依存してしまいます。卓上マニピュレーションであればロボットベースを固定できますが、移動ロボット（Mobile Manipulator）はそうはいきません。現場でどれだけ高精度に経路追従しても、ナビゲーションの不確実性やスリップ、障害物回避などによって、作業対象に対する台車の位置や向きが毎回少しずつズレてしまいます。\n\nこの視点変化を克服するために大量の遠隔操作デモをあらゆる台車位置から集めるのは、コスト的に非現実的です。そこで注目されたのが、NeRFや3Dガウススプラッティング（3DGS）を利用して未収集の視点を仮想的に生成する新規視点合成（NVS）技術です。\n\nしかし、既存のNVSアプローチには決定的な盲点がありました。「シーン全体が静止している」と仮定していたため、ロボットが物体を把持して持ち上げるような接触インタラクションの瞬間、動く物体を正しくレンダリングできないのです。これでは接近動作しかデータ拡張できず、最も繊細さが求められる接触後の軌道が未拡張のまま放置されてしまいます。\n\nMoMaSplatはこの課題を鮮やかに解決します。移動ロボットの収集データには「作業台へ近づく移動シーケンス（背景が静止し多角的な視点が得られる）」と「実際の作業シーケンス（物体が動く様子を正面から捉えている）」が自然に含まれています。この2つのデータを巧みにつなぎ合わせることで、背景と動く物体を別々に3Dモデリングし、任意の台車位置から見た完全な操作デモの自動生成を実現しました。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "シミュレーション生成や従来の画像拡張と何が決定的に違うのか",
+   "summary_ja": "本章では、シミュレーションを用いた軌道生成、実写データからのデータ拡張、移動マニピュレーションにおけるベース配置問題の3つの関連分野を整理します。実機ロールアウトのコストやSim-to-Realギャップ、従来の静的シーン仮定による限界を指摘し、実実写データから動的物体まで扱える本手法の優位性を明確にしています。",
+   "details_ja": "### シミュレーションによるデモ合成\nシミュレータ上で多様な視点やランダムな配置を生成するアプローチ（X-GenやMoMaGenなど）は盛んに研究されています。しかし、物理シミュレーションで生成した運動計画は運動学的には正しくても、実際の接触や動力学を保証するために結局実機でロールアウトして視覚データを取得し直す必要があったり、深刻なSim-to-Realギャップに悩まされたりします。MoMaSplatは実環境の映像からシーンと物体を直接再構成するため、物理エンジンのモデリング誤差に頼る必要がありません。\n\n### 実実写キャプチャからのデータ拡張\n画像単位の2Dアグメンテーションや動画生成モデルによるニューラルシミュレータは、幾何学的な不整合やハルシネーション（幻覚）を起こしがちです。一方で3DGSやZeroNVSを用いた手法（VISTAなど）は幾何学的整合性を保てますが、静止シーンに限定されるか、あるいはアームの接近運動（接触前）しか扱えませんでした。MoMaSplatは静的背景と動的物体を明示的に分離して統合することで、接触フェーズを含む時系列全体の整合性を保った拡張を可能にしました。\n\n### 移動マニピュレーション（MoMa）\n従来の研究では、逆可達性マップ（IRM）を用いて台車の停車位置を幾何学的に決定したり、学習済みポリシーの学習時視点に近づくようテスト時に最適化する手法（Mobi-$\\pi$など）が取られてきました。しかしこれらは環境の事前スキャンやテスト時の複雑な最適化を要します。対照的にMoMaSplatは、ポリシー側にあらゆる台車配置への頑健性を持たせるアプローチを採るため、デプロイ時のベース停止精度への過度な要求を根本から緩和します。",
+   "figures": []
+  },
+  {
+   "heading": "III MoMaSplat",
+   "heading_ja": "背景と動く物体を別々に3D化し、未知の視点と行動を幾何学的に合成する",
+   "summary_ja": "ナビゲーションデータから静的背景を、操作データから動的物体をそれぞれ3D再構成し、両者の座標系をナビゲーション時のカメラ軌跡を介して統一します。サンプリングされた未知の台車位置から背景・物体・アームを描画してアルファブレンディングで結合し、手先行動と自己受容感覚を台車座標系に合わせてリターゲットすることで、整合した新規デモを量産します。",
+   "details_ja": "### III-A 3D Reconstruction（3D再構成）\n環境を「静的背景」「動的物体」「ロボット本体」の3つに分解して扱います。\n- **静的シーンの再構成**: 台車が目標位置へ向かうナビゲーション軌道 $\\mathcal{D}_{\\text{nav}}$ のRGB画像からCOLMAPでカメラ姿勢と疎な点群を推定し、3DGSを構築します。デモ間で生じる過渡的な写り込みに対処するためWildGaussiansの不確実性モデリングを導入し、さらに物体とロボットの領域をセグメンテーションマスクで除外することで、静止した物体の「ゴースト（残像）」が背景に残るのを防ぎます。実スケールへの復元は搭載深度センサの実測値との中央値比率を用いて行います。\n- **動的物体の再構成と座標系アライメント**: 操作中に対象物が動くため、背景とロボットをマスクしたフレーム群からFastVGGT（ unposed なRGB列からカメラ姿勢を推定する3D基盤モデル）を適用し、物体相対のカメラ姿勢を求めます。この推定値はスケールや原点が不定の独自座標系にあるため、物体が静止している「ナビゲーション時のフレーム」をブリッジとして利用します。ナビゲーション時におけるSfMのカメラ軌跡と基盤モデルのカメラ軌跡の対応関係から、Umeyamaアルゴリズムにより相似変換 $\\mathbf{S} \\in \\mathrm{Sim}(3)$ を閉形式で解き、世界座標系へと統合します。その後、物体の3DGSパラメータと姿勢を同時に測光誤差最小化で最適化します。\n\n### III-B Synthesizing Demonstrations from Unseen Base Poses（新規ベース位置からのデモ合成）\n- **ベース姿勢のサンプリング**: 元の台車位置の周囲（$1.2 \\times 1.2$ m以内）から新たな台車位置をサンプリングし、対象物が画角中央に収まるよう方位角を決定します。腕の到達可能性（IKが解けるか）を軌道上の複数タイムステップで確認し、実行不可能な位置は破棄します。\n- **新規視点レンダリングと深度合成**: 新しい視点から背景 $\\mathcal{G}_{\\text{scene}}$、物体の3DGS $\\mathcal{G}_{\\text{obj}}$、そしてシミュレータ（OmniGibson）で関節角を再現したロボットアームを描画します。得られた3枚のRGB画像・深度マップ・透過度（アルファ）マップを手前から奥へと深度順にソートし、ピクセル単位のアルファブレンディングによってオクルージョン関係が正確な合成画像を生成します。\n- **行動と固有感覚のリターゲット**: 台車の座標系が変わると、台車基準で定義されている手先行動 $a_t = (p_t, o_t, g_t)$（並進増分・回転増分・グリッパー開閉）や手先位置姿勢も変換が必要です。台車座標系の幾何変換 $\\Delta^i_j T$ を用い、並進増分には回転行列を掛け、軸・角度表現の回転増分には回転軸の変換を施すことで、ワールド座標系で全く同じ手先軌道をたどる正しい行動ラベルへと変換します。\n\n### III-C Imitation Learning（模倣学習）\n元の教示データ $\\mathcal{D}_{\\text{src}}$ と合成データ $\\mathcal{D}_{\\text{gen}}$ を 1:3 の比率（25%と75%）でサンプリングしながら、Diffusion Policyを用いてVisuomotorポリシーを学習させます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "MoMaSplatの全体パイプラインです。ナビゲーション映像と操作映像から背景と動的物体をそれぞれ分離して3DGS化し、Sim(3)変換で統一座標系に統合します（左）。その後、新しくサンプリングした台車位置から背景・物体・ロボットをレンダリングして合成画像を作り、幾何変換に基づいて行動ラベルを修正して学習に用います（右）。",
+     "caption": "Fig. 2 : Overview of MoMaSplat . 3D Reconstruction: We build 3D models of the environment from the navigation and manipulation data. We estimate camera poses via structure-from-motion and fit a 3D Gaussian Splatting model of the static scene, $\\mathcal{G}_{\\text{scene}}$ . For the dynamic objects, we segment each manipulated object and estimate its per-frame pose trajectory with a feed-forward 3D foundation model; since the scene and object poses lie in separate reference frames, we align them with a Sim(3) transformation and fit a separate object model $\\mathcal{G}_{\\text{obj}}$ . …",
+     "image": "details/2611.08372/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experimental Evaluation",
+   "heading_ja": "実機5タスクで検証：台車が大きくズレてもタスクを継続できる圧倒的な頑健性",
+   "summary_ja": "実世界の3つの部屋・5つのタスク（剛体および1自由度リンク機構）とシミュレーション環境で評価を行いました。元の教示位置から最大40 cm以上離れた未知の台車配置において、既存のデータ拡張手法がほぼ全滅する中、MoMaSplatは平均成功率37%（最強ベースラインの2倍以上）を維持し、生成画像の視覚的・幾何的忠実度も極めて高いことが証明されました。",
+   "details_ja": "### IV-A 実験設定\n実環境の3つのシーンで合計5つのマニピュレーションタスクを設定しました。\n- デスク環境: (i) ボトルのピック＆プレイス、(ii) 引き出しを開ける\n- リビング環境: (iii) リモコンのピック＆プレイス、(iv) ノートPCの画面を閉じる\n- キッチン環境: (v) ノンフライヤーのバスケットを開ける\n剛体だけでなくノートPCや引き出しのような関節構造を持つ物体（Articulated Object）も含んでおり、動くリンク部分のみを動的物体としてモデル化しています。比較対象として、データ拡張なしの「Source Only」、手先状態と行動にノイズを加える「Action Augmentation」、視点のみを変えて行動を直さない「VISTA」、および背景のみを3DGS化する先行研究に本手法の行動変換を追加適用した「One-Thousand Trajectories」の4つを用意しました。各タスクにつき12箇所の未知の台車位置で各3回（計36回）ポリシーを展開して評価しました。\n\n### IV-B 結果と考察\n- **未知の台車配置での性能**: 元の教示位置では全手法が同等の性能を発揮しますが、未知の位置では結果が激変しました。全5タスクの平均成功率は、Source Only（6%）、Action Augmentation（6%）、VISTA（8%）と軒並み崩壊し、背景のみを考慮するOne-Thousand Trajectoriesでも17%に留まりました。これに対し、MoMaSplatは37%と最強ベースラインの2倍以上の成功率を達成しました。\n- **距離に応じた耐性**: 元の位置から離れるほど差は顕著になります。10 cmを超えるとベースラインはほぼ成功率0%に落ち込みますが、MoMaSplatはボトルのピック＆プレイスで30 cm離れても33%、ノートPCを閉じるタスクでは40 cm離れても50%の成功率を維持しました。\n- **デモ数への依存性**: 元のデモ数を10個、50個、90個と減らしていったアブレーション実験でも、MoMaSplatで拡張したポリシーは10〜20 cm離れた未知位置でそれぞれ33%、42%、50%の成功率を維持しました。拡張なしでは90個のデモを使ってもわずか8%しか成功しなかったことからも、データ拡張自体の本質的な有効性が分かります。\n- **生成クオリティの検証**: シミュレーションによる真値との比較では、静的シーンのPSNRが26.40 dB、動的物体が18.18 dBを記録し、推定された物体の位置誤差は平均$1.46$ cm、姿勢誤差は$4.01^{\\circ}$と高精度に追従できていました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "実験で用いた実世界の3つのシーンと5つのタスク、およびシミュレーション環境の外観です。剛体の移動だけでなく、引き出しやノートPC、ノンフライヤーの開閉といったリンク機構を持つ物体の操作もカバーしています。",
+     "caption": "Fig. 3 : Tasks and scenes used in our experiments. We evaluate MoMaSplat on five real-world manipulation tasks across three scenes (top: scenes; bottom: per-task close-ups), covering manipulation of both rigid and articulated objects. The simulated scene and its task, Sim Pick-Place Bottle (right of the dashed lines), are used to measure the fidelity of MoMaSplat ’s generated demonstrations against ground truth.",
+     "image": "details/2611.08372/F3.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "各タスクにおける台車位置の空間分布と評価結果です。丸が元の教示位置、四角がテスト時の未知の台車位置を示し、色はMoMaSplatポリシーの成功率を表しています。元の位置から大きく後退したり斜めにズレたりした配置でも、高い成功率（緑色）を維持していることが確認できます。",
+     "caption": "Fig. 5 : Spatial distribution of policy evaluation poses. Top-down view of each task showing the table and target-object locations, the original demonstration base poses, and the test base poses used for policy evaluation. Original demonstration poses are marked with circles, while evaluation poses are marked with squares; arrows indicate the robot heading at each pose. Evaluation poses are colored by MoMaSplat policy success rate, providing spatial context for the distance-based results in Fig. 4 .",
+     "image": "details/2611.08372/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion and Limitations",
+   "heading_ja": "まとめと今後の課題：接触力学の未考慮や遮蔽領域のモデル化",
+   "summary_ja": "MoMaSplatは、動的な物体操作を含む完全な軌道を新規視点から合成することで、移動ロボットの視覚模倣学習における停止位置ズレの問題を大幅に緩和しました。一方で、接触力のシミュレーションを行っていない点や、物体の初期配置に隠れていた背景の遮蔽領域（オクルージョン）の補完が困難であるといった今後の課題も率直に挙げられています。",
+   "details_ja": "### まとめ\n本研究は、移動マニピュレーション特有のデータ収集プロセスを活かし、静止背景と動的物体を分解して3DGSで表現することで、接触インタラクションを含む高品質な新規視点デモ拡張を実現しました。実世界の多様なタスクで、デプロイ時のベース停止位置の不確実性に対して並外れた頑健性を示すことができました。\n\n### 限界と今後の課題\n- **遮蔽領域（オクルージョン）の欠損**: 背景モデル $\\mathcal{G}_{\\text{scene}}$ は物体操作前のナビゲーション映像から構築されるため、初期状態でボトルの下にあった机の表面や、閉じた引き出し・ノンフライヤーの内部空間などは事前には観測できません。そのため、物体を持ち上げたり引き出しを開けたりして初めて現れる領域が再構成されず、レンダリング時に不自然な穴が残る制約があります。\n- **接触力学と物理の非考慮**: 本手法は幾何学的な軌道変形と再生を行っているだけであり、接触力や物体の動力学をシミュレートしているわけではありません。そのため、摩擦や反力によって挙動が大きく変わるようなタスクへの適用には限界があります。\n- **対象物の前提条件**: 主に剛体や1自由度のリンク機構物体を前提としており、布やロープのような変形体、強い遮蔽、テクスチャが全くない物体の扱いには課題が残ります。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「移動時の映像（背景用）」と「作業時の映像（動的物体用）」というMoMaデータ収集の自然な副産物を分離・統合して3D再構成に活用する設計思想が非常に秀逸。",
+  "視覚模倣学習（Visuomotor Policy）において、単に行動や状態にノイズを加えるだけではベース位置のズレに全く対応できず、幾何学的に正しい視点合成と行動リターゲットのペアが不可欠である。",
+  "動的な操作を含む全フェーズをデータ拡張することで、デモ収集位置から30〜40 cm離れた未学習のベース位置でも動作を継続できるため、ナビゲーション側の停止精度要件を大きく緩和できる。"
+ ],
+ "limitations_ja": [
+  "接触前のナビゲーション映像のみから背景を構築するため、物体を持ち上げた下の机面や開けた引き出しの内部など、初期状態で隠れていた領域が再構成できない。",
+  "物理的な接触力学（Dynamicsや接触力）をシミュレートしておらず、幾何学的な軌道追従に留まるため、物理的抵抗が大きい作業での破綻リスクがある。",
+  "変形体や極端にテクスチャの乏しい物体、カメラから激しくオクルージョンされる環境では高精度な3DGS化が難しい。"
+ ],
+ "keywords": [
+  "Mobile Manipulation",
+  "Novel-View Synthesis",
+  "3D Gaussian Splatting",
+  "Imitation Learning",
+  "Data Augmentation"
+ ],
+ "id": "2611.08372",
+ "title": "MOMASPLAT: Dynamic Novel-View Demonstration Augmentation for Mobile Manipulation",
+ "authors": [
+  "Sateesh Kumar",
+  "Arnav Balaji",
+  "Arpit Bahety",
+  "Skand Peri",
+  "Georgios Pavlakos",
+  "Roberto Martín-Martín"
+ ],
+ "date": "2026-11-07",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "imitation-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.08372",
+ "pdf_url": "https://arxiv.org/pdf/2611.08372",
+ "summary_ja": "ベース位置のばらつきに脆弱なモバイルマニピュレーション向けに、接触後の動的シーンにも対応した新規視点デモ拡張手法MOMASPLATを提案。動的3Dガウススプラッティングを活用して把持・操作中の物体とロボットを未観測の視点から再レンダリングし、模倣学習方策の視点変化に対する頑健性を大幅に向上させた。",
+ "generated": "2026-11-07",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.08372"
+}
