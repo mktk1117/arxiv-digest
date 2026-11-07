@@ -1,0 +1,152 @@
+{
+ "title_ja": "Social Humanoid: 人間とヒューマノイドの協調的インタラクション",
+ "tldr_ja": "人間の動きに合わせてハイタッチやハグなどの全身動作をリアルタイムに生成・実行するヒューマノイドシステム「Social Humanoid」を開発し、260時間の相互作用データセット構築と実機（Unitree G1）での低遅延な協調動作を実証しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "Social Humanoidによる全身協調インタラクションの様子。RGB-Dカメラで観察した人間の動きをもとに未来の動作とロボット自身の応答を予測・生成し、実機でハグや挨拶、一緒にポーズをとる動作を破綻なく実行しています。",
+  "caption": "Figure 1: Social Humanoid enables humanoids to perceive, anticipate, and respond to people with coordinated whole-body behavior. Examples include a hug (top) and a greeting followed by posing together for a photo (bottom). Given RGB-D video, our method reconstructs the observed human motion, then conditions on it to predict future human motion and a humanoid response. The generated motions are executed by a low-level tracking controller. Video results are available on our webpage: https://von31.github.io/social-humanoid/",
+  "image": "details/2611.08407/F1.jpg"
+ },
+ "overview_ja": "従来のヒューマノイドロボットは、単独でタスクをこなす「孤独なエージェント」として学習されることがほとんどでした。しかし、人間同士のように阿吽の呼吸でハイタッチをしたり、ハグを交わしたりするには、相手の姿勢やタイミングをリアルタイムに予測し、自らの全身を滑らかに合わせる「社会的応答性」が欠かせません。\n\n本研究では、この課題に挑む階層型システム「Social Humanoid」を提案しています。最大の壁は、人間とロボットの相互作用データが存在しないこと（データギャップ）、体格や関節構造が異なること（表現ギャップ）、そしてノイズの多いリアルタイムセンシングから安定して全身軌道を生成すること（生成ギャップ）の3点でした。著者らは、人間同士の莫大なモーションキャプチャデータから接触やリーチを保ったままロボット用に変換する「Adaptive-HHI Retargeting」を考案し、260時間におよぶベンチマークデータを構築しました。\n\nさらに、人間とロボットの運動空間を単一の語彙にまとめる「共有コードブックVQ-VAE」と、柔軟な時系列拡散モデル「Diffusion Forcing Transformer (DFoT)」を組み合わせることで、相手の動きに応じた全身軌道をフィードフォワードに高速生成できるようにしました。29自由度のUnitree G1実機を用いた実験では、カメラ入力からロボットへの指令まで中央値308ミリ秒という低遅延で、人間との高度な全身協調動作を安定して実行できることを実証しています。",
+ "contributions_ja": [
+  "人間同士のモーションデータを、接触関係やリーチを崩さずにヒューマノイド用に変換する2段階リターゲティング手法を開発し、260時間におよぶ最大規模の相互作用ベンチマーク「HHI Benchmark」を構築した点",
+  "骨格や関節構成が異なる人間とロボットの動作を、共通の離散潜在空間に統合する「Shared-Codebook VQ-VAE」を提案し、クロスエンボディメントな動作理解とリアルタイムな追従（シャドウテレオペレーション）を可能にした点",
+  "相手の未来予測や隠れ（オクルージョン）に対応しながらロボットの全身応答動作を自己回帰的に生成する拡散モデル（DFoT）と全身トラッキング制御を統合し、実機Unitree G1で遅延308msのエンドツーエンド自律応答を実現した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "孤独なロボットから、人と阿吽の呼吸で動くパートナーへ",
+   "summary_ja": "人間が言葉を使わずにタイミングや姿勢を合わせられる「社会的知能」をヒューマノイドに獲得させるため、人間の全身動作を観測してリアルタイムに応答動作を生成・実行する「Social Humanoid」を提案しています。データ・表現・生成の3つのギャップを解決し、29自由度のUnitree G1実機でカメラ入力から308msの低遅延な協調動作を達成しました。",
+   "details_ja": "人間同士のコミュニケーションは、視線や姿勢、タイミングを無意識に読み合って調整する「同調の技術」に基づいています。ところが既存のヒューマノイド研究は、ロボット単体での歩行や作業に終始しており、人の動きにリアルタイムで身体を合わせる能力が不足していました。\n\n実世界で人と協調するヒューマノイドを実現するためには、次の3つのギャップを乗り越える必要があります。\n- **データギャップ**: 人間同士の動作データは豊富ですが、人間とロボットの相互作用データは皆無です。単に人間をロボットに置き換えるだけでは、手の接触位置や腕のリーチがズレてしまい、インタラクションが成立しなくなります。\n- **表現ギャップ**: 人間（SMPLモデル）とロボット（29自由度関節）では身体構造や次元数が全く異なるため、生成モデルが相互作用そのものではなく身体の差異の学習に引きずられてしまいます。\n- **生成ギャップ**: 人間の動きからロボット動作を生成する際、従来の最適化ベースのリターゲティング（関節軌道計算）は計算が重く、ノイズの多いリアルタイム観測では破綻しやすい問題がありました。\n\n本研究は、接触を保ちながら相手の姿勢も微調整する「Adaptive-HHI Retargeting」によって260時間の相互作用データセットを構築しました。さらに、共通の離散コードブックを持つVQ-VAEによって身体の差異を吸収し、Diffusion Forcing Transformer（DFoT）で高速に応答軌道を生成します。これをNVIDIA SONICによる強化学習ベースの全身トラッキング制御と組み合わせることで、知覚から指令実行まで中央値308msという実用的なレイテンシで人間との協調動作を実現しました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "Social Humanoidのシステム全体図。RGB-Dカメラで捉えた人間の姿勢とロボット自身の状態を個別のエンコーダで共通トークンに変換し、DFoTが双方の未来軌道を予測・生成します。生成されたロボット動作は下位の全身制御ポリシ（SONIC）によって実機で追従実行されます。",
+     "caption": "Figure 2: Social Humanoid Architecture. From RGB-D observations of a human partner (red), we reconstruct the human pose and localize the body in 3D using depth and estimated gravity. Relative human and humanoid states are encoded through the VQ-VAE encoders $\\mathrm{E}_{\\mathrm{h}}$ and $\\mathrm{E}_{\\mathrm{r}}$ . The resulting latent motion tokens $z_{*}$ , relative pose transforms $T^{*}$ , and canonical motion transforms $\\Delta T^{*}$ are concatenated and processed by the DFoT policy, then decoded via $\\mathrm{D}_{h}$ and $\\mathrm{D}_{r}$ to future human behavior (blue) and socially coordinated humanoid motion (purple). …",
+     "image": "details/2611.08407/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "動作生成、ヒューマノイド制御、二者間インタラクションの融合",
+   "summary_ja": "人間の動作生成、ヒューマノイドの強化学習制御、二者間のインタラクション予測という従来は別々に発展してきた3分野の知見を整理しています。本研究は、これらを身体差の解消とリアルタイム実機制御の観点から初めて統合した位置づけにあります。",
+   "details_ja": "本研究の関連領域は大きく4つに大別されます。\n\n### 人間動作生成の進展\nAMASSなどの大規模モーションデータセットの登場により、Transformerや拡散モデル（Diffusion）を用いて長時間の自然で多様な人間動作を生成する研究が飛躍的に進みました。しかし、これらは純粋なCGモデルを対象としており、物理的な制約やロボットへの適用は考慮されていません。\n\n### ヒューマノイドの動作生成と全身制御\n強化学習や模倣学習、最適化ベースのリターゲティング（OmniRetargetなど）により、単一ロボットの歩行や運動能力は格段に向上しました。しかし、既存手法はあくまでロボット単独のタスクに特化しており、相手の身体に合わせた接触やリーチを維持する二者間動作には対応できていませんでした。\n\n### 二者間インタラクションと動作予測\n人間同士のハイタッチやダンス、格闘動作などを合成する研究は活発ですが、相手がロボットである場合の身体の不一致（ロボットの方が腕が短い、身長が低いなど）や、ストリーミング入力へのリアルタイム追従は扱われていませんでした。\n\n### 人間-ヒューマノイド相互作用（HHI）と実機制御\n抱擁や立ち上がり補助などの接触型動作や、安全な近接制御の研究は存在していましたが、その多くは補助的な安全機構に留まり、生成モデルそのものが社会的予測と全身運動を担う構成にはなっていませんでした。Social Humanoidは、予測的な動作理解、クロスエンボディメント生成、実機物理制御を単一のパイプラインとして結実させた点が画期的です。",
+   "figures": []
+  },
+  {
+   "heading": "3 Human-Humanoid Interaction Generative Modeling",
+   "heading_ja": "異なる身体を1つの語彙にまとめる共有VQ-VAEと拡散モデル",
+   "summary_ja": "人間とロボットの異なる運動空間を「共有コードブックVQ-VAE」によって単一の離散トークン空間に射影し、その上でDiffusion Forcing Transformer（DFoT）を動かす生成アーキテクチャを設計しました。これにより、フィードフォワードで高速かつ柔軟な未来予測と応答動作の生成が可能になります。",
+   "details_ja": "### 動作表現の定義\nワールド絶対座標ではなく、エージェントごとの局所座標系（カノニカルフレーム）を採用しています。人間の姿勢はSMPLの6D回転表現$\\mathbf{\\Theta}^h \\in \\mathbb{R}^{21 \\times 6}$、G1ヒューマノイドは29関節の角度$\\mathbf{\\Theta}^r \\in \\mathbb{R}^{29}$で表し、ルート変位$\\Delta\\mathbf{T}^{\\mathrm{can}}$や相手との相対位置関係$\\mathbf{T}^{r \\to h}$を組み合わせて状態を定義します。\n\n### 3.1 Shared-Codebook VQ-VAE\n人間とロボットの身体差を埋めるため、共通のコードブック$\\mathcal{C}$（離散的な動作トークンの辞書）を持つVQ-VAEを導入しました。\n- **専用エンコーダ・デコーダ**: 人間用（$E_h, D_h$）とロボット用（$E_r, D_r$）の1D畳み込みネットワークを個別に用意し、時間方向に4倍ダウンサンプリングします。\n- **アライメント損失による整列**: 共通辞書を共有するだけでは同じ動作に同じトークンが割り当てられないため、潜在空間の距離を縮める連続アライメント損失$\\mathcal{L}_{\\mathrm{align}}$と、割り当て確率の交差エントロピーをとる離散アライメント損失$\\mathcal{L}_{\\mathrm{agree}}$を導入しました。これにより、人間の動作トークンをそのままロボットのデコーダに通すだけで、最適化計算なしにロボット動作へ変換（$E_h \\to \\mathcal{C} \\to D_r$）できるようになります。\n\n### 3.2 Sequence Modeling（DFoT）\nトークン化された時系列列をもとに、Diffusion Forcing Transformer（DFoT）を用いて相手の未来とロボット自身の応答動作を予測します。各フレームやエージェントごとに独立したノイズスケジュールを適用できるため、ノイズ混じりの入力や部分的な隠れ（オクルージョン）に対しても極めて頑健です。DDIMサンプリングを用いて、履歴トークンから未来の応答トークンを自己回帰的に高速生成します。\n\n### 3.3 エンドツーエンドの実機配備\n外部のZED 2iステレオカメラからFast SAM 3D Bodyを用いて人のSMPL姿勢を推定し、AprilTagとオドメトリでロボットの位置を合わせます。上位ポリシ（DFoT）が生成した軌道を、下位ポリシであるNVIDIA SONIC（50Hzで動作する強化学習トラッカー）に送ることで、カメラフレームから実機動作まで中央値308msの高速応答を実現しています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "Shared-Codebook VQ-VAEの構造。人間とロボットの異なる関節表現を個別のエンコーダで抽出し、共通のコードブック（離散トークン辞書）に量子化します。アライメント損失により、意味的に対応する姿勢が同じコードに結びつけられます。",
+     "caption": "Figure 3: Shared-Codebook VQ-VAE . Human and humanoid motion sequences are independently encoded into latent features and mapped to a shared vector-quantized codebook that learns a common motion vocabulary across embodiments. Embodiment-specific decoders reconstruct the respective motions, enabling aligned, transferable motion representations between humans and humanoids.",
+     "image": "details/2611.08407/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Humanoid-Human Interaction Data Generation",
+   "heading_ja": "体格差があっても接触を壊さない「2段階アダプティブ・リターゲティング」",
+   "summary_ja": "人間同士のデータから「人間とロボット」のデータを生成する際、単純な縮尺変換では手の接触やリーチが破綻します。ロボットへの変換（Pass I）と相手の人間の姿勢微調整（Pass II）を組み合わせた2段階手法を提案し、260時間のHHI Benchmarkを作成しました。",
+   "details_ja": "人間同士の膨大なモーションデータ（Chi3D、Hi4D、Harmony4Dなど）をヒューマノイドに転移させようとすると、大きな形態的ギャップ（Morphology Gap）に直面します。例えばUnitree G1は成人男性よりもかなり小柄なため、単純に人間をG1へリターゲティングすると、ハイタッチで手が届かなくなったり、ハグで相手の腕がロボットの頭上を通過してしまったりします。かといって二者全体を一様に縮小すると、相手の人間まで非現実的な小人になってしまいます。\n\nそこで著者らは、二段階の「Adaptive-HHI Retargeting」を考案しました。\n\n### Pass I: エージェントからロボットへのリターゲティング\n片方の人間（エゴ）をG1の29自由度モデルに変換します。相手との接触メッシュ形状を維持する逐次二次計画法（SQP）を用い、接触が発生しやすい手首や肘の相対距離、足の接地制約、関節可動域制約を考慮しながら最適化します。\n\n### Pass II: 相手の人間の姿勢適応（Partner Co-Morphing）\nPass Iだけでは、G1の背が低いために相手側の手が宙に浮いてしまいます。そこで、相手の人間のスケール（骨長）は変えずに、姿勢だけをロボットに合わせて変形させます。接触フレームでは手首や肘の位置をロボットの接触部位に合わせる逆運動学（IK）を解き、密接な接触があるシーンでは胸や首、腰、膝を含む全身の姿勢二次計画問題（QP）を解いて、自然な前屈みやしゃがみ姿勢へと誘導します。\n\nこの処理を役割を入れ替えて全クリップに適用することで、接触の正確さと人間の自然なプロポーションを両立した、260時間におよぶ高品質な人間-ロボット相互作用データセット「HHI Benchmark」を構築しました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "Adaptive-HHI Retargetingのパイプライン。元の人間同士（左）から、片方をロボットに変換（Pass I: 中央）し、ずれてしまった手の接触位置を、相手側の姿勢のみを自然に変形（Pass II: 右）させることで完璧に復元しています。",
+     "caption": "Figure 4: Adaptive-HHI Retargeting. Our retargeting pipeline starts from two ground truth humans. In the first pass, we retarget the ego human (orange) to the humanoid using a contact-adaptive weight matrix to encourage body pose in regions close to the physical interaction to be preserved. In a second pass, we co-morph the partner’s pose towards more plausible interaction via a contact-gated morphing strategy driven by the amount of physical contact present in the interaction.",
+     "image": "details/2611.08407/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Experiments",
+   "heading_ja": "驚異的な接触精度と実機での高いインタラクション成功率",
+   "summary_ja": "リターゲティング精度、動作生成の品質、実機実行性の3点から評価を行いました。提案手法は既存のリターゲティング手法に比べ手首の誤差を大幅に削減し、上位ポリシは滑らかな応答動作を生成可能で、実機Unitree G1でもシミュレーションと同等の高い成功率（90〜100%）を達成しました。",
+   "details_ja": "### リターゲティング性能の比較\nOmniRetargetやPHCと比較した結果、提案手法（Adaptive-HHI）はすべてのデータセットで最も低い姿勢歪み、最も高い接触保持率、最も少ない足の滑り（Foot Skating）を達成しました。特に手首の位置誤差（$E_{\\text{wrist}}$）において顕著であり、CHI3DデータセットではOmniRetargetの1.38cmから0.50cmへと劇的に改善しました。下位RLポリシによる追従成功率も、難度の高いHarmony4DにおいてPHCが62%、OmniRetargetが81%だったのに対し、提案手法は97%を記録しました。\n\n### 上位ポリシの生成品質\nハイレベル生成モデルの評価では、二者間反応生成の先行手法Ready-to-React（R2R）や最近傍探索（NN）と比較しました。世界座標系での関節位置誤差（W-MPJPE）において、R2Rが0.545、NNが1.099であるのに対し、提案手法は0.128と圧倒的に高精度でした。また、速度誤差（MPJVE）も0.007と極めて滑らかで、人間との身体貫通深さ（IP: 0.051）や相互作用相関（MI: 0.002）でも最も優れた値を記録しました。\n\n### アブレーション実験\nトークン化を行わない構成（No VQ-VAE）や、人間とロボットで個別のコードブックを持つ構成（Sep. VQ-VAE）と比較したところ、共有コードブックを用いた提案構成がすべての指標で最良でした。離散的な共通トークン表現が、身体差の吸収と時系列生成の正則化に決定的な役割を果たしていることが分かります。\n\n### シミュレーションおよび実機G1での検証\n生成された軌道が物理的に成立しているかを検証するため、シミュレーションと実機Unitree G1（被験者4名、各シナリオ30試行）でテストしました。ハイタッチ、握手、お辞儀、写真撮影のポーズなど多様なシナリオにおいて、シミュレーション（90〜100%）と同等の成功率で実機が転倒することなくインタラクションを完遂しました（握手からお辞儀への連続遷移も一連の動作として滑らかに実行）。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "Unitree G1実機でのデプロイ実験。上段はハイタッチ、中段は手を振る挨拶、下段は握手からお辞儀へと連続して移行するインタラクション。相手の動きに合わせてスムーズに全身を連動させています。",
+     "caption": "Figure 6: Real-world deployment . Frames run left to right in time. Top two rows: separate high-five and hand-wave trials. Bottom: a single continuous take in which the humanoid transitions directly from a handshake into a bend",
+     "image": "details/2611.08407/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5.2 Shadow Teleoperation",
+   "heading_ja": "最適化計算なし！共有コードブックによるリアルタイム全身操縦",
+   "summary_ja": "共有コードブックVQ-VAEの副産物として、人間の動作をそのままロボットへフィードフォワード変換する「シャドウ・テレオペレーション」が実現しました。最適化計算を一切介さず、深層学習モデルの順伝播のみで、人間がソファに座る動きなどにロボットが即座に追従します。",
+   "details_ja": "共有コードブックVQ-VAEは、相互作用の生成だけでなく、単一エージェントの遠隔操縦（テレオペレーション）においても強力な威力を発揮します。\n\n通常、人間のカメラ映像からヒューマノイドを遠隔操作するには、関節角の幾何学的な逆運動学や最適化ベースのリターゲティングが必要であり、計算負荷や特異点での挙動の乱れが問題となります。しかし本手法では、操作者の動きを人間エンコーダ$E_h$に入力してコードブック$\\mathcal{C}$を参照し、そのままロボットデコーダ$D_r$に通すだけ（$E_h \\to \\mathcal{C} \\to D_r$）で、ロボットの全身関節指令が一瞬で得られます。\n\n### 共有コードブックの効果\nアライメント損失（$\\mathcal{L}_{\\mathrm{align}}$および$\\mathcal{L}_{\\mathrm{agree}}$）がない場合、個別に学習されたコードブックでは人間からロボットへの変換誤差（MPJPE）が12.52cmに達していました。しかし、アライメント項を導入することで2.79cmまで誤差が低下し、同一フレーム間でのコード一致率は0.00から0.78へと大幅に跳ね上がりました。\n\n定性的な結果（図F7）では、操作者が腕を大きく広げたり、立った状態からソファに深く腰掛けたりする動作に対し、ロボットが関節の単純な1対1コピーではなく、自身の機構に合わせた自然な屈伸・着座姿勢をとって滑らかに追従する様子が確認されています。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "シャドウ・テレオペレーションの様子。操作者の腕上げ動作（上段）やソファへの着座動作（下段）を、最適化計算なしに1パスのエンコード・デコード処理だけでG1が自身の可動域に合わせて追従再現しています。",
+     "caption": "Figure 7: Shadow teleoperation . The G1 shadows a human operator performing arm movements (top) and sitting down on a couch (bottom). The operator’s motion is encoded with $E_{h}$ , quantized against the shared codebook $\\mathcal{C}$ , and decoded with $D_{r}$ into humanoid motion. Frames run left to right in time.",
+     "image": "details/2611.08407/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめと今後の展望：社会的ヒューマノイドへの第一歩",
+   "summary_ja": "Social Humanoidは、適応型リターゲティング、共有コードブックVQ-VAE、時系列拡散モデルを統合し、実機ヒューマノイドで人間との社会的全身インタラクションを達成しました。今後は手指の巧緻動作や表情、接触力制御、多人数対話への拡張が期待されます。",
+   "details_ja": "本研究は、人間と物理的・社会的に調和して動くヒューマノイドの実現に向けた大きなマイルストーンを提示しました。260時間のベンチマークデータセットと学習コードはコミュニティに公開される予定です。\n\n一方で、実社会への完全な統合に向けてはいくつかの明確な限界と課題も残されています。\n- **手先や顔の表現力**: 手指の細かい屈伸（デクスタリティ）、顔の表情、視線制御、および物体操作をモデル化していないため、より繊細で道具を介したやり取りには拡張が必要です。\n- **接触力のダイナミクスと安全性**: 本システムは運動学的な軌道を生成・追従するものであり、強い外力や接触力、人間の快適性や物理的な安全性制約（挟み込み防止など）を陽に考慮した力制御ポリシーは含まれていません。\n- **主観的なHRI評価の必要性**: 実験では追従成功率や幾何学的誤差で評価されていますが、人間がロボットに対して自然さ、安心感、適切なタイミングを感じたかという本格的な人間-ロボット相互作用（HRI）の被験者実験が今後不可欠です。\n- **表情や視線の欠如による不気味さ**: ロボット側に表情やアイコンタクトがないため、相手がロボットの意図を汲み取りにくく、社会的なやり取りにおいてぎこちなさを生む要因となっています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "人間とロボットの身体差（Morphology Gap）を埋めるには、ロボット側だけでなく「相手の人間の姿勢も接触に合わせて適応変形（Co-Morphing）させる」アプローチが極めて有効である点",
+  "異なる身体を持つエージェント同士の協調動作は、共通の離散コードブック（Shared VQ-VAE）によって単一の潜在語彙に射影することで、時系列生成モデルの学習効率と表現力が劇的に向上する点",
+  "共通潜在空間を学習したVQ-VAEは、単なる動作生成にとどまらず、1パスのフィードフォワード計算でロボットを全身操縦できる軽量なテレオペレーション基盤としても機能する点"
+ ],
+ "limitations_ja": [
+  "手の指（ハンドマニピュレーション）や顔の表情、視線が考慮されておらず、手先を使った複雑な作業や感情表現を伴うやり取りができない点",
+  "運動学的な関節軌道のみをトラッキングしており、接触時の力制御や人間の身体的安全・快適性を保証するコンプライアンス制御が陽に組み込まれていない点",
+  "評価が物理的・幾何学的な追従成功率にとどまり、人間の主観的な心地よさやタイミングの適切さを測るHRI（Human-Robot Interaction）ユーザー評価が不足している点",
+  "現在は1対1の二者間インタラクションに限定されており、多人数環境や複数ロボットが混在する場への拡張は未検証である点"
+ ],
+ "keywords": [
+  "Human-Humanoid Interaction",
+  "Whole-Body Control",
+  "Diffusion Forcing Transformer",
+  "Vector-Quantized VAE",
+  "Motion Retargeting"
+ ],
+ "id": "2611.08407",
+ "title": "Social Humanoid: Socially Responsive Human-Humanoid Interaction",
+ "authors": [
+  "Vongani H. Maluleke",
+  "James Ni",
+  "Kie Horiuchi",
+  "Lea Wilken",
+  "Jiahui Lei",
+  "Evonne Ng",
+  "Roei Herzig",
+  "Jitendra Malik",
+  "Trevor Darrell",
+  "Angjoo Kanazawa"
+ ],
+ "date": "2026-11-07",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "control"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.08407",
+ "pdf_url": "https://arxiv.org/pdf/2611.08407",
+ "summary_ja": "人間と物理的かつ柔軟に協調動作を行うヒューマノイドシステム「Social Humanoid」を提案。人間の動きに条件付けられた上位方策がトークン化表現を通じて相手の動きの予測や反応動作を生成し、下位の全身追従コントローラが29自由度のUnitree G1上で安定して動作を実行する。",
+ "generated": "2026-11-07",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.08407"
+}
