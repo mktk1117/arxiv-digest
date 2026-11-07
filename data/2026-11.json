@@ -1,6 +1,285 @@
 {
  "entries": [
   {
+   "date": "2026-11-07",
+   "rank": 0,
+   "id": "2611.08407",
+   "group": "focus",
+   "title": "Social Humanoid: Socially Responsive Human-Humanoid Interaction",
+   "title_ja": "Social Humanoid: 人間とヒューマノイドの協調的インタラクション",
+   "summary_ja": "人間と物理的かつ柔軟に協調動作を行うヒューマノイドシステム「Social Humanoid」を提案。人間の動きに条件付けられた上位方策がトークン化表現を通じて相手の動きの予測や反応動作を生成し、下位の全身追従コントローラが29自由度のUnitree G1上で安定して動作を実行する。",
+   "summary_en": "We propose Social Humanoid, a hierarchical system for responsive physical human-humanoid interaction. A high-level policy leverages a shared tokenized representation to anticipate human motion and generate reactive behaviors, while a low-level whole-body controller tracks and executes the motions on a 29-DoF Unitree G1 humanoid.",
+   "authors": [
+    "Vongani H. Maluleke",
+    "James Ni",
+    "Kie Horiuchi",
+    "Lea Wilken",
+    "Jiahui Lei",
+    "Evonne Ng",
+    "Roei Herzig",
+    "Jitendra Malik",
+    "Trevor Darrell",
+    "Angjoo Kanazawa"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08407",
+   "image": "figures/2026-11-07/2611.08407.jpg"
+  },
+  {
+   "date": "2026-11-07",
+   "rank": 1,
+   "id": "2611.08458",
+   "group": "focus",
+   "title": "Latent RL Priors for Data-Efficient Dexterous Manipulation",
+   "title_ja": "データ効率的な器用なマニピュレーションのための潜在強化学習事前分布",
+   "summary_ja": "シミュレーション内の特権情報付き強化学習で得た制御知識を活用する二段階フレームワーク「Latent RL Prior」を提案。大規模RLロールアウトを固有受容感覚と潜在タスク文脈に条件付けたフローマッチング行動デコーダへ蒸留し、実環境適応時はデコーダを固定して画像から潜在空間への視覚インターフェースのみを学習する。",
+   "summary_en": "This paper presents Latent RL Prior, a two-stage framework for data-efficient dexterous manipulation. It distills large-scale privileged RL rollouts into a flow-matching action decoder conditioned on proprioception and latent context, and then freezes the decoder while training a visual interface that maps images to this latent space.",
+   "authors": [
+    "Yixiao Wang",
+    "Peiyi Chen",
+    "Mustafa Mukadam",
+    "Shreekant Gayaka",
+    "Masayoshi Tomizuka",
+    "Son Tran"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "manipulation",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08458",
+   "image": "figures/2026-11-07/2611.08458.jpg"
+  },
+  {
+   "date": "2026-11-07",
+   "rank": 2,
+   "id": "2611.08144",
+   "group": "focus",
+   "title": "Detecting Silent Faults at the Environment-Trainer Boundary in Reinforcement Learning",
+   "title_ja": "強化学習における環境・トレーナー間境界のサイレント障害の検出",
+   "summary_ja": "分散環境や別プロセスで実行されるロボット強化学習において、通信境界で発生するエラーを出さないサイレント障害の検知可能性を検証。Pendulumや7自由度アーム等で通信データに最大23種の障害を注入した結果、学習曲線や正常シードとの比較では大半が見過ごされることを示し、境界の健全性検証の重要性を提起した。",
+   "summary_en": "This work investigates silent faults at the wire-protocol boundary between environments and trainers in robot reinforcement learning. Injected faults across tasks like HalfCheetah and a 7-DOF arm reveal that standard learning-curve monitoring and baseline comparisons catch only a small fraction of silent data corruption, highlighting the need for robust boundary verification.",
+   "authors": [
+    "Zuo Gou",
+    "Chenhao Lu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG",
+    "cs.SE"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08144",
+   "image": "figures/2026-11-07/2611.08144.jpg"
+  },
+  {
+   "date": "2026-11-07",
+   "rank": 3,
+   "id": "2611.08368",
+   "group": "focus",
+   "title": "VisionSIM: Beyond Idealized Sensors - A Multi-Modal Simulator for Robot Perception",
+   "title_ja": "VisionSIM: 理想化センサを超えたロボット知覚用マルチモーダルシミュレータ",
+   "summary_ja": "カメラ、LiDAR、イベントカメラ、SPAD、ToF、熱画像などの生物理計測プロセスを忠実にモデル化するシミュレータVisionSIMを開発。LiDARのパイルアップやグレア、ToFの位相折り返しなど、従来の汎用シミュレータが見落としていた実機特有の故障モードを再現可能にし、現実的なロボット知覚の評価基盤を提供する。",
+   "summary_en": "We present VisionSIM, a physically grounded multi-modal simulation platform modeling raw sensor measurement processes across cameras, LiDAR, SPAD, ToF, and thermal sensors. By exposing fine-grained control over physical sensor parameters, it reproduces realistic hardware failure modes such as LiDAR pileup and ToF phase wrapping to close the perception reality gap.",
+   "authors": [
+    "Sacha Jungerman",
+    "Kaustubh Sadekar",
+    "Avery Gump",
+    "Sriram Narayanan",
+    "Shantanu Gupta",
+    "Bhuyashi Deka",
+    "Srinivasa Narasimhan",
+    "Atul Ingle",
+    "Mohit Gupta"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "simulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08368",
+   "image": "figures/2026-11-07/2611.08368.jpg"
+  },
+  {
+   "date": "2026-11-07",
+   "rank": 4,
+   "id": "2611.08372",
+   "group": "general",
+   "title": "MOMASPLAT: Dynamic Novel-View Demonstration Augmentation for Mobile Manipulation",
+   "title_ja": "MOMASPLAT: モバイルマニピュレーションのための動的新規視点デモ拡張",
+   "summary_ja": "ベース位置のばらつきに脆弱なモバイルマニピュレーション向けに、接触後の動的シーンにも対応した新規視点デモ拡張手法MOMASPLATを提案。動的3Dガウススプラッティングを活用して把持・操作中の物体とロボットを未観測の視点から再レンダリングし、模倣学習方策の視点変化に対する頑健性を大幅に向上させた。",
+   "summary_en": "The authors propose MOMASPLAT, a novel-view demonstration augmentation framework for mobile manipulation using dynamic 3D Gaussian Splatting. Unlike prior static NVS methods, it accurately re-renders dynamic post-contact interactions from unseen base viewpoints, substantially improving the robustness of imitation learning policies against viewpoint variations.",
+   "authors": [
+    "Sateesh Kumar",
+    "Arnav Balaji",
+    "Arpit Bahety",
+    "Skand Peri",
+    "Georgios Pavlakos",
+    "Roberto Martín-Martín"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "manipulation",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08372",
+   "image": "figures/2026-11-07/2611.08372.jpg"
+  },
+  {
+   "date": "2026-11-07",
+   "rank": 5,
+   "id": "2611.08156",
+   "group": "general",
+   "title": "La-JEPA: Compact Robot Policies with Latent World Modeling",
+   "title_ja": "La-JEPA: 潜在ワールドモデリングによるコンパクトなロボット方策",
+   "summary_ja": "事前学習済みV-JEPA 2.1の特徴空間上で方策トランスフォーマーを一から学習する軽量ワールドアクションモデルLa-JEPAを提案。訓練時にはFast-WAMに倣い行動と将来の特徴を共同予測し、推論時には行動のみを高速に出力することで、大規模VLAに依存せずコンパクトなモデルで効率的な制御を実現する。",
+   "summary_en": "La-JEPA introduces a compact world-action model whose policy transformer is trained from scratch in the latent feature space of a pretrained V-JEPA 2.1 encoder. By jointly predicting future representations and actions during training while generating only actions during inference, it delivers efficient robot control without relying on heavy generative backbones.",
+   "authors": [
+    "Mateo Clémente",
+    "George Z. Xue",
+    "Amin Abyaneh",
+    "Liheng Ma",
+    "Rui Heng Yang",
+    "Tongtong Cao",
+    "Zhanguang Zhang",
+    "Yingxue Zhang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "world-model",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08156",
+   "image": "figures/2026-11-07/2611.08156.jpg"
+  },
+  {
+   "date": "2026-11-07",
+   "rank": 6,
+   "id": "2611.08449",
+   "group": "general",
+   "title": "VFlash: Fast, Accurate Visual Planning via Flash Primitive Decoding",
+   "title_ja": "VFlash: フラッシュプリミティブ復号による高速高精度な視覚的計画",
+   "summary_ja": "自己回帰型VLMが座標トークンを1つずつ生成する計算コストを削減するため、幾何プリミティブ構造を活用した高速復号法VFlashを提案。軽量ドラフターを用いて1回のフォワードパスで点やバウンディングボックスなどの視覚計画プリミティブ全体を一括生成し、高精度を維持したまま大幅な推論高速化を達成した。",
+   "summary_en": "VFlash introduces Flash Primitive Decoding to accelerate visual planning for robotics and physical AI. By exploiting the geometric structure of visual primitives, a lightweight drafter predicts entire coordinate sets such as bounding boxes and trajectories in a single forward pass, substantially speeding up inference compared to token-by-token autoregressive generation.",
+   "authors": [
+    "Yu-Cheng Chou",
+    "Shihao Wang",
+    "Jin Huang",
+    "Chi-Pin Huang",
+    "Chiao-An Yang",
+    "Xianzhe Fan",
+    "Jing Wang",
+    "Zhiqi Li",
+    "Yuanguo Kuang",
+    "Ruijie Zheng",
+    "Johan Bjorck",
+    "Sifei Liu",
+    "Hang Su",
+    "Abhishek Badki",
+    "Lei Zhang",
+    "Alan Yuille",
+    "Linxi \"Jim'' Fan",
+    "Jan Kautz",
+    "Zhiding Yu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "planning",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08449",
+   "image": "figures/2026-11-07/2611.08449.jpg"
+  },
+  {
+   "date": "2026-11-07",
+   "rank": 7,
+   "id": "2611.08259",
+   "group": "general",
+   "title": "Fault-Geometry-Aware Control Allocation for Emergency Quadrotor Landing under Single-Motor Loss of Effectiveness",
+   "title_ja": "単一モータ効率低下下での緊急クアッドローター着陸に向けた故障幾何適応制御配分",
+   "summary_ja": "クアッドローターの単一モータ部分故障時において、残存制御権幾何に基づき最適な制御配分器を選択する手法を検証。有界重み付き最小二乗（PINV）と有限候補残差アロケータ（QP-lite）、CEM最適化アロケータをCrazyflieのSITLシミュレーションで比較し、故障モータ位置や故障率に応じた最適な制御器の切り替え効果を実証した。",
+   "summary_en": "This paper evaluates fault-geometry-aware control allocation for emergency quadrotor landing under single-motor loss of effectiveness. Using Crazyflie software-in-the-loop simulation, the study compares bounded least-squares and residual allocators tuned with the Cross-Entropy Method, showing that optimal allocator selection depends heavily on the specific failing motor geometry.",
+   "authors": [
+    "Suhas S P",
+    "Samridhi Salwan",
+    "Arshan Ali Khan",
+    "Ujwal Pai Jakarbet",
+    "Savithramma R M",
+    "Ashwini B P"
+   ],
+   "categories": [
+    "cs.RO",
+    "eess.SY"
+   ],
+   "tags": [
+    "drone",
+    "control",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08259",
+   "image": null
+  },
+  {
+   "date": "2026-11-07",
+   "rank": 8,
+   "id": "2611.08425",
+   "group": "general",
+   "title": "Failure Prediction and Classification in Vision-Language-Action Models Via Calibrated Latent Probing",
+   "title_ja": "較正済み潜在プロービングによるVLAモデルの故障予測と分類",
+   "summary_ja": "実機展開時の分布シフトによる事故を防ぐため、VLAバックボーンの潜在層をプローブする軽量監視機構VLA-Tugを提案。軌道の故障直前セグメントを用いて早期の異常検知を行い、見逃し率と誤報率を抑制しながら、最小限の推論オーバーヘッドでエッジ実行可能な高精度のオンライン故障予測を実現した。",
+   "summary_en": "VLA-Tug is a lightweight runtime monitoring probe built on the latent layers of Vision-Language-Action models for early failure detection and classification. By supervising on pre-failure trajectory segments, it bounds missed detections and false alarms with negligible inference overhead, enabling safe edge deployment under distribution shifts.",
+   "authors": [
+    "Michal P. Podolinsky",
+    "Yunhao Yang",
+    "Daniel Little",
+    "Hong Lu",
+    "Rohan Siva",
+    "Olin Goudey",
+    "Neel P. Bhatt",
+    "Matthias Scheutz",
+    "Ufuk Topcu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "vision-language-action",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08425",
+   "image": "figures/2026-11-07/2611.08425.jpg"
+  },
+  {
    "date": "2026-11-06",
    "rank": 0,
    "id": "2611.08056",
