@@ -1,0 +1,167 @@
+{
+ "title_ja": "VisionSIM: 理想化センサを超えたロボット知覚用マルチモーダルシミュレータ",
+ "tldr_ja": "実世界のセンサーで起きるパイルアップや位相ラッピング、熱履歴などの固有の測定破綻（失敗モード）を物理モデルに基づいて再現し、単一シーン上で多様な異種センサー群を公平に比較・評価できるロボティクス向けシミュレーション基盤「VisionSIM」を提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "VisionSIMの全体像。1回の高精度なシーン描画から多様なグラウンドトゥルースを生成し、それを共通の入力としてSPAD、iToF、イベントカメラ、熱画像カメラなどの生信号測定プロセスと固有の物理的破綻モードを正確にエミュレーションします。",
+  "caption": "Figure 1: Multi-modal, high-fidelity and controllable sensor emulation. Robotic simulation pipelines often focus on scene content, overlooking physically accurate sensor modeling. VisionSIM aims to bridge this gap by emulating diverse sensor types and their failure modes. (Top) A single scene is rendered once with dense ground truth — color, depth, optical flow, surface normals, segmentation, point map, direct and indirect illumination, and a temperature map. (Middle) The same scene is then replayed through a breadth of sensor models. …",
+  "image": "details/2611.08368/F1.jpg"
+ },
+ "overview_ja": "近年のロボット知覚では、通常のRGBカメラだけでなく、イベントカメラ、単一光子アバランシェダイオード（SPAD）を用いたLiDAR、間接ToF（iToF）、熱画像カメラといった多様なセンサーを組み合わせることが主流になりつつあります。しかし、従来のロボティクスシミュレータは、LiDARを単なるノイズのない深度取得機として扱い、熱画像を固定テクスチャとして貼り付けるなど、センサーを極度に理想化してシミュレーションしてきました。その結果、実環境で直面する致命的な測定の破綻（LiDARのパイルアップ歪みやグレア、iToFの位相の折り返しや動体ボケ、熱画像の熱伝導遅延など）がシミュレータ上では一切現れず、実機配備時にアルゴリズムが破綻するという深刻なSim-to-Realギャップが生じていました。\n\nそこで著者らは、CGレンダリングとセンサー物理エミュレーションを完全に切り離した統合シミュレーション基盤「VisionSIM」を開発しました。高精度の描画エンジンから得られる理想的な光線放射や熱源データを、各センサーの物理測定プロセス（光子到達レートのポアソン過程、デッドタイム、復調相関、熱伝導方程式の解など）を通すことで、各センサーの非理想性や破綻モードを自然に生起させます。さらに、微分可能な物理モデルを活かして実機のパラメータをフィッティングし、実機センサーの「デジタルツイン」を構築することにも成功しました。\n\n実機との比較検証では、SPAD LiDARのパイルアップやグレア、熱カメラの過渡的温度変化、iToFの位相誤差などを高い精度で一致させられることを実証しました。また、100種類の多様な屋内環境からなる大規模マルチモーダルデータセットも公開し、ロボット知覚システムの設計やセンサー選定を定量的・物理的に行うための強力な基盤を確立しています。",
+ "contributions_ja": [
+  "CG描画とセンサーエミュレーションを分離し、通常カメラ、SPAD（dToF）、iToF、イベントカメラ、熱カメラ、IMUを同一シーン・軌跡上で物理的挙動に基づいて同時シミュレーションする統合基盤「VisionSIM」を構築した点。",
+  "パイルアップ歪み、位相ラッピング、不応期、熱慣性など、既存の汎用シミュレータが見落としていた各センサー固有の物理的な測定破綻（failure modes）を生データレベルで精密に再現した点。",
+  "微分可能な測定モデルにより実機センサー（SPAD LiDARなど）のパラメータを実測値から同定してデジタルツインを構築し、Sim-to-Realの深度誤差を劇的に低減できることを示した点。",
+  "100の屋内シーンと24秒の軌跡から構成され、完全同期した生センサー測定値と高密度な真値アノテーションを含む包括的なデータセットと生成ツールチェーンを公開した点。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ既存のシミュレータでは実環境ロボットの「目」を再現できないのか",
+   "summary_ja": "ロボットが実際に行動を起こす拠り所は理想化された真値ではなく、ノイズや歪みを含んだセンサー測定値そのものです。従来のシミュレータは剛体物理や見た目の写実性には優れていますが、センサーの物理的限界を無視しており、これが実世界配備における思わぬ失敗の原因になっていました。",
+   "details_ja": "シミュレータの中でロボットを走らせると、常にくっきりとノイズのない画像や完璧な距離データが得られます。しかし、実環境のカメラには露光時間に伴う激しいモーションブラーが発生しますし、単一光子LiDARは再帰反射材を前にすると手前にゴースト障害物を誤認し、遠赤外線（LWIR）熱画像カメラは触れたばかりの手の温もりや切った直後のヒーターの熱痕跡を映し出します。これらは決して珍しい極端な例外ではなく、実環境でロボットがタスクに成功するか失敗するかを左右する日常的な動作条件です。\n\nしかし、MuJoCoやIsaac Gym、CARLAといった現代の主要なシミュレータは、剛体動力学やグラフィックスの写実性を高める一方で、「エージェントが実際に世界をどう見ているか」というセンサープロセスの再現を軽視してきました。LiDARは単なる距離計測器としてノイズなしで扱われ、熱画像は静的なテクスチャとして貼り付けられるだけです。センサー個別のシミュレータ（イベントカメラ用のESIMなど）も存在しますが、複数モダリティの公平な比較はできません。\n\nこうした背景から本研究では、「シーンの物理」だけでなく「知覚の物理（フォトンから測定値に至るプロセス）」も同等にモデル化すべきだという仮説のもと、「VisionSIM」を開発しました。従来のRGBカメラから単一光子アバランシェダイオード（SPAD）、直接ToF（dToF）、間接ToF（iToF）、イベントカメラ、熱カメラ、IMUまで幅広くカバーし、物理的パラメータを微細に制御できるようにしています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "VisionSIMの全体ワークフロー。同一のBlenderシーンから真値（RGB、深度、法線、光流、温度マップ等）をレンダリングし、それを各センサーの物理モデルに入力することで、固有の非理想性を含んだリアルな生信号を生成します。",
+     "caption": "Figure 1: Multi-modal, high-fidelity and controllable sensor emulation. Robotic simulation pipelines often focus on scene content, overlooking physically accurate sensor modeling. VisionSIM aims to bridge this gap by emulating diverse sensor types and their failure modes. (Top) A single scene is rendered once with dense ground truth — color, depth, optical flow, surface normals, segmentation, point map, direct and indirect illumination, and a temperature map. (Middle) The same scene is then replayed through a breadth of sensor models. …",
+     "image": "details/2611.08368/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Works",
+   "heading_ja": "特定用途データセットや既存エンジンの隙間を埋めるアプローチ",
+   "summary_ja": "既存のデータセットやシミュレーション環境は、特定タスクへの特化、描画の単純化、あるいは単一センサーのエミュレーションに偏っていました。VisionSIMは、広範なセンサーモダリティの網羅と、物理に基づいた生信号レベルの再現性を単一のパイプラインで両立させます。",
+   "details_ja": "これまでのロボット知覚やコンピュータビジョン向けの研究は、大きく3つの系統に分かれていました。\n\n### タスク特化型データセットとパイプライン\n自動運転やオプティカルフロー、ステレオマッチング向けのデータセットが数多く存在しますが、これらは特定タスク向けに作られており、生センサーデータへのアクセスやメタデータ、広範な真値アノテーションが不足しています。また、CARLAのような合成データ生成環境も、熱カメラや単一光子センサーのような新しいモダリティを柔軟に扱うことは困難でした。\n\n### 汎用シミュレーションエンジン\nIsaac GymやGenesis、Bulletなどはロボット強化学習のための高速な物理演算を優先しており、レンダリングやセンサーの忠実度は犠牲にされがちです。一方でBlendProcやKubricは写実的なCG画像を生成できますが、センサーの非理想性をエミュレーションする機能は備えていません。\n\n### センサーエミュレーション手法\n既存映像からイベントカメラの信号を合成するv2eや、熱移動を解くDIRSIG・MuSESなど、特定センサーを模倣する研究は進んでいます。しかしこれらは専用ツールとして閉じており、ロボットの身体的知覚（Embodied Perception）のために、複数の異種センサーを同一の枠組みで比較検討できるプラットフォームは存在しませんでした。VisionSIMはこのギャップを埋める存在です。",
+   "figures": []
+  },
+  {
+   "heading": "3 Architecture Overview",
+   "heading_ja": "描画と物理エミュレーションを分離した2層アーキテクチャ",
+   "summary_ja": "VisionSIMの設計上の最大の工夫は、CG描画を行う「世界シミュレーション層」と、各センサーの信号を模倣する「センサーエミュレーション層」を完全に切り離した点です。これにより、一度レンダリングした同一シーンのデータを使って、計算コストゼロで何度でもセンサーパラメータの調整や異なるセンサーの実験が行えます。",
+   "details_ja": "VisionSIMは、計算効率と柔軟性を最大化するために、パイプラインを2つの独立したレイヤーに分割しています。\n\n### 世界シミュレーション層（World Simulation Layer）\nBlenderをベースとした画像生成エンジンです。ノイズのない高精細な参照フレームに加えて、深度、法線、光流（Optical Flow）、シーンフロー、セグメンテーション、照明成分、カメラ姿勢などの詳細な真値を出力します。さらに、GPUで高速化された熱輸送ソルバーを統合しており、表面の過渡的な温度場も同時に計算します。超高速・非同期センサー（数十万fpsで動くSPADやイベントカメラなど）をそのままレンダリングすると膨大な時間がかかるため、アニメーションのスプラインを時間的に引き伸ばすキーフレーム再マッピングや、シーン固有の自然なフレームレートで描画した後にRIFEなどのディープ補間を用いてフレーム間を補間する「Render-then-Interpolate」戦略を採用し、実行時間を劇的に短縮しています。\n\n### センサーエミュレーション層（Sensor Emulation Layer）\n生成された高時間解像度のクリーンなデータを受け取り、各モダリティの物理モデルに基づいてリアルなセンサー信号へ変換します。単にガウスノイズを足すような安易な処理ではなく、光子の到着や電子の蓄積といった物理現象そのものを定式化しているため、センサー特有のノイズや歪み、破綻モードが必然的な物理的帰結として現れます。SPADの確率的バイナリ出力などはビットパッキング形式で保存され、8倍の可逆圧縮を達成しつつ、下流の深層学習モデルからオンザフライでランダムアクセス可能です。",
+   "figures": []
+  },
+  {
+   "heading": "4 Physically-Grounded Sensor Models and Failure Modes",
+   "heading_ja": "物理に根ざしたセンサーモデル：破綻モードを正確に浮き彫りにする",
+   "summary_ja": "既存シミュレータが最も見落としがちな3つのモダリティ（単一光子LiDAR、間接ToF、熱カメラ）のフォワードモデルを物理的に構築しました。光子デッドタイムによるパイルアップ、変調信号の位相ラッピング、素材の熱拡散率と熱履歴に起因する放射変化などを忠実に再現します。",
+   "details_ja": "### 4.1 単一光子（dToF）LiDAR\nSPADアレイを用いて光子の到達時間ヒストグラムを取得するシステムです。ピクセルごとの離散応答 $T[b]$ は、視野（FOV）マスク $\\mathcal{M}$ 内のシーン各点からの寄与（アルベド $\\alpha_p$、距離の逆二乗減衰 $1/z_p^2$、量子効率 $\\eta_{\\text{opt}}$ など）を足し合わせて計算します。ここにレーザーパルスの機器応答関数（IRF） $g(t)$ を畳み込み、環境光レート $\\lambda_{\\text{ambient}}$ を加えることで光子到達レート $\\lambda(t)$ を導き、非斉次ポアソン過程として光子数をサンプリングします。重要なのは、光子検出後に素子が一時的に不感となる「デッドタイム」を考慮した点です。高照度下では遅れて届く光子が検出されなくなるため、ヒストグラムが手前側に偏り、距離を実際より近く誤認する「パイルアップ歪み（Range walk error）」が自然に再現されます。\n\n### 4.2 間接Time-of-Flight（iToF）LiDAR\n周期的に強度変調された光を照射し、反射光を複数の位相シフトさせた復調関数と相関させることで、位相差から距離 $\\Gamma$ を復元します。VisionSIMでは、変調周波数 $f$ で決まる一意測定距離 $\\Gamma_{\\text{max}}=c/2f$ を超えた物体が手前にあるかのように誤認識される「位相ラッピング（Phase wrapping）」、受光素子の電子蓄積上限による「飽和」、環境光によるコントラスト低下、そして複数タップを時間差で取得する間に物体が動くことで生じる「動体ボケ（境界面の引き裂かれやゴースト）」を数式に基づいて忠実に再現します。\n\n### 4.3 熱画像（LWIR）カメラ\n遠赤外線（8〜14 $\\mu$m）カメラは、光の反射だけでなく物体自身の温度による熱放射（プランクの法則）を捉えます。この温度は瞬時の照明ではなく、過去の接触や受熱の履歴に強く依存します。VisionSIMはレンダリングエンジンから吸収エネルギーを算出し、有限要素法に基づく熱伝導方程式をGPU上で解くことで、動的な温度場を計算します。これにより、熱拡散率の異なる材質（セラミック、スチール、アルミニウム）の冷却速度の違いや、触れた手の熱痕跡が徐々に消えていく現象までシミュレーションできます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "間接ToF（iToF）のシミュレーションと破綻モード。上段は理想的な正弦波相関測定、下段は変調周波数の不適合（位相ラッピング）、センサー飽和、環境光ノイズ、マルチタップ取得中の動体ボケ、量子化ノイズによる深度復元エラーを示しています。",
+     "caption": "Figure 2: Indirect Time-of-Flight (iToF) simulation and failure cases: ( Top ) Ground truth RGB scene, ground truth depth map, and ideal correlation measurements (taps 1, 2, and 3) for a conventional sinusoidal coding scheme. ( Bottom ) Common iToF failure cases and their effects on depth reconstruction, including: incorrect modulation frequency (causing phase wrapping), sensor saturation (clipping correlation measurements), ambient light corruption (reducing signal-to-noise ratio, especially for farther objects), motion blur (multi-tap artifacts from scene dynamics), and sensor noise and quantization artifacts (high frequency depth errors).",
+     "image": "details/2611.08368/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "過渡的な熱シミュレーション。熱いお茶を注いだ直後の4秒間におけるマグカップの表面温度変化です。材質ごとの熱拡散率の違い（セラミック: 2、スチール: 18.8、アルミ: 97 mm²/s）に応じた温まり方の差が明確に現れています。",
+     "caption": "Figure 3: Transient Thermal Simulation: Thermal video of ceramic, steel, and aluminum cups over the 4 seconds following a hot-tea fill. The distinct heating rates reflect each material’s thermal diffusivity ( $\\alpha=2,\\ 18.8,\\ 97\\ \\mathrm{mm^{2}/s}$ , respectively).",
+     "image": "details/2611.08368/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Case Studies: Design and Analysis of Robot Perception Systems",
+   "heading_ja": "知覚系の設計と分析：デジタルツインからセンサー選定まで",
+   "summary_ja": "VisionSIMの応用例として、実機LiDARの測定値からパラメータを同定する「デジタルツイン」、既存の動画像データを新センサー形式へ変換する「モダリティ移行」、そして暗所作業における「センサー構成の比較評価」という3つの実践的なケーススタディを示しました。",
+   "details_ja": "### 実機センサーのデジタルツイン構築\n市販のSPAD LiDAR（ADAPS Photonics ADS6311）を対象に、実測データとシミュレーションが一致するようにパラメータを推定しました。VisionSIMのdToFモデルは微分可能であるため、実測ヒストグラムとの相互相関損失を用いた勾配降下法により、機器応答関数（IRF）を直接学習できます。再帰反射材（一時停止標識）を配置した実験では、強烈な反射によるパイルアップと、光学系内部の迷光によるグレア（点群のゴースト化）が発生します。これらを正確にモデル化することで、デジタルツインの深度推定RMSE（二乗平均平方根誤差）は約1.53メートルも改善し、実機特有の破綻挙動を完全に再現できました。\n\n### 既存データセットの新モダリティへの移行\n世界シミュレーション層をバイパスし、外部の既存映像データをセンサーエミュレーション層へ直接流し込むことで、高価な実機なしに新しいセンサーデータを生成できます。例えば、CARLAで生成された自動運転映像から単一光子LiDARの生トランジェント信号を合成したところ、横方向に走る歩行者がヒストグラム内でモーションブラーを引き起こし、3メートル以上の深度誤差が生じて検出に失敗するという、生信号レベルの破綻を暴き出すことができました。\n\n### センサー構成の比較とベンチマーク\nハードウェアを実際に組む前に、暗所かつ高速動作という過酷な環境に最適なセンサーの組み合わせを検討しました。「通常RGBカメラ＋イベントカメラ」と「パッシブSPADカメラ＋IMU」の2つの構成を、同一の高速ロボットアーム軌跡上でエミュレーションし、物体検出タスク（コップの検出）を行わせました。その結果、前者はブレとノイズで検出に失敗したのに対し、後者は90%という高い確信度で検出に成功しました。同一の条件下で公平なトレードオフ比較ができるのは、物理シミュレータならではの強みです。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "VisionSIMの3つの応用事例。（上段）実機LiDARのIRFやデッドタイムを推定してパイルアップやグレアを再現したデジタルツイン、（中段）CARLA等の既存映像からSPADやイベント信号を生成するモダリティ移行、（下段）暗所・高速運動におけるセンサー構成比較。",
+     "caption": "Figure 4: Application Case-Studies: ( Top ) A digital twin of a commercial LiDAR, where sensor parameters such as dead time and impulse response function are estimated from real-world data to correct for artifacts like range-walk. ( Middle ) Sensor modality migrations: VisionSIM can uplift existing datasets (e.g., XVFI [ 84 ] ) or high-speed renders to emulate new sensor modalities like single-photon or event cameras. ( Bottom ) Sensor suite evaluation: VisionSIM enables rapid evaluation of different sensor configurations for perception tasks.",
+     "image": "details/2611.08368/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Sim-to-Real Validation",
+   "heading_ja": "Sim-to-Realの妥当性検証：実機測定値とどこまで一致するか",
+   "summary_ja": "熱カメラ、iToF、イベントカメラ、SPADカメラの4つのモダリティについて、実環境の計測結果とシミュレーション結果を直接比較しました。過渡的な熱変化からイベント発生数、光子検出統計に至るまで、極めて高い一致度を示しています。",
+   "details_ja": "シミュレーションの忠実度を確かめるため、実機で計測した物理シーンと、VisionSIMで構築したデジタルツインの出力を詳細に比較しました。\n\n- **熱カメラ（FLIR Boson）**: 熱いお茶を注いだマグカップの表面温度プロファイルを4秒間にわたって追跡したところ、実際の温度変化のダイナミックレンジに対する平均絶対誤差（MAE）はわずか7.6%に収まりました。\n- **iToFカメラ（Chronoptics）**: 一時停止標識を撮影した際の位相誤差は、$[0, 2\\pi]$ の全範囲にわたって平均0.13ラジアンでした。これは40 MHzの変調周波数において、約5.3 cmの深度誤差に相当する極めて高い一致度です。\n- **イベントカメラ（Prophesee EVK4）**: 講堂の映像からエミュレーションしたイベント発生数を実測値と比較したところ、正イベントで1.5%、負イベントで5.8%の誤差にとどまりました。\n- **パッシブSPADカメラ（Pi-Imaging）**: 光子検出統計の平均値は実測の0.229に対し、エミュレーションでは0.221と極めて近い値を示しました。\n\nわずかに残る誤差の要因も明確です。熱カメラでは周囲環境の未知の室温との熱交換、iToFでは実機のマルチパスや高調波歪み、RGB映像からのエミュレーションでは元カメラのホワイトバランスや光度応答の未校正性が影響しています。これらはセンサーモデル自体の欠陥ではなく、境界条件の不確かさに起因するものです。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "実機測定とシミュレーションの比較。上段2列はBlender内で完全再現したデジタルツインによる熱カメラおよびiToFの比較、下段2列は同軸撮影された通常映像からエミュレーションしたイベントカメラとSPADの比較です。",
+     "caption": "Figure 5: Simulation Fidelity. Comparison of simulated vs. captured scenes. The top two rows are simulated end-to-end using a digital twin of the real scene, while the bottom two emulate the corresponding sensors from a co-located conventional camera capture (inset).",
+     "image": "details/2611.08368/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "7 The VisionSIM Multi-Modal Sensor Dataset",
+   "heading_ja": "完全同期された大規模マルチモーダル屋内データセットの公開",
+   "summary_ja": "オフィスやキッチンなど100種類の多様な屋内環境において、完全な空間的・時間的一致が保証されたマルチモーダルデータセットを構築しました。通常カメラ、ステレオ、SPAD、dToF/iToF、熱カメラ、イベントカメラ、IMUの生データと豊富な真値が含まれています。",
+   "details_ja": "物理的なマルチセンサーリグでは、各センサーの正確な時間同期や同一視点での空間アライメントを達成することは極めて困難です。また、高解像度SPADなどの先端センサーは非常に高価で入手性も限られています。そこで著者らは、VisionSIMの能力を活かして包括的な屋内データセットを作成・公開しました。\n\nこのデータセットは、オフィス、キッチン、バスルームなどを含む100種類のユニークな屋内シーンで構成され、それぞれに24秒間のカメラ軌跡が設定されています。100 fps、解像度 $1000\\times 1000$ のHDRステレオペアとしてレンダリングされ、姿勢、内部パラメータ、深度、法線、オプティカルフロー、シーンフロー、セグメンテーション、温度場、直接/間接光成分を含む、合計48万ビューの完全同期された真値アノテーションを網羅しています。\n\nここから、補間処理を介して16 kHzの単一光子カメラ、4 kHzのイベントカメラ、25 fpsの通常カメラ、dToFおよびiToF LiDAR、熱カメラ、250 HzのIMUの各データを生成しています。データ量が膨大になるため、生データの完全な再生成スクリプト、3Dアセット、Dockerコンテナもあわせて公開されており、研究者が自身の用途に合わせて解像度やセンサーパラメータを変更して再生成することも容易です。",
+   "figures": []
+  },
+  {
+   "heading": "8 Limitations and Outlook",
+   "heading_ja": "現状の制約とロボット知覚シミュレーションの未来",
+   "summary_ja": "レンダリングとエミュレーションを分離した代償として、霧などの体積散乱やミリ波レーダーのような電波回折の再現には制約があります。また現在はオープンループ評価にとどまっており、今後はリアルタイムエンジンとの統合による制御ループの閉ループ化が期待されます。",
+   "details_ja": "VisionSIMは強力なシミュレータですが、著者らは率直にいくつかの限界も認めています。\n\n### 構造的な制約\n世界シミュレーション層とセンサーエミュレーション層を中間抽象表現（深度やアルベドなど）を介して切り離したことで、高速性とモジュール性を手に入れました。しかしそのトレードオフとして、霧や煙のような「体積効果（Volumetric effects）」や、高次の複雑な光トランスポートを直接エミュレーションすることは困難です。また、描画がレイストレーシングに基づいているため、光の回折などの波動光学的現象を再現することが難しく、ミリ波レーダーのようなモダリティへの拡張には課題が残ります。\n\n### 評価の範囲と今後の展望\n現在の実験評価はすべて「オープンループ（知覚データの生成と評価のみ）」であり、ロボットの行動がシミュレーション環境に影響を与える「クローズドループ制御」には至っていません。また、公開データセットは屋内シーンに限定されています。今後は、Unreal Engineのようなリアルタイム描画エンジンとの統合によって計算コストを下げ、閉ループシミュレーションへの対応を進めること、さらには電波伝搬モデルを組み込んでレーダー等にも対応していくことが今後の展望として語られています。",
+   "figures": []
+  },
+  {
+   "heading": "S Architecture and Sensor Details",
+   "heading_ja": "付録：分散描画システム、過渡熱解析、およびセンサーエミュレーションの数理",
+   "summary_ja": "大規模なデータ生成を支える分散レンダリング機構や動的キーフレーム再マッピング、GPU熱輸送ソルバーの離散化手法、各センサーの物理的フォワードモデルの詳細について解説します。",
+   "details_ja": "### 分散描画とキーフレーム再マッピング\n超高速センサー向けに高フレームレートを描画する負荷を分散するため、RPC（リモートプロシージャコール）を用いたクライアント/サーバー構成を採用しています。UDPブロードキャストによってワーカーサーバーを自動検出し、負荷を分散します。さらに、アニメーション曲線の時間軸をスケーリングする「キーフレーム再マッピング」により、Blenderの最大fps制限を回避し、流体や剛体物理シミュレーションを任意の微小時間ステップでサンプリング可能にしました。\n\n### 熱輸送ソルバーの定式化\n可視光の吸収パワー $q_{\\text{abs}}(\\mathbf{x}, t) = \\beta(\\mathbf{x}) E(\\mathbf{x}, t)$（ここで $E$ はレンダラーから得られる拡散放射照度、$\\beta$ は吸収率）を熱源として利用します。熱伝導PDEに対し、表面の放射損失を線形化して定式化することで、システム行列をアニメーション全体で不変の定数として事前分解（Pre-factorization）し、GPU上で極めて高速に解くことができます。また、中空のメッシュアセットに対してもロバストに体積熱伝導を解くため、ポアソンディスクサンプリングによる内部点群とmollifiedラプラシアンを用いた点群熱伝導計算を実装しています。\n\n### ボロメータの熱慣性とセンサーモデル\n熱カメラの受光素子（マイクロボロメータ）は有限の熱容量を持つため、入射放射に対して指数関数的に遅延して追従します。VisionSIMでは時定数 $\\tau$（通常5〜15 ms）を持つ一次遅れ系の常微分方程式を解き、レンダリングされた理想的な放射輝度列に対して単一ポールのIIRローパスフィルタを適用することで、実機特有のモーションスミアや熱痕跡の遅延を再現しています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "ロボット知覚におけるSim-to-Realギャップの本質は、CGの見た目だけでなく、センサー内部で生じる物理的測定破綻（パイルアップ、位相の巻き戻り、熱履歴など）がシミュレータに欠けていることにある。",
+  "「描画」と「センサー物理エミュレーション」を分離することで、一度のレンダリング資産を使い回して計算コストゼロで多様なセンサーパラメータのスイープや比較が可能になる。",
+  "微分可能なセンサーフォワードモデルを構築することで、実機のわずかな計測データからセンサー内部の物理パラメータ（IRFやデッドタイムなど）を学習し、高精度なデジタルツインを作ることができる。",
+  "ハードウェアの選定やアライメントに多大なコストをかける前に、シミュレータ上で異種センサー構成の性能限界やトレードオフを厳密に検証できる。"
+ ],
+ "limitations_ja": [
+  "描画とエミュレーションの中間抽象化（深度やアルベドの受け渡し）に依存しているため、濃霧や煙などの体積散乱、複雑な多重光路伝播の再現には限界がある。",
+  "レイトレーシングベースであるため電磁波の回折などの波動現象を扱えず、ミリ波レーダー等のモダリティの統合が容易ではない。",
+  "現時点では知覚データ生成を中心としたオープンループ検証にとどまっており、ロボットの運動制御と知覚が相互作用するクローズドループ制御ループの検証は未実装である。",
+  "公開データセットが屋内シーンに限定されており、過酷な天候や日照変化を含む屋外環境の網羅は今後の課題である。"
+ ],
+ "keywords": [
+  "Robot Perception",
+  "Sensor Simulation",
+  "Single-Photon LiDAR",
+  "Indirect Time-of-Flight",
+  "Thermal Imaging",
+  "Sim-to-Real"
+ ],
+ "id": "2611.08368",
+ "title": "VisionSIM: Beyond Idealized Sensors - A Multi-Modal Simulator for Robot Perception",
+ "authors": [
+  "Sacha Jungerman",
+  "Kaustubh Sadekar",
+  "Avery Gump",
+  "Sriram Narayanan",
+  "Shantanu Gupta",
+  "Bhuyashi Deka",
+  "Srinivasa Narasimhan",
+  "Atul Ingle",
+  "Mohit Gupta"
+ ],
+ "date": "2026-11-07",
+ "group": "focus",
+ "tags": [
+  "simulation",
+  "perception"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.08368",
+ "pdf_url": "https://arxiv.org/pdf/2611.08368",
+ "summary_ja": "カメラ、LiDAR、イベントカメラ、SPAD、ToF、熱画像などの生物理計測プロセスを忠実にモデル化するシミュレータVisionSIMを開発。LiDARのパイルアップやグレア、ToFの位相折り返しなど、従来の汎用シミュレータが見落としていた実機特有の故障モードを再現可能にし、現実的なロボット知覚の評価基盤を提供する。",
+ "generated": "2026-11-07",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.08368"
+}
