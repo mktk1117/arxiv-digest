@@ -1,0 +1,150 @@
+{
+ "title_ja": "意味的および視覚的フィードバックを用いたロボット世界モデルの学習",
+ "tldr_ja": "ロボットが頭の中で想像した複数の未来予測を比較し、「タスクが進んだか（意味）」と「見た目が崩れていないか（視覚）」の両面からフィードバックを与えることで、より正確で物理的妥当性の高い自己回帰型世界モデルを実現しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "RoboImagineの全体パイプラインです。ステージ1で行動とテキスト指示に基づく予測を教師あり学習（SFT）したのち、ステージ2では多様な候補未来を生成し、凍結したマルチモーダル評価器による意味選好と視覚的一貫性報酬を組み合わせて強化学習的にポリシーを更新します。",
+  "caption": "Fig. 2: Multimodal adaptation and learning from complementary feedback in RoboImagine . Stage 1 learns dynamics-token prediction conditioned on observations, actions, and text. Stage 2 constructs diverse candidate futures with branch-specific rolling histories and combines semantic preferences from a frozen Jev evaluator with pixel- and perceptual-level visual feedback. Only the visual-feedback branch accesses recorded future frames during post-training. The generator and its text cross-attention receive policy gradients; the visual codec and feedback models remain frozen.",
+  "image": "details/2611.07850/F2.jpg"
+ },
+ "overview_ja": "ロボットが未知の環境で安全かつ的確に行動するためには、「自分がこう動いたら世界はどう変わるか」を行動前に予測する「世界モデル」が不可欠です。しかし、従来のピクセル再構成誤差による学習では、見た目は整っていても物体との接触やタスクの進捗を無視した予測になりがちでした。かといって、大規模視覚言語モデル（VLM）などの意味的な評価だけに頼ると、細部のテクスチャ崩壊や不自然な歪みを見落としてしまいます。\n\nそこで著者らは、両者を組み合わせた事後学習フレームワーク「RoboImagine」を提案しました。同じ初期画像・動作指示・行動列から、多様な候補未来（予測映像）を探索的に生成し、それらを直接比較します。凍結されたマルチモーダル評価器「mJev」によるペア比較でタスク進捗を判定しつつ、ピクセル差分（MAE）と知覚誤差（LPIPS）で細部の崩れを抑制します。この2つのシグナルを統合して強化学習のポリシー最適化（GRPOスタイル）を行う仕組みです。\n\n実世界ロボットデータ（RT-1、BridgeV2）やシミュレーション（RoboCasa）で検証した結果、同じステップ数だけ教師あり学習（SFT）を続けた場合と比べてPSNRが1.26 dB向上し、LPIPSが11.93%改善しました。物理的一貫性やタスク達成度の評価でも既存の世界モデルを上回り、多様な候補を比較して両面から学ぶことの重要性が実証されました。",
+ "contributions_ja": [
+  "同一の行動・指示・初期観測から多様な未来予測を生成し、それらを比較してモデルを鍛える新しい事後学習フレームワーク「RoboImagine」を提案したこと。",
+  "タスク進捗を測るマルチモーダル意味選好と、局所的な破綻を防ぐ視覚的一貫性（MAE/LPIPS）を相補的に組み合わせた報酬設計を確立したこと。",
+  "固定アンカーと分岐ごとのローリング履歴（履歴窓）を導入し、文脈長を抑えながらポリシー評価と生成時の整合性を保つ長期予測手法を実現したこと。",
+  "実実機操作およびシミュレーションの3つのデータセットで、教師あり微調整の継続を大きく上回る画質・タスク整合性・物理妥当性を実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜ見た目の綺麗さだけではロボットの世界モデルにならないのか？",
+   "summary_ja": "ロボットの世界モデルには、単なる動画生成のような美しさだけでなく、行動によって引き起こされる接触やタスク進捗を正しく捉える能力が求められます。しかし従来の画素再構成ロスと意味的な評価モデルにはそれぞれ盲点があり、両者を相補的に組み合わせた比較学習が必要です。",
+   "details_ja": "ロボットにおける世界モデルは、行動を実行する前にその結果をシミュレーションするための「頭の中の仮想環境」です。一般的な動画生成モデルは全体の映像クオリティを最重要視しますが、ロボット向けの世界モデルでは、マニピュレータと物体の接触や物理法則に従った状態遷移など、行動に起因する変化を正確に捉えなければタスクの計画に役立ちません。\n\n従来の学習手法は、最尤推定やピクセル単位の再構成誤差、知覚損失に頼ってきました。しかし、見た目の類似度が高くても、肝心の物体がまったく動いていなかったり、接触状態が無視されたりすることが頻繁に起こります。逆に、マルチモーダルモデルを用いた意味的な評価だけでは、タスクが進んでいるように見えても、グリッパーの形状が局所的に歪んでいたり映像が破綻していたりする欠陥を厳密にペナルティ化できません。\n\nこの課題に対し著者らは、同一の入力条件からグループ化多様ビームサーチ（GDBS）を用いて多様な未来予測候補を生成し、候補同士を直接比較して学ぶアプローチを提案します。絶対スコアによる評価はシーンごとのキャリブレーションが困難ですが、同じ初期状態から分岐した未来同士なら「どちらがよりタスクを進めているか」を明確に比較できます。ここに視覚的一貫性のペナルティを組み合わせることで、意味と見た目の両立を図ります。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "視覚的忠実度とタスク意味論の相補的な関係を示した概念図です。見た目が綺麗でもタスクが停止している場合（A）や、タスクは進んでいても局所的な破綻が起きている場合（B）があるため、両方のフィードバックを組み合わせる必要があります。",
+     "caption": "Fig. 1: Complementary feedback for robot world models. Preserved appearance can coexist with stalled task progress, while task advancement can coexist with local visual artifacts. Visual fidelity and task semantics therefore provide complementary feedback. Scenes are conceptual illustrations, not experimental predictions or measured rankings.",
+     "image": "details/2611.07850/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "動画生成から世界モデルへ：事後学習とフィードバックの潮流",
+   "summary_ja": "本章では、自己回帰型や拡散モデルに基づくロボット世界モデルの変遷と、強化学習的な報酬に基づく事後学習（アライメント）の先行研究を整理します。RoboImagineは、GPTスタイルの離散トークン予測モデルにおいて、多様な未来探索と比較フィードバックを融合させた点に独自性があります。",
+   "details_ja": "世界モデルの研究は、計画や方策学習のための環境ダイナミクス獲得を目指して発展してきました。映像予測モデルとしては、離散トークンで表現するiVideoGPTや、テキスト・行動を条件とするRoboDreamer、IRASim、Vid2Worldなどが提案されています。モデル構造としては、離散コードを自己回帰的に予測するGPTスタイルと、連続的なノイズ除去を行う拡散モデル（Diffusion Transformersなど）の2大潮流が存在します。\n\n近年では、事前学習済みモデルを報酬によって微調整する事後学習（Post-training）が注目を集めています。例えばRLVR-Worldは視覚的予測指標を報酬として強化学習を行い、RoboAlign-R1は視覚言語モデル（VLM）を蒸留した軽量報酬モデルで単一の生成動画を採点していました。しかし、単一動画への絶対評価はタスク間での基準のブレが生じやすいという弱点があります。\n\nまた、長期シーケンス生成における文脈管理（Diffusion ForcingやStreamingLLMなど）も活発に研究されています。RoboImagineはこれらを踏まえ、GPTスタイルの自己回帰アーキテクチャを採用しつつ、同一条件下で多様な候補を比較するペアワイズ評価と、固定アンカーを伴うローリング履歴管理を組み合わせた点で、既存手法と一線を画しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "RoboImagineの全貌：多様な未来探索と2系統フィードバックの統合",
+   "summary_ja": "RoboImagineは、自己回帰型の世界モデルをベースに、GDBSによる多様な未来予測の探索、凍結VLMと視覚指標を組み合わせたハイブリッド報酬、そしてグループ相対アドバンテージを用いたポリシー最適化から構成されます。",
+   "details_ja": "### III-A GPTスタイルの自己回帰型ロボット世界モデル\nモデルの入力は初期観測画像2フレーム（$o_0, o_1$）、離散化された行動列 $a_{1:T}$、およびタスクの言語指示 $l$ です。画像は文脈条件付きエンコーダと有限スカラー量子化（FSQ）によって、初期文脈トークン（1,280個）とフレームごとのダイナミクストークン（80個）に変換されます。言語指示は凍結したT5エンコーダで特徴抽出され、12層のLLaMA風デコーダ内のクロスアテンション層に注入されます。ステージ1では、記録済みの正解トークンに対する教師あり学習（SFT）で初期モデルを構築します。\n\n### III-B 多様な候補未来の探索（GDBS）\n尤度だけに頼る通常のビームサーチでは、似通った予測ばかりが生成され、比較の学習シグナルが得られません。そこでグループ化多様ビームサーチ（GDBS）を採用しました。4グループ×各2ビームで探索を進め、他グループと重複するトークンにペナルティ $\\lambda_{\\mathrm{div}}=0.1$ を課すことで、互いに異なる4本の軌道を生成します。各候補は独自の履歴を保持しながら予測を進めます。\n\n### III-C 意味選好と視覚的一貫性の相補的フィードバック\n生成された候補に対し、2種類のフィードバックを与えます。\n- **意味選好報酬（$r_J$）**: 凍結された4Bマルチモーダル評価器「mJev」を用い、2つの動画候補を指示文とともに提示してどちらがタスクを進めているかをペア比較します。提示順序によるバイアスを防ぐため、順序を入れ替えた双方向の比較を行い、差分をスコア化します。\n- **視覚的一貫性報酬（$r_V$）**: 正解の未来映像に対して、ピクセル単位のL1誤差（MAE）と知覚誤差（LPIPS）を等しい重みで合算した負のペナルティを与え、映像の崩れを防ぎます。\nこれらを候補群の中で標準化（平均0、分散1）し、重み付け合成（$w_J=0.25, w_V=0.75$）して総合報酬を算出します。\n\n### III-D 探索誘導型ポリシー最適化\n得られた総合報酬からグループ相対アドバンテージ $\\widehat{A}_i$ を計算し、PPOスタイルのクリップ付きサロゲート目的関数と参照ポリシー（SFTモデル）からのKL正則化を加えてパラメータを更新します。生成時に記録した分岐ごとの文脈履歴をそのまま再生して確率を計算するため、学習時の条件付けにズレが生じません。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "量子化表現と自己回帰予測の構造です。(a)初期画像から1,280個の文脈トークンを、各動的フレームから80個のダイナミクストークンをFSQで抽出します。(b)12層のLLaMAデコーダ内で、凍結T5の言語特徴量とクロスアテンションを行いながらダイナミクストークンを予測します。",
+     "caption": "Fig. 3: Quantized representation and autoregressive prediction in RoboImagine . (a) Context-conditioned visual encoding produces 1,280 context tokens and 80 dynamics tokens per frame through finite scalar quantization (FSQ); discretized actions form the shared visual–action prefix. FSQ uses an implicit grid with 4,375 codes per visual branch. (b) A 12-layer LLaMA decoder predicts dynamics tokens. The expanded layer shows causal attention, rotary positions, output projection, and the gated feed-forward block with residual connections. Text cross-attention is inserted before layers 4, 8, and 12; text features are not discrete prefix tokens.",
+     "image": "details/2611.07850/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "長期予測を支える固定アンカー付きローリング履歴の仕組みです。(a)固定の初期文脈と初期ダイナミクス（アンカー）を保持しつつ、直近6ステップの状態と行動だけをスライディング窓として残します。(b, c)フレームごとにKVキャッシュを再構築することで、計算量を一定に保ちながら整合性の取れた推論を継続します。",
+     "caption": "Fig. 4: Fixed-anchor branch memory for long-horizon generation in RoboImagine . (a) The retained prefix combines fixed initial context and an observed dynamics anchor with six recent predicted states and paired actions. (b) A previously generated BridgeV2 rollout illustrates the shift from $z_{3:8}$ to $z_{4:9}$ . Each search branch updates its own history using shared AR parameters. (c) The model predicts a new state, shifts the state–action window, and rebuilds its prefix and KV cache for the next frame. Both anchors and earlier video outputs remain stored. Cells represent token blocks; $z_{j}$ abbreviates $z_{j}^{\\mathrm{dyn}}$ and $a_{j}$ denotes $\\hat{a}_{j}$ .",
+     "image": "details/2611.07850/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "実機からシミュレーションまで：比較学習がもたらした圧倒的な性能向上",
+   "summary_ja": "RT-1、BridgeV2、RoboCasaの3つのデータセットで評価を行いました。同じ更新回数のSFT継続と比べて画質とタスク整合性が大幅に向上し、アブレーション実験によって多様な探索と2系統フィードバックの双方が必須であることが確認されました。",
+   "details_ja": "### IV-A 実験設定\n実世界データ（RT-1、BridgeV2）と家庭内操作シミュレーション（RoboCasa）を用い、それぞれ個別にモデルを学習しました。評価は主に128本の軌道に対し、初期観測と行動列から32フレーム（解像度 $256\\times 320$）を自己回帰的に予測させます。正解の未来フレームは入力に一切与えません。画質指標（PSNR, SSIM, LPIPS）に加え、RoboAlign-Judgeによる物理・接触妥当性の6次元ルーブリック（10点満点）や外部VLM（Qwen3-VL-8Bなど）で評価しました。\n\n### IV-B ベースラインとの比較\nRoboAlign-Judgeの総合スコアにおいて、RoboImagineはRT-1で $8.98\\pm 0.10$ 点を獲得し、先行手法のRoboAlign-R1（8.52点）や各種動画生成モデルを上回って第1位となりました。特に「行動と結果の整合性」（0.72→0.82）や「物理法則への適合」（1.58→1.77）が大きく向上しています。また画質面でも、RT-1でPSNR 22.57 dB（最強ベースライン比 +2.03 dB）、LPIPS 10.9%改善を達成しました。\n\n### IV-C 教師あり学習の継続（Continued SFT）との比較\n「単に追加で学習を進めたから性能が上がっただけではないか？」を検証するため、同一の50,000ステップSFT重みから、同じバッチサイズで500ステップ追加更新した比較を行いました。SFT継続ではPSNRが21.31 dBとほぼ横ばいだったのに対し、RoboImagineはわずか100ステップで22.01 dB、500ステップで22.57 dBに到達（+1.26 dB）、LPIPSは11.15%低減しました。ただし学習時間はSFTの1.06 GPU時間に対し、探索とVLM評価を挟むため28.15 GPU時間と、品質と計算コストのトレードオフが存在します。\n\n### IV-D アブレーション研究：フィードバックと探索の役割\n- **フィードバックの組み合わせ**: 視覚のみの報酬はPSNR（22.75 dB）を最大化しますが、外部モデルQwenによる意味評価スコアは7.97点に留まりました。意味選好を加えた統合報酬にすることで、画質を高く保ったまま意味スコアを8.30点まで引き上げることができました。\n- **探索手法の比較**: GDBSは通常のビームサーチに比べてPSNRを0.50 dB改善し、Qwenスコアも7.58から8.30へと大きく引き上げました。MCTS（モンテカルロ木探索）とも比較しましたが、尤度誘導型のMCTSは計算コストが約3.3倍かかる割に改善幅が小さく、GDBSの有効性が際立ちました。\n\n### IV-E 長期予測と履歴ウィンドウ\n履歴ウィンドウ $W$ を変えた実験では、文脈を長くすれば良いわけではないことが判明しました。$W=6$ が32〜96フレームの予測で最も安定して高い品質を示し、$W=12$ に広げるとかえって誤差が蓄積して96フレーム時のPSNRが18.96 dBまで低下しました（$W=6$ では20.31 dB）。適度なウィンドウサイズが重要です。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "共通のSFT初期値からの事後学習ダイナミクスです。(a〜d)通常のSFT継続では指標が頭打ちになりますが、RoboImagine（紫）はPSNR・SSIM・LPIPS・MAEの全指標で劇的に改善します。(e)引き出しを閉める予測例では、更新が進むにつれてRoboImagineだけが正解に近い閉まり具合を正確に再現できています。",
+     "caption": "Fig. 6: Post-training dynamics from a shared SFT initialization. (a–d) Four methods use the same 128 RT-1 trajectories, 32-frame horizon, and evaluation decoder; search variants use combined feedback. Markers denote evaluated checkpoints, and red gains compare GDBS with the shared 50,000-step SFT initialization. (e) The same drawer-closing case at prediction frame 32 compares all four methods after 100, 250, and 500 updates. Ground truth and initial SFT are shared references; gold boxes mark identical regions enlarged across methods and checkpoints.",
+     "image": "details/2611.07850/F6.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "SFT初期値とRoboImagine（500ステップ後）の視覚的比較です。RT-1、BridgeV2、RoboCasaのいずれにおいても、マニピュレータの形状や物体との接触面（黄色の枠内）の破綻が大幅に抑えられていることが確認できます。",
+     "caption": "Fig. 8: Selected qualitative comparisons of RoboImagine and its supervised initialization. Rows show ground truth, supervised fine-tuning, and RoboImagine after 500 post-training steps under the same inputs. The RT-1 case uses visual-only feedback; BridgeV2 and RoboCasa use combined feedback. Frames 8 and 32 show motion over time; gold boxes mark identical regions enlarged from frame 32.",
+     "image": "details/2611.07850/F8.jpg"
+    },
+    {
+     "key": "F10",
+     "caption_ja": "GDBSによる実際の探索ログ（ポテトチップスの袋を缶の横へ移動するタスク）です。4つのグループ（G1〜G4）がそれぞれ異なる軌道を辿り、意味評価で勝る候補（C1）と視覚評価で勝る候補（C3）が現れ、これらを統合した報酬でバランス良く学習が進む様子が分かります。",
+     "caption": "Fig. 10: Recorded GDBS search: moving a chip bag near a can. Thick paths trace returned candidates; thin paths show other retained beams. Keyframes accompany post-search feedback; bold scores mark column maxima. This pre-update training case has the largest semantic-score spread increase over ordinary beam among eight conditions.",
+     "image": "details/2611.07850/F10.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion & Limitations",
+   "heading_ja": "まとめと今後の課題：閉ループ制御への応用に向けて",
+   "summary_ja": "RoboImagineは、多様な未来予測の比較と「意味・視覚」の相補的フィードバックによってロボット世界モデルの精度を大きく向上させました。一方で、現在の検証はオフラインの映像予測に留まっており、計算コストの低減や実機での閉ループ制御への応用が今後の重要課題です。",
+   "details_ja": "本研究は、同一の行動・文脈条件下で多様な未来候補を生成・比較し、意味選好と視覚的一貫性を統合した報酬で自己回帰型モデルを鍛える「RoboImagine」を提案しました。従来の教師あり微調整の限界を破り、物理的一貫性と局所的な描画品質を高いレベルで両立できることを実証しました。\n\n一方で、著者らはいくつかの限界も明記しています。第一に、本研究の成果はオフラインの動画予測タスクにおいて確認されたものであり、この世界モデルを用いたモデル予測制御（MPC）などの閉ループ計画や、実機ロボットのオンライン制御における有効性はまだ検証されていません。第二に、事後学習時に複数候補の探索やVLMによる推論、動画デコードを繰り返すため、教師あり学習と比べて計算コスト（GPU時間）が約28倍と重い点です。今後は、下流のプランニングタスクへの接続と、学習パイプラインの高速化が期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：実装の詳細、数学的根拠、および評価プロトコル",
+   "summary_ja": "付録では、離散トークン化やネットワーク構造、探索と履歴キャッシュの管理方法、比較学習勾配がゼロにならないための数学的証明、および評価用プロンプトの詳細が解説されています。",
+   "details_ja": "### モデルとキャッシュ管理の実装詳細\n画像はFSQレベル（7, 5, 5, 5, 5）の計4,375コードで量子化され、行動は次元ごとに256ビンに離散化されて、総語彙数9,008のトークン空間で causal Transformer により処理されます。フレームの境界ごとにKVキャッシュと位置エンコーディングがリセットされ、固定アンカー（初期文脈1,280トークン＋初期ダイナミクス80トークン）と直近 $W=6$ フレームのダイナミクス・行動トークンのみが文脈として再構成されます。\n\n### 比較学習の勾配に関する理論的解析\n論文のLemma 1では、報酬最大化勾配 $\\mathbf{g}$ が候補ペア間のスコア差とフィードバック差の積の総和として表されることが示されています。具体的には、すべての候補の報酬が一致するか、すべての候補スコア勾配が一致する場合にのみ報酬勾配がゼロになります。多様探索によって候補間に意味のある差（スコア勾配の非退化性）を生み出し、相補的フィードバックで適切な重み差をつけることが、学習シグナルを維持するために本質的であると数学的にも裏付けられています。\n\n### 評価器のプロンプト設計\n学習時の報酬に用いたmJev（4B）では、初期フレームと各候補から8フレームをサンプリングした計17画像を提示し、見た目の美しさではなく「タスクが進んでいるかどうか」を判定させています。ログ確率から直接選好度合いを抽出することで、テキスト生成のオーバーヘッドを排した高速なスコアリングを実現しています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "ロボット世界モデルの学習には、ピクセル再構成ロスだけでなく「タスクが進展したか」を判定する意味的フィードバックとのハイブリッド設計が極めて有効である。",
+  "強化学習的な事後学習を行う際、通常のビームサーチやサンプリングではなく「多様性ペナルティ付きの探索（GDBS）」で差別化された候補を作ることが、勾配を消失させず学習を加速させる鍵となる。",
+  "自己回帰型モデルの文脈管理において、履歴を無限に伸ばすのではなく「固定アンカー＋適度なローリング窓（W=6程度）」に抑えることが、長期予測の品質と推論速度の両立につながる。"
+ ],
+ "limitations_ja": [
+  "検証がオフラインの未来映像予測に留まっており、この世界モデルを使って実際にロボットを閉ループで動かした際の計画成功率は示されていない。",
+  "学習ループ内で動画デコード、多様探索、VLM推論を行うため、単純なSFT継続と比べて約28倍の学習GPU時間を要する。",
+  "意味評価器（mJev）自体のバイアスや認識限界が、世界モデルの獲得する物理挙動の上限を規定してしまう可能性がある。"
+ ],
+ "keywords": [
+  "Robotic World Models",
+  "Post-training",
+  "Multimodal Feedback",
+  "Diverse Beam Search",
+  "Autoregressive Generation",
+  "Policy Optimization"
+ ],
+ "id": "2611.07850",
+ "title": "Learning Robotic World Models with Semantic and Visual Feedback",
+ "authors": [
+  "Hao Wu",
+  "Yuqi Li",
+  "Yizhou Zhao",
+  "Kun Wang",
+  "Xiao Luo",
+  "Yu Cheng",
+  "Bo An",
+  "Yingli Tian",
+  "Laszlo A. Jeni",
+  "Ming-Hsuan Yang"
+ ],
+ "date": "2026-11-08",
+ "group": "focus",
+ "tags": [
+  "world-model",
+  "planning",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.07850",
+ "pdf_url": "https://arxiv.org/pdf/2611.07850",
+ "summary_ja": "視覚的・意味的フィードバックを活用してロボット用自己回帰世界モデルを事後学習するフレームワーク「RoboImagine」を提案。同一の観測・行動列から多様な未来候補軌道を生成し、凍結したマルチモーダル評価器による意味的選好スコアと詳細な視覚再構成誤差を組み合わせて学習を行う。これにより、従来の再構成損失のみに依存したモデルに比べ、タスク進捗と幾何学的整合性の予測精度を向上させた。",
+ "generated": "2026-11-08",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.07850"
+}
