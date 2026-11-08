@@ -1,6 +1,294 @@
 {
  "entries": [
   {
+   "date": "2026-11-08",
+   "rank": 0,
+   "id": "2611.08308",
+   "group": "focus",
+   "title": "RM-VLM: From Natural-Language Task Descriptions to Vision-Grounded Reward Machines",
+   "title_ja": "自然言語指示から視覚グラウンディングされた報酬機械への変換",
+   "summary_ja": "自然言語の指示から報酬機械（Reward Machine）を生成し、非マルコフ環境での強化学習を可能にする枠組み「RM-VLM」を提案。LLMがタスクから遷移オートマトンを定義し、VLMが観測画像に対する述語の真偽をグラウンディングすることで、従来手動設計が必要だったラベリング関数を自動化する。履歴に依存する複雑な長期タスクに対するRL方策学習の適用性を大幅に拡大した。",
+   "summary_en": "RM-VLM introduces a framework to enable reinforcement learning for non-Markovian tasks by generating Reward Machines from natural language descriptions. An LLM formulates the state-transition automata, while a vision-language model grounds propositions directly from visual observations, eliminating manual labeling functions. This approach expands the applicability of RL to complex, temporally extended tasks.",
+   "authors": [
+    "Roko Parac",
+    "Christos Ziakas",
+    "Leo Ardon",
+    "Alessandra Russo"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "vision-language-action",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08308",
+   "image": null
+  },
+  {
+   "date": "2026-11-08",
+   "rank": 1,
+   "id": "2611.07850",
+   "group": "focus",
+   "title": "Learning Robotic World Models with Semantic and Visual Feedback",
+   "title_ja": "意味的および視覚的フィードバックを用いたロボット世界モデルの学習",
+   "summary_ja": "視覚的・意味的フィードバックを活用してロボット用自己回帰世界モデルを事後学習するフレームワーク「RoboImagine」を提案。同一の観測・行動列から多様な未来候補軌道を生成し、凍結したマルチモーダル評価器による意味的選好スコアと詳細な視覚再構成誤差を組み合わせて学習を行う。これにより、従来の再構成損失のみに依存したモデルに比べ、タスク進捗と幾何学的整合性の予測精度を向上させた。",
+   "summary_en": "RoboImagine is a post-training framework for autoregressive robotic world models using candidate-future comparisons with semantic and visual feedback. It generates diverse rollout candidates from identical observations and action sequences, optimizing predictions using semantic preferences from a frozen multimodal evaluator alongside visual consistency. This improves future state prediction for robotic planning and decision making.",
+   "authors": [
+    "Hao Wu",
+    "Yuqi Li",
+    "Yizhou Zhao",
+    "Kun Wang",
+    "Xiao Luo",
+    "Yu Cheng",
+    "Bo An",
+    "Yingli Tian",
+    "Laszlo A. Jeni",
+    "Ming-Hsuan Yang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "world-model",
+    "planning",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.07850",
+   "image": "figures/2026-11-08/2611.07850.jpg"
+  },
+  {
+   "date": "2026-11-08",
+   "rank": 2,
+   "id": "2611.08209",
+   "group": "focus",
+   "title": "RoboARCade: Benchmarking Agentic Robot Control",
+   "title_ja": "RoboARCade: エージェント型ロボット制御のベンチマーク",
+   "summary_ja": "エージェント型ロボット制御を評価するための長期タスクベンチマーク基盤「RoboARCade」を提案。MuJoCoを統一バックエンドとして採用し、3つのロボット形態にわたる高難度マニピュレーション課題を包括する。各タスクは独立したデータパックとして自己完結しており、交換可能なインターフェース設計によって新たなタスクや独自エージェント方策の追加・検証が容易に行える。",
+   "summary_en": "RoboARCade is a benchmark suite designed for evaluating agentic robot control in long-horizon manipulation across three different robot embodiments. Built on a single MuJoCo simulation backend, each task is packaged self-containedly with wider initial condition variations to test in-context adaptation. Its modular interface allows independent addition and benchmarking of new tasks, agents, and control interfaces.",
+   "authors": [
+    "Satvik Sharma",
+    "Hengyuan Hu",
+    "Mihika Kamat",
+    "Dorsa Sadigh",
+    "Jeannette Bohg"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "benchmark",
+    "simulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08209",
+   "image": "figures/2026-11-08/2611.08209.jpg"
+  },
+  {
+   "date": "2026-11-08",
+   "rank": 3,
+   "id": "2611.08364",
+   "group": "focus",
+   "title": "SHORE: Stability-Hybrid On-Policy Reinforcement Learning for Online Bin Packing",
+   "title_ja": "SHORE: オンライン荷積みのための安定性ハイブリッド・オンポリシー強化学習",
+   "summary_ja": "不確実な搬入状況下の3Dオンライン荷積みにおいて、崩壊リスクを考慮した強化学習手法「SHORE」を提案。3D U-Netで配置の安定性確率を予測し、安定性を条件付けたオンポリシーのリターン推定と組み合わせることで行動選択の期待収益を最適化する。実行結果とシミュレーションによる代替配置の両方から安定性を学習し、崩壊によるエピソード終了を防ぎながら積載効率を最大化する。",
+   "summary_en": "SHORE is a stability-hybrid on-policy reinforcement learning approach for online 3D bin packing under unknown future arrivals. It combines a 3D U-Net that predicts placement stability probability with an on-policy estimate of return conditional on stability. By learning from both executed outcomes and simulated alternatives, it reliably avoids stack collapses while maximizing packing volume.",
+   "authors": [
+    "Chang Shi",
+    "Ann Majewicz Fey"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "planning",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08364",
+   "image": "figures/2026-11-08/2611.08364.jpg"
+  },
+  {
+   "date": "2026-11-08",
+   "rank": 4,
+   "id": "2611.08275",
+   "group": "focus",
+   "title": "Aligning Policy Encoders with a Shape Teacher",
+   "title_ja": "形状教師を用いた方策エンコーダのアライメント",
+   "summary_ja": "推論時にはRGB画像のみを用いつつ、学習時に3D形状表現を整合させる方策学習手法「Shape-Teacher Alignment」を提案。事前学習済みPoint-MAEの特徴量を画像エンコーダの正則化ターゲットとして活用し、視点変化やオクルージョンに頑健な3D幾何情報を画像表現に蒸留する。追加センサ不要の簡便な推論インターフェースを維持したまま、マニピュレーション方策の汎化性を改善する。",
+   "summary_en": "Shape-Teacher Alignment is a training mechanism that enables an image-based policy to acquire 3D geometric information without requiring 3D sensors at deployment. It uses pretrained 3D Point-MAE features from individual objects as alignment targets for an image-based policy encoder during training. This distills viewpoint- and occlusion-robust representations into the visual encoder, improving manipulation performance.",
+   "authors": [
+    "Madelon Bernardy",
+    "Mohammad Mahdi Derakhshani",
+    "David M Knigge",
+    "Riccardo Valperga",
+    "Artem Moskalev"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "imitation-learning",
+    "manipulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08275",
+   "image": "figures/2026-11-08/2611.08275.jpg"
+  },
+  {
+   "date": "2026-11-08",
+   "rank": 5,
+   "id": "2611.08462",
+   "group": "general",
+   "title": "OopsieRecover: Learning Transferable VLA Corrections from Semantic Interventions",
+   "title_ja": "OopsieRecover: 意味的介入からの転移可能なVLAリカバリー学習",
+   "summary_ja": "VLAモデルの失敗回復を少数の意味的介入から汎化させる手法「OopsieRecover」を提案。低レベルのリカバリー動作を直接模倣する代わりに、高レベルの意味的修正を抽出して方策に反映させる。これにより、従来のDAggerのように多数の対話データを収集することなく、未見の障害シナリオに対しても高い汎化性能を持つリカバリー行動を獲得可能にした。",
+   "summary_en": "OopsieRecover is a method that enables Vision-Language-Action models to generalize failure recoveries from only a few semantic interventions. Instead of directly associating corrective actions with low-level observations, it leverages semantic reasoning to capture underlying failure causes. This significantly reduces the need for extensive DAgger-style demonstrations while improving out-of-distribution recovery.",
+   "authors": [
+    "Arpit Bahety",
+    "Skand Peri",
+    "Sriniket Ambatipudi",
+    "Chen Xu",
+    "Haruki Nishimura",
+    "Masha Itkina",
+    "Roberto Martín-Martín"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08462",
+   "image": "figures/2026-11-08/2611.08462.jpg"
+  },
+  {
+   "date": "2026-11-08",
+   "rank": 6,
+   "id": "2611.08413",
+   "group": "general",
+   "title": "T3R: Training-Free Two-Stage Token Refinement Towards Efficient and Robust VLA Models",
+   "title_ja": "T3R: 効率的で頑健なVLAモデルに向けた学習不要な2段階トークン精製",
+   "summary_ja": "VLAモデルの推論効率と外乱耐性を高める訓練不要な2段階トークン精製手法「T3R」を提案。第1段階でセグメンテーション誘導により背景などの無関係な画像パッチを剪定し、第2段階で残存トークンへの注意配分を補正する。追加学習なしで視覚トークンの冗長性を大幅に削減し、分布シフト下でも計算負荷の低減と頑健なエンドツーエンド制御を両立した。",
+   "summary_en": "T3R is a training-free two-stage token refinement framework designed to improve both the efficiency and robustness of Vision-Language-Action models. In the first stage, segmentation-guided token pruning eliminates irrelevant background patches, while the second stage refines attention allocation across remaining tokens. This dramatically reduces computation without retraining and prevents distractions under distribution shifts.",
+   "authors": [
+    "Mohammed Hassan",
+    "Zhenyang Chen",
+    "Zheng Wang",
+    "Zhixin Zhu",
+    "Tianlong Chen",
+    "Yingyan",
+    "Lin",
+    "Chaojian Li"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08413",
+   "image": "figures/2026-11-08/2611.08413.jpg"
+  },
+  {
+   "date": "2026-11-08",
+   "rank": 7,
+   "id": "2611.08398",
+   "group": "general",
+   "title": "A Multimodal Haptic Interface for Simultaneous Softness and Thermal Modulation",
+   "title_ja": "柔軟性と温度の同時変調を可能にするマルチモーダル触覚インターフェース",
+   "summary_ja": "VRや遠隔操作向けに、柔軟性と温度変化を同時に動的変調できる多感覚ハプティックインターフェースを開発。粒子ジャミング機構と温水・冷水の熱伝達を組み合わせることで、剛性を300%制御可能に変化させつつ迅速な温度変化を実現した。従来の単一モダリティ提示装置の限界を克服し、接触対象の硬さ感と熱特性のリアルな複合提示を1つの小型プロトタイプで達成した。",
+   "summary_en": "This paper presents a multimodal tactile display capable of simultaneously modulating softness and temperature. Combining particle jamming with liquid-based thermal transfer, the prototype achieves a controllable stiffness increase of up to 300% alongside rapid temperature variation. It overcomes the limitations of single-cue tactile displays, providing richer physical feedback for teleoperation and virtual reality.",
+   "authors": [
+    "Joshua Brown",
+    "Fernando Bello",
+    "Lynette Jones"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.HC",
+    "eess.SY"
+   ],
+   "tags": [
+    "hardware",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08398",
+   "image": "figures/2026-11-08/2611.08398.jpg"
+  },
+  {
+   "date": "2026-11-08",
+   "rank": 8,
+   "id": "2611.07900",
+   "group": "general",
+   "title": "Structure from Collision via Hypothesis-Space Reasoning",
+   "title_ja": "仮説空間推論による衝突からの内部構造復元",
+   "summary_ja": "物体の衝突変形から内部の隠れた空洞構造を推定する手法「Structure from Collision (SfC)」を提案。外部観察だけでは検知できない内部空洞を、多視点からの衝突現象に伴う表面運動を手がかりに仮説空間推論を用いて特定する。材料の欠落に相当するボイドの直接最適化の困難さを克服し、非破壊検査や予測シミュレーション、ロボットの把持計画への応用を開拓した。",
+   "summary_en": "Structure from Collision (SfC) is a method that recovers the hidden interior structure and cavities of an object from multiview observations of a collision event. Because internal voids lack direct surface signatures, it reasons over hypothesis spaces using collision-induced surface deformation. This addresses challenges in non-destructive inspection, predictive physical simulation, and robotic manipulation.",
+   "authors": [
+    "Takuhiro Kaneko"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.AI",
+    "cs.GR",
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "perception",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.07900",
+   "image": "figures/2026-11-08/2611.07900.jpg"
+  },
+  {
+   "date": "2026-11-08",
+   "rank": 9,
+   "id": "2611.08318",
+   "group": "general",
+   "title": "Learning the Task or Learning the Verifier? Rethinking Criteria Exposure in Embodied Self-Improvement",
+   "title_ja": "タスクの学習か検証器の学習か？身体性エージェントの自己改善における基準開示の再考",
+   "summary_ja": "身体性エージェントの自己改善研究において、ベンチマークの成功判定基準をモデルに直接開示する「基準開示（Criteria Exposure）」の妥当性を再考した論文。検証器のスコアが指示されたタスクの完了を必ずしも忠実に反映していない実態を分析し、エージェントが真のタスク実行ではなく判定器の抜け穴に適応してしまうリスクを提起した。",
+   "summary_en": "This paper critically examines the practice of Criteria Exposure, where embodied agents are given direct access to benchmark success verifiers during self-improvement. It reveals that verifier scores often do not faithfully reflect whether the instructed task was genuinely completed, raising concerns that coding agents learn to exploit verifier criteria rather than mastering robust robot control skills.",
+   "authors": [
+    "Wenbo Huang",
+    "Jianxin Bi",
+    "Shunyu Yang",
+    "Ruiyang Si",
+    "Rui Ni",
+    "Qiang Wang",
+    "Shulong Jiang",
+    "Yintianrun Zhang",
+    "Feixiang Ruan",
+    "Kewei Zhang",
+    "Ye Huang",
+    "Shukai Gong",
+    "Daquan Zhou"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "benchmark",
+    "simulation",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08318",
+   "image": "figures/2026-11-08/2611.08318.jpg"
+  },
+  {
    "date": "2026-11-07",
    "rank": 0,
    "id": "2611.08407",
