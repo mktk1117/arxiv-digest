@@ -1,0 +1,132 @@
+{
+ "title_ja": "仮説空間推論による衝突からの内部構造復元",
+ "tldr_ja": "物体の内部にある空洞は外見から見えませんが、衝突時の変形や跳ね返りからその構造を推定できます。本論文では、従来の密度ベース最適化が局所解に陥る問題を解決するため、大まかな構造仮説の探索と粒子ベースの微調整を組み合わせた2段階フレームワークを提案し、高精度な内部空洞復元と将来予測を実現しました。",
+ "hero_figure": {
+  "key": "F3",
+  "caption_ja": "提案手法の全体パイプラインです。密な粒子表現から始め、第1段階で大域的な仮説空間から最適な空洞配置を選び出し、第2段階で微分可能物理シミュレーションを用いて粒子位置を連続的に微調整します。",
+  "caption": "Figure 3 : Overview of hypothesis-space reasoning for SfC. (0) Dense particle initialization is reconstructed from multiview observations following GIC [ 3 ] . The initial rollout shows the dynamics before hypothesis optimization. (I) Global hypothesis optimization consists of (1) instantiating cavity hypotheses and (2) scoring them with forward-only MPM simulation using a collision-adjacent loss. (II) Lagrangian particle refinement: (3) the selected hypothesis is refined using differentiable MPM simulation with physical and geometric constraints. This two-stage framework separates coarse structural reasoning from fine geometric refinement.",
+  "image": "details/2611.07900/F3.jpg"
+ },
+ "overview_ja": "ロボットが物体を器用に操作したり、シミュレーションで未来の挙動を正しく予測したりするためには、物体の外見だけでなく「内部に空洞があるか」「どこに質量が偏っているか」を知ることが不可欠です。しかし、静止した物体の外見から内部の空洞を見分けることはできません。そこで注目されているのが、衝突時の変形や動きの映像から内部構造を逆算する「Structure from Collision (SfC)」というアプローチです。\n\n従来のSfC手法は、空間の密度を連続的に更新する勾配ベースの最適化を行っていましたが、ここには根本的な罠がありました。空洞の存在によって衝突後の物体の動きがズレたとき、表面の動きを合わせようとする勾配が、実際の空洞とはまったく異なる場所の密度を削るように働いてしまうのです。さらに、空洞部分は「物質が存在しない場所」であるため、密度の勾配自体が極めて弱く、最適化が迷走してしまいます。\n\nこの問題を打破するため、著者らは空洞の推定を「仮説空間の推論問題」として再定式化しました。まず、空洞の位置や大まかな形状を離散的な「仮説」として扱い、順方向の物理シミュレーションで候補を大域的に探索します（第1段階）。そして、最も観測に合致した仮説を初期値として、微分可能物理シミュレーションを使った粒子レベルの連続的な最適化で細部を調整します（第2段階）。\n\n標準ベンチマークを用いた実験の結果、提案手法は従来の密度ベース手法を大きく上回る幾何精度（Chamfer距離の低減）を達成し、衝突後の将来ダイナミクス予測の精度も大幅に向上することが確認されました。",
+ "contributions_ja": [
+  "従来の密度ベースSfCが、表面運動の誤った勾配シグナルや物質の欠如によって局所解に陥る根本的な失敗メカニズムを特定・可視化したこと",
+  "内部空洞の復元を「仮説空間における推論問題」として再定式化し、明示的な構造仮説を扱う枠組みを構築したこと",
+  "勾配不要の大域的仮説探索と、微分可能シミュレーションによるLagrangian粒子の局所微調整を組み合わせた2段階の最適化手法を提案したこと",
+  "SfCベンチマークおよび複雑な内部形状を持つトポロジーデータセットにおいて、内部構造の復元精度と将来予測精度の両面で従来手法を上回る性能を実証したこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "はじめに：見えない内部の空洞を「衝突」から暴く",
+   "summary_ja": "外見が同じ物体でも内部に空洞があれば、衝突時の跳ね返り方は大きく変わります。本研究では、この衝突運動のマルチビュー映像から物体の隠れた内部空洞を復元するSfC問題に対し、従来の密度最適化に代わる仮説空間推論アプローチを提案します。",
+   "details_ja": "カメラ映像から3D形状を復元する技術は大きく発展しましたが、それらは物体の「表面」を捉えるものに過ぎません。しかし、物体をロボットで掴んだり投げたりするとき、物理挙動を支配するのは内部の質量分布です。例えば、外見が全く同じ球体であっても、左側に空洞があるものと右側に空洞があるものでは、地面に衝突した後の跳ね返る方向が正反対になります。\n\nこの課題に挑むのが「Structure from Collision (SfC)」です。衝突時の変形挙動を手がかりに内部空洞を推定しようという試みですが、逆問題として極めて困難でした。なぜなら、空洞は表面の動きを介して間接的にしか観測できないうえ、「物質が存在しない空間（ボイド）」であるため、通常の密度場表現を使った勾配降下法では勾配が消失したり、局所解に捕まったりしてしまうからです。\n\nそこで本研究では、空洞を暗黙的な密度場ではなく「明示的な構造の仮説」として表現する発想の転換を行いました。大まかな構造探索を行うグローバル段階と、粒子位置を細かく詰めるローカル段階を分けることで、局所解を回避しながら忠実な形状復元を実現しています。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "関連研究：外見の復元から物理挙動・内部構造の推定へ",
+   "summary_ja": "3D復元技術は静的な外見から動的な変形、さらには物理シミュレータを組み込んだ物理パラメータ推定へと発展してきました。しかし既存研究の多くは内部が均質であると仮定しており、未知の空洞構造を推定するSfCとは一線を画しています。",
+   "details_ja": "本研究の位置づけを理解するために、関連する3つの系統を整理しておきましょう。\n\n- **静的・動的3D再構成**: NeRF（ニューラル放射場）や3D Gaussian Splatting（3DGS）の登場により、静止シーンだけでなく動的・非剛体な物体の外見と表面変形を高精度に追跡できるようになりました。しかし、これらは目に見える表面の追跡に特化しており、内部の質量分布までは関知しません。\n- **物理法則を考慮したモデリング**: 近年、微分可能シミュレータを映像復元パイプラインに組み込み、ヤング率などの物性値（物理パラメータ）を推定する研究が増えています。しかし、その多くは物体内部が完全に詰まっている（均質である）ことを前提としており、内部トポロジーの違いを考慮できません。\n- **Structure from Collision (SfC)**: 衝突挙動から内部空洞を復元する先行研究（SfC-NeRF）は、ボクセル密度の局所的な更新によって空洞を削り出そうとしました。しかし、構造的な仮説空間を持たずに局所勾配に頼ったため、後述するように誤った位置に空洞を作ってしまうという致命的な弱点を抱えていました。",
+   "figures": []
+  },
+  {
+   "heading": "3 Problem Setup and Failure Analysis",
+   "heading_ja": "問題設定と従来の密度最適化が失敗するカラクリ",
+   "summary_ja": "SfCは、衝突のマルチビュー映像から物体の初期粒子配置を逆推定する問題です。先行研究が採用していた密度ベースの局所勾配法は、表面の運動誤差が実際の空洞位置とは逆方向への修正を促してしまうため、構造的に破綻しやすいことが判明しました。",
+   "details_ja": "### 3.1 問題の定式化\nキャリブレーションされたマルチビューカメラの映像から、時間変化する物体の可視表面 $\\mathcal{S}(t_j)$ と2Dシルエットマスク $\\mathcal{A}_i(t_j)$ が得られている状況を考えます。物体は多数の質点からなる連続体（粒子ベース表現）としてモデル化します。既知の物性値 $\\Theta_{\\mathrm{phys}}$（ヤング率やポアソン比）のもとで、物理シミュレータ（MPM: 物質点法）を走らせたときの予測表面とマスクが、実際の観測データと一致するように初期粒子配置 $\\hat{\\mathcal{P}}(t_1)$ を推定するのがSfCのゴールです。\n\n### 3.2 なぜ密度ベースの局所最適化は失敗するのか？\n図 F2がその決定的な理由を雄弁に物語っています。例えば、左側に空洞がある球体（a）が落下して床に衝突すると、重心の偏りから左方向へ跳ね返ります（b）。一方、中身が詰まった球体（c）をシミュレーションすると、真上へ跳ね上がります（d）。\n\nこの2つの運動のズレ（e）を埋めようとして勾配を計算すると、最適化器は「もっと左へ傾かせたい」と考え、あろうことか球体の『右側』の質量を削ろうとします。つまり、表面の動きを一致させようとする局所勾配が、真の空洞が存在する『左側』とは正反対の場所を指し示してしまうのです。\n\nさらに、空洞部分は物質が存在しない「無」の領域であるため、密度の勾配情報そのものが極めて希薄です。このため、中身が詰まった状態からスタートする局所勾配法は、誤った極小解に容易に捕まってしまい、まともな空洞形状を復元できませんでした。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "従来の密度ベース最適化が失敗するメカニズムです。真の空洞が左にある場合（a）、観測される跳ね返りは左向きになります（b）。しかし中身が詰まった初期状態（c）は真上に跳ねるため（d）、そのズレを埋めようとする表面勾配は右側の質量を削るように誤誘導してしまいます（e）。",
+     "caption": "Figure 2 : Misleading surface-motion cue for hidden-cavity localization. An object with a left-side cavity (a) produces a leftward post-collision response (b), whereas the filled initialization used by a previous density-based SfC method (c) moves upward (d). The resulting post-collision difference (e) suggests the removal of material from the right side, even though the true cavity lies on the left. Thus, surface-matching cues alone do not reliably localize hidden cavities and can mislead local density-based optimization.",
+     "image": "details/2611.07900/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Method: Hypothesis-Space Reasoning",
+   "heading_ja": "提案手法：仮説空間の推論と2段階最適化",
+   "summary_ja": "提案フレームワークは、低次元の明示的な空洞仮説を順方向シミュレーションで評価する「大域的仮説最適化」と、選ばれた仮説の粒子配置を微分可能シミュレーションで追い込む「局所粒子リファインメント」の2段階で構成されます。",
+   "details_ja": "### 4.1 全体パイプライン\n提案手法は、観測から得た中身の詰まった密な粒子表現からスタートし、2段階で最適化を進めます（図 F3）。\n\n- **第1段階（大域的仮説最適化）**: 勾配を使わず、順方向のみのMPMシミュレーションを用いて離散的な空洞仮説をスクリーニングします。\n- **第2段階（局所粒子リファインメント）**: 選ばれた最良仮説を初期値として、微分可能MPMシミュレーションにより粒子位置を勾配降下法で連続的に微調整します。\n\n### 4.2 構造仮説空間の設計\n空洞の仮説 $h$ を、形状表現 $\\tau$、中心位置 $\\bm{c}$、サイズ $s$、姿勢回転 $\\bm{R}$ というコンパクトなパラメータ組 $h=(\\tau, \\bm{c}, s, \\bm{R})$ で定義します。密な粒子から仮説 $h$ に該当する領域の粒子をごっそり削ることで、候補となる粒子配置 $\\hat{\\mathcal{P}}_h(t_1)$ を生成します。探索空間は、事前知識に応じて柔軟に設定可能です（既知サイズで位置のみを探索、あるいは候補テンプレートから選択など）。\n\n### 4.3 第1段階：大域的仮説最適化\n仮説ごとに粒子を削る操作は非連続な構造変化を伴うため、局所勾配法には向きません。そこで、グリッド探索などの勾配不要最適化（デフォルトでは粗探索＋密探索の計250回シミュレーション）を行います。\n評価スコアには、衝突直前・直後のフレーム $\\mathcal{T}_{\\mathrm{col}}$ における2Dマスク損失 $\\mathcal{L}_{\\mathrm{2D}}$ を使用します。衝突直後の大まかな挙動の妥当性だけに集中させることで、未調整の初期仮説が引き起こす長期的なシミュレーション誤差のペナルティを回避する賢い設計です。\n\n### 4.4 第2段階：Lagrangian粒子の局所微調整\n最良の仮説 $h^*$ が選ばれたら、全フレーム $\\mathcal{T}_{\\mathrm{all}}$（$N=14$フレーム）を対象に、微分可能MPMを用いて粒子の初期座標を直接最適化します。ここでは3D表面のChamfer距離損失 $\\mathcal{L}_{\\mathrm{3D}}$ と2Dマスク損失を組み合わせます。\n\nさらに、粒子同士の異常な凝集を防ぐ斥力損失 $\\mathcal{L}_{\\mathrm{rep}}$ と、体積を保ちつつ変形させる体積保存損失 $\\mathcal{L}_{\\mathrm{vol}}$ という2つの幾何正則化を導入し、大域段階で決定した空洞の基本トポロジーを壊さずに滑らかな表面を形成できるようにしています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "提案手法の処理の流れ。(0)密な粒子表現を構築し、(I)仮説の生成と衝突直後マスクによる順方向シミュレーション評価で最良構造を選定、(II)幾何正則化をかけた微分可能シミュレーションで粒子の詳細位置を微調整します。",
+     "caption": "Figure 3 : Overview of hypothesis-space reasoning for SfC. (0) Dense particle initialization is reconstructed from multiview observations following GIC [ 3 ] . The initial rollout shows the dynamics before hypothesis optimization. (I) Global hypothesis optimization consists of (1) instantiating cavity hypotheses and (2) scoring them with forward-only MPM simulation using a collision-adjacent loss. (II) Lagrangian particle refinement: (3) the selected hypothesis is refined using differentiable MPM simulation with physical and geometric constraints. This two-stage framework separates coarse structural reasoning from fine geometric refinement.",
+     "image": "details/2611.07900/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Experiments",
+   "heading_ja": "実験結果：未知の空洞位置と形状をどこまで当てられるか",
+   "summary_ja": "SfCベンチマークにおいて、提案手法はベースラインのSfC-NeRFを大幅に上回る復元精度と予測精度を達成しました。特に局所勾配が迷走しやすい「空洞位置の変動」タスクで圧倒的な強みを示しました。",
+   "details_ja": "### 5.1 実験設定\n評価には、5種類の外形（球、立方体、双円錐、円柱、ダイヤモンド）に対して空洞のサイズや位置を変化させた計40系列からなる「SfCベンチマーク」と、複雑な空洞トポロジーを持つ計60構成の「Topologyデータセット」を使用しました。評価指標には、真値粒子との幾何学的近さを示すChamfer距離（CD、小さいほど良い、表中では $10^3$ 倍表示）とF-score（大きいほど良い）、将来フレームの予測画質（PSNR / SSIM）を用いています。\n\n### 5.2 ベンチマークでの再構成性能\nベースラインであるSfC-NeRFとの比較において、提案手法はサイズ変動・位置変動の双方で勝利しました。特に、空洞位置が変わる設定では、SfC-NeRFが局所解に捕まって内部が崩れた不自然な空洞を形成したのに対し、提案手法は真値に近い一体感のある空洞を正確に復元しました（図 F4）。表面のズレに惑わされず、大域探索で正しい位置関係を捉えられていることが確認できます。\n\n### 5.3 アブレーション研究\n位置変動タスクにおいてパイプラインの各要素を検証した結果、外見からくり抜いただけの初期化に比べ、大域探索を加えることでCDが大幅に改善し、さらに局所リファインメントを適用することで最良の幾何精度が得られることがわかりました。また、斥力損失と体積保存損失の両方が粒子の安定化に寄与していることも実証されました。\n\n### 5.4 複雑なトポロジーへのストレステストと将来予測\n複雑な空洞（snowmanや三重トンネルなど）をテストしたところ、空洞サイズのみ既知の緩い条件では複雑形状の完全復元に限界が見られたものの、候補テンプレートから選択する仮説空間を与えることで、大きく精度が向上しました。また、観測後の将来フレーム（+7フレーム、+14フレーム）の予測レンダリング評価（PSNR/SSIM）においても、正確な内部構造を復元できている提案手法が、内部均質モデル（GIC）やSfC-NeRFを明確に引き離す結果となりました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "ダイヤモンド形状における空洞位置変動タスクの定性比較。SfC-NeRF（c）は内部が断片化して衝突後の挙動が観測とズレていますが、提案手法（d）は綺麗な空洞を復元し、右側のアブレーション（e〜g）が示す通り段階を追うごとに精度が高まっています。",
+     "caption": "Figure 4 : Qualitative results on the SfC benchmark under cavity position variation. (i) Main comparison. Our method reconstructs a more coherent internal cavity than SfC-NeRF and better matches the observed post-collision dynamics. (ii) Stage-wise ablation shows the effects of cavity instantiation, global hypothesis optimization, and Lagrangian particle refinement. The Chamfer distance (CD $\\downarrow$ ) is reported below each reconstruction. Ground-truth cross-sections are shown in gray.",
+     "image": "details/2611.07900/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Limitations and Discussion",
+   "heading_ja": "限界と今後の課題：実環境への展開に向けて",
+   "summary_ja": "本研究は合成シミュレーションデータを用いており、実世界のノイズやモデル化誤差への対応が今後の課題です。また、仮説空間で表現できない複雑怪奇なトポロジーの自律的発見には依然として限界が存在します。",
+   "details_ja": "著者らは率直に以下の限界を述べています。\n\n- **実世界データとシミュレーションのギャップ**: 本実験はカメラパラメータが正確でシミュレータの物性モデルと現実が一致している合成データを前提としています。モーションブラーやフレームレート低下に対する頑健性テストはクリアしたものの、実世界のカメラノイズや接触摩擦のモデル化誤差（Sim-to-Realギャップ）への対応は今後の課題です。\n- **任意トポロジー発見の難しさ**: 衝突挙動という間接的な情報だけから、入り組んだ内部トポロジーを事前仮定なしに完全に復元することは物理的に情報不足（不良設定問題）です。仮説空間に含まれていない構造（例えば複数の孤立した空洞など）は、大域段階で拾えず、局所微調整でもトポロジー変化を起こせないため復元できません。\n\n今後は、学習ベースの形状事前分布の導入や、物体の「握り（スクイーズ）」や「揺らし」といった日常的な把持動作を通じた内部推定への拡張が期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "7 Conclusion",
+   "heading_ja": "おわりに：衝突ダイナミクスから内部構造を紐解く",
+   "summary_ja": "本研究は、SfCにおける密度勾配法の本質的な弱点を暴き、仮説空間推論という新しい枠組みを打ち立てました。物理シミュレーションと幾何最適化を巧みに組み合わせることで、見えない内部構造を物理現象から読み解く強力な基盤を確立しました。",
+   "details_ja": "「見えない中身を、ぶつかったときの動きから推定する」という極めて直感的かつ難解な問題に対し、本論文は鮮やかな解答を示しました。\n\n従来の密度ベース最適化がなぜ失敗するのかを明快に論理化し、それを避けるために「大まかな構造仮説のスクリーニング」と「微分可能シミュレーションによる粒子の微調整」を役割分担させた設計は見事です。ロボットが未知の物体を取り扱う際、一度軽くトンと叩いたり落としたりして中身の詰まり具合を把握し、その後の精密な操作やシミュレーションに活かす——そんな未来のロボット知能に向けた重要なマイルストーンとなる研究といえます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「見えない空洞」のような物質の欠如（ボイド）は、密度勾配法では局所解に陥りやすいため、低次元の離散仮説として探索するのが極めて有効である",
+  "「粗い構造探索（勾配不要の順方向シミュレーション）」と「細かい幾何微調整（微分可能シミュレーション）」を分離することで、計算効率と復元精度の両立が可能になる",
+  "表面の運動誤差だけに頼ると、重心の偏りによって真逆の位置を削ろうとする誤誘導が起きるため、衝突直後のマスクに限定した大域評価などの工夫が不可欠である",
+  "内部の質量分布を正しく復元することは、ロボティクスにおける物体の長期的な物理挙動予測（デジタルツイン構築など）の精度を根本から左右する"
+ ],
+ "limitations_ja": [
+  "検証が完全に統制された合成環境（シミュレーション動画）に限定されており、実世界特有のカメラ校正誤差や物理モデルの不一致に対する検証が未完了である",
+  "仮説空間に含まれていない全く未知のトポロジー（多数の微小空洞や複雑な網目構造など）を自律的に削り出すことはできない",
+  "大域探索フェーズの計算量は仮説空間の次元数に対して指数関数的に増大するため、パラメータ数が増えた際のサンプリング手法の拡張が必要である"
+ ],
+ "keywords": [
+  "Structure from Collision",
+  "Material Point Method",
+  "Differentiable Physics Simulation",
+  "Hypothesis-Space Reasoning",
+  "System Identification"
+ ],
+ "id": "2611.07900",
+ "title": "Structure from Collision via Hypothesis-Space Reasoning",
+ "authors": [
+  "Takuhiro Kaneko"
+ ],
+ "date": "2026-11-08",
+ "group": "general",
+ "tags": [
+  "perception",
+  "simulation"
+ ],
+ "categories": [
+  "cs.CV",
+  "cs.AI",
+  "cs.GR",
+  "cs.LG",
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.07900",
+ "pdf_url": "https://arxiv.org/pdf/2611.07900",
+ "summary_ja": "物体の衝突変形から内部の隠れた空洞構造を推定する手法「Structure from Collision (SfC)」を提案。外部観察だけでは検知できない内部空洞を、多視点からの衝突現象に伴う表面運動を手がかりに仮説空間推論を用いて特定する。材料の欠落に相当するボイドの直接最適化の困難さを克服し、非破壊検査や予測シミュレーション、ロボットの把持計画への応用を開拓した。",
+ "generated": "2026-11-08",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.07900"
+}
