@@ -1,0 +1,128 @@
+{
+ "title_ja": "OopsieRecover: 意味的介入からの転移可能なVLAリカバリー学習",
+ "tldr_ja": "ロボットが失敗したときのわずか数回の人間による介入と自然言語による説明から、背後にある意図を推論して幾何学的なコスト関数を自動生成し、VLAモデルを再学習することなく未知のシーンや配置へ汎化させる手法です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "ワッフルメーカーの蓋閉めタスクにおいて、人間の介入軌道と言語指示（蓋の中央に近づける）から意図を推論し、意味的点群に基づくゲート付きコストを合成します。これにより、VLAの重みを変えずに、未知の物体姿勢や新規シーンでも修正行動がゼロショットで転移します。",
+  "caption": "Fig. 1: Learning reusable corrections from human interventions with OopsieRecover . A human corrects a lid-closure failure and describes the intended behavior. OopsieRecover grounds this feedback in semantic point sets, and uses abduction – finding a simple explanation consistent with the observed intervention – to synthesize a gated correction cost that steers a frozen VLA. ( Right ) The synthesized correction programs generalize: they can be reused under changed object poses and scene layouts, broadening the successful applicability of the VLA.",
+  "image": "details/2611.08462/F1.jpg"
+ },
+ "overview_ja": "視覚言語行動（VLA: Vision-Language-Action）モデルは汎用的なロボット操作を可能にしますが、実際の現場では衝突や把持ミスなどの失敗が頻発します。従来の模倣学習や介入手法（DAggerなど）では、人間が介入して正しい動作を教えても、状態と行動を直接マッピングしてモデルを再学習するため、数十から数百回もの介入データが必要でした。さらに、学習した環境から物体の位置や背景が少し変わるだけで、同じ修正行動を再現できなくなるという強い過学習の問題がありました。\n\nそこで著者らは、「人間はわずか数回の失敗と指示から、何が悪くてどう直すべきかという再利用可能な原則を推論している」という点に着目しました。提案手法「OopsieRecover」は、失敗時の軌道、人間の介入軌道、そして簡単な自然言語のフィードバック（例:「マグカップを立てたまま置く」）から、アブダクション（最良の説明を導く仮説推論）を用いて背後にある修正意図を導き出します。この意図を、3D意味的点群に基づく「ゲート条件」と「修正コスト」というプログラム形式のコスト関数として表現します。\n\n評価実験では、シミュレーション（RoboCasa）と実機ロボット（DROID）の合計6タスクにおいて、わずか3〜8回の介入データのみで検証を行いました。その結果、VLAのパラメータを一切更新することなく、実機タスクの進捗度をベースラインから相対的に74%向上させ、未知の物体姿勢や初見の背景環境に対してもゼロショットで修正行動を汎化できることを示しました。",
+ "contributions_ja": [
+  "人間の介入軌道と言語説明から、アブダクション推論を用いて修正の意図を導き出す意味的枠組みを提案しました。",
+  "修正が必要なタイミングを判定する論理ゲートと、動作を誘導する幾何学的コスト関数を自動合成・検証する枠組みを構築しました。",
+  "事前学習済みVLAを一切再学習することなく、推論時のアクションチャンク選択を誘導することで、未知の環境や物体配置へのゼロショット汎化を実証しました。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜロボットは数回の介入から失敗のリカバリを学べないのか？",
+   "summary_ja": "VLAの失敗を人間の遠隔介入で直す際、従来の模倣学習では状態と行動を直接結びつけるため大量のデータが必要でした。本研究では軌道と言語を組み合わせることで、失敗の原因と修正の原則を数回の介入から導き出します。",
+   "details_ja": "近年のVLAモデルは幅広いタスクを実行できますが、配置時の衝突や落球といった失敗を避けるのは依然として困難です。これに対処する自然なアプローチは、人間がロボットを遠隔操作して介入することですが、既存手法（DAggerなど）は介入時のデータを追加の教師データとしてモデルを微調整するだけでした。この方法では、似たような状態での介入を数十回から数百回集めないと汎化しません。\n\nしかし、人間の学習を思い浮かべてみてください。人間なら「マグカップを置くときは傾けないようにする」というアドバイスを一度受けるだけで、配置場所やカップの形状が変わっても同じミスを回避できます。ここで重要なのは、動作軌道だけでは「どの幾何学的性質が重要だったのか」が曖昧であり、言語指示だけでは「ロボットのモータをどう動かすべきか」という感覚運動のグラウンディング（接地）が足りないという点です。\n\n本研究が提案するOopsieRecoverは、この2つを組み合わせ、アブダクション（観測結果を矛盾なく説明する仮説形成推論）を用いて「修正の意図」を導き出します。介入直前の失敗動作と人間の修正動作、そして自然言語による理由説明をVLM（視覚言語モデル）に与えることで、修正が必要な条件（ゲート）と満たすべき幾何学的条件（コスト）を自動合成します。このコストを用いてベースとなる凍結したVLAのアクション候補をテスト時に評価・選択することで、再学習なしで未知の環境へ修正行動を適用できるようにしました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "人間の介入と言語指示から、VLMが意味的点群に基づいたゲート付きコストを生成し、凍結されたVLAの動作をテスト時に誘導して汎化させる仕組みの全体図です。",
+     "caption": "Fig. 1: Learning reusable corrections from human interventions with OopsieRecover . A human corrects a lid-closure failure and describes the intended behavior. OopsieRecover grounds this feedback in semantic point sets, and uses abduction – finding a simple explanation consistent with the observed intervention – to synthesize a gated correction cost that steers a frozen VLA. ( Right ) The synthesized correction programs generalize: they can be reused under changed object poses and scene layouts, broadening the successful applicability of the VLA.",
+     "image": "details/2611.08462/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Works",
+   "heading_ja": "介入模倣学習や軌道誘導の先行研究とどこが違うのか",
+   "summary_ja": "介入学習、失敗検出、逆強化学習、推論時ステアリングなど多岐にわたる関連分野を整理しています。OopsieRecoverは少数の介入から局所的な制約プログラムを抽出し、凍結VLAの能力を損なわずに誘導する点が独自です。",
+   "details_ja": "本論文のアプローチは、主に4つの研究分野に関連しています。\n\n- インタラクティブ模倣学習: DAggerやHG-DAggerなどは人間の介入データでポリシーを再学習しますが、収集した特定の状況に過学習しやすい欠点があります。YAY RobotやOLAFのように言語やVLMを組み合わせる研究もありますが、数十回以上の介入を要します。OopsieRecoverは、介入から構造化された表現を抽出することで、わずか数回のデータからゼロショット汎化を実現します。\n\n- VLAの失敗検出: SAFEやFailSafeなどは潜在表現から異常を検知しますが、検出器の学習が必要です。本手法は点群表現とガードされたコスト関数を用いるため、追加学習を一切行わずに失敗検知と誘導を同時に行えます。\n\n- 意味情報からの目的・制約の推論: 逆強化学習（IRL）や、VLMから報酬・制約をコードとして生成するVoxPoser、ReKep、Code as Policiesなどがあります。しかしこれらはタスク全体のポリシーをゼロから生成するものが多く、汎用的なベースポリシーの能力を活かしきれません。OopsieRecoverは、修正が必要な局面でのみ発火する局所的なコストを合成し、凍結した基底VLAの汎用性をそのまま維持します。\n\n- 推論時ステアリング（誘導）: 強化学習を用いた潜在空間の誘導（RL-based steering）はサンプル効率が悪く、環境ごとに再学習が必要です。またVLSなどの検証器を用いた手法はタスク指示のみから報酬を導くため、細かい失敗モードの回避には情報が不足します。OopsieRecoverは人間の数回の介入から文脈ゲート付きコストを合成・調整することで、極めて高いサンプル効率を達成しています。",
+   "figures": []
+  },
+  {
+   "heading": "III OopsieRecover",
+   "heading_ja": "アブダクションとゲート付きコストによる修正プログラムの合成",
+   "summary_ja": "人間の介入軌道と言語から、関連物体の3D点群を特定し、発火条件（ゲート）と最適化関数（コスト）からなる修正プログラムをVLMで合成します。記録データによる検証・自動修正を経て、推論時にVLAのアクション候補をランク付けして実行します。",
+   "details_ja": "OopsieRecoverの全体アーキテクチャは、修正データの収集、プログラム合成、そして推論時の軌道ステアリング（誘導）から構成されています。\n\n### III-A 意味的介入データの収集\nロボットの実行中に人間が介入すると、介入直前の$K$ステップ（失敗の予兆となるプリインターベンション区間 $W_{\\mathrm{pre}}$）、人間の遠隔操作区間 $W_{\\mathrm{human}}$、および人間が操作を戻した後の自律復帰区間 $W_{\\pi_{\\text{base}}}$ が記録されます。人間は「何が悪かったのか」を表す自由形式のテキスト $\\ell_H$ と修正カテゴリ $c$ を付与します。\n\n### III-B 意味的に接地されたゲート付きコストの表現\n修正の意図を環境が変わっても使い回せるようにするため、幾何学的な関係性に基づくコスト関数を定義します。これは「いつ修正を適用すべきか」を決める論理述語のゲート項 $C_{\\mathrm{gate}}$、「どう行動を直すべきか」を決める修正項 $C_{\\mathrm{correction}}$、そしてタスクの進行を保つタスク項 $C_{\\mathrm{task}}$ で構成されます。各物体や部位は、2Dセグメンテーションと深度情報から3D点群 $\\mathcal{P}$ として空間上にグラウンディングされます。\n\n### III-C 修正プログラムの合成とリファインメント\nプログラム合成は4つのステップで進みます。\n1. 関連エンティティの接地: VLMが介入時の画像から関連部位（例: マグカップ、コーヒーマシンの底面）のシード点を指定し、3D点群化して追跡します。\n2. コストの提案: 各点群の重心軌跡の推移をVLMに与え、ゲート項と修正項の実行可能コードを生成させます。\n3. しきい値のキャリブレーション: 人間が介入を決意したトリガーを捉えるため、$W_{\\mathrm{pre}}$ 区間における最小のゲートスコアをしきい値 $\\tau_{\\mathrm{gate}}$ として設定します。\n4. 検証と修正: 合成されたコストが「人間の修正区間を失敗区間よりも低コストと評価できているか（ランキングチェック）」、および「失敗区間でしきい値を超えて発火するか（トリガーチェック）」を検証します。満たさない場合は失敗理由をVLMにフィードバックし、条件式やパラメータを自動修正します。\n\n### III-D 修正誘導によるポリシーの実行\nテスト環境では、VLMが新しいシーン内で該当エンティティを再検出し、点群をトラッキングします。ゲートスコアがしきい値を超えるとステアリングが発動します。凍結されたVLAから複数のアクションチャンク（行動のまとまり）をサンプリングし、簡易なダイナミクスモデルで点群の将来位置を予測して、合成コストが最も低くなる最適なアクションを選択して実行します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "OopsieRecoverの全体パイプラインです。介入と言語指示の記録（橙）、点群追跡とVLMによるプログラム合成・検証ループ（青）、そして推論時にゲート検知から最良のアクションチャンクを選択するステアリング部（緑）の流れが示されています。",
+     "caption": "Fig. 2: OopsieRecover : From semantic interventions to reusable VLA corrections. In OopsieRecover , a human monitors VLA execution and intervenes to provide semantic corrections: a corrective trajectory and a language description for some type of correction, $c_{i}$ , ( orange ). We then synthesize the collected set of interventions for each correction type into a Semantically Grounded Gated Cost by i) parsing the sensorimotor demonstration as temporal point sets tracked on semantic scene entities, ii) generating gated costs from the motion of the point sets, and iii) verifying these costs by evaluating their capability to explain all human corrections of the same type ( blue ). …",
+     "image": "details/2611.08462/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "わずか数回の修正で未知のシーンや配置へ劇的に汎化",
+   "summary_ja": "シミュレータ（RoboCasa）と実機（DROID）の計6タスクで評価しました。わずか3〜8回の修正から生成したプログラムにより、HG-DAggerなどの微調整ベースラインを大幅に上回る成功率とタスク進捗度を達成しました。",
+   "details_ja": "本研究では、シミュレーション（RoboCasaの3タスク）および実機（DROIDハードウェア環境での3タスク）を用いて評価を行いました。評価レベルは、介入収集時と同一条件の $\\mathcal{L}_0$、同一シーン内で物体の初期姿勢を変えた $\\mathcal{L}_1$、未知のシーンかつ未知の物体姿勢の $\\mathcal{L}_2$ の3段階を設定しています。\n\n### Q1. わずかな修正データから新しい状況へ汎化できるか？\n各タスク5〜8回の修正データを用いて評価しました。シミュレーションでは、ベースラインのHG-DAgger*（介入データでLoRA微調整）は $\\mathcal{L}_0$ で成功率が40%向上したものの、配置が変わる $\\mathcal{L}_1$ や $\\mathcal{L}_2$ では過学習により急激に性能が低下しました。VLMによる行動ラベル付け（OLAF）やタスク指示のみのステアリング（VLS）も失敗を回避できませんでした。対照的に、OopsieRecoverは $\\mathcal{L}_1$ や $\\mathcal{L}_2$ においても高い成功率を維持し、統計的検定（STEPテスト）でも単独トップの性能グループを形成しました。\n実機タスク（クロッフルをワッフルメーカーに入れる、コーヒーポッド装填、棚への収納）では各3〜6回の介入を使用しました。OopsieRecoverはすべての難易度レベルでHG-DAgger*に対してタスク進捗度で60%以上の大差をつけ、実機全体のタスク進捗度を35.1%から61.0%へと向上させました（次点ベースライン比で相対74%の改善）。\n\n### Q2. 修正回数の増加に伴うスケーリング性能\nCoffeeMugタスクにおいて介入回数を増やした際の推移を比較しました。OopsieRecoverはわずか8回の修正で成功率84%に達し、その後データが増えても性能劣化を起こさず飽和しました。一方、HG-DAgger*は同じ8回の修正では成功率28%にとどまり、改善速度に極めて大きな差が出ました。\n\n### Q3. 学習した修正プログラムは未知のシーンでも同じ失敗を防げるか？\n「スチームノズルとの衝突回避」という修正プログラムを1回の介入から学習し、10種類の初見シーンでテストしました。ロボットを意図的に衝突方向へ遠隔操作したところ、10試行すべてで検出器が正常に作動し、衝突を完全に防止（100%の失敗防止率）しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "実験で用いたタスクの一覧です。上段はシミュレータ環境（RoboCasa）、下段は実機環境（DROID）であり、障害物回避、精密な位置決め、ヒンジの開閉など多彩な失敗モードを扱っています。",
+     "caption": "Fig. 3: Simulation and real-world tasks. We evaluate a diverse set of tasks that elicit different types of corrections; avoiding collisions, improving placement precision, and correctly articulating objects.",
+     "image": "details/2611.08462/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Limitations",
+   "heading_ja": "現在の制約と将来の課題",
+   "summary_ja": "点群として幾何学的に表現できる関係に依存しており、接触力などの物理特性には対応していません。また、点群追跡の精度やVLAが生成する候補アクションの多様性に依存する限界もあります。",
+   "details_ja": "著者らは本手法の限界として以下の点を明示しています。\n\n- 幾何学的制約への依存: 対象となる修正は3D点群間の空間的・幾何学的条件として表現できるものに限られます。接触力や摩擦、物体の質量といった直接観測できない物理的特性を明示的に扱うことはできません。\n\n- 知覚および予測の信頼性: 適切な物体接地の成否、点群トラッキングの安定性、簡易ダイナミクスモデルによる将来予測の精度に依存します。これらに誤差が生じると、修正トリガーの誤作動や不適切なアクション選択につながる恐れがあります。\n\n- サンプルアクション候補の質: 推論時ステアリングは、凍結されたVLAからサンプリングされた有限個（$K$個）のアクションチャンクの中から最適なものを選択する仕組みです。そのため、生成された候補の中に有効なリカバリ動作が一つも含まれていない場合には失敗を防ぐことができません。\n\n- 検証の網羅性: 提案されたランキングチェックとトリガーチェックは、記録された介入データと矛盾がないかを確認するものであり、あらゆる未知の状況で正しく機能することを理論的に保証するものではありません。",
+   "figures": []
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "まとめ：行動の丸暗記から、意味と制約の理解へ",
+   "summary_ja": "OopsieRecoverは、わずか数回の介入と言語説明からアブダクションにより再利用可能な制約プログラムを導き出し、凍結VLAを誘導する革新的なフレームワークです。模倣学習のデータ効率と汎化性を飛躍的に高める新たな方向性を示しました。",
+   "details_ja": "本論文では、少数の意味的介入データから汎化可能な修正プログラムを合成し、事前学習済みVLAを推論時にステアリングする「OopsieRecover」を提案しました。従来のインタラクティブ模倣学習のように行動軌道を直接丸暗記して再学習するのではなく、アブダクション推論を用いて介入の背後にある「幾何学的意図」をゲート付きコスト関数として抽出するアプローチが極めて有効であることを実証しました。\n\nシミュレーションと実機の両方において、わずか数回の人間による修正から、未知の物体姿勢や新規シーンに対しても頑健にゼロショット汎化できることが確認されました。この成果は、大規模なロボット基盤モデルを実環境へ適応させる際、重みの再学習に頼るのではなく、少数の指示から構造化された制約を抽出し推論時に誘導するという、極めてデータ効率の高い新たなパラダイムを提示しています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "VLAの微調整（DAggerなど）は過学習しやすく、わずかな配置や環境の変化に対応するには大量のデータが必要になるという弱点がある。",
+  "人間の介入軌道と「なぜ介入したか」の言語説明を組み合わせることで、VLMを用いたアブダクションにより再利用可能な幾何学的制約プログラムを合成できる。",
+  "修正ルールを「発火条件（ゲート）」と「最適化関数（コスト）」に分離することで、基底ポリシーの汎用性を損なわずに必要な瞬間だけ推論時ステアリングが可能になる。",
+  "わずか5〜8回の修正データから合成したプログラムが、未知の物体姿勢や新規シーンに対しても追加学習なし（ゼロショット）で頑健に機能する。"
+ ],
+ "limitations_ja": [
+  "点群として視覚的に捉えられる空間的幾何関係に限定されており、接触力や重さなどの力覚・未観測物理特性は扱えない。",
+  "知覚（点群セグメンテーション・トラッキング）の頑健性と、行動候補を評価するためのダイナミクスモデルの予測精度に依存する。",
+  "VLAからサンプリングされた有限のアクションチャンクの中に適切な回避・修正動作が含まれていない場合はリカバリできない。"
+ ],
+ "keywords": [
+  "Vision-Language-Action Models",
+  "Interactive Imitation Learning",
+  "Abductive Reasoning",
+  "Inference-Time Steering",
+  "Zero-Shot Generalization",
+  "Semantic Point Sets"
+ ],
+ "id": "2611.08462",
+ "title": "OopsieRecover: Learning Transferable VLA Corrections from Semantic Interventions",
+ "authors": [
+  "Arpit Bahety",
+  "Skand Peri",
+  "Sriniket Ambatipudi",
+  "Chen Xu",
+  "Haruki Nishimura",
+  "Masha Itkina",
+  "Roberto Martín-Martín"
+ ],
+ "date": "2026-11-08",
+ "group": "general",
+ "tags": [
+  "vision-language-action",
+  "manipulation",
+  "safety"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.08462",
+ "pdf_url": "https://arxiv.org/pdf/2611.08462",
+ "summary_ja": "VLAモデルの失敗回復を少数の意味的介入から汎化させる手法「OopsieRecover」を提案。低レベルのリカバリー動作を直接模倣する代わりに、高レベルの意味的修正を抽出して方策に反映させる。これにより、従来のDAggerのように多数の対話データを収集することなく、未見の障害シナリオに対しても高い汎化性能を持つリカバリー行動を獲得可能にした。",
+ "generated": "2026-11-08",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.08462"
+}
