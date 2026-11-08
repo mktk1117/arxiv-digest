@@ -1,0 +1,125 @@
+{
+ "title_ja": "T3R: 効率的で頑健なVLAモデルに向けた学習不要な2段階トークン精製",
+ "tldr_ja": "大規模なVision-Language-Action（VLA）モデルに対して、追加学習なしで不要な画像パッチを85%削り、注意の向け先を補正することで、精度を保ったまま推論の高速化と未知環境への頑健性を両立した研究です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "T3Rの全体パイプラインです。まずテキストと画像の類似度から物体マスクを作って不要な視覚トークンを大胆に間引き（Stage 1）、残ったトークンと指示文の重要単語にアテンションバイアスを注入して行動決定を支援します（Stage 2）。",
+  "caption": "Figure 1. Two-stage T3R pipeline. Stage 1 (pruning): POS-weighted SigLIP text–patch similarity localizes the target; the top-scoring patch positions (with SigLIP/DINOv2 features) prompt EfficientTAM to produce an object mask, which is converted to a patch-level pruning decision while preserving original RoPE positions, so only the “interested tokens” enter the LLM. Stage 2 (biasing): Integrated Gradients over the instruction identifies salient words; an additive attention bias ( $\\beta{=}2.0$ ) is injected into the middle decoder layers for action-token queries, steering attention toward salient text tokens and retained visual patches before the action chunk is decoded. …",
+  "image": "details/2611.08413/F1.jpg"
+ },
+ "overview_ja": "ロボットを言葉と画像から直接動かすVision-Language-Action（VLA）モデルは非常に強力ですが、推論コストが重すぎるという深刻な課題を抱えています。ロボットが1回行動を決めるたびに数百個もの視覚トークン（画像を小さく分割した単位）をLLMに通す必要があり、カメラの台数が増えると計算量はさらに跳ね上がります。しかも、背景などのタスクと関係ない領域がモデルの注意を散漫にさせ、少し物の位置が変わっただけで失敗する原因にもなっていました。\n\nそこで著者らは、視覚トークンの無駄には「空間的に無関係な領域が存在する無駄」と「残った領域に対するアテンション（注意の向け方）がズレている無駄」という、2つの側面があることに着目しました。この問題を一掃するために提案されたのが「T3R」です。追加の学習は一切行わず、まずセグメンテーション（領域分割）モデルを使って関係のない視覚パッチをごっそり削り落とします。そして削ったことで失われかねない重要情報を補うため、統合勾配（Integrated Gradients）を使って行動予測に必要なトークンへアテンションを誘導するバイアスを加えます。\n\n検証の結果、LIBEROベンチマークにおいてシーンカメラの視覚トークンを85%も削減しながら、元のモデルと同等の成功率を維持できることが分かりました。さらに、配置のズレといった未知の変動に対しては、むしろ元のモデルより最大7ポイントも成功率が向上しました。入力解像度を上げた場合のプロファイリングでは最大3.3倍のLLM順伝播の高速化を達成しており、実用的なロボット制御に向けた極めて現実的で強力なアプローチを示しています。",
+ "contributions_ja": [
+  "VLAモデルの重みを一切変更・再学習することなく、推論時のみで視覚トークンを大幅に削減・補正する2段階フレームワーク「T3R」を提案しました。",
+  "領域分割モデルを用いた空間的トークン間引き（Stage 1）と、統合勾配に基づく中間層アテンションバイアス注入（Stage 2）を組み合わせ、85%のトークン削減と精度維持を両立しました。",
+  "間引きによって無関係な背景ノイズが排除され、物の配置変化などの分布外（OOD）摂動下で成功率が最大7ポイント向上することを示しました。",
+  "複数カメラ環境や高解像度入力においてトークン削減の効果がより大きくなることを、複数バックボーンを用いた広範な実験で明らかにしました。"
+ ],
+ "sections": [
+  {
+   "heading": "1. Introduction",
+   "heading_ja": "賢いロボットほど頭が重い？VLAが抱える推論遅延と視覚ノイズの罠",
+   "summary_ja": "VLAモデルは汎用的なロボット制御を可能にしますが、毎ステップ大量の視覚トークンを巨大なLLMに通すため遅延が生じ、制御性能を損ねています。また背景などの余計なトークンは、環境変化時の行動予測を狂わせる原因にもなっています。",
+   "details_ja": "カメラ画像と自然言語の指示からロボットの関節角度やグリッパーの開閉を直接出力するVLAモデルは、ロボット界の大きなトレンドです。しかし、汎用性が高い一方で「推論が非常に重い」という現実的な壁に直面しています。一般的なOpenVLAなどの構成では、$224\\times 224$ピクセルの画像1枚から256個の視覚トークンが生成されます。複数台のカメラを使うとなれば、トークン数はあっという間に数百〜千個を超えてしまいます。これらを毎ステップ巨大なLLMバックボーンに流し込むと大きな遅延が生じ、ロボットのリアルタイム制御に悪影響を与えます。\n\nさらに問題なのは、それらのトークンの多くが指示文とはほとんど関係のない背景だという点です。無関係なトークンに注意が分散してしまうと、物体の配置やカメラの角度が少し変わっただけでロボットが判断を誤る原因になります。\n\n著者らは、この問題の本質は「空間的に無駄なトークンが存在すること」と「残ったトークンへの注意配分が狂うこと」の2点にあると考えました。そこで生まれたのが「T3R」です。まずLLMに入る直前の段階で無関係なトークンを領域分割モデルを使って削り落とし、次に間引きによって生じる情報低下を補うために、指示文のキーワードや重要領域へアテンションを誘導するバイアスを加えます。モデルの再学習は一切不要で、既存のVLAにそのまま組み込めるのが大きな強みです。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "T3Rの全体構成です。入力画像からSigLIPとEfficientTAMを用いて対象物マスクを作り、LLMに入る前に対象外トークンを間引きます。その後、行動トークンのクエリに対して中間層でアテンションバイアスを加えることで、重要領域への注意をブーストします。",
+     "caption": "Figure 1. Two-stage T3R pipeline. Stage 1 (pruning): POS-weighted SigLIP text–patch similarity localizes the target; the top-scoring patch positions (with SigLIP/DINOv2 features) prompt EfficientTAM to produce an object mask, which is converted to a patch-level pruning decision while preserving original RoPE positions, so only the “interested tokens” enter the LLM. Stage 2 (biasing): Integrated Gradients over the instruction identifies salient words; an additive attention bias ( $\\beta{=}2.0$ ) is injected into the middle decoder layers for action-token queries, steering attention toward salient text tokens and retained visual patches before the action chunk is decoded. …",
+     "image": "details/2611.08413/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2. Related Work",
+   "heading_ja": "LLMの途中ではなく「入口」で削る——既存の高速化手法との決定的な違い",
+   "summary_ja": "従来のトークン削減手法はLLMの途中の層で間引くものが主流でしたが、T3RはLLMに入る前に削ることで全層の計算量を削減します。また、外部のセグメンテーションモデルと事後的なアテンション補正を組み合わせる点が従来にない新しさです。",
+   "details_ja": "トランスフォーマーの計算量を削減する研究は、ビジョンモデルやマルチモーダルLLMの分野で盛んに行われてきました。ロボット分野でも、FastVやTeamVLA、ADPといった手法が提案されています。しかし、これらの多くはLLMの中間層（たとえば数層通した後）でトークンを間引くアプローチを採用しています。これだと、最初の数層では依然として大量のトークンを処理しなければならず、計算削減の恩恵をフルに受けることができません。\n\nこれに対しT3Rは、LLMの「デコーダに入る前」にトークンを削減することを目指します。こうすれば全32層すべてのトランスフォーマー層で計算が軽くなります。しかし、デコーダ前での削減には「一度捨てたトークンは二度と戻せない」「LLM内部のアテンション情報を使えない」という難しさがあります。\n\nT3Rはこの課題を、SAM（Segment Anything Model）系の高精度な軽量領域分割モデル（EfficientTAM）を外部の空間事前知識として活用し、さらに削った後の注意配分を統合勾配（Integrated Gradients）によるアテンション誘導で手当てすることで見事に解決しました。キャッシュを再利用するVLA-Cacheが時間方向の冗長性を削るのに対し、T3Rは空間方向の冗長性を削るため、互いに直交して併用可能な関係にあります。",
+   "figures": []
+  },
+  {
+   "heading": "3. Method",
+   "heading_ja": "【手法解説】削ってから導く！T3Rを支える2つのステージ",
+   "summary_ja": "Stage 1では言語と画像の類似度からマスクを生成して不要なパッチを切り捨て、位置埋め込みの破綻を防ぐ工夫を施します。Stage 2では統合勾配を用いて、行動決定に必要な単語や重要パッチにアテンションバイアスを注入します。",
+   "details_ja": "T3Rのパイプラインは、大きく2つのステージに分かれています。\n\n### 3.1. セグメンテーション誘導によるトークン間引き（Stage 1）\nまずはLLMに渡す画像パッチを大胆に間引きます。タスク指示文と画像が与えられると、SigLIPを用いてテキストと各画像パッチの類似度マップを作ります。ここで工夫しているのが品詞（POS）の重み付けです。名詞や形容詞を重視し、動詞や前置詞の重みを下げることで、操作対象となる物体をきれいにハイライトします。\n\nこの粗い類似度マップをもとに、軽量セグメンテーションモデル「EfficientTAM-S」を使って正確な物体マスクを生成します。類似度上位のパッチからクラスタリング（DBSCAN）で最もまとまった領域を選び、ポジティブプロンプトとして入力します。マスクがパッチ面積の30%（$\\tau = 0.3$）以上を覆っていればそのパッチを「保持」、それ以外は「破棄」します。\n\nここで極めて重要なのが「位置IDの保持」です。パッチを間引いた後に単に1から連番で並べ直すと、事前学習で獲得した位置情報（RoPE）が狂い、タスク成功率がほぼゼロに落ちてしまいます。そのため、元のグリッドにおける位置IDをそのまま維持してLLMに渡します。なお、マスクの更新は5ステップに1回非同期で行うため、推論をブロックしません。\n\n### 3.2. 顕著性誘導によるアテンションバイアス注入（Stage 2）\nパッチを激しく間引くと、どうしても境界付近などの情報が失われるリスクがあります。そこでStage 2では、残ったトークンの中で「どこを重視すべきか」を行動クエリに教えてあげます。\n\nまずタスク開始時に、統合勾配（Integrated Gradients; IG）を用いて指示文中のどの単語が行動予測に効いているかを計算します（上位30%を重要単語とみなします）。そしてLLMの中間層（第8〜23層）において、行動トークンのクエリに対してアテンションロジットに加算バイアス（$\\beta = 2.0$）を注入します。このバイアスは、指示文中の重要単語と、残された視覚パッチに対して加えられます。初期層の特徴抽出や最終層の出力フォーマットを壊さず、決定的な意味判断が行われる中間層だけに介入するのがポイントです。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "LIBERO-Spatialでの間引きの様子です。指示文に対してSigLIPとSAMを組み合わせることで、T3Rはターゲットの器だけに絞り込み、256パッチ中わずか13パッチ（95%削減）だけを残しています。広範囲の背景を残してしまうTeamVLAと比べて、極めてシャープに対象を捉えていることが分かります。",
+     "caption": "Figure 2. Qualitative pruning on a sparse LIBERO-Spatial scene (“pick up the bowl between the plate and the ramekin”). Top: input, POS-weighted SigLIP similarity, and the EfficientTAM mask with its point prompts. Middle: T3R keeps only 13/256 patches (95% pruned), tightly localized on the target. Bottom: TeamVLA’s similarity+expansion+merge retains 226/256 (12% pruned), leaving most of the background in the sequence through the early decoder layers. A three-by-three panel comparison of patch selection in a tabletop scene containing a robot gripper, bowls, a plate, and a ramekin. …",
+     "image": "details/2611.08413/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4. Experiments",
+   "heading_ja": "【実験結果】85%間引いても成功率はそのまま、ズレにはむしろ強くなった！",
+   "summary_ja": "LIBERO環境において、シーンカメラのトークンを85%削りながら96%の成功率を維持しました。さらに物体の配置がずれる未知の状況ではベースラインを最大7ポイント上回り、複数カメラ環境でも高い頑健性と高速化を示しました。",
+   "details_ja": "実験では、OpenVLA-OFTをベースに卓上操作タスクベンチマーク「LIBERO」で詳細な検証を行いました。ハードウェアはNVIDIA L40S（48GB）を1台使用しています。\n\n### 4.1. 圧倒的なトークン削減と精度の両立\nシーンカメラのトークン削減率において、既存のTeamVLAが約15%にとどまる中、T3Rは「85%削減」を達成しました。それにもかかわらず、LIBERO-Spatialでの成功率は96%（ベースラインの未削減モデルは97%、TeamVLAは94%）と、ほぼ無傷の精度を維持しています。同じ85%削減を他の手法（ADPやFastV）に強制すると成功率が66%や14%まで崩壊することからも、T3Rの賢い間引きとアテンション補正が不可欠であることが分かります。また、疎なシーンでは9〜15パッチ、乱雑なシーンでは最大121パッチと、状況に応じて残すトークン数を自動調整しています。\n\n### 4.2. なぜここまで削れるのか？\nLLM内部のアテンションを解析したところ、全32層にわたり実に「93.9%の視覚トークンが、行動クエリから受ける注意の0.2%未満しか受け取っていない」という驚きの事実が判明しました。つまり、ほとんどのパッチは最初からほぼ無視されていたのです。適切な選択さえできれば、事前に入口で捨てても全く問題ないという裏付けになります。\n\n### 4.3. 推論速度の向上と高解像度への恩恵\n$224\\times 224$ピクセルの標準入力において、VLA推論1回あたりのレイテンシは107.5 msから92.5 msへと約14%短縮されました（1.16倍の高速化）。T3Rの処理オーバーヘッドは約7.8 msですが、LLM側の計算が削れるためトータルでしっかり高速化されます。さらに解像度を768ピクセルまでスケールさせたシミュレーションでは、未削減モデルがアテンション計算量爆発（二次関数的増加）に苦しむのに対し、T3RはLLM順伝播で最大3.3倍の高速化を達成し、エンドツーエンドでも2.47倍の高速化が見込めることが示されました。\n\n### 4.4. 分布外（OOD）摂動への頑健性向上\n物体の初期配置にガウスノイズを加えて位置をずらす実験を行ったところ、2 cm以上のズレにおいてT3Rはベースライン以上の成功率を示し、4 cmのズレではベースラインを最大7ポイント上回りました。背景の余計なコンテキストを削ぎ落としたことで、配置のズレによる視覚的な幻惑を防げたためです。\n\n### 4.5. バックボーンの汎化とカメラ台数の影響\nSIMPLER環境（単一カメラ）のCogACTと、RoboTwin環境（3台カメラ）の$\\pi_{0.5}$でも評価しました。単一カメラでは視覚情報に冗長性が少ないため間引きの余地が限られましたが、3台カメラの環境では、トークンを半分に削ってもベースラインと同等、62.5%保持設定ではベースラインを5ポイント上回る成功率を記録しました。カメラ数が増えて視界の重複（冗長性）が大きいほど、T3Rの真価が発揮されます。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "視覚トークンへのアテンション配分の分析です。(a) 全32層の平均で、93.9%のトークンが行動クエリから0.2%未満の注意しか向けられていません。(b) ヒートマップを見ると、注意はグリッパーと操作対象の器だけに極端に集中しており、背景パッチがいかに不活性であるかが分かります。",
+     "caption": "Figure 3. Most visual tokens are near-inert. (a) Across all 32 decoder layers, 93.9% of visual tokens receive $<$ 0.2% of the action queries’ attention each. (b) Per-patch action-query attention concentrates on a few task-relevant patches (here the gripper and target bowls), while the background receives negligible weight. Two panels summarize visual-token attention. The left bar chart shows that 30.7 percent of tokens receive less than 0.1 percent attention each, 63.2 percent receive 0.1 to 0.2 percent, and 6.1 percent receive more than 0.2 percent. The right panel overlays a patch-grid heatmap on the scene. …",
+     "image": "details/2611.08413/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5. Conclusion",
+   "heading_ja": "まとめ：余計なものを見ないロボットへ",
+   "summary_ja": "T3Rは、学習不要の2段階アプローチによってVLAの大幅なトークン削減と推論高速化、さらには頑健性の向上を実現しました。高解像度化やマルチカメラ化が進む次世代ロボットにおいて、極めて実用的な基盤技術となります。",
+   "details_ja": "VLAモデルを実機ロボットで動かす際、計算遅延と視覚的な過学習は常に付きまとう大きな頭痛の種でした。T3Rは「デコーダの入口で大胆に間引き、中間層で注意を研ぎ澄ます」というシンプルな2段階構成によって、追加の学習を一切行わずにこの二重苦を解決しました。\n\n特に、入力解像度が高くなったときに計算量が爆発するのを防ぎ、メモリ帯域律速の扱いやすい領域に計算をとどめておけるという知見は、今後のロボット用エッジハードウェア設計やアクセラレータ協調設計にとっても極めて示唆に富んでいます。既存のモデル重みを書き換えることなく、推論パイプラインにプラグインとして組み込める実用性の高さも魅力的です。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "VLAモデルの視覚トークンの9割以上は行動予測においてほぼ不活性であり、デコーダ前で大胆に間引くことが可能です。",
+  "間引いたトークンのインデックスを詰めず、元の位置ID（RoPE）を維持してLLMに入力することが精度崩壊を防ぐ絶対条件です。",
+  "トークン間引きで生じる情報の粗さは、統合勾配を用いた中間層アテンションバイアス（Stage 2）によって補正できます。",
+  "不要な背景パッチを除去することは単なる計算削減にとどまらず、物体の配置ズレに対するロバスト性を高める効果があります。",
+  "複数台カメラを用いるシステムほど視覚の重複が大きいため、トークン削減による恩恵（ヘッドルーム）が大きくなります。"
+ ],
+ "limitations_ja": [
+  "Stage 1が外部の領域分割モデル（SAM系）に依存しているため、カゴの中に小物を入れるような「複合物体」や境界が曖昧なシーンではセグメンテーションの失敗を引き起こすことがあります。",
+  "複数ステップにわたる長期タスク（例：「引き出しを開けて、皿をしまい、閉める」）では時間経過とともに対象領域が変わりますが、現在の指示文全体の類似度計算ではフェーズごとの動的な切り替えに対応しきれません。",
+  "統合勾配（IG）の計算にはタスク開始時に約1秒のオーバーヘッドがかかるため、タスクが極めて短時間で終わる場合や即時起動が求められる場面では償却が難しくなります。",
+  "シミュレータ環境のみでの検証にとどまっており、実機ロボット特有のセンサノイズ、照明変化、アクチュエータの物理遅延が存在する環境での動作検証は今後の課題です。"
+ ],
+ "keywords": [
+  "Vision-Language-Action Models",
+  "Token Pruning",
+  "Attention Biasing",
+  "Integrated Gradients",
+  "EfficientTAM",
+  "Embodied AI"
+ ],
+ "id": "2611.08413",
+ "title": "T3R: Training-Free Two-Stage Token Refinement Towards Efficient and Robust VLA Models",
+ "authors": [
+  "Mohammed Hassan",
+  "Zhenyang Chen",
+  "Zheng Wang",
+  "Zhixin Zhu",
+  "Tianlong Chen",
+  "Yingyan",
+  "Lin",
+  "Chaojian Li"
+ ],
+ "date": "2026-11-08",
+ "group": "general",
+ "tags": [
+  "vision-language-action",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.08413",
+ "pdf_url": "https://arxiv.org/pdf/2611.08413",
+ "summary_ja": "VLAモデルの推論効率と外乱耐性を高める訓練不要な2段階トークン精製手法「T3R」を提案。第1段階でセグメンテーション誘導により背景などの無関係な画像パッチを剪定し、第2段階で残存トークンへの注意配分を補正する。追加学習なしで視覚トークンの冗長性を大幅に削減し、分布シフト下でも計算負荷の低減と頑健なエンドツーエンド制御を両立した。",
+ "generated": "2026-11-08",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.08413"
+}
