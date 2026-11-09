@@ -1,0 +1,148 @@
+{
+ "title_ja": "ForPC: 高精度なヒューマノイド台車押しのための力覚を考慮した全身制御",
+ "tldr_ja": "外付けの力センサや人間の実演データを使わずに、固有受容感覚と頭部カメラから接触力と台車運動の潜在表現を推定し、強化学習ベースの全身残差制御によって最大30kgの積載台車を正確かつ滑らかに押し運ぶ制御フレームワークです。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "ForPCの全体フレームワークです。(a) 手先にランダムな外乱レンチを加えて事前学習した歩行プライア、(b) 特権的な接触力・運動状態をオンボード信号から推定するTeacher-Student構成の潜在表現推定器、(c) それらの潜在表現を入力として上半身・下半身の関節残差とベース速度指令を生成する残差ポリシーで構成されています。",
+  "caption": "Figure 2 : (a) The locomotion prior is pre-trained to track base-velocity commands under random palm wrenches and bounded arm and waist posture variations. (b) The teacher encodes privileged contact forces and states into force and state latents, whereas the student infers both latents from onboard observation histories and reconstructs the contact forces and the velocities and accelerations of the robot and the cart. …",
+  "image": "details/2611.08664/F2.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットが製造や物流の現場で重い荷物を運ぶ際、人間用に作られた手押し台車をそのまま操作できれば、インフラを改造せずに重労働を肩代わりできます。しかし、両手で台車のハンドルを把持して歩行すると、台車を押す推進力がそのままロボット自身のバランスを崩す外乱となり、積載物の重さによっても運動特性が大きく変わってしまいます。さらに、両腕の協調が崩れると左右の手同士が押し合ってトルクを無駄に消費してしまいます。\n\nそこで著者らは、2段階の強化学習を用いた力感覚アウェアな全身制御フレームワーク「ForPC」を提案しました。まず第1段階として、手先に激しいランダムな力やモーメントが加わる環境で歩行プライア（基本となる安定した歩行方策）を事前学習して凍結します。第2段階では、ロボットの内蔵センサ（関節角度・速度や上体トルク）と頭部カメラによる台車の相対向きから、接触力と台車運動の状態を潜在変数として推定するモジュールを導入しました。この潜在表現を入力として、残差ポリシーがベース移動速度の指令値調整と上半身・脚部の関節オフセットを同時に生成し、全身を協調させて台車速度を制御します。\n\nシミュレーション（Isaac Sim）での評価では、歩行単体のベースラインと比較して台車速度の二乗平均平方根誤差（RMSE）を最大68.2%、複雑なカーブ経路での追従誤差を最大74.2%削減しました。さらに、実機のUnitree G1にシミュレーション単体で学習したポリシーをそのまま適用（Zero-Shot転送）し、最大30kgの荷物を積んだ台車を0.5m/sで安定して運搬できることを実証しました。",
+ "contributions_ja": [
+  "歩行プライア、相互作用推定モジュール、全身残差ポリシーを組み合わせた、動的台車押し向け2段階強化学習フレームワーク「ForPC」を提案した点",
+  "外付け力センサを使わずにオンボード信号から力と運動の潜在表現を推定し、接触荷重と台車挙動のフィードバックループを同時に閉じる力誘導型推論モジュールを構築した点",
+  "左右の手が不要に押し合う内力を抑え、台車推進に必要な有効力を効率的に配分する多目的報酬関数を設計した点",
+  "シミュレーションのみで学習した単一のポリシーを実機のUnitree G1へZero-Shot転送し、パラメータ調整なしで最大30kgの積載台車の経路追従運搬を達成した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜヒューマノイドが台車を押すのは難しいのか？",
+   "summary_ja": "ヒューマノイドが手押し台車を扱う作業は、両手把持によって力学的な結合ループが形成されるため、バランス維持と推進力制御がトレードオフになります。既存研究では力か運動のどちらか一方しか推定できず、両腕同士が押し合ってしまう内力問題も解決できていませんでした。本論文はこれらを同時に解決する力感覚アウェアな全身制御フレームワークForPCを提案します。",
+   "details_ja": "人間向けに作られた手押し台車をヒューマノイドが自律的に扱えれば、物流や製造現場での重労働を大幅に効率化できます。しかし、実際にやろうとすると非常に厄介な力学問題に直面します。\n\nまず、両手で台車のハンドルを掴むことで、ロボットと台車が「力学的に強く結合した1つの系」になってしまいます。台車を前に押し出そうとして手に力をかけると、その反作用がそっくりそのままロボットの上半身に戻ってきて歩行バランスを崩します。さらに、運ぶ荷物の重さや重心位置が変わると、どれくらいの力で押せば台車がどう動くかというダイナミクスが激変します。もう1つの深刻な問題が「腕同士の喧嘩（内力）」です。1本のハンドルを両手で掴んでいるため、両腕がうまく協調していないと、片方の腕がもう片方の腕を押し返すような無駄な力が発生してしまいます。これは台車の推進には一切寄与せず、姿勢の修正や旋回に必要なモータートルクのマージンを無駄に食いつぶしてしまいます。\n\n手首に力・トルクセンサを付ければ接触力は測れますが、あらゆるロボットにセンサがあるわけではありませんし、台車側にも通常センサは載っていません。先行研究でも力や物体の動きを固有受容感覚（ロボット自身の関節角度やトルクなど）から推定する試みはありましたが、「台車の速度」と「両手の接触力」の両方を同時にフィードバックしてループを閉じたものはありませんでした。そこで著者らは、ロボット自身が持つ内蔵信号だけから接触力と運動状態を潜在変数として推定し、歩行と両腕の操作を全身で調和させるForPCを考案しました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "台車押し・力適応制御・残差強化学習の現在地",
+   "summary_ja": "ヒューマノイドの運搬制御はモデルベースから強化学習へと移行し、扱える重量が飛躍的に伸びてきました。しかし、接触力と物体運動の両方を推定して協調させる制御は未確立でした。また、既存の残差強化学習は動作追従や外乱相殺に主眼があり、センサのない移動物体を全身で駆動するタスクには直接適用できませんでした。",
+   "details_ja": "### 2.1 ヒューマノイドによる台車押しと物体運搬\n初期の研究では、双腕の力制御や台車のモデルに基づく重心と接触力の同時計画などが試みられてきましたが、正確な物体モデルや力センサが必要でした。近年は強化学習により扱える重量が大きく向上し、100kgを超える台車を押す研究や、固有受容感覚から物体の動きを予測する研究（HAICなど）が登場しています。しかし、荷物の重さや配置が変われば必要な手の力も変わるため、手先の接触力と台車の動きを「同時に」オンライン推定して制御に活かす枠組みが不足していました。\n\n### 2.2 力推定と力適応制御\n接触力を制御ループに組み込む手法として、仮想のバネ・ダンパ系を用いるFACETや、脚式ロボットで培われた固有受容感覚からの外力推定技術（Portelaらの四足マニピュレータ研究やCompliantWBCなど）がヒューマノイドにも応用され始めています。ただし、これらは目標とする力を追従したり、外乱をしなやかに受け流したりすることが主目的であり、接触している対象物がどのように動いたかまでを同時に把握する構成にはなっていませんでした。\n\n### 2.3 ヒューマノイド制御における残差強化学習\n全身の歩行動作をゼロから学習させるのではなく、既存の歩行コントローラの上にタスク特化の「残差（補正量）」を上乗せする残差強化学習（Residual RL）が注目されています。モーションキャプチャの追従補正（ResMimic）や手先・トレイの揺れを打ち消す研究（SEECやSteadyTray）がありますが、これらは対象を「安定に保つ」ためのものであり、未知のダイナミクスを持つ台車を意図通りに「走らせる」ための協調制御にはそのまま使えませんでした。",
+   "figures": []
+  },
+  {
+   "heading": "3 Problem Formulation",
+   "heading_ja": "台車押しを2つのサブシステムに切り分ける",
+   "summary_ja": "台車とロボットの結合系では、未知の積載量や手先力、台車速度が非観測状態となります。歩行と運搬を同時に単一ポリシーで学習するのは探索が難しいため、問題を「外乱下での歩行学習（Subsystem 1）」と「推定器を介した台車制御（Subsystem 2）」の2段階に定式化しました。",
+   "details_ja": "ロボットがキャスター付き台車のハンドルを把持し、指令された台車平面速度 $\\bm{v}^{\\mathrm{cart,cmd}}_{t}$ を追従する問題を考えます。\n\nシステムの状態は、ロボットの内蔵センサやカメラから直接得られる「観測可能状態 $\\bm{s}^{\\mathrm{obs}}_{t}$」と、手先にかかる力 $\\bm{F}^{\\mathrm{hand}}_{t}$ や台車の実速度 $\\bm{v}^{\\mathrm{cart}}_{t}$、未知の積載質量などの「非観測状態 $\\bm{s}^{\\mathrm{unobs}}_{t}$」に分かれます。4輪とも自在キャスターの台車は固定輪による拘束がないため、横移動や旋回はほぼ手先の力とモーメントだけで操舵しなければならず、非観測情報の把握が極めて重要です。\n\nしかし、歩行と台車操作を同時に一から学習させようとすると、非観測要素が多すぎて探索が破綻してしまいます。そこで著者らは、物理的には結合した系を、強化学習の枠組みとして賢く2段階に分解しました。\n\n- **サブシステム1（歩行の安定化）**: 台車そのものは登場させず、台車から受ける反作用を手先へのランダムな外力・外乱モーメント $\\bm{F}^{\\mathrm{ext}}_{t}$ としてロボットに与えます。ここで、どんな力で引っ張られたり押されたりしても転ばずに指令速度で歩き続けられる頑健な歩行プライア $\\pi_{\\mathrm{base}}$ を育てます。\n- **サブシステム2（台車の速度制御）**: 歩行プライアを凍結した上で、台車を実際に接続します。非観測状態 $\\bm{s}^{\\mathrm{unobs}}_{t}$ は過去の関節運動やトルクの履歴 $\\bm{H}_{t}$ から推定器 $\\mathcal{E}$ を通して潜在変数として復元し、タスクポリシー $\\pi_{\\mathrm{task}}$ が歩行プライアに対する残差指令 $\\bm{a}^{\\mathrm{res}}_{t}$ を生成して台車を正確に操縦します。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "ロボットと台車の結合システムです。(a) Unitree G1がキャスター付き台車のハンドルを固定姿勢で把持する様子、(b) 上から見た配置寸法とロボットおよび台車の速度定義、(c) ロボット・台車・地面の間で相互に作用する接触力学の関係を示しています。",
+     "caption": "Figure 1 : (a) A Unitree G1 grasps the cart handle with a fixed grasp posture, while the cart rolls on caster wheels and carries a variable payload. (b) Top view of the robot–cart system, indicating the bimanual grasp spacing, the cart dimensions, the robot base velocity $\\bm{v}^{\\mathrm{b}}$ , and the cart velocity $\\bm{v}^{\\mathrm{cart}}$ . (c) Contact interactions that govern the coupled robot–cart dynamics.",
+     "image": "details/2611.08664/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Method",
+   "heading_ja": "ForPCの設計：歩行プライア・潜在表現推定・全身残差協調",
+   "summary_ja": "ForPCは3つの核となるモジュールで構成されます。(1) 手先外乱に耐える歩行プライアの事前学習、(2) 接触力潜在変数を用いて運動状態を推論するTeacher-Student型推定器、(3) ベース速度指令と上半身・脚部の関節残差を同時に出力し、腕同士の内力を抑制するタスクポリシーです。",
+   "details_ja": "### 4.1 対話的な台車押しのための歩行プライア\n第1段階では、台車を押す際に発生する反作用力と姿勢変化に耐えられる歩行コントローラ $\\pi_{\\mathrm{base}}$ を学習します。シミュレータ内でロボットの両手のひらに3軸の外力とモーメントをランダムに印加し、同時に腕と腰の関節目標角度も一定の範囲内でランダムに変化させます。報酬関数にはベース速度の追従、体幹の高さや傾きを抑えるバランス項、足の滑りやクリアランスを整える歩行項、過剰な関節トルクや急激な動作を抑える正則化項を設定しています。学習完了後、このネットワークのパラメータは固定されます。\n\n### 4.2 部分観測下での相互作用ダイナミクス潜在表現推論\n第2段階のキモとなるのが、外付け力センサなしで接触力と台車運動を推定するモジュールです。シミュレーション中の特権情報（真の接触力や台車速度）を利用できるTeacherと、実機で得られる観測履歴 $\\bm{H}_{t}$（関節位置・速度、上体トルク、カメラで捉えた台車の相対ヨー角）のみを入力とするStudentを用いた蒸留構成をとっています。\n\nここでの工夫は、まず観測履歴から因果的時間エンコーダを通じて「力潜在変数 $\\hat{\\bm{z}}^{F}_{t}$」を推定し、その力潜在変数の系列を観測特徴量と融合して「状態潜在変数 $\\hat{\\bm{z}}^{s}_{t}$」を推定する点です。つまり、「どれくらいの力が加わっているか」の認識を手がかりにして「台車がどう動いているか」を予測する二段構え（Force-guided）になっています。補助タスクとして接触力や台車・ベースの速度・加速度の直接再構成も同時に学習させ、特徴空間に物理的な意味をしっかりと定着させています。\n\n### 4.3 力感覚アウェアな全身残差協調制御\nタスクポリシー $\\pi_{\\mathrm{task}}$ は、推定された力潜在変数と状態潜在変数、直近の観測を受け取り、合計30次元の残差アクションを出力します。内訳は「歩行プライアへのベース速度指令補正（3次元）」、「腕・腰の関節残差（15次元）」、「脚部の関節残差（12次元）」です。ベースの歩き方、腕による力の加え方、足元の踏ん張りを一元的に協調させます。\n\nさらに重要なのが報酬設計です。両手で同じハンドルを握っている場合、手先レンチ $\\bm{F}^{\\mathrm{hand}}_{t}$ のうち台車を動かす推進力となる成分 $\\bm{d}^{\\mathrm{dr}}_{t}$ と、左右で相殺してしまって台車を動かさない無駄な「内力成分 $\\bm{d}^{\\mathrm{int}}_{t}$」に数学的に直交分解できます。報酬関数においてこの内力成分にペナルティを課すことで、左右の手が無駄に喧嘩せず、最小限のトルクで効率よく台車を前進・旋回させる協調動作を自律的に獲得させました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "手法の全体パイプラインです。(a) 手先に外乱レンチを与えて頑健な歩行プライアを事前学習、(b) Teacher-Student蒸留により力潜在変数と状態潜在変数をオンボード信号から推定、(c) 凍結した歩行プライアと学習可能な残差ポリシーを組み合わせ、内力ペナルティを含む報酬で全身協調を最適化します。",
+     "caption": "Figure 2 : (a) The locomotion prior is pre-trained to track base-velocity commands under random palm wrenches and bounded arm and waist posture variations. (b) The teacher encodes privileged contact forces and states into force and state latents, whereas the student infers both latents from onboard observation histories and reconstructs the contact forces and the velocities and accelerations of the robot and the cart. …",
+     "image": "details/2611.08664/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Experiments",
+   "heading_ja": "シミュレーション評価と実機Unitree G1での検証",
+   "summary_ja": "Isaac SimおよびMuJoCoでの比較実験により、ForPCが速度追従誤差を最大68.2%、経路追従誤差を最大74.2%削減し、腕同士の内力を大幅に低減することを確認しました。さらに、シミュレーションで学習したポリシーを実機のUnitree G1にそのまま適用し、30kg積載の台車を0.5m/sで安定して運搬できることを示しました。",
+   "details_ja": "### 5.1 実験設定\nロボットには12自由度の脚、1自由度の腰ヨー軸、14自由度の腕を持つUnitree G1を使用し、台車は4輪自在キャスター付き（空虚重量12kg）を用いました。頭部RealSenseカメラで台車天板のAprilTagを認識して相対ヨー角を取得しています。Isaac Sim上で学習を行い、制御周期は50Hzです。比較対象として、(1) タスク補正を行わず歩行プライアだけで押す「Loco-only」、(2) 手先外乱なしで事前学習した歩行プライアを使う設定、(3) 力潜在変数の推定を省いた設定（力感覚なし）の3つを用意しました。接触モデルや計算エンジンの異なるMuJoCoでも評価し、Sim-to-Simの汎化性能も検証しています。\n\n### 5.2 台車押し制御の性能（速度追従と経路追従）\n速度追従テストでは、前進（0.3, 0.5, 0.8 m/s）、横移動（0.15, 0.3 m/s）、旋回（0.15, 0.3 rad/s）のステップ指令を与えました。図F3に示す通り、Loco-onlyは前進こそ追従できるものの、横移動や旋回では台車の走行抵抗に負けてほとんど追従できません。対してForPCは、すべての動作で速やかに指令値に追従しました。Table 1において、ForPCはLoco-onlyと比較して速度追従のRMSEを最大68.2%、速度変動（RMSF）を最大65.4%削減しました。特に力感覚アウェアネスを組み込むことで、横移動の追従誤差が最大36.1%改善しています。\n\nS字カーブや直角 detours を含む連続経路追従テスト（図F4）でも、ForPCは経路からの横ズレ誤差（Cross-track RMSE）を最大74.2%削減し、15kg・25kg積載のどちらの条件でも成功率100%を達成しました（Table 2）。重負荷・急カーブでもロボットがバランスを崩さずにクリアできることが分かります。\n\n### 5.3 潜在表現の解析と両腕の協調性\nStudent推定器の精度を検証したところ、手のひらの3軸接触力に対する決定係数 $R^2$ は前進方向で0.97、鉛直方向で0.95と極めて高い値を示しました。台車速度の推定RMSEも0.035m/sと高精度でした。また、左右の手が相殺し合う内力の比率 $\\rho^{\\mathrm{int}}$ を測定したところ（Table 4）、力感覚を持たないベースラインでは内力比率が跳ね上がりトルクを浪費していたのに対し、ForPCは内力比率を最大34.6ポイント低下させ、水平方向の労力を台車推進へと効率的に集中させていることが裏付けられました。\n\n### 5.4 実機Unitree G1への展開\nシミュレーションで学習したモデルを、実機向け微調整（Fine-tuning）を一切行わずに実機Unitree G1へZero-Shot転送しました。図F5のように、平坦な床面で前進だけでなく横ステップ移動やその場旋回を安定して実行できました。さらにナビゲーションシステムと連携させ、狭い通路を通過して中継地点で作業員が荷物を積み替え、異なる積載重量（最大30kg）の状態で0.5m/sの速度で次の目的地まで搬送する一連のタスクを、単一のポリシーで何らパラメータ変更なく完遂しました（図F6）。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "Isaac SimおよびMuJoCoにおける台車速度追従の比較です。上段がIsaac Sim、下段がMuJoCoでの結果を示しており、Loco-onlyが横移動や旋回に追従できていないのに対し、ForPCは両シミュレータで素早く安定して指令に追従しています。",
+     "caption": "Figure 3 : Cart-velocity tracking by ForPC and Loco-only in Isaac Sim and MuJoCo. Loco-only uses the Stage I policy without task-level corrections. Both policies are trained only in Isaac Sim, so the MuJoCo results serve as a sim-to-sim test; shaded bands denote standard deviations.",
+     "image": "details/2611.08664/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "S字カーブと矩形回り込みを含む連続経路追従テストの結果です。ForPCは計画された軌道（点線）にピタリと沿って走行していますが、Loco-onlyはカーブで大きく外側へ膨らみ、姿勢を崩しています。",
+     "caption": "Figure 4 : Route tracking by ForPC and Loco-only in simulation. Cart trajectories are overlaid on robot–cart snapshots.",
+     "image": "details/2611.08664/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "実機Unitree G1を用いた基本動作の検証です。(a) 長い直線通路での前進押し、(b) ロボットが横歩きしながら台車を平行移動させる横移動、(c) 台車を中心にしてその場で向きを変える旋回動作を安定して実現しています。",
+     "caption": "Figure 5 : (a) ForPC deployed on a physical Unitree G1 pushes the cart forward along a straight line. (b) The deployed policy moves the cart laterally. (c) The deployed policy rotates the cart.",
+     "image": "details/2611.08664/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実環境での搬送タスクの実証実験です。自律ナビゲーションの指令に従って狭所を通過し、中継点で作業員が荷物を積み替えて重量が変わった後も、コントローラをリセットすることなく最大30kgの荷物を目的地まで運搬しました。",
+     "caption": "Figure 6 : A physical Unitree G1 running ForPC within a navigation system transports materials. The map shows Trajectory 1 (red) and Trajectory 2 (green), and the numbered markers indicate where the corresponding snapshots were taken. (1) The robot turns into a narrow passage. (2) The robot moves straight through the narrow passage. (3) The robot turns onto a straight segment. (4) A worker removes materials from the cart, a worker places materials onto the cart, and the robot turns in place. (5) Under the same policy, the robot pushes the cart with a different payload to complete the material transport. (6) A worker removes the materials from the cart.",
+     "image": "details/2611.08664/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "力感覚アウェアな全身残差制御ForPCにより、ヒューマノイドによる高精度な台車押し搬送が実証されました。外付け力センサなしで接触力と運動状態を推定し、腕の内力を抑えながら全身を協調させることで、実機30kgの搬送をZero-Shot転送で達成しました。今後は他の車輪付き機器への拡張や、散らかった環境での視覚統合が期待されます。",
+   "details_ja": "本論文では、ヒューマノイドロボットが高精度に台車を押して荷物を運ぶための新しい全身制御フレームワーク「ForPC」を提案しました。\n\n外乱に耐える歩行プライアの事前学習、オンボード信号から接触力と運動状態を導き出す力誘導型推論モジュール、そして腕同士の喧嘩を防ぎながらベース速度と全身関節を協調補正する残差ポリシーという3つの要素を巧みに組み合わせることで、外付け力センサや事前の荷物重量測定を一切必要としないロバストな運搬制御を実現しました。シミュレーション上での大幅な精度向上に加え、実機のUnitree G1で30kgの荷物を積んだ台車の自律搬送を成功させた成果は、ヒューマノイドが人間の日常的な運搬作業を代替できる現実的な可能性を強く示しています。\n\n著者らは今後の展望として、台車以外の多様な車輪付き機器（病院用ベッドや車いすなど）や異なる把持モードへの適用、そして障害物が多い混雑環境での運搬に向けた高度な外界認識（視覚やLiDARなど）との統合を挙げています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「歩行の安定化（外乱耐性学習）」と「台車操作（残差学習）」を分離することで、力学的に強く結合した複雑な接触タスクでも強化学習の探索を効率化できる",
+  "手先に力センサがなくても、関節運動やトルクの履歴から接触力と物体運動の両方を潜在変数として高精度に推定できる",
+  "両手把持タスクでは、把持力を「推進成分」と「相殺する内力成分」に直交分解して内力をペナルティ化することが、腕同士の喧嘩を防ぎトルク効率を高める決定打になる"
+ ],
+ "limitations_ja": [
+  "手先の把持姿勢が固定されており、ハンドルの握り直しや片手操作、異なる形状のハンドルへの動的な適応は検証されていない",
+  "台車の相対角度計測を頭部カメラによるAprilTag認識に依存しており、マーカーがない環境やオクルージョンが発生する状況でのロバスト性は未評価である",
+  "実験で扱った最大積載量は30kg（台車自重込み42kg）であり、人間の体重を超えるような超重量物の押し引きについてはさらなる検証が必要である"
+ ],
+ "keywords": [
+  "Humanoid Robots",
+  "Whole-Body Control",
+  "Reinforcement Learning",
+  "Loco-Manipulation",
+  "Force Estimation",
+  "Sim-to-Real Transfer"
+ ],
+ "id": "2611.08664",
+ "title": "ForPC: Force-Aware Whole-Body Control for Precise Humanoid Cart Pushing",
+ "authors": [
+  "ZhenYu Zou",
+  "Xing Liu",
+  "ShiChuang Wang",
+  "YunLong Dong",
+  "LiNan Deng",
+  "Feng Hua",
+  "Jun Wan",
+  "Cheng Cheng"
+ ],
+ "date": "2026-11-09",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "control",
+  "reinforcement-learning",
+  "locomotion"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.08664",
+ "pdf_url": "https://arxiv.org/pdf/2611.08664",
+ "summary_ja": "二腕で台車を押す作業において手先の接触力と全身バランスが相互干渉する課題に対し、2段階RLに基づく全身制御フレームワークForPCを提案。多様な手先荷重下で訓練した歩行事前分布を活用し、ペイロード変動や外乱下でも高精度な速度追従と転倒防止を両立させた。",
+ "generated": "2026-11-09",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.08664"
+}
