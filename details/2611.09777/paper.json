@@ -1,0 +1,117 @@
+{
+ "title_ja": "ヘビ型ロボットを用いた自律的全身ロコマニピュレーション",
+ "tldr_ja": "専用のアームやグリッパーを使わず、ヘビ型ロボットの全身接触と横這い（サイドワインディング）運動だけで物体を自律的に目的地まで押し運ぶ、全身ロコマニピュレーションを実現しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "ヘビ型ロボットCOBRAが、胴体側面を使った接触押し出しによって箱を自律的にゴール地点まで運んでいる様子です。移動のための推進とマニピュレーションを全身の接触で同時にこなしています。",
+  "caption": "Fig. 1: Shows COBRA demonstrating closed-loop loco-manipulation.",
+  "image": "details/2611.09777/F1.jpg"
+ },
+ "overview_ja": "車輪型や脚型のロボットにアームを取り付けたロコマニピュレーション（移動と操作の同時実行）はよく知られていますが、ヘビ型ロボットでは「どこが足でどこが手か」という明確な境界がありません。これまでの研究では、頭部にグリッパーを付けたり、胴体を移動用と操作用に役割分担させたりすることが一般的でした。しかし、ヘビ本来の柔軟で冗長な体を活かすなら、胴体全体を使って推進しながら同時に物体を押す「全身ロコマニピュレーション」ができるはずです。\n\n本論文が取り組んだのは、まさにこの全身接触による物体の押し出し問題です。推進と操作が密接に絡み合うため、足場となる地面反力を得ながら対象物へ力を伝える軌道計画は極めて複雑になります。そこで著者らは、ロボット、地面、物体の接触を統一して扱う「接触陰伏型（contact-implicit）」の力学モデルを構築しました。さらに、うねり運動による激しい振動を排して計画を容易にするため、ロボット全体を外接矩形（バウンディングボックス）として捉える「縮約モデル」を導入しています。\n\n実機実験では11関節のヘビ型ロボットCOBRAを用い、初期配置を変えた20回の押し出し実験すべてで目標位置から0.2 m以内への運搬に成功（成功率100%）しました。また、S字状のウェイポイントを通過する長距離搬送や、物理的に妥当な接触力をリアルタイム以上に高速計算できる最適化シミュレーションも示されています。",
+ "contributions_ja": [
+  "専用グリッパーや胴体の機能分割に頼らず、サイドワインディング中の全身接触だけで物体を押し運ぶ自律制御系を構築した点",
+  "ロボット・地面・対象物の相互作用をモロー・ジャン（Moreau–Jean）時間刻みスキームで統一的に定式化した接触陰伏型力学モデルの提案",
+  "ヘビ型ロボット特有の周期的な振動運動から重心と主慣性軸を抽出し、滑らかな計画と制御を可能にする縮約バウンディングボックス表現の開発",
+  "実機実験において多様な初期配置から100%の成功率で物体搬送を達成し、複数ウェイポイントを巡る複雑な軌道追従も実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "II Problem Statement and Overview of Hardware Platform",
+   "heading_ja": "実験プラットフォームCOBRAとタスク設定",
+   "summary_ja": "11関節を持つヘビ型ロボットCOBRAの機体構成と、今回のターゲットである「横這い推進による物体の押し出しタスク」の概要を説明しています。ロボットや物体の位置姿勢はモーションキャプチャで取得し、頭部内蔵のJetson Orin NXで制御計算を行っています。",
+   "details_ja": "### 実験ロボットCOBRAの構成\n実験に使用されたヘビ型ロボット「COBRA」は、ピッチ軸（上下の曲げ）とヨー軸（左右の曲げ）が交互に並ぶ11個の関節リンクで構成されています。各関節はRS-485通信バスで接続された独立サーボモータで駆動され、頭部モジュールに搭載された小型コンピュータNvidia Jetson Orin NXによって一括制御されます。頭部にはステレオカメラとIMU（慣性計測装置）、各関節には絶対値エンコーダが備わっています。\n\n### タスクの定義\n本研究で扱う課題は、ロボットの初期姿勢と物体の初期位置が与えられた状態から、サイドワインディング（ガラガラヘビのように体を斜め前方に波打たせて進む横這い歩容）を行いながら対象物に接近し、胴体側面で押して目標地点まで運ぶ自律タスクです。ロボットと物体の現在の位置姿勢はモーションキャプチャシステムから取得する設定としています。",
+   "figures": []
+  },
+  {
+   "heading": "III Modeling",
+   "heading_ja": "接触陰伏型モデルと振動を消し去る縮約表現",
+   "summary_ja": "ロボット・地面・物体の接触力学を統一的に定式化する接触陰伏型モデルと、周期運動の振動を吸収して滑らかな軌道計画を可能にする縮約モデルを提案しています。また、幾何学的なベジエ曲線を用いた公称コントローラにより、高次元な軌道最適化の計算を安定化させています。",
+   "details_ja": "### III-A & III-B ロボットと地面の接触モデル\nヘビ型ロボットの頭部を浮動ベース座標 $\\bm{q}_{b} \\in \\mathbb{R}^6$、関節角度を $\\bm{q}_{j} \\in \\mathbb{R}^{11}$ と定義し、オイラー・ラグランジュ方程式をアクチュエータ駆動軸と非駆動軸（浮動ベース）に分離します。接触力学の計算にはモロー・ジャン（Moreau–Jean）の時間刻みスキームを採用し、ロボット・地面間およびロボット・物体間の接触インパルスを速度レベルの相補性問題としてまとめました。クーロン摩擦円錐を満たす接触力は、射影ガウス・ザイデル（PGS）法により毎ステップ効率よく解かれます。\n\n### III-C ロボット・物体・床面の相互作用\n押される物体（箱）は水平面内の3自由度剛体としてモデル化されます。ロボットからの接触力は箱の側面に作用する外力レンチとなり、床面との相互作用は重心の前後に配置された2点の接触で近似されます。床面接触力は箱の加速度条件と摩擦多面体への射影により、反復計算を必要とせず代数的に高速に求まる工夫がなされています。\n\n### III-D 周期的なうねりを平滑化する縮約表現\nヘビ型ロボットがサイドワインディングを行うと、頭部や各リンクは激しく振動し続けます。これをそのまま軌道追従の目標にすると制御が破綻してしまいます。そこで、全リンクの質量位置から重心位置 $\\bm{p}_{bb}$ を求め、さらに特異値分解（SVD）で主慣性軸を抽出してロボット全体の向き $\\theta_{bb}$ を定義しました。これにより、ロボット全体を滑らかに動く1つの「外接矩形（バウンディングボックス）」として3自由度で扱えるようになります。\n\n### III-E & III-F 歩容生成と公称コントローラ\n11個の関節軌道はCPG（中枢パターン生成器）の正弦波で駆動し、ヨー関節の振幅バイアス $\\Delta$ を左右非対称に傾けることで旋回角速度を制御します。上位の計画器は接近フェーズ（2次ベジエ曲線）と押し出しフェーズ（3次ベジエ曲線）を滑らかに切り替えて経路を生成し、ピュアパシュート（前方注視点追従）則と比例コントローラで $\\Delta$ を決定します。このフィードフォワード入力が、接触陰伏型軌道最適化の強力な初期値（ウォームスタート）として機能します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "フル次元モデル（左）と縮約モデル（右）の比較です。周期的にうねる各リンクの運動を外接矩形（バウンディングボックス）の3自由度姿勢 $\\bm{q}_{bb}$ へ縮約することで、振動に惑わされず接近から押し出しまでの滑らかな軌道計画を可能にしています。",
+     "caption": "Fig. 2: Full-order and reduced-order representations of the snake robot during loco-manipulation. Left: full-order model showing floating-base pose $\\bm{q}_{b}$ , joint coordinates $\\bm{q}_{j}$ , robot–ground contact impulses $\\bm{\\Lambda}_{rg}$ with friction cone $K_{\\mu}$ , and bounding box projection $\\bm{p}_{bb}$ . Right: reduced-order planning space with robot start pose (R), box start pose (B), and goal pose (G). The robot reference trajectory $\\bm{q}_{bb}^{\\mathrm{des}}$ consists of an approach phase and a loco-manipulation phase. The desired box trajectory $\\bm{q}_{\\mathrm{box}}^{\\mathrm{des}}$ defines the box path to the goal. …",
+     "image": "details/2611.09777/F2.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "ベジエ曲線を用いた参照軌道の生成方法です。物体へ接近するフェーズ（左）では2次ベジエ曲線、接触してゴールへ運ぶロコマニピュレーションフェーズ（右）ではロボットと物体の位置関係を考慮した3次ベジエ曲線を使って滑らかな経路を作ります。",
+     "caption": "Fig. 4: Reference trajectory generation in approach mode (left) and loco-manipulation mode (right). Approach uses a second-order Bézier with a single control point $\\bm{c}_{1}$ along the heading $\\bm{e}_{\\theta_{bb}}$ . Loco-manipulation uses a third-order Bézier with control points $\\bm{c}_{1}$ , $\\bm{c}_{2}$ along the heading and robot–box directions. Both are placed at distance $\\eta L$ from their respective anchor points.",
+     "image": "details/2611.09777/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Results and Discussion",
+   "heading_ja": "実機検証：100%の成功率とウェイポイント追従",
+   "summary_ja": "実機COBRAを用いて初期位置の異なる20回の搬送試験を行い、100%の成功率を記録しました。さらに2つの経由点を通る長距離・大旋回タスクを達成したほか、簡約化した軌道最適化シミュレーションによって物理的に妥当な接触力が実時間より高速に解けることを確認しています。",
+   "details_ja": "### ハードウェア実験のセットアップ\n実験ではピッチ振幅 $\\alpha_p = 15^\\circ$、ヨー振幅 $\\alpha_y = 40^\\circ$、周波数 $\\omega = 0.5\\text{ Hz}$ のサイドワインディング歩容を用い、平均並進速度は約 $0.1\\text{ m/s}$ です。操舵バイアス $\\Delta$ は $[-15^\\circ, +15^\\circ]$ に制限し、制御周期 $0.75\\text{ Hz}$ で動作させました。搬送対象は質量 $0.5\\text{ kg}$、サイズ $0.2 \\times 0.12\\text{ m}$ の直方体ボックスです。\n\n### 押し出し実験の結果と安定性\nロボットと物体の開始位置・ゴール位置を様々に変えた20回の実機トライアルにおいて、目標位置から $0.2\\text{ m}$ 以内に箱を運ぶタスクで成功率100%を達成しました。接近時の旋回によって箱とロボットの間に横方向の微小なオフセットが生じるものの、フィードバック制御によってそのズレを補正しながら安定してゴール領域へ届けています。\n\n### 複数ウェイポイントを巡る連続搬送実験\n2つの経由点（WP1、WP2）を順番に通過してゴールへ向かう長距離トライアルでも、ロボットは接触を維持したまま $200^\\circ$ 以上の急旋回をこなしました。経由点切り替え時に一時的な姿勢誤差のピークが発生するものの、速やかにゼロ付近へ収束しています。\n\n### 最適化モデルの妥当性と計算速度\n実機実験で取得された箱の移動軌道を再現するように、接触力 $\\bm{F}$ と接触位置 $c_x$ を決定変数とする単一射撃法（ホライズン $1.25\\text{ s}$、時間刻み $\\Delta t = 0.025\\text{ s}$）で最適化を解きました。その結果、ロボットと箱の接触力は常に摩擦円錐の押し出し方向に収まり、床面摩擦力は摩擦多面体の境界上に位置して継続的なすべり摩擦と一致しました。約145秒分の全軌道に対する最適化が1分未満で完了し、実時間以上の高速計算が可能であることが確認されました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "実機におけるロコマニピュレーション実験の結果です。上段は代表的なトライアルのスナップショットとXY平面軌跡、下段は配置を変えた4通りの試行を示しています。いずれの配置でも縮約モデルが滑らかに追従し、箱をゴールへと押し運べています。",
+     "caption": "Fig. 5: Hardware loco-manipulation results. Top left: composite snapshots of a representative trial showing robot start pose (R), box start pose (B), and goal region (G). Top right: corresponding trajectory plot with reduced-order bounding box, robot center-of-mass trajectory, box trajectory, and planned Bézier path. Color gradient indicates time progression. Bottom: trajectory plots from four additional trials with varied start and goal configurations.",
+     "image": "details/2611.09777/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "2つのウェイポイント（WP1, WP2）を経由する連続搬送実験（上段）と、その軌道に基づいた接触最適化シミュレーション（下段）です。急旋回を伴う経路でも接触が維持され、シミュレーションで求めた押し出し力や摩擦力は摩擦限界の内側に正しく収まっています。",
+     "caption": "Fig. 7: Waypoint tracking experiment and contact-implicit model validation. Top left: composite snapshots showing approach, manipulation through waypoints WP1 and WP2, and delivery to the goal region. Top right: trajectory plot with robot trajectory, box trajectory, and reduced-order bounding box. Bottom left: robot–box contact force distribution against friction cone $K_{\\mu_{r}}$ . Bottom center: box–ground friction forces $\\bm{\\lambda}_{1}$ , $\\bm{\\lambda}_{2}$ against friction polyhedron $K_{\\mu_{g}}^{i}$ . …",
+     "image": "details/2611.09777/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V concluding remarks",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "本研究は、ヘビ型ロボットの全身接触による自律ロコマニピュレーションが実現可能であることを実験とシミュレーションの両面から示しました。今後は起伏のある不整地への適応や、外部モーションキャプチャに頼らない機体搭載センサのみでの完全自律化が期待されます。",
+   "details_ja": "### 本論文の結論\nモロー・ジャン時間刻みスキームに基づく接触陰伏型力学モデルと、周期振動をならす縮約バウンディングボックス表現を組み合わせることで、グリッパーを持たないヘビ型ロボットでも高精度かつ安定した全身ロコマニピュレーションが可能であることが実証されました。公称コントローラが優れた初期解を提供するため、接触を明示的に事前指定しない最適化問題も実時間レベルの速度で解く道筋が立ちました。\n\n### 今後の課題と発展\n直近の展開として著者らは、平坦地にとどまらず不整地でも適応的に歩容を修正できるよう、ロボット全身の力学を含めたフル次元の接触陰伏型軌道最適化ループを実機へ実装することを挙げています。また、現在はモーションキャプチャに依存している位置姿勢計測を、頭部ステレオカメラとIMUによる視覚慣性オドメトリおよび物体認識へと置き換えることで、未知の実環境で自律展開できるシステムを目指しています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "ヘビ型ロボットは専用アームやグリッパーがなくても、サイドワインディング中の全身側面接触を利用することで十分実用的な非把持押し出し操作が可能",
+  "周期的なうねり運動を行うロボットでは、重心とSVDによる主慣性軸から抽出した「縮約バウンディングボックス」を計画空間に使うと制御が劇的に安定する",
+  "接触陰伏型（contact-implicit）の定式化により接触のタイミングや場所を事前に決め打ちする必要がなくなり、移動と操作が一体化した多点接触の統一的な解析・最適化が可能になる"
+ ],
+ "limitations_ja": [
+  "現在の実機実験は平坦で均一な剛体地面に限定されており、砂地や段差などの不整地における全身ロコマニピュレーションは未検証である点",
+  "ロボットと物体の位置姿勢計測を天井のモーションキャプチャに依存しており、搭載カメラやIMUによるスタンドアローンな完全自律化には至っていない点",
+  "フル次元のロボットダイナミクスを含む全体最適化は現時点でシミュレーションでも簡約化されており、実機上でオンライン再計画として閉ループ駆動されたわけではない点"
+ ],
+ "keywords": [
+  "Snake Robot",
+  "Whole-body Loco-manipulation",
+  "Contact-implicit Trajectory Optimization",
+  "Sidewinding Gait",
+  "Reduced-order Model"
+ ],
+ "id": "2611.09777",
+ "title": "Autonomous Whole-body Loco-manipulation Using a Snake Robot",
+ "authors": [
+  "Adarsh Salagame",
+  "Henry Noyes",
+  "Haroon Hublikar",
+  "Alireza Ramezani"
+ ],
+ "date": "2026-11-09",
+ "group": "general",
+ "tags": [
+  "control",
+  "locomotion",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.SY",
+  "eess.SY"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.09777",
+ "pdf_url": "https://arxiv.org/pdf/2611.09777",
+ "summary_ja": "ヘビ型ロボットCOBRAにおいて、身体全体を推進と把持の両方に利用する自律的全身ロコマニピュレーションを実現。専用グリッパーを持たず任意の体節で接触する状況に対し、Moreau-Jean時間ステッピングを用いた接触陰解型ダイナミクスモデルを構築し、対象物の全身協調搬送を閉ループ制御で達成した。",
+ "generated": "2026-11-09",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.09777"
+}
