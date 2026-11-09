@@ -1,6 +1,324 @@
 {
  "entries": [
   {
+   "date": "2026-11-09",
+   "rank": 0,
+   "id": "2611.08857",
+   "group": "focus",
+   "title": "STRIDE: Learning Humanoid Locomotion in Minutes with Acceleration-Based Rewards",
+   "title_ja": "STRIDE: 加速度ベースの報酬を用いた数分でのヒューマノイド歩行学習",
+   "summary_ja": "ヒューマノイド実機歩行獲得における外部MoCapや状態推定器への依存を解消するため、内蔵IMUのみを用いた目標加速度追従報酬を提案。オフポリシーRL手法XQCと高ゲインPD制御を組み合わせ、実機においてわずか数分の相互作用データから安定した二足歩行方策の直接学習を実現した。",
+   "summary_en": "To eliminate reliance on external motion capture or accurate state estimators for humanoid locomotion, this paper proposes STRIDE, which uses acceleration-based rewards using only an onboard IMU. By combining the off-policy RL algorithm XQC with high-gain tracking, it enables direct learning of stable walking policies on real humanoid hardware within minutes of interaction data.",
+   "authors": [
+    "Nico Bohlinger",
+    "Jan Peters"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08857",
+   "image": "figures/2026-11-09/2611.08857.jpg"
+  },
+  {
+   "date": "2026-11-09",
+   "rank": 1,
+   "id": "2611.08664",
+   "group": "focus",
+   "title": "ForPC: Force-Aware Whole-Body Control for Precise Humanoid Cart Pushing",
+   "title_ja": "ForPC: 高精度なヒューマノイド台車押しのための力覚を考慮した全身制御",
+   "summary_ja": "二腕で台車を押す作業において手先の接触力と全身バランスが相互干渉する課題に対し、2段階RLに基づく全身制御フレームワークForPCを提案。多様な手先荷重下で訓練した歩行事前分布を活用し、ペイロード変動や外乱下でも高精度な速度追従と転倒防止を両立させた。",
+   "summary_en": "To address coupled contact dynamics and balance disruption during humanoid bimanual cart pushing, the authors propose ForPC, a force-aware whole-body control framework based on two-stage RL. Leveraging a locomotion prior trained under diverse hand loads and postures, the system achieves precise cart velocity regulation and robust balance recovery under payload variations.",
+   "authors": [
+    "ZhenYu Zou",
+    "Xing Liu",
+    "ShiChuang Wang",
+    "YunLong Dong",
+    "LiNan Deng",
+    "Feng Hua",
+    "Jun Wan",
+    "Cheng Cheng"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning",
+    "locomotion"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08664",
+   "image": "figures/2026-11-09/2611.08664.jpg"
+  },
+  {
+   "date": "2026-11-09",
+   "rank": 2,
+   "id": "2611.09605",
+   "group": "focus",
+   "title": "DKWBC: Decoupling Motion Tracking and Balancing for Humanoid Whole-Body Control",
+   "title_ja": "DKWBC: ヒューマノイド全身制御における運動追従とバランス制御の分離",
+   "summary_ja": "ヒューマノイドの全身制御において、同一姿勢でも動的負荷が異なることでRL方策が高周波振動を起こす課題に対し、運動追従とバランス制御を分離するDKWBCを提案。追従タスクを解析的モデルベース制御に任せ、バランス補正のみを学習方策が担うことで滑らかで堅牢な動作を実現した。",
+   "summary_en": "Humanoid whole-body control often suffers from high-frequency chattering when a single RL policy simultaneously handles tracking and balance under varying dynamic demands. DKWBC addresses this by decoupling tracking from balancing, employing a model-based controller for reference motion tracking while an RL policy manages dynamic balance and disturbance corrections.",
+   "authors": [
+    "Dingkun Wei",
+    "Zehong Shen",
+    "Huaijin Pi",
+    "Xueyang Wang",
+    "Xing Zhu",
+    "Hujun Bao",
+    "Yujun Shen",
+    "Xiaowei Zhou"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.09605",
+   "image": "figures/2026-11-09/2611.09605.jpg"
+  },
+  {
+   "date": "2026-11-09",
+   "rank": 3,
+   "id": "2611.09266",
+   "group": "focus",
+   "title": "SUGARv2: Learning Diverse Visual Humanoid Loco-Manipulation Skills from Synthesized Interaction References",
+   "title_ja": "SUGARv2: 合成インタラクション参照からの多様な視覚的ヒューマノイド・ロコマニピュレーションスキルの学習",
+   "summary_ja": "視覚ヒューマノイドによるロコマニピュレーションスキルの獲得コストを低減するSUGARv2を提案。タスクテンプレートを多様な空間配置に適応させてロボットと対象物の協調動作データを自動合成し、共通の模倣強化学習パイプラインで物体運搬などの長期間タスクを効率的に習得可能にした。",
+   "summary_en": "SUGARv2 scales up visual humanoid loco-manipulation skills by synthesizing coordinated interaction references from reusable task templates adapted to diverse spatial configurations. By employing reference-based imitation within a shared RL pipeline, it avoids task-specific reward engineering and successfully learns complex, diverse mobile manipulation behaviors under visual inputs.",
+   "authors": [
+    "Tianshu Wu",
+    "Tianxiang Gui",
+    "Yue Chen",
+    "Tingxu Liu",
+    "Ziye Peng",
+    "Guangjie Yang",
+    "Xiangqi Kong",
+    "Ye Shi",
+    "Jingya Wang",
+    "Hao Dong"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.09266",
+   "image": "figures/2026-11-09/2611.09266.jpg"
+  },
+  {
+   "date": "2026-11-09",
+   "rank": 4,
+   "id": "2611.08868",
+   "group": "focus",
+   "title": "Lodos-v2: An Efficient Primal Formulation of the Exact Frictional Contact Problem",
+   "title_ja": "Lodos-v2: 正確な摩擦接触問題の効率的な主定式化",
+   "summary_ja": "GPU並列剛体シミュレータLodos-v2を提案。従来の凸緩和に伴う人工的なコンプライアンスやドリフトといった物理的アーティファクトを排除し、正確な摩擦接触問題を直接解く主定式化を導入した。詳細メッシュ同士の大規模衝突環境において、高い物理正確性と圧倒的な並列処理性能を両立している。",
+   "summary_en": "Lodos-v2 is a GPU-based rigid-body simulator that eliminates physical artifacts inherent in convex relaxations, such as artificial compliance and tangential creep, through an efficient primal formulation of the exact frictional contact problem. It achieves high throughput for massively parallel simulations involving dense collision meshes, serving as scalable infrastructure for robot learning.",
+   "authors": [
+    "Onur Beker",
+    "Andreas Ren\\'e Geist",
+    "Georg Martius"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08868",
+   "image": "figures/2026-11-09/2611.08868.jpg"
+  },
+  {
+   "date": "2026-11-09",
+   "rank": 5,
+   "id": "2611.08577",
+   "group": "general",
+   "title": "Meituan-Robotics-0: A Vision-Language-Action Foundation Model for Desktop Manipulation",
+   "title_ja": "Meituan-Robotics-0: デスクトップマニピュレーションのための視覚・言語・行動基盤モデル",
+   "summary_ja": "デスクトップ環境向けVLA基盤モデルMR0を発表。1億4700万件のVLデータと12種のロボットから得た15,060時間の軌道データを統合。離散トークン事前学習、フロー整合による中間学習、人間介入対比を用いたRollback手法による事後学習の3段階で高精度な操作を実現した。",
+   "summary_en": "Meituan-Robotics-0 (MR0) is a vision-language-action foundation model for desktop manipulation, combining 147M vision-language samples with 15,060 hours of multi-embodiment robot trajectories. It utilizes a three-stage pipeline consisting of discrete token pre-training, flow-matching mid-training, and post-training via Rollback, an intervention-based supervision scheme, achieving strong generalist manipulation.",
+   "authors": [
+    "Meituan Robotics Team",
+    "Caicheng Wang",
+    "Chen Zhao",
+    "Chengpeng Jin",
+    "Duo Xu",
+    "Fengjiao Chen",
+    "Guanglu Wan",
+    "Heqing Yang",
+    "Jia Wang",
+    "Jiacong Zhou",
+    "Jie Hu",
+    "Jiyuan Ru",
+    "Lingfeng Zhang",
+    "Linjiang Huang",
+    "Manyuan Zhang",
+    "Ningchu Liu",
+    "Shijie Zhou",
+    "Si Liu",
+    "Shuo Li",
+    "Tianyi Zhang",
+    "Xi Zhang",
+    "Xin Chen",
+    "Xuezhi Cao",
+    "Xunliang Cai",
+    "Yanbin Zeng",
+    "Yang Yang",
+    "Yang Yi",
+    "Yanli Tan",
+    "Yifu Xu",
+    "Yimeng Jia",
+    "Yuchen Tang",
+    "Yuchen Xie",
+    "Yuxiang Zheng",
+    "Zerwei Chng",
+    "Zilong Huang",
+    "Zipeng Ye",
+    "Ziyuan Qin",
+    "Ziqin Wang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation",
+    "imitation-learning",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08577",
+   "image": "figures/2026-11-09/2611.08577.jpg"
+  },
+  {
+   "date": "2026-11-09",
+   "rank": 6,
+   "id": "2611.08939",
+   "group": "general",
+   "title": "RevoSim: Scalable Multimodal Tactile Simulation for Dexterous Manipulation",
+   "title_ja": "RevoSim: 巧緻マニピュレーション向けスケーラブルなマルチモーダル触覚シミュレータ",
+   "summary_ja": "多指ハンドBrainCo Revo3向けの高精度触覚シミュレータRevoSimを開発。285個の圧阻素子と5つの視覚触覚指先をモデル化し、圧力、深度、RGB、マーカー変位を高速に同期生成する。単一のRTX 5090上で最大4,096並列環境を実行可能で、巧緻操作方策のシミュレーション完結学習を実現した。",
+   "summary_en": "RevoSim is a high-fidelity multimodal tactile simulator for the BrainCo Revo3 dexterous hand, modeling 285 piezoresistive taxels and five visuotactile fingertips. It generates synchronized pressure, depth, and marker-displacement observations, supporting up to 4,096 parallel environments on a single RTX 5090 GPU and facilitating simulation-to-real transfer for dexterous in-hand manipulation.",
+   "authors": [
+    "Ke Zhang",
+    "Lixin Xu",
+    "Ziyi Wang",
+    "Xiyue Dong",
+    "Jie Tan",
+    "Lianghu Shao",
+    "Xianpeng Wang",
+    "Chuanyu Li",
+    "Renjing Xu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "manipulation",
+    "grasping",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08939",
+   "image": "figures/2026-11-09/2611.08939.jpg"
+  },
+  {
+   "date": "2026-11-09",
+   "rank": 7,
+   "id": "2611.08654",
+   "group": "general",
+   "title": "CS-Pi: Constraint-Satisfying Flow Policy Sampling",
+   "title_ja": "CS-Pi: 制約を満たすフロー整合方策サンプリング",
+   "summary_ja": "フロー整合方策において、再学習なしで未知の障害物回避等の安全制約を満たす推論時サンプリング手法CS-Piを提案。勾配ガイダンスが持つ方策外れや発散の問題に対し、方策の尤度を維持しつつ安全集合境界へと候補動作を射影することで、高いタスク成功率と制約充足を両立した。",
+   "summary_en": "CS-Pi introduces an inference-time sampling framework for flow-matching policies to enforce unseen constraints, such as obstacle avoidance, without retraining. Unlike standard gradient guidance that can push actions out of distribution, CS-Pi projects action candidates onto the safe constraint boundary while remaining plausible under the policy distribution, ensuring safe and effective execution.",
+   "authors": [
+    "Soumojit Bhattacharya",
+    "Oliver Kroemer",
+    "Shubham Tulsiani"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "planning",
+    "control",
+    "safety",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08654",
+   "image": "figures/2026-11-09/2611.08654.jpg"
+  },
+  {
+   "date": "2026-11-09",
+   "rank": 8,
+   "id": "2611.09777",
+   "group": "general",
+   "title": "Autonomous Whole-body Loco-manipulation Using a Snake Robot",
+   "title_ja": "ヘビ型ロボットを用いた自律的全身ロコマニピュレーション",
+   "summary_ja": "ヘビ型ロボットCOBRAにおいて、身体全体を推進と把持の両方に利用する自律的全身ロコマニピュレーションを実現。専用グリッパーを持たず任意の体節で接触する状況に対し、Moreau-Jean時間ステッピングを用いた接触陰解型ダイナミクスモデルを構築し、対象物の全身協調搬送を閉ループ制御で達成した。",
+   "summary_en": "This work demonstrates autonomous whole-body loco-manipulation using the snake robot COBRA, where any part of the hyper-redundant body can make contact for both propulsion and manipulation. By formulating a contact-implicit dynamic model unifying robot-ground, robot-object, and object-ground interactions within Moreau-Jean time stepping, it enables unified closed-loop object manipulation.",
+   "authors": [
+    "Adarsh Salagame",
+    "Henry Noyes",
+    "Haroon Hublikar",
+    "Alireza Ramezani"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "control",
+    "locomotion",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.09777",
+   "image": "figures/2026-11-09/2611.09777.jpg"
+  },
+  {
+   "date": "2026-11-09",
+   "rank": 9,
+   "id": "2611.08936",
+   "group": "general",
+   "title": "Ordered Policy Optimization",
+   "title_ja": "Ordered Policy Optimization",
+   "summary_ja": "強化学習手法PPOにおけるクリッピング機構を改良するOrdered Policy Optimization (OPO) を提案。固定のクリッピング幅を用いる標準PPOに対し、重要度比率の順序統計量を制御することで学習を阻害する極端な外れ値を適応的に抑制し、方策更新の安定性と最終性能の大幅な向上を実現した。",
+   "summary_en": "Ordered Policy Optimization (OPO) improves upon Proximal Policy Optimization by addressing the limitation of fixed-range clipping on importance ratios. By controlling extreme ratio values through order statistics rather than enforcing uniform bounds across all samples, OPO prevents statistically harmful updates, yielding improved stability and performance across diverse benchmark tasks.",
+   "authors": [
+    "Dongkyu Derek Cho",
+    "Pan Xu"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.AI",
+    "cs.RO",
+    "stat.ML"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.08936",
+   "image": "figures/2026-11-09/2611.08936.jpg"
+  },
+  {
    "date": "2026-11-08",
    "rank": 0,
    "id": "2611.08308",
