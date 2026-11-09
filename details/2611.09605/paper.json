@@ -1,0 +1,132 @@
+{
+ "title_ja": "DKWBC: ヒューマノイド全身制御における運動追従とバランス制御の分離",
+ "tldr_ja": "ヒューマノイドロボットの全身動作追従において、逆動力学に基づく明示的な「運動追従トルク」と強化学習による「バランス維持の補正トルク」を分離することで、多様な動作の正確な再現と高い外乱耐性を両立しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "従来手法と提案手法DKWBCの比較です。従来手法（左）は1つのポリシーで関節目標位置を出力して追従とバランスを同時に解こうとするため、転倒を防ぐために動作が小さくなりがちでした。一方DKWBC（右）は、物理モデルに基づく追従トルクと強化学習によるバランス補正トルクを足し合わせることで、姿勢を崩さずにリファレンス動作を忠実に再現できます。",
+  "caption": "Figure 1: Decoupling motion tracking and balancing. Left: A conventional policy jointly learns tracking and balancing, producing joint position targets that a proportional-derivative (PD) controller converts into torques. Right: DKWBC combines nominal tracking torques computed by inverse dynamics with a learned balancing residual for balance. Bottom: On the unseen motions shown, DKWBC tracks the reference poses more closely while maintaining balance.",
+  "image": "details/2611.09605/F1.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットにあらゆる人間らしい動きをさせようとする時、最大の壁となるのが「動作の追従」と「転倒しないバランス維持」の両立です。近年の強化学習アプローチでは、ニューラルネットワークにPD制御の目標関節角度を出力させ、追従とバランスを一括して解かせるエンドツーエンドの手法が主流でした。しかし、同じようなポーズに見えても、走っている最中と跳躍の着地では関節に必要なトルクや動力学的要求がまったく異なります。単一のポリシーにこの複雑な動力学と環境適応の両方を丸抱えさせると、学習が難しくなり、ロボットは安定性を優先して腰が引けた消極的な動きになりがちでした。\n\nそこで著者らは、浮遊リンク系（ロボットの土台が地面に固定されていない系）の運動方程式に着目しました。関節トルクは「ロボットの加速度を生み出すモデル計算可能な成分」と「地面との接触や外力に対応する環境レンチ成分」に綺麗に分解できます。この原理に基づき、提案手法「DKWBC」では、逆動力学フィードフォワードとPDフィードバックで基準動作を追う「運動追従モジュール」と、強化学習でバランスを保つ追加トルクを直接出力する「残差ポリシー」へと制御を役割分担させました。\n\n検証では、大規模動作データセットBONES-SEEDを用いたデータスケーリング実験や、両手への外力印加、バックパックや手持ちウェイトなどの負荷実験を実施しました。その結果、DKWBCは最新の全身追従モデルSONICやFALCONを有意に上回る追従精度と成功率を達成し、Unitree G1実機でも深屈伸や歩行、跳躍攻撃などの激しい動作を安定してこなすことを実証しました。",
+ "contributions_ja": [
+  "浮遊リンク系の運動方程式に基づき、モデルベースの運動追従トルクと強化学習によるバランス維持残差トルクを明示的に分離する全身制御フレームワーク「DKWBC」を提案したこと。",
+  "残差ポリシーの観測に逆動力学成分を入力し、PDサーボを介さずトルクを直接50Hzで加算する設計により、ポリシーが運動追従の補正ではなくバランス維持という本質的な能力の学習に集中できるようにしたこと。",
+  "単一の学習済みポリシーが、未知の動作データセットや追加ペイロード（荷物負荷）、手先への外乱に対しても高い追従精度とバランス性能を維持できることをシミュレーションと実機（Unitree G1）で実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜ運動追従とバランスを混ぜてはいけないのか",
+   "summary_ja": "ヒューマノイドの全身制御において、単一ポリシーで関節目標位置を出力して追従とバランスを同時に解く従来手法の課題を指摘します。運動方程式の構造に着目し、モデルベース追従と学習ベースのバランス補正を分離するDKWBCのコアアイデアと貢献を述べています。",
+   "details_ja": "ヒューマノイドロボットが汎用知能の物理プラットフォームとして活躍するためには、多種多様な全身動作を正確かつ安定して実行できるコントローラが欠かせません。近年の研究では、大規模な動作キャプチャデータの活用やTransformer、Mixture-of-Expertsといった表現力の高いモデルによって追従性能が向上してきました。\n\nしかし、多くの既存手法（BeyondMimicやSONICなど）は、方策ネットワークがPD制御器の関節目標位置（50Hzなど）を予測し、それをモータートルク（200Hzなど）に変換する構造をとっています。この構造では、追従とバランス維持の両方を1つの方策が同時に引き受けることになります。ここが落とし穴です。似たような姿勢であっても、動作の速度や加速度によって必要となる関節トルクはダイナミクス上大きく異なります。単一のポリシーにこの激しい運動依存トルクと、地面接触や外乱に対応するバランス調整を同時に学習させようとすると、学習タスクが非常に複雑化してしまいます。その結果、ポリシーは転倒を恐れて保守的（小さく縮こまった動き）になり、追従精度を犠牲にしてしまうのです。\n\nそこで本研究が提案するのが「DKWBC」です。浮遊ベースの運動方程式を素直に見直すと、関節トルクは「状態と加速度で決まるモデルベース成分」と「接触や外力による環境レンチ成分」の2つに分解できます。この物理的直感に従い、DKWBCでは明示的な逆動力学＋PDフィードバックで公称追従トルクを作り、強化学習ポリシーにはバランスを保つための残差トルク（追加トルク）だけを学ばせます。学習タスクの役割を切り分けることで、ポリシーは動作ごとの余計なトルク計算から解放され、動作間で共通するバランス維持スキルの獲得に集中できるようになります。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "従来手法（左）とDKWBC（右）の比較です。従来手法はポリシーが関節目標位置を出力してPD制御でトルクに直すため、安定性のために精度を犠牲にしがちです。DKWBCは逆動力学による追従トルクに残差ポリシーのバランストルクを足し合わせ、精度を保ったままバランスをとることができます。",
+     "caption": "Figure 1: Decoupling motion tracking and balancing. Left: A conventional policy jointly learns tracking and balancing, producing joint position targets that a proportional-derivative (PD) controller converts into torques. Right: DKWBC combines nominal tracking torques computed by inverse dynamics with a learned balancing residual for balance. Bottom: On the unseen motions shown, DKWBC tracks the reference poses more closely while maintaining balance.",
+     "image": "details/2611.09605/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "ヒューマノイド制御の系譜と本手法の立ち位置",
+   "summary_ja": "全身動作追従、モデルベースと学習のハイブリッド制御、残差学習、外力適応インタラクションの4つの文脈を整理します。DKWBCは、実行時の厳密な逆動力学とサポート残差をトルクレベルで割り振る点で既存研究と明確に一線を画しています。",
+   "details_ja": "本論文の関連研究は主に4つの系統に分かれます。\n\n- 全身動作追従（Whole-Body Motion Tracking）：DeepMimicから始まった動作模倣学習は、実機展開（BeyondMimic）や大規模データ学習（SONIC）、さらには拡散モデルや世界モデルの統合へと発展してきました。DKWBCはこれらと競合するのではなく、ポリシーの出力の物理的役割を「位置指令」から「サポート残差トルク」へと再定義することで補完します。\n- モデルベースと学習のハイブリッド制御：従来の全身制御（WBC）はダイナミクスを用いて接触制約や重心加速度を解いていました。重心加速度の補正を学ぶ研究や腕の安定化に残差を用いる研究はありましたが、DKWBCは全駆動関節のトルクを分解し、実行時に接触力のオンライン最適化を解くことなく、学習された残差が接触力や外乱の補償を担う点が異なります。\n- 残差追従と方策適応：HiLoやRobotDancingのように基準動作まわりの関節目標補正を学ぶ手法や、シミュレータのギャップを埋める残差モデル（ASAPなど）が存在します。これらに対しDKWBCは、解析的な逆動力学モジュールを実行時に並行して走らせ、トルクレベルで直接役割分担を行っている点が新規性です。\n- 外力適応と物理インタラクション：FALCONやHAFOのように上半身と下半身を連動させる手法や、接触ラベルを条件付けるSceneBotなどがあります。DKWBCは単一の残差ポリシーと逆動力学フィードフォワードの組み合わせだけで、追加の接触センシングやタスクごとの調整なしに、荷物積載や手先への外乱に耐える全身追従を実現します。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "ダイナミクスに基づく分離制御の設計",
+   "summary_ja": "浮遊ベース運動方程式から導かれるトルク分解の理論を説明し、逆動力学とPDフィードバックからなる追従モジュール、および残差トルクを直接出力する強化学習ポリシーの構造と工夫を解説します。",
+   "details_ja": "### III-A ダイナミクスに基づく制御の分解\n駆動関節数 $n$ の浮遊ベースロボットを考えます。標準的な運動方程式から関節駆動トルクの行を取り出すと、トルク $\\boldsymbol{\\tau}$ は次のように書けます：\n$\\boldsymbol{\\tau} = \\mathbf{S}(\\mathbf{M}\\dot{\\boldsymbol{\\nu}} + \\mathbf{h}) - \\mathbf{S}\\sum_{k}\\mathbf{J}_{k}^{\\top}\\boldsymbol{\\lambda}_{k}$\nここで $\\mathbf{M}$ は慣性行列、$\\mathbf{h}$ はコリオリ・遠心力・重力項、$\\boldsymbol{\\lambda}_{k}$ は環境からの外力（地面反力など）、$\\mathbf{J}_{k}$ はそのヤコビ行列です。第1項はロボットの状態と目標加速度からモデル計算できる「公称追従トルク」、第2項は直接観測が難しい接触や外力による「環境レンチ項」です。DKWBCはこの物理的構造に基づき、第1項を解析的モデルに、第2項を残差ポリシーに担当させます。\n\n### III-B モデルベースの運動追従トルク\n追従モジュールは、現在のロボット状態 $(\\mathbf{q}, \\boldsymbol{\\nu})$ と基準動作の加速度 $\\dot{\\boldsymbol{\\nu}}^{\\mathrm{ref}}$ から、再帰型ニュートン・オイラー法（RNEA）を用いて逆動力学フィードフォワードトルク $\\boldsymbol{\\tau}_{\\mathrm{id}}$ を計算します。これは加速度項 $\\boldsymbol{\\tau}_{\\mathrm{acc}}$、コリオリ項 $\\boldsymbol{\\tau}_{\\mathrm{cor}}$、重力項 $\\boldsymbol{\\tau}_{\\mathrm{grav}}$ の3つに分解されます。\nただし、人からリターゲティングされた動作はロボットにとって動力学的に実現不可能（Dynamically Infeasible）な場合があり、フィードフォワードだけではズレが生じます。そこで、関節空間のPDフィードバックトルク $\\boldsymbol{\\tau}_{\\mathrm{pd}}$ を併用します。このPDトルクは全トルクの10%未満ですが、正確な追従には不可欠です。これらを足したものが追従トルク $\\boldsymbol{\\tau}_{\\mathrm{trk}} = \\boldsymbol{\\tau}_{\\mathrm{id}} + \\boldsymbol{\\tau}_{\\mathrm{pd}}$ となります。\n\n### III-C バランス維持のための残差学習\n強化学習ポリシーは、追従トルクでは足りない「バランス維持のための追加トルク」を学習します。ポリシーが動作特有の追従補正に逃げず、汎用的なバランス能力を獲得できるように、観測と行動に重要な工夫を施しています。\n- 追従トルクの観測：逆動力学の3成分（$\\boldsymbol{\\tau}_{\\mathrm{acc}}, \\boldsymbol{\\tau}_{\\mathrm{cor}}, \\boldsymbol{\\tau}_{\\mathrm{grav}}$）をポリシーの入力観測に加えます。すでに追従モジュールからどれだけのトルクが供給されているかをポリシーに教えることで、適切な補正を判断しやすくします。\n- トルクの直接出力：従来のような「50Hzで目標関節位置を出して高周波PDでトルク化する」仕組みをやめ、ポリシーが残差トルク $\\boldsymbol{\\tau}_{\\mathrm{bal}}$ を50Hzで直接予測してゼロ次ホールドします。PDサーボを介在させないことで、ポリシーが高周波な位置誤差フィードバックを利用して動作特有の追従をごまかすのを防ぎ、純粋なバランス補正トルクの学習に専念させます。最終的な関節指令は $\\boldsymbol{\\tau} = \\boldsymbol{\\tau}_{\\mathrm{trk}} + \\boldsymbol{\\tau}_{\\mathrm{bal}}$ となります。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "DKWBCの全体システム構成です。上段の追従モジュールが逆動力学（50Hz）と位置フィードバック（200Hz）から追従トルクを生成し、下段の残差ポリシーが逆動力学成分を受け取りつつバランストルクを直接出力（50Hz）します。両者のトルクを合算してロボットを駆動します。",
+     "caption": "Figure 2: Overview of DKWBC . The model-based tracking module combines inverse-dynamics feedforward with joint feedback. The residual policy receives robot and reference information together with the feedforward components, and predicts joint-torque corrections for balanced motion execution. The tracking and residual torques are summed to form the final joint-torque command, enabling the real robot to perform challenging motions such as standing long jumps.",
+     "image": "details/2611.09605/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "圧倒的な追従精度と未知動作・外力への適応力",
+   "summary_ja": "大規模データでのスケーリング性能、手先外力に対するロバスト性、アブレーション実験、およびUnitree G1実機での検証結果を示します。DKWBCはあらゆる条件下で従来ベースラインを上回る追従精度と汎用性を発揮しました。",
+   "details_ja": "実験はシミュレーションおよびUnitree G1実機を用いて行われました。\n\n### IV-A 学習データのスケーリング実験\nBONES-SEEDデータセットから2時間〜128時間のサブセットを作成し、最新の全身追従手法SONICと比較しました。評価指標には成功率（骨盤や手足の高さ・姿勢誤差が閾値以内を維持できた割合）とMPJPE（関節位置誤差の平均、ミリメートル単位）を使用しています。\n結果は図3の通り、すべてのデータ規模においてDKWBCがSONICを凌駕しました。特に学習データが少ない段階（4時間以上）から、600時間以上で事前学習された公式SONICチェックポイントの追従精度を上回っています。データ量を増やすと成功率は100%近くまでサチりますが、追従誤差（MPJPE）は下がり続け、未知の動作カテゴリに対しても優れた汎化性を示しました。\n\n### IV-B 外力下での追従性能\n立ちポーズと歩行動作において、ロボットの両手に3次元の時変外力を加える評価を実施し、FALCONおよびResMimicと比較しました。外力の強さを0、0.5倍、1.0倍と変化させたところ、DKWBCはすべての外力レベルにおいて、上半身の関節位置誤差（MPJPE）、関節速度誤差（MPJVE）、ルート速度誤差のすべてで最も低い数値を記録し、高い外乱耐性を示しました。\n\n### IV-C アブレーション研究と残差の物理的解釈\n- 分離制御の意義：BeyondMimic（結合制御）との比較では、成功率は同等でも、結合制御は安全側に倒すため追従誤差が大幅に悪化することが分かりました。DKWBCは追従精度を維持したまま、荷物（背中5kg、両手各2kg）や外力に対しても高い成功率を維持しました。\n- 残差トルクの正体：図6に示すように、シミュレータ内の実際の接触レンチから計算した理論上の接触補償トルクと、学習された残差トルク $\\boldsymbol{\\tau}_{\\mathrm{bal}}$ の波形は見事に一致しており、ポリシーが真に「接触力を補償するトルク」を学んでいることが裏付けられました。\n- 追従モジュールの効果：フィードフォワード単体（FFのみ）ではMPJPEが171.73mmと壊滅的ですが、わずかなPDフィードバックを足すことで4.45mmまで劇的に改善し、リターゲティング動作の非整合性を吸収するPDの重要性が示されました。\n- 実機実験：Unitree G1実機において、荷物を背負った状態やダンベルを持った状態での深屈伸・歩行、さらにはダンスや跳躍打撃などの複雑な動作も、シミュレーションで学習した単一のポリシーで安定して実行できました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "BONES-SEEDの2つのテストセットにおける学習データ規模と性能の推移です。青線のDKWBCは、オレンジ線のSONICに対してすべてのデータ規模で高い成功率と低い関節位置誤差（数値ラベル、mm）を達成しています。",
+     "caption": "Figure 3: Motion-tracking performance of DKWBC compared with SONIC across training-data scales. The left and right panels show results on BONES-SEED test-content and test-repetition [ 2 ] , respectively. Curves and shaded bands show the mean success rate and $\\pm 1$ sample standard deviation across four evaluation checkpoints per configuration. Labels indicate MPJPE (mm), averaged over successfully tracked motions within each checkpoint and then across checkpoints. Stars mark results from the official SONIC checkpoint.",
+     "image": "details/2611.09605/F3.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "Unitree G1実機での動作例です。左側は無負荷・背中荷物・手持ち荷物の各条件下での深屈伸と歩行、右側はダンスや跳躍打撃などの激しい動作を示しており、すべて同一のポリシーチェックポイントで安定して成功しています。",
+     "caption": "Figure 5: Qualitative hardware examples of DKWBC on the G1 robot. Left: deep squats and walking under different payloads; right: complex motions. All motions are executed on the real robot using the same policy checkpoint. Please refer to the supplementary video for more hardware results.",
+     "image": "details/2611.09605/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "シミュレーション走行時における学習された残差トルク（青）と、環境接触から逆算した理論的接触補償トルク（オレンジ）の比較です。両者の振幅と時間変化が極めてよく一致しており、残差ポリシーが接触補償を正しく獲得していることが分かります。",
+     "caption": "Figure 6: Learned residual and contact-compensation torques during a LAFAN motion segment executed by DKWBC with ground contact in simulation. All panels show the same time interval from the same execution. The horizontal axis is time (s), and the vertical axis is joint torque ( $\\mathrm{N\\!\\cdot\\!m}$ ). Blue denotes the network’s residual torque $\\boldsymbol{\\tau}_{\\mathrm{bal}}$ ; orange denotes the contact-compensation torque $-\\mathbf{S}\\sum_{k}\\mathbf{J}_{k}^{\\top}\\boldsymbol{\\lambda}_{k}$ , obtained by substituting simulator contact wrenches and their Jacobians into the environmental wrench term in Eq. ( 2 ).",
+     "image": "details/2611.09605/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "運動追従とバランス制御を分離するDKWBCの有効性を総括します。明示的な逆動力学の導入がポリシーの汎用的なサポート能力獲得に直結することを示し、今後のさらなる物理的接触タスクへの拡張について述べています。",
+   "details_ja": "本論文では、モデルベースの運動追従と強化学習によるサポート制御を切り離すヒューマノイド全身制御フレームワーク「DKWBC」を提案しました。\n\n浮遊ベースの逆動力学と関節PDフィードバックによって追従トルクを明示的に与えることで、ポリシーの学習タスクを「与えられた追従トルクの下でいかにバランスを保つか」という問題へと再定義しました。この工夫により、ポリシーは動作ごとの複雑なダイナミクス計算に惑わされることなく、転倒を防ぐ本質的な補償スキルを獲得できるようになりました。その結果、データ効率の大幅な向上、未知動作への汎化、外乱や荷物に対する頑健性がシミュレーションおよび実機実験で確認されました。\n\n著者は今後の展望として、この追従とバランスの分離アプローチを、より広範な全身物理インタラクションや複雑なマニピュレーションタスクへと拡張していくことを挙げています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「全部強化学習に解かせる」のではなく、物理モデル（逆動力学＋PD）で解ける追従と、環境接触を扱うバランス維持をトルクレベルで綺麗に分離する設計思想が極めて強力であること。",
+  "強化学習ポリシーの出力をPDの目標関節位置（位置サーボ経由）にするのではなく、直接トルク出力にすることで、ポリシーが局所的な追従補正にごまかされず、動作横断的なバランス能力を学びやすくなること。",
+  "逆動力学フィードフォワードの各成分（加速度・コリオリ・重力）をポリシーの観測情報として明示的に与えることが、未知の動作データセットへのゼロショット転移性能（汎化性）を大きく引き上げること。"
+ ],
+ "limitations_ja": [
+  "人からロボットへのモーションリターゲティングに起因する動力学的非整合性を完全に解消しているわけではなく、追従モジュール内のPDフィードバックゲインへの依存が残っている点。",
+  "本研究では外力や荷物への耐性を評価したものの、物体を目的の位置へ正確に運ぶといった明示的な接触力制御やマニピュレーションタスク自体の成功までは検証されていない点。",
+  "モデルベースの逆動力学計算に依存しているため、ロボットのリンク長や質量などの公称モデルパラメータが大幅に狂っている場合のロバスト性については別途検証が必要な点。"
+ ],
+ "keywords": [
+  "Humanoid Whole-Body Control",
+  "Inverse Dynamics",
+  "Reinforcement Learning",
+  "Residual Control",
+  "Sim-to-Real Transfer"
+ ],
+ "id": "2611.09605",
+ "title": "DKWBC: Decoupling Motion Tracking and Balancing for Humanoid Whole-Body Control",
+ "authors": [
+  "Dingkun Wei",
+  "Zehong Shen",
+  "Huaijin Pi",
+  "Xueyang Wang",
+  "Xing Zhu",
+  "Hujun Bao",
+  "Yujun Shen",
+  "Xiaowei Zhou"
+ ],
+ "date": "2026-11-09",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "control",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.09605",
+ "pdf_url": "https://arxiv.org/pdf/2611.09605",
+ "summary_ja": "ヒューマノイドの全身制御において、同一姿勢でも動的負荷が異なることでRL方策が高周波振動を起こす課題に対し、運動追従とバランス制御を分離するDKWBCを提案。追従タスクを解析的モデルベース制御に任せ、バランス補正のみを学習方策が担うことで滑らかで堅牢な動作を実現した。",
+ "generated": "2026-11-09",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.09605"
+}
