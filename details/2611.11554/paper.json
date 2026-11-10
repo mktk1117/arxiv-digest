@@ -1,0 +1,158 @@
+{
+ "title_ja": "Kimodo-Policy: ヒューマノイドの全身移動操作のための運動学的行動モデルの学習",
+ "tldr_ja": "大規模な事前学習済みモーション生成モデルを凍結バックボーンとして直接行動生成に活用し、軽量な視覚アダプタと階層構造を組み合わせることで、高次元な全身協調動作を伴うヒューマノイド制御を実現しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "Kimodo-Policyの全体構成と成果の概要です。事前学習済みモーション生成モデル（Kimodo）を凍結して保持し、軽量なControlNetで視覚情報を注入するルート・身体・手の3段階アーキテクチャを採用しています。シミュレーションおよび実機タスクにおいて、強力なベースラインを上回る成功率を達成しています。",
+  "caption": "Figure 1: Kimodo-Policy as an Instantiation of Kinematic Action Models (KAMs). Top. Kimodo-Policy, best baseline, and second-best baseline. Our policy achieves higher mean success than the compared baselines on the displayed task sets. Middle. Kimodo-Policy instantiates KAMs by inheriting whole-body motion priors from a pretrained motion generator. The compact policy (678M parameters, 92M trainable) combines large-scale loco-manipulation pretraining with a three-stage root–body–hand architecture. Bottom. Observed motion history conditions future action-chunk generation for closed-loop control, as demonstrated in real-world object transfer.",
+  "image": "details/2611.11554/F1.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットが歩きながら物を掴むような「移動マニピュレーション（Loco-Manipulation）」では、手先の操作だけでなく、体幹のバランスや足運びなど、全身の高次元な関節運動を時間的・空間的に密に連携させる必要があります。近年盛んなVLA（視覚言語行動モデル）やWAM（世界行動モデル）は、言語の意味理解や映像の物理ダイナミクスを事前学習で獲得していますが、それらは必ずしもヒューマノイド特有の全身協調動作の構造を直接捉えているわけではありません。\n\nそこで著者らは、「動作（モーション）そのものを事前学習のターゲットとし、その生成器を行動モデルの基盤として直接再利用する」というKinematic Action Models（KAMs）という新しいパラダイムを提案しました。その具体的な実装が「Kimodo-Policy」です。テキストから動作を生成する事前学習済みモデル「Kimodo」を凍結バックボーンとし、軽量なControlNetを用いて一人称視点のカメラ画像を注入します。全体は「ルート軌道 → 身体関節 → 両手操作」という3段階の階層構造で構成され、過去の運動履歴と短い行動チャンクの予測を繰り返すことで、オープンループな動作生成をリアルタイムな閉ループ制御へと昇華させました。\n\n検証では、ヒューマノイドのベンチマークであるHumanoidArena（7タスク）やSIMPLE（8タスク）、さらにUnitree G1実機を用いた8種類の全身協調タスクで評価を実施しました。その結果、HumanoidArenaのマルチタスク学習で最高成功率72.14%を達成し、実機でも平均60%の成功率を記録して既存のVLAやWAMベースの手法を上回りました。アブレーション実験からも、動作バックボーンをランダム初期化したりファインチューニングするよりも、事前学習済みモデルを凍結して利用する方が圧倒的に高い性能を示すことが実証されています。",
+ "contributions_ja": [
+  "動作生成モデルを行動生成の基盤バックボーンとして直接再利用する新しいパラダイム「Kinematic Action Models（KAMs）」を提唱した点。",
+  "凍結した動作モデルに対してControlNet経由で視覚を注入し、ルート・身体・手を順次予測する軽量な3段階アーキテクチャ「Kimodo-Policy」を構築した点。",
+  "過去の動作履歴による制約と行動チャンクの繰り返し予測により、動作生成モデルを閉ループな全身トラッキング制御へと接続した点。",
+  "HumanoidArenaで最高成功率72.14%を達成し、実機8タスクでも平均60%の成功率を収め、動作事前学習の有効性を実験的に証明した点。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ「視覚」や「言語」だけでなく「動作そのもの」を事前学習すべきなのか？",
+   "summary_ja": "移動マニピュレーションには高次元な全身協調が不可欠ですが、既存のVLAやWAMが持つ視覚・意味の事前知識だけではロボットの運動構造を十分に表現できません。そこで動作生成モデルを直接行動バックボーンとするKAMsを提案し、その実装であるKimodo-Policyの有効性をシミュレーションと実機で示します。",
+   "details_ja": "ヒューマノイドの移動マニピュレーションは、単なる手先マニピュレーションの延長ではありません。目標に向かって移動しながら手を伸ばすには、身体の重心を維持しつつ、腰（ルート）、体幹、腕、脚を同時に連動させる必要があります。つまり全身動作の生成は、タスク計画の「おまけの実行部」ではなく、タスク達成そのものの中核です。\n\n現在主流のVLAは視覚言語モデルから意味理解を、WAMは動画生成モデルから世界のダイナミクスを受け継いでいます。しかし、これらは「ロボットの多関節がどう連動して動くか」という運動学的な構造（キネマティクス）を直接学習しているわけではありません。下流タスクの強化学習や模倣学習だけでこの複雑な全身協調を一から学ぼうとすると、膨大なデータと試行錯誤が必要になってしまいます。\n\nここから生まれたのが、「動作生成そのものを基盤モデルの事前学習ターゲットにできないか」という問いです。本研究が提案するKinematic Action Models（KAMs）は、大規模な人間のモーションキャプチャ等で事前学習された動作生成モデルを、行動生成の主幹（バックボーン）としてそのまま据えます。これにより、時間的かつ身体横断的な協調パターンの事前知識を最初から持った状態で、タスク学習をスタートできます。\n\nその最初の具現化がKimodo-Policyです。テキスト動作生成モデル「Kimodo」を凍結し、軽量なControlNetで視覚特徴量を注入します。全身をルート、身体、手の3段階に分け、過去の運動履歴から未来の動作チャンクを予測・実行する後退ホライズン制御を行うことで、生成モデルをリアルタイムな相互作用へと適応させました。全体のパラメータ数は678Mですが、学習対象はわずか92Mに抑えられています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "行動生成のための事前学習バックボーンの比較です。左からVLA（視覚言語モデル）、WAM（動画生成モデル）、そして本論文が提案するKAM（動作生成モデル）です。KAMは動作生成器が持つ運動構造を直接下流のトラッカーに渡し、行動モデルの核とします。",
+     "caption": "Figure 2: Pretrained Backbones for Humanoid Action Generation. From left to right: VLA, WAM, and KAM paradigms built around vision–language, video generation, and motion generation models. The schematic highlights their primary sources of generative priors: KAMs adapt a pretrained motion generator to produce kinematic action sequences for a downstream tracker, directly transferring learned movement structure into the policy.",
+     "image": "details/2611.11554/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "全身制御、動作事前学習、動作生成の交差点に立つ新アプローチ",
+   "summary_ja": "先行研究は、VLAやWAMによる全身制御、あるいは人間の動作データを補助的に使う手法を模索してきました。KAMsはこれらと異なり、事前学習された動作生成モデルそのものを主幹として再利用し、ロボットの運動構造をダイレクトに行動生成へと持ち込む点が決定的に異なります。",
+   "details_ja": "本研究の立ち位置を理解するために、関連する3つの研究領域を整理してみましょう。\n\n### 全身制御と移動マニピュレーション\n強化学習で学習した教師モデルを蒸留するHumanVLAや、シミュレーション遠隔操作を活用するOASIS、基盤モデルを取り入れたGR00T N1や$\\Psi_{0}$など、ヒューマノイド全身制御の研究が急速に進んでいます。また、将来の視覚状態を予測する世界行動モデル（WAM）も登場しています。しかし、これらは知覚や予測ダイナミクスを強化する一方で、複雑に連動する全身キネマティクスそのものを生成するモデルを基盤にしているわけではありませんでした。\n\n### ロボット制御のための動作事前学習\n人間の動作データを取り入れる試みも行われてきました。Humanoid-VLAのように言語モデル内で動作を扱ったり、Being-M0.7のように視覚と動作の予測特徴量を別のアクションエキスパートに注入したりするアプローチです。しかし、これらは動作を意味的な潜在表現として扱ったり、別系統のエキスパートとアラインメントさせたりするものが大半でした。KAMsは、動作生成器そのものを最終的なアクション生成の主幹として使い、直接トラッカーへ運動指令を出す点で一線を画します。\n\n### 動作生成モデルの発展\n拡散モデル等を用いたテキストからの動作生成（MDM、MLD）や、関節拘束をかけた生成（OmniControl）など、アニメーションやキャラクタ制御の分野で動作モデルは長足の進歩を遂げています。特に「Kimodo」は、大規模モーションキャプチャ学習、ルートと身体の階層的拡散プロセス、多様なキーフレーム制御を可能にしました。Kimodo-Policyは、この完成された動作生成能力を、視覚適応と閉ループ制御の枠組みによってロボット操作へと橋渡しするものです。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method: Kimodo-Policy",
+   "heading_ja": "凍結バックボーンに視覚を吹き込み、閉ループ制御へ仕立てる仕組み",
+   "summary_ja": "Kimodo-Policyは、凍結したKimodoのルート・身体デノイザーにControlNetで視覚情報を注入し、独立したHandNetで両手を制御する3段階構造をとります。過去の運動履歴を入力プレフィックスとして拘束しつつ未来の動作チャンクを予測することで、滑らかな閉ループ制御を実現しています。",
+   "details_ja": "動作生成モデルを閉ループなロボット制御に使うための、具体的なアーキテクチャと制御ループの仕組みを解説します。\n\n### 3.1 基礎：KimodoとControlNet\nベースとなる「Kimodo-G1」は、言語指示からロボットの運動軌道を生成する階層型拡散モデルです。ルート（大域的な並進と進行方向）を予測したのち、そのルートを条件として身体各関節の運動を生成します。本手法では、このKimodoの重みを完全に凍結（Freeze）します。そして画像生成分野で定番の「ControlNet」の手法を導入し、学習可能な制御ブランチからゼロ初期化された結合層を通じて、一人称視点カメラの特徴量をKimodoの内部レイヤーへと残差注入します。\n\n### 3.2 3段階のモデルアーキテクチャ\n全体の構造は、ルート、身体、手の3段階（Root-Body-Hand）に分かれています。\n- **言語・視覚エンコーダ**: 指示文をLLM2Vecで、一人称画像を凍結DINOv3でトークン化します。\n- **Dual-Path Fusion**: 視覚特徴量をControlNetブランチに取り込む際、クロスアテンションによる「必要な視覚情報の選択的検索」と、MLPによる「画像トークンから未来時間軸への直接マッピング」の2つの経路を併用して融合します。\n- **勾配の分離（Stop-Gradient）**: ルートから身体、身体から手への接続部には勾配停止（$\\operatorname{sg}$）を挟みます。手の学習損失が身体やルートの動作生成を壊さないように設計されています。\n- **HandNet**: 手先グリッパーの開閉は関節ポーズ軌道とは性質が異なるため、独立した拡散ヘッド「HandNet」を設け、身体特徴量と視覚情報を条件に左右の手の開閉を予測します。\n\n### 3.3 動作事前学習の閉ループ適応\n生成モデルをインタラクティブな制御に使う鍵が「動作履歴の条件付け」です。現在の時刻を中心とする時間窓の中で、過去の動作履歴（最大100フレーム）をマスクによって固定の拘束条件として与え、未来のチャンク（50フレーム、約1.67秒分）のみを拡散モデルで補完（Inpainting）させます。ロボットはこの予測のうち先頭の15フレーム（0.5秒分）だけを実行し、更新された観測と履歴から再び予測を行う「後退ホライズン制御（Receding-Horizon）」を繰り返します。\n\n### 3.4 学習目標と推論\n損失関数は、ルートと身体の平均二乗誤差（MSE）、手の再構成損失、および手の急激な変化を抑える遷移損失（$\\ell_1$ノルム）の重み付き和で構成されます。推論時はDDIMを用いて10ステップで高速にデノイジングし、予測されたルートと関節軌道を低レベル全身トラッカー「SONIC」に送って50Hzで実行します。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "Kimodo-Policyの全体アーキテクチャです。凍結されたKimodoのルート・身体デノイザーに対し、ControlNetがDINOv3からの視覚特徴量を注入します。下流のHandNetが両手の開閉を別個に予測し、最終的な出力が低レベルのSONICトラッカーへと送られます。",
+     "caption": "Figure 3: Overview of Kimodo-Policy. The colored vertical blocks denote “frozen Kimodo-Root and Kimodo-Body denoisers,” “trainable ControlNet-Root and ControlNet-Body branches injecting DINOv3 ( Siméoni et al., 2025 ) features,” and “trainable HandNet denoiser for bilateral hand control.” Dual-Path Fusion combines motion-query cross-attention with an MLP-based mapping from spatial visual tokens to the future horizon. The predicted root conditions body generation, while future body features condition HandNet; the Motion Projector converts root–body predictions into tracker references. …",
+     "image": "details/2611.11554/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "言語整列された動作事前学習から閉ループ相互作用への移行を示しています。上段は元のKimodoが生成する一連の動作です。下段はKimodo-Policyが実機において、過去の動作履歴と新たな視覚観測をもとにチャンクの予測と実行を繰り返しながらバナナを運ぶ様子を示しています。",
+     "caption": "Figure 4: From Language-Aligned Motion Priors to Closed-Loop Interaction. Top: motion generated by the original Kimodo illustrates language-aligned whole-body priors. Bottom: real-world object transfer with Kimodo-Policy across successive closed-loop updates. The time markers and history/prediction brackets are schematic and do not specify single-query durations; actual horizons are detailed in Sec. 4.2 . Actual execution repeatedly applies a chunk prefix and replans from updated visual observations and measured motion history.",
+     "image": "details/2611.11554/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experimental Setup",
+   "heading_ja": "大規模データでの事前学習と、多彩なシミュレーション＆実機検証",
+   "summary_ja": "419時間におよぶ人型ロボットの操作デモデータを用いて視覚適応ブランチを事前学習したのち、HumanoidArena、SIMPLE、および実機のUnitree G1で評価を行いました。実機ではPICOを用いた遠隔操作システムにより8タスクのデモを収集して検証しています。",
+   "details_ja": "提案手法の真価を問うため、大規模なデータセット構築と厳密な検証環境を用意しました。\n\n### 4.1 ポリシー事前学習（Pretraining）\n動作バックボーンは凍結したまま、視覚注入用のControlNetとHandNetを適応させるため、3つの公開データセット（HIW-500、UniFoLM-WBTの14サブセット、Humanoid Everyday）からなる計419時間のロボット操作コーパスを構築しました。左右の手の開閉状態を$[-1, 1]$の2次元ベクトルに統一し、多種多様なロボットハンド形態の違いを吸収しています。16台のNVIDIA H200 GPUを用い、バッチサイズ1024、約60時間（100万ステップ）かけて事前学習を行いました。\n\n### 4.2 ポストトレーニングと評価ベンチマーク\n下流環境での評価は以下の3系統で実施しました。\n- **HumanoidArena**: 下半身の運動が成否を分ける7つのタスク（サッカー、机の移動、荷物運び、ドア開け、ソファ座り、ボクシング、視覚ナビゲーション）からなるシミュレータです。タスク単体のファインチューニングと、1つのポリシーで全7タスクをこなすマルチタスク学習の両方を評価します。成功率（SR）と転倒率（AFR）を測定します。\n- **SIMPLE**: MuJoCoの接触力学とIsaac Simの描画を組み合わせた環境で、手渡しやドア開閉、椅子の押し引きなど8タスクを評価します。外見や照明、対象物の位置がランダム化されたL0〜L2の3段階の難易度で頑健性をテストします。\n- **実機検証（Unitree G1）**: PICO 4 Ultraヘッドセット、コントローラ、およびトラッカーを装着したオペレータによる全身遠隔操作システムを構築しました。バッグ叩き、クッション座り、両手ピック＆プレース、カート押しなど8種類のタスクについて各25〜30エピソードのデモを収集し、実機での成功率を評価しました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "ポリシー事前学習に用いたコーパスの内訳です。HIW-500、UniFoLM-WBT（14サブセット）、Humanoid Everydayの3つから構成され、計4760万フレーム（37,248エピソード、約419時間分）に達します。",
+     "caption": "Figure 5: Composition of the Policy Pretraining Corpus. The corpus combines HIW-500, 14 task subsets from UniFoLM-WBT available when the corpus was assembled, and Humanoid Everyday. UniFoLM-WBT entries released after corpus construction are excluded.",
+     "image": "details/2611.11554/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実機における遠隔操作と展開のシステム構成です。右側はPICOの全身トラッカーとDex3-1ハンドを備えたUnitree G1ロボットです。左側は、リアルタイムチャンキング（RTC）を用いて30Hzの予測プレフィックス（15フレーム）を50Hzのトラッカーへ連続的に送るタイムラインを示しています。",
+     "caption": "Figure 6: Real-World Teleoperation and Deployment Setup. Left: real-time action-chunk execution, where each policy update supplies a 15-frame prefix at 30 Hz to the 50 Hz tracker, with RTC overlap between consecutive chunks. Right: PICO-based whole-body teleoperation and the humanoid platform equipped with a RealSense D435i camera and Dex3-1 hands.",
+     "image": "details/2611.11554/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Experimental Results",
+   "heading_ja": "既存のVLAやWAMを凌駕、アブレーションが示す「動作凍結」の強み",
+   "summary_ja": "HumanoidArenaのマルチタスク学習で最高成功率72.14%を達成し、実機でも平均60%の成功率を記録しました。またアブレーション実験により、動作バックボーンを凍結して利用することの優位性や、動作事前学習モデルの質の重要性が明確に裏付けられました。",
+   "details_ja": "実験結果から明らかになった重要なポイントを掘り下げます。\n\n### 5.1 & 5.2 シミュレーションでの圧倒的な協調性能\nHumanoidArenaのマルチタスク評価において、Kimodo-Policy*（事前学習あり）は全体成功率72.14%を記録し、強豪ベースラインであるGR00T N1.7（69.70%）やGigaWorld-Policy（68.39%）を上回りました。転倒率（AFR）も約4.3%と最も低い水準を維持しています。特にソファに座る（SitSofa: 96.7%）やドアを開ける（OpenDoor: 93.3%）といった人間-環境インタラクション（HSI）で強さを発揮しました。またSIMPLE環境でも平均成功率75.83%を達成し、最有力ベースライン$\\Psi_{0}$（75.42%）と同等以上の性能を示しています。\n\n### 5.3 実機ロボットでの評価\n実機G1による8タスクの評価では、ポリシー事前学習なしの直接学習版が45%、419時間の事前学習を経たKimodo-Policy*が60%の平均成功率を達成しました。これはGR00T N1.6（31%）や$\\Psi_{0}$（35%）を大きく引き離す結果です。パンチングバッグ（90%）やクッション座り（80%）など、下半身の安定と全身の協調が求められるタスクで特に高い成功率を収めました。\n\n### 5.4 動作事前学習モデルの選択とスケーリング\n同じ282Mパラメータを持つKimodoバックボーンでも、事前学習データが約288時間のSEED-v1（成功率64.29%）より、約560時間のRP-v1（成功率67.63%）を用いた方が下流性能が3.34ポイント向上しました。また、事前学習データを105時間から419時間へ増やすと成功率は68.10%から72.14%へ向上し、学習可能パラメータ数を増やした場合も順当な性能向上が見られました。\n\n### 5.6 アブレーション：なぜ凍結バックボーンが良いのか？\nHumanoidArenaの物体操作（HOI）3タスクにおけるアブレーションは非常に示唆に富んでいます。\n- **ランダム初期化（w/o T2M）**: 成功率はわずか18.33%まで暴落しました。\n- **バックボーンのファインチューニング（w/o Frozen）**: 31.67%にとどまりました。\n- **事前学習済みバックボーンの凍結（提案手法の構成）**: 51.67%（ポリシー事前学習を入れると56.11%）まで跳ね上がりました。\n\nつまり、全身動作の構造を壊さずに保持し、外付けのアダプタ（ControlNet）だけで視覚に適応させる設計が、ロボット制御において極めて効果的であることが証明されました。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "評価に用いられたHumanoidArenaの7タスクです。サッカーや箱運びなどの物体操作（HOI）と、ドア開け、ソファ座り、ナビゲーションなどの環境インタラクション（HSI）が含まれ、全身の協調とバランスが試されます。",
+     "caption": "Figure 8: Visualization of the Seven HumanoidArena Tasks. The benchmark includes Football, DoubleDesk, P&Pbox, OpenDoor, SitSofa, Boxing, and VisNavi, covering language-conditioned humanoid behavior across human–object and human–scene interaction with coordinated locomotion, balance, and manipulation.",
+     "image": "details/2611.11554/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめと今後の展望：動作基盤モデルが切り拓くヒューマノイドの未来",
+   "summary_ja": "事前学習済み動作生成モデルをバックボーンとするKAMsとKimodo-Policyの有効性を立証しました。現在は特定の全身トラッカー（SONIC）に依存している点が主な限界であり、今後は多様なコントローラへの汎用化や、VLM・動画予測モデルとの融合が期待されます。",
+   "details_ja": "本研究は、ヒューマノイドロボットの行動学習において「動作生成モデルそのものを基盤バックボーンにする」という新しいアプローチ（KAMs）を提唱し、Kimodo-Policyによってその実用性を証明しました。わずか92Mの学習可能パラメータでありながら、大規模な動作事前知識を活用することで、シミュレーションと実機の双方で優れた全身協調性能を達成しています。\n\n### 本手法の限界\n最大の制限事項は、低レベル制御器である「SONICトラッカー」に強く依存している点です。本手法が生成する動作参照軌道やデプロイパイプラインはSONICに合わせて設計されているため、制御特性や受け付ける参照形式が異なる他のトラッカーに対してそのまま適用できるかは未検証です。上位の動作生成と下位のトラッカーをいかに汎用的なインターフェースで結ぶかが今後の課題となります。\n\n### 今後の展望\n今後は、KAMsの動作バックボーンに対して、VLMが持つ高度な意味推論や動画生成モデルが持つ環境予測能力を組み合わせることが自然な発展先です。また、人間の大規模なモーションキャプチャデータをリターゲティングしてロボットの事前学習に還元するなど、動作モデル自体の表現力を高めていくことで、さらに多彩で頑健な全身行動の獲得が期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "動作生成モデル（Text-to-Motion）は、ヒューマノイドの行動学習においてVLAやWAMと並ぶ有力な事前学習バックボーンになり得る。",
+  "動作バックボーンは下流で無理にファインチューニング（31.67%）するよりも、完全に凍結してControlNetで視覚を注入する（51.67%）方が、運動構造が壊れず遥かに高い性能を出す。",
+  "過去の動作履歴を拘束条件としたインペインティングと行動チャンクの短周期実行を組み合わせることで、オープンループな動作生成器を滑らかな閉ループ制御に転換できる。",
+  "全身動作（ルート＋身体）とグリッパー（手先）は出力の性質が異なるため、勾配を切り離した別々のヘッドで予測することが学習の安定につながる。"
+ ],
+ "limitations_ja": [
+  "特定の低レベル全身トラッカー（SONIC）に依存したインターフェース設計となっており、異なる制御器への転用には検証と再調整が必要である点。",
+  "物体操作（HOI）の一部タスク（サッカーなど手先や足先のミリ単位の接触精度が問われるタスク）では、一部の強力なベースラインに及ばない場面が見られる点。",
+  "実機評価が各タスク10試行に留まっており、未知の環境変化や外乱に対する長期的な信頼性・ロバスト性の検証は今後の課題である点。"
+ ],
+ "keywords": [
+  "Humanoid Loco-Manipulation",
+  "Kinematic Action Models (KAMs)",
+  "Kimodo-Policy",
+  "Whole-Body Control",
+  "Motion Generation"
+ ],
+ "id": "2611.11554",
+ "title": "Kimodo-Policy: Learning Kinematic Action Models for Humanoid Loco-Manipulation",
+ "authors": [
+  "Yunheng Wang",
+  "Jiaxi Zhang",
+  "Wei Lu",
+  "Yuetong Fang",
+  "Taowen Wang",
+  "Yixiao Feng",
+  "Shuning Zhang",
+  "Junzhe Xu",
+  "Yichi Wang",
+  "Zizhao Yuan",
+  "Kailun Huang",
+  "Lusong Li",
+  "Mingqian Zhou",
+  "Zecui Zeng",
+  "Renjing Xu"
+ ],
+ "date": "2026-11-10",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "locomotion",
+  "manipulation",
+  "control"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.11554",
+ "pdf_url": "https://arxiv.org/pdf/2611.11554",
+ "summary_ja": "全身の移動操作（loco-manipulation）に向けて、全身運動そのものを事前学習対象とするKinematic Action Model（KAM）の概念と実装であるKimodo-Policyを提案。事前学習済みモーション生成器を行動生成バックボーンとし、視覚や実行フィードバックを接地することで、高次元かつ時間的な協調動作を効果的に実現する。",
+ "generated": "2026-11-10",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.11554"
+}
