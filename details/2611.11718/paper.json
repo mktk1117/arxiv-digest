@@ -1,0 +1,105 @@
+{
+ "title_ja": "ソフトロボティクスのための加速強化学習：年単位から数時間へ",
+ "tldr_ja": "連続体ソフトロボットの複雑なダイナミクスを、理論的に裏付けられたわずか6次元の低次元モデル（aSSM）に縮約し、実機を使わずわずか3時間で高品質な強化学習ポリシーを獲得できることを実証しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "ソフトアーム実機「SoPrA」と断熱スペクトル部分多様体（aSSM）を用いた強化学習フレームワークの全体像です。ソフトロボットの遅い固有空間の非線形延長として現れる低次元不変多様体 $\\mathcal{A}_{\\epsilon}$ 上でシミュレーション（想像）を行うことで、実機との長時間の接触なしに短時間で高精度な制御ポリシーを学習できます。",
+  "caption": "Figure 1 : [Overview of learning an aSSM RL policy on a soft robot] . (a) Snapshot of the SoPrA arm. (b) Geometry of the adiabatic spectral submanifold (aSSM) in the state- and control action- space. (c) General overview of training an RL agent on an aSSM-reduced model.",
+  "image": "details/2611.11718/F1.jpg"
+ },
+ "overview_ja": "シリコンなどの柔軟素材で作られたソフトロボットは、無限の自由度と強い非線形性を持つため、高精度な物理シミュレータの構築が極めて困難です。そのため、強化学習（RL）を適用しようとすると、実機を長期間動かして膨大な相互作用データを集める必要があり、試算では数年分の実機運用に相当するデータが必要とされていました。一方で、ニューラルネットワーク（RNNやTransformer）による世界モデルは学習に数十〜百時間もかかる上に、限られた実機データでは外挿性や安定性に深刻な課題がありました。\n\nそこで著者らは、ソフトロボットの運動に見られる「速い振動が素早く減衰し、遅い大域的変形が支配的になる」という時間スケール分離の性質に着目しました。この力学系理論に基づくアプローチにより、無限次元の連続体変形をわずか6次元の「断熱スペクトル部分多様体（aSSM: adiabatic spectral submanifold）」と呼ばれる低次元の不変多様体に縮約できることを突き止めました。このモデルは、わずか2時間強のステップ応答データから、多項式回帰によってたった5分で同定可能です。\n\n本研究では、空気圧駆動ソフトアーム「SoPrA」を用いてこの6次元aSSMモデルを構築し、モデル内部の仮想シミュレーション（想像）のみでRLポリシーを約3時間学習させました。同定されたポリシーを実機へそのままゼロショットで適用したところ、ファインチューニングなしで高速な動的目標軌道を追従することに成功しました。数百万パラメータの巨大な最新深層学習モデルと比較しても、追従誤差を40%低減し、同定時間・学習計算量・実機制御精度のすべてにおいて圧倒的な優位性（パレート支配）を示しています。",
+ "contributions_ja": [
+  "連続体ソフトアームの非線形ダイナミクスが、時間スケール分離の理論に基づきわずか6次元の断熱スペクトル部分多様体（aSSM）へ忠実に縮約できることを実機データから実証したこと。",
+  "わずか6,924パラメータの多項式常微分方程式モデルを2.2時間の実機データから5分で同定し、モデルベース強化学習の高速な学習シミュレータ環境として機能させたこと。",
+  "実機で学習すれば3年を要する軌道追従ポリシーをわずか3時間で学習し、数百万パラメータのRNNやTransformerベースの世界モデルと比べて実機追従誤差を40%低減したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Results",
+   "heading_ja": "実験結果：5分の同定と3時間の学習で、実機3年分の制御性能を達成",
+   "summary_ja": "空気圧駆動ソフトアーム実機「SoPrA」において、6次元のaSSM縮約モデルを構築し、RNNやTransformerなどの最新ニューラル世界モデルと予測精度や学習速度を徹底比較しました。aSSMモデルは同定時間わずか5分、パラメータ数約7千でありながら、未知の制御入力に対する軌道予測誤差や実機での閉ループ追従精度において既存モデルを圧倒しました。",
+   "details_ja": "本章では、2モジュール・計6自由度（うち5自由度が有効）の空気圧駆動シリコン製ソフトアーム「SoPrA」（全長30cm）を垂直に吊り下げた実機環境で検証を行っています。外部モーションキャプチャで先端（tip）と中央接続部（mid）の3次元位置（合計6次元の観測空間）を計測します。\n\n### 1.1 aSSMによるデータ駆動モデリング\nソフトアームに400個のランダムなステップ圧力を20秒ずつ印加する合計2.2時間の実験データからモデリングを行いました。アームは不足減衰の振動を経て静止状態に落ち着く挙動を示します。スペクトログラム解析により、直交する2方向の1次振動モード（1対1共振）と軸方向振動モードの計3つの支配的周波数が存在することが判明し、aSSMの最小次元を $d=6$ と決定しました。位置観測値に遅延埋め込みを適用して速度情報を補うことで、静止状態を結ぶ臨界多様体、aSSMの幾何パラメータ、縮約ダイナミクスを多項式（2次および3次）で表現した6次元常微分方程式系を構築しました。未知のステップ入力に対する予測誤差は9%、未知の周期入力に対しては3%という極めて高い精度を達成しています。\n\n### 1.2 未知の制御入力に対する予測性能の比較\n比較対象として、同量のデータを用いて同定した自己回帰型の多層パーセプトロン（MLP）、再帰型ニューラルネットワーク（RNN: 4.8Mパラメータ）、Transformer（1.7Mパラメータ）を用意しました。50通りの未知のランダム制御入力を与えたところ、MLPは誤差が発散し、RNNとTransformerも定性的な追従に留まりました。これに対し、aSSMモデルは作業空間全体で最も低い予測誤差を一貫して維持しました。\n\n### 1.3 aSSMモデルを用いたRLポリシー学習\n学習したaSSMモデルをシミュレータ環境とし、先端の2次元目標軌道追従タスクを解くポリシーを学習させました。並列に初期状態を展開する「想像（imagination）」プロセスを通じてポリシーを更新したところ、aSSM-RLはわずか200反復で高い報酬値へとスムーズに収束しました。一方、RNNやTransformerを用いたポリシーは収束に800反復以上を要し、ハイパーパラメータの変化に対して挙動が不安定でした。\n\n### 1.4 モデル複雑度・学習時間・精度のパレート優位性\n同定時間と予測誤差、パラメータ数をプロットしたパレート図において、aSSMモデルは完全にパレートフロントを支配しました。aSSMの同定時間は5分であるのに対し、RNNは13時間、Transformerは100時間を要しました。また、実機閉ループ制御の学習においても、aSSM-RLは3時間で学習が完了し、RNN-RL（約10時間）やTransformer-RL（約50時間）よりはるかに高速かつ高精度でした。\n\n### 1.5 実機での閉ループ軌道追従評価\n実機SoPrAアームに学習済みポリシーをゼロショット展開し、8の字形状（レムニスケート）および3種類の速度の正方形軌道を追従させました。aSSM-RLは、リアルタイムモデル予測制御であるaSSM-MPCと同等以上の滑らかな追従を実現し、RNN-RLやTransformer-RLに対して追従誤差を40%低減しました。ニューラルモデル由来のポリシーが実機で不自然に極端な屈曲を起こして振動したのに対し、aSSM-RLは自然で滑らかな曲がり形状を保ちました。\n\n### 1.6 空気圧アクチュエーション系の課題と対策\n指令圧力と実測圧力の間に約0.3秒の遅れとバルブの微小変動が存在することが、制御の微細な揺らぎ（ウィグル）の原因となっていました。0.3秒の移動平均フィルタを適用した解析により、高精度な高速バルブに換装することで、本手法の制御精度がさらに向上することが示唆されています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "SoPrAアームの実機応答と学習されたaSSM縮約モデルの予測性能です。(a) ランダムなステップ制御入力によって作業空間全体を励起した様子。(b) 未知のステップ入力に対する先端座標の減衰振動プロファイルとモデル予測（緑）の一致。(c) 未知の周期的入力に対する先端および中央部の軌道再現性を示しています。",
+     "caption": "Figure 3 : [Modeling SoPrA via an aSSM-reduced model] . (a) Response of the SoPrA arm plotted in its state-space subjected to random step control actions. (b) Time series plots of the aSSM model predictions (green) and the SoPrA arm’s true response (black) for unseen step control actions in the workspace of the SoPrA arm. (c) State-space plots of the aSSM model’s predictions (green) and the SoPrA arm’s true response (black) for a periodic control action.",
+     "image": "details/2611.11718/F3.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "ダイナミクスモデルおよび強化学習ポリシーのパレート図です。(a) 未知入力に対する予測誤差と同定時間の比較。円の大きさはパラメータ数を示します。aSSMモデル（緑、6,924パラメータ、5分）はRNN（黄、4.8M、13時間）やTransformer（赤、1.7M、100時間）を圧倒しています。(b) 実機での閉ループ追従誤差とRL学習時間の関係でも、aSSM-RLが最も高速かつ最高精度を達成しています。",
+     "caption": "Figure 5 : [Pareto plot comparisons for learned models and policies] . (a) Mean prediction error of the SoPrA arm’s tip position for the random unseen control action experiments in Section 1.2 , plotted against model learning time, with bubble size denoting the number of model parameters. The aSSM model is Pareto dominant across these metrics. (b) Mean prediction error of the SoPrA arm’s tip position across the closed-loop runs in Section 1.5 , plotted against policy training time, with bubble size denoting the number of model parameters. The aSSM-RL policy is Pareto dominant across these metrics.",
+     "image": "details/2611.11718/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実機SoPrAアームによる閉ループ目標軌道追従の実験結果です。(a) 8の字軌道（レムニスケート）および異なる速度（標準、1.6倍速、3.2倍速）の正方形軌跡における追従挙動。(b) 各手法の平均追従誤差の棒グラフです。aSSM-RL（緑）はaSSM-MPC（青）と同等以上で、RNN-RL（黄）やTransformer-RL（赤）よりも約40%高精度に追従できています。",
+     "caption": "Figure 6 : [Closed-loop experiments using learned model-based RL policies] . (a) Closed-loop results for four target tracks for aSSM-MPC (blue), aSSM-RL (green), RNN-RL (yellow), and Transformer-RL (red). Solid lines show the mean over 10 repeated runs, and shaded regions show the deviation. (b) Average tracking error compared across all target tracks. The deviation bar indicates the performance variation across 10 repeated runs of the closed-loop experiments.",
+     "image": "details/2611.11718/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Discussion",
+   "heading_ja": "考察：なぜ巨大な深層学習モデルより6千パラメータの数理モデルが勝るのか",
+   "summary_ja": "ブラックボックスな大規模ニューラルネットワークがソフトロボット制御で苦戦する理由と、aSSM理論が切り拓く新たな展開を論じています。実機で取得できる限られたデータから頑健な世界モデルを作る鍵は、連続体の物理的・力学的構造に根ざした適切な低次元縮約にあります。",
+   "details_ja": "本研究の成功の本質は、「ソフトロボットの支配的ダイナミクスは極めて低次元な不変多様体の上に存在する」という物理的・幾何学的直感を、力学系理論に基づいて厳密に定式化した点にあります。\n\n現代の機械学習では、数百万〜数十億パラメータを持つTransformerやRNNを「世界モデル」として用いるアプローチが主流になりつつあります。しかし、実機ロボットから得られるデータ量は、ハードウェアの寿命や実験時間の制約から、高々数時間分（機械学習基準では極めて小規模）に限定されます。このような限られたデータに対してブラックボックスな巨大モデルを適合させようとすると、学習データに含まれない領域での外挿性が極端に悪化し、シミュレーション（想像）を重ねる強化学習では誤差が累積して非現実的な方策を獲得してしまいます。\n\nこれに対し、aSSMによる縮約アプローチは、ロボットの支配的な運動（最も遅いモード）のみを数学的に正しく抽出するため、わずか2時間のステップ応答データだけでシステム全体を同定するのに十分でした。パラメータ数が6,924個と極めて小さいため過学習が起きず、RL環境として滑らかで安定したダイナミクスを提供できます。\n\nさらに、本手法の応用範囲として、手術支援ロボットや水中探査ロボットなど、過酷かつ動的な環境で動作するソフトマニピュレータへの展開が期待されます。著者らは現在、多指のソフトハンドによる器用な動的マニピュレーションへの適用を進めているほか、将来的には物理マーカーを用いずカメラ映像から直接aSSMモデルを獲得するフレームワークを目指しています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Methods",
+   "heading_ja": "手法詳解：不変多様体の抽出理論とオフラインモデルベース強化学習",
+   "summary_ja": "断熱スペクトル部分多様体（aSSM）の数学的基礎、部分観測から低次元ダイナミクスを抽出するデータ駆動アルゴリズム、および同定された低次元ODEを用いたオフライン強化学習の定式化を詳述しています。遅延埋め込みと多項式フィッティングを組み合わせることで、解釈可能で高速な学習環境を構築します。",
+   "details_ja": "本章では、連続体ソフトロボットの力学系縮約とRLアルゴリズムの具体的な定式化を説明します。\n\n### 3.1 aSSMの理論とデータ駆動同定法\n連続体ソフトロボットの状態空間 $\\mathbf{x}$ は無限次元ですが、静止制御入力 $\\bar{\\bm{a}}$ の下では吸引的な静止形状へと収束します。これら静止状態の集合がなす不変多様体を「臨界多様体 $\\mathcal{L}_0$」と呼びます。各静止状態の周りでの線形化において、最も減衰の遅い $d$ 個の固有値に対応する固有空間の非線形延長として「スペクトル部分多様体バンドル $\\mathcal{A}_0$」が定義されます。制御入力がゆっくり変化する場合、これらは滑らかに変形した不変多様体である「断熱スペクトル部分多様体（aSSM: $\\mathcal{A}_{\\epsilon}$）」として存続します。\n\n実機観測 $\\bm{s}$（先端と中央の3次元位置、計6次元）には速度情報が含まれないため、ターケンスの埋め込み定理に基づき、現在値と2つの時間遅延コピーをスタックした遅延埋め込み空間を構築します。同定手順は以下の2ステップです：\n- ステップ1（臨界多様体の学習）：ステップ応答後の静止状態対 $\\{\\bm{s}^i_{\\mathrm{static}}, \\bm{a}^i_{\\mathrm{static}}\\}$ に対し、3次多項式 $\\bar{\\bm{s}}(\\bm{a})$ を線形最小二乗法でフィッティングします。\n- ステップ2（aSSM幾何と縮約ダイナミクスの同定）：各静止状態周りの減衰過渡応答データを中心化して特異値分解（SVD）を行い、局所的なチャート写像 $\\mathbf{V}$ を獲得して低次元座標 $\\mathbf{r} \\in \\mathbb{R}^6$ に射影します。その上で、多様体パラメータ写像 $\\mathbf{W}(\\mathbf{r}, \\bm{a})$ および縮約ダイナミクス $\\mathbf{R}(\\mathbf{r}, \\bm{a})$ を2次多項式として最小二乗法で決定します。\n\n連続時間の縮約常微分方程式 $\\dot{\\mathbf{r}} = \\mathbf{R}(\\mathbf{r}, \\bm{a})$ をゼロ次ホールド（制御周期 $\\Delta t$ の間は入力を一定保持）の下で数値積分することで、離散時間のダイナミクス写像 $\\mathbf{r}_{k+1} = \\mathbf{R}_d(\\mathbf{r}_k, \\bm{a}_k)$ を導出します。なお、本理論が成立するための時間スケール分離の指標として、目標軌道の平均速度とロボット本来の自由減衰速度の比を表す無次元量 $r_s$ を定義しており、本実験では $r_s \\approx 0.1 \\sim 0.8$ の範囲で妥当性が確認されています。\n\n### 3.2 オフラインモデルベース強化学習（想像学習）\nポリシー $\\bm{\\pi}_\\theta$ の学習には実機を一切使用せず、同定されたaSSM離散モデルの内部シミュレーション（想像）のみを用います。観測ベクトル $\\bm{o}_k = [\\bm{s}_k, \\bm{s}_{k-1}, \\bm{a}_{k-1}, \\bm{\\Gamma}_{k+1}]$（現在・前回の状態、前回のアクション、次回目標位置）を入力とし、行動 $\\bm{a}_k$ を出力します。報酬関数 $\\rho_k$ は先端位置の目標誤差ノルムの負値に、制御入力の変化量（滑らかさ）に対するペナルティを加えた形式で定義されます。多数の初期状態から並列にホライズン $T$ ステップのロールアウトを行い、エピソード累積リターンを最大化するように方策の重み $\\theta$ を更新します。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「巨大なニューラルネットワークで世界モデルを作る」前に、対象ロボットの力学系に時間スケール分離などの構造的縮約（aSSM）が成り立たないかを検討する価値が極めて高いこと。",
+  "物理的な縮約モデル（わずか数千パラメータの多項式ODE）は学習が5分と圧倒的に速く、実機データが数時間分しかない低データ環境でも外挿性を失わないこと。",
+  "低次元モデル上で想像（シミュレーション）を行うことで、実機との接触時間を要さずにゼロショット展開可能な高精度RLポリシーを短時間で獲得できること。"
+ ],
+ "limitations_ja": [
+  "aSSM理論の前提である時間スケール分離（無次元指標 $r_s < 1$）が成り立たないような超高速運動や外乱下では、縮約モデルの精度が低下する可能性がある点。",
+  "現状の同定プロセスでは外部モーションキャプチャによるマーカー位置計測に依存しており、カメラ画像のみ（Visual RL）からの完全なエンドツーエンド学習には至っていない点。",
+  "使用した空気圧バルブの応答遅延（約0.3秒）や圧力変動といったアクチュエータ側のハードウェア起因の誤差が完全には補償しきれていない点。"
+ ],
+ "keywords": [
+  "Soft Robotics",
+  "Reinforcement Learning",
+  "Model-Based RL",
+  "Spectral Submanifolds",
+  "Model Order Reduction",
+  "Dynamical Systems"
+ ],
+ "id": "2611.11718",
+ "title": "Accelerated Reinforcement Learning for Soft Robotics: Hours Instead of Years",
+ "authors": [
+  "Roshan S. Kaundinya",
+  "Hehui Zheng",
+  "Robert K. Katzschmann",
+  "George Haller"
+ ],
+ "date": "2026-11-10",
+ "group": "general",
+ "tags": [
+  "reinforcement-learning",
+  "control",
+  "sim-to-real",
+  "hardware"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.LG",
+  "math.DS"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.11718",
+ "pdf_url": "https://arxiv.org/pdf/2611.11718",
+ "summary_ja": "ダイナミクスが複雑なソフトロボットのRL学習を劇的に高速化する手法を提案。時間スケール分離に基づく断熱スペクトル部分多様体（aSSM）を用いて、実機データから6次元の多項式常微分方程式モデルを同定。これを環境として訓練することで、従来年単位を要した軌道追従方策の学習をわずか3時間で完了し、実機へのゼロショット転移に成功した。",
+ "generated": "2026-11-10",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.11718"
+}
