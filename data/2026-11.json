@@ -1,6 +1,320 @@
 {
  "entries": [
   {
+   "date": "2026-11-10",
+   "rank": 0,
+   "id": "2611.11127",
+   "group": "focus",
+   "title": "From Festival Video to the Stage: A Sim-to-Real Ladder for Long-Horizon Expressive Whole-Body Dance on a Commercial Humanoid",
+   "title_ja": "祭りの動画から舞台へ：市販ヒューマノイドによる長時間かつ表現豊かな全身ダンスのためのSim-to-Realラダー",
+   "summary_ja": "単眼動画の阿波踊りからUnitree G1ヒューマノイドへの全身ダンス転移パイプラインを提案。強化学習による動作追従訓練を単一GPUで行い、実機展開における成果物破損の検出や状態推定ドリフトのシミュレーション模擬などの介入を実施した。実機にて命綱なしで3回連続の完動を達成した。",
+   "summary_en": "This paper presents a pipeline to transfer the traditional Awa Odori dance from monocular video to a Unitree G1 humanoid. Using RL motion tracking trained on a single GPU, the authors address silent deployment artifact corruption and state estimator drift. The resulting policies achieve three consecutive tether-free completions of the expressive dance routine on real hardware.",
+   "authors": [
+    "Hesham Shehata (Research",
+    "Development Division",
+    "Arithmer Inc.",
+    "Tokyo",
+    "Japan)"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.11127",
+   "image": "figures/2026-11-10/2611.11127.jpg"
+  },
+  {
+   "date": "2026-11-10",
+   "rank": 1,
+   "id": "2611.11554",
+   "group": "focus",
+   "title": "Kimodo-Policy: Learning Kinematic Action Models for Humanoid Loco-Manipulation",
+   "title_ja": "Kimodo-Policy: ヒューマノイドの全身移動操作のための運動学的行動モデルの学習",
+   "summary_ja": "全身の移動操作（loco-manipulation）に向けて、全身運動そのものを事前学習対象とするKinematic Action Model（KAM）の概念と実装であるKimodo-Policyを提案。事前学習済みモーション生成器を行動生成バックボーンとし、視覚や実行フィードバックを接地することで、高次元かつ時間的な協調動作を効果的に実現する。",
+   "summary_en": "This paper introduces Kinematic Action Models (KAMs) and its realization, Kimodo-Policy, which pretrains on whole-body motion and uses a motion generator as the primary action-generation backbone for humanoid loco-manipulation. By grounding cross-body coordination priors through task conditioning, visual observations, and execution feedback, it enables coordinated high-dimensional control.",
+   "authors": [
+    "Yunheng Wang",
+    "Jiaxi Zhang",
+    "Wei Lu",
+    "Yuetong Fang",
+    "Taowen Wang",
+    "Yixiao Feng",
+    "Shuning Zhang",
+    "Junzhe Xu",
+    "Yichi Wang",
+    "Zizhao Yuan",
+    "Kailun Huang",
+    "Lusong Li",
+    "Mingqian Zhou",
+    "Zecui Zeng",
+    "Renjing Xu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.11554",
+   "image": "figures/2026-11-10/2611.11554.jpg"
+  },
+  {
+   "date": "2026-11-10",
+   "rank": 2,
+   "id": "2611.09937",
+   "group": "focus",
+   "title": "Efficient Learning of Differentiable MPC Policies on the GPU via Smoothed ADMM and First-Order Reinforcement Learning",
+   "title_ja": "平滑化ADMMと1次強化学習によるGPU上での微分可能MPC方策の効率的学習",
+   "summary_ja": "微分可能MPC方策の学習における非平滑性と計算負荷を解決するため、GPU並列微分可能MPCソルバ「SmoothedTurboMPC」を提案。対数バリア平滑化ADMMとSQPを組み合わせ、平滑な勾配と厳密な感度を両立する。1次強化学習手法と組み合わせることで、制約を考慮した高度な制御方策の高速なエンドツーエンド学習を実証した。",
+   "summary_en": "To overcome non-smooth sensitivities and high evaluation costs in differentiable MPC, this paper presents SmoothedTurboMPC, a GPU-parallel differentiable MPC solver combining SQP with a log-barrier-smoothed ADMM. Paired with first-order reinforcement learning, the framework enables smooth gradients, exact sensitivities, and highly efficient end-to-end training of constraint-aware control policies on GPUs.",
+   "authors": [
+    "Jianghan Zhang",
+    "Roland Schwan",
+    "Gabriel Bravo-Palacios",
+    "John Zhang",
+    "Thomas Lew",
+    "Brian Plancher"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "control",
+    "reinforcement-learning",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.09937",
+   "image": "figures/2026-11-10/2611.09937.jpg"
+  },
+  {
+   "date": "2026-11-10",
+   "rank": 3,
+   "id": "2611.10137",
+   "group": "focus",
+   "title": "A Unified Inertial Encoder for Human and Humanoid Motion",
+   "title_ja": "人間とヒューマノイドの動作をつなぐ統合慣性エンコーダ",
+   "summary_ja": "人間の大規模動作データセットからヒューマノイドへの運動知見転移を目指し、共通の慣性インターフェースを持つ統合慣性エンコーダを提案。運動学的IMU合成により幾何学やセンサの差異を解消し、人手データとリターゲットされたロボットデータ双方で共同訓練を行うことで、ヒューマノイドの速度推定や言語動作整合の精度を向上させた。",
+   "summary_en": "To bridge the gap between human motion datasets and humanoid robots, this paper proposes a unified inertial encoder that employs kinematic IMU synthesis across corresponding body sites. Joint training on human and retargeted humanoid motion with continuous-time encoding enables effective transfer of motion priors, significantly improving humanoid velocity estimation and language-grounded motion understanding.",
+   "authors": [
+    "Yutian Chen",
+    "Shibo Zhao",
+    "Rocky Duan",
+    "Karen Liu",
+    "Carmelo Sferrazza",
+    "Guanya Shi",
+    "Yuheng Qiu",
+    "Koushil Sreenath"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "perception",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.10137",
+   "image": "figures/2026-11-10/2611.10137.jpg"
+  },
+  {
+   "date": "2026-11-10",
+   "rank": 4,
+   "id": "2611.10169",
+   "group": "focus",
+   "title": "Capturability-Aware Footstep Planning in Cluttered Environments: A Recursively Feasible Sequential MPC on Axis-Aligned Safe Corridors",
+   "title_ja": "雑多な環境における捕縛性を考慮した足先計画：軸平行安全回廊上の再帰的実行可能逐次MPC",
+   "summary_ja": "障害物回避と歩行安定性を両立するため、線形倒立振子モデル（LIP）に基づくヒューマノイドの足先計画向け逐次MPCを提案。交差矩形群から成る安全回廊と捕縛性（capturability）制約を統合し、再帰的実行可能性を数学的に保証する。ドア通過などの狭隘環境で自律的にその場足踏みへ切り替えるなど適応的な歩行計画を実現した。",
+   "summary_en": "This paper presents a capturability-aware sequential MPC framework for linear inverted pendulum (LIP)-based humanoid footstep planning among obstacles. By combining capturability constraints with axis-aligned safe corridors, it provides theoretical guarantees of recursive feasibility. The planner autonomously adapts to tight spaces, switching to in-place stepping when obstacles constrain motion.",
+   "authors": [
+    "Athanasios Kyriakopoulos",
+    "Shubham S. Kumbhar",
+    "Kunal S. Narkhede",
+    "Abhijeet M. Kulkarni",
+    "Ioannis Poulakakis"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "planning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.10169",
+   "image": "figures/2026-11-10/2611.10169.jpg"
+  },
+  {
+   "date": "2026-11-10",
+   "rank": 5,
+   "id": "2611.11718",
+   "group": "general",
+   "title": "Accelerated Reinforcement Learning for Soft Robotics: Hours Instead of Years",
+   "title_ja": "ソフトロボティクスのための加速強化学習：年単位から数時間へ",
+   "summary_ja": "ダイナミクスが複雑なソフトロボットのRL学習を劇的に高速化する手法を提案。時間スケール分離に基づく断熱スペクトル部分多様体（aSSM）を用いて、実機データから6次元の多項式常微分方程式モデルを同定。これを環境として訓練することで、従来年単位を要した軌道追従方策の学習をわずか3時間で完了し、実機へのゼロショット転移に成功した。",
+   "summary_en": "To address the heavy interaction demands of reinforcement learning for soft robots, this paper utilizes adiabatic spectral submanifolds (aSSMs) to derive low-dimensional invariant models purely from data. On a pneumatically actuated soft arm, a 6D aSSM-reduced ODE allows training a trajectory-tracking policy in just 3 hours—replacing years of real-world interaction—and achieves successful zero-shot transfer without fine-tuning.",
+   "authors": [
+    "Roshan S. Kaundinya",
+    "Hehui Zheng",
+    "Robert K. Katzschmann",
+    "George Haller"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG",
+    "math.DS"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control",
+    "sim-to-real",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.11718",
+   "image": "figures/2026-11-10/2611.11718.jpg"
+  },
+  {
+   "date": "2026-11-10",
+   "rank": 6,
+   "id": "2611.10877",
+   "group": "general",
+   "title": "Sampling-based Model Predictive Control as Sequential Monte Carlo Inference",
+   "title_ja": "逐次モンテカルロ推論としてのサンプリング型モデル予測制御",
+   "summary_ja": "MPPIや交差エントロピー法（CEM）など多様なサンプリング型MPC手法を、提案分布・更新則・リサンプリング閾値という3つの独立した軸を持つ単一の逐次モンテカルロ（SMC）推論フレームワークとして統一的に定式化。非線形制御や7自由度動作計画、非把持操作などのシミュレーションおよび実機タスクでその有効性と特性を体系的に評価・検証した。",
+   "summary_en": "This paper unifies distinct sampling-based MPC algorithms, such as MPPI and the cross-entropy method, under a single Sequential Monte Carlo (SMC) inference framework parameterized along three axes: proposal, update rule, and resampling threshold. The authors systematically evaluate the unified framework across non-linear control, 7-DoF motion planning, and non-prehensile pushing tasks in simulation and real-world experiments.",
+   "authors": [
+    "Austin Garrett",
+    "Muyang Yan",
+    "Zachary Kingston"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "planning",
+    "control",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.10877",
+   "image": "figures/2026-11-10/2611.10877.jpg"
+  },
+  {
+   "date": "2026-11-10",
+   "rank": 7,
+   "id": "2611.10410",
+   "group": "general",
+   "title": "SimDuoReal: Object-Centric Bimanual Policy for Emergent Dexterity",
+   "title_ja": "SimDuoReal: 器用さの創発に向けた物体重心アプローチによる双腕操作方策",
+   "summary_ja": "双腕の器用な協調操作を、手作業による複雑な報酬設計なしに実現する枠組みを提案。共通の物体重心報酬のみを用い、訓練環境を多様化させる強化学習により、把持前操作やインハンド調整、アーム間受け渡しなどの高度な協調行動を自然に創発させた。さらにDAggerと実機調整を組み合わせることで実機での高精度な目標姿勢達成を実現した。",
+   "summary_en": "This work explores how complex bimanual dexterity can emerge from a simple object-centric reinforcement learning objective. Rather than tuning task-specific motion sequences, policies trained across varied simulation environments autonomously discover pre-grasping, in-hand reorientation, and handovers. Using DAgger and refinement, the emergent bimanual policies successfully transfer to physical robots.",
+   "authors": [
+    "Qiyang Yan",
+    "Yulin Liu",
+    "Akash Sharma",
+    "Haozhi Qi",
+    "Guanya Shi",
+    "C. Karen Liu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "reinforcement-learning",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.10410",
+   "image": "figures/2026-11-10/2611.10410.jpg"
+  },
+  {
+   "date": "2026-11-10",
+   "rank": 8,
+   "id": "2611.11854",
+   "group": "general",
+   "title": "Decoupled Asynchronous System for Humanoids (DASH): Latency-Agnostic Scaling of Vision-Language-Action Models for Humanoid Manipulation",
+   "title_ja": "DASH: ヒューマノイド操作のためのVLAモデルにおける遅延非依存スケーリング",
+   "summary_ja": "VLAモデルの巨大化に伴う推論遅延と制御周期の乖離を解消する非同期システムDASHを提案。低速なVLM（System 2）と高速なFlow-Matching行動生成ヘッド（System 1）を分離し、通信プロトコルを介して並列実行させることで、VLAを大規模化しても即応性の高い実機制御周波数を維持できることをヒューマノイドの器用な操作タスクで実証した。",
+   "summary_en": "To prevent large Vision-Language-Action (VLA) backbones from inducing critical control delays, this paper presents DASH, a decoupled asynchronous framework for humanoid manipulation. By splitting the policy into a slow System 2 VLM and a fast System 1 flow-matching action head running concurrently via LCM, it decouples computational latency from actuation rate, maintaining high closed-loop responsiveness.",
+   "authors": [
+    "Bingzhang Wang",
+    "Nathan Zhao",
+    "Jialeng Ni",
+    "Jiajin Zheng",
+    "Yin Zhang",
+    "Kehua Chen",
+    "Jian Yao"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "humanoid",
+    "manipulation",
+    "vision-language-action",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.11854",
+   "image": "figures/2026-11-10/2611.11854.jpg"
+  },
+  {
+   "date": "2026-11-10",
+   "rank": 9,
+   "id": "2611.12806",
+   "group": "general",
+   "title": "Learning Heterogeneous Tactile Representation for General Dexterous Manipulation",
+   "title_ja": "汎用器用操作に向けた異種触覚センサの共通表現学習",
+   "summary_ja": "接触が重要な器用操作において、物理原理の異なる多様な触覚センサのデータを統合する触覚基盤モデル「LingBot-Touch」を提案。センサ固有のバイアスから触覚理解を切り離す統一表現を学習し、異種センサ間でのゼロショット転移や下流操作タスクへの適応を可能にした。多指ハンドによる把持や器用なマニピュレーションの汎用性向上に寄与する。",
+   "summary_en": "Tactile sensing is crucial for dexterous manipulation, but sensor variations hinder data sharing. This paper introduces LingBot-Touch, a tactile foundation model providing a unified representation across diverse tactile sensors with distinct physical mechanisms. By abstracting away sensor-specific properties, it enables effective transfer across heterogeneous tactile hardware and enhances general dexterous manipulation performance.",
+   "authors": [
+    "Bing Han",
+    "Yichuan Peng",
+    "Haoyu Dong",
+    "Yuanmeng Hu",
+    "Yongyi Jia",
+    "Fangjing Wang",
+    "Kecheng Zheng",
+    "Yiming Zhang",
+    "Yanhong Zeng",
+    "Xiaoqing Zhang",
+    "Chen Song",
+    "Rundong Zou",
+    "Anqi Dong",
+    "Yuan Guan",
+    "Ka Leong Cheng",
+    "Xing Zhu",
+    "Yujun Shen",
+    "Nan Xue",
+    "Wei Ning"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "perception",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.12806",
+   "image": "figures/2026-11-10/2611.12806.jpg"
+  },
+  {
    "date": "2026-11-09",
    "rank": 0,
    "id": "2611.08857",
