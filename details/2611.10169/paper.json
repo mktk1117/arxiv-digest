@@ -1,0 +1,124 @@
+{
+ "title_ja": "雑多な環境における捕縛性を考慮した足先計画：軸平行安全回廊上の再帰的実行可能逐次MPC",
+ "tldr_ja": "障害物が密集する環境において、幾何学的な衝突回避コリドーと線形倒立振子のキャプチャラビリティ（転倒回避停止能力）制約を融合し、短い予測ホライズンでも常に実行可能解が存在することを数学的に保証した二足歩行MPCフレームワークです。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "提案手法の全体構成。オフラインまたは大域計画で障害物を避ける軸平行セーフコリドーを生成し、その重なり合う矩形領域上でキャプチャラビリティと逐次実現可能性を保証したMPC（C-MPC）を実行します。求めた歩容指令は400 Hzの下位全身制御（OSC-QP）によって二足歩行ロボットDigitで追従されます。",
+  "caption": "Figure 1: Overview of the proposed capturability-aware planning framework: Axis-aligned SC s enable a sequential MPC scheme that reliably drives the robot to its destination, avoiding obstacles and ensuring recursive feasibility.",
+  "image": "details/2611.10169/F1.jpg"
+ },
+ "overview_ja": "人間が暮らすような障害物の多い環境をヒューマノイドロボットが安全に歩くためには、壁や家具との衝突を避けるだけでなく、「次の瞬間にバランスを崩して転倒しないこと」を同時に保証しなければなりません。しかし、従来のセーフコリドー（障害物のない安全領域を多胞体として連結した空間）を使ったアプローチは幾何学的な経路計画にとどまり、脚ロボットのダイナミクスを十分に考慮していませんでした。そのため、モデル予測制御（MPC）を適用しても、制御入力が解けなくなる「非実行可能性（Infeasibility）」に陥るリスクを抱えていました。\n\nそこで著者らは、二足歩行ロボットの代表的な簡約化モデルである線形倒立振子（LIP）に着目し、キャプチャラビリティ（有限歩数で安全に静止できる能力）の制約を幾何学的な矩形コリドーに埋め込む手法を提案しました。具体的には、大域的な安全矩形の内側に「キャプチャラビリティを保ちつつ重心を枠内に収めるための足配置領域」を解析的に求め、矩形間を渡り歩く際に「仮想停止点（Virtual Stopping Point）」が重なり領域に入っているかを監視する新しい切り替えポリシーを構築しました。\n\nこれにより、コリドー全体にわたってMPCの逐次実現可能性（Recursive Feasibility）が数学的に保証されます。ロボットDigitを用いたシミュレーション検証では、予測ホライズン長をわずか2歩に縮めても92%以上の高い走破成功率を維持し、計算時間は数百マイクロ秒レベルを達成しました。さらに、未知の閉じたドアに遭遇した際には、無理に前進せず自律的にその場足踏みへ移行して安全に待機するという、極めてフェールセーフな挙動が実現できることを示しました。",
+ "contributions_ja": [
+  "幾何学的な安全矩形からキャプチャラビリティを保証する足配置許容領域を解析的に求める収縮法を定式化",
+  "矩形間の遷移時に安全停止を保証する「仮想停止点」を用いた切り替えポリシーにより、コリドー全体での逐次実現可能性を証明",
+  "予測ホライズン長に依存しない高い成功率（92%〜94%）を達成し、数百マイクロ秒という極めて軽量なMPC計算を実現",
+  "事前の情報がない閉扉などの予期せぬ進路妨害に対し、自律的にその場足踏みへ移行して安全待機するフェールセーフ性能を実証"
+ ],
+ "sections": [
+  {
+   "heading": "II LIP-based Capturability & Restricted Spaces",
+   "heading_ja": "限られた長方形の中で絶対に転ばない足の置き場を割り出す",
+   "summary_ja": "線形倒立振子（LIP）モデルにおいて、重心が指定された長方形領域から飛び出さず、かつ有限歩数で安全に停止（キャプチャ）できる足配置の許容矩形領域を解析的に導出します。この領域を用いてMPCを定式化することで、単一の矩形内における逐次実現可能性を保証します。",
+   "details_ja": "ヒューマノイドの歩行計画で定番の線形倒立振子（LIP）モデルは、重心（COM）の高さを一定に保つことでダイナミクスを線形化します。このLIPの運動は、発散成分（DCM: Divergent Component of Motion）と収束成分（CCM: Convergent Component of Motion）に分解できます。ロボットが転倒せずに停止できる状態の集合を「$N$歩キャプチャ領域」と呼びます。\n\n### 重心を境界内に閉じ込める足配置矩形の計算\n障害物回避を考える際、まず重心が絶対に留まるべき安全な長方形領域 $\\mathcal{B}$ が幾何学的に与えられます。しかし、単にCOMを $\\mathcal{B}$ の中に押し込めるだけでは、急停止できずに壁に激突したり転倒したりしてしまいます。そこで本手法では、$\\mathcal{B}$ の内側に「足位置 $u$ をここにとどめれば、最大 $N$ 歩以内に安全停止でき、かつその間のCOM軌道もすべて $\\mathcal{B}$ 内に収まる」という縮小された矩形領域 $\\mathcal{S}$ を解析的に算出します。\n\n具体的には、DCMとCCMの時間発展方程式からCOM位置の上限・下限を不等式で評価し、境界を侵犯しない足配置の上下限境界 $[\\underline{w}, \\overline{w}]$ を直接導きます。これにより、複雑な非線形制約を課すことなく、単純な矩形境界のクリッピングとして安全性を担保できます。\n\n### 単一矩形内での逐次実現可能MPC\n足配置が $\\mathcal{S}$ 内に制限されたとき、ロボットが現在の足位置から領域境界に到達するまでに踏み出せる最大歩数 $\\nu$ を四方向（前後左右）について計算します。そして、DCMオフセット（足位置に対するDCMの相対位置）がこの $\\nu$ 歩キャプチャ領域 $\\mathcal{C}_\\nu$ に収まるという制約をMPCに組み込みます。\n\nこの設計により、MPCが現在ステップで実行可能解を持てば、次のステップでも必ず実行可能解が存在し続ける「逐次実現可能性」が成立します。つまり、矩形内にとどまる限り、最適化が破綻して解なしに陥る心配が数学的になくなります。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "(a) 一定平面上を移動するLIPモデルと運動学的な足配置可能領域（黄色）。(b) COM軌道（赤）、DCM（青）、CCM（橙破線）の時間発展と安全矩形 $\\mathcal{B}$（緑）および足配置許容矩形 $\\mathcal{S}$（水色）の関係。(c) その平面図。足位置 $u$ を $\\mathcal{S}$ 内に制限することで、COMが常に外側の安全矩形 $\\mathcal{B}$ 内にとどまります。",
+     "caption": "Figure 2: (a) Linear Inverted Pendulum ( LIP ) model: COM moves in a constant-height plane (pink), with the kinematically feasible foot placement region in yellow. (b) 3D evolution of COM (red), DCM offset (blue), and CCM offset (orange dashed); rectangular regions $\\mathcal{B}$ (green) and $\\mathcal{S}$ (blue). (c) Top view of COM , DCM , CCM trajectories and the rectangles $\\mathcal{B}$ , $\\mathcal{S}$ .",
+     "image": "details/2611.10169/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "III Capturable Footstep Planning amid Obstacles",
+   "heading_ja": "長方形をバトンタッチしてゴールへ：仮想停止点によるスイッチング",
+   "summary_ja": "環境内の障害物を避ける連続した軸平行矩形コリドーを高速に自動生成し、矩形から次の矩形へと移る際にキャプチャラビリティを失わない「仮想停止点」に基づく切り替えロジックを提案します。これにより、コリドー全体を通じた逐次実現可能性が完成します。",
+   "details_ja": "単一の矩形内だけではロボットは部屋中を自由に移動できません。スタートからゴールまで安全に移動するために、重なり合う複数の矩形をつなげた「セーフコリドー」を構築し、その上を渡り歩く計画が必要です。\n\n### 軸平行セーフコリドーの自動生成\n大域経路計画（JPSやRRTなど）で得られた直線パス上の点をシード点として、矩形障害物の面を利用した分離超平面を探索します。アルゴリズム1では、シード点から最も遠い障害物の半空間を順次交差させていくことで、衝突のない最大サイズの軸平行矩形 $\\mathcal{B}_i$ を極めて高速に作成します。これをゴールまで連ねることで、互いに重なり合う矩形列 $\\{\\mathcal{B}_0, \\ldots, \\mathcal{B}_{M-1}\\}$ を得ます。\n\n### 仮想停止点（Virtual Stopping Point）による切り替えポリシー\n従来のセーフコリドー手法では、「COMが次の矩形との重なり領域（共通部分）に入ったら、即座に次のMPCへ切り替える」という純粋に幾何学的なルールが使われていました。しかしこれでは、次の領域に入った瞬間に勢いがつきすぎていて、次の矩形の壁に衝突する前に止まりきれない（＝キャプチャラビリティを喪失する）という問題が起こります。\n\nここが本論文の最もエレガントなポイントです。著者らは「仮想停止点（Virtual Stopping Point）$p^{\\mathrm{stop}}$」を定義しました。これは、現在の足位置とDCMから割り出される「もし今から最大歩幅で全力で急停止したときに、最終的に足が着地する停止位置」のことです。そして、次の3つの条件がすべて満たされたときだけ、次の矩形へと制御を切り替えます。\n- 重心（COM）が交差領域内にあること\n- 現在の足位置が交差領域内にあること\n- 仮想停止点 $p^{\\mathrm{stop}}$ が交差領域内にあること\n\nつまり、「次の矩形の中で確実に止まれる保証」が立証されて初めて、次の区間にバトンタッチするわけです。この仮想停止点が安全証明書（Certificate）の役割を果たすため、矩形を跨ぐ際にも逐次実現可能性が途切れることなく連鎖します。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "アルゴリズム1による障害物回避矩形の自動生成プロセス。シード点から各障害物に対して最も遠い分離超平面を順次選び、半空間の交差をとることで障害物のない局所矩形（赤枠）を構築します。",
+     "caption": "Figure 3: Rectangle generation via Algorithm 1 . Starting from ${\\rm p}_{\\rm seed}$ , the algorithm iteratively selects the separating hyperplane farthest from the seed for each obstacle, intersecting the resulting half-spaces to build an obstacle-free rectangle. Redundant obstacles (e.g., $O_{3}$ , $O_{6}$ ) are discarded at each iteration. The final rectangle (red) encloses a local obstacle-free region around ${\\rm p}_{\\rm seed}$ .",
+     "image": "details/2611.10169/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "矩形間のスイッチング判定の失敗（左）と成功（右）。COM（赤）や足位置（黄）が重なり領域に入っていても、仮想停止点 $p^{\\mathrm{stop}}$（紫）が枠外にある場合は切り替えず減速します。仮想停止点まで完全に重なり領域に入った右側の状態でのみ、安全に次の矩形へと移行します。",
+     "caption": "Figure 4: Failed (left) vs successful (right) switching policy activation. Switching from ${\\mathcal{S}}_{i}$ to ${\\mathcal{S}}_{i+1}$ occurs once the virtual stopping point (purple), the COM (red), and the current footstep (yellow) enter $\\mathcal{S}_{i}\\cap\\mathcal{S}_{i+1}$ . The current waypoint and DCM are also shown in green and blue, respectively.",
+     "image": "details/2611.10169/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Results",
+   "heading_ja": "ドアが閉まったらその場で足踏み：ホライズン短縮と安全な挙動の検証",
+   "summary_ja": "100通りのランダム障害物環境と、実機Digitを模擬した高精度MuJoCoシミュレーションで性能を検証しました。提案手法はホライズン長をわずか2歩にしても92%以上の成功率を誇り、未知の閉扉に直面しても自律的にその場足踏みへ移行して安全待機できることを確認しました。",
+   "details_ja": "シミュレーション環境には二足歩行ロボットDigitを採用し、上位の歩容計画MPCを15 Hz、下位の全身関節トルク制御（OSC-QP）を400 Hzで駆動して評価を行いました。MPCの定式化にはCasADiを用い、ソルバーには軽量なOSQPを使用しています。\n\n### ランダム環境でのベンチマーク比較\n$50\\,\\mathrm{m} \\times 50\\,\\mathrm{m}$ の空間に10個の矩形障害物をランダム配置した過酷な環境を100通り作成し、従来法（幾何学的コリドーに基づくMPC）と比較しました。\n- **成功率とホライズン長**: 従来法は予測ホライズン $L$ を長くしないと成功率が上がりませんが、提案手法は $L=2$ という極めて短いホライズンでも92%の成功率を叩き出しました（$L=4$ では94%）。\n- **計算時間**: ホライズン長 $L=2$ で約150 $\\mu\\mathrm{s}$、$L=5$ でも約220 $\\mu\\mathrm{s}$ と極めて高速であり、15 Hzの制御周期に対して十分すぎる余裕を持っています。\n- **失敗モードの決定的な違い**: 従来法は計画が破綻すると「MPC解なし（Infeasible）」となり、ロボットが制御不能に陥ります。一方、提案手法の失敗は「事前に安全矩形の重なりが作れず実行前に検知できたケース」か、「狭い通路で安全が保証できずに『その場足踏み』に退避したケース」の2種類しかありません。破綻して暴走するのではなく、本質的に安全側へ倒れる（Graceful Degradation）挙動を示します。\n\n### ドア開閉制約を伴うオフィス環境テスト\n3つの部屋と2つのドアがあるオフィス環境において、ドアが開くタイミングを事前にロボットに教えずに歩行させました。ロボットは「ドアは開いているはずだ」と仮定して計画を進めますが、途中で閉まったドアに直面します。\n\nすると、次のウェイポイントが閉じたドアの向こうにあるため、MPCは現在の矩形内で安全に止まれる状態へと重心を誘導します。ロボットは衝突する手前で自律的に減速し、衝突を避けるために「その場足踏み」を開始してドアが開くのをその場で待ち続けました。そしてドアが開いた瞬間に安全矩形が奥へと伸長し、再び前進を再開して見事にゴールへ到達しました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "(a) 提案手法と従来法のMPC成功率の比較。提案法（緑）はホライズン長2でも92%の高成功率を示し、失敗時もその場足踏み（黄）など安全に退避します。(b) 提案手法のMPC計算時間。ホライズン2〜5において150〜250 $\\mu\\mathrm{s}$ 程度と極めて低レイテンシです。",
+     "caption": "Figure 5: (a) MPC success rates of the proposed and prior methods. Proposed method outcomes: success (green), in-place walking (yellow), and failure to compute a SC (purple). Prior method outcomes: success (blue) and infeasibility. (b) MPC runtimes for the proposed method.",
+     "image": "details/2611.10169/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "障害物とドアが存在するオフィス環境でのDigitの歩行実験。(a) ドアが閉まっている部屋へ接近。(b) ドア前で自律的に減速し、その場足踏みで開くのを待機。(c) ドア開放後に前進を再開。(d) 全体のコリドー配置と軌跡。(e) 重心速度の時間変化。赤枠部分で速度がほぼゼロになり、安全待機している様子が分かります。",
+     "caption": "Figure 6: Digit navigating an office-like environment (rooms are labeled I, II and III) with two doors and three static obstacles. Start and goal points are in magenta and green; doors in red, obstacles in brown. The active SC rectangle is shown in blue and the COM trail in red. (b)-(c) Digit executing capturability-aware footsteps at closed doorways; upon door-opening, the planner resumes corridor execution. (d) Top view with capturability-aware SC , start, and goal. (e) COM speed: red boxes mark near-zero-velocity door-waiting phases; green dotted lines indicate entry into successive corridor intersections.",
+     "image": "details/2611.10169/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめ：転ばない保証がもたらすリアルタイム性とフェールセーフ",
+   "summary_ja": "キャプチャラビリティを軸平行セーフコリドーに組み込むことで、障害物環境における二足歩行MPCの逐次実現可能性を確立しました。予測ホライズンを削って計算負荷を劇的に下げつつ、不測の事態にはその場足踏みで安全に待機できる実用的なナビゲーションの基盤となります。",
+   "details_ja": "本研究は、幾何学的なコリドー生成と制御理論的なキャプチャラビリティという、これまで別々に扱われがちだった2つの領域を「仮想停止点」という直観的かつ厳密なアイデアで見事に橋渡ししました。\n\n何より実用面での恩恵が大きいのは、予測ホライズンをわずか数歩に縮めても歩行の安定性が損なわれない点です。これによりMPCの計算時間が数百マイクロ秒に収まり、組み込みマイコンや高周期ループでも無理なく回せるようになります。さらに、閉じたドアのような環境の予期せぬ時間変化に対しても、最適化が発散することなく自律的に安全な足踏み動作へと縮退（Graceful Degradation）する振る舞いは、実世界で人とともに働くヒューマノイドにとって理想的な安全特性と言えます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「幾何学的コリドーの交差」だけでなく「仮想停止点（停止可能な最終足位置）の包含」を切り替え条件にすることで、逐次実現可能性の連鎖が証明できる",
+  "キャプチャラビリティ制約を組み込むと、短い予測ホライズン（$L=2$）でも長期的な安定性が崩れず、MPC計算を数百マイクロ秒まで軽量化できる",
+  "最適化が破綻したときに解なしで転倒するのではなく、「安全なその場足踏み」へ自然に縮退する制御設計が実用上きわめて有効である"
+ ],
+ "limitations_ja": [
+  "現在の定式化は軸平行（Axis-Aligned）の矩形障害物に依存しており、斜めに傾いた壁や複雑な形状の障害物に対してはコリドーが保守的になりやすい",
+  "逐次実現可能性の保証は上位のLIP歩容計画レイヤーにとどまり、下位の全身ダイナミクス追従（関節トルクや摩擦円錐制約）の破綻までは理論的に保証されていない",
+  "矩形同士の重なり幅が小さく目標通過速度が大きい場合、仮想停止点が重なり領域に入りづらくなり、不要な減速を余儀なくされる場合がある"
+ ],
+ "keywords": [
+  "Humanoid Robots",
+  "Footstep Planning",
+  "Model Predictive Control",
+  "Capturability",
+  "Safe Corridor"
+ ],
+ "id": "2611.10169",
+ "title": "Capturability-Aware Footstep Planning in Cluttered Environments: A Recursively Feasible Sequential MPC on Axis-Aligned Safe Corridors",
+ "authors": [
+  "Athanasios Kyriakopoulos",
+  "Shubham S. Kumbhar",
+  "Kunal S. Narkhede",
+  "Abhijeet M. Kulkarni",
+  "Ioannis Poulakakis"
+ ],
+ "date": "2026-11-10",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "locomotion",
+  "planning",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.10169",
+ "pdf_url": "https://arxiv.org/pdf/2611.10169",
+ "summary_ja": "障害物回避と歩行安定性を両立するため、線形倒立振子モデル（LIP）に基づくヒューマノイドの足先計画向け逐次MPCを提案。交差矩形群から成る安全回廊と捕縛性（capturability）制約を統合し、再帰的実行可能性を数学的に保証する。ドア通過などの狭隘環境で自律的にその場足踏みへ切り替えるなど適応的な歩行計画を実現した。",
+ "generated": "2026-11-10",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.10169"
+}
