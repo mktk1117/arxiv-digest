@@ -1,0 +1,127 @@
+{
+ "title_ja": "人間とヒューマノイドの動作をつなぐ統合慣性エンコーダ",
+ "tldr_ja": "人間とヒューマノイドロボットの骨格対応部位にIMU信号を統一し、大規模な人間の動作データから学習することで、シミュレータや実機データなしに実機Unitree G1へゼロショットでオドメトリと言語動作検索を転送できる慣性エンコーダを提案しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "提案手法のシステム概要です。左側でロボットの骨盤IMUと関節角度から各リンクのIMU信号をキネマティクス的に合成し、中央の連続時間畳み込みとTransformerで特徴量を抽出します。右側のように、物理シミュレーションを経ずに実機Unitree G1で高精度な慣性オドメトリと自然言語による動作認識を同時に実現します。",
+  "caption": "Fig. 2: Overview of the proposed method. Left: kinematic transport combines pelvis IMU measurements, joint encoders, and link kinematics to synthesize inertial signals at anatomically corresponding sites. Center: continuous convolution converts native-rate IMU streams into fixed-duration tokens. A shared transformer alternates within-site and full attention, with heads predicting body-frame velocity, gravity-free acceleration and clean angular velocity, and a motion embedding aligned with frozen text features. Right: example outputs on a physical G1 illustrate inertial odometry and motion-description retrieval.",
+  "image": "details/2611.10137/F2.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットが安定して二足歩行を行うには正確な状態推定が欠かせず、人間との協調や行動監視にはロボットの動きを自然言語で理解する能力が求められます。しかし、実機の走行ログだけでこれらを学習しようとすると、「既存の制御器ができる動き」の範囲にデータが縛られてしまい、未知のダイナミクスに対応できないという循環参照に陥ります。一方で、人間の動作データセットには多種多様な全身運動や言語記述が豊富に存在しますが、人間とロボットでは骨格の寸法、センサの配置、サンプリング周波数、さらには実機特有の振動や衝撃といった物理的ノイズが大きく異なるため、そのまま学習に活かすことは困難でした。\n\nそこで著者らは、人間の身体とヒューマノイドの解剖学的に対応する12箇所の部位に「共通の慣性インターフェース」を定義することを着想しました。ロボット側では、骨盤にある1つの実IMUと各関節のエンコーダ情報から、順運動学とヤコビアンを用いて全身の各部位における加速度・角速度（合成IMU信号）を幾何学的に算出します。さらに、データセットごとのサンプリング周期のズレを連続時間畳み込みによって吸収し、センサノイズや衝撃をランダム化で補うことで、人間とヒューマノイドの動作を同じ表現空間で同時に扱えるようにしました。\n\nこの共通表現を用いて、速度推定、軌道整合性、ノイズ除去、および言語（CLIP）とのマルチモーダルアライメントをマルチタスクで学習させました。その結果、物理シミュレーションや実機での追加学習を一切行わない「完全ゼロショット」の状態で、実機Unitree G1において先行研究を大きく上回る高精度な速度推定（誤差0.099 m/s）を達成しました。また、ヒューマノイドの学習データには含めていなかった複雑な動作カテゴリであっても、人間のデータから得た意味表現によって高い精度でテキスト検索できることを示しました。",
+ "contributions_ja": [
+  "キネマティクス計算に基づき全身リンクのIMU信号を合成する「共通慣性インターフェース」を構築し、人間とロボットの身体差を吸収する統一入力空間を設計した点",
+  "不揃いなサンプリング周波数や欠損をそのまま扱える連続時間畳み込みと、実機ノイズ・衝撃のランダム化により、Sim2Realなしのゼロショット実機転送を可能にした点",
+  "速度推定とCLIP空間への言語アライメントを同時学習し、人間の動作知識を活用してヒューマノイドの慣性オドメトリと未知動作の意味理解を両立した点"
+ ],
+ "sections": [
+  {
+   "heading": "I INTRODUCTION",
+   "heading_ja": "なぜ人間の動きからヒューマノイドの状態推定を学ぶのか",
+   "summary_ja": "ヒューマノイドの状態推定を実機データだけで学習すると制御可能な動きに制限されますが、人間のデータを使えば多様な動作分布を獲得できます。本研究は、解剖学的部位に対応させた共通のIMU表現を作ることで、シミュレーションも実機ログも使わずに実機Unitree G1へゼロショット転送できる統一モデルを提案します。",
+   "details_ja": "ヒューマノイドロボットが転倒せずに歩行し続けるには、自身の速度や姿勢を正確に把握する状態推定（State Estimation）が不可欠です。また、周囲の人と安全に協調するためには、自分が今何をしているかを言語レベルで理解する機能も役立ちます。しかし、これらを機械学習で獲得しようとすると大きな壁にぶつかります。ロボットの実機ログから学習しようとすると、そのとき動いているコントローラが実行できる動作範囲にデータセット全体が縛られてしまうのです。これでは「安定して歩くために推定器が欲しいのに、推定器を育てるには安定した歩行ログが要る」という堂々巡りになってしまいます。\n\nここで目を向けたいのが、世の中に豊富にある人間の動作キャプチャデータです。人間データには全身を使ったダイナミックな動きや、自然言語による動作の説明が大量に含まれています。もしこの人間データをロボットに転送できれば、ロボット自身がまだ踊ったり走ったりできなくても、その動きの物理や意味をあらかじめ学んでおくことができます。\n\nしかし、人間とロボットでは骨格の長さも関節構造も違いますし、装着型IMUの取り付け位置や座標軸の定義もバラバラです。さらに実機ロボットでは、人間のソフトな肉体とは異なり、足の着地衝撃や減速機のバックラッシュによる高周波振動がセンサに直接乗ってきます。本論文では、ロボットの運動学（URDF）を利用して人間の解剖学的な12部位に対応する仮想IMU信号を合成し、座標系とサンプリング周波数の違いをモデル側で吸収する仕組みを導入しました。これにより、人間データとロボットのリターゲットデータから学んだ単一モデルが、実機Unitree G1上でそのまま高精度に動くことを目指します。",
+   "figures": []
+  },
+  {
+   "heading": "II RELATED WORK",
+   "heading_ja": "学習型オドメトリ・IMU基礎モデル・Sim2Real転送の交差点",
+   "summary_ja": "先行研究はロボット特化型の学習型オドメトリ、人間向けの自己教師ありIMUモデル、および運動制御のSim2Real転送に分かれていました。本研究はこれらを繋ぎ、制御ポリシーではなく「センシング表現」のレベルで人間の動作知見をヒューマノイドへとゼロショット転送する新しい立ち位置をとっています。",
+   "details_ja": "本研究の関連分野は大きく3つに分かれます。\n\n### II-A 学習型慣性オドメトリ（Learned Inertial Odometry）\nIMU（慣性計測装置）の加速度や角速度を単純に時間積分すると、センサのドリフト（誤差の累積）によって位置推定が急速に破綻します。これを防ぐためにデータから運動の事前分布（歩行速度など）を学ぶのが学習型オドメトリです。IONetやRoNIN、カルマンフィルタと融合したTLIO、ドローン向けのAirIOなど多くの手法がありますが、これらは特定のセンサ配置や特定のプラットフォームで集めたデータに特化して訓練されるのが通例でした。学習データの分布から外れたダイナミックな動作をすると精度が急落するため、いかに多様な運動を学習させるかが課題でした。\n\n### II-B 汎用および言語アライメントされたIMUモデル\n人間のウェアラブルセンサ分野では、LIMU-BERTやPRIMUSのように大量のIMUデータから自己教師あり学習で特徴表現を獲得する試みが進んでいます。さらにIMU2CLIPやImageBindのように、IMU信号を画像や自然言語の埋め込み空間に整列させるモデルも登場しました。しかし、これらは人間の行動認識や検索に焦点が当てられており、ロボットの身体にその表現を適用できるか、あるいは速度推定のような精密な幾何タスクに耐えうるかは未解明でした。\n\n### II-C 人間からヒューマノイドへの動作転送\n近年、人間のMoCapデータをヒューマノイド向けにリターゲットし、強化学習を用いてシミュレーション内で運動制御器（ポリシー）を学習させる研究（H2O、HumanPlusなど）が急速に発展しています。しかし、これらは「ロボットをどう動かすか」というアクチュエーションの転送です。本研究が目指すのは、「ロボットが外界や自身をどう感じるか」というセンシングの転送です。高価な物理シミュレーションを回すことなく、キネマティクス計算と人間のセンサデータだけで実機に通用する表現を学習する点がユニークです。",
+   "figures": []
+  },
+  {
+   "heading": "III METHOD",
+   "heading_ja": "運動学で全身IMUを合成し、連続時間モデルで統合する",
+   "summary_ja": "骨盤IMUと関節エンコーダから順運動学を用いて全身12部位の仮想IMU信号を合成し、人間のセンサ位置と一致させます。さらに連続時間畳み込みでサンプリング周波数の違いを吸収し、速度推定・軌道一貫性・言語整合・ノイズ除去の4つの損失で同時に学習します。",
+   "details_ja": "### III-A 問題設定\n人間とロボットで共通する解剖学的部位の集合を $\\mathcal{S}$ とします。各部位 $i$ から得られる局所座標系の加速度 $\\mathbf{a}_{i,j}$ と角速度 $\\boldsymbol{\\omega}_{i,j}$ の時系列を入力として、モデルは各時刻の並進速度 $\\hat{\\mathbf{v}}_{i,j}$ を推定し、さらに動作ウィンドウ全体を自然言語の埋め込みベクトル $\\mathbf{f}_{\\mathrm{Lang}}$ に射影します。\n\n### III-B 統一マルチIMU表現の構築\n- **ヒューマノイドのIMU合成**: 実機のUnitree G1には全身に12個ものIMUが付いているわけではありません。そこで、骨盤にある1つのベースIMUの計測値（$\\mathbf{a}_b, \\boldsymbol{\\omega}_b$）と各関節エンコーダの角度 $\\mathbf{q}$・角速度から、リジッドボディキネマティクスを使って各リンクの慣性信号を計算します。接線加速度、向心加速度、コリオリ力、相対加速度をすべて考慮した運動学輸送（Kinematic Transport）を行うことで、頭部・両腕・両脚・両足の合計12部位の信号を作り出します。\n- **座標系の統一**: データセットごとにセンサ軸の向きが異なるため、人間の標準的なXsens座標系を基準として、各部位の平均姿勢から回転行列 $\\mathbf{M}_i$ を求めて全データを同一座標系に回転させます。\n- **連続時間エンコーディング**: 人間データ（60Hzや240Hz）とロボット（最大1000Hz）では取得レートがバラバラです。固定周波数へのリサンプリングは補間歪みを生むため、Bスプライン重みを用いた連続時間畳み込み（Continuous Convolution）を採用しました。これにより、任意のタイムスタンプの計測値をそのまま直接固定長のトークン列へと集約できます。\n- **Transformer Trunk**: 各部位ごとの時間変化を捉える「部位内アテンション」と、全身の協調を捉える「全身アテンション」を交互に重ねる階層的な構造を採用しています。\n\n### III-C マルチタスク学習と損失関数\n学習は4つの損失の重み付き和で行われます。1つ目は各時刻の速度誤差 $\\mathcal{L}_{\\mathrm{vel}}$、2つ目は短時間（0.25〜2秒）積分した変位の幾何的一貫性を保つ軌道損失 $\\mathcal{L}_{\\mathrm{traj}}$、3つ目はCLIPのテキスト埋め込み空間とのコサイン距離による言語アライメント損失 $\\mathcal{L}_{\\mathrm{lang}}$、そして4つ目は重力やセンサノイズを除去した真のキネマティクス加速度・角速度を再構成させるデノイジング補助損失 $\\mathcal{L}_{\\mathrm{den}}$ です。勾配の大きさに応じて適応的に損失重みを調整する仕組みも取り入れています。\n\n### III-D センサと運動のランダム化\n実機のハードウェア固有のノイズや振動、足の着地衝撃に耐えられるよう、学習時には重力ベクトルの向き、バイアスドリフト、高周波振動、インパルスノイズを大幅にランダム化して入力に付加しています。これがSim2Realを成功させる隠れた鍵となっています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "提案手法の詳細アーキテクチャです。左端のキネマティクス輸送で全身12部位のIMU信号を合成し、中央の連続畳み込みで時間レートの差異を吸収してトークン化します。Transformer Trunkでは部位内と部位間のアテンションを交互に適用し、速度推定、ノイズ除去、テキスト特徴量への写像を同時にこなします。",
+     "caption": "Fig. 2: Overview of the proposed method. Left: kinematic transport combines pelvis IMU measurements, joint encoders, and link kinematics to synthesize inertial signals at anatomically corresponding sites. Center: continuous convolution converts native-rate IMU streams into fixed-duration tokens. A shared transformer alternates within-site and full attention, with heads predicting body-frame velocity, gravity-free acceleration and clean angular velocity, and a motion embedding aligned with frozen text features. Right: example outputs on a physical G1 illustrate inertial odometry and motion-description retrieval.",
+     "image": "details/2611.10137/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV EXPERIMENTS",
+   "heading_ja": "実機Unitree G1でのゼロショット走行と未知動作の言語理解",
+   "summary_ja": "5つのデータセットで評価を行い、実機G1において絶対速度誤差0.099 m/sという最高精度を達成しました。また、G1の学習時には一度も見せていない複雑な動作カテゴリであっても、人間データの知識を転送することで53.8%のRecall@1でテキスト検索に成功しました。",
+   "details_ja": "### IV-A 実験設定\n人間データセットとしてNymeria、Natural Motion、BONES-Seedを用い、ロボットデータにはBONES-SeedをG1骨格にリターゲットした運動を用いました。評価用の実機Unitree G1の走行ログは学習には一切使わず、完全なゼロショット評価として使用しています。比較対象として、単一IMUを用いる学習型オドメトリ（TLIO、AirIMU、AirIO、TartanIMU）やマルチモーダルモデル（IMU2CLIP、ImageBind）を用意しました。\n\n### IV-B 慣性オドメトリの評価\n絶対速度誤差（AVE）および軌道誤差（ATE）で評価したところ、提案手法は人間・リターゲットG1・実機G1を含む評価した5つのデータセットすべてで最小のAVEを達成しました。実機G1でのAVEは0.099 m/sに達し、先行手法のAirIO（0.126 m/s）などを大きく引き離しています。真の姿勢角を与えた際の累積軌道誤差（$\\mathrm{ATE}_{\\mathrm{GT}}$）も、実機G1で従来の半分以下に抑えられました。\n\n### IV-C IMUと言語の相互検索\n動作ウィンドウからテキスト説明を検索するタスク（R@1）において、G1の学習データには一切含めず人間データにのみ存在していた「ダンス」などの複雑な未知動作カテゴリに対し、提案手法は53.8%のR@1を記録しました。比較対象のIMU2CLIPが17.3%にとどまる中、人間からロボットへ意味表現が極めてスムーズに転送されていることがわかります。\n\n### IV-D 実機デプロイと推論速度\n実機G1が階段を降りて停止する一連の動作において、姿勢推定と同時に「Walking」から「Standing」へとリアルタイムに言語認識が切り替わるデモに成功しました。NVIDIA L40S上でTensorRTを使用すると、4秒分（200Hz、12箇所）の入力データをわずか1.78 msで推論でき、制御ループを邪魔しない高い実時間性が確認されました。\n\n### IV-E アブレーション研究\n- 人間データの有無：G1リターゲットデータ単体で学習したモデルと比較すると、人間データを混ぜて共同学習したモデルは実機G1の軌道誤差を5.901 mから3.153 mへと約47%も削減しました。ロボットのデータだけを学ぶよりも、人間の豊かな動きを学んだ方がロボット自身のオドメトリも正確になるという決定的な証拠です。\n- 表現の比較：全身の合成IMUを使わず「骨盤IMU＋関節角度」をそのままネットワークに入力した構成では、実機での誤差が悪化しました。明示的な物理キネマティクスを通して共通のIMU信号空間に変換することが極めて重要だと分かります。\n\n### IV-F 計算量スケーリング則\nChinchillaスタイルのスケーリング則をフィッティングした結果、パラメータ数 $N$ と学習トークン数 $D$ の最適配分指数はそれぞれ $C^{0.52}$ と $C^{0.48}$ となり、モデル規模とデータ量をほぼ等しい比率で拡大していくのが最適であることが判明しました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "リターゲットされたG1の未知動作シーケンスにおける動作説明文の検索結果です。上がロボットのポーズ推移、下が正解ラベルと各モデルの推定結果です。提案手法（Ours）はジョギング、歩行、立ち止まりの推移を正確に追従できていますが、ImageBindはずっと「standing」と誤判定しています。",
+     "caption": "Fig. 4: Motion-description retrieval on a retargeted G1 sequence. Sampled poses (top) accompany annotated categories and descriptions retrieved by our model and ImageBind (bottom). Our model uses 2s and ImageBind uses 10s windows; hatching marks intervals without a complete input window.",
+     "image": "details/2611.10137/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "左側はNVIDIA L40Sでの推論実行時間の比較で、TensorRTを用いると提案モデル（55.6Mパラメータ、12部位IMU）がわずか1.78 msで動作することを示しています。右側は実機Unitree G1が階段を降りる際の実機デモで、動作に合わせてテキスト認識がリアルタイムに遷移しています。",
+     "caption": "Fig. 5: Inference runtime and deployment on a physical G1. Left: latency on an NVIDIA L40S with 200-Hz inputs; labels show IMU count, window duration, and model size. TRT denotes TensorRT. Right: stair descent shown by robot poses over a 3D point cloud, with retrieved descriptions changing from “Walking” to “Standing” as the robot stops.",
+     "image": "details/2611.10137/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "計算量バジェットとモデル容量・データ露出量のスケーリング関係です。(a)は計算量に対する速度誤差の推移、(b)はパラメータ数 $N$ とトークン数 $D$ の最適バランスを示す損失曲面です。金色の線で示された最適トレンドは、モデルサイズと学習トークンを均等に増やすべきことを示しています。",
+     "caption": "Fig. 7: Model capacity and training exposure under a fixed compute budget. (a) Measured velocity error and fitted compute-optimal trend (dashed). (b) Fitted error surface with observations (blue), constant- $6ND$ contours (gray), and predicted optima (gold). $N$ counts parameters and $D$ counts processed tokens, including repeats; the surface includes extrapolation.",
+     "image": "details/2611.10137/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V CONCLUSIONS",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "人間とロボットの身体差をキネマティクスに基づく共通IMU空間で埋めることで、物理シミュレーションを介さないゼロショットでの状態推定と言語理解を実証しました。今後は他機種への展開やフィルタ統合による閉ループ制御への応用が期待されます。",
+   "details_ja": "本研究では、キネマティクスによるIMU合成と連続時間エンコーディングを組み合わせることで、人間の運動データからヒューマノイドロボットへと身体運動の知覚知識をゼロショット転送できることを示しました。物理シミュレータの構築や実機ロボットでの過酷なデータ収集を行わずとも、人間の膨大なモーションデータがそのままロボットのオドメトリや言語理解の強力な基盤モデルになるというパラダイムを切り拓いた点に大きな意義があります。\n\n現在の制約としては、実機実験がUnitree G1という1つの機種に限られていること、また言語ラベルの語彙が一部合成データに依存していることが挙げられます。さらに、速度推定自体の精度は非常に高いものの、ジャイロ積分のドリフトによって生じる長期的な姿勢角のズレが依然として累積軌道誤差のボトルネックになっています。著者らは今後、様々な骨格を持つ他社製ヒューマノイドへの一般化を検証するとともに、得られた速度推定値をカルマンフィルタ等の状態推定器に組み込んで、閉ループでの実機歩行制御に統合していく予定です。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "ロボット専用データだけで学習するよりも、多様な人間の動作データを混ぜて共同学習した方が、実機ロボット自身のオドメトリ精度（軌道誤差約47%減）が劇的に向上する",
+  "「関節角度をそのままニューラルネットに入れる」のではなく、「運動学で全身の仮想IMU信号を計算して共通空間に揃える」アプローチが、身体差の吸収と転送に極めて有効である",
+  "連続時間畳み込みを用いれば、60Hzから1000Hzまで周波数が異なる多種多様なセンサデータを補間歪みなしで1つのTransformerに統合できる",
+  "物理シミュレーション（Sim2Real）を一切回さなくても、幾何学的なIMU合成とセンサ・ノイズの徹底したランダム化だけで実機ゼロショット転送が成立する"
+ ],
+ "limitations_ja": [
+  "実機検証がUnitree G1の1台のみであり、リンク長や質量分布が大きく異なる大型ヒューマノイド等への汎用性はまだ実証されていない",
+  "速度推定は極めて高精度である一方、姿勢推定は依然としてジャイロの時間積分に依存しているため、長距離走行時のヘディングドリフトが累積軌道誤差の原因として残る",
+  "自然言語アライメントに使用しているテキストデータの一部が合成された短いキャプションであり、長文や複雑な文脈理解への拡張には語彙の限界がある"
+ ],
+ "keywords": [
+  "Humanoid State Estimation",
+  "Inertial Odometry",
+  "Cross-Embodiment Transfer",
+  "Kinematic IMU Synthesis",
+  "Continuous-Time Encoding",
+  "Language-Grounded Motion Understanding"
+ ],
+ "id": "2611.10137",
+ "title": "A Unified Inertial Encoder for Human and Humanoid Motion",
+ "authors": [
+  "Yutian Chen",
+  "Shibo Zhao",
+  "Rocky Duan",
+  "Karen Liu",
+  "Carmelo Sferrazza",
+  "Guanya Shi",
+  "Yuheng Qiu",
+  "Koushil Sreenath"
+ ],
+ "date": "2026-11-10",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "perception",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.10137",
+ "pdf_url": "https://arxiv.org/pdf/2611.10137",
+ "summary_ja": "人間の大規模動作データセットからヒューマノイドへの運動知見転移を目指し、共通の慣性インターフェースを持つ統合慣性エンコーダを提案。運動学的IMU合成により幾何学やセンサの差異を解消し、人手データとリターゲットされたロボットデータ双方で共同訓練を行うことで、ヒューマノイドの速度推定や言語動作整合の精度を向上させた。",
+ "generated": "2026-11-10",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.10137"
+}
