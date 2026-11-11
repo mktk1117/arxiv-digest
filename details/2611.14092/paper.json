@@ -1,0 +1,130 @@
+{
+ "title_ja": "DexSeed: 人間の手と物体の相互作用から多指ハンド操作教示データを生成するフレームワーク",
+ "tldr_ja": "人間の手と物体の接触データを少数の「種」として使い、幾何学的リターゲティングと物理シミュレーション強化学習を通じて、多様で実行可能なロボット実演データへと自動拡張するフレームワーク「DexSeed」を提案しました。生成されたデータだけで微調整したVLAモデルは、実機ロボットの多指ハンドにおいて指示通りの把持姿勢をゼロショットで実行できることを示しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "DexSeedの全体概念です。人間の手と物体の相互作用データを把持モードごとに分類し、シミュレーション上でロボットの多指ハンドとアームの動作データへと自動拡張します。生成データのみで学習したVLAモデルが、実世界の物体に対して言語指示に応じた異なる把持方法（同じリンゴに対する上からの把持と斜め横からの包み込み把持など）を実行できる様子が示されています。",
+  "caption": "Fig. 1: From human data to robot execution. DexSeed organizes human interactions by grasp mode and expands them into simulated robot data. The VLA trained on these data executes language-specified grasps on real objects. The examples show two grasp modes applied to the same apple and the same grasp mode applied to different objects.",
+  "image": "details/2611.14092/F1.jpg"
+ },
+ "overview_ja": "多指ハンド（多自由度のロボット手）による器用な操作は、ロボティクスの長年の夢です。近年、視覚と言語から直接行動を生成するVLA（Vision-Language-Action）モデルが注目されていますが、多指ハンドでVLAを学習するには、腕と多数の指が協調した膨大で多様な実演データが必要になります。しかし、自由度の高いハンドを人間が遠隔操作（テレオペレーション）してデータを集めるのは極めて高コストで、スケールしません。\n\nそこで著者らは、「豊富に存在する人間の手と物体の接触データセットを再利用し、ロボットの実行可能データへ自動拡張できないか？」と考えました。人間の手とロボットの手では形状が異なり、物体の形状や位置が変わると接触関係が崩れてしまうという課題があります。さらに、シミュレーション上で幾何学的に手の形を変換できたとしても、実際にアームを動かした際の手先追従誤差によって物体を落としてしまう問題がありました。\n\nDexSeedでは、まず人間の把持データを類似度に基づいて「把持モード」に分類し、言語指示と紐付けます。次に、手と物体の空間的な近傍関係を保つInteractionMeshを用いてロボットハンドや新しい物体形状へとリターゲティングし、多様なピック＆プレース軌道へ拡張します。そして最大の工夫として、アームの手先追従誤差が存在する物理シミュレーション環境下で、指の微修正を行う強化学習（RL）ポリシーを訓練し、物理的に破綻しない成功軌道だけを実演データとして抽出します。最後にGaussian Splattingによるリアルな画像レンダリングを付与してVLAを学習させます。\n\n実験では、わずか19本の人間の動作シーケンスから2万5270件の成功データを自動生成しました。この生成データのみで微調整されたVLAは、実機での実演データを一切追加することなく、実環境のFrankaアームとWujiハンドにおいて、指定された把持モードによる把持・運搬タスクを高い成功率で達成しました。",
+ "contributions_ja": [
+  "人間の手と物体の相互作用データを把持モードごとに整理し、把持方法を指示する言語説明とともに多様なロボット実演データへと拡張する自動フレームワーク「DexSeed」を構築した点。",
+  "InteractionMeshを用いて手と物体の接触構造を保持したままロボットハンドや未知の物体形状へリターゲティングし、アーム追従誤差を考慮した指先残差強化学習によって物理的に実行可能な動作のみを抽出するデータ生成手法を確立した点。",
+  "19本の人間の相互作用シーケンス（8種類の把持モード）から2万5270件の検証済みデータを生成し、実機の実演収集なしでシミュレーション生成データのみから学習した多指VLAが実機で指示通りの把持を実行できることを実証した点。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "多指ハンド向けデータ収集の壁と、DexSeedの着想",
+   "summary_ja": "多指ハンドによる器用な操作をVLAモデルで学習するには膨大なロボットデータが必要ですが、遠隔操作による収集は極めて困難です。本論文では、既存の人間の手と物体の相互作用データを元にして、多様で物理的に実行可能な実演データを低コストに自動生成する「DexSeed」を提案します。",
+   "details_ja": "器用な多指ハンドを自在に操ることはロボット研究の大きな目標です。視覚・言語・行動を統合するVLAモデルは有望なアプローチですが、アームと指の協調動作、視覚画像、言語指示が揃った大量の学習データが不可欠となります。しかし、20自由度を超えるような多指ハンドをテレオペレーション（遠隔操作）して安定した把持データを集める作業は、操作者に極めて高い負荷を強いるため現実的ではありません。\n\n一方で、人間の手と物体の接触動作を記録した既存のデータセット（GRABなど）は豊富に存在します。これらをロボットに移植できればデータ収集のコストを劇的に下げられますが、単純な形状変換（リターゲティング）だけでは不十分です。なぜなら、物体の形状や配置場所を変えると接触関係が壊れてしまう上、実際のロボットではアームの軌道追従誤差が生じるため、幾何学的に正しいポーズを再生するだけでは物体を取り落としてしまうからです。\n\nDexSeedは、この問題に対して次のアプローチをとります。まず人間の相互作用データを把持の幾何学的特徴に基づいてグループ分けし、GPTで生成した把持の説明文と紐付けます。次に、局所的な幾何関係を保つInteractionMeshを活用してロボットハンドや新しい物体形状へと動作を適応させます。そして、アームの追従遅れや誤差をシミュレータ内で再現した状態で指の残差強化学習を行い、物理的に成立する成功軌道だけをフィルタリングします。さらに3D Gaussian Splattingで実写さながらの画像をレンダリングし、VLA学習用のマルチモーダル実演データセットを自動構築します。わずか19本の人間の種データから2万5270件の実行可能データを生成し、実機でのゼロショット展開に成功しました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "人間の相互作用データを把持モードごとに分類し、シミュレーション内でロボットの動作データへと拡張してVLAを訓練するパイプラインの全体図です。同じリンゴに対して異なる把持スタイル（上から掴む、横から包むなど）を指示し分けられる点が示されています。",
+     "caption": "Fig. 1: From human data to robot execution. DexSeed organizes human interactions by grasp mode and expands them into simulated robot data. The VLA trained on these data executes language-specified grasps on real objects. The examples show two grasp modes applied to the same apple and the same grasp mode applied to different objects.",
+     "image": "details/2611.14092/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "器用な操作データ、人間からの転移、ポリシー学習の系譜",
+   "summary_ja": "多指操作データの収集手法、人間からロボットへの動作転移手法、そしてシミュレーションを活用したポリシー学習用データ拡張という3つの先行研究の流れを整理し、DexSeedがこれらをどう統合・発展させたかを論じています。",
+   "details_ja": "本研究の関連領域は大きく3つに分けられます。\n\n### II-A 多指操作データ（Dexterous Manipulation Data）\n器用な操作を学習するためのデータソースとしては、人間の手と物体の相互作用データセット、直接ロボットを遠隔操作する手法、合成データを生成するシステムなどがあります。人間のデータは多様な振る舞いを含みますがロボットのアクションや視覚情報がなく、ロボットの遠隔操作は直接的なアクションが得られるもののスケールさせるのが極めて困難です。DexSeedは人間のデータをロボット実行可能なデータへと変換することで、このギャップを埋めます。\n\n### II-B 人間からロボットへの転移と物理的実現（Human-to-robot Transfer and Physical Realization）\n人間の手とロボットの手は関節数や骨格の長さが異なります。この形態の違い（クロスエンボディメント）を吸収するため、接触関係を保ちながら関節角を最適化する手法が提案されてきました。特にInteractionMeshのように、手と物体の局所的な空間関係をドロネー四面体分割のメッシュで表現する手法は、接触を保ったポーズ変換に有効です。また、変換された参照軌道をシミュレータ内で物理的に追従させる手法（物理ベース模倣や残差制御）も研究されています。DexSeedはこれらの手法を組み合わせつつ、アームの動特性も考慮した強化学習を取り入れている点が新しいアプローチです。\n\n### II-C ポリシー学習のためのロボットセントリックなデータ生成（Robot-centric Data Generation for Policy Learning）\n近年、シミュレーション環境で物体の配置や軌道を変化させて模倣学習用のデータを大量生成する試み（MimicGenなど）が進んでいます。多指ハンドを対象としたUniDexのような研究もありますが、点群入力に頼っていたり、手作業のリターゲティング介入が必要だったりしました。DexSeedは、人間のシーケンスから完全自動で幾何学的リターゲティング、全腕軌道拡張、物理的実現、RGB画像レンダリング、言語アノテーションまでを一気通貫で行う枠組みを提案しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "DexSeedの仕組み：把持の分類からVLAファインチューニングまで",
+   "summary_ja": "DexSeedは、把持バンクの構築、InteractionMeshによるリターゲティング、アーム軌道の拡張、物理シミュレーションによる実行確認、リアルな画像レンダリング、そしてVLAの微調整という一連のパイプラインで構成されています。",
+   "details_ja": "DexSeedの処理フローは大きく分けて把持バンクの構築、データ生成、VLA学習の3段階からなります。\n\n### III-A 把持バンクの構築（Grasp Bank Construction）\n人間の動作データセット（GRAB）から、物体が動き始めた瞬間を捉えて170次元の特徴記述子を計算します。指の曲がり具合（$\\mathbf{a}\\in\\mathbb{R}^{13}$）、手根部に対する関節位置（$\\mathbf{x}\\in\\mathbb{R}^{63}$）、上方向ベクトル、手の関節から物体表面への最近傍ベクトル（$\\mathbf{s}\\in\\mathbb{R}^{63}$）、指が取っ手を貫通しているかどうかの指標（$\\mathbf{e}\\in\\mathbb{R}^{5}$）などを連結したものです。この距離に基づいてクラスタリングを行い、8つの代表的な「把持モード」を選び出しました。各モードにはGPTを用いて「指をどのように配置して掴むか」という共通のテキスト説明を付与します。\n\n### III-B 多指ロボットデータの生成（Dexterous Robot Data Generation）\n- **InteractionMeshによるリターゲティング**: 人間の手関節と物体表面のアンカー点で3Dドロネー四面体メッシュを作り、ラプラシアン座標 $\\boldsymbol{\\delta}_{t,i} = \\mathbf{v}_{t,i} - \\frac{1}{|\\mathcal{N}(i)|}\\sum_{j\\in\\mathcal{N}(i)}\\mathbf{v}_{t,j}$ を計算します。これにより手と物体の相対的な位置関係を記述し、Wujiハンド（20自由度）や異なる形状の物体（Diff3F特徴量で対応付け）に対して、このラプラシアン座標の差 $\\mathcal{L}_{\\mathrm{InterMesh}}$ を最小化するように最適化します。\n- **アーム全体の軌道拡張**: 生成された把持・持ち上げ動作に対し、卓上のランダムな初期位置・姿勢、目標配置場所をサンプリングしてアプローチ軌道と配置軌道を繋ぎ合わせ、逆運動学（IK）で7自由度アーム（Franka）の関節軌道を計算します。\n- **物理ベースの模倣学習**: 幾何学的に求めた軌道は、そのまま再生しても接触滑りやアームの追従遅れで失敗します。そこでIsaacLabを用い、アームがあらかじめ計算された軌道をPD制御で追従する中、20自由度の指先に対して残差関節指令を出力する強化学習ポリシーを訓練します。接触維持報酬 $R_{\\mathrm{contact}}$ や指先位置報酬 $R_{\\mathrm{tip}}$ に加え、アームの手先追従誤差に応じた許容範囲を持つ物体追従報酬 $R_{\\mathrm{obj}}$ を設計しているのがポイントです。タスクを達成した成功ロールアウトのみをデータとして保存します。\n- **高品質レンダリング**: 実環境の作業台を3D Gaussian Splatting（3DGS）で再構成し、成功軌道をリプレイしながら頭部カメラと手先カメラの画像をレンダリングします。照明、テクスチャ、カメラパラメータにランダムな摂動を加えることで、実機へのドメイン適応性を高めます。\n\n### III-C VLAモデルの学習（Robot-Centric VLA Learning）\n事前学習済みモデルLingbot-VLAをベースに、アーム7自由度＋指20自由度の計27次元のアクションを出力できるようヘッドを改造し、生成されたマルチモーダルデータでファインチューニングします。推論時は頭部・手先画像、プロプリオセプション、把持言語指示を受け取り、腕と指の協調動作を直接予測します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "DexSeedのデータ生成パイプラインの全体像です。(01) 人間のデータから把持モードを選定、(02) InteractionMeshによる手・物体のリターゲティング、(03) ピック＆プレース軌道の拡張、(04) アーム追従誤差を含むシミュレーションでの強化学習と物理的検証、(05) 3D Gaussian Splattingによる視覚レンダリングを経てVLAの訓練データが完成します。",
+     "caption": "Fig. 2: DexSeed Overview . (01) We organize human demonstrations by grasp mode and select interaction seeds. (02) InteractionMesh retargeting adapts these seeds to the robot hand and new object geometries. (03) Trajectory augmentation adds whole-arm motion variations, and (04) physics-based realization produces executable rollouts. (05) Gaussian Splatting rendering provides visual observations, which are paired with robot actions and grasp descriptions for VLA training.",
+     "image": "details/2611.14092/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "実験と検証：リターゲティング精度、物理的実現性、そして実機VLAの成功",
+   "summary_ja": "提案手法のリターゲティング精度、物理シミュレーションでの追従成功率、シミュレーション環境でのVLAピック＆プレース成功率をベースラインと比較評価しました。さらに、シミュレーションデータのみで学習したVLAを実機のFrankaアーム＋Wujiハンドに適用し、指示された把持モードを実行できることを確認しました。",
+   "details_ja": "### IV-A 実験設定\nGRABデータセットから8つの把持モード（G1〜G8）、計19本のシーケンスを選び、2万5270件の成功軌道を生成しました。ロボットはFrankaアーム（7自由度）とWujiハンド（20自由度）です。VLAにはLingBot-VLAを用い、H20 GPU 8枚で5万5000ステップ微調整しました。\n\n### IV-B 相互作用リターゲティングの比較\nDex-Retargeting、SPIDER、Wuji公式リターゲッターと比較しました。指先の接触誤差、接触角度誤差、めり込み深さのすべてにおいて提案手法が最も優れており、バナナやマグカップ、拡大縮小したトーラスなど、物体の幾何形状が変わっても接触関係を破綻させずに適応できることが確認されました。\n\n### IV-C 物理ベース模倣の評価\n先行手法のManipTransやDexploreはハンド単体（フローティングハンド）を前提としています。これらをアーム（FR3）に搭載して評価したところ、アームの手先追従遅れによって物体追従誤差が大幅に悪化し、成功率が低迷しました。一方、アームの動特性を考慮して学習したDexSeedは、手先追従誤差下でも指がリアルタイムに残差修正を行うため、高い接触再現率（Contact Recall）と成功率を記録しました。アームを外して学習したアブレーション（w/o Arm）でも性能低下が見られ、アームをループに入れた強化学習の重要性が証明されました。\n\n### IV-D シミュレーションでのVLA学習評価\nピック＆プレースタスクにおいて、「学習済み環境（Seen）」から「未知の配置（Unseen L）」「未知の形状（Unseen G）」「未知の外見（Unseen A）」へと難易度を段階的に上げた4つの評価設定を用意しました。提案データのVLAはすべての設定で物理的模倣ベースライン（ManipTransやDexplore）および物理検証なしの幾何学的軌道データ（Kinematic）を大きく上回りました。幾何形状の拡張を抜くと未知形状で成功率が落ち、外見拡張を抜くと未知の外見で失敗し、把持モードの説明文を抜くと成功率全体が低下しました。また、同一のリンゴに対して把持指示文を変えることで、意図通りの指関節角度に制御し分けられることも確認されました。\n\n### IV-E 実機での検証と限界\n実環境においてFrankaアームとWujiハンドを使い、8つの把持モードでテストを行いました。実機での実演収集を全く行っていないにもかかわらず、すべてのモードでピック＆プレースに成功しました。マグカップの取っ手に指を通すような高い位置合わせ精度が要求されるタスク（G5: Handle threading）では成功率がやや低下したものの、実用性の高さが示されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "リターゲティング結果の定性比較です。(a) 既存手法では物体と手の間に隙間（Gap）が生じたり深く食い込んだり（Penetration）するのに対し、提案手法は適切な接触を保っています。(b) サイズを変更したトーラスや異なる形状のマグカップに対しても、把持スタイルを維持したまま適応できています。",
+     "caption": "Fig. 3: Qualitative retargeting results. (a) Comparison with baseline retargeting methods. Gap marks a separation between the hand and object surface. (b) Cross-object transfer to torus objects scaled by $0.75\\times$ and $1.5\\times$ , and to mugs with different geometries.",
+     "image": "details/2611.14092/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "実機ロボットへの展開実験です。(a) 実験セットアップ（Frankaアーム、Wujiハンド、頭部カメラ、手先カメラ）。(b) 学習したVLAが8つの異なる把持モードで多様な物体を把持している様子。(c) 初期位置から把持、運搬、配置へと至る一連の自律動作シーケンスです。",
+     "caption": "Fig. 4: Real-world VLA deployment. (a) Robot setup and test objects. (b) Grasping various objects using eight grasp modes. (c) A representative manipulation sequence executed by the learned VLA.",
+     "image": "details/2611.14092/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "DexSeedは、人間の手と物体の相互作用データを少数の種として、多様で物理的に実行可能な多指ロボット実演データへと拡張する強力なフレームワークです。シミュレーション生成データのみから学習したVLAによる実機展開に成功し、今後は手作業内での物体操作や双腕協調への拡張が期待されます。",
+   "details_ja": "本論文では、人間の手と物体の接触シーケンスから、言語指示に従う器用な多指操作用データを生成するフレームワーク「DexSeed」を提案しました。把持モードによるデータの構造化、InteractionMeshによる幾何学的リターゲティング、アームダイナミクスを考慮した強化学習による物理的実現、そして3D Gaussian Splattingを用いた写実的レンダリングを組み合わせることで、高品質なロボットデータをスケールさせることができます。\n\n実験では、生成データのみで微調整されたVLAが、追加の実機実演なしに実世界で指示通りの多指把持・配置を実行できることを実証しました。\n\n今後の課題としては、把持した後に手の中で物体を持ち替えるようなインハンド・マニピュレーション（In-hand manipulation）への対応や、片手で押さえながらもう一方の手で作業するような双腕協調タスクへの拡張が挙げられます。また、接触すべりを検知して動的に指先の力を調整するために、触覚センサーの情報をデータ生成およびVLAモデルの入力に統合していくことが期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "多指ハンドの遠隔操作は極めて困難だが、既存の人間の手・物体データセット（GRAB等）を「種」にすることで、高品質なロボット実演を安価に大量生成できる。",
+  "幾何学的に正しいポーズをリターゲティングするだけでは不十分であり、アームの手先追従遅れをシミュレータ内で模擬した指先残差強化学習を行うことが、物理的に実行可能なデータ抽出の鍵となる。",
+  "3D Gaussian Splattingによる実環境の高品質レンダリングと外見ドメインランダム化を組み合わせることで、シミュレーションデータだけで学習した多指VLAを実機へゼロショット展開できる。"
+ ],
+ "limitations_ja": [
+  "対象タスクが主にピック＆プレース（把持と配置）に限定されており、手の中で物体を転がしたり握り直したりするインハンド操作には未対応である点。",
+  "マグカップの取っ手に指を通すような、ミリ単位の精密な指先アライメントが要求される把持モードでは実機成功率が低下する点。",
+  "視覚とプロプリオセプションのみに依存しており、実際の把持ですべりを検知して締め直すような触覚フィードバックが統合されていない点。"
+ ],
+ "keywords": [
+  "Dexterous Manipulation",
+  "Vision-Language-Action (VLA)",
+  "InteractionMesh",
+  "Data Generation",
+  "Cross-Embodiment Retargeting",
+  "Sim-to-Real Transfer"
+ ],
+ "id": "2611.14092",
+ "title": "DexSeed: Expanding Human Hand-Object Interactions into Robot Demonstrations for Dexterous Policy Learning",
+ "authors": [
+  "Huaijin Pi",
+  "Zehong Shen",
+  "Yong Wang",
+  "Kechun Xu",
+  "Changpeng Wang",
+  "Dingkun Wei",
+  "Xueyang Wang",
+  "Wenjia Wang",
+  "Xing Zhu",
+  "Yujun Shen",
+  "Taku Komura"
+ ],
+ "date": "2026-11-11",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "grasping",
+  "dataset"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.14092",
+ "pdf_url": "https://arxiv.org/pdf/2611.14092",
+ "summary_ja": "多指ハンド向けの視覚・言語・行動（VLA）学習に必要な高品質データを低コストで生成する手法を提案。既存の人間の手と物体のインタラクション動画から、多様な物体や配置に対応する物理的に実行可能なアームおよび多指ハンドの関節動作と観測画像を合成・拡張する仕組みを構築した。",
+ "generated": "2026-11-11",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.14092"
+}
