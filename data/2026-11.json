@@ -1,6 +1,285 @@
 {
  "entries": [
   {
+   "date": "2026-11-11",
+   "rank": 0,
+   "id": "2611.13929",
+   "group": "focus",
+   "title": "ReACT: Reflection-Consistent Modulation and Cross-Load Consistency for Humanoid Velocity Tracking Under Asymmetric Loads",
+   "title_ja": "ReACT: ヒューマノイドの非対称荷重下における反射対称変調と荷重間整合性による速度追従制御",
+   "summary_ja": "ヒューマノイドが片手で物体を持ち運ぶ際に生じる非対称な上体荷重により、歩行の速度追従バイアスが累積しナビゲーション破綻を招く課題に対処した研究。反射対称変調と荷重間整合性損失を取り入れたフレームワークReACTを提案し、不均等な荷重下でも正確な速度追従と安定した全身運搬を実現した。",
+   "summary_en": "Carrying objects with one hand induces asymmetric upper-body loads that degrade humanoid velocity tracking and lead to navigation failure. This paper proposes ReACT, a framework that incorporates reflection-consistent modulation and cross-load consistency to ensure accurate velocity tracking under asymmetric loads, achieving robust locomotion and whole-body transport.",
+   "authors": [
+    "Xianghui Wang",
+    "Aoran Fu",
+    "Liyou Luo",
+    "Shanze Wang",
+    "Xiaoyu Shen",
+    "Dan Zhang",
+    "Wei Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.13929",
+   "image": null
+  },
+  {
+   "date": "2026-11-11",
+   "rank": 1,
+   "id": "2611.14049",
+   "group": "focus",
+   "title": "RedirectMimic: Local Motion Content Redaction for Humanoid Whole-Body Control",
+   "title_ja": "RedirectMimic: ヒューマノイド全身制御のための局所的動作編集手法",
+   "summary_ja": "ヒューマノイドの動作追従において、元の参照動作入力を受け取りつつ特定部位の動作制約を満たすよう差し替えるRedirectMimicを提案。方策が観測する参照と強化学習（PPO）の報酬計算に用いる目標動作を分離することで、デプロイ時のインターフェースを変えずに腕などの局所的な動作編集を可能にした。",
+   "summary_en": "This paper presents RedirectMimic, a whole-body control framework that replaces specific reference movements to satisfy application constraints without altering the deployed interface. By decoupling the reference observed by the actor from the target used for PPO tracking rewards, it enables flexible local motion editing while preserving intact full-body reference tracking.",
+   "authors": [
+    "Zepeng Wang",
+    "Xiaochuan Shi"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.14049",
+   "image": null
+  },
+  {
+   "date": "2026-11-11",
+   "rank": 2,
+   "id": "2611.13370",
+   "group": "focus",
+   "title": "AHEADance: Anticipatory Humanoid Dance from Streaming Audio",
+   "title_ja": "AHEADance: ストリーミング音声からの先読み型ヒューマノイドダンス生成",
+   "summary_ja": "音楽ストリーミングに合わせてヒューマノイドを即時かつ滑らかに踊らせるフレームワークを提案。先行する音楽予測モデルを用いて直後のビートタイミングを先読みするListenAhead機構と、全身トラッカーへのコミット済み動作との整合性を保つ学習法により、実機ヒューマノイドで音楽同期性の高いダンス動作を実現した。",
+   "summary_en": "The paper introduces AHEADance, a streaming dance generator executed on a humanoid robot via a whole-body tracker. By using ListenAhead to condition motions on both heard music and short-term future forecasts, alongside commit forcing, the system achieves tightly beat-synchronized dancing in real time on physical hardware.",
+   "authors": [
+    "Tianhu Peng",
+    "Yukun Wang",
+    "Lingfan Bao",
+    "Yiyang Jia",
+    "Chengxu Zhou"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "humanoid",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.13370",
+   "image": "figures/2026-11-11/2611.13370.jpg"
+  },
+  {
+   "date": "2026-11-11",
+   "rank": 3,
+   "id": "2611.13766",
+   "group": "focus",
+   "title": "FAME-QP: A GPU-Accelerated Quadratic-Programming Solver for Real-Time Model Predictive Control",
+   "title_ja": "FAME-QP: 実時間モデル予測制御のためのGPU高速化二次計画法ソルバー",
+   "summary_ja": "線形モデル予測制御（MPC）で生じる密な二次計画問題を実時間で解くGPUアクセラレーションソルバーFAME-QPを提案。制約依存の演算子表現とCUDAグラフによるカーネル融合を組み合わせ、ヒューマノイドやクアッドローターの制御シミュレーションにおいて既存のGPUソルバーを上回る低遅延と高い解精度を実証した。",
+   "summary_en": "This paper presents FAME-QP, a GPU-accelerated dense quadratic programming solver tailored for real-time model predictive control. By combining constraint-dependent operator representations and fused kernels via CUDA graphs, it substantially reduces solver latency while maintaining accuracy in simulated humanoid and quadrotor control tasks.",
+   "authors": [
+    "Santosh Mohan Rajkumar",
+    "Debdipta Goswami",
+    "Stephanie Stockar"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.GR",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "control",
+    "simulation",
+    "humanoid"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.13766",
+   "image": "figures/2026-11-11/2611.13766.jpg"
+  },
+  {
+   "date": "2026-11-11",
+   "rank": 4,
+   "id": "2611.13482",
+   "group": "focus",
+   "title": "ExRL: Sample-Efficient Online Adaptation of Long-Chunk Policies via Execution Length Control",
+   "title_ja": "ExRL: 実行長制御による長チャンク方策の高サンプル効率なオンライン適応",
+   "summary_ja": "近年の高自由度な長アクションチャンク方策をオンライン強化学習で適応させる際、アクション自体ではなく「チャンクを何ステップ実行するか」を最適化するExRLを提案。探索空間を低次元に保ちつつ高い表現力を維持することで、実世界での高コストな試行回数を大幅に削減し、効率的な適応を可能にした。",
+   "summary_en": "Adapting long-chunk robot policies with online RL is typically sample-inefficient due to the high-dimensional action space. ExRL addresses this by optimizing execution length per chunk rather than raw actions, keeping the adaptation space low-dimensional while preserving expressivity and enabling sample-efficient online adaptation.",
+   "authors": [
+    "Xu Luo",
+    "Jiaying Yang",
+    "Hao Wu",
+    "Junlin Xie",
+    "Zijin Hong",
+    "Ji Zhang",
+    "Lianli Gao",
+    "Jingkuan Song"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.13482",
+   "image": "figures/2026-11-11/2611.13482.jpg"
+  },
+  {
+   "date": "2026-11-11",
+   "rank": 5,
+   "id": "2611.13160",
+   "group": "general",
+   "title": "How Much of Your VLA Is kNN",
+   "title_ja": "VLAの実態はどれだけkNNに近いのか？",
+   "summary_ja": "LIBEROベンチマークで高い成功率を誇るVision-Language-Action（VLA）モデルが、訓練データの外にどこまで汎化しているかを検証。方策を一切学習せず、近傍の教示データをkNN検索してアクションチャンクを再利用するだけで91.7%の成功率を達成することを示し、現行VLAが主に検索キーとして機能している実態を明らかにした。",
+   "summary_en": "This work reveals that a non-parametric baseline simply retrieving nearby demonstrations and reusing action chunks achieves a 91.7% success rate on the LIBERO benchmark without training a policy. The findings show that fine-tuning VLAs largely turns the vision-language backbone into an effective retrieval key, remaining very close to training demonstrations.",
+   "authors": [
+    "Denis Grachev",
+    "Damien LaRocque",
+    "Omar Moured"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "vision-language-action",
+    "benchmark",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.13160",
+   "image": "figures/2026-11-11/2611.13160.jpg"
+  },
+  {
+   "date": "2026-11-11",
+   "rank": 6,
+   "id": "2611.14488",
+   "group": "general",
+   "title": "Is Your Robot's Memory Just a Clock? Temporal Shortcuts in Memory-Augmented VLA Policies",
+   "title_ja": "ロボットのメモリは単なる時計か？メモリ拡張型VLAにおける時間的ショートカットの検証",
+   "summary_ja": "メモリ拡張型VLA方策が履歴を記憶する際、時間ステップをショートカットとして利用し、停止や手首の微振動といった無意味な時間経過でも作業が進んだと誤認して早期終了する「phantom progress」現象を発見。一様サンプリングと時間スタンプに依存した既存のメモリ設計の脆弱性を実証した。",
+   "summary_en": "This paper reveals a critical failure mode called 'phantom progress' in memory-augmented VLA policies, where uniformly sampling and time-stamping frames causes models to rely on time as a shortcut. When a robot simply pauses, the policy misinterprets the elapsed time as task progress and halts prematurely, dropping success rates severely.",
+   "authors": [
+    "Chubin Zhang",
+    "Bo An"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.14488",
+   "image": "figures/2026-11-11/2611.14488.jpg"
+  },
+  {
+   "date": "2026-11-11",
+   "rank": 7,
+   "id": "2611.14092",
+   "group": "general",
+   "title": "DexSeed: Expanding Human Hand-Object Interactions into Robot Demonstrations for Dexterous Policy Learning",
+   "title_ja": "DexSeed: 人間の手と物体の相互作用から多指ハンド操作教示データを生成するフレームワーク",
+   "summary_ja": "多指ハンド向けの視覚・言語・行動（VLA）学習に必要な高品質データを低コストで生成する手法を提案。既存の人間の手と物体のインタラクション動画から、多様な物体や配置に対応する物理的に実行可能なアームおよび多指ハンドの関節動作と観測画像を合成・拡張する仕組みを構築した。",
+   "summary_en": "DexSeed introduces a low-cost framework to expand human hand-object interaction datasets into diverse, physically executable robot demonstrations for dexterous manipulation. It generates feasible arm-finger motions and visual observations across various objects, providing scalable supervision for dexterous VLA policy learning.",
+   "authors": [
+    "Huaijin Pi",
+    "Zehong Shen",
+    "Yong Wang",
+    "Kechun Xu",
+    "Changpeng Wang",
+    "Dingkun Wei",
+    "Xueyang Wang",
+    "Wenjia Wang",
+    "Xing Zhu",
+    "Yujun Shen",
+    "Taku Komura"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "grasping",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.14092",
+   "image": "figures/2026-11-11/2611.14092.jpg"
+  },
+  {
+   "date": "2026-11-11",
+   "rank": 8,
+   "id": "2611.14115",
+   "group": "general",
+   "title": "LEASH: Stay Safe in Agentic Robotics",
+   "title_ja": "LEASH: エージェンティック・ロボティクスにおける安全性の確保と評価ベンチマーク",
+   "summary_ja": "基底モデルを組み込んだ自律型ロボットエージェントの安全性リスクを評価するため、シミュレーション92タスクおよび実機13タスクからなるベンチマーク「RoboRisk」を提案。指示拒絶や計画修復、実行時危険、プロンプト注入などの包括的カテゴリでエージェントの安全性を検証・評価可能にした。",
+   "summary_en": "To address safety risks in agentic robotics powered by foundation models, this paper introduces RoboRisk, a comprehensive benchmark comprising 92 simulated and 13 real-world tasks across five safety categories, providing rigorous evaluation for task-level refusal, plan repair, execution hazards, and injection attacks.",
+   "authors": [
+    "Qinfeng Zhu",
+    "Weiguang Zhao",
+    "Ke Sun",
+    "Xihao Guo",
+    "Yunxi Jiang",
+    "Rui Zhang",
+    "Lei Fan",
+    "Kaizhu Huang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "safety",
+    "benchmark",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.14115",
+   "image": "figures/2026-11-11/2611.14115.jpg"
+  },
+  {
+   "date": "2026-11-11",
+   "rank": 9,
+   "id": "2611.13251",
+   "group": "general",
+   "title": "Curie's Jarvis: Autonomous Robotic Chemistry Experiments from Printed Protocols",
+   "title_ja": "Curie's Jarvis: 印刷されたプロトコルから自律的に化学実験を実行するロボットシステム",
+   "summary_ja": "人間用に紙に印刷された手順書を撮影した画像から直接手順を理解し、マーカーや固定治具のない通常の実験台で化学実験を行うロボットアームシステムを開発。複数視点のカメラからラベルを読み取って同形状の容器を識別し、柔軟かつ自律的な実験操作を実現した。",
+   "summary_en": "Curie's Jarvis enables a robotic arm to execute chemistry experiments in an unstructured environment directly from a photo of a printed human protocol. Without requiring fixed positions or fiducial markers, the system identifies identical-looking containers via multi-view label reading and executes manipulation autonomously.",
+   "authors": [
+    "Rumi Loghmani",
+    "Bozhang Song",
+    "Victor Alvarado",
+    "Aliyah Redding",
+    "Amir Barati Farimani"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "manipulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.13251",
+   "image": "figures/2026-11-11/2611.13251.jpg"
+  },
+  {
    "date": "2026-11-10",
    "rank": 0,
    "id": "2611.11127",
