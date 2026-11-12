@@ -1,0 +1,138 @@
+{
+ "title_ja": "予測から行動へ：変形線状物体マニピュレーションにおける物理文脈の学習",
+ "tldr_ja": "変形予測に役立つ物理パラメータが行動決定にも役立つとは限らないという「予測と意思決定の乖離」を解明し、過去の相互作用履歴を潜在表現として直接活かす新手法が実機ゼロショット制御で最高性能を達成することを示した論文です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "本研究の全体フレームワークです。(a) 剛性と摩擦を振った物理シミュレーションから、(b) 真値パラメータ・推定パラメータ・相互作用履歴という3種類の物理コンテキストを生成。(c) それらを順予測モデルとGPF方策に与え、(d) 予測性能と行動決定性能の違いを比較した上で、(e) 実機UR5へ追加学習なしでゼロショット転移させています。",
+  "caption": "Fig. 1: Overview of the predictive and decision utility of physical context . (a) Controlled simulation generates matched state–action pairs while varying stiffness $E$ and friction $\\mu$ . (b) Three alternative physical contexts $c_{t}$ , one of which conditions the models in (c): Oracle uses the simulator’s ground-truth parameters $(E,\\mu)$ ; Estimated infers $(\\hat{E},\\hat{\\mu})$ from the interaction history with a pretrained, frozen parameter estimator; Hist encodes the same history into a latent $z_{t}$ with an encoder trained jointly with the downstream model. None denotes the geometry-only baseline. …",
+  "image": "details/2611.14274/F1.jpg"
+ },
+ "overview_ja": "ケーブルやワイヤーのような線状柔軟物（DLO: Deformable Linear Objects）のロボット操作では、同じように引っ張っても硬さや床との摩擦によって変形結果が大きく変わります。そのため従来は、ヤング率や摩擦係数などの物理パラメータを同定して方策に入力するか、変形を正確に予測するダイナミクスモデルを作ることが王道アプローチだと考えられてきました。\n\nしかし、ここで著者は根本的な疑問を投げかけます。「対象の変形を最もよく予測できる情報が、ロボットがどう動くべきかを決める上で最も役に立つ情報なのだろうか？」ということです。予測モデルにとって都合の良い表現が、制御方策にとっても最良とは限らないという制御指向システム同定の古典的な問題意識を、深層学習ベースの柔軟物操作に持ち込みました。\n\nこの疑問を検証するため、著者らは把持位置の選択と動作生成を分離した高効率な方策基盤「Geometry–Pointer–Flow (GPF)」を開発しました。その上で、物理コンテキストとして「シミュレータの真値パラメータ」「履歴から同定した推定パラメータ」「履歴から直接学習した潜在表現」の3つを用意し、順方向予測の精度（Predictive Utility）と方策の制御性能（Decision Utility）をシミュレーションおよび実機で徹底比較しました。\n\nその結果、驚くべきことに、変形予測で高い精度を出した推定物理パラメータは、方策の制御精度向上には全く検出可能な寄与をしませんでした。一方で、特定の物理量を明示的に復元せず履歴から直接潜在表現を学習させたモデルは、方策の誤差を約10%削減し、実ロボットへの追加学習なしのゼロショット転移でも最も高い成功率を記録しました。「物理パラメータをきれいに同定すること」よりも「決定に直結する履歴情報をどう表現するか」が重要であることを浮き彫りにした研究です。",
+ "contributions_ja": [
+  "物理コンテキストにおいて「変形を予測する有用性（Predictive Utility）」と「行動を決定する有用性（Decision Utility）」が必ずしも一致しないことをDLO操作タスクで体系的に実証した点",
+  "把持候補の選択（Pointer）と選ばれた把持点からの平面動作生成（Flow Matching）を幾何特徴に基づいて分離し、既存の拡散モデルと比べて大幅な軽量化・高速化・高精度化を達成したGPF方策を提案した点",
+  "明示的な物理パラメータのボトルネックを排し、過去の変形履歴から潜在表現を学習して注入する仕組みが、シミュレーションの高精度タスクおよび実機ゼロショット閉ループ制御で最も優れていることを示した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "予測に効く情報と、行動に効く情報は同じなのか？",
+   "summary_ja": "線状柔軟物の操作では、外見が同じでも剛性や摩擦などの物理特性によって挙動が異なります。本章では、物理特性を捉える「物理コンテキスト」が変形予測に役立つ度合いと、行動選択に役立つ度合いは必ずしも一致しないという問題提起を行い、研究の全体像を示しています。",
+   "details_ja": "ワイヤーやケーブル、ホースなどの線状柔軟物（DLO）は、産業現場の配線作業や家庭内ロボットで頻繁に扱われますが、ロボット操作の難関の一つです。なぜなら、見た目の形状が全く同じであっても、素材の硬さ（ヤング率）や床との摩擦係数が違えば、同じ力で引っ張っても全く異なる形に変形してしまうからです。\n\nこれに対処するため、従来の研究は主に2つの方向に進んできました。1つは変形ダイナミクスを正確に予測するモデルを作ること、もう1つは物理パラメータをオンライン同定して方策に与えることです。どちらも「物理コンテキスト（物理的な応答の性質を表す情報）」を利用していますが、ここで著者らは「変形を最もよく予測できる情報が、ロボットの行動決定にとっても最良の情報なのだろうか？」という本質的な問いを投げかけます。\n\n制御理論における「制御指向システム同定（Control-oriented System Identification）」でも知られるように、予測誤差を小さくすることがそのまま制御性能の向上につながるわけではありません。そこで本研究では、物理コンテキストが持つ役割を「予測の有用性（Predictive Utility）」と「意思決定の有用性（Decision Utility）」の2つに明確に区別し、平面単一把握のDLO形状制御タスクを舞台に徹底的な比較を行っています。\n\n比較対象として、幾何形状のみを使うベースラインに加え、(1) シミュレータの真値パラメータ（Oracle）、(2) 過去の操作履歴から同定した推定パラメータ（Estimated）、(3) 物理量を明示的に挟まず過去の操作履歴から直接タスク向けに学習した潜在表現（Hist）の3種類を設定しました。これらを独自の高効率な方策基盤「Geometry–Pointer–Flow (GPF)」と順予測モデルに組み込み、シミュレーションと実機ゼロショット環境の両方で検証しています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "研究全体の概念図です。シミュレータで生成した同一のデータから真値、推定値、学習された潜在履歴という3つの物理コンテキストを作成し、順予測モデルと制御方策の双方でその効果を独立に比較しています。",
+     "caption": "Fig. 1: Overview of the predictive and decision utility of physical context . (a) Controlled simulation generates matched state–action pairs while varying stiffness $E$ and friction $\\mu$ . (b) Three alternative physical contexts $c_{t}$ , one of which conditions the models in (c): Oracle uses the simulator’s ground-truth parameters $(E,\\mu)$ ; Estimated infers $(\\hat{E},\\hat{\\mu})$ from the interaction history with a pretrained, frozen parameter estimator; Hist encodes the same history into a latent $z_{t}$ with an encoder trained jointly with the downstream model. None denotes the geometry-only baseline. …",
+     "image": "details/2611.14274/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "柔軟物操作・構造化方策・適応手法の潮流",
+   "summary_ja": "本章では、DLOのダイナミクス学習や直接方策学習の先行研究を整理し、本研究が提案する把持・動作分離型アーキテクチャや適応機構がどのような位置づけにあるのかを述べています。",
+   "details_ja": "関連研究は大きく3つのグループに分類されます。\n\n### II-A DLO Manipulation and Dynamics Learning\n柔軟線状物の操作では、局所線形モデルやグラフニューラルネットワーク、微分可能状態空間モデルなどを用いて、変形ダイナミクスを直接学習するモデルベース制御が多く研究されてきました。これらは物理的な応答を予測する力を持っていますが、「学習された予測モデルがそのまま制御方策の意思決定に最適なのか」という問いには答えていませんでした。\n\n### II-B Structured and Generative Manipulation Policies\nロボット操作では、接触位置の離散的な選択と連続的な動作生成を組み合わせる構造化方策（HACManなど）や、Diffusion Policyなどの生成モデルを活用する手法が急速に発展しています。DLO向けにも拡散モデルを用いた手法が提案されていますが、計算コストが重く推論時間が長いという課題がありました。本研究のGPFは、接触点選択とRectified Flowによる動作生成を組み合わせることで、高精度かつ圧倒的に高速な生成方策を実現しています。\n\n### II-C Physical Context for Adaptation\n環境の変化に適応するため、オンラインで物理パラメータを推定して方策に入力する手法（システム同定アプローチ）や、過去の相互作用履歴から潜在変数を推定する手法（RMA: Rapid Motor Adaptationなど）が四足歩行や把持で成果を上げています。柔軟物操作でも柔軟性を推定して挿入に活かす研究などがありますが、本研究のように「明示的な物理パラメータの同定」と「潜在履歴表現」を、予測と制御の両面から同一条件で切り分けて比較した研究はこれまでありませんでした。",
+   "figures": []
+  },
+  {
+   "heading": "III Methodology",
+   "heading_ja": "物理コンテキストの表現とGPF方策の設計",
+   "summary_ja": "本章では、DLO形状制御の定式化、3種類の物理コンテキストの抽出・学習方法、そして把持位置選択と流路生成を分離したGPF方策および順変形予測モデルの構造を詳しく説明しています。",
+   "details_ja": "### III-A Problem Formulation\n机上のDLOを1本のグリッパーで1回つかんで動かし、目標形状へと変形させる平面マニピュレーションを扱います。現在の中心線は2次元平面上の $n=51$ 点のノード座標 $s_t$ で表され、目標形状 $g$ も同様に表現されます。ロボットのアクション $a_t$ は、中心線上に均等に配置された $m=24$ 個の把持候補セグメントから1つを選ぶ離散インデックス $\\alpha_t$ と、把持後の平面移動・回転を表す連続量 $(\\Delta x_t, \\Delta y_t, \\Delta \\theta_t)$ のハイブリッド表現です。\n\n### III-B Physical-Context Representations\n物理コンテキスト $c_t$ として以下の3つを比較します。\n- **Oracle**: シミュレータから直接得られる真のヤング率 $E$ と摩擦係数 $\\mu$。\n- **Estimated**: 直近最大5ステップの相互作用履歴（変形前の中心線、選んだ把持位置、実行した動作、変形後の中心線）から、事前学習して重みを固定したTransformerを用いて $(\\hat{E}_t, \\hat{\\mu}_t)$ を同定。\n- **Hist**: まったく同じ直近5ステップの履歴を入力としつつ、明示的な物理パラメータのボトルネックを排して、1D-CNNと時間方向のアテンションにより32次元のタスク指向な潜在ベクトル $z_t$ を学習。学習時のみ正則化として $E, \\mu$ を予測する補助損失 $\\mathcal{L}_{\\mathrm{aux}}$ を付加しますが、下流のモデル（予測器または方策）とエンドツーエンドで共同学習します。\n\n### III-C Geometry–Pointer–Flow Manipulation Policy (GPF)\nGPFは「どこをつかむか（Where）」と「選んだ場所をどう動かすか（How）」を分離した方策です。\n1. **幾何エンコーダ**: 現在形状と目標形状のノード特徴をTransformerで共通エンコードし、把持候補点の特徴と大域特徴を抽出します。\n2. **把持選択（Pointer）**: 大域特徴をクエリ、各把持セグメントの特徴をキーとする内積アテンションにより、把持スコアを算出して最適な把持点 $\\alpha_t$ を分類予測します。\n3. **動作生成（Rectified Flow）**: 選択された把持点の局所特徴と大域特徴を条件ベクトルとして結合し、条件付きRectified Flow（流路モデル）によって連続動作ベクトル $u_t$ をノイズから10ステップのオイラー積分で生成します。\n4. **コンテキストの注入**: 物理コンテキスト $c_t$ は、把持選択クエリや動作生成条件に直接結合（concat）するか、FiLM（特徴量線形変調）によって幾何特徴をスケール・シフトさせる方式（Hist-FiLM）で注入されます。\n\n### III-D Forward-Response Prediction\n予測有用性を評価するための順予測モデルです。目標形状 $g$ は受け取らず、現在の形状 $s_t$ と実行されたアクション $a_t$、そして物理コンテキスト $c_t$ を受け取り、実行後の各ノードの変位量 $\\Delta p_{t+1}$ を予測します。方策とは完全に独立に学習されます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "平面単一把握DLO操作の状態とアクションの表現です。点列で表された中心線上の候補セグメントから1箇所を把持点として選択し、そこからの並進移動 $(\\Delta x_t, \\Delta y_t)$ と回転 $\\Delta \\theta_t$ を同時に決定して目標形状（破線）へと近づけます。",
+     "caption": "Fig. 2: State and hybrid-action representation for planar single-grasp DLO manipulation. The current shape $s_{t}$ and goal $g$ are represented by $n$ two-dimensional centerline nodes. The action selects one of $m$ candidate grasp segments and specifies its planar translation and rotation.",
+     "image": "details/2611.14274/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experimental Setup",
+   "heading_ja": "物理シミュレータ環境と実機ゼロショット実験系",
+   "summary_ja": "物理シミュレータAGX Dynamicsを用いた大規模データ生成・評価プロトコルと、実機UR5ロボットを用いた追加学習なしのゼロショット転移実験のセットアップを解説しています。",
+   "details_ja": "### IV-A Dataset and Simulation\n高精度な物理シミュレータ「AGX Dynamics」を使用しています。長さ0.5 mのケーブルを24個の拘束セグメントでモデル化し、51ノードの中心線として再サンプリングします。ヤング率 $E \\in [20, 200]\\,\\mathrm{kPa}$（対数一様分布）と床面摩擦係数 $\\mu \\in [0.15, 0.60]$（一様分布）をランダムに変化させ、合計90,106エピソード（約90万遷移）のデータセットを構築しました。エピソードごとに物理条件は固定され、ランダムな初期配置から整定させた後、実行可能なアクションを実行して物理的に到達可能な形状を生成しています。\n\n### IV-B Manipulation Policy Baselines\nGPFの優位性を検証するため、以下のベースラインと比較しています。\n- **MLP-BC / Transformer-BC**: 幾何情報から直接アクションを回帰する行動クローニング。\n- **Global-Flow**: 把持点への局所条件付けを行わず、大域特徴だけでFlow Matchingを行う手法。\n- **GPF-Geom**: 物理コンテキストを使わない、幾何情報のみの提案ベースライン。\n- **DLO-DP**: 先行研究に基づくDLO特化型Diffusion Policy。100ステップのDDPMを用いてアクション軌道を生成します。\n\n### IV-C Evaluation Protocol\n制御性能は、実行後の中心線ノードと目標ノード間の平均距離（平均ノード形状誤差、mm単位）で評価します。推論遅延はRTX 2080 Ti上のバッチサイズ1で計測。有意差の検定には5,000回のブートストラップ法による95%信頼区間を用いています。\n\n### IV-D Real-Robot Evaluation\n実機評価には、UR5ロボット、Robotiq Hand-Eグリッパー、手首カメラ（OAK）を使用しました。シミュレーション内ではFranka Emika Pandaを使用していますが、アクションがDLO基準の相対座標で定義されているため、ロボットアームやグリッパーの違いによる方策の変更は一切不要です。\n実機では3種類の柔軟性（Soft, Medium, Stiff）のケーブルと、2種類の作業面（コルクボードのRough面、布を敷いたSmooth面）を組み合わせた6つの条件を用意しました。実機データでの学習やファインチューニングは一切行わず、シミュレーションで学習したモデルをそのまま適用する「完全ゼロショット転移」で評価を行っています。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "実機ゼロショット実験の環境です。(a) 手首カメラとRobotiqグリッパーを備えたUR5ロボット。(b) 評価に用いた3種類の硬さのケーブル（Soft, Medium, Stiff）と2種類の接触面（Rough, Smooth）です。",
+     "caption": "Fig. 4: Zero-shot real-robot evaluation. (a) UR5 platform with a Robotiq Hand-E gripper and wrist-mounted camera. (b) Three DLO compliance levels and the two test surfaces.",
+     "image": "details/2611.14274/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Results",
+   "heading_ja": "予測精度と制御性能のねじれ、そして実機での実力",
+   "summary_ja": "GPFが既存の拡散モデルに対して圧倒的な高速・高精度を達成したこと、シミュレーションにおいて予測精度と制御性能の順位が逆転したこと、実機閉ループ制御で相互作用履歴モデルが最高性能を示したことを報告します。",
+   "details_ja": "### V-A GPF Architecture Evaluation\nまず幾何情報のみの方策を比較したところ、提案手法のGPF-Geomは既存のDLO-DP（拡散モデル）に対して、1ステップ実行後の形状誤差を32.8%削減しました。しかも、パラメータ数は18.7倍少なく、推論速度は約193倍高速（GPFは2.52 ms、DLO-DPは486 ms）という圧倒的な計算効率を叩き出しました。「どこをつかむか」と「どう動かすか」を明示的に分離したアーキテクチャが極めて有効に機能していることが分かります。\n\n### V-B Predictive Utility of Physical Context\n順変形予測のシミュレーション評価では、真値パラメータ（Oracle）が幾何のみ（None）より誤差を2.391 mm削減し最も高精度でした。次いで同定パラメータ（Estimated）が、学習潜在表現（Hist）よりも0.146 mm良好な予測精度を示しました（95%信頼区間 $[0.095, 0.198]$）。つまり「変形を予測する」というタスクにおいては、明示的な物理パラメータの同定が潜在表現よりも優れていました。\nしかし、実機ロボットの1,800遷移で予測精度を評価すると順位が激変します。実機ではHistが最も低い予測誤差を達成し、逆にシミュレーションで優秀だったEstimatedは幾何のみ（None）よりも悪化してしまいました。実機とシミュレータのギャップにより、パラメータ推定器自体の精度が劣化してしまったことが原因です。\n\n### V-C Decision Utility in Executed Manipulation\nここが本論文の最大のハイライトです。シミュレーション内での1ステップ制御性能を比較したところ、予測精度でHistに勝っていたEstimatedは、幾何のみ（GPF-Geom）に対して統計的に有意な制御精度の改善を示せませんでした（信頼区間がゼロをまたぐ）。一方で、Hist-FiLMはGPF-Geomに対して誤差を9.9%削減（0.852 mm改善）し、Estimatedに対しても明確に優位でした。\nつまり、「変形予測に一番効くコンテキスト」と「行動決定に一番効くコンテキスト」は一致しないという乖離が明確に確認されたのです。\n\n### V-D Closed-Loop Manipulation\n最大10ステップの閉ループ制御評価でも、この優位性は揺らぎませんでした。\n- **シミュレーション**: 許容誤差を厳しくした5 mm達成率において、Hist-FiLMは36%を記録し、GPF-Geom（25%）やDLO-DP（20%）を大きく引き離しました。\n- **実ロボット**: 60回のロールアウトにおいて、Hist-FiLMは最小の平均・中央値形状誤差を記録し、10 mm達成率でも最高スコアを獲得しました。GPF-Geomと比較してもロールアウト最良誤差を1.28 mm改善し、優れたゼロショット適応能力を実証しました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "実機におけるGPF Hist-FiLMのゼロショット閉ループ操作の様子です。3種類の異なる硬さ・表面条件において、初期状態（step 0）の大きな変形誤差が、3ステップ、10ステップと進むにつれて数ミリ単位まで滑らかに収束していく過程が示されています。",
+     "caption": "Fig. 5: Representative zero-shot real-robot manipulation processes of GPF Hist-FiLM under three DLO–surface conditions. Columns show steps 0, 3, and 10. Colored curves denote target shapes, and values report mean-node shape error.",
+     "image": "details/2611.14274/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Discussion",
+   "heading_ja": "なぜ予測と意思決定は乖離するのか？",
+   "summary_ja": "物理パラメータ同定が制御に結びつかず、履歴表現が実機で強力に機能した理由を考察し、本実験系が持つ制約や今後の課題について議論しています。",
+   "details_ja": "なぜ変形予測に役立つ推定パラメータ $(\\hat{E}, \\hat{\\mu})$ が制御の向上につながらず、潜在履歴表現（Hist）が大きな効果を発揮したのでしょうか？著者らは以下の理由を考察しています。\n\nまず、ヤング率や摩擦係数という単純化された物理モデルのパラメータに情報を圧縮（ボトルネック化）してしまうと、局所的な応力変化や複雑な接触履歴など、実際の「次の1手を決めるために必要な制御指向の情報」が抜け落ちてしまう可能性があります。Histは特定の物理パラメータに拘束されないため、直近の変形応答の中からタスク達成に直結する情報を柔軟に保持できたと考えられます。実際に、履歴の対応関係をシャッフルするとHistの性能が激しく劣化することからも、その場の変形フィードバックが精密に利用されていることが裏付けられています。\n\nまた、実機へのゼロショット転移においてHistが際立って強かった背景には、シム・トゥ・リアル（Sim-to-Real）ギャップへの頑健性もあります。明示的なパラメータ推定器はシミュレータと実環境の接触挙動のズレによって推定誤差を大きく狂わせましたが、エンドツーエンドで統合された潜在表現は、幾何情報だけでは補いきれない細かなズレを修正する役割を果たしました。\n\n一方で、論文の限界として以下の点が挙げられています。\n- Histが具体的にどのような物理的・タスク的特徴量を潜在空間に埋め込んでいるのかは完全には解明できていない点。\n- 実機では手作業でのリセットを行うため、コントローラ間で完全に同一の初期状態から開始する完全なペア実験が原理的に行えない点。\n- 方策バックボーン（GPFかDiffusion Policyか）の違いによっても物理コンテキストの効き方が異なっており、ネットワーク構造とコンテキスト統合の因果関係がまだ完全に分離されていない点です。",
+   "figures": []
+  },
+  {
+   "heading": "VII Conclusion",
+   "heading_ja": "物理コンテキストは「予測精度」ではなく「決定の質」で測るべき",
+   "summary_ja": "本研究の結論として、物理コンテキストの良さは順予測の正確さではなく、それがもたらす意思決定の質によって評価されるべきであることを再強調しています。",
+   "details_ja": "本研究は、柔軟線状物マニピュレーションにおいて「変形の予測に最も貢献する物理表現が、そのまま操作行動の決定に最も貢献するわけではない」という事実を実証しました。\n\n提案されたGPF方策は、既存の拡散モデルベースの方策を大幅に上回る精度と約193倍の推論速度を両立する強力なベースラインとなりました。そしてその上で、明示的なパラメータ推定よりも、直近の相互作用履歴から学習された潜在表現の方が、シミュレーションの高精度制御および実機へのゼロショット転移において圧倒的に有効であることが示されました。\n\n柔軟物操作やロボット学習の研究において、今後物理コンテキストや世界モデルを設計する際には、「順モデルの予測誤差が減ったから良い表現だ」と判断するのではなく、「それが最終的なロボットの行動選択をどれだけ向上させるか」という意思決定の観点（Decision Utility）から評価設計を行うことが不可欠であるという重要な教訓を残しています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「高精度な世界モデル＝優れた制御」とは限らない：変形予測精度の高さと、方策が適切な行動を選べるかどうかは直結しないため、制御タスクでの直接評価が必須です。",
+  "明示的パラメータ同定の落とし穴：ヤング率や摩擦係数などの古典的パラメータへの圧縮は、タスクに必要な履歴情報を削ぎ落とし、実機転移時に推定器が破綻しやすいリスクがあります。",
+  "把持位置と動作生成の分離（Where/How分解）の強さ：GPFのように接触点選択と動作生成を分離することで、拡散モデルよりも1桁以上軽量かつ2桁近く高速な方策が構築可能です。",
+  "ゼロショット適応における履歴潜在表現の有効性：シミュレーションのみで学習した相互作用履歴エンコーダが、実機の未知の硬さ・摩擦に対しても追加学習なしでそのまま強力な適応能力を発揮します。"
+ ],
+ "limitations_ja": [
+  "潜在表現（Hist）が実際にどのような物理情報を保持しているのかがブラックボックスであり、因果的な解明には至っていません。",
+  "実機実験では手動リセットを挟むため、シミュレーションのような完全同一の初期状態を用いたペア比較評価ができていません。",
+  "タスクが平面上の単一グリッパーによるDLO形状制御に限定されており、3次元の結び目作成や動的操作、多指ハンドでの把持にそのまま拡張できるかは未検証です。"
+ ],
+ "keywords": [
+  "Deformable Linear Objects (DLO)",
+  "Physical Context",
+  "Predictive vs Decision Utility",
+  "Rectified Flow",
+  "Sim-to-Real Transfer",
+  "Robotic Manipulation"
+ ],
+ "id": "2611.14274",
+ "title": "From Prediction to Action: Learning Physical Context for Deformable Linear Object Manipulation",
+ "authors": [
+  "Chengxiao Dong",
+  "Alessio Caporali",
+  "Hongyu Lan",
+  "Gianluca Palli"
+ ],
+ "date": "2026-11-12",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "planning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.14274",
+ "pdf_url": "https://arxiv.org/pdf/2611.14274",
+ "summary_ja": "柔軟線状物体（DLO）の単一把持形状制御において、把持位置選択と運動生成を分離する幾何誘導型方策GPFを提案。DLO向け拡散方策と比較して実行形状誤差を32.8%削減しつつ、パラメータ数を大幅削減し約193倍の高速推論を達成した。",
+ "generated": "2026-11-12",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.14274"
+}
