@@ -1,0 +1,141 @@
+{
+ "title_ja": "Elastic-WAM：効率的なロボット制御のための適応的時空間イマジネーション",
+ "tldr_ja": "将来の映像を想像しながら行動を決める世界行動モデル（WAM）において、デノイズをいつ止めるか（時間）・どこまで進めるか（刻み幅）・どの領域を更新するか（空間）を統一フィールドで適応的に制御し、推論遅延を約32%削減しながら制御性能を向上させました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "Elastic-WAMの全体構成と推論パイプライン。上段では初回の密な同時デノイズ後、統一フィールドの指示に従って必要な領域のトークンのみをまばらに更新し、コミット後はキャッシュを用いて行動生成を完了させます。下段では時間方向のBeta分布と空間方向の振幅を組み合わせることで、「いつ止めるか」「どれだけ進めるか」「どこを更新するか」を同時に決定する仕組みを示しています。",
+  "caption": "Figure 2 : Pipeline of Elastic-WAM. Top: The inference pipeline starts with dense joint refinement, followed by adaptive sparse world refinement with state-dependent denoising progression and spatial token selection. Once the world is committed, action refinement continues using the cached world representations. Bottom: The unified spatiotemporal refinement field consists of (a) a temporal branch that predicts a shared Beta distribution over denoising progression, (b) a spatial branch that estimates group-wise refinement amplitudes, and (c) a unified field that determines WHEN to commit the world, HOW FAR to advance denoising, and WHERE to refresh future.",
+  "image": "details/2611.14257/F2.jpg"
+ },
+ "overview_ja": "ロボット制御において、将来の視覚的なダイナミクスを予測しながら行動を生成する世界行動モデル（World-Action Model; WAM）が注目を集めています。しかし、将来の動画を拡散モデルで反復的にデノイズ（ノイズ除去）する処理は計算負荷が非常に重く、実機制御における大きな推論遅延の原因となっていました。一部の先行研究では動画のデノイズを途中で打ち切る試みもなされていますが、タスクや現在の状態に関わらず一律の計算量（固定ステップ数や固定領域）を割り当てていたため、簡単な状態では無駄な計算が生じ、逆に精密な操作が必要な状態では予測精度が不足するというジレンマを抱えていました。\n\nそこで著者らは、必要な計算量は「時間（何ステップ進めるか・いつ止めるか）」と「空間（将来画像のどの領域を更新するか）」の双方向で動的に変化していることに着目し、これを柔軟に割り振る「Elastic-WAM」を提案しました。具体的には、将来動画の洗練（リファインメント）に対する需要を単一の時空間フィールドとしてモデル化し、「いつ動画生成を確定（コミット）するか（WHEN）」「1ステップでデノイズをどれだけ進めるか（HOW FAR）」「どの画像領域を再計算するか（WHERE）」を統一的に判断します。学習済みのWAMの重みを固定したまま、行動予測誤差を基準とした3段階の教師あり学習を行うため、バックボーンを壊さずに軽量な判断モジュールのみを獲得できるのも大きな特徴です。\n\nシミュレーション（LIBERO、LIBERO-Plus、LIBERO-Pro、RoboCasa-GR1）および双腕ロボットによる実機のお茶淹れタスクで検証した結果、従来手法（Joint-WAM）と比べてRoboCasa-GR1での推論遅延を32.2%削減しつつ、成功率でSOTAを達成しました。実機や外乱環境でも優れた頑健性を示し、動画生成の計算リソースを行動に直結する時空間へ賢く配分することの有効性を実証しています。",
+ "contributions_ja": [
+  "将来動画のリファインメント需要を統一的な時空間フィールドとして定式化し、動画生成の停止タイミング、デノイズ刻み幅、更新すべき空間領域の3つを同時に適応制御する枠組みを確立したこと。",
+  "バックボーンとなる学習済みWAMを完全に固定したまま、下流の行動予測精度を指標として時間分布・相対的空間優先度・全体需要を段階的に最適化する3段階の学習手順を提案したこと。",
+  "スパースに選ばれたクエリのみを更新しつつ完全なアテンション文脈を維持する推論機構により、キャッシュを再利用して推論遅延を32.2%削減しながら、シミュレーションと実機長期間タスクの双方で最高性能を達成したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ動画の「想像」を一律に計算してはいけないのか",
+   "summary_ja": "将来映像を予測する世界行動モデルは有効ですが、動画デノイズの計算コストが課題でした。著者らはタスクや状態ごとに最適なデノイズ深さや注目領域が異なることを突き止め、時間と空間の両面で計算資源を柔軟に配分するElastic-WAMを着想しました。",
+   "details_ja": "ロボットが将来の視覚変化を予測しながら行動を生成する世界行動モデル（WAM）は高い制御性能を発揮しますが、動画の拡散モデル（Diffusion Model）を反復的にデノイズする処理は推論時の大きなボトルネックになります。\n\n最近の研究では、完全にノイズを取り切らなくても中間表現だけで十分に行動を予測できることや、推論時に明示的な動画生成を省くアプローチも提案されています。しかし、これらはタスクの難易度やロボットの現在状態を考慮せず、一律に固定された計算予算（ステップ数など）を適用していました。これでは、大雑把な移動のような単純な状態では無駄な計算が走り、ミリ単位の位置合わせが求められる精密な状態では表現力が足りなくなってしまいます。\n\n著者らがLIBERO-Plusベンチマークで実験を行ったところ、最高成功率をもたらすデノイズステップ数はタスクごとに1〜4ステップと大きく異なり、同一タスク内であっても状態によって好ましい深さが変わることが判明しました。さらに、行動から将来動画へのアテンション（注意度）を可視化すると、行動生成に寄与しているのは将来画像の一部の領域に偏っていることが分かりました。\n\nこれらの観察から生まれたのが「Elastic-WAM」です。世界予測の洗練需要を統一的な時空間フィールド（Spatiotemporal Demand Field）として捉え、時間方向（いつ止めるか、どれだけデノイズを進めるか）と空間方向（どのトークンを更新するか）を現在の状態に応じて柔軟（Elastic）に配分します。これにより、大規模な事前学習モデルを追加学習することなく、推論遅延を大幅に削減しながら制御性能を高めることに成功しました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "世界行動モデルの効率化と適応的デノイズの系譜",
+   "summary_ja": "視覚行動モデルから発展したWAMの計算コスト削減に向け、部分デノイズや蒸留、トークン削減などが試みられてきました。本研究は、事前学習済みWAMを固定したまま、時間軸と空間軸の両方を統一フィールドで協調制御する点で新規性を持っています。",
+   "details_ja": "本研究の背景には、大きく分けて3つの研究潮流があります。\n\nひとつ目は「世界行動モデル（WAM）」の効率化です。視覚・言語から直接行動を出す従来のVLA（Vision-Language-Action）に対し、将来の視覚変化を同時にモデリングするWAMが登場しました。その推論コストを減らすため、途中のデノイズ表現を利用する手法、蒸留技術、推論時に動画生成を省く手法、あるいは動画と行動の疎な相互作用を利用する手法などが提案されてきました。Elastic-WAMはこれらと直交するアプローチであり、固定されたWAMバックボーンに対して適応的な計算配分を導入します。\n\nふたつ目は「時間方向に適応的なデノイズ」です。拡散サンプリングの高速化にはODEソルバーや蒸留が用いられてきましたが、近年は入力サンプルごとにステップ数を変えるAdaDiffや、状態の重要度に応じて行動のデノイズステップを変えるD3P、停止判定を学ぶSANTSなどが登場しています。しかし、これらは時間軸のみの適応にとどまっていました。\n\nみっつ目は「空間方向に適応的な計算」です。Diffusion Transformer（DiT）の空間的冗長性を省くため、トークンを刈り取るスパースアテンションや特徴量のキャッシュ再利用（token-wise feature caching）が提案されています。\n\nElastic-WAMの独自性は、これら時間方向の適応（いつ止めるか、刻み幅をどうするか）と空間方向の選択（どの将来トークンを更新するか）を別々に扱うのではなく、単一の時空間フィールドの中で統合的に協調動作させた点にあります。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "Elastic-WAMのアーキテクチャ。下段の(a)時間ブランチがBeta分布のパラメータを出力し、(b)空間ブランチが各グループの振幅を推定して、(c)統一フィールドを形成します。このフィールドからWHEN（累積確率による停止判断）、HOW FAR（分布の最頻値に基づくステップ幅）、WHERE（相対スコアによる上位Kトークン選択）が同時に導かれます。",
+     "caption": "Figure 2 : Pipeline of Elastic-WAM. Top: The inference pipeline starts with dense joint refinement, followed by adaptive sparse world refinement with state-dependent denoising progression and spatial token selection. Once the world is committed, action refinement continues using the cached world representations. Bottom: The unified spatiotemporal refinement field consists of (a) a temporal branch that predicts a shared Beta distribution over denoising progression, (b) a spatial branch that estimates group-wise refinement amplitudes, and (c) a unified field that determines WHEN to commit the world, HOW FAR to advance denoising, and WHERE to refresh future.",
+     "image": "details/2611.14257/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "3 Methodology",
+   "heading_ja": "時空間需要フィールドの定式化と3段階学習",
+   "summary_ja": "将来トークン群を幾何学的グループにまとめ、共通の時間基底（Beta分布）と領域ごとの振幅で時空間需要フィールドを定義します。事前学習済みモデルを固定し、下流の行動精度を教師信号として時間幅・空間優先度・停止タイミングを3段階で学習します。",
+   "details_ja": "Elastic-WAMの核となる手法設計は、時空間フィールドの定式化、パラメータの分離、そして段階的な学習戦略にあります。\n\n### 3.1 統一時空間リファインメントフィールド\n将来動画のトークン数 $N_F=196$ を、時間とカメラ視点の境界を維持した幾何学的に意味のある $G=64$ 個のグループに分割します（各グループのトークン数 $n_g \\in \\{1,2,4\\}$）。各グループ $g$ のリファインメント需要を、正規化されたデノイズ進行度 $z \\in [0,1]$ 上の局所曲線 $q_g(z \\mid s) = a_g(s) \\operatorname{Beta}(z; m_g(s), c_g(s))$ として定義します。ここで $a_g(s)$ は需要の総量を表す振幅であり、Beta密度関数はその時間的な分布を表します。これらをトークン数で重み付けして足し合わせることで、大域的な需要関数 $Q(z \\mid s)$ を構成します。\n\n### 3.2 フィールドのパラメータ表現と判断メカニズム\n全領域は同じデノイズ軌道を共有するため、時間的な形状は全グループ共通の基底 $B_0(z \\mid s) = \\operatorname{Beta}(z; m_0(s), c_0(s))$ で表現し、領域ごとに振幅 $a_g(s)$ を持たせます。大域的な需要と領域ごとの相対優先度を切り離すため、空間スコア $u_g(s)$ から平均を引いた相対スコア $\\Delta u_g(s)$ と、全体を底上げする共通オフセット $b_0(s)$ を組み合わせ、$a_g(s) = \\operatorname{Sigmoid}(\\Delta u_g(s) + b_0(s))$ とします。ここから3つの判断を下します：\n- **WHEN（いつ止めるか）**: 大域需要 $D(s)$ を継続確率と解釈し、各ステップの継続確率を掛け合わせて累積コミット確率 $F_k = 1 - \\prod_{j \\le k} D(s_j)$ を計算します。これが閾値 $\\eta = 0.5$ を超えた時点で動画の洗練を終了（World Commit）します。\n- **HOW FAR（どれだけ進めるか）**: Beta分布の最頻値（mode）を取り、現在の許容ノイズ区間内に収まるようクリップして次のデノイズ刻み幅 $\\delta_k$ を決定します。\n- **WHERE（どこを更新するか）**: 相対スコア $\\Delta u_g(s)$ の高い順にグループを選び、事前に設定したトークン予算 $K_0=96$ に達する領域のトークンのみを更新対象とします。\n\n### 3.3 行動をグラウンドとした3段階学習\nバックボーンであるWAMを完全に固定（freeze）し、軽量な予測ヘッドのみを3段階で訓練します。\n1. **時間プロファイル（HOW FAR）の学習**: さまざまな刻み幅 $\\delta$ で動画デノイズを進めて行動生成を完了させた場合の行動誤差（系列誤差と差分誤差）を評価し、誤差が小さい刻み幅ほど高確率になるソフトターゲットを用いてBeta分布のパラメータを学習します。同時に、継続と即時コミットの誤差比較から停止判定用の時間教師（Temporal Teacher）を作ります。\n2. **空間優先度（WHERE）の学習**: 密な全更新を行う教師モデルと、Straight-Through推定量を用いた微分可能なスパース選択を行う生徒モデルを比較し、行動予測フローが教師や真値に一致するよう相対空間スコアを最適化します。\n3. **全体需要（WHEN）の学習**: 時間と空間のブランチを固定した上で、時間教師のハザード予測をもとに目標継続確率を算出し、共通オフセット $b_0$ を学習します。プレフィックス全体を通じた累積停止確率の整合損失などを組み合わせることで、安定したコミットタイミングを獲得します。\n\n### 3.4 フィールド誘導型スパース推論\n推論時は、最初の1ステップ目だけ全将来トークンを密に計算してKVキャッシュを確立します。2ステップ目以降は、選ばれた $K_0$ 個の将来クエリトークンのみを再計算し、選ばれなかったトークンは前回の隠れ状態やKVキャッシュをそのまま保持・再利用します。World Commitに達した後は動画更新を完全に止め、キャッシュされた動画表現を参照しながら行動のデノイズのみを完了させます。",
+   "figures": []
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "シミュレーションと実機実験：3割の高速化と頑健な制御の両立",
+   "summary_ja": "LIBERO系ベンチマークとRoboCasa-GR1、さらに実機双腕ロボットで評価しました。RoboCasa-GR1ではJoint-WAM比で遅延を32.2%削減しつつ最高成功率を記録し、照明変化や未知物体が混ざる実機のお茶淹れタスクでも高い成功率と進捗率を示しました。",
+   "details_ja": "実験では、過酷な条件下での性能、速度と精度のトレードオフ、各コンポーネントの寄与、実機での頑健性を検証しました。\n\n### 4.1 シミュレーションベンチマークでの結果\n標準的な操作を扱うLIBERO、視覚的・環境的な外乱を加えたLIBERO-Plus、言語や配置などの未強化学習環境を評価するLIBERO-Pro、そして複雑な可動物体（引き出しや電子レンジなど）を扱うRoboCasa-GR1で検証しました。\n- **LIBERO**: Elastic-WAMはベースラインのJoint-WAMを上回る最高平均成功率を達成し、特に手順の長い「Long」スイートで顕著な差をつけました。\n- **LIBERO-Plus / Pro**: カメラ視点変化、ロボット初期位置のズレ、センサノイズなどの外乱下（LIBERO-Plus）でも極めて高い頑健性を示しました。未調整のまま評価したLIBERO-Proでも物体や位置の変化に対して一貫して高い汎化性能を発揮しています。\n- **RoboCasa-GR1**: 最も難度の高いこの環境において、Elastic-WAMは最高の成功率を達成しながら、Joint-WAMと比較して推論レイテンシを32.2%削減（表4）しました。全領域を一律に更新しない適応的スパース処理が、速度向上だけでなく精度の向上にも直結しています。\n\n### 4.2 アブレーション（要素検証）で分かったこと\n- **空間選択（WHERE）の重要性**: ランダム選択や、全領域を強制更新するモデル、初回キャッシュのみを使い回すFirstKVと比較したところ、学習された空間選択が最も高い成功率を収めました（表6）。\n- **時間制御（WHEN & HOW FAR）の相乗効果**: 空間選択のみ（固定ステップ）に対し、適応的停止（WHEN）を加えると性能が向上し、さらに適応的刻み幅（HOW FAR）を導入することで最高性能に達しました。\n- **トークン予算 $K$**: 更新トークン数を増やせば良いというわけではなく、デフォルトの $K=96$ が最も高い成功率を記録しました。不要な領域のノイズを中途半端に更新するよりも、行動に無関係な領域はキャッシュのまま固定しておく方が下流の行動予測にとって有益であることが示唆されています（図F3）。\n\n### 4.3 実機双腕ロボットによる長期間タスク\n2台のxArm 7を用いた4ステージのお茶淹れタスク（カップ配置→急須でお茶を注ぐ→カップを戻す→別の急須から注いで戻す）を実施しました（図F4）。通常条件（Nominal）に加え、ネオン光による照明変化（Lighting OOD）、カップを銀色の別形状に変更（Object OOD）した環境で各20回試行しました。\n結果、Elastic-WAMは全条件で最高の完全達成率（SR）と平均タスク進捗率（PS）を記録しました（表7）。特に物体OOD条件では、Joint-WAMと同等の完全成功率を保ちつつ、途中で失敗した場合でもより先のステージまで到達していることが進捗スコアから確認されました。推論時に動画生成を省くFast-WAMは実機の長期間タスクを一度も完遂できず、動画による状態認識の重要性が浮き彫りになりました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "LIBERO-PlusでのJoint-WAMとElastic-WAMの比較。(a)タスク結果、(b)行動から将来動画へのアテンションマップ、(c)将来トークンの更新回数分布。Elastic-WAMは行動に関係の深い領域に絞って更新回数を増やし（黄色）、関係の薄い領域は低頻度にとどめることで、外乱下でも破綻せず成功を収めています。",
+     "caption": "Figure 3 : Qualitative comparison between Joint-WAM (top) and Elastic-WAM (bottom). (a) Task outcomes. (b) Action-to-video attention maps. (c) Spatial distribution of future video token update counts. Elastic-WAM achieves successful control through selective refinement while preserving the full attention context.",
+     "image": "details/2611.14257/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "実機における双腕お茶淹れタスクの評価条件。左から通常環境（Nominal）、ネオン光を当てた照明外乱（Lighting OOD）、白いカップを銀色のカップに変更した物体外乱（Object OOD）。視覚的な分布シフトが存在する状況下でロバスト性をテストしています。",
+     "caption": "Figure 4 : Real-world evaluation settings. We evaluate under three conditions: Nominal, Lighting OOD, and Object OOD. Lighting OOD introduces strong illumination changes, while Object OOD replaces the white cup with a silver-colored cup of a slightly different shape.",
+     "image": "details/2611.14257/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめ：必要な時、必要な場所だけを想像するロボットへ",
+   "summary_ja": "世界行動モデルにおける動画デノイズの計算配分を、統一的な時空間需要フィールドによって適応制御するElastic-WAMを提案しました。推論コストの大幅削減とタスク成功率の向上を同時に達成し、効率的なロボット基底モデルの新たな指針を示しました。",
+   "details_ja": "本論文では、世界行動モデル（WAM）における動画デノイズ処理の非効率性を解決するため、計算需要を時間と空間の両面から動的に割り振る「Elastic-WAM」を提案しました。\n\n統一された時空間リファインメントフィールドにより、「いつ動画生成を確定するか（WHEN）」「1回のデノイズでどこまで進めるか（HOW FAR）」「将来のどの領域を再計算するか（WHERE）」を状態依存で協調決定します。事前学習済みの重みを一切書き換えることなく、行動精度を基準とした3段階の教師あり学習によってフィールドを学習し、推論時には過去のキャッシュを活かした再帰的スパース更新を実現しました。\n\nシミュレーションベンチマークおよび実機での双腕マニピュレーションを通じ、推論レイテンシを約3割削減しながら、従来の一律計算アプローチを凌駕する最高性能を達成しました。不要な計算を削ぎ落とし、重要な視覚領域を集中的に研ぎ澄ますことが、効率化だけでなく制御自体のロバスト性向上にもつながることを実証した意義深い成果です。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：実装の詳細と精密操作・実機タスクの定性評価",
+   "summary_ja": "ベースモデルの構成やハードウェア仕様、さらに精密性が要求されるタスクや実機4ステージタスクのキーフレーム遷移を紹介します。動画生成を途中で打ち切るFast-WAMが精密配置で失敗する様子が示されています。",
+   "details_ja": "### A. 実装とハードウェアの詳細\nバックボーンにはFastWAM-Jointを採用しています。言語指示はT5エンコーダ、画像観測はVAE、固有受容感覚（プロプリオセプション）は射影層を通過し、動画トークン196個とともに入力されます。推論レイテンシの測定はNVIDIA H800 GPU上で行われ、RoboCasa-GR1においてJoint-WAM比で32.2%の高速化が確認されました。\n\n### B. 精密操作タスクでの挙動比較（シミュレーション）\nRoboCasa-GR1の「ボトルを棚に入れる」「缶を引き出しに入れる」という精密な位置合わせが必要なタスクにおいて、推論時に動画生成を省くFast-WAMとElastic-WAMを比較しました（図F5）。Fast-WAMは対象物の近傍までは運べるものの、最後の精密な差し込み・配置段階で位置がずれて失敗しました。一方、Elastic-WAMは必要な局面で適応的に動画リファインメントを継続するため、正確な配置を成功させています。\n\n### C. 実機長期間お茶淹れタスクの詳細\nxArm 7を2台用いた卓上環境で200本のデモ軌道を収集して評価しました。図F6に示す通り、カップの把持・運搬・急須の上への配置（Stage 1）、急須を持ち上げて注ぐ動作（Stage 2）、カップの再把持と元の位置への返却（Stage 3）、別の急須から注いで戻す動作（Stage 4）の全行程において、ロボットは頭部カメラと手先カメラの映像からタスクの進捗を正確に認識し、破綻のない協調動作を継続できることが確認されました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "RoboCasa-GR1での精密操作タスクの比較。(a)ボトルを棚に入れるタスク、(b)缶を引き出しに入れるタスク。動画生成を省いたFast-WAM（上段）は目標付近まで行くものの最終配置で失敗していますが、Elastic-WAM（下段）は適応的な世界予測によって正確な配置に成功しています。",
+     "caption": "Figure 5 : Precision-sensitive manipulation on RoboCasa-GR1. Qualitative comparisons between Fast-WAM (top) and Elastic-WAM (bottom) on (a) Bottle into Cabinet and (b) Can into Drawer. Keyframes progress from left to right, highlighting the final placement stage. Fast-WAM fails to complete the placement, whereas Elastic-WAM successfully finishes both tasks.",
+     "image": "details/2611.14257/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実機における4ステージお茶淹れタスクのキーフレーム。Stage 1（カップ配置）からStage 4（急須からの注ぎと返却）まで、頭部カメラと手先カメラの視点が切り替わりながら、長期間にわたる複雑な協調作業をElastic-WAMが一連の流れとして完遂する様子を示しています。",
+     "caption": "Figure 6 : Qualitative visualization of real-world long-horizon manipulation. Keyframes illustrate a successful four-stage tea-preparation rollout using Elastic-WAM. Stage 1: Grasping, lifting, aligning, and placing the white cup on the uncovered teapot. Stage 2: Grasping and manipulating the covered teapot to pour tea into the white cup. Stage 3: Retrieving and returning the white cup to its original position. Stage 4: Pouring tea into the black cup and returning the uncovered teapot. The head-camera keyframes and corresponding wrist-camera views illustrate the progression of robot actions throughout the task.",
+     "image": "details/2611.14257/F6.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "動画生成をロボット行動の指針にする際、全画面・全ステップを一律に計算するのは無駄が多く、行動誤差に直結する時空間へ動的にリソースを集中投下する方が精度・速度ともに優れている点。",
+  "事前学習済みの世界行動モデルをフリーズさせたまま、下流の行動誤差を教師信号とする軽量な多段ヘッドを追加するだけで、適応的な推論制御が可能になるという実用的な学習設計。",
+  "動画の更新トークン数を単に増やすとノイズ混じりの表現が混ざって逆に行動精度が落ちる場合があり、不要なトークンは前ステップのキャッシュを保持し続けるスパース更新が正則化として機能している点。"
+ ],
+ "limitations_ja": [
+  "空間トークンの選択予算（$K_0=96$ など）がハイパーパラメータとして外部から固定値で与えられており、空間トークン数そのものを動的に伸縮させる仕組みにはなっていない点。",
+  "時間プロファイル、空間優先度、全体オフセットの学習が3段階のパイプラインに分かれており、エンドツーエンドの単一最適化に比べると学習手順がやや複雑である点。"
+ ],
+ "keywords": [
+  "World-Action Models",
+  "Diffusion Models",
+  "Adaptive Computation",
+  "Robot Manipulation",
+  "Spatiotemporal Refinement"
+ ],
+ "id": "2611.14257",
+ "title": "Elastic-WAM: Adaptive Spatiotemporal Imagination for Efficient Robot Control",
+ "authors": [
+  "Haitian Li",
+  "Tianfu Li",
+  "Xuxi Zhao",
+  "Zizheng Liu",
+  "Yangcheng Yu",
+  "Yiwen Hou",
+  "Zeyu Xiao",
+  "Mutian Xu",
+  "Ziqian Yang",
+  "Haonan Chen",
+  "Lin Shao"
+ ],
+ "date": "2026-11-12",
+ "group": "general",
+ "tags": [
+  "world-model",
+  "control"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.14257",
+ "pdf_url": "https://arxiv.org/pdf/2611.14257",
+ "summary_ja": "動画ノイズ除去の推論負荷が高いWorld-Action Model（WAM）に対し、時空間の重要度に応じて適応的に計算リソースを配分するElastic-WAMを提案。統合された需要場により将来の重要領域に絞って洗練を行い、制御性能を維持したまま推論を高速化した。",
+ "generated": "2026-11-12",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.14257"
+}
