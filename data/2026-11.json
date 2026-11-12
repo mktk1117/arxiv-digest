@@ -1,6 +1,279 @@
 {
  "entries": [
   {
+   "date": "2026-11-12",
+   "rank": 0,
+   "id": "2611.14186",
+   "group": "focus",
+   "title": "Koopman Model-Based Reinforcement Learning",
+   "title_ja": "クープマン作用素を用いたモデルベース強化学習",
+   "summary_ja": "未知の非線形ダイナミクスを持つロボット向けに、確率的クープマン作用素で線形表現を獲得しモデルベース強化学習を行うK-MBRLを提案。解析的な即時コストと1ステップ予測による将来コスト推定を組み合わせ、線形表現により政策勾配の計算効率と制御性能を両立した。",
+   "summary_en": "This paper proposes K-MBRL, a model-based reinforcement learning algorithm that leverages a stochastic Koopman operator to linearize unknown nonlinear robotic dynamics. By combining analytical immediate costs with one-step predictive future cost estimates, it simplifies policy gradient computation and achieves efficient policy optimization.",
+   "authors": [
+    "Wenjian Hao",
+    "Paulo C. Heredia",
+    "Shaoshuai Mou"
+   ],
+   "categories": [
+    "cs.RO",
+    "eess.SY"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.14186",
+   "image": "figures/2026-11-12/2611.14186.jpg"
+  },
+  {
+   "date": "2026-11-12",
+   "rank": 1,
+   "id": "2611.13779",
+   "group": "focus",
+   "title": "Softness is something you also need! Why compliance helps control: information metrics of a passive walker with compliant ankle",
+   "title_ja": "柔軟性がもたらす制御の利点：足首コンプライアンスを持つ受動歩行器の情報計量解析",
+   "summary_ja": "受動歩行器の足首関節コンプライアンスが運動制御に与える影響を、情報幾何・情報計量を用いて解析した論文。身体の受動的な柔軟性と形態学的計算が、環境適応性の向上や制御負担の軽減に寄与するメカニズムを情報理論の観点から明らかにした。",
+   "summary_en": "This paper analyzes the role of ankle compliance in a passive walker using information metrics. It demonstrates how morphological computation and passive structural compliance alleviate control effort and enhance adaptability to environmental perturbations from an information-theoretic perspective.",
+   "authors": [
+    "Fabio Bonsignorio",
+    "Elisabetta Barletta",
+    "Sorin Dragomir",
+    "Francesco Esposito",
+    "Enrica Zereik"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "locomotion",
+    "control",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.13779",
+   "image": "figures/2026-11-12/2611.13779.jpg"
+  },
+  {
+   "date": "2026-11-12",
+   "rank": 2,
+   "id": "2611.14432",
+   "group": "focus",
+   "title": "One Policy for 100 Household Tasks: Our Solution for the 2026 BEHAVIOR Challenge",
+   "title_ja": "単一ポリシーによる100の家事タスク達成：2026 BEHAVIOR Challenge解法",
+   "summary_ja": "物理シミュレータOmniGibson上の大規模ベンチマーク「2026 BEHAVIOR Challenge」において、単一のVLAモデルで100種類の長期家庭タスクを遂行する手法を提示。学習ステップの効率化と訓練プロセスの最適化により、共有50タスクでスコアを0.260から0.371へ大幅に向上させた。",
+   "summary_en": "This paper presents the solution for the 2026 BEHAVIOR Challenge, achieving 100 long-horizon household tasks in the OmniGibson simulator using a single VLA model checkpoint. By optimizing training steps and scaling training duration, the approach substantially boosted performance scores across complex multi-task scenarios.",
+   "authors": [
+    "Ilia Larchenko",
+    "Gleb Zarin",
+    "Atindra Nair",
+    "Keerti Manney",
+    "Vitaly Kleban",
+    "Mirko Kiefer",
+    "Anjana Yodaiken"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "simulation",
+    "vision-language-action",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.14432",
+   "image": "figures/2026-11-12/2611.14432.jpg"
+  },
+  {
+   "date": "2026-11-12",
+   "rank": 3,
+   "id": "2611.14365",
+   "group": "focus",
+   "title": "From Video Frames to Robot Meta-Frames: A Unified Latent Interface for World Action Models",
+   "title_ja": "動画フレームからロボットメタフレームへ：ワールドアクションモデルのための統一潜在インターフェース",
+   "summary_ja": "事前学習済み動画拡散モデルを活用したワールドアクションモデル（WAM）において、ロボットの固有受容感覚や行動信号を自然画像事前分布と整合させる潜在インターフェースを提案。専用エンコーダを後付けせず、事前分布との整合性を高める表現を構築した。",
+   "summary_en": "This paper introduces a unified latent interface for World Action Models (WAMs) that injects low-dimensional robot signals, such as proprioception and actions, into pretrained video diffusion spaces. It frames signal injection as a distribution-alignment problem, avoiding dedicated decoupled encoders.",
+   "authors": [
+    "Guoqiang Liang",
+    "Yiqi Lin",
+    "Yanzhe Chen",
+    "Kevin Yuchen Ma",
+    "Mike Zheng Shou"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.14365",
+   "image": "figures/2026-11-12/2611.14365.jpg"
+  },
+  {
+   "date": "2026-11-12",
+   "rank": 4,
+   "id": "2611.13850",
+   "group": "focus",
+   "title": "Taxonomy-Agnostic Neurosymbolic Grounding of Robot Kinematics",
+   "title_ja": "タキソノミーに依存しないロボット運動学のニューロシンボリック・グラウンディング",
+   "summary_ja": "ロボットのURDFファイルからLLMを活用して意味論的なオントロジーを自動生成するURDF2Ontologyを提案。文脈飽和を防ぐ逐次グラフパージ機構と運動構造に応じたデュアルトラック処理により、低レベル運動学を記号的推論に統合可能にした。",
+   "summary_en": "The authors propose URDF2Ontology, an automated neurosymbolic framework that converts raw URDF kinematics into grounded OWL ontologies using an LLM. Its dual-track processing and graph-purging mechanisms bridge low-level robot kinematics and high-level symbolic reasoning.",
+   "authors": [
+    "Bastien Dussard",
+    "Aur{é}lie Clodic",
+    "Guillaume Sarthou"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "planning",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.13850",
+   "image": "figures/2026-11-12/2611.13850.jpg"
+  },
+  {
+   "date": "2026-11-12",
+   "rank": 5,
+   "id": "2611.14373",
+   "group": "general",
+   "title": "Gaussian Process-Augmented Model Predictive Contouring Control for 6-DoF Trajectory Tracking with a Holonomic AUV",
+   "title_ja": "全方向移動型AUVの6自由度軌道追従に向けたガウス過程拡張型MPCC",
+   "summary_ja": "全方向移動型AUVの6自由度軌道追従制御において、ガウス過程（GP）回帰で残差ダイナミクスをオンライン推定して名目モデルを拡張する非線形MPCCを提案。水中環境でのモデル不確定性を補償し、高精度な位置・姿勢トラッキングを実現した。",
+   "summary_en": "This work presents a 6-DoF nonlinear Model Predictive Contouring Control (MPCC) augmented with Gaussian Process regression for a holonomic AUV. Learning residual dynamics online mitigates underwater modeling inaccuracies and achieves accurate constrained trajectory tracking.",
+   "authors": [
+    "David Dörner",
+    "Giancarlo Troni",
+    "Ignacio Torroba",
+    "Ivan Stenius"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.14373",
+   "image": "figures/2026-11-12/2611.14373.jpg"
+  },
+  {
+   "date": "2026-11-12",
+   "rank": 6,
+   "id": "2611.14274",
+   "group": "general",
+   "title": "From Prediction to Action: Learning Physical Context for Deformable Linear Object Manipulation",
+   "title_ja": "予測から行動へ：変形線状物体マニピュレーションにおける物理文脈の学習",
+   "summary_ja": "柔軟線状物体（DLO）の単一把持形状制御において、把持位置選択と運動生成を分離する幾何誘導型方策GPFを提案。DLO向け拡散方策と比較して実行形状誤差を32.8%削減しつつ、パラメータ数を大幅削減し約193倍の高速推論を達成した。",
+   "summary_en": "This paper presents Geometry-Pointer-Flow (GPF) for planar single-grasp shape control of Deformable Linear Objects, decoupling grasp selection from motion generation. Compared to a diffusion policy baseline, it reduces shape error by 32.8% while achieving nearly 193x faster inference.",
+   "authors": [
+    "Chengxiao Dong",
+    "Alessio Caporali",
+    "Hongyu Lan",
+    "Gianluca Palli"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.14274",
+   "image": "figures/2026-11-12/2611.14274.jpg"
+  },
+  {
+   "date": "2026-11-12",
+   "rank": 7,
+   "id": "2611.14257",
+   "group": "general",
+   "title": "Elastic-WAM: Adaptive Spatiotemporal Imagination for Efficient Robot Control",
+   "title_ja": "Elastic-WAM：効率的なロボット制御のための適応的時空間イマジネーション",
+   "summary_ja": "動画ノイズ除去の推論負荷が高いWorld-Action Model（WAM）に対し、時空間の重要度に応じて適応的に計算リソースを配分するElastic-WAMを提案。統合された需要場により将来の重要領域に絞って洗練を行い、制御性能を維持したまま推論を高速化した。",
+   "summary_en": "Elastic-WAM adaptively allocates video refinement computation across temporal denoising steps and spatial future regions for World-Action Models. Driven by a spatiotemporal demand field, it significantly cuts inference overhead while preserving high task performance.",
+   "authors": [
+    "Haitian Li",
+    "Tianfu Li",
+    "Xuxi Zhao",
+    "Zizheng Liu",
+    "Yangcheng Yu",
+    "Yiwen Hou",
+    "Zeyu Xiao",
+    "Mutian Xu",
+    "Ziqian Yang",
+    "Haonan Chen",
+    "Lin Shao"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "world-model",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.14257",
+   "image": "figures/2026-11-12/2611.14257.jpg"
+  },
+  {
+   "date": "2026-11-12",
+   "rank": 8,
+   "id": "2611.13769",
+   "group": "general",
+   "title": "From Depth to Safe Depth: Uncertainty-Aware Monocular Perception for Mobile Robot Navigation",
+   "title_ja": "深度から安全な深度へ：移動ロボットナビゲーションのための不確実性を考慮した単眼知覚",
+   "summary_ja": "単眼深度基礎モデルを移動ロボットの走行に適用した際の障害物距離過大評価による衝突問題に対処するため、Safe Depthモジュールを提案。0.58Mパラメータの軽量ヘッドで深度補正と不確実性を推定し、衝突率63%の基準スタックを大幅に安全化した。",
+   "summary_en": "This paper reveals severe collision risks when using off-the-shelf monocular depth foundation models in robot navigation due to systematic distance overestimation. It introduces Safe Depth, a lightweight 0.58M-parameter module predicting depth correction and uncertainty to ensure safe navigation.",
+   "authors": [
+    "Saeid Firouzi Daghigh",
+    "Saeed Ayat"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "navigation",
+    "safety",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.13769",
+   "image": "figures/2026-11-12/2611.13769.jpg"
+  },
+  {
+   "date": "2026-11-12",
+   "rank": 9,
+   "id": "2611.14062",
+   "group": "general",
+   "title": "A human-in-the-loop Control Paradigm for Construction Robotics: From VR-Guided Teleoperation to Semi-Autonomous Dual-Arm Operation",
+   "title_ja": "建設ロボティクスのためのヒューマンインザループ制御パラダイム",
+   "summary_ja": "非構造な危険環境での建設作業に向け、VR遠隔操作・半自律共有制御・自律実行をシームレスに遷移させる双腕協調制御パラダイムを提案。スキルプリミティブと明確な人間ロボット役割分担ルールにより、直感的な遠隔操作と安全で高精度な自律動作を両立した。",
+   "summary_en": "This paper presents a human-in-the-loop control paradigm for dual-arm construction tasks, enabling structured transitions among VR teleoperation, semi-autonomous shared control, and autonomous execution via reusable primitives and clear role allocation.",
+   "authors": [
+    "Jinhua Chen",
+    "Xiaoji Xu",
+    "Zhongyuan Liao",
+    "Huang Zhenmin",
+    "Zhang Ye",
+    "Changying Xiang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "teleoperation",
+    "control",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.14062",
+   "image": null
+  },
+  {
    "date": "2026-11-11",
    "rank": 0,
    "id": "2611.13929",
