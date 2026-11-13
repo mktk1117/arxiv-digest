@@ -1,6 +1,298 @@
 {
  "entries": [
   {
+   "date": "2026-11-13",
+   "rank": 0,
+   "id": "2611.16422",
+   "group": "focus",
+   "title": "BlinkMimic: Training a Humanoid Motion Tracker in Minutes on a Single GPU",
+   "title_ja": "BlinkMimic: 単一GPU上で数分でヒューマノイド全身運動追従を学習",
+   "summary_ja": "ヒューマノイドロボットの全身運動追従ポリシー学習の高速化手法BlinkMimicを提案。並列シミュレーションから学習した世界モデルの逆伝播、Muonオプティマイザ、残差方策を組み合わせ、Unitree G1シミュレータ上でLAFAN1データセットの40動作を単一RTX 4090を用いわずか3.4分で学習完了することに成功した。",
+   "summary_en": "BlinkMimic accelerates humanoid whole-body motion tracking policy training by backpropagating through a simulation-learned world model, utilizing Muon updates, and employing residual policies. On a simulated Unitree G1, it trains a single policy across all 40 LAFAN1 motion clips in just 3.4 minutes on a single RTX 4090, achieving high tracking performance significantly faster than prior methods.",
+   "authors": [
+    "Fuyi Chen"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "reinforcement-learning",
+    "simulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.16422",
+   "image": "figures/2026-11-13/2611.16422.jpg"
+  },
+  {
+   "date": "2026-11-13",
+   "rank": 1,
+   "id": "2611.17142",
+   "group": "focus",
+   "title": "FORGE: Force-Aware Multi-Granularity Control for Efficient Humanoid Loco-Manipulation",
+   "title_ja": "FORGE: 効率的なヒューマノイドのロコマニピュレーションのための力覚考慮型マルチ粒度制御",
+   "summary_ja": "全身の関節軌道参照や人間の運動軌跡を必要とせず、ヒューマノイドの歩行・接触制御を統合するフレームワークFORGEを提案。速度ナビゲーションから足配置、手首姿勢追従、力フィードバックまで階層的な指令空間を構築し、スパースな手首目標姿勢と大まかな移動指示から安定かつ高精度な接触リッチ作業を実現した。",
+   "summary_en": "FORGE is a force-aware, multi-granularity control framework for humanoid loco-manipulation that eliminates the need for full-body human reference trajectories. By structuring a coarse-to-fine command space across base velocity, foot placement, and wrist tracking with optional force inputs, it enables stable and compliant manipulation with coordinated locomotion using only sparse wrist targets.",
+   "authors": [
+    "Liangjun Xing",
+    "Ke Fan",
+    "Kailin Li",
+    "Bin Wang",
+    "Xiaojie Niu",
+    "Qingwei Ben",
+    "Jiafei Cao",
+    "Wei Yao",
+    "Yebin Liu",
+    "Jingbo Wang",
+    "Weinan Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.17142",
+   "image": "figures/2026-11-13/2611.17142.jpg"
+  },
+  {
+   "date": "2026-11-13",
+   "rank": 2,
+   "id": "2611.16188",
+   "group": "focus",
+   "title": "PERA: Plug-in Experts for Robotic Actions in Continual Whole-Body Control",
+   "title_ja": "PERA: 継続的な全身制御に向けたロボット行動プラグインエキスパート",
+   "summary_ja": "ヒューマノイドの歩行やダンスなどの運動模倣において、既存スキルを破壊せず新スキルを効率獲得するPERAを提案。事前学習済みMixture-of-Experts（MoE）方策を凍結し、タスクごとにベースの約1.03%のパラメータからなるエキスパートモジュールとルーティングを追加学習することで、Unitree G1にて低コストな継続学習を達成した。",
+   "summary_en": "PERA enables continuous whole-body skill acquisition for humanoids without catastrophic forgetting by building on a frozen mixture-of-experts (MoE) policy. By adding lightweight task-specific expert modules comprising only ~1.03% of the base actor's parameters, PERA successfully learns new motions on the Unitree G1 robot with minimal training and maintenance overhead.",
+   "authors": [
+    "Shangchao Hu",
+    "Yadan Sun",
+    "Xibo Yu",
+    "Wei Huang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.16188",
+   "image": "figures/2026-11-13/2611.16188.jpg"
+  },
+  {
+   "date": "2026-11-13",
+   "rank": 3,
+   "id": "2611.15117",
+   "group": "focus",
+   "title": "PolyMorphWBC: Whole-Body Control from End-Effector Trajectories for Quadrupedal Mobile Manipulation across Arm Morphologies with Extended Reach",
+   "title_ja": "PolyMorphWBC: 異なるアーム形態に対応しリーチを拡張する四足モバイルマニピュレーションのための全身制御",
+   "summary_ja": "四足歩行ロボットに搭載されたアームの形態差を吸収し、手先軌道指令のみから全身協調動作を生成する階層型コントローラPolyMorphWBCを提案。ベースの移動要否や全身動作の配分を自動決定し、4種類のアーム形態にまたがって可動域を大幅に拡張したモバイルマニピュレーションを実現した。",
+   "summary_en": "PolyMorphWBC is a hierarchical whole-body controller for quadrupedal mobile manipulators that takes end-effector trajectories as the sole task command. It automatically coordinates arm and mobile base motions across four distinct mounted-arm morphologies, extending the functional manipulation workspace without requiring custom manual tuning for each embodiment.",
+   "authors": [
+    "Heng Li",
+    "Yang Li",
+    "Yifan Duan",
+    "Ren Fang",
+    "Matao Duan",
+    "Wenhao Yu",
+    "Lu Zhang",
+    "Jianmin Ji",
+    "Yanyong Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.15117",
+   "image": "figures/2026-11-13/2611.15117.jpg"
+  },
+  {
+   "date": "2026-11-13",
+   "rank": 4,
+   "id": "2611.16312",
+   "group": "focus",
+   "title": "Alloy: A Multi-Material Physics Engine for Robot Learning",
+   "title_ja": "Alloy: ロボット学習向けマルチマテリアル物理エンジン",
+   "summary_ja": "剛体ロボット、布、ケーブル、液体、粉体、弾性体が同一シーン内で相互作用可能なオープンソース物理エンジンAlloyを提案。各素材に最適なソルバーを制御ステップごとにGPU上で高度に結合し、並列環境で高速実行できる。物理シミュレーション自体の健全性スコアを出力し、学習の破綻要因の切り分けを支援する。",
+   "summary_en": "Alloy is an open-source, GPU-accelerated multi-material physics engine designed for robot learning. It couples specialized solvers for rigid bodies, cloth, cables, fluids, granular materials, and soft bodies within a single unified scene across parallel environments, outputting simulation health grades to distinguish physical simulation errors from policy failures.",
+   "authors": [
+    "Pranay Gupta",
+    "Deepanshu Rohilla"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.16312",
+   "image": "figures/2026-11-13/2611.16312.jpg"
+  },
+  {
+   "date": "2026-11-13",
+   "rank": 5,
+   "id": "2611.15280",
+   "group": "general",
+   "title": "Autonomous Trail Racing with a Bicycle Robot",
+   "title_ja": "自転車ロボットによるオフロードトレイルの自律レーシング",
+   "summary_ja": "山岳トレイルを高速走行する自律二輪ロボット（自転車ロボット）の制御手法を提案。トレイルを地形のセマンティック層として捉え、シミュレーション内での方策学習と車載LiDAR・カメラからのリアルタイム再構成を統一。ジャンプやコーナリング、スリップ回復を含む多様な運動スキルと動的ナビゲーションを実機で実証した。",
+   "summary_en": "This paper presents an autonomous trail racing system for a two-wheeled bicycle robot. By treating off-road trails as a semantic terrain layer within a unified learning framework in simulation, the robot reconstructs paths onboard via LiDAR and cameras, executing dynamic maneuvers such as cornering, jumping, and slip recovery at high speeds in challenging outdoor terrains.",
+   "authors": [
+    "Fabian Jenelten",
+    "Deepana Ishtaweera",
+    "Pablo Garcia",
+    "Liana Margolese",
+    "Igor Bogoslavskyi",
+    "Luca Buonocore",
+    "Jan Migliazza",
+    "Aleksandrs Ecins",
+    "Annika Wollschlaeger",
+    "Dario Bellicoso",
+    "Gabriel Nelson",
+    "Abel Gawel",
+    "Marco Hutter"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "reinforcement-learning",
+    "perception",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.15280",
+   "image": "figures/2026-11-13/2611.15280.jpg"
+  },
+  {
+   "date": "2026-11-13",
+   "rank": 6,
+   "id": "2611.15491",
+   "group": "general",
+   "title": "What Makes a VLA Reactive? A Study of Execution Strategies for Dynamic Manipulation",
+   "title_ja": "何がVLAを反応的にするのか？動的操作における実行戦略の調査",
+   "summary_ja": "Vision-Language-Action（VLA）モデルが動的環境で遅延なく追従するための実行戦略を体系的に調査。事前学習済みモデルπ0.5を用い、予測ホライズン（最適約1秒）と実行ホライズン、非同期推論の優位性、潜在空間RLによる適応などをシミュレーションおよび3つの実機タスクで比較評価し、反応性を高める設計指針を明らかにした。",
+   "summary_en": "This paper investigates what makes vision-language-action (VLA) models reactive in dynamic manipulation tasks. Using the pi0.5 model across simulation benchmarks and real-robot setups, the authors analyze the impact of action prediction/execution horizons, synchronous versus asynchronous inference, and latent-space RL adaptation, revealing critical design principles for low-latency reactive execution.",
+   "authors": [
+    "Zhuoyue Li",
+    "Zhendong Han",
+    "Pankhuri Vanjani",
+    "Wenting Li",
+    "Rudolf Lioutikov"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.15491",
+   "image": "figures/2026-11-13/2611.15491.jpg"
+  },
+  {
+   "date": "2026-11-13",
+   "rank": 7,
+   "id": "2611.15020",
+   "group": "general",
+   "title": "Genie Sim Benchmark: Real-to-Sim Fidelity and Evaluation",
+   "title_ja": "Genie Sim Benchmark: 実機-シミュレーション間の忠実度と評価",
+   "summary_ja": "実機とシミュレータ間の忠実度を精緻に検証するGenie Sim Benchmarkを提案。実機データで微調整した方策を用いて16タスク・22ペアを評価し、実機とシミュレーションの成功スコア相関0.9686、MAE 0.0405を記録。長時間の閉ループ位置制御や接触力伝達のシステム同定精度を定量化した。",
+   "summary_en": "The Genie Sim Benchmark rigorously assesses real-to-sim fidelity across 22 robot-task pairs spanning 16 tasks. Fine-tuned manipulation policies evaluated in both domains achieve a score correlation of 0.9686 and an MAE of 0.0405, demonstrating precise alignment in closed-loop trajectories, torque responses, and contact dynamics transfer.",
+   "authors": [
+    "Di Yang",
+    "Da Huang",
+    "Yang Lv",
+    "Fan Yang",
+    "Yi Lu",
+    "Zheyuan Xing",
+    "Linting Guo",
+    "Jiaen Shen",
+    "Wenjun Sun",
+    "Maoqing Yao",
+    "Qian Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "benchmark",
+    "simulation",
+    "sim-to-real",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.15020",
+   "image": "figures/2026-11-13/2611.15020.jpg"
+  },
+  {
+   "date": "2026-11-13",
+   "rank": 8,
+   "id": "2611.15565",
+   "group": "general",
+   "title": "Generalized Inverse Kinematics via Conditional Flow",
+   "title_ja": "Conditional Flowによる一般化逆運動学",
+   "summary_ja": "単一の解を求める従来の逆運動学（IK）を超え、有効な関節配位の分布をモデル化する生成型IK手法GenGenIKを提案。Conditional Flow Matchingを用い、台車移動や複数エンドエフェクタ、障害物回避、到達可能性の選好を単一のインターフェースで統合し、サンプリング速度と多様性の両面で従来手法を凌駕した。",
+   "summary_en": "GenGenIK is a generative inverse kinematics (IK) framework using conditional flow matching that outputs a distribution over valid robot configurations. It natively supports mobile bases, multiple end-effectors, obstacle avoidance, and behavioral preferences within a unified formulation, outperforming existing IK solvers in speed, success rate, and diversity.",
+   "authors": [
+    "Kaitlyn Zhang",
+    "Tom\\'as Lozano-P\\'erez",
+    "Leslie Pack Kaelbling"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "planning",
+    "control",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.15565",
+   "image": "figures/2026-11-13/2611.15565.jpg"
+  },
+  {
+   "date": "2026-11-13",
+   "rank": 9,
+   "id": "2611.16439",
+   "group": "general",
+   "title": "HALO: Human-Aligned Data Collection for WhoLe-body MObile Manipulation",
+   "title_ja": "HALO: 全身モバイルマニピュレーションのための人間整合型データ収集システム",
+   "summary_ja": "広範囲の移動と両腕協調操作を同時に学習するためのデータ収集基盤HALOを提案。操作者が低抵抗プラットフォームを足で押し歩きながら直接教示を行える機構により、自然な歩行移動と直接的な力覚フィードバック、ロボットとの視点・行動空間の一致を両立し、高品質な全身教示データ取得を可能にした。",
+   "summary_en": "HALO is a human-aligned data collection platform for whole-body mobile manipulation. By combining kinesthetic arm teaching with a low-resistance movable platform driven by the operator's natural walking, it aligns perceptual and action spaces while providing direct physical feedback, facilitating the acquisition of coordinated locomotion-manipulation demonstrations.",
+   "authors": [
+    "Shuai Yang",
+    "Fangyi Xu",
+    "Yishu Shen",
+    "Kecheng Zheng",
+    "Yinghao Xu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "teleoperation",
+    "manipulation",
+    "locomotion",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.16439",
+   "image": "figures/2026-11-13/2611.16439.jpg"
+  },
+  {
    "date": "2026-11-12",
    "rank": 0,
    "id": "2611.14186",
