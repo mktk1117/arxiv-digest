@@ -1,0 +1,128 @@
+{
+ "title_ja": "PolyMorphWBC: 異なるアーム形態に対応しリーチを拡張する四足モバイルマニピュレーションのための全身制御",
+ "tldr_ja": "手先（エンドエフェクタ）の短期軌道を与えるだけで、四足ロボットの台車移動とアーム動作を協調させ、アーム本来の可動域を大きく超える動作を4種類のアーム系列にまたがってゼロショット実現する全身制御フレームワークです。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "PolyMorphWBCの全体像です。手先（EE）の短期プレビュー軌道を入力とし、共通の階層型コントローラが台車とアームの協調動作を生成します。(a) 異なる固定台座可動域を持つ多様なアーム形態に対応し、(b) 台車を自律的に先読み移動させることで、初期可動域を大きく超えた軌道追従を実現します。",
+  "caption": "Fig. 1: Cross-arm reuse and extended reach with PolyMorphWBC. Top: a shared control hierarchy maps short-horizon EE trajectories to morphology-dependent arm–base motion across mounted-arm morphologies. (a) Representative arms exhibit different fixed-base workspaces. (b) Coordinated base motion enables tracking of EE trajectories extending beyond the arm’s initial fixed-base reach, without task-level base-motion commands. Panel (b) is schematic.",
+  "image": "details/2611.15117/F1.jpg"
+ },
+ "overview_ja": "四足歩行ロボットにマニピュレータを載せた「四足移動マニピュレータ」は、脚による高い走破性とアームの器用さを兼ね備えた魅力的なプラットフォームです。近年流行のVLA（Vision-Language-Action）モデルなどから手先（エンドエフェクタ: EE）の短期軌道を受け取り、それを下位の全身制御（WBC）で実行する設計が広まりつつあります。しかし、手先がアームの届く範囲を超えて移動する場合、コントローラは「いつ、どのように台車を動かすべきか」を先読みして判断しなければなりません。さらに厄介なのは、搭載するアームの形状や質量が変わると、アームの可動域だけでなく台車に伝わる反力（外乱）も劇的に変わるため、従来手法では特定のアーム専用にコントローラを作り直す必要があった点です。\n\nそこで著者らは、手先軌道のみを上位タスク指令とし、4つの異なるアーム系列にまたがって再利用できる階層型全身コントローラ「PolyMorphWBC」を開発しました。コアとなるのは、先読み手先軌道から台車の移動・姿勢コマンドを決定する全身コーディネータ、アーム固有の運動学を厳密に解くIKソルバ、そして外乱に強い固定の歩行バックエンドという3層構造です。アームのURDFから運動学・動力学を教師あり事前学習した「形態埋め込み（Morphology Conditioning）」と、実行時に生じる「オンライン残差レンチ（外乱モーメント）」を組み合わせることで、未知のアーム形態への適応を可能にしました。\n\nシミュレーション評価では、学習時に見たことのないアーム形態と軌道に対しても93.95%という高い完了率を達成し、既存のSOTA手法（UMI-on-Legs）と比較して位置誤差を約7割、姿勢誤差を9割以上削減しました。さらに実機のUnitree Go2とARX5アームの組み合わせにおいて、VLAモデル（$\\pi_0$）からの手先軌道だけで、台車への明示的な移動指令なしに可動域外へのPick-and-Placeを成功させています。",
+ "contributions_ja": [
+  "手先（EE）の短期軌道プレビューのみを入力とし、台車への明示的な移動指令なしで初期可動域を超える協調動作を生成する階層型全身制御アーキテクチャを提案したこと。",
+  "URDFから抽出した静的形態埋め込みとオンライン残差レンチフィードバックを融合し、同一の学習済み制御器を4つの異なるアーム系列にまたがって再利用可能にしたこと。",
+  "MuJoCo環境において既存手法（UMI-on-Legs）に対し位置誤差を69〜72%、姿勢誤差を91〜97%削減し、実機Go2–ARX5上でもVLAモデル（$\\pi_0$）を用いたリーチ拡張Pick-and-Placeを実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "II Introduction",
+   "heading_ja": "手先の軌道だけで脚と腕を動かしたい！でもアームが変わると破綻する問題",
+   "summary_ja": "VLAなどの上位ポリシーにとって手先軌道は扱いやすいインターフェースですが、台車可動域を拡張する全身制御はアーム形態に強く依存します。PolyMorphWBCは、手先の先読みとアーム形態情報の統合により、アームの種類を選ばず可動域を広げられる共通全身制御を目指します。",
+   "details_ja": "四足移動マニピュレータの大きな強みは、アーム単体では届かない遠くの場所へも、脚でベースを移動させることでアクセスできる点にあります。この柔軟性を活かすため、近年ではDiffusion PolicyやVLA（Vision-Language-Action）モデルが予測した手先（エンドエフェクタ: EE）の短期軌道をタスク指令とし、下位の全身制御器（WBC）が脚と腕に動作を割り振る構成が注目されています。手先軌道インターフェースの利点は、上位タスク側が「脚をどう動かすか」という低レベルな配分を意識しなくて済むことです。\n\nしかし、これを実現するには2つの強い結合問題が生じます。\n- 第一に、手先がアームの届く範囲（fixed-base reach）を超えて移動する場合、制御器は先読みしてベースを前進・旋回させなければなりません。ベース移動が遅れれば手先が届かなくなりますし、逆に焦って大きく動きすぎると手先の追従精度やロボットのバランスが崩れてしまいます。\n- 第二に、この協調動作はアームの「形態（モルフォロジー）」に大きく左右されます。アームの関節配置やリンク長が変われば可動域の形が全く変わり、同じ手先軌道でも要求されるベースの動きが異なります。また、質量配分が異なればアーム運動がベースに及ぼす反力外乱も激変します。\n\nこれまでの研究では、特定のアーム1種類に特化してポリシーを学習させることがほとんどでした。これに対しPolyMorphWBCは、手先の先読み軌道をベース判断に活用しつつ、URDFから抽出した形態情報とオンライン反力フィードバックを組み合わせることで、多種多様なアーム形態でそのまま使い回せる全身制御器を実現しました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "PolyMorphWBCの概念図です。共通の階層コントローラが1秒先の手先軌道を読み込み、アーム形態に応じた脚・ベースの協調動作を自律生成します。台座固定時の可動域（a）を大きく越えた軌道（b）でも、台車を連動させてスムーズに追従します。",
+     "caption": "Fig. 1: Cross-arm reuse and extended reach with PolyMorphWBC. Top: a shared control hierarchy maps short-horizon EE trajectories to morphology-dependent arm–base motion across mounted-arm morphologies. (a) Representative arms exhibit different fixed-base workspaces. (b) Coordinated base motion enables tracking of EE trajectories extending beyond the arm’s initial fixed-base reach, without task-level base-motion commands. Panel (b) is schematic.",
+     "image": "details/2611.15117/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related work",
+   "heading_ja": "全身制御、形態汎化、そして視覚運動ポリシーの交差点",
+   "summary_ja": "従来の数理最適化や強化学習による全身制御は、特定のアーム構造を前提としたものが主流でした。本研究は、ロボットの形態汎化技術と最新の視覚運動ポリシー（VLA等）の進展を結びつけ、アームを差し替えても機能する手先軌道追従コントローラを位置づけています。",
+   "details_ja": "### 全身制御（Whole-Body Control: WBC）の流れ\n四足マニピュレータの全身制御には、伝統的なモデル予測制御（MPC）や階層型最適化に基づくアプローチ（ALMAなど）と、強化学習（RL）を用いてシミュレーションから協調運動を獲得するアプローチ（DeepWBC、VBC、RoboDuetなど）があります。近年ではUMI-on-Legsのように手先軌道を入力とする学習ベースの追従手法も登場していますが、これらは基本的に固定された単一のアーム形態かつベース近傍の作業を前提としており、アームの差し替えや可動域を大幅に超える長距離移動への対応は不十分でした。\n\n### ロボット形態をまたぐクロスモルフォロジー制御\nダイナミクスの変動に対応する手法としては、RMAのようなオンライン潜在変数推定や、外乱レンチに応じた歩行制御、さらにはランダム生成された四足ロボットで共通歩行ポリシーを学ぶGenLocoやLocoFormerなどがあります。本研究では、ベースとなる四足歩行プラットフォーム（Unitree Go2）は固定し、搭載する6自由度アームの機構・質量パラメータを大きく変動させるという設定を採用しています。明示的な静的形態表現とアーム固有のIK、そしてオンライン相互作用フィードバックを組み合わせる点で新規性があります。\n\n### 視覚運動ポリシーとタスクインターフェース\nACT、Diffusion Policy、OpenVLA、$\\pi_0$といった近年の大規模ロボット基盤モデルは、短期的なアクションチャンク（一連の手先姿勢）を出力するのが一般的です。PolyMorphWBCは、こうしたタスクレベルのポリシーから出力される手先軌道を「そのまま受け取って実行する下位基盤」として機能するように設計されています。",
+   "figures": []
+  },
+  {
+   "heading": "III Methodology",
+   "heading_ja": "PolyMorphWBCの仕組み：先読み・形態埋め込み・残差レンチの3重奏",
+   "summary_ja": "本手法は、全身コーディネータ、アーム固有IK、歩行バックエンドの3層で構成されます。アームのURDFから運動学・動力学を事前学習した形態表現と、リアルタイムの残差レンチ入力を組み合わせることで、未知のアームでも破綻しない全身協調を可能にしています。",
+   "details_ja": "### III-A システム全体の概要\n制御インターフェースへの入力は、手先（EE）の短期軌道のみです。具体的には、現時刻から1秒先までの $K=7$ 点の手先目標姿勢（相対並進と連続6D回転表現で計9次元）のプレビュー $\\mathbf{p}_t$ をベース座標系で与えます。システムは以下の3層で協調動作を生成します。\n- **全身コーディネータ（$\\pi_W$）**: 10 Hzで動作し、プレビュー軌道 $\\mathbf{p}_t$ やロボットの状態、形態埋め込み $\\mathbf{z}^W_m$ から、台車の目標平面速度（$v_x, v_y, \\omega_z$）および目標ピッチ角と高さオフセット（$\\theta_B, h_B$）を出力します。\n- **アーム固有IKソルバ（$\\mathrm{IK}_m$）**: 50 Hzで動作し、現時刻の目標手先姿勢を各アーム固有の運動学モデル（減衰最小二乗法: DLS）で厳密に解き、アーム関節目標 $\\mathbf{q}^a_t$ を求めます。\n- **歩行バックエンド（$\\pi_B$）**: 50 Hzで動作し、コーディネータからの台車指令を追従するように脚関節トルク/目標 $\\mathbf{a}^\\ell_t$ を出力します。\n\n### III-B アーム形態の表現と事前学習\n対象とするのは、産業用や研究用で代表的な4つの6自由度アーム系列（ARX X5、PiPER、Compact xArm6、Compact MICO）です。各系列のテンプレートをもとに、リンク長や質量特性をプロシージャルにランダムサンプリングして多様なアームモデルを生成します。これらのURDF記述子 $\\boldsymbol{\\theta}_m$ を形態エンコーダ $E_\\phi$ に入力し、事前に以下の2つの教師ありタスクで学習させます。\n- **運動学デコーダ**: 関節角度から手先位置などを予測。\n- **動力学デコーダ**: 関節角度・速度・加速度から台座にかかる残差レンチを予測。\n学習完了後、エンコーダは固定され、各制御器に形態埋め込みベクトルを提供します。\n\n### III-C 残差レンチを考慮した歩行バックエンド\nURDFによる事前情報は公称値に過ぎず、実際のアーム動作による外乱や追従遅れを完全に捉えることはできません。そこで、アーム各リンクの運動から台座中心まわりの「残差レンチ（外乱力・トルク）」 $\\bar{\\mathbf{w}}^a_{B,t}$ をオンライン計算し、直近 $N_h=5$ ステップの応答履歴 $\\mathbf{H}_t$ とともに歩行バックエンドへ入力します。PPO（Proximal Policy Optimization）により、アームの急峻な運動や未知の反力に対しても転倒しない堅牢な歩行ポリシーをシミュレータ（IsaacLab）上で学習させます。\n\n### III-D 全身コーディネータの学習\n最後に、固定された形態エンコーダと歩行バックエンドを用い、全身コーディネータ $\\pi_W$ をPPOで学習します。訓練軌道には、台座固定の可動域内に収まるものと、大きく超える「作業域拡張（extended-reach）」軌道の両方をサンプリングして含めます。報酬関数には、手先の位置・姿勢追従精度のほか、台車と手先の向きの整合性、無駄なベース移動の抑制、関節リミットや衝突ペナルティなどを組み込み、スムーズな先読み移動動作を獲得させています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "PolyMorphWBCの全体パイプラインです。(a) オンライン制御の階層構造（コーディネータ、IK、歩行バックエンド）。(b) URDF記述子から運動学・動力学を予測させて形態エンコーダを事前学習する手順。(c) オフラインIKによるアーム外乱下での歩行バックエンドのPPO学習。(d) 凍結したバックエンドを用いた全身コーディネータの強化学習の流れを示しています。",
+     "caption": "Fig. 2: Pipeline of PolyMorphWBC. (a) The coordinator converts an EE trajectory preview into a base command, while arm-specific IK tracks the current target and the locomotion backend produces leg actions. (b) The morphology encoder is pretrained with kinematic and residual-wrench supervision and then frozen. (c) The backend and its morphology projection are trained with PPO under sampled base commands and independently executed, offline-IK-based arm motion, using target–wrench–response history. (d) With the encoder and backend frozen, the coordinator and its projection are trained through sampled EE trajectory covering motion within and beyond initial fixed-base reach. …",
+     "image": "details/2611.15117/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "実験結果：未知のアームでもスイスイ届く！シミュレーションと実機での実証",
+   "summary_ja": "シミュレーション評価では、未学習のアームや拡張軌道に対して93.95%の完了率を達成し、ベースライン（UMI-on-Legs）より姿勢誤差を9割以上削減しました。実機Go2–ARX5でも、VLAモデル（$\\pi_0$）からの手先軌道のみで可動域外のPick-and-Placeに成功しています。",
+   "details_ja": "### IV-A 実験セットアップ\nベースロボットにはUnitree Go2を使用。アームは4系列から生成した訓練用1024体、評価用128体（完全に未見のアーム）を使用し、さらに各系列の代表アンカーモデル4種（ARX X5、PiPER、Compact xArm6、Compact MICO）でも検証しました。比較対象として、手先軌道駆動の代表手法である「UMI-on-Legs」を採用し、別シミュレータであるMuJoCo環境でゼロショット転移の追従精度を比較しました。実機ではGo2にARX X5アームを取り付け、テレオペレーションおよびVLAモデル「$\\pi_0$」を用いた自律Pick-and-Placeを実施しました。\n\n### IV-B シミュレーション評価\n- **未学習軌道およびアームへの汎化**: 全評価セットにおいて、PolyMorphWBCは完了率93.95%、平均位置誤差2.30 cm、平均姿勢誤差4.81°を達成しました。初期位置から前方1.0 m以上離れた拡張軌道（$x > 1$ m）でも完了率94.83%（位置誤差1.94 cm）、後方軌道（$x < 0$）でも完了率91.56%（位置誤差2.41 cm）と、高い追従性を維持しました。\n- **アンカーアームへの転移**: 学習から除外していた実機アンカーモデルにおいて、ARX X5で完了率99.30%（位置誤差1.57 cm）、xArm6で99.27%（1.93 cm）を記録し、高い汎化性能を示しました。\n- **UMI-on-Legsとの比較（MuJoCo）**: 円や四角形を描く4種類の軌道において、UMI-on-Legsの位置誤差が4.77〜7.31 cm、姿勢誤差が22.72°〜76.57°だったのに対し、PolyMorphWBCは位置誤差1.38〜2.04 cm（69〜72%削減）、姿勢誤差2.01°〜2.38°（91〜97%削減）と圧倒的な精度差を示しました。UMI-on-Legsはアームが限界に達してから反応的に台車を動かすため姿勢が破綻しやすいのに対し、本手法は先読みにより姿勢を一定に保ったまま追従できています。\n\n### IV-C アブレーション研究\n形態埋め込み（Morphology Conditioning）を取り除いたモデルとの比較では、幾何学的特徴が際立つアーム系列（Compact xArm6やCompact MICO）において完了率が2.59〜9.90ポイント低下しました。多様な機構を1つのポリシーで扱う上で、明示的な形態情報の入力が不可欠であることが裏付けられました。\n\n### IV-D 実機実験\nGo2–ARX5実機において、手先操作デバイスからのテレオペ指令、および$\\pi_0$が画像から予測した手先軌道のみを与えて動作させました。どちらのタスクでも台車への直接指令は一切出していませんが、ロボットは手先軌道に合わせて脚を自律的に前進・姿勢制御させ、アーム単体では届かない遠くの物体を掴んで運ぶことに成功しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "MuJoCoでのGo2–ARX5による軌道追従結果の比較です。黒破線が目標軌道、青がPolyMorphWBC、オレンジがUMI-on-Legsです。(a)〜(d)の全軌道において、PolyMorphWBCは目標軌道および手先姿勢（矢印）を極めて正確に維持していることが分かります。",
+     "caption": "Fig. 3: EE-trajectory tracking on Go2–ARX5 in MuJoCo. Panels (a)–(d) show the vertical circle, vertical square, horizontal rectangle, and horizontal base orbit, respectively. Black dashed curves show commanded trajectories; blue and orange solid curves show trajectories executed by PolyMorphWBC and UMI-on-Legs, respectively. Color-matched arrows show EE local $z$ -axes projected onto each plotting plane.",
+     "image": "details/2611.15117/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "実機Go2–ARX5を用いた実証実験です。(a) 手先指示によるテレオペレーション（赤矢印が手先指令、赤曲線が自律生成された台車動作）。(b) $\\pi_0$を用いた言語指示による可動域拡張Pick-and-Placeの様子。どちらも台車への移動指令なしに全身協調を実現しています。",
+     "caption": "Fig. 4: Real-world demonstrations of PolyMorphWBC on a Go2–ARX5 platform. (a) EE-commanded teleoperation, where straight red arrows indicate the commanded EE motion and curved red marks indicate the controller-generated base motion. (b) VLA-driven extended-reach pick-and-place using $\\pi_{0}$ . Each row shows successive stages from left to right. In both cases, only the EE motion is commanded at the task level; no base-motion command is provided by either the operator or $\\pi_{0}$ .",
+     "image": "details/2611.15117/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "PolyMorphWBCは、手先の短期軌道プレビューと形態適応メカニズムにより、アームの種類を問わず可動域を拡張する全身制御を実現しました。今後は異なる四足ベースへの拡張や、接触を伴う高負荷タスクへの展開が期待されます。",
+   "details_ja": "本研究では、四足移動マニピュレータにおいて、手先（EE）の短期軌道を唯一のタスク指令としながら、多様なアーム形態に対応し、初期可動域を超えるリーチ拡張動作を可能にする階層型全身制御コントローラ「PolyMorphWBC」を提案しました。\n\n軌道の先読み（プレビュー）によって台車をいつ動かすべきかを判断し、URDF由来の形態埋め込み、アーム固有IK、そしてオンライン残差レンチフィードバックを組み合わせることで、単一の学習済み制御器を複数系統のアームへゼロショット適用することに成功しました。シミュレーションおよび実機実験により、その高い追従性とVLAモデルとの親和性が実証されています。\n\n現在の制約として、アームモデル（URDF）が既知であることや、手先軌道が滑らかで低速であることを前提としている点、およびベースがUnitree Go2に固定されている点が挙げられます。著者らは今後の展望として、異なる四足歩行台車への展開や、接触が頻繁に発生するリッチなマニピュレーションタスクへの拡張を挙げています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「手先軌道の先読み（プレビュー）」を入力に含めることで、台車への明示的な移動指令がなくても、初期可動域を超える動作で適切なベース移動タイミングを強化学習できる。",
+  "アームのURDFから運動学・動力学を事前学習した「形態埋め込み」と実行時の「オンライン残差レンチ」を組み合わせることで、4つの異なるアーム系列にまたがるクロスモルフォロジー制御が実現可能。",
+  "VLA（$\\pi_0$など）が出力する手先アクションチャンクをそのまま受け取ってベース動作へ変換する階層設計は、上位タスク学習と低レベル全身制御の結合において非常に相性が良い。"
+ ],
+ "limitations_ja": [
+  "台車プラットフォームがUnitree Go2に固定されており、ベースロボット自体の形態変化（大型犬型や二足など）には対応していない。",
+  "入力される手先軌道が滑らかで低速であることを前提としており、急激なアクロバティック動作や突発的な外乱への耐性は未検証である。",
+  "アームのURDFモデルが事前に正確に分かっている必要があり、モデル化されていない摩擦やバックラッシュが大きい場合には性能が落ちる可能性がある。",
+  "自由空間での軌道追従が主であり、扉を開けるなどの環境との接触力が発生するタスクへの対応は今後の課題とされている。"
+ ],
+ "keywords": [
+  "Quadrupedal Mobile Manipulation",
+  "Whole-Body Control",
+  "Cross-Morphology Control",
+  "End-Effector Trajectory Tracking",
+  "Vision-Language-Action Policy"
+ ],
+ "id": "2611.15117",
+ "title": "PolyMorphWBC: Whole-Body Control from End-Effector Trajectories for Quadrupedal Mobile Manipulation across Arm Morphologies with Extended Reach",
+ "authors": [
+  "Heng Li",
+  "Yang Li",
+  "Yifan Duan",
+  "Ren Fang",
+  "Matao Duan",
+  "Wenhao Yu",
+  "Lu Zhang",
+  "Jianmin Ji",
+  "Yanyong Zhang"
+ ],
+ "date": "2026-11-13",
+ "group": "focus",
+ "tags": [
+  "quadruped",
+  "manipulation",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.15117",
+ "pdf_url": "https://arxiv.org/pdf/2611.15117",
+ "summary_ja": "四足歩行ロボットに搭載されたアームの形態差を吸収し、手先軌道指令のみから全身協調動作を生成する階層型コントローラPolyMorphWBCを提案。ベースの移動要否や全身動作の配分を自動決定し、4種類のアーム形態にまたがって可動域を大幅に拡張したモバイルマニピュレーションを実現した。",
+ "generated": "2026-11-13",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.15117"
+}
