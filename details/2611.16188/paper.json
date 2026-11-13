@@ -1,0 +1,130 @@
+{
+ "title_ja": "PERA: 継続的な全身制御に向けたロボット行動プラグインエキスパート",
+ "tldr_ja": "学習済みのMoE型全身制御ポリシーを固定したまま、わずか約1%のパラメータを持つタスク専用エキスパートを追加学習・着脱可能にすることで、既存の動作を一切壊さずに未知の難関スキルを次々と獲得できる手法を提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "提案手法PERAの全体コンセプトです。ベースとなる事前学習済みポリシーは完全に凍結（フリーズ）され、新しいスキルごとに独立したタスクエキスパートを追加してオンデマンドに呼び出します。スイッチをオフにすれば、元のポリシーの計算パスが完全に復元されます。",
+  "caption": "Figure 1: Skill expansion on a frozen base policy. Task experts are learned independently and plugged into the same controller on demand, while the base-policy parameters remain frozen. An explicit switch determines whether the selected expert participates in execution. Disabling the expert restores the original computation path.",
+  "image": "details/2611.16188/F1.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットに歩行やダンスなどの多様な全身スキルを習得させる際、モーション模倣学習が強力なツールとして定着してきました。しかし、跳び越えやよじ登りといった新しい接触パターンや姿勢制約を伴う新タスクに直面したとき、モデル全体をファインチューニングすると既存のスキルが壊れてしまう「破滅的忘却」が発生します。かといってタスクごとに巨大なコントローラを丸ごと用意していては、保存コストも管理コストも膨らんでしまいます。\n\nそこで著者らは、事前学習済みのMixture-of-Experts（MoE：複数の専門家ネットワークを状況に応じて切り替える構造）ポリシーを完全に凍結したまま、新タスク専用の小さなエキスパートモジュールとルーティングスコアだけを追加学習する「PERA」を開発しました。新モジュールはベースモデルの約1.03%という極小のパラメータサイズでありながら、既存の動作表現をうまく再利用して効率的に学習を進めることができます。さらに、推論時には明示的なスイッチでモジュールの有効・無効を切り替えられ、無効化すれば元の計算パスが100%再現されます。\n\nUnitree G1シミュレータ環境を用いた実験では、凍結ポリシーにPERAモジュールをプラグインすることで、難易度の高い10種類のパルクール的タスクをすべて走破することに成功しました。エキスパートを無効化すればベースの126種類の動作が完全に保持され、さらにエキスパートを有効化すると訓練で直接使っていないダンス動作の追従精度まで向上するという興味深い汎化特性も確認されました。",
+ "contributions_ja": [
+  "事前学習済みのMoEベースポリシーを凍結したまま、わずかな追加パラメータ（約1.03%）で新スキルを自立獲得できるエキスパート拡張アーキテクチャを提案したこと。",
+  "強化学習（PPO）と教示学習（BC＋オンラインDAgger）の双方向に対応し、明示的なON/OFFスイッチで元の計算パスと既存動作を完全に復元できるプラグイン構造を実現したこと。",
+  "Unitree G1を用いた10種類の新規難関タスクにおいて全タスク走破を達成し、未学習の高速ダンス動作に対する汎化性能向上や、HoloMotionなど異なるベースポリシーへの高い適応性を実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "既存スキルを壊さずに新しい技を増やすにはどうすればよいか？",
+   "summary_ja": "ヒューマノイドの全身制御において、新しいスキルを増やすたびにモデル全体を更新すると既存の動作が崩れ、個別にモデルを作ると容量や管理の面で破綻します。PERAは、事前学習済みポリシーを凍結したまま小さなエキスパートをプラグインすることで、このジレンマを根本から解決します。",
+   "details_ja": "近年、参照モーションの模倣学習によって、ヒューマノイドロボットが歩行やジャンプ、ダンスといったダイナミックな動作を単一ポリシーでこなせるようになってきました。しかし、未知の障害物の乗り越えや特殊な接触を伴う新しいタスクに出会うと、既存の追従能力だけでは対応しきれない場面が出てきます。\n\nここで素朴にポリシー全体をファインチューニングしてしまうと、共有パラメータが書き換わってしまい、せっかく獲得した既存の動作が変質・劣化してしまいます。逆に、新タスクごとに独立したコントローラを丸ごと別個に訓練・保存する方法では、ストレージを激しく圧迫する上、せっかく学習した全身動作の共通表現を使い回すことができません。\n\nこの課題に対し、著者らは「ベースポリシーを凍結したまま、必要なときだけタスク専用モジュールをプラグインする」というアプローチを提案します。MoE（Mixture-of-Experts）構造に着目すると、エキスパート同士は特徴抽出層や出力層を共有し、ルーターによって協調動作しています。つまり、既存の共有特徴を再利用しつつ、新しいエキスパートと専用のルーティングスコアだけを独立して訓練すれば、ベースの知識を壊すことなく新スキルをアドオンできるわけです。\n\n本論文のコアとなるPERAは、新しいタスク用モジュールを訓練する際、既存パラメータを一切更新しません。そして実行時には明示的なスイッチを設けており、エキスパートをオフにするだけで瞬時に元のポリシーの挙動へ完全復元できる仕組みを整えています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "PERAの概念図です。ベースポリシー（左下）を凍結した状態で、飛び込み前転やクライミングなどの新スキルごとに独立したタスクエキスパートを学習・追加します。明示的なスイッチによって、必要なエキスパートだけを既存の制御ループへ瞬時にプラグインできます。",
+     "caption": "Figure 1: Skill expansion on a frozen base policy. Task experts are learned independently and plugged into the same controller on demand, while the base-policy parameters remain frozen. An explicit switch determines whether the selected expert participates in execution. Disabling the expert restores the original computation path.",
+     "image": "details/2611.16188/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "全身制御、継続学習、MoE技術の交差点",
+   "summary_ja": "本章では、全身動作模倣の発展、ロボットの継続学習、MoEやモジュール統合に関する先行研究を整理しています。PERAは、巨大な単一ポリシーを最初から育てるのではなく、「事前学習済みの基盤を凍結して後から独立拡張する」点に独自性があります。",
+   "details_ja": "### 全身運動制御（Whole-body motion control）\nDeepMimicを皮切りに、PHCやSONIC、KungfuBot2など、大規模なモーションデータと強化学習を組み合わせて多彩な全身動作を獲得する研究が急速に進んできました。これらは「いかに1つの巨大ポリシーに多くのスキルを詰め込むか」を追求していますが、PERAは視点を変え、「すでに完成したポリシーをベースに、後からいかに独立したエキスパートを追加できるか」に焦点を当てています。\n\n### 継続的スキル学習（Continual skill learning）\n過去の動作との類似度をもとにLoRAや拡張ネットワークを組み合わせる手法（LoRA-PNN）や、マルチタスク事前学習から動的エキスパートを構築するLiMoDE、軽量ルーターと係数再生を用いるDMPELなどが提案されています。PERAも継続学習の系譜に位置しますが、ベースパラメータを完全に凍結したままプラグイン可能な構造に徹している点が特徴的です。\n\n### エキスパートモジュールと知識統合（Expert modules and knowledge integration）\nMoEを用いて複数地形での勾配衝突を避けるMoE-Locoや、分散学習されたエキスパートを推論時に結合するFlexOlmo、教師モデルからの蒸留を繰り返すCPCなどがあります。PERAはこれらの知見を取り入れ、競争的なルーティングの中で新しいエキスパートを既存エキスパートと競わせつつ協調させる機構を導入しています。\n\n### 事前学習ポリシーとモデル予測学習（Pretrained control policies）\n動画やMoCapからTransformerベースの疎なMoEを学ぶHoloMotion-1や、微分可能ワールドモデルを活用してサンプル効率を高めるSuperMimicなどが登場しています。PERAのベースポリシーはこのSuperMimicの設計思想に準拠しており、さらに実験ではHoloMotion-1をベースとした拡張性も検証されています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "凍結ポリシーに新たなエキスパートを差し込む仕組み",
+   "summary_ja": "PERAは、エンコーダ・デコーダ・出力層を含むベースモデル全体を完全に固定し、新しいタスクエキスパート（FFN）とそのルーティングスコアのみを学習します。訓練にはタスク報酬に基づくPPO、または教師行動に基づくDAggerを活用し、Top-2選択による競合的な制御参加を実現します。",
+   "details_ja": "### 3.1 事前学習済みの全身運動追従ポリシー\nベースポリシーはSuperMimicの構成に従っており、参照モーションの目標ウィンドウ $g_t$ をエンコードし、直近10ステップの自己受容感覚観測 $o_{t-9:t}$ とデコーダで結合して制御特徴量を出力します。この制御特徴量を共有エキスパートとルーティングエキスパートが処理し、最終的に29次元の関節制御アクション $a_t \\in \\mathbb{R}^{29}$ を出力ヘッドから生成します。微分可能ワールドモデルを用いた事前学習を終えた段階で、エンコーダ、デコーダ、既存の8つのルーティングエキスパート、1つの共有エキスパート、出力ヘッド、正規化統計量のすべてを完全に凍結します。\n\n### 3.2 タスクエキスパートの学習\n新しいタスクを学習する際は、既存エキスパートの重みをコピーして新しいFFN（Feedforward Network）エキスパートを初期化します。学習時に勾配が流れて更新されるのは、この「追加されたFFN」と「そのスコアリングブランチ」のみです。\n\nルーターは各エキスパート候補に素のスコア $\\ell_i$ を割り当て、固定バイアス $\\delta_i$ を加算して選択スコア $v_i = \\ell_i + \\delta_i$ を計算します。新エキスパートが有効化されると、既存の8個と合わせた計9個の中からスコア上位2つ（Top-2）が選ばれます（同点の場合は既存エキスパートが優先されます）。選ばれた2つのエキスパートの混合重み $\\omega_i$ は、バイアスを除いた素スコア $\\ell_i$ のソフトマックスによって決まり、加重平均された特徴が出力ヘッドへと渡されます。共有エキスパートは常にアクティブです。\n\n学習方法は2通り用意されています：\n- **報酬ベース学習（PPO）：** 明示的なタスク報酬が設計できる場合、シミュレーション環境で軌道を収集し、PPOで追加モジュールを直接最適化します。価値関数ネットワーク（Critic）は別個に学習されます。\n- **教示学習（BC＋オンラインDAgger）：** 信頼できる教師ポリシーが存在する場合、まず行動クローニング（BC）で教師の行動を模倣させ、その後オンラインDAggerによってポリシー自身が訪問した状態に対して教師ラベルを付与して追加学習を行います。\n\n### 3.3 エキスパートの呼び出しと元ポリシーの復元\n追加されたエキスパート、スコアリングブランチ、選択バイアスは独立して軽量に保存されます。実行時、スイッチをオフにすると追加モジュールは完全にバイパスされ、ベースポリシーの元のルーティングと計算パスが100%復元されます。ベースの重みも正規化統計量も一切変化していないため、同一の入力に対して元のポリシーと完全に一致するアクションが出力されます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "PERAの学習と推論のパイプラインです。(a) 教師行動によるBC＋DAgger、または強化学習（PPO）により、追加されたFFNとルーティングスコアのみを更新します。(b) 推論時は既存の8個＋新規1個の中からTop-2エキスパートが競合的に選択され、スイッチをOFFにすれば元のルーティングへ瞬時に戻ります。",
+     "caption": "Figure 2: Learning and executing a task expert inside a frozen actor. (a) PPO, or behavior cloning followed by online DAgger, updates only the additional FFN and routing score. (b) The eight existing routed experts and one enabled new expert jointly participate in Top-2 selection; the shared FFN is combined separately. Disabling the new expert restores the original routing.",
+     "image": "details/2611.16188/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "10種の難関タスク走破と驚きの汎化性能",
+   "summary_ja": "29自由度のUnitree G1シミュレータを用いて検証を行いました。追加モジュールはベースの約1.03%という小ささでありながら、10種類のパルクール的タスクを全走破し、オフ時には元の126動作を完全維持、オン時には未学習のダンス追従率が59.38%から71.88%へ向上することを示しました。",
+   "details_ja": "### 4.1 評価セットアップとベースポリシー\n実験には29自由度を持つ等身大人型ロボット「Unitree G1」のシミュレータを採用しました。ベースのアクターネットワークは約1040万パラメータを持ち、8つのルーティングエキスパートと1つの共有エキスパートで構成されています。追加されるエキスパートモジュールのパラメータ数は、ベースアクター全体のわずか約1.03%に過ぎません。\n\n新タスクとしては、Deep Whole-body Parkourのデータセットから、飛び込み前転（dive rolling）、膝立ち登り（kneel climbing）、飛び乗り着席（jump sitting）、ロールヴォルト（roll vaulting）など、地形や壁の配置が異なる計10種類（S01〜S10）の過酷な運動を採用しました。制御周波数は50 Hzです。\n\n### 4.2 能力保持と未知動作への転移\nまず、エキスパートを無効化したときの挙動を確認したところ、事前学習で用いた全126種類の元動作において、ベースポリシーと完全に同一のアクションを出力し、100%の成功率と全く同等のトラッキング誤差を維持しました（破滅的忘却ゼロの証明）。\n\n次に、学習したエキスパートが訓練以外の動作にどう影響するかを調べるため、エキスパートの訓練には一切使っていない「8種類の高速ダンス動作」を実行させました。その結果、エキスパートを有効化するだけで、動作を最後まで転倒せずに完走できたエピソードの割合が59.38%から71.88%へと大幅に向上し、平均動作達成率も73.24%から83.83%へと跳ね上がりました。これは、難関タスク用に追加されたエキスパートが、極限状態での姿勢制御やダイナミクス補正といった汎用的な能力を提供していることを示唆しています。\n\n### 4.3 異なるベースポリシーへの拡張性（HoloMotionでの検証）\nPERAの枠組みが特定のベースモデルに依存しないことを実証するため、別のアプローチで学習された「HoloMotion-1」に対しても同様にPERAモジュールを追加しました。10タスク全体の平均終端位置誤差は173.36 cmから28.51 cmへと激減し、平均ルート位置誤差も15.12 cmから14.37 cmに改善しました。\n\nさらに、評価16エピソードを全完走できた5つのタスクにおいて教師ポリシーと性能を比較したところ、HoloMotion＋PERAは教師モデルよりも終端位置誤差が平均27.40%、ルート位置誤差が14.70%も小さく、なんと5タスク中4タスクで教師を上回る追従精度を記録しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "エキスパート訓練に使われていない未知の高速ダンス動作に対する汎化評価です。(a) 完走エピソードの割合が59.38%から71.88%へ向上、(b) 平均達成率も73.24%から83.83%へ改善しました。(c) 最も改善した動作では、関節角度誤差が7.10%、身体位置誤差が31.51%削減されています。",
+     "caption": "Figure 3: Execution of dance motions not used to train the expert. (a) Fraction of episodes that fully execute the reference motion. (b) Mean motion completion. (c) One replay of the motion with the largest completion improvement: joint-angle and aligned-body-position RMSE are compared over the first 66 frames during which neither policy has terminated. Base-policy error is normalized to 100%; blue bars show the relative error with the expert enabled.",
+     "image": "details/2611.16188/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "ベースモデルの違いによるタスク別誤差の比較です（著者らのベースモデル vs HoloMotion-1）。青いバー（正の値）はHoloMotion＋PERAの方が誤差が小さいことを示しています。ベースポリシーの性質によって得意なタスク傾向が異なることが分かります。",
+     "caption": "Figure 4: Per-task errors after expert expansion on different base policies. (a) Endpoint position error. (b) Root position error. Each bar gives the error of PERA on our pretrained policy minus that of HoloMotion + expert. Positive values indicate lower error for HoloMotion + expert; negative values indicate lower error for PERA on our pretrained policy.",
+     "image": "details/2611.16188/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "両ポリシーが完走できた5タスクにおける、教師モデルとの追従誤差比較です。(a) 各タスクの誤差削減率（青が教師より優秀）、(b) 5タスク平均の誤差比較です。HoloMotion＋PERAは教師モデルと比較して終端位置誤差を27.40%、ルート位置誤差を14.70%も削減しました。",
+     "caption": "Figure 5: Position errors of HoloMotion + expert and task teachers. The comparison includes the five tasks on which both policies fully complete all 16 evaluation episodes. (a) Per-task position-error reductions relative to the teacher: positive values indicate lower error and negative values indicate higher error than the teacher. (b) Position errors averaged equally across the five tasks.",
+     "image": "details/2611.16188/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめ：プラグイン構造が切り拓く生涯ロボット制御",
+   "summary_ja": "PERAは、事前学習済みポリシーを凍結したまま極小のエキスパートを追加することで、既存能力の完全保持と新スキルの高精度な獲得を両立しました。他モデルへの汎用性や未知動作へのプラスの影響も示され、ロボットの継続的な機能拡張に向けた実用的な道筋を提示しています。",
+   "details_ja": "本論文では、事前学習済みの全身運動制御ポリシーにタスクエキスパートを後付けで追加するフレームワーク「PERA」を提案しました。各タスクモジュールは独立して学習され、既存のエキスパートと競争・協調しながら制御に参加します。そして不要なときはスイッチをOFFにするだけで、ベースモデルのオリジナルの挙動が完全に復元されます。\n\nUnitree G1を用いた検証では、ベースモデルのわずか約1.03%という追加容量で難関10タスクを制覇し、元の126動作を100%保持できること、さらには未学習の高速ダンス動作の追従性まで引き上げるという嬉しい副作用まで確認されました。HoloMotionへの適用実験からも、本アプローチが特定のポリシー構造に縛られない汎用的な拡張基盤であることが裏付けられています。\n\n今後は、ロボットが現場で遭遇する様々な作業や環境に対して、巨大なモデルを再学習することなく「専門スキルモジュールをダウンロードして差し込む」ような、モジュール型の生涯学習システムへの発展が期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "基盤モデルを凍結して約1%のMoEエキスパートを追加するだけで、破滅的忘却を完全に防ぎつつ難関タスクを習得できる。",
+  "明示的なON/OFFスイッチを設けることで、プラグイン無効化時にベースポリシーと完全一致する決定論的な安全性を担保できる。",
+  "特化型エキスパートの追加は、そのタスクだけでなく未学習の高速動作（ダンス等）の姿勢制御能力まで底上げする汎化効果をもたらす。",
+  "自前設計のポリシーだけでなく、HoloMotionのような外部の事前学習済みポリシーにもそのまま適用できる高い汎用性がある。"
+ ],
+ "limitations_ja": [
+  "検証がUnitree G1のシミュレータ環境にとどまっており、実機環境（Sim-to-Real）での接触衝撃やアクチュエータ遅延に対する頑健性は直接示されていない点。",
+  "タスクごとに独立したエキスパートが増えていくため、タスク数が数百・数千に達した際のモジュール選択やストレージ管理の自動化ルールが未定義である点。",
+  "新タスクの学習には明示的な報酬設計または高精度な教師ポリシー（DAgger用）が不可欠であり、事前の教師データ作成コストが課題となる点。"
+ ],
+ "keywords": [
+  "Whole-Body Control",
+  "Humanoid Robots",
+  "Mixture-of-Experts",
+  "Continual Learning",
+  "Motion Tracking"
+ ],
+ "id": "2611.16188",
+ "title": "PERA: Plug-in Experts for Robotic Actions in Continual Whole-Body Control",
+ "authors": [
+  "Shangchao Hu",
+  "Yadan Sun",
+  "Xibo Yu",
+  "Wei Huang"
+ ],
+ "date": "2026-11-13",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "locomotion",
+  "control",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.16188",
+ "pdf_url": "https://arxiv.org/pdf/2611.16188",
+ "summary_ja": "ヒューマノイドの歩行やダンスなどの運動模倣において、既存スキルを破壊せず新スキルを効率獲得するPERAを提案。事前学習済みMixture-of-Experts（MoE）方策を凍結し、タスクごとにベースの約1.03%のパラメータからなるエキスパートモジュールとルーティングを追加学習することで、Unitree G1にて低コストな継続学習を達成した。",
+ "generated": "2026-11-13",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.16188"
+}
