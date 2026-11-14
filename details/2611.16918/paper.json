@@ -1,0 +1,131 @@
+{
+ "title_ja": "CT-SGAL-LIO: 離散LiDAR慣性オドメトリの因果的連続時間平滑化",
+ "tldr_ja": "高精度なLiDAR-慣性オドメトリ（LIO）でも発生する短周期の姿勢のガタつきを、元の推定器や地図に一切手を加えず、出力された姿勢系列に短い固定遅延の連続時間3次スプラインフィッティングを施すだけで大幅に平滑化する軽量モジュールを提案しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "CT-SGAL-LIOのシステム全体像です。離散SGal(3) LIO推定器（LIMOncello）が出力する事後姿勢ストリームを受け取り、有界な時間バッファ内で共分散を考慮したロバストな3次軌跡フィッティングを行い、固定遅延時間 $t_k^\\star = t_k - \\ell$ で平滑化された姿勢・速度を出力します。",
+  "caption": "Fig. 2: Overview of CT-SGAL-LIO. Posterior states from the discrete SGal(3) LIO estimator are maintained in a bounded temporal memory and reconstructed by covariance-aware robust cubic fitting. The resulting continuous trajectory is evaluated at the delayed query time $t_{k}^{\\star}=t_{k}-\\ell$ to obtain the refined state.",
+  "image": "details/2611.16918/F2.jpg"
+ },
+ "overview_ja": "近年のLiDAR-慣性オドメトリ（LIO）は、ガリレイ群 $\\mathrm{SGal}(3)$ などの高度な状態多様体や反復誤差状態カルマンフィルタを採用することで、非常に高い大域軌跡精度を達成しています。しかし、制御やプランニングなどの下流タスクで高周期に姿勢を要求すると、ある厄介な問題が浮き彫りになります。それは、高頻度なIMU伝播（予測）と低頻度なLiDAR補正（更新）が交互に繰り返されるため、大域的には正しくても短時間スケールでは姿勢が細かく振動・ジャンプしてしまうことです。\n\nこの局所的な不整合を解消するために、これまではLiDARスキャン内の個別点ごとに更新するようフィルタを改造するか、センサの生残差から直接スプラインなどの連続時間軌跡を最適化する手法が取られてきました。しかし、生データからの連続時間最適化は計算負荷が高く、激しい加減速や回転で破綻しやすく、何より状態の更新遅延が大きくなるという難点がありました。\n\nそこで著者らは、「元のLIO推定器や地図には一切触れず、出力された姿勢ストリームだけを後処理で滑らかにできないか？」と考えました。こうして生まれたのが「CT-SGAL-LIO」です。本手法は、過去の事後姿勢を短い時間バッファに保持し、局所リー代数上で共分散を考慮した3次多項式を当てはめます。最大のポイントは、わずかな固定遅延（fixed lag）を設けて「過去の内挿点」として姿勢をクエリすることです。これにより、因果律（オンライン処理）を保ちながら外挿によるブレを防ぎ、滑らかな連続時間軌跡を復元します。\n\nGRAND-TOUR、MCD、GEODEという3つの公開ベンチマーク（計17シーケンス）と長時間キャンパス走行で検証した結果、大域的な軌跡精度（ATE）を維持したまま、相対運動誤差（RTE）を最大70%削減し、姿勢ジャンプを85.4%抑えることに成功しました。",
+ "contributions_ja": [
+  "元のLIO推定器の内部構造や地図、生残差に依存せず、出力された事後姿勢ストリームのみを入力として動作する因果的・固定遅延型の連続時間リファインメント層を提案したこと。",
+  "局所 $\\mathrm{SE}(3)$ リー代数チャート上でのロバストな3次多項式フィッティングを定式化し、共分散重み付き反復再重み付け最小二乗法（IRLS）と曲率正則化を組み合わせた効率的な解法を構築したこと。",
+  "3つの公開データセット（17シーケンス）において、大域精度（ATE）を損なうことなく短時間の相対運動誤差（RTE）を最大70%（GEODE全7環境で9.9〜51.1%）削減できることを実証したこと。",
+  "19.5分間の実環境走行（約12万状態）において、大域的な終端ドリフトの変化をわずか4.7 mmに抑えつつ、姿勢間ジャンプを85.4%抑制できる長期安定性を示したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "大域的には正確なのに、なぜロボットの軌跡はガタつくのか？",
+   "summary_ja": "高精度なLiDAR-慣性オドメトリでも、IMUの伝播とLiDARの観測更新が交互に行われることで、短時間の姿勢系列には微小な振動が生じてしまいます。既存の対処法は推定器の構造を大きく変えるものばかりでしたが、本論文では推定器の外側に固定遅延の連続時間フィッティング層を追加する、はるかにシンプルで効果的な解決策を提案します。",
+   "details_ja": "移動ロボットの自己位置推定やマッピングにおいて、LiDAR-慣性オドメトリ（LIO）は不可欠な基盤技術です。最近では、回転・並進・速度・時間を一体として扱うガリレイ群 $\\mathrm{SGal}(3)$ などの豊かな状態多様体を用いた反復カルマンフィルタが登場し、大域的な推定精度は極めて高くなっています。\n\nしかし、ロボットの制御系やプランナが高周期で姿勢を問い合わせると、ある違和感に直面します。それは「局所的なガタつき（振動）」です。なぜこれが起きるかというと、フィルタ内部では数百Hzの「IMU伝播（Propagation）」と十数Hzの「LiDAR補正（Correction）」が交互に繰り返されており、それぞれのステップで誤差の現れ方が異なるためです。大域的には正しくマップに張り付いていても、短い時間枠で見ると姿勢がピョコピョコと跳ねてしまうのです。\n\nこれまでの対策は主に2系統ありました。1つはスキャン全体ではなく点単位でフィルタを回す方法（Point-LIOなど）、もう1つは離散状態を捨ててLiDARやIMUの生残差から直接スプライン軌跡をフィッティングする連続時間手法です。しかし、後者は計算が重く、急激な動きに弱く、状態更新の遅延も大きくなります。\n\nそこでCT-SGAL-LIOは、発想をガラリと変えました。「離散LIO推定器とそこで作られる地図には一切手を触れず、吐き出された姿勢ストリームだけを後から綺麗に整えればいいじゃないか」というアプローチです。過去の姿勢を少しだけバッファに溜め、ごくわずかな遅延（固定ラグ $\\ell$）を許容して軌跡を内挿します。外挿（予測）ではなく内挿（補間）になるため、オンライン処理の因果律を守ったまま、非常に滑らかで正確な姿勢と速度を取り出せるようになります。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "CT-SGAL-LIOの概念図です。届いた離散事後姿勢を固定遅延バッファに保持し、局所 $\\mathrm{SE}(3)$ 接空間でロバストな3次多項式をフィットさせます。現在時刻 $t_k$ より少し前の $t_k^\\star = t_k - \\ell$ で評価することで、外挿ではなく安定した内挿として平滑化姿勢と速度を取り出せます。",
+     "caption": "Fig. 1: CT-SGAL-LIO maintains a persistent fixed-lag memory of incoming LIO posterior states and reconstructs a continuous trajectory by robust metric-weighted cubic fitting in a local $SE(3)$ tangent chart. At the delayed query time $t_{k}^{\\star}=t_{k}-\\ell$ , the fitted trajectory provides the refined pose and its linear and angular velocities. The orange segment marks the illustrated local support.",
+     "image": "details/2611.16918/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "多様体LIOと連続時間軌跡推定の歩み",
+   "summary_ja": "多様体を用いた近年の離散LIOの発展と、スプライン等を用いた連続時間アプローチの歴史を整理しています。本研究は、ガリレイ群に基づく最新の離散LIOの上に、完全に分離可能な後処理層として連続時間リファインメントを載せるという点で、従来手法と明確に一線を画しています。",
+   "details_ja": "関連研究は大きく3つの系統に分かれます。\n\n### II-A 多様体上の離散時間LIO\nLOAMに始まった幾何特徴ベースの手法から、FAST-LIOやFAST-LIO2のように生点群を直接インクリメンタルkd-Tree（ikd-Tree）に登録する密結合・反復カルマンフィルタ（IKFoM）へと進化してきました。状態空間も単純な積多様体 $\\mathrm{SO}(3) \\times \\mathbb{R}^6$ から、回転と並進の結合を考慮できる $\\mathrm{SE}_2(3)$、さらには時間座標も組み込んだガリレイ群 $\\mathrm{SGal}(3)$ へと拡張されています。本研究がベースとする「LIMOncello」は、この $\\mathrm{SGal}(3)$ 上で動作する最先端の離散LIOです。本手法はこの推定器を一切変更せず、そこから得られる $\\mathrm{SE}(3)$ 投影姿勢系列を入力として利用します。\n\n### II-B 連続時間軌跡推定\nスキャン中の運動歪みを補正するため、軌跡を時間の連続関数として表現するアプローチです。CT-ICPのような区分線形モデルや、CLIC、SLICT2、RESPLEのような3次Bスプラインモデルが存在します。しかし、これらはセンサの生残差に対してスプラインの制御点を直接最適化するため、推定器そのものが連続時間化されており、計算負荷や急激な運動への頑健性に課題がありました。CT-SGAL-LIOは生残差ではなく、離散推定器が出した事後姿勢だけを扱うため、推定器から完全に疎結合である点が異なります。\n\n### II-C LiDARオドメトリにおける平滑化と固定遅延推定\n固定遅延平滑化（Fixed-lag smoothing）はファクターグラフのバックエンドやスライディングウィンドウ最適化で広く使われてきました。またWildcatのようにBスプラインを反復再重み付け最小二乗法（IRLS）でフィットする手法もありますが、これらもスプラインを推定ループの内部に抱え込み、生データ対応点の更新にフィードバックしています。CT-SGAL-LIOはフィードバックを一切行わず、純粋な後処理層として機能するため、姿勢ストリームを出力できる任意のLIOに後付けできる汎用性を持っています。",
+   "figures": []
+  },
+  {
+   "heading": "III System Overview",
+   "heading_ja": "既存のLIOにポン付けできる後処理パイプライン",
+   "summary_ja": "システムは、離散 $\\mathrm{SGal}(3)$ 推定器と、その出力を受け取るCT-SGAL-LIOリファインメント層の2つで構成されます。推定器側の処理や地図作成には一切影響を与えず、出力された事後姿勢ストリームだけを有界メモリで滑らかに再構築します。",
+   "details_ja": "システム全体のアーキテクチャは非常に明快です（図 F2 参照）。\n\nまず前段として、離散 $\\mathrm{SGal}(3)$ LIO推定器（LIMOncello）が動作しています。IMUによる順方向伝播と、LiDARスキャンマッチングによる反復誤差状態カルマンフィルタ（ESKF）の更新を経て、高レートな事後状態が出力されます。\n\n後段のCT-SGAL-LIOは、この事後状態ストリームを受け取ります。処理は大きく3つのステップからなります:\n- **永続的局所メモリ（Persistent Temporal Memory）**: 届いた事後姿勢とその共分散を有界な時間バッファに蓄積し、古い状態を自動で破棄します。\n- **ロバストな局所軌跡フィッティング（Robust Local Trajectory Fit）**: バッファ内の姿勢を局所基準姿勢からの接空間（リー代数）座標へ変換し、共分散重みとHuber損失、さらに急激な振動を抑える曲率正則化を加えて3次多項式を当てはめます。\n- **遅延状態評価（Delayed State Evaluation）**: 現在時刻 $t_k$ よりわずかに過去の固定遅延時刻 $t_k^\\star = t_k - \\ell$ において連続軌跡を評価し、平滑化された姿勢・並進速度・角速度を出力します。\n\nこのように、フロントエンドのLiDAR処理や地図更新ループから完全に切り離されているため、既存システムを壊すことなく簡単に組み込めるのが強みです。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "CT-SGAL-LIOの全体処理フローです。左側の離散SGal(3) LIO推定器から事後姿勢と共分散を受け取り、右側のオンライン軌跡層が有界メモリ管理、局所3次多項式フィッティング、固定遅延時刻での状態評価を順次実行して、洗練された連続時間状態を出力します。",
+     "caption": "Fig. 2: Overview of CT-SGAL-LIO. Posterior states from the discrete SGal(3) LIO estimator are maintained in a bounded temporal memory and reconstructed by covariance-aware robust cubic fitting. The resulting continuous trajectory is evaluated at the delayed query time $t_{k}^{\\star}=t_{k}-\\ell$ to obtain the refined state.",
+     "image": "details/2611.16918/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Methodology",
+   "heading_ja": "固定遅延と局所リー代数チャートによるロバスト3次フィッティング",
+   "summary_ja": "事後姿勢を局所基準フレーム周りの $\\mathrm{SE}(3)$ リー代数で表現し、時間正規化された3次多項式をIRLSで解きます。共分散による重み付け、Huber損失による外乱抑制、曲率ペナルティによる振動防止を組み合わせ、固定遅延の内挿によって安定した姿勢と速度を解析的に導出します。",
+   "details_ja": "### IV-A 問題設定と定式化\n入力は、タイムスタンプ付きの姿勢 $\\mathbf{T}_i = (\\mathbf{R}_i, \\mathbf{p}_i) \\in \\mathrm{SE}(3)$ とその共分散行列 $\\boldsymbol{\\Sigma}_i$ の系列です。バッファ内の有効時間窓を $[t_k^\\star - W, t_k]$ とします。ここで $W$ は問い合わせ時刻より前の過去の履歴長、$\\ell$ は出力遅延（ラグ）であり、問い合わせ時刻は $t_k^\\star = t_k - \\ell$ です。$W > 0, \\ell > 0$ であるため、クエリ時刻は観測窓の内側にすっぽり収まります。つまり、未来を先読みして待つのではなく、少し過去を振り返る「固定遅延の内挿」を行うことで、因果律を満たしたまま安定した補間が可能になります。\n\n数値的な安定性を保つため、時間窓を中心 $c_k$、半幅 $h = (W + \\ell)/2$ で $[-1, 1]$ に正規化します（$u_i = (t_i - c_k)/h$）。また、回転行列を直接多項式近似すると $\\mathrm{SO}(3)$ の制約が崩れるため、窓内の最初の姿勢 $\\mathbf{T}_{r,k}$ を局所基準とし、並進差分 $\\mathbf{p}_i - \\mathbf{p}_{r,k}$ と回転差分のリー代数表現 $\\mathrm{Log}(\\mathbf{R}_{r,k}^\\top \\mathbf{R}_i)$ を並べた6次元ベクトル $\\mathbf{z}_i$ を定義します。これを3次基底 $\\mathbf{b}(u) = [1, u, u^2, u^3]^\\top$ と係数行列 $\\mathbf{A}_k \\in \\mathbb{R}^{6 \\times 4}$ でモデル化します:\n$$\\hat{\\mathbf{z}}(u) = \\mathbf{A}_k \\mathbf{b}(u)$$\n姿勢の復元は指数写像 $\\mathrm{Exp}$ を通すため、常に厳密な $\\mathrm{SO}(3)$ 上に留まります。\n\n目的関数は、共分散重み付きの残差に対するHuber損失と、無駄な揺れを抑える2階微分（曲率）ペナルティ項で構成されます:\n$$\\min_{\\mathbf{A}} \\sum_{i \\in \\mathcal{I}_k} \\rho_\\delta (\\|\\mathbf{z}_i - \\mathbf{A}\\mathbf{b}(u_i)\\|_{\\boldsymbol{\\Omega}_i}^2) + \\sum_{u_q \\in \\mathcal{Q}} \\|\\mathbf{A}\\ddot{\\mathbf{b}}(u_q)\\|_{\\boldsymbol{\\Lambda}}^2$$\n\n### IV-B オンライン推定と実装の詳細\nこの最適化問題は反復再重み付け最小二乗法（IRLS）で解きます。入力共分散 $\\boldsymbol{\\Sigma}_i$ に固有値の下限処理を施して精度行列 $\\boldsymbol{\\Omega}_i$ を作り、残差の大きさに応じてHuber重み $w_i$ を更新します。係数を行列から24次元ベクトル $\\mathbf{a}_k \\in \\mathbb{R}^{24}$ に変換すると、正規方程式は常にたった $24 \\times 24$ の小さな連立一次方程式になり、軌跡の長さに依存せず極めて高速に解くことができます。\n\n解が求まったら、固定遅延点 $u_k^\\star$ で多項式を評価します。並進速度 $\\hat{\\mathbf{v}}_k^\\star$ は3次基底の時間微分から解析的に得られ、角速度 $\\hat{\\boldsymbol{\\omega}}_k^\\star$ はリー群上の中心差分によって一貫性をもって計算されます。",
+   "figures": []
+  },
+  {
+   "heading": "V Evaluations",
+   "heading_ja": "実データで検証：大域精度を維持しつつ局所振動を大幅カット",
+   "summary_ja": "3つの公開データセット（17シーケンス）と19.5分の実環境データを用いて検証しました。大域的な軌跡誤差（ATE）を悪化させることなく、短時間の相対運動誤差（RTE）を最大70%削減し、長時間の走行でも姿勢ジャンプを85.4%抑えられることが確認されました。",
+   "details_ja": "### V-A 実験セットアップ\nGRAND-TOUR（4シーケンス、Hesai XT32 + NovAtel CPT7）、MCD NTU Campus（6シーケンス、Livox Mid-70 + VectorNav VN100）、GEODE（7シーケンス、Velodyne VLP-16 + Xsens MTi-30）の計17シーケンスで評価しました。比較対象は、ベースラインであるLIMOncello、連続時間スプラインをカルマンフィルタ内に持つRESPLE、そして標準的なFAST-LIO2です。評価指標には、大域精度を測る絶対軌跡誤差（ATE RMSE）と、短時間の局所的な滑らかさを評価する微小時間間隔（$\\Delta t = 0.1$ 秒）の相対運動誤差（RTE RMSE）を用いました。\n\n### V-B 定性的な評価結果\nMCDのday01シーケンスの例（図 F3）では、大域的な軌跡やATEの経時変化は元のLIMOncelloとほぼ完全に重なっています。しかし、時間間隔ごとのRTEをプロットすると、CT-SGAL-LIOは短時間側で大幅に低いエラーを達成しており、大域的なドリフトを増やすことなく局所的な高周波振動だけを綺麗に除去できていることが分かります。\n\nまた、19.5分間（約12万状態）に及ぶR-Campusデータセットの実験（図 F4）では、隣接状態間の位置変化速度の95パーセンタイル値が $16.5\\,\\mathrm{m/s}$ から $2.4\\,\\mathrm{m/s}$ へと $85.4\\%$ も激減しました。それにもかかわらず、一周して戻ってきたときの3次元終端ギャップ（ドリフト）の変化はわずか $4.7\\,\\mathrm{mm}$ でした。長期にわたって大域構造を歪めずにジャンプを抑え込めることが実証されています。\n\n### V-C 定量的な評価結果\n- **GRAND-TOUR**: 4シーケンスすべてでCT-SGAL-LIOが最も低いRTEを記録し、HAUS_1ではLIMOncelloに対してRTEを約67%削減しました。ATEも同等以上でした。\n- **MCD**: 昼夜6シーケンスすべてでRTEが1位または2位を獲得しました。大域精度を犠牲にすることなく、過酷な照度変化下でも安定して機能しています。\n- **GEODE**: 階段や不整地を含む極めて困難な全7シーケンスにおいて、LIMOncelloに比べてRTEを9.9%〜51.1%削減しました。特にオフロード環境（Offroad1〜3）ではATE・RTEともに全手法中で最高の精度を達成しました。\n\n### V-D アブレーション研究\nGEODEデータセットを用いて主要コンポーネントの効果を検証しました:\n- **固定遅延（Lag）**: 遅延をゼロにして最新時刻で評価する外挿モデルに比べ、固定遅延 $\\ell = 0.2\\,\\mathrm{s}$ を入れた内挿モデルはRTEをさらに $7.9\\%$ 改善しました。\n- **曲率項**: 曲率正則化を外すと局所的な高周波残差（p99残差）が約2倍に悪化し、滑らかさの維持に必須であることが分かりました。\n- **Huber損失**: 人為的に並進スパイク外乱（$0.2\\,\\mathrm{m}$ のインパルス）を注入した実験では、Huber損失によってp99残差が $0.721\\,\\mathrm{mm}$ から $0.482\\,\\mathrm{mm}$ に抑えられ、突発的な姿勢ジャンプに対する堅牢性が確認されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "MCD NTU Campus（day01）での比較です。(a) 推定軌跡と (b) ATEの経時変化は大域的にベースラインと一致していますが、(c) 評価時間間隔 $\\Delta t$ に対するRTEを見ると、短時間領域においてCT-SGAL-LIOが劇的に誤差を低下させていることが分かります。",
+     "caption": "Fig. 3: Qualitative comparison between LIMOncello and CT-SGAL-LIO on the day01 sequence of the MCD NTU Campus dataset. (a) Estimated trajectories compared with the ground truth, (b) ATE over time, and (c) RTE evaluated at different time intervals $\\Delta t$ . CT-SGAL-LIO preserves a trajectory close to the baseline while substantially reducing short-term relative motion error.",
+     "image": "details/2611.16918/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "19.5分間のR-Campus走行での長期挙動です。(a) 12万状態にわたり大域軌跡が維持され、始点・終点間ギャップの変化はわずか4.7 mmでした。(b) 連続状態間の速度スパイク（ジャンプ）の95パーセンタイルが16.5 m/sから2.4 m/sへと85.4%抑制されています。",
+     "caption": "Fig. 4: Long-duration online behavior of CT-SGAL on the R-Campus deployment. (a) The refined trajectory remains closely aligned with the LIO posterior over a 19.5-min sequence, while the inset shows a locally continuous CT trajectory reconstructed from discrete posterior samples. (b) CT-SGAL strongly attenuates consecutive-state posterior jumps, reducing $p_{95}(r_{k})$ from $16.5$ to $2.4$ m/s ( $85.4\\%$ ), while introducing only a $4.7$ mm change in the 3-D end-to-start gap.",
+     "image": "details/2611.16918/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Conclusions",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "CT-SGAL-LIOは、離散LIOの事後出力を固定遅延の連続時間3次フィッティングで洗練する因果的で軽量な手法です。大域精度を完全に保ちながら局所的な振動を大幅に削減できることが実証されました。今後は他のLIOへの適用や、運動に応じた適応的ウィンドウ制御が期待されます。",
+   "details_ja": "本論文では、離散LiDAR-慣性オドメトリの事後姿勢ストリームを滑らかにする、因果的かつ固定遅延型の連続時間リファインメント層「CT-SGAL-LIO」を提案しました。\n\n最大の特徴は、推定器内部のフィルタや地図表現に一切手を触れず、外側から後処理として接続できる点にあります。局所 $\\mathrm{SE}(3)$ リー代数チャート上での共分散重み付き3次多項式フィッティングと、わずかな固定遅延による内挿クエリを組み合わせることで、オンライン処理の枠組みを崩さずに短周期のガタつきを効果的に抑制しました。\n\n3つのベンチマークと実環境走行による検証では、大域的な軌跡精度（ATE）を維持したまま、相対運動誤差（RTE）を最大70%削減し、状態ジャンプを85.4%カットできることを示しました。ただし、元の離散事後状態に目立った振動が含まれていない場合には改善幅が小さくなることも分かっています。\n\n著者らは今後、コードと結果を公開するとともに、LIMOncello以外の様々な離散LIO推定器への適用や、ロボットの運動状態に応じて遅延時間やフィッティング窓幅を動的に適応させる拡張に取り組む予定としています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「大域的に高精度なLIOでも、IMU伝播とLiDAR補正の交互作用によって短時間の局所振動（姿勢ジャンプ）が生じる」という見落とされがちな実践的課題に注目した点。",
+  "推定器を複雑な連続時間モデルで作り直すのではなく、「離散推定器の出力を観測値とみなし、固定遅延の内挿で3次多項式を当てる」という後処理アプローチが、計算コスト・頑健性・精度のバランス面で極めて実用的であること。",
+  "局所 $\\mathrm{SE}(3)$ チャート上での定式化により、未知数は常に $24 \\times 24$ の小さな線形方程式に収まり、軌跡長に関わらずリアルタイム処理が容易であること。",
+  "ロボット制御やパス追従など、高周期かつ滑らかな姿勢・速度ストリームを要求する下流タスクにとって、プラグインとして即座に導入できる現実的な解決策となること。"
+ ],
+ "limitations_ja": [
+  "固定遅延（論文の設定では $\\ell = 0.2$ 秒）を導入するため、出力姿勢に原理的なタイムラグが発生し、超低遅延が必須なフィードバック制御にはトレードオフが生じる点。",
+  "元の離散LIOの事後姿勢に振動やジャンプがほとんどないシーンでは、RTEの改善効果が限定的（約10%未満）にとどまる点。",
+  "ウィンドウ幅 $W$ や遅延 $\\ell$、曲率重み $\\boldsymbol{\\Lambda}$ などのハイパーパラメータが固定値であり、激しい加減速や静止状態などロボットの運動に応じた動的適応がまだ行われていない点。"
+ ],
+ "keywords": [
+  "LiDAR-Inertial Odometry",
+  "Continuous-Time Trajectory",
+  "Fixed-Lag Smoothing",
+  "Special Galilean Group",
+  "Lie Group SE(3)"
+ ],
+ "id": "2611.16918",
+ "title": "CT-SGAL-LIO: Causal Continuous Time Refinement of Discrete LiDAR Inertial Odometry",
+ "authors": [
+  "Nam Tran",
+  "Thu Tran",
+  "Toan Nguyen",
+  "William J Beksi",
+  "Tuan Dang"
+ ],
+ "date": "2026-11-14",
+ "group": "general",
+ "tags": [
+  "perception",
+  "autonomous-driving"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.16918",
+ "pdf_url": "https://arxiv.org/pdf/2611.16918",
+ "summary_ja": "従来のLiDAR慣性オドメトリ（LIO）で生じる短時間のポーズ振動を解消するため、離散SGal(3)推定量に対して因果的連続時間平滑化を行うモジュールCT-SGAL-LIOを提案。追加の重い大域最適化を伴わずに状態更新の遅延を防ぎ、急激な回転や加減速時でも滑らかで高精度な軌道推定を実現した。",
+ "generated": "2026-11-14",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.16918"
+}
