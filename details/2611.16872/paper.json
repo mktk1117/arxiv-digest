@@ -1,0 +1,160 @@
+{
+ "title_ja": "ACE-CaP-0: 経験の時代における実世界Code-as-Policies",
+ "tldr_ja": "大規模言語モデルによるロボット制御の推論遅延を解消するため、試行錯誤の経験を「実行可能なPythonプログラム」として固定化し、自律的かつ高成功率（92.1%）で実世界マニピュレーションを完遂するフレームワークを提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "ACE-CaP-0の全体像。コーディングエージェントが必要に応じて実機の教示やシミュレーションを活用してコードを反復修正し、完成したプログラムを「凍結」して実機で自律実行します。8種類の実世界タスク全体で92.1%の成功率を達成しています。",
+  "caption": "Figure 1 : ACE-CaP-0: from targeted experience to standalone robot execution. Left: a coding agent refines policies on the robot, requesting robot demonstrations and using simulation as needed. Right: eight manipulation tasks, with each panel reporting the success rate and mean physical execution time in minutes. Each frozen policy is evaluated in 30 trials and executes with runtime perception and control, without a human or coding agent in the loop.",
+  "image": "details/2611.16872/F1.jpg"
+ },
+ "overview_ja": "近年、フロンティアモデル（高性能な大規模言語モデル）をロボットのエージェントとして使い、試行錯誤させながら作業を遂行させるアプローチが注目されています。しかし、実行中に毎ステップ巨大なモデルを呼び出していると、推論待ちの遅延が膨らみ、作業完了までに膨大な時間がかかってしまうという根本的な問題がありました。\n\nそこで注目されているのが、ロボットの動作方策をプログラムとして表現する「Code as Policies (CaP)」です。開発段階でモデルが試行錯誤した推論結果をPythonなどの実行可能なコードに落とし込んでおけば、本番の実行時にはLLMを介さず、高速なランタイム処理だけでロボットを動かせます。しかし、物理環境での試行錯誤には「人間による初期状態のリセット」や「実機の拘束時間」という重いコストが伴います。現実的な回数の実験だけで、いかに信頼性の高いコードを開発できるかが大きな課題でした。\n\n著者らはまず「充電器のプラグ挿入」タスクを通じ、人間の教示の与え方（テキスト・人間の動画・実機教示）やタイミング（事前一括 vs 要求時）、さらにシミュレーションの併用方法について徹底的な検証を行いました。その結果、エージェントが困ったタイミングで呼び出す「要求時の実機教示」と、特定の部分問題をピンポイントで検証する「オンデマンドなシミュレーション」の組み合わせが最も効果的であることを突き止めました。\n\nこの知見を結晶化させたのが、方策開発レシピ「ACE-CaP-0」です。実機でのリセット回数をタスクあたり最大10回に厳しく制限した条件下で、両腕協調や精密な位置合わせを含む8つの実世界タスクに適用したところ、完成した凍結コードは240回中221回（全体成功率92.1%）という極めて高い信頼性を記録しました。",
+ "contributions_ja": [
+  "実機での試行錯誤コスト（人間のリセット回数など）を最小化しながら信頼性の高いコード方策を生成する開発レシピ「ACE-CaP-0」を確立したこと",
+  "人間の教示は「事前の網羅的な提示」よりも、エージェントが必要と判断した際に提供される「要求時（On-Request）の実機教示」が開発効率と最終性能の両面で優れることを実証したこと",
+  "シミュレーション先行のSim-to-Realではなく、実世界の開発ループ内で疑問を検証するために局所的にシミュレーションを呼び出す「オンデマンドシミュレーション」が観察ギャップを防ぎ有効であることを解明したこと",
+  "両腕協調や精密挿入を含む実世界8タスクにおいて、LLMをループから外した凍結コードが平均実行時間0.97〜2.27分・全体成功率92.1%で動作することを示したこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "推論遅延の壁を破る：経験をプログラムに変える新戦略",
+   "summary_ja": "LLMをロボット制御ループ内で毎ステップ呼ぶと推論遅延が深刻になるため、開発時の試行錯誤をコードとして固定化するCaPの重要性が増しています。物理実験の高コストを抑えつつ信頼性の高いプログラムを開発するため、教示とシミュレーションの最適な活用法を探ります。",
+   "details_ja": "近年のVLA（Vision-Language-Action）モデルやフロンティアモデルの進化により、ロボットが自律的に周囲の状況を把握して行動できるようになってきました。しかし、実機を動かすたびに巨大なモデルへ問い合わせを行っていると、推論の通信や計算のレイテンシ（遅延）が積み重なり、タスク完了までに長い時間がかかってしまいます。\n\nそこで本研究が着目したのが「Code as Policies (CaP)」というアプローチです。これはロボットの制御方針を行動の順序や幾何学的な計算、軌道パラメータを含んだ「プログラムコード」として出力する手法です。コーディングエージェント（LLM）が開発段階で十分に試行錯誤し、その推論プロセスをコードとして焼き固めておけば、本番実行時はエージェントをループから外してスタンドアローンで高速に動かせます。\n\nしかし、信頼できるコード方策をゼロから開発するのは容易ではありません。掴み方やアプローチの軌道など、タスクの指示文だけでは決まらない物理的な前提条件が無数にあるからです。実機で失敗しても「コードのどこを直せばいいのか」が即座には分かりませんし、ロボットの実験には人間が散らかった物体を並べ直す「シーンリセット」の手間と時間がかかります。\n\nつまり、「コードをどう書き換えるか」と「次にどんな物理的経験を得るか」を賢く連動させる必要があります。そこで本論文では、人間の教示とシミュレータをどのように組み合わせれば、最小限の実機試行で頑健なプログラムを開発できるのかを明らかにすることを目指しました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Investigation",
+   "heading_ja": "徹底検証：人間の教示とシミュレーションをどう使うべきか？",
+   "summary_ja": "充電プラグ挿入タスクを通じ、教示の形式・タイミング・シミュレーションの使い方の違いを比較検証しました。その結果、必要な時に実機軌道を呼び出す「要求時教示」と、実機ループ内で局所的にシミュレータを使う「オンデマンドシミュレーション」が最も有効であることが判明しました。",
+   "details_ja": "著者らは「充電器のプラグを電源タップに挿す」という難関タスクを舞台に、人間の補助やシミュレーションの与え方を変えた6つの条件で実験を行いました。公平を期すため、どの条件でも人間が介入して配置を直す「実機シーンリセット」の上限を最大10回に厳しく制限しています。\n\n### 2.1 人間の事前知識をどう組み込むべきか？\nまず「教示の形式」を3種類比較しました。\n- テキストのみの助言\n- ロボット目線の人間の手元動画（Robot-Egocentric Human Video）\n- 実機を直接動かしたダイレクトティーチング教示（Robot Demonstrations：動画に加え、関節軌道と主要ポーズを含む）\n\n結果は、実機教示が成功率86.7%（26/30回）と最も高く、手元動画の73.3%、テキストのみの60.0%を大きく上回りました。手元動画だと人間の手の動きをロボットのアーム関節角へ変換する難しさがありますが、実機教示ならアームの構成やアプローチ軌道の数値データがそのまま手に入るため、エージェントがコードへ落とし込みやすくなります。\n\n次に「教示のタイミング」を比較しました。最初に教示を一括して与える「Upfront」に対し、エージェント自身が必要と感じたタイミングで教示を要求する「On-Request」を試したところ、大きな差が出ました。Upfrontでは成功率53.3%・開発時間7.2時間だったのに対し、On-Requestでは成功率86.7%・開発時間3.7時間と、時間をおよそ半分に短縮しながら成功率が跳ね上がりました。最初に情報を与えすぎるとエージェントが消化不良を起こすのに対し、試行して壁にぶつかった局所でピンポイントに教示をもらう方が、修正の精度が格段に上がるためです。\n\n### 2.2 シミュレーションをどう組み込むべきか？\n続いて、シミュレーションの役割について以下の3つを検証しました。\n- 実機のみで開発する「Real-Only」\n- シミュレータを構築して10ラウンド並列探索した後に実機へ移す「Sequential Real-Sim-Real」\n- 実機開発のループ内から疑問が生じたときだけシミュレーションを呼び出す「Simulation on Demand」\n\n驚くべきことに、一般的な順序であるSequential Real-Sim-Realの実機成功率は0%でした。シミュレータ内の綺麗な深度画像に過剰適合してしまい、実機のLiDARや深度カメラにある近距離のブラインド領域やノイズに対応できず、プラグを掴む段階で失敗したためです。一方で、実機を主軸にしつつ候補コードの比較だけにシミュレータを使うSimulation on Demandは、成功率100%を達成し、開発時間も2.6時間に短縮できました。実機でのセンシング仮定を壊さずに安全な動作検証が行えるため、極めて強力です。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "教示形式の比較実験。テキスト助言、人間の手元動画、実機教示（ダイレクトティーチング）を比較した結果、実機の関節軌道やキーポーズを含む実機教示が成功率86.7%と最も高く、開発時間やトークン消費も効率的でした。",
+     "caption": "Figure 2 : Guidance form for charger insertion. Top: textual guidance, robot-egocentric human video, and robot demonstrations, all available on request during real-only development. Both demonstration conditions also include textual guidance. Bottom: final success rate over 30 real-world trials of each frozen program, development time, and output token usage. Robot Demonstrations is the shared reference in Figures 3 and 4 .",
+     "image": "details/2611.16872/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "教示タイミングの比較実験。最初にまとめて教示を与えるUpfront（成功率53.3%）に対し、エージェントが必要な時に要求するOn-Request（成功率86.7%）の方が、開発時間を7.2時間から3.7時間へと半減させつつ高い性能を達成しました。",
+     "caption": "Figure 3 : Guidance timing for charger insertion. Textual guidance and robot demonstrations are provided upfront or requested during real-only development. The lower panels report final success rate over 30 real-world trials of each frozen program, development time, and output token usage. On-Request Guidance shares the Robot Demonstrations condition and results from Figure 2 .",
+     "image": "details/2611.16872/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "シミュレーション活用の比較実験。事前のシミュレーション探索に頼ったSequential方式は観察ギャップにより成功率0%に沈んだのに対し、実機ループから局所的に呼び出すSimulation on Demandは成功率100%を記録しました。",
+     "caption": "Figure 4 : Simulation protocols and charger-insertion results. Top: (a) Real-Only uses physical feedback; (b) Sequential Real-Sim-Real uses ten simulation rounds before transfer, each ending with a joint reset of four parallel environments; (c) Simulation on Demand makes simulated experiments available within real-world development. Bottom: final success rate over 30 real-world trials of each frozen program, development time, and output token usage. Real-Only is the shared reference from Figures 2 and 3 .",
+     "image": "details/2611.16872/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "3 The ACE-CaP-0 Recipe",
+   "heading_ja": "方策開発レシピ：自律的に経験を集めてコードを研ぎ澄ます",
+   "summary_ja": "調査結果を統合し、方策開発フレームワーク「ACE-CaP-0」を定義しました。コーディングエージェントが実機試行・要求時教示・オンデマンドシミュレーションを自律的に選択してコードを洗練させ、最終的にスタンドアローン実行可能なプログラムとして凍結します。",
+   "details_ja": "セクション2の実験結果をもとに、著者らは方策開発レシピ「ACE-CaP-0」を体系化しました。本レシピは「方策開発フェーズ」と「スタンドアローン実行フェーズ」の2段階から構成されます。\n\n### 3.1 統合された方策開発ループ\nエージェントはタスクの指示文と作業空間の観測データを受け取り、初期コードを書き起こします。エージェントが利用できるツールボックスには、ロボットの知覚・制御インターフェースが揃っています。開発ループでは「コードを書く → 実機で動かす → 結果を検証する → 修正する」というサイクルを回しますが、ここで次に取るべきアクションをエージェント自身が柔軟に選択します。\n- 実機で動かして物理的な挙動を確かめる\n- 動作戦略が全く分からない場合は、人間の実機教示を要求する（Demonstrations on Request）\n- 複数のアプローチ軌道や干渉の有無をテストしたい場合は、シミュレータを立てて実験する（Simulation on Demand）\n\n### 3.2 要求時の実機教示（Demonstrations on Request）\nエージェントが「この局面はどう動かせばいいか分からない」と判断したときにのみ教示を呼び出します。人間がロボットのアームを直接掴んで動かすダイレクトティーチングによって、カメラ映像だけでなく、各関節の角度軌道や重要な瞬間のキーポーズが記録されます。エージェントはこの軌道データから、袋のどこを掴むべきか、両腕でどう受け渡すかといった幾何学的・運動学的な拘束条件を読み取り、コードの変数や関数呼び出しに落とし込みます。\n\n### 3.3 オンデマンドなシミュレーション（Simulation on Demand）\nエージェントは疑問が生じた部分タスクに絞ってシミュレータを立ち上げます。例えば「障害物を避けるアプローチ軌道はどれが適切か」を調べるために、タスクの特定ステップと初期状態だけを切り出して候補プログラムを並行テストします。シミュレータ上で当たりをつけたら、すぐに実機に持ち帰って動作確認を行います。これにより、シミュレータ特有の画像表現に過適合するリスクを回避できます。\n\n### 3.4 凍結プログラムによるスタンドアローン実行\n開発が完了すると、完成したコードは「凍結（Freeze）」されます。本番の実行時には、コーディングエージェントも人間も一切介入しません。凍結されたプログラムが実機のカメラ画像や深度センサからリアルタイムに物体位置を計算し、APIを通じてアームを動かします。これにより、大規模モデルの推論待ちを完全にゼロにし、極めて高速かつ決定論的な制御を実現します。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "ACE-CaP-0のシステム構成図。(a) 開発段階ではエージェントが必要に応じて実機教示の要求やシミュレーション実験を行い、実機ループを通じてコードを改訂します。(b) 完成したコード方策は凍結され、評価時にはエージェントや人間の介入なしにスタンドアローンで動作します。",
+     "caption": "Figure 5 : ACE-CaP-0: from policy development to standalone execution. (a) The coding agent writes and revises an executable policy using real-world feedback, with a shared robot toolbox that supports both policy execution and direct exploration by the agent. Throughout development, the agent can request kinesthetic demonstrations that provide video, arm trajectories, and key joint poses, or test candidate code in simulation for a chosen task segment and initial state. (b) The resulting code policy is frozen and executes through the robot’s interfaces without a human or coding agent in the loop. Section 4 evaluates these frozen policies without further updates.",
+     "image": "details/2611.16872/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Real-World Evaluation",
+   "heading_ja": "実世界評価：多種多様な両腕タスクで92.1%の成功率を実証",
+   "summary_ja": "2本のアームと3台のカメラを備えた実機プラットフォームで、8種類の難関マニピュレーションタスクを検証しました。各タスク30回、計240回の試行において、全体成功率92.1%・平均実行時間0.97〜2.27分という高精度かつ高速な動作を達成しました。",
+   "details_ja": "提案手法の汎用性を検証するため、8種類の実世界マニピュレーションタスクを用意して大規模な実機実験を行いました。\n\n### 4.1 評価環境と実験設定\n実験プラットフォームには、Agilex社製のロボットアーム「PIPERX」を2本と、Orbbec DaBai DC1カメラ3台（俯瞰1台、両手先の手先カメラ2台）を採用しました。コーディングエージェントの基盤モデルには Claude Opus 5.5 を使用しています。開発時の実機シーンリセット回数は、ここでも厳格に「最大10回まで」に制限されました（教示採取用のリセットは除く）。開発完了後、生成されたコードを凍結し、初期配置を変えながら各タスク30回、合計240回の実機トライアルを実施しました。\n\n### 4.2 実行性能とタスク詳細\n結果は、全体成功率92.1%（221/240回成功）という極めて優秀なものでした。全8タスク中7タスクで90%以上の成功率を記録しています。\n- **Charger Insertion（充電器挿入）**: 30/30（成功率100%）、平均実行時間1.65分。狭い差込口への高精度アライメントを完遂しました。\n- **Chicken Plating（フライドチキンの盛り付け）**: 29/30（96.7%）、平均1.12分。不揃いな形状の複数物体を認識して皿へ盛り付けます。\n- **Cup Nesting（カップの重ね入れ）**: 28/30（93.3%）、平均1.58分。\n- **Parcel Reorientation（小包の向き変更）**: 28/30（93.3%）、平均0.97分。タスク中最速の1分未満で完了しました。\n- **Flower Insertion（花瓶への花挿し）**: 27/30（90.0%）、平均1.37分。\n- **Bottle Uncapping（ボトルキャップ開け）**: 27/30（90.0%）、平均2.23分。片腕でボトルを固定し、もう一方の腕でキャップを回して開ける協調動作です。\n- **Shoe Packing（靴の箱詰め）**: 27/30（90.0%）、平均2.27分。左右の靴を両腕で連携して箱へ収めます。\n- **Bread Packing（パンの箱詰め）**: 25/30（83.3%）、平均1.93分。柔らかいプラスチック包装の把持に苦戦したものの、高い成功率を維持しました。\n\n特筆すべきは実行速度です。6つのタスクで平均実行時間が2分を切っており、最も長いタスクでも2.27分でした。毎ステップLLMを呼ぶエージェント制御では数分〜十数分かかることも珍しくないため、プログラムとして固定化することの実用性が強く裏付けられました。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "8種類の実世界タスクにおける評価結果。充電器挿入（100%）、チキン盛り付け（96.7%）、小包の向き変更（93.3%）など、両腕協調や精密な接触を伴う作業において、凍結コードが極めて高い成功率を達成している様子が分かります。",
+     "caption": "Figure 7 : Real-world manipulation with the code policies developed by ACE-CaP-0. Each panel shows a task image and the success rate over 30 evaluation trials, with the successful trial count alongside it. Selected panels include end-state insets.",
+     "image": "details/2611.16872/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Related Work",
+   "heading_ja": "関連研究との違い：自律改善ループに物理経験をどう織り込むか",
+   "summary_ja": "Code-as-Policiesやエージェント型自己改善、実機学習における教示・シミュレーション活用に関する先行研究を整理しました。ACE-CaP-0は、実世界の限られた予算内で教示要求とオンデマンドシミュレーションを統合した点に新規性があります。",
+   "details_ja": "本研究は、ロボット制御におけるコード生成と、物理世界での経験学習が交差する領域に位置づけられます。\n\n### コードによるロボット制御と自己改善エージェント\n近年の研究では、VLAのようなエンドツーエンドの学習モデルと並び、コードを生成してロボットを動かす「Code-as-Policies (CaP)」が発展してきました。プログラム形式はタスクの論理構造や幾何学的パラメータを人間やLLMが直接検査・修正できるという決定的な利点を持っています。さらに、実行ログを解析してコードを反復修正するエージェント研究（Recursive Self-Improvement: RSI）も登場していますが、多くはシミュレーション環境内に留まっていました。実機で自己改善ループを回すには、人間のリセット負担や試行回数の制約が最大の障壁となります。\n\n### 教示とシミュレーションの位置づけ\n人間の教示を利用する研究は模倣学習をはじめ多数存在しますが、本研究の着眼点は「エージェント自身が不確実性を感じた瞬間に、能動的に実機教示を要求する（On-Request）」という対話的な枠組みにあります。また、シミュレーション研究においてはSim-to-Realのギャップが常に問題になりますが、本研究は「シミュレータ先行（Sequential）」ではなく、実機の開発サイクルの中で局所的な仮説検証ツールとしてシミュレータを呼び出す「オンデマンド利用」という新しい付き合い方を提示しました。これにより、観察ギャップの罠に陥ることなく、安全かつ迅速にコードを洗練させることに成功しています。",
+   "figures": []
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめと今後の展望：経験を再利用可能な物理スキルへ",
+   "summary_ja": "ACE-CaP-0は、要求時の実機教示とオンデマンドシミュレーションにより、物理実験コストを抑えつつ92.1%の高信頼なコード方策を実現しました。今後は新たな環境での方策再利用や、経験獲得にかかる人的コストと精度の自動トレードオフ推定が期待されます。",
+   "details_ja": "ACE-CaP-0は、エージェントによる試行錯誤の経験を、ランタイムで自律動作する決定論的プログラムへと効率的に昇華させるレシピを実証しました。調査実験から得られた「教示は要求時に呼ぶ」「シミュレーションは実機ループ内のオンデマンドで使う」という指針は、実機実験のリセット回数を最小限に抑えつつ、方針の破綻を防ぐための極めて実践的な知見です。\n\n### 今後の課題と展望\n著者らは現在の制約として、詳細な調査実験が「充電器挿入」の1タスクかつ1回の開発ランに基づいている点を挙げています。今後は、独立した複数の開発ランにおける再現性の確認や、多様なタスク間での方策の使い回し（再利用性）の検証が必要です。\n\nまた、エージェント自身が「追加の経験（人間の教示やシミュレーション）を得る価値」を事前に見積もり、人間の拘束時間やLLMのトークン費用、ロボットの稼働時間と天秤にかけて最適な行動を選択するアルゴリズムの構築が、次なる重要な研究テーマとなります。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "LLMによる推論遅延を嫌うなら、開発段階で試行錯誤させて確定的なPythonコードとして「凍結」し、本番はランタイムで自律実行させるアプローチが極めて実用的であること",
+  "人間の教示は最初にすべて与えるよりも、エージェントが失敗や不確実性に直面した際に「オンデマンド（要求時）」でピンポイントに与える方が、開発時間を半減させ成功率を劇的に引き上げること",
+  "Sim-to-Realの観察ギャップを避けるには、シミュレーションで完結させてから実機に持っていくのではなく、実機ループの中から疑問が生じた局所的な検証ツールとしてシミュレータを使うべきであること"
+ ],
+ "limitations_ja": [
+  "教示形式やシミュレーション手法の詳細な比較調査が「充電器挿入」という単一タスクの1回限りの開発ランに基づいている点",
+  "人間の教示にかかる労力やセットアップ時間が、定量的なコスト計算（トークン数やリセット回数）とは別枠として扱われている点",
+  "パンの袋のような変形しやすい柔軟物の把持など、高度な接触力学が絡む一部のタスクで成功率が80%台に留まっている点"
+ ],
+ "keywords": [
+  "Code as Policies",
+  "Agentic Robot Control",
+  "Bimanual Manipulation",
+  "Demonstrations on Request",
+  "Simulation on Demand"
+ ],
+ "id": "2611.16872",
+ "title": "ACE-CaP-0: Real-World Code-as-Policies in the Era of Experience",
+ "authors": [
+  "ACE-CaP Team",
+  "Changxu Wei",
+  "Yunpeng Qing",
+  "Guozheng Ma",
+  "Bowen Liu",
+  "Zexin He",
+  "Yilun Kong",
+  "Haoming Gu",
+  "Jingyuan Liu",
+  "Tianyu Zhu",
+  "Jianfei Wang",
+  "Junqiang Kou",
+  "Huinan Mo",
+  "Hao Lv",
+  "Pengbin Li",
+  "Yuesong Wang",
+  "Bo Li",
+  "Huan Zhou",
+  "Shunyu Liu",
+  "Chunxiao Liu",
+  "Bixuan Jin",
+  "Shaopeng Yin",
+  "Fei Wang",
+  "Zhi Hou",
+  "Jiaxing Huang",
+  "Changqing Zou",
+  "Dacheng Tao",
+  "Xiaogang Wang"
+ ],
+ "date": "2026-11-14",
+ "group": "general",
+ "tags": [
+  "planning",
+  "simulation",
+  "llm-agent"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.16872",
+ "pdf_url": "https://arxiv.org/pdf/2611.16872",
+ "summary_ja": "フロンティアモデルによるコード生成型方策（Code-as-Policies: CaP）を実世界タスクに適用する際の実行時間と試行コストを削減するフレームワークを提案。実行可能なプログラムとしてスキルを蓄積・再利用するとともに、人間のガイダンスを行動事前分布とし、シミュレーションを活用することで実機試行コストを抑えつつ高信頼なスキル獲得を可能にした。",
+ "generated": "2026-11-14",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.16872"
+}
