@@ -1,0 +1,139 @@
+{
+ "title_ja": "DexRemo: 接触リッチな除去マニピュレーションのための力覚センシングハンドとタスクスイート",
+ "tldr_ja": "接着物の引き剥がしや頑固な汚れの除去といった「除去作業」に特化した高出力3指ロボットハンドとタスク群を構築し、手先力覚を共通の手首座標系に揃えて模倣学習させることで、わずか20デモからでも頑健に適応動作を獲得できることを示しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "除去マニピュレーションの全体像と提案フレームワークです。(a) カメ模型に強固に固着したフジツボ模型の除去実演、(b) 人間による端部剥がしや擦り取りなどの除去動作、(c) 各指先センサの局所力を手首座標系へと幾何学的に変換し、視覚・自己受容感覚・指先姿勢とともにACT（Action Chunking Transformer）に入力して閉ループ制御を行う流れを示しています。",
+  "caption": "Fig. 1: Overview of removal manipulation and the proposed framework. (a) DexRemo Hand removes strongly adhered 3D-printed barnacles from a curved turtle mockup, demonstrating variable and partially observable attachments. (b) Representative human removal behaviors reveal task-intrinsic interaction principles. (c) Fingertip forces are transformed from local sensor frames ${\\mathbf{R}_{S_{i}}}$ to a shared wrist frame, then fused with vision, fingertip poses, and proprioception. An ACT-based policy generates observation-conditioned action chunks for progressive, edge-initiated debonding.",
+  "image": "details/2611.15981/F1.jpg"
+ },
+ "overview_ja": "ロボットが日常環境や野外で作業しようとすると、シールを剥がす、こびりついた汚れを削り落とす、埋もれた物体を掘り出すといった「分離・除去」のタスクに必ず直面します。従来のピック＆プレースとは違い、これらは物体が環境と強く貼り付いていたり埋もれていたりするため、まずは引き離す作業（除去マニピュレーション）が必要です。しかし、接着の強さや摩擦、変形といった状態はカメラ画像や関節角度だけからは見えず、力のフィードバックが欠かせません。\n\nそこで著者らは、強い力を出せる3指ロボットハンドと3軸指先力覚センサを備えたプラットフォーム「DexRemo」を開発しました。ここで重要になるのが「複数本の指で計測した力をどう表現して学習モデルに渡すか」という点です。指が動くと指先のセンサ座標系も回転してしまうため、局所座標系のままでは同じ物理的な力でも数値の意味がバラバラになってしまいます。本研究では、順運動学を用いて各指の力を共通の「手首中心座標系」へと幾何学的に揃えてから学習モデルに入力するというシンプルな解決策を提案しました。\n\n実機評価のために、接着剥がし・表面清掃・埋没物回収の3系統からなる全9シナリオのタスクスイートを設計し、Action Chunking Transformer（ACT）を用いて各タスクわずか20回の遠隔操作デモから方策を学習させました。6つのコアタスクによる厳密な比較実験の結果、手首座標系に力を揃えて指先姿勢と組み合わせる手法が、力覚なしや局所座標系の力覚入力と比べて格段に高い成功率（コアタスク平均83% vs 24〜55%）と高い汎化性を発揮することが実証されました。",
+ "contributions_ja": [
+  "強固な付着物除去や清掃に耐えうる最大62.5 Nの引き抜き力と高出力密度、着脱可能な爪・清掃チップ、および3軸指先力覚センサを備えた低コスト3指ハンドプラットフォームを開発した点",
+  "接着剥がし・表面清掃・埋没物発掘の3カテゴリにわたる全9シナリオからなる、物理的な成功基準と未学習テスト条件を明記した実機除去タスクスイートを構築した点",
+  "指先の3軸接触力を手首中心座標系へと幾何学的に変換して表現することで、各指・時間方向で一貫した力覚特徴空間を作り、わずか20デモの模倣学習でも頑健に動作適応できることを実機アブレーションで実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "剥がす、削る、掘り出す：「除去作業」がロボットにとってなぜ難しいのか",
+   "summary_ja": "対象物が環境に付着・埋没・拘束されている場合、通常の把持を行う前に「引き離す」作業が必要です。この接触状態は視覚や運動学だけでは部分的にしか観測できないため、力覚フィードバックと適切な表現設計が不可欠になります。",
+   "details_ja": "ロボットが実世界で作業するとき、対象物が最初から自由に持ち上げられる状態にあるとは限りません。接着剤で固定されていたり、汚れがこびりついていたり、砂に埋もれていたりします。本論文では、こうした対象を剥がす・削り落とす・拭き取る・掘り出すといった接触リッチな動作を通じて分離・露出・清掃するタスクを「除去マニピュレーション（removal manipulation）」と定義しています。\n\nこの作業の難しさは、作業の進捗が「刻々と変化する接触状態」に完全に依存している点にあります。見た目が全く同じでも接着力が桁違いに強い場合がありますし、少しの力加減の違いで対象が剥がれるか、それとも壊れてしまうかが決まります。つまり、カメラ画像（RGB）や関節位置だけでは物理状態が部分的にしか観測できません。\n\nこれを解決するには、数十ニュートン単位の強い負荷に耐えうる高出力なハンド、指先の多点力覚計測、そして接触の変化に応じて即座に軌道を修正する閉ループ方策が必要です。さらに、多指ハンドでは指が動くたびに指先センサの向きが変わるため、「センサが読んだ力をそのままモデルに入れて良いのか」という根本的な問題が生じます。本研究は、低コストで高出力な新ハンド「DexRemo」とともに、力を手首座標系に幾何学的に揃える表現法を提案し、その有効性を体系的に検証しています。",
+   "figures": []
+  },
+  {
+   "heading": "II Background and Related Work",
+   "heading_ja": "接触リッチな操作研究と多指力覚センシングの現在地",
+   "summary_ja": "これまでの分離タスク研究は特定の単一作業に限定されがちでした。本研究は、接着・清掃・発掘を横断する標準的なタスクスイートを提供し、視覚・自己受容感覚・力覚を統合する模倣学習における力表現の重要性を浮き彫りにします。",
+   "details_ja": "### 接触を伴う分離作業と評価ベンチマーク\n従来のロボット操作研究の多くは、対象物に直接アクセスできる前提の把持（Grasping）に注力してきました。シール剥がしや清掃、粉体からの掘り出しなどを扱った先行研究もありますが、そのほとんどは単一の作業や特殊な治具に特化していました。シミュレーション環境（ManiSkill3など）や視覚触覚ベンチマークも登場していますが、実機で強固な接着や汚れの除去といった物理的な破壊・分離を伴う作業を横断的に評価できる枠組みは不足していました。\n\n### 力覚表現とマルチモーダル方策学習\n力覚や触覚を方策に組み込む手法として、接触画像を特徴抽出する手法や、低レベルのインピーダンス制御器に力指令を与える手法が研究されてきました。これに対して本研究では、位置指令型のAction Chunking Transformer（ACT）をベースにしつつ、計測された指先力覚を「どの座標系で表現して入力するか」に着目しています。先行研究（SaTAなど）が画像触覚センサの6D姿勢をニューラルネットで埋め込んでいるのに対し、DexRemoは物理的な3軸力ベクトルに対して古典的なタスク座標系（Task Frame）の考え方を適用し、決定論的な座標変換を行うアプローチを採っています。\n\n### 多指ハンドと高出力・力覚統合\nAllegro HandやLEAP Handなどの既存の多指ハンドは把持やインハンド・マニピュレーションには優れていますが、数十ニュートンの力でこじ開けたり削ったりする除去作業にはトルクや剛性が足りないことが多々ありました。DexRemoは部品コストを約200ドル（指先センサを含めても1指あたりプラス約170ドル）に抑えつつ、最高クラスの引き抜き力（62.5 N）と高い出力密度を実現しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Removal Manipulation and DexRemo Platform",
+   "heading_ja": "DexRemoハンドの機構設計と「手首座標系」への力覚変換",
+   "summary_ja": "高出力な3指構造、交換可能な爪・清掃チップ、3軸小型ロードセル内蔵の指先センサを備えたハンドを開発しました。指先で計測した力ベクトルを順運動学により共通の手首座標系へと揃える幾何学的表現を導入しています。",
+   "details_ja": "### 除去作業の特性と設計要件\n除去作業には4つの大きな特徴があります。(1) 過去の接触が接着を弱めたり汚れを広げたりする「履歴依存性」、(2) 接着力や摩擦が見た目から分からない「部分観測性」、(3) ある指で固定しながら別の指で剥がすような「多指協調のカップリング」、(4) 弱すぎれば剥がれず強すぎれば破損する「連続的な力調整の必要性」です。これらに対応するため、非共線的な3点接触を作れる3指レイアウトが選ばれました。\n\n### 3指ハンドの機構と遠隔操作\nDexRemoの各指は4自由度（IP関節、MCP関節、2自由度のCMC関節）を持ち、指の長さは合計162 mmです。Feetech製のSTS3215サーボ（200 Hz駆動、遅延5 ms以下）を採用し、高強度ポリマー骨格とアルミハウジングを組み合わせて約1.8 kgに仕上げられています。デモ収集用には同じ機構を持つパッシブなリーダー機が用意され、バイラテラル（力覚提示）なしでも画面上の力ベクトル可視化を見ながら直感的に遠隔操作できます。\n\n### モジュール式指先と3軸力覚センサ\n指先には、こじ開けや剥がしに適したクサビ型の「硬質ネイルチップ」と、拭き取り清掃に適したスポンジやウェットティッシュを巻ける「柔軟清掃チップ」をワンタッチで交換できます。センサ部とは機械的に分離されているため、チップ交換時に再キャリブレーションは不要です。内部には小型S字型ロードセルを正三角形に3点配置したカスタム3軸力覚センサが組み込まれており、法線方向の力 $F_z$ は3つのセルの総和、面内方向の力 $F_x, F_y$ は線形写像によって高精度（各軸 $R^2 > 0.986$、ノイズ標準偏差 0.0034 N）に計測されます。\n\n### なぜ手首中心座標系に変換するのか？\nここが本論文の最も面白いポイントです。各指先のセンサ座標系 $\\{i\\}$ は、指の曲げ伸ばしによって常にグルグルと回転しています。そのため、環境に対して同じ向きに10 Nの力をかけていても、指の姿勢が変わるとセンサから出力される $[f_x, f_y, f_z]$ の数値は全く異なるものになってしまいます。この局所座標系の力をそのままモデルに渡すと、ニューラルネットは「指先姿勢に応じた逆回転」と「力と動作の関係」を同時に学習しなければならず、わずか20デモという小さなデータセットでは過学習や誤った相関を引き起こします。そこで、手首座標系への回転行列 ${}^w\\mathbf{R}_{i,t}$ を使って、\n$${}^w\\mathbf{f}_{i,t} = {}^w\\mathbf{R}_{i,t}\\,{}^i\\mathbf{f}_{i,t}$$\nと決定論的に変換します。これにより、すべての指の力が共通の幾何学的意味を持つようになり、学習が圧倒的に安定します。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "DexRemoハンドの機構設計です。(a) 半球面状の広い可動域をカバーする3指配置、(b) 各指4自由度（CMCに2自由度、MCP、IP）の運動学レイアウト、(c) 製作された実機プロトタイプを示しています。親指に似た同一構造の指が3本放射状に並んでいます。",
+     "caption": "Fig. 3: DexRemo Hand design. (a) Kinematic layout of the three-finger hand. (b) Finger structure with two flexion joints and a dual-axis base. (c) Physical prototype with three identical thumb-like fingers for multi-finger manipulation. IP, MCP, and CMC denote the interphalangeal, metacarpophalangeal, and carpometacarpal joints, respectively; CMC1 and CMC2 denote the two axes of the compound CMC joint.",
+     "image": "details/2611.15981/F3.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "指先に内蔵された3軸力覚センサです。(a) 外観、(b) 3つの小型ロードセルが正三角形に配置された内部構造、(c) 重りを用いた静的キャリブレーション治具、(d) 3指それぞれの補正後出力と真値の比較グラフです。各軸ともに極めて線形性の高い計測ができています。",
+     "caption": "Fig. 5: Fingertip three-axis force sensor. (a) Fabricated sensor with triangular load-cell arrangement. (b) Exploded view of the rigid frame and measurement axes. (c) Calibration with suspended masses applying known Cartesian forces. (d) Calibration for mid/left/right sensors: corrected outputs vs. ground-truth forces along $x,y,z$ (dashed: ideal).",
+     "image": "details/2611.15981/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Learning Framework",
+   "heading_ja": "力覚・視覚・姿勢を統合するACTベースの模倣学習",
+   "summary_ja": "マルチビューRGB画像、関節状態、手首座標系の指先姿勢、および手首座標系の接触力を入力とし、Action Chunking Transformer（ACT）を用いて関節変位 chunk を予測します。後退ホライズン制御により、接触変化に即座に適応します。",
+   "details_ja": "### 観測空間とトークン化\n方策に入力される観測 $\\mathbf{o}_t$ は、3台のカメラ（外部2台、手首1台）からのRGB画像、12自由度の関節位置 $\\mathbf{q}_t$ と速度 $\\dot{\\mathbf{q}}_t$、手首座標系での3指の指先位置・姿勢（クォータニオン含む21次元） $\\mathbf{p}_t$、そして手首座標系に変換された3指の接触力（9次元） $\\mathbf{f}_t$ から構成されます。各モダリティは同期（15 Hz）され、画像はImageNet事前学習済みResNet-18と線形層を経てトークン化、非視覚情報（関節、指先姿勢、接触力）はそれぞれ2層のMLPを経て512次元のトークンへと投影されます。\n\n### ACTによるChunk予測と制御ループ\n方策のバックボーンには、時系列の一貫性と高い反応性を両立できるACT（Action Chunking Transformer）を採用しています。本手法では観測コンテキスト長 $H=1$（現在の観測のみ）から、先 $K=100$ ステップ分の関節変位シーケンス $\\Delta \\hat{\\mathbf{q}}_{t:t+K-1}$ を一気に予測します。そして実際の制御では、予測された100ステップのうち最初の $k=50$ ステップ（約3.3秒分）だけを実行し、更新された新たな観測を受け取って再び次の軌道を予測し直す「後退ホライズン（receding-horizon）」方式をとっています。これにより、接着が外れた瞬間や滑りが発生した瞬間の力覚変化を捉えて、次のアクションへと柔軟に修正できます。\n\n### 学習とデモ収集\nデータ収集では、各タスクにつき nominal 条件下で20本の成功デモのみを収集しました。リーダー・フォロワー方式で操作し、画面上にリアルタイム表示される3次元力ベクトルを見ながら作業を行います。力予測の補助損失や陽な力制御ループは使わず、純粋に「力覚入力を条件付けにした関節位置変位の振る舞いクローニング（Behavior Cloning）」として学習させています。力覚が行動に影響を与えるのは、この観測条件付けを通じた後退ホライズン予測の仕組みによるものです。",
+   "figures": []
+  },
+  {
+   "heading": "V Experimental Evaluation",
+   "heading_ja": "全9タスクでの実機実験：手首座標系アライメントがもたらす圧倒的な差",
+   "summary_ja": "接着剥がし・清掃・発掘のコア6タスクにおいて、力覚なし・局所座標系・手首座標系などのアブレーションを実施しました。手首座標系力覚と指先姿勢を併用した方策が平均成功率83%を達成し、圧倒的な安定性と汎化性を示しました。",
+   "details_ja": "### タスクスイートと評価プロトコル\n評価には、接着剥がし（A1:フジツボ模型、A2:ホットメルト接着ブロック、A3:練りゴム/Blu-Tack、A4:木材に固着したキノコ模型）、表面清掃（B1:皿のマーカー汚れ）、粉体発掘（C1:砂利に埋もれた化石模型）のコア6タスクを用いました。さらに拡張タスクとして指先の自己清掃（A5）、シリコン皮膚のシワ清掃（B2）、猫砂内の塊掘り出し（C2）の3タスクを用意しました。テスト時には未学習の形状・色・配置・接着条件を用い、厳密な物理的成功判定（完全な分離や一定割合以上の清掃面積など）を適用しています。\n\n### アブレーション実験の結果：なぜ手首座標系なのか？\nコア6タスクにおいて、(1) センサなし $\\emptyset$、(2) 局所力覚のみ $R$、(3) 指先姿勢のみ $P$、(4) 手首力覚のみ $W$、(5) 局所力覚＋姿勢 $R+P$、(6) 完全版（手首力覚＋姿勢）$P+W$ の6構成を3シード・各30試行で比較しました。\n\n全タスク平均の成功率は、ベースラインの $\\emptyset$ が24%、局所力覚 $R$ が38%、姿勢 $P$ が44%にとどまったのに対し、手首力覚 $W$ は58%、$R+P$ は55%、そして完全版 $P+W$ は83%という極めて高い数値を叩き出しました。特筆すべきは、全6タスクすべてにおいて「$P+W > R+P$」かつ「$W > R$」の一貫した優位性が確認された点です（符号検定 $p=0.031$）。局所座標系の力覚を入れるだけでも力覚なしよりは改善しますが、手首座標系に幾何学的に揃えることで、未知の配置や形状に対しても方策が破綻せず汎化できることが数字として如実に現れました。\n\n### 動作の質と力積のトレードオフ\nタスク分類ごとの力積（力×時間の積分）解析も非常に示唆に富んでいます。接着剥がしタスク（A群）では、$P+W$ は完了時間が短く、かつ累積力積が最も小さい（無駄な力ずくの押し付けや詰まりを起こさず、端部を捉えてスマートに剥がしている）結果となりました。一方で表面清掃（B群）では、$P+W$ が最も大きな累積力積を記録し、対象面にしっかりとブラシを押し付け続けて擦り落とす動作を獲得していました。つまり、単に力を強く/弱く出すようになったのではなく、タスクの性質に応じた「適切な力の掛け方」が学習されているのです。\n\n### 代表的な失敗モードと拡張タスク\n失敗モードの分析では、力覚なしや局所座標系モデルでは「接触が外れて空振りする」「端部に引っ掛けられない」「過大な力で弾き飛ばす」といった致命的な失敗が多発しました。対照的に $P+W$ ではそれらが激減し、残った失敗の多くは時間切れ寸前でわずかに取り切れなかった軽微な未達でした。また、拡張タスク（A5, B2, C2）でも基本方針の有効性が確認されたものの、指の可動域制限による自己清掃の死角や、砂の広域探索における探索不足といった新たな課題も見えてきました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "提案システムとタスクスイートの概要です。左側：A（接着剥がし）、B（表面清掃）、C（埋没物回収）の各タスク実行シーケンス。右上：マルチモーダル入力をACTに統合するパイプライン。右下：実機のDexRemo学習プラットフォームと遠隔操作環境です。",
+     "caption": "Fig. 2: Overview of the DexRemo removal manipulation framework. Left: Representative sequences from the nine tasks, grouped into the three task families A (adhesive removal, A1–A5), B (surface cleaning, B1–B2), and C (buried retrieval, C1–C2); here the uppercase letters denote task families rather than figure panels. Top right: Multimodal learning pipeline. Joint states, wrist-frame multi-finger contact forces, fingertip poses, and RGB images are encoded and fused to condition the Action Chunking Transformer policy $\\pi_{\\theta}$ , which predicts short-horizon joint-displacement chunks. Bottom right: DexRemo learning platform. …",
+     "image": "details/2611.15981/F2.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "実験で使用されたタスクA1〜C2の物理オブジェクト群です。学習時に使用した「seen」オブジェクトと、評価時の汎化テストにのみ使われた未学習の「unseen」オブジェクトがスケール付きで示されています。",
+     "caption": "Fig. 7: Physical objects used in each manipulation task (A1–C2). Each object is photographed alongside a standard ruler to indicate real-world scale. Objects are labeled as seen or unseen according to whether they appear in policy training. Detailed dimensions and preparation parameters are summarized in Table VI and Appendix E .",
+     "image": "details/2611.15981/F7.jpg"
+    },
+    {
+     "key": "F11",
+     "caption_ja": "Blu-Tack（練りゴム）剥がしタスク（A3）における動作軌道と力覚プロファイルの比較です。(a) $P+W$ では、左右の指の力覚変化をトリガーにして中央の指によるこじ開け動作へとスムーズに切り替わり成功しています。(b) 力覚のない $P$ のみでは、同じ接触振動を繰り返してタイムアウト失敗しています。",
+     "caption": "Fig. 11: Blu-Tack removal (A3): force feedback enables observation-driven switching in an ACT-based policy. (a) P+W (fingertip pose + wrist-frame forces) and (b) P (fingertip pose only). Left: fingertip trajectories for right/middle/left fingers. Right: wrist-frame force components over time (color indicates finger; line style indicates $F_{x}$ , $F_{y}$ , and $F_{z}$ ). Vertical dashed lines mark the timestamps of snapshots t1–t4. With P+W, changes in force patterns during side-finger boundary interaction provide an observable cue for switching to a distinct action chunk dominated by the middle finger, which ramps up force and achieves detachment. …",
+     "image": "details/2611.15981/F11.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Discussion and Conclusion",
+   "heading_ja": "まとめと今後の展望：実世界マニピュレーションの次なるフロンティアへ",
+   "summary_ja": "手首座標系への力覚アライメントは、わずかなデモ数で接触リッチな動作を学習する際の強力な幾何学的帰納バイアスとなります。今後は大域的なアーム移動との統合や、材料特性のさらなる標準化が期待されます。",
+   "details_ja": "### 本研究が明らかにしたこと\nDexRemoの研究を通じて、除去作業のような高度に接触依存的なタスクにおいて、力覚フィードバックが動作の切り替えや適応に決定的役割を果たすことが実証されました。特に重要な知見は、「多指ハンドの力覚は、各指の局所座標系ではなく手首中心の共通座標系に直して入力すべし」というシンプルな幾何学的指針です。これはモデルに余計な座標変換の学習負担を負わせず、わずか20デモという極小データセットからでも高い汎化性能を引き出す鍵となります。\n\n### 限界と今後の課題\n現状のシステムにはいくつかの制約もあります。第一に、本研究はハンドが作業空間内に進入した後の「局所的な除去動作」に焦点を当てており、マニピュレータのアーム全体を用いた大域的な位置決めや移動マニピュレーションはスコープ外となっています。第二に、接着剤や粉体といった実世界素材のばらつきを厳密に材料力学レベルで標準化するには至っていません。また、遠隔操作時に力覚ベクトルを画面表示する視覚支援は行っているものの、操作者自身へのバイラテラルな触力覚フィードバックは未実装です。今後はアームとの統合や、密集触覚センサとの融合、オンラインでの不確実性適応などが有望な発展方向として挙げられています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "多指ハンドで力覚入力を模倣学習（ACT等）に組み込む際、指先局所座標系のままではなく、順運動学を用いて「手首中心の共通座標系」に変換して揃えるだけで、汎化性と学習効率が劇的に向上する",
+  "わずか20本の遠隔操作デモからでも、適切な力覚表現と後退ホライズン制御（Action Chunking）を組み合わせれば、明示的な状態遷移マシンなしに接触状態に応じた動作切り替えを自己獲得できる",
+  "除去作業（剥がす・削る・掘る）では数十ニュートン規模の負荷が定常的に発生するため、ハードウェアには把持以上の高出力剛性と、ツール交換可能なモジュール性が実用上不可欠である"
+ ],
+ "limitations_ja": [
+  "手首の位置が固定された局所作業に限定されており、マニピュレータのアームを用いた広範囲の移動や大域的アプローチ動作との協調は扱われていない",
+  "デモ収集時の遠隔操作では画面上の力ベクトル表示に頼っており、操作者自身への力覚・触覚フィードバック（バイラテラル制御）が存在しないため、デモの質が操作者の視覚的推測に依存する",
+  "接着剤の硬化度合いや粉体の湿度など、実世界素材の物理パラメータの厳密な再現性管理には限界が残る"
+ ],
+ "keywords": [
+  "Dexterous Manipulation",
+  "Force Sensing",
+  "Imitation Learning",
+  "Action Chunking Transformer",
+  "Contact-Rich Manipulation"
+ ],
+ "id": "2611.15981",
+ "title": "DexRemo: A Force-Sensing Hand Platform and Task Suite for Contact-Rich Removal Manipulation",
+ "authors": [
+  "Liman Wang",
+  "Hanyang Zhong",
+  "Sun Zhaole",
+  "Wenting Cao",
+  "Babar Jamil",
+  "Andy Tyrrell",
+  "Shan Luo",
+  "Jihong Zhu"
+ ],
+ "date": "2026-11-14",
+ "group": "general",
+ "tags": [
+  "hardware",
+  "manipulation",
+  "grasping"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.15981",
+ "pdf_url": "https://arxiv.org/pdf/2611.15981",
+ "summary_ja": "粘着物剥離や異物清掃など、視覚や運動学だけでは接触状態が把握しにくい除去作業向けに、3軸力覚センサと高出力アクチュエータを備えた3指ロボットハンドDexRemoを開発。多指の力覚情報を手首基準座標系で統一表現し、実ロボットによる9つの除去タスクスイートを構築して接触リッチな操作性能を検証した。",
+ "generated": "2026-11-14",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.15981"
+}
