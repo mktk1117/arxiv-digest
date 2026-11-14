@@ -1,0 +1,164 @@
+{
+ "title_ja": "EgoX: エンボディメント・ドリーミングを用いた自己中心視点クロスエンボディメント・マニピュレーション",
+ "tldr_ja": "ヒト、実機ロボット（ヒューマノイド、四足、双腕台車など）、シミュレータという姿形の全く異なるデータから、機能的に対応する観測・行動モダリティを整理して共通トランスフォーマーで事前学習する枠組み「EgoX」を提案しました。学習時に将来の潜在状態を予測させる「Embodiment Dreaming」を導入することで、未知の環境や物体に対するタスク達成度を大幅に引き上げることに成功しています。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "EgoXの全体フレームワークです。ヒト、ヒューマノイド、四足歩行、車輪型双腕、卓上アーム、シミュレータといった極めて多様な身体から自己中心データ（一人称視点）を集めて事前学習し、目標ロボットへ適応させます。共有トランスフォーマー幹と身体ごとのモジュール、さらに将来の身体状態を予測するDream Expertによって高い汎化性能を達成しています。",
+  "caption": "Figure 1: Overview of EgoX. EgoX learns from highly diverse embodiments, including humans, a humanoid, a wheeled bimanual robot, a quadruped, tabletop arms, and a simulated humanoid, with dexterous hands, grippers, and tools as end-effectors. It first pretrains on egocentric cross-embodiment data from humans and robots (top left), then fine-tunes on a new embodiment–task domain (bottom left). Its model, MXT+, routes each embodiment’s observations through modality tokenizers into a shared Transformer trunk and decodes actions with embodiment-specific action experts, while a training-only dreaming expert predicts future embodiment latents (center). …",
+  "image": "details/2611.16728/F1.jpg"
+ },
+ "overview_ja": "ロボットに多様な作業を器用にこなさせたいとき、人間や他のロボット、シミュレータが集めた膨大な操作データを使い回せたら理想的ですよね。しかし現実には、ロボットごとに腕の自由度も、カメラの付いている位置も、ハンドの形状（多指ハンド、グリッパー、固定ツールなど）もバラバラです。この「身体の違い（エンボディメント・ギャップ）」が邪魔をして、データを単純に混ぜて学習させることは極めて困難でした。\n\nそこで著者らは、EgoX（エゴ・エックス）という学習フレームワークを着想しました。着眼点は「身体全体は違っても、手首や手先、胴体など、局所的な部位が果たす機能的な役割は共通している」という点です。すべての観測と行動を一人称視点（自己中心座標系）に基づいた意味的なモダリティに分解し、身体ごとの専用トークナイザと行動デコーダを介して、1つの共有トランスフォーマー（MXT+）に通すアーキテクチャを設計しました。さらに、方策が「自分の身体が次にどう動くか」というダイナミクスを内部表現として捉えられるよう、将来の潜在特徴を予測する補助タスク「Embodiment Dreaming」を組み込んでいます。\n\n検証では、実機5種とシミュレータ1種からなる計6種類のロボットと人間データを使い、5つのタスク（計13ペア）で評価を行いました。その結果、事前学習なし（スクラッチ学習）と比べて平均タスク進行度が0.63から0.80へと大きく向上しました。特に、学習データに含まれない未知の物体や配置を扱う「分布外（OOD）」の過酷な環境では0.53から0.77へと跳ね上がり、身体を超えた事前学習がロボットの適応力を劇的に強化することを実証しました。",
+ "contributions_ja": [
+  "ヒト、多様な実機ロボット、シミュレータのデータを機能的・解剖学的に対応するモダリティ（手首、手先キーポイント、胴体など）と自己中心座標系で整列させる統一表現パイプラインを確立した点",
+  "モダリティごとの入出力モジュールと共通トランスフォーマー幹を組み合わせ、身体固有の入出力差を吸収しながら共通スキルを転移させるモデル構造「MXT+」を提案した点",
+  "学習時に将来の視覚・関節状態の潜在表現を予測させる「Embodiment Dreaming」目的関数を導入し、ピクセル再構成を行わずに各身体のダイナミクスを共有幹に刷り込ませた点",
+  "実機5種・シミュレータ1種にわたる13のタスク・エンボディメント設定で広範な実験を行い、事前学習とDreamingが特に未知（OOD）条件下で劇的な性能向上をもたらすことを実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "ロボットの身体差をどう越えるか：視点とモダリティを揃える新アプローチ",
+   "summary_ja": "自然言語処理や画像認識のように、ロボティクスでも多様なデータから汎用モデルを作ることが期待されています。しかし、ロボットごとの形状、センサ、アクチュエータの違いが大きな壁になっていました。本論文では、人間・実機ロボット・シミュレータを対等な「身体」として扱い、共通モダリティ表現と潜在表現予測（Dreaming）によってこの壁を突破します。",
+   "details_ja": "近年の基盤モデルの成功を受けて、ロボティクスでもあらゆる環境やタスクに適応できる汎用方策（Generalist Policy）の実現が模索されています。将来の現場には、卓上アーム、車輪型モバイルマニピュレータ、ヒューマノイド、四足歩行ロボットなど、得意分野の異なるロボットが共存するはずです。これらを個別に学習させていてはデータ収集コストが莫大になってしまいます。\n\n利用可能なデータ源には、人間の一人称視点（自己中心型）データ、異機種ロボットの操作ログ、そして大量生成できるシミュレーションデータがあります。これらは相互に補完し合う関係にありますが、形態（モルフォロジー）、視点、自己受容感覚（プロプリオセプション）、関節の動作空間があまりに異質です。\n\n著者らはこの問題に対し、「転移は意味的に対応するモダリティを通じて行い、センシングと制御の個別インターフェースは身体ごとに維持する」という設計原則を打ち立てました。これがEgoXです。主要コンポーネントは以下の3つから成ります。\n\n- 統一的な自己中心座標系とモダリティ構造によるデータ整理\n- 身体ごとの専用トークナイザ/エキスパートと共有幹を持つトランスフォーマー「MXT+」\n- 将来の潜在状態を予測して身体の運動特性を学ばせる「Embodiment Dreaming」\n\n実機5種とシミュレータ1種、計13のタスク・身体の組み合わせで実験したところ、ゼロからの学習に比べて平均タスク進行度が0.63から0.80へと大幅に改善しました。特に学習時と異なる未知条件（OOD）では0.53から0.77へと跳ね上がり、異種データからの事前学習が極めて有効であることを示しました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "異種エンボディメント間での共通タスク構造の例です。パンにソースを塗る「Kitchen-Bread」タスクにおいて、ヒト（Human-Dex5）、人型実機（G1-Dex5）、人型シミュレータ（G1-Sim-Dex3）、車輪型双腕（R1Lite-Gripper）が全く異なる姿形でありながら、各ステージ（ソースを取る、運ぶ、塗るなど）で同じ機能的ステップを踏んでいることが分かります。",
+     "caption": "Figure 2: Shared task structure across heterogeneous embodiments. Rows show a Human-Dex5 demonstration and rollouts of robot policies trained with EgoX for G1-Dex5 , G1-Sim-Dex3 , and R1Lite-Gripper on Kitchen-Bread . Columns show corresponding task stages. Soft spotlights highlight the active interaction regions.",
+     "image": "details/2611.16728/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "クロスエンボディメント学習とワールドモデルの交差点",
+   "summary_ja": "異なるロボット間で方針を共有する先行研究や、人間の自己中心視点映像を活用する試みは盛んですが、扱えるロボットの形態差に限界がありました。また、将来予測を行うワールドモデルの手法も注目されています。EgoXは、極めて多様な身体（多指ハンドから固定ツールまで）をモジュール設計で束ね、行動生成と潜在ダイナミクス予測を統合した点で独自性を持っています。",
+   "details_ja": "### クロスエンボディメント学習の現状\n異なる身体間で方針を学習する研究（Open X-EmbodimentやOctoなど）が進んでいますが、従来の多くは腕の自由度が似通ったマニピュレータに限定されていたり、ロボットごとに個別の頭部（ヘッド）を用意するにとどまり、モダリティ単位での深い知識共有が十分ではありませんでした。EgoXはヒューマノイド、車輪型双腕、卓上アーム、四足歩行、さらには3〜5指の器用なハンドやグリッパー、固定ツールまで、従来にないほど幅広い形態差を対象にしています。\n\n### 自己中心型人間データの活用\nXRヘッドセットやスマートグラスの普及に伴い、人間の一人称視点データから操作スキルを抽出する研究が増えています。しかし、その多くは「人間の動きを特定の1種類のロボットへ写像する」ことに焦点を当てていました。EgoXは人間もロボットも同じ「1つのエンボディメント」として並列に扱い、全データから共通表現を事前学習する点がユニークです。\n\n### ワールドアクションモデルと身体モデリング\n行動とともに将来の観測（画像ピクセルや特徴量）を予測するワールドアクションモデルは、表現学習として強力であることが知られています。EgoXの「Embodiment Dreaming」は、自己受容感覚や画像特徴量の将来潜在表現を予測するJEPA（Joint-Embedding Predictive Architecture）的な枠組みを採用しています。これにより、重いピクセル再構成を回避しながら、各身体の物理的なダイナミクスを共有バックボーンに効果的に学習させています。",
+   "figures": []
+  },
+  {
+   "heading": "3 EgoX: Egocentric Cross-Embodiment Manipulation",
+   "heading_ja": "身体ごとのモジュールと「夢を見る」共有トランスフォーマー",
+   "summary_ja": "EgoXは、統一された自己中心座標系でモダリティを整理し、身体ごとのトークナイザ／アクションエキスパートと共有トランスフォーマー幹（MXT+）で構成されます。さらに、学習時限定で将来の身体潜在状態を予測する「Embodiment Dreaming」を導入し、ピクセル再構成を行わずに各ロボットの運動ダイナミクスを効率よくモデル化します。",
+   "details_ja": "### 3.1 自己中心型クロスエンボディメントデータ表現\n全身の形態は違っても、局所的な部位の役割は対応しています。EgoXでは観測と行動を機能的なモダリティに分解し、統一された参照座標系に統一します。\n- ルート座標系（$\\mathcal{F}_{\\text{root}}$）：足元や胴体の地面投影位置。胴体ポーズや移動速度指令を表現します。\n- 自己中心座標系（$\\mathcal{F}_{\\text{ego}}$）：メインカメラの位置。左右の手首ポーズ（$\\bm{x}_{\\mathrm{L}}, \\bm{x}_{\\mathrm{R}}$）を表現します。\n- 手首座標系（$\\mathcal{F}_{\\text{wrist}}$）：手首を基準とし、指先やツールの先端位置である「手先キーポイント（$\\bm{p}_{\\mathrm{L}}, \\bm{p}_{\\mathrm{R}}$）」を表現します。\n関節角度そのものではなく3D空間の手先キーポイントを用いることで、5本指ハンド、2本指グリッパー、固定ツールといった全く異なる末端機構を共通の幾何空間で記述できます。\n\n### 3.2 モジュール化トランスフォーマー MXT+\n観測モダリティごとに専用のトークナイザ $\\phi^e_m$ を用意し、画像を共有Visionバックボーン＋身体別クロスアテンションで、ポーズや関節状態をMLPでトークン化します。これらを連結して共有トランスフォーマー幹 $G_\\theta$（エンコーダ・デコーダ構造）に入力します。出力からは、身体固有のアクションエキスパート $\\psi^e_m$ が将来 $H$ ステップ分のアクションチャンク（連続した行動系列）を一気に予測します。\n\n### 3.3 Embodiment Dreaming（潜在状態予測）\n単なる行動模倣（Behavioral Cloning）では「その行動で自分の身体がどう変化するか」を意識できません。そこで、画像と関節状態から抽出した現在の身体トークンから、将来ステップ（$k \\in \\{20, 40, 60\\}$、0.66〜2秒後）の潜在特徴 $\\bm{Y}^{e}_{t+k}$ を予測するDream Expert $\\psi^e_{\\mathrm{dream}}$ を設けます。\n予測ターゲットは、エンコーダの指数移動平均（EMA）パラメータを持つ教師モデルから生成し、stop-gradient（勾配逆伝播の停止）をかけます。損失関数にはコサイン類似度とノルム誤差を用います。この予測ブランチは学習時のみ機能し、推論時には一切計算コストがかかりません。\n\n### 3.4 事前学習と適応（ファインチューニング）\n学習は2段階です。まず、ターゲットタスク・ターゲットロボット以外の全データ（人間、他ロボット、シミュレータ）を均等にサンプリングしてMXT+を事前学習します。次に、ターゲットロボットの少数デモを用いて、共有幹と固有モジュールをファインチューニングします。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "MXT+のモデル構造です。左上の身体別トークナイザが各種観測を共通トークン空間へ写像し、中央の共有トランスフォーマー幹で融合します。右上では各行動エキスパートが行動を出力し、紫色のDreamingエキスパートがEMA教師の出力する将来潜在特徴を予測します。下段には対応する6種類のロボットと人間の多様な手先構成が示されています。",
+     "caption": "Figure 3: MXT+ architecture and EgoX embodiments. Top: embodiment-specific modality tokenizers map each embodiment’s observations ( egocentric images , embodiment-specific proprioception , and left / right wrist, left / right end-effector-link, and torso poses) into tokens that a shared Transformer encoder-decoder trunk fuses across embodiments. Embodiment action experts decode the trunk output into embodiment-specific action chunks, while embodiment-dreaming experts predict future embodiment latents supervised by EMA copies of the corresponding modality tokenizers. …",
+     "image": "details/2611.16728/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "統一された自己中心座標系とトークン空間の概念図です。胴体はルート座標系（$\\mathcal{F}_{\\text{root}}$）、手首はカメラ座標系（$\\mathcal{F}_{\\text{ego}}$）、手先キーポイントは手首座標系（$\\mathcal{F}_{\\text{wrist}}$）で表現され、形態が異なっても幾何学的に共通の意味を持つトークンとして共有幹に流し込まれます。",
+     "caption": "Figure 4: Unified egocentric frames and shared token spaces (Fig. 3 colors). Solid: now (frames, camera view); translucent: one action chunk later (static bodies shifted sideways). MXT+’s modality tokenizers (solid arrows) map observations into one inner token space: right / left wrists at $\\mathcal{F}_{\\text{ego}}$ , right / left end-effector links at their $\\mathcal{F}_{\\text{wrist}}$ , torso at $\\mathcal{F}_{\\text{root}}$ ; pale purple parts (embodiment-specific proprioception, if any) and camera views into frame-free proprioception and image tokens (bottom) and embodiment tokens (top). …",
+     "image": "details/2611.16728/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments and Results",
+   "heading_ja": "6種の身体と未知条件で検証する転移性能",
+   "summary_ja": "実機5種（人型、四足、双腕台車、卓上アーム2種）とシミュレータ1種、計13のタスク・身体ペアで検証しました。クロスエンボディメント事前学習により、ゼロからの学習に比べて平均タスク進行度が0.63から0.80へ、特に未知（OOD）環境では0.53から0.77へと大幅に向上しました。Dreamingやモジュール設計の有効性、潜在空間の幾何的一致度も確認されました。",
+   "details_ja": "### 実験セットアップ\n評価対象は5つの作業（パンへのソース塗り、片付け、ブロック仕分け、T字ブロック挿入、猫砂すくい）と6種類のロボット（G1-Dex5、xArm7-Dex4、G1-Sim-Dex3、LocoMan-Dex2、R1Lite-Gripper、Z1-Tool）からなる13ペアです。比較対象として、代表的な模倣学習方策であるACT、最新のVLAモデルである$\\pi_{0.5}$、そして事前学習なしのMXT+を用意しました。評価は訓練デモと同等の条件（ID）と、未見の物体や配置を含む条件（OOD）で行い、正規化タスク進行度（Task Progress）を記録しました。\n\n### 事前学習の効果\n事前学習を施したMXT+は、13ペア中12ペアで全手法中トップの成績を収めました。全体の平均タスク進行度は0.63（スクラッチ学習）から0.80へと引き上げられました。とりわけ顕著だったのがOOD条件下での頑健性で、0.53から0.77へと跳ね上がりました（例：G1-Dex5のブロック挿入やZ1-Toolの猫砂すくいなどで劇的な改善）。異種ロボットや人間の経験が、未見状況への適応力（マニピュレーション・プライア）として強固に機能していることを裏付けています。\n\n### データの広がりとアブレーション\n事前学習の混合データを「なし」「人間のみ」「人間＋他ロボット」「全データ（他タスクの自機データ含む）」と段階的に広げる実験を行いました。人間データだけでもOOD性能が向上し、ロボットデータを加えることでID性能も底上げされ、データを多様にするほど下流性能が一貫して向上することが確認されました。\n\n### Embodiment Dreamingとモジュール設計の意義\nDreaming機構を抜いたモデル（MXT）と比較したところ、Dreamingを導入したMXT+は評価した7設定すべてで性能が上回り、平均進行度は0.63から0.78へ改善しました。また、トークナイザやエキスパートを身体全体でひとまとめにする粗い（Coarse）設計と比較した実験では、モジュールを細かく分けたMXT+の方が、移動（Locomotion）と腕操作が混ざる複雑なタスクで圧倒的に優れていました。\n\n### 潜在空間の幾何構造解析\nGromov-Wasserstein（GW）距離を用いて、異なる身体間で共有幹の内部表現の幾何的構造がどれだけ一致しているかを測定しました。事前学習によって身体間のGW距離は平均21.30%減少し、さらにEmbodiment Dreamingを導入することで38.52%も減少しました。つまり、Dreamingによって身体の違いを超えた「タスクの本質的な構造」が潜在空間内で綺麗に整列していることが定量的に証明されました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "13のタスク・エンボディメントペアにおける操作性能の比較です。ACT、$\\pi_{0.5}$、事前学習なしMXT+、事前学習ありMXT+の正規化タスク進行度を示しています。ほぼすべての設定、とりわけOOD（薄いバー）において事前学習済みMXT+（濃いオレンジ）が既存手法を圧倒していることが分かります。",
+     "caption": "Figure 5: Manipulation performance across tasks and embodiments. Normalized task progress of ACT, $\\pi_{0.5}$ , MXT+ without pretraining, and MXT+ with cross-embodiment pretraining across 13 task–embodiment pairs spanning five tasks and six embodiments (five physical robots and the simulated G1-Sim-Dex3 ). Each panel reports ID and OOD performance.",
+     "image": "details/2611.16728/F5.jpg"
+    },
+    {
+     "key": "F9",
+     "caption_ja": "異なる身体間における潜在表現のGromov-Wasserstein（GW）距離の変化率です。左下（赤）は事前学習による変化、右上（紫）はEmbodiment Dreamingによる変化を示します。マイナスの値は幾何的一致度が高まったことを意味し、特にDreamingによって全ペアで構造が大幅に揃うことが実証されています。",
+     "caption": "Figure 9: GW change across embodiment pairs. Pretraining : coral, lower triangle; Embodiment dreaming : purple, upper triangle.",
+     "image": "details/2611.16728/F9.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "共通知能と個別制御の分離が切り拓く汎用ロボットへの道",
+   "summary_ja": "EgoXは、人間・多様なロボット・シミュレータを機能的モダリティで整理し、Embodiment Dreamingでダイナミクスを捉えることで、極めて高い転移性能を示しました。今後の課題としては、データセットの規模拡大、手動設定している座標変換の自動化、身体間でのデータ量の不均衡解消などが挙げられます。",
+   "details_ja": "本研究は、姿形が全く異なるエージェント同士であっても、自己中心的なモダリティ構造と適切な潜在予測タスクを与えることで、1つの巨大な操作モデルとして経験を共有できることを示しました。身体固有の低レベルなセンシング・制御インターフェースをモジュールとして分離しつつ、高レベルなタスク表現をトランスフォーマー幹で統合するというEgoXの思想は、今後の汎用ロボット基盤モデルの標準的な指針となる可能性があります。\n\n一方で、著者らは以下の限界と今後の課題を認めています。\n- データ規模：実験データは研究チームが収集した範囲に限られており、Webスケールの大規模データでの検証は未実施である点\n- 手動設計のコスト：新しいロボットを導入する際、モダリティの対応付けや座標変換行列を手動で設定する必要がある点\n- データの偏り：ロボットごとにデータ量が大きく異なり（例：四足歩行のLocoManは少量）、ミニバッチを均等にサンプリングすると過学習が起きやすい点\n\n今後は、自動的なモダリティ統合手法や、データの多様性に応じた適切なサンプリング戦略の確立が期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：欠損モダリティの処理と実機制御のパイプライン",
+   "summary_ja": "片腕ロボットや固定ツールのように特定の部位（モダリティ）を持たない身体をどう扱うか、またVision Proによるデータ収集から各ロボットの低レベル制御器（50Hz〜400Hz）への橋渡しについて詳細を解説しています。",
+   "details_ja": "### 欠損モダリティの柔軟なハンドリング\n片腕ロボットには左腕や左手首が存在せず、グリッパーには多指ハンドのような複数の関節がありません。MXT+では、利用可能なモダリティのインジケータ $\\delta^e_m$ を定義し、存在しない観測モダリティはトークン列から除外するかゼロトークンとして扱います。また、存在しない行動モダリティに対する損失は計算から除外されるため、どのような身体構成であっても破綻することなく同一のトランスフォーマー幹で処理できます。\n\n### データ収集と実機実行のパイプライン\n人間の動作データおよびロボットのテレオペレーションにはApple Vision Pro（およびPICO 4 Ultra）が用いられ、ステレオカメラ映像と手先ポーズを30Hzで記録しています。方策が予測したアクションチャンクは、身体ごとの制御周波数（G1は50Hz、R1Liteは200Hz、xArm7やZ1は400Hz）に合わせて低レベルコントローラへと送られ、滑らかな実機動作を実現しています。",
+   "figures": [
+    {
+     "key": "F11",
+     "caption_ja": "データ収集から共通表現、そして各身体での実行に至るパイプラインの全体図です。Vision Pro等で取得された動作は共通のポーズ・行動表現（30Hz）に落とし込まれ、MXT+から出力されたアクションチャンクが各ロボット固有の制御器（50Hz〜400Hz）を介して実行されます。",
+     "caption": "Figure 11: Shared representation and embodiment-specific execution. Human-Dex5 motion is recorded using an Apple Vision Pro with a mounted stereo camera. Human recordings and robot trajectories share the pose/action representation. Robot teleoperation and policy rollout use embodiment-specific controllers. Colors follow the action experts in Fig. 3 ( olive : left, orange : right). Action modalities vary by embodiment; frequencies below each robot indicate its low-level control rate.",
+     "image": "details/2611.16728/F11.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "関節角度空間ではなく「統一された自己中心座標系（カメラ基準・手首基準）の手先キーポイント」を行動空間にすることで、多指ハンド・グリッパー・ツールの壁を越えてデータ共有が可能になる。",
+  "ピクセル再構成を行わない「潜在状態予測（Embodiment Dreaming）」は、推論速度を一切犠牲にすることなく、方策バックボーンに各身体のダイナミクスを刷り込む強力な自己教師あり学習シグナルになる。",
+  "異種ロボットや人間のデータを混ぜた事前学習は、特に未見の物体や環境配置（OOD条件）に対する適応力を劇的に高める（タスク進行度0.53→0.77）。",
+  "全身を1つのトークナイザで雑多に処理するのではなく、手首・手先・胴体・移動などモダリティ単位でモジュール化することが、複雑なタスクでの破滅的転移（性能低下）を防ぐ鍵になる。"
+ ],
+ "limitations_ja": [
+  "新しいロボットやツールを追加する際、手先キーポイントの定義や座標系の設定を手動で行う必要がある。",
+  "データセットが各身体間で不均等な場合、データ量の少ないロボットのサンプルが過剰に使い回され、事前学習でオーバーフィッティングを起こすリスクがある。",
+  "シミュレーション環境での検証がヒューマノイド1種・キッチン2タスクに限定されており、Sim-to-Realの大規模な混合効果については検証が途上である。"
+ ],
+ "keywords": [
+  "Cross-Embodiment Learning",
+  "Egocentric Manipulation",
+  "Embodiment Dreaming",
+  "Transformer Policy",
+  "Generalist Robotics"
+ ],
+ "id": "2611.16728",
+ "title": "EgoX: Egocentric Cross-Embodiment Manipulation with Embodiment Dreaming",
+ "authors": [
+  "Yaru Niu",
+  "Binghong Chen",
+  "Changwei Yao",
+  "Shangtao Li",
+  "Zhenlong Fang",
+  "Revanth Krishna Senthilkumaran",
+  "Shuai Zhou",
+  "Yuemin Mao",
+  "Kalie Ching",
+  "Po-Ju Chao",
+  "Yudong Luo",
+  "Peiqi Yu",
+  "Heng Zhang",
+  "Hao Zhang",
+  "Bingqing Chen",
+  "Chen Qiu",
+  "H. Eric Tseng",
+  "Ye Yuan",
+  "Umar Iqbal",
+  "Changliu Liu",
+  "Jonathan Francis",
+  "Ding Zhao"
+ ],
+ "date": "2026-11-14",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "imitation-learning",
+  "sim-to-real"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.16728",
+ "pdf_url": "https://arxiv.org/pdf/2611.16728",
+ "summary_ja": "人間、実ロボット、シミュレータなど形態や制御インターフェースが異なる実演データを統合学習するEgoXを提案。意味的に対応する観測・行動モダリティを整理し、エンボディメント・ドリーミングを備えたモジュール型Transformer（MXT+）で事前学習を行った後、対象機体に微調整することで、異種形態間での効果的なスキル転移を実現した。",
+ "generated": "2026-11-14",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.16728"
+}
