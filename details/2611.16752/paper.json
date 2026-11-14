@@ -1,0 +1,131 @@
+{
+ "title_ja": "AgriSense: 仮想温室における視覚言語意思決定と四脚ロボット介入",
+ "tldr_ja": "Isaac Sim 上の仮想温室において、四足歩行マニピュレータとマルチモーダル意思決定モデル（VLDA）を組み合わせた農作業支援フレームワークを構築し、各モジュールの挙動と限界を徹底的に評価した論文です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "AgriSense の全体アーキテクチャ。RGB 画像・指示文・環境センサ値を入力とする意思決定モデル（VLDA）が、温室環境の目標値・対象ゾーン・介入要否を提案し、下流の確定的なナビゲーションやアーム制御、PI/PID 制御器が安全に物理実行を担う階層構造を示しています。",
+  "caption": "Figure 1 : AgriSense multimodal decision-to-action pipeline. The original system-level illustration is retained to show the proposed sensing, decision, navigation, and intervention interfaces. The learned implementation accepts RGB, text, and 19 structured environmental/context values; LiDAR–IMU processing and continuous robot state belong to separate modules. “Inspection priority,” “precise,” and “minimal impact” in the illustration are workflow labels or design objectives, not additional learned heads or measured agronomic outcomes. The component-specific evidence and execution boundaries are given in Sections 2.3 – 3.9 .",
+  "image": "details/2611.16752/F1.jpg"
+ },
+ "overview_ja": "スマート温室の自動化は、従来の施設全体に対する大雑把な空調制御から、個別の株を観察して局所的に処置するきめ細かいアプローチへと進化しつつあります。しかし、視覚言語モデル（VLM）などの最新のマルチモーダル推論をそのままアクチュエータに直結するのは、安全性や信頼性の観点から非常に危険です。そこで本論文は、NVIDIA Isaac Sim 上に構築したリアルな仮想温室環境「AgriSense」を提案しました。\n\nAgriSense では、四足歩行ロボットに搭載したアームや LiDAR・カメラと、温室の環境センサを統合しています。核となる VLDA（Vision-Language Decision-to-Action）モデルは、直接ロボットを動かすのではなく、「環境目標値」「移動先ゾーン」「農薬散布フラグ」という 3 つの構造化された高レベル提案を出力します。実際の走行やアームの動作、環境制御は、安全ガードを備えた確定的なコントローラが担当する階層設計をとっています。\n\n検証では、安易な成功アピールに終始せず、徹底したアブレーション実験とコンポーネント評価を実施しました。その結果、ゾーン分類の精度は環境センサ値だけでほぼ達成でき、視覚情報の寄与が薄いというデータセット起因のショートカット問題を明らかにしました。また、オフライン Point-LIO による自己位置推定やアームの幾何学的散布精度、12 時間の環境制御シナリオを通じて、統合システムの動作限界と実機適用に向けた具体的な課題を克明に示しています。",
+ "contributions_ja": [
+  "Isaac Sim を用いて、四足歩行マニピュレータ、マルチモーダルセンシング、温室環境制御を統合した具現化仮想温室シミュレータ環境を構築したこと。",
+  "視覚・言語・19 次元の環境センサ値を統合し、環境目標値・移動ゾーン・散布要否を提案する教師ありモデル（VLDA）の入出力契約を定義したこと。",
+  "入力を遮断する厳密なアブレーション実験を行い、マルチモーダル統合における画像・言語・センサの真の寄与度とデータセット依存の限界を浮き彫りにしたこと。",
+  "Point-LIO による LiDAR-慣性オドメトリ、幾何学的アーム到達度、6 つの長期環境制御シナリオ、異常コマンド遮断テストにより、各コンポーネントの動作限界を定量化したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ温室にマルチモーダル AI と移動ロボットが必要なのか",
+   "summary_ja": "従来の温室制御は施設全体の粗い管理に留まっており、株単位の病害虫への介入が困難でした。本研究では、マルチモーダルな意思決定支援と確定的なロボット制御を階層的に組み合わせた「AgriSense」を提案します。",
+   "details_ja": "温室農業では、水やエネルギー、化学農薬の投入量を減らしつつ収量を最大化することが求められています。しかし、現在のスマート温室は固定センサによる施設全体やゾーン単位の大まかな空調・灌漑制御が主流であり、個別の葉の病気や局所的な害虫発生に対応できません。\n\nこれに対し、移動ロボットを用いた点検や農薬散布の研究も進んでいますが、多くは車輪型プラットフォームや単一の航法・認識デモに留まり、環境制御とロボット介入がひとつのシステムとして統合されていませんでした。また、PaLM-E や RT-2、OpenVLA のようなマルチモーダル基盤モデルをロボットに適用する試みもありますが、推論結果を直接温室のアクチュエータに流し込むと、暴走や過剰散布といった深刻な安全リスクを招きます。\n\nそこで著者らは、マルチモーダル推論には「構造化された提案」のみを出力させ、実際の走行・アーム動作・環境制御は決定論的なコントローラ（安全ガード付き PID や既存のナビゲーション）が担う階層アーキテクチャを考案しました。仮想温室環境 Isaac Sim を舞台に、入力モーダルのどれが本当に意思決定に寄与しているのかを厳密に切り分ける検証を進めています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "提案された AgriSense のエンドツーエンド意思決定・行動パイプライン。左側のマルチモーダル入力から中央の VLDA モデルが判断を下し、右側のゾーン移動、環境モニタリング、株単位の点検・アーム散布へと連携する流れが整理されています。",
+     "caption": "Figure 1 : AgriSense multimodal decision-to-action pipeline. The original system-level illustration is retained to show the proposed sensing, decision, navigation, and intervention interfaces. The learned implementation accepts RGB, text, and 19 structured environmental/context values; LiDAR–IMU processing and continuous robot state belong to separate modules. “Inspection priority,” “precise,” and “minimal impact” in the illustration are workflow labels or design objectives, not additional learned heads or measured agronomic outcomes. The component-specific evidence and execution boundaries are given in Sections 2.3 – 3.9 .",
+     "image": "details/2611.16752/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Materials and Methods",
+   "heading_ja": "仮想温室の構築と 3 出力モデル VLDA の設計",
+   "summary_ja": "Isaac Sim 上に構築した四足歩行ロボットと 4 ゾーン温室環境、および画像・テキスト・環境ベクトルを受け取る VLDA モデルの構造と学習フレームワークを詳述します。",
+   "details_ja": "### システム構成と仮想温室\nシミュレーション環境には NVIDIA Isaac Sim を採用し、栽培ベッドや通路、4 つの管理ゾーン、散布アーム付き四足歩行ロボットを配置しました。ロボットには RGB カメラ、3D LiDAR、IMU が搭載され、温室側には各ゾーンの気温・相対湿度・土壌水分を計測するセンサと換気扇・ミスト装置などのアクチュエータがモデル化されています。\n\n### マルチモーダルデータセットの生成\nデータセットは 2 段階で作成されました。まずロボットが温室を巡回して収集した画像と環境データを記録し、次に画像生成 API を用いてイチゴの果実にうどんこ病様・灰色かび病様・炭疽病様のテクスチャを画像編集で付与しました。合計 283 枚のデータが作成され、教師ラベルとして環境基準値・対象ゾーン・介入フラグが付与されています。\n\n### VLDA のアーキテクチャ\nモデルの入力は、RGB 画像、指示テキスト、そして 19 次元のセンサ/コンテキストベクトル（現在ゾーンの one-hot 4 次元、施設全体計測 3 次元、ゾーン別計測 $3\\times 4=12$ 次元）です。事前学習済み DINOv2-small（384 次元）と BERT-base-uncased（768 次元）を凍結して CLS トークンを抽出し、線形層でそれぞれ 256 次元、128 次元に射影します。19 次元のセンサ値も 2 層 MLP で 128 次元に変換され、これらを単純連結した 512 次元ベクトルを共有 MLP（256 次元）に通します。\n\n出力は 3 つのヘッドに分岐します。\n- 環境参照回帰ヘッド: 全 4 ゾーンの目標温湿度・土壌水分（12 次元）を出力\n- 対象ゾーン分類ヘッド: 次に向かうべきゾーンのロジット（4 次元）を出力\n- 介入提案ヘッド: 散布が必要かの二値ロジット（1 次元）を出力\n\n学習には、標準化された目標値に対する MSE 損失、不均衡を考慮した重み付きクロスエントロピー損失、重み付き BCE 損失の和を用いています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "仮想温室内のセンサおよびアクチュエータの配置図。24 個の土壌水分プローブ、4 箇所の温湿度測定ステーション、排気ファン、循環ファン、ロボット搭載のカメラや LiDAR の位置関係が視覚化されています。",
+     "caption": "Figure 2 : Sensor and actuator placements in the virtual greenhouse. Blue arrows identify sensing and orange arrows actuation in the supplied cutaway. Fan rotation and water particles visualize model actuator fractions, not computational fluid dynamics or calibrated deposition. Full bed/zone identifiers and coordinates are supplied separately in the supplementary sensor-layout view.",
+     "image": "details/2611.16752/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "Isaac Sim 内でロボットの視点から取得された代表的な RGB 画像。俯瞰視点や通路走行時の広角ビュー、栽培ベッドに近づいてイチゴの株を観察する近接ビューなど、多様なアングルが含まれます。",
+     "caption": "Figure 3 : Original virtual-greenhouse views combined to retain spatial context alongside the added experimental figures. Representative RGB observations generated in the Isaac Sim virtual greenhouse . The samples include aisle-level robot views, crop-row observations, greenhouse spatial context, and close crop-inspection viewpoints used for multimodal dataset construction and simulation-centric pipeline evaluation. The top-down view provides the global spatial organization, whereas the interior views show the robot operating context, cultivation-bed arrangement, sensing infrastructure, and GNSS-denied navigation corridors. …",
+     "image": "details/2611.16752/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "データセットに導入された視覚症状のプロキシ画像。健康な果実画像に対し、画像編集によってうどんこ病風（白粉状）、灰色かび病風（灰褐色カビ）、炭疽病風（黒色病斑）のテクスチャを合成しています。",
+     "caption": "Figure 4 : Representative visual conditions used in the AgriSense multimodal dataset. Healthy robot-view observations originate from the Isaac Sim greenhouse environment, whereas disease-like strawberry appearances are generated through controlled post-simulation image editing. The powdery-mildew-, Botrytis-, and anthracnose-like examples are synthetic visual proxies , not biologically confirmed diagnoses. Labels attached to these examples describe the generated dataset and do not establish disease sensitivity or treatment efficacy.",
+     "image": "details/2611.16752/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "評価された VLDA モデルの内部アーキテクチャ。凍結バックボーンから得た特徴量と環境ベクトルを結合し、共有 MLP を経て 3 つのタスクヘッドへと出力する構造を示しています。",
+     "caption": "Figure 5 : Internal VLDA architecture for the evaluated checkpoint. Frozen DINOv2-small and BERT-base-uncased encoders provide CLS features, which are projected and concatenated with the encoded 19-channel environmental/context vector. A shared fusion MLP feeds environmental-reference, target-zone, and intervention-proposal heads. Images are processed to 3 $\\times$ 224 $\\times$ 224 tensors, and structured inputs and regression targets use training-derived statistics. Input readiness and execution supervision are external to the network. The alternative mean-pooling trainer is distinguished in Table 4 .",
+     "image": "details/2611.16752/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "3 Results and Discussion",
+   "heading_ja": "モデルの真の実力とコンポーネント性能の徹底解剖",
+   "summary_ja": "厳密なアブレーション実験により、画像・言語・センサの真の寄与を解剖しました。さらにオフライン自己位置推定、環境制御、アームによる幾何学的照準の限界を数値で示しています。",
+   "details_ja": "### 予測性能とモダリティの依存関係\n元の 43 サンプルのテスト分割では対象ゾーン分類で 41/43 を達成しましたが、データリークを排した 5 シードのグループ化テスト（44 サンプル）で再評価すると驚くべき事実が判明しました。フルモデル、画像除去モデル、テキスト除去モデルのすべてが 43/44 正解（約 97.7%）を達成したのです。さらにセンサ値のみのモデルでも 43/44 正解を維持しました。逆にセンサを除去すると精度は 78.6% まで低下しました。\n\n環境目標値の平均絶対誤差（MAE）においても、画像を外した方が気温誤差が 0.249 ℃ から 0.168 ℃ に下がるなど、画像情報がむしろノイズになっている様子が観察されました。また介入フラグはプロンプトに含まれる病名キーワードだけで 100% 再現可能であり、データセット固有のショートカット学習が起きていることが暴かれました。\n\n### 実画像ベンチマークとドメインシフト\nPlantVillage データセット（約 4.9 万枚）で訓練した画像モデル（ViT-B/16 は 99.3% 正解）を、外部の PlantSeg データセット（238 枚）でテストしたところ、正解率は 27.2% へと劇的に暴落しました。実験室内でいくら高精度でも、実環境のドメインシフトには極めて脆弱であることが示されています。\n\n### 自己位置推定・環境制御・アーム介入の検証\nロボットの走行と制御モジュールも個別に検証されました。\n- **Point-LIO による LiDAR-慣性オドメトリ**: 5 つのシミュレーション走行ルートで剛体アライメント後の軌道誤差（ATE RMSE）は 5.22〜17.32 mm と極めて高精度でしたが、初期姿勢アライメントでは最大 74.26 mm のドリフトが確認されました。\n- **環境制御**: 12 時間の 6 つのシナリオのうち、極端な高温乾燥条件など 18 項目中 6 項目で目標値への定常整定に失敗し、アクチュエータ能力の限界が確認されました。\n- **アーム照準**: 32 点の近接ターゲットに対し位置誤差 $0.449\\pm 0.154$ mm を達成した一方、遠方の 8 点は事前判定で安全に棄却されました。\n- **安全ガード**: 不正・範囲外の指令や切断など 90 件の強制異常に対し、仮想コントローラは 90 件すべてを 0.864 秒以内に安全停止させ、無効な散布を 0 件に抑えました。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "仮想温室内で Point-LIO により再構成された点群地図（左）と、5 つのルートにおける ATE 誤差の比較（右）。剛体 SE(3) フィット（青）と初期姿勢アライメント（橙）で誤差の出方が大きく異なり、累積ドリフトの影響が可視化されています。",
+     "caption": "Figure 8 : Actual offline LiDAR–IMU estimation in the virtual greenhouse. Both alignment conventions are shown; navigation still uses simulator pose. The reconstruction therefore provides estimator evidence, not a demonstration of closed-loop Point-LIO-driven navigation or measured physical greenhouse accuracy.",
+     "image": "details/2611.16752/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Conclusions",
+   "heading_ja": "統合システムとしての意義と今後の課題",
+   "summary_ja": "AgriSense は仮想温室における意思決定支援とロボット制御の統合基盤としての実現性を示しました。同時に、真の自律化には実機での生体実験とデータセットの刷新が不可欠であると結論づけています。",
+   "details_ja": "本研究の最大の成果は、単に「AI で動く農業ロボットを作った」と主張するのではなく、意思決定支援モデルとロボット・環境制御のインターフェースを明示し、何ができて何ができていないのかを透明性高く示した点にあります。\n\n実験により、現在の合成データセット上ではマルチモーダル統合の優位性が必ずしも確立されておらず、センサや言語のショートカットに依存しているという負の結果が包み隠さず示されました。また、シミュレータ内の幾何学的誤差がサブミリ単位であったとしても、それが直ちに農薬散布の削減や病害防除の成功を意味するわけではありません。\n\n今後は、視覚症状とプロンプトが独立して変化する独立した専門家アノテーションデータの構築、実温室での日照変動や作物の揺れを伴う閉ループ走行、そして実際の薬液付着率や防除効果を測定する生物学的評価が必要であると締めくくられています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "マルチモーダルモデルの出力を直接低レイヤ制御に接続せず、高レベル提案と確定論的コントローラ（PID や安全ガード）に分離する階層構造がロボットの安全性確保に有効である。",
+  "モデルの正解率が高い場合でも、入力モダリティを遮断する厳密なアブレーションを行わなければ、特定のセンサ値やテキストのキーワードだけに依存したショートカット学習を見逃してしまう。",
+  "シミュレータ内でのサブミリ単位の照準成功やオドメトリ精度は、そのまま実環境での散布効果や閉ループ自律性を保証するものではないため、評価指標の境界を正しく見極める必要がある。"
+ ],
+ "limitations_ja": [
+  "実温室や本物の病害イチゴを用いた物理実験が行われておらず、作物の揺れや外乱光、薬液の実際の付着率などは未検証である。",
+  "VLDA モデルの学習データが単一エピソード由来の 283 件と小規模であり、病気画像も画像編集による合成テクスチャであるため、ショートカット学習が発生している。",
+  "統合ミッションにおけるロボット走行や病害診断はシミュレータの内部真値（オラクル）に依存しており、推定自己位置と学習モデルのみによる完全な自律閉ループ制御は達成されていない。"
+ ],
+ "keywords": [
+  "Agricultural Robotics",
+  "Vision-Language-Action (VLA)",
+  "Digital Twin",
+  "Isaac Sim",
+  "Point-LIO",
+  "Multimodal Decision Support"
+ ],
+ "id": "2611.16752",
+ "title": "AgriSense: Vision-Language Decision Support and Robotic Intervention in a Virtual Greenhouse Copy title",
+ "authors": [
+  "Lyes Saad Saoud",
+  "Oualid Doukhi",
+  "Reza Ghorbani",
+  "Moussa Ayyash"
+ ],
+ "date": "2026-11-14",
+ "group": "focus",
+ "tags": [
+  "quadruped",
+  "simulation",
+  "control"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.16752",
+ "pdf_url": "https://arxiv.org/pdf/2611.16752",
+ "summary_ja": "Isaac Sim上の仮想温室環境と四脚移動マニピュレータを統合し、自律的な知覚・ナビゲーション・環境制御・物理的介入を行うフレームワークAgriSenseを提案。RGB、LiDAR慣性データ、構造化環境入力をDINOv2とBERTエンコーダで処理し、12種の環境目標値と介入フラグを同時予測する。シミュレータ内での高精度な意思決定と再現性を実証した。",
+ "generated": "2026-11-14",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.16752"
+}
