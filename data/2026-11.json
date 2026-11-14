@@ -1,6 +1,340 @@
 {
  "entries": [
   {
+   "date": "2026-11-14",
+   "rank": 0,
+   "id": "2611.17005",
+   "group": "focus",
+   "title": "An Integrated Architecture for Data-Efficient Real-Time Neural Imitation of Nonlinear Time-Optimal Model Predictive Control",
+   "title_ja": "非線形時間最適モデル予測制御を実時間で実現するデータ効率的なニューラル模倣アーキテクチャ",
+   "summary_ja": "計算コストが高く実機適用が難しかった非線形時間最適MPC（TOMPC）を、ニューラルネットワークにより実時間で模倣する統合アーキテクチャを提案。学習済み残余時間を用いて効率的にエキスパートを呼び出す自己情報サンプリング（SIFS）を導入し、学習データ生成コストを低減した。長期間の非凸制約下でも高速かつ高精度な制御を実現する。",
+   "summary_en": "This paper presents an integrated architecture to imitate nonlinear time-optimal model predictive control (TOMPC) via neural networks for real-time control of fast dynamical systems. It introduces self-informed sampling (SIFS), which uses a learned time-to-go to query the computationally heavy expert data-efficiently. The approach enables fast, accurate neural control under long-horizon nonconvex constraints.",
+   "authors": [
+    "Maarten De Baecke",
+    "Flavia Sofia Acerbo",
+    "Andrea Giusti",
+    "Wilm Decré"
+   ],
+   "categories": [
+    "eess.SY",
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.17005",
+   "image": "figures/2026-11-14/2611.17005.jpg"
+  },
+  {
+   "date": "2026-11-14",
+   "rank": 1,
+   "id": "2611.16752",
+   "group": "focus",
+   "title": "AgriSense: Vision-Language Decision Support and Robotic Intervention in a Virtual Greenhouse Copy title",
+   "title_ja": "AgriSense: 仮想温室における視覚言語意思決定と四脚ロボット介入",
+   "summary_ja": "Isaac Sim上の仮想温室環境と四脚移動マニピュレータを統合し、自律的な知覚・ナビゲーション・環境制御・物理的介入を行うフレームワークAgriSenseを提案。RGB、LiDAR慣性データ、構造化環境入力をDINOv2とBERTエンコーダで処理し、12種の環境目標値と介入フラグを同時予測する。シミュレータ内での高精度な意思決定と再現性を実証した。",
+   "summary_en": "The paper presents AgriSense, a framework combining an Isaac Sim virtual greenhouse, a quadruped mobile manipulator, and multi-modal sensing for autonomous monitoring and intervention. Using frozen DINOv2 and BERT encoders with environmental inputs, it jointly predicts environmental references and intervention decisions, demonstrating high-accuracy decision reproduction and closed-loop control in simulation.",
+   "authors": [
+    "Lyes Saad Saoud",
+    "Oualid Doukhi",
+    "Reza Ghorbani",
+    "Moussa Ayyash"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "quadruped",
+    "simulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.16752",
+   "image": null
+  },
+  {
+   "date": "2026-11-14",
+   "rank": 2,
+   "id": "2611.17060",
+   "group": "focus",
+   "title": "Ropedia Xperience 2: A Gold Standard for Scaling Physical AI Environments and Behaviors",
+   "title_ja": "Ropedia Xperience 2: フィジカルAIの環境と行動をスケーリングするためのゴールドスタンダード",
+   "summary_ja": "長期接触リッチなタスクにおけるロボット制御の脆弱性を克服するため、環境と行動のスケーリング則を探求するフィジカルAI向け基盤環境・データセットを提案。人間の行動実演と閉ループでの方策展開・評価が可能な対話型環境を統合した。どのようなデータをスケールすべきかの指標を提示し、実世界およびシミュレーションでの方策向上を支援する。",
+   "summary_en": "Addressing the fragility of foundation models in long-horizon, contact-rich tasks, this work introduces Ropedia Xperience 2 to study scaling laws for physical AI environments and behaviors. It couples human demonstrations with interactive environments for closed-loop policy rollout and evaluation. The framework provides a standard to identify which data and environment distributions to scale for improving robotic policies.",
+   "authors": [
+    "Hao Li",
+    "Fangzhou Hong",
+    "Zhaoxi Chen",
+    "Hui En Pang",
+    "Kairui Hu",
+    "Mingze Sun",
+    "Runmao Yao",
+    "Xinhao Ji",
+    "Xiyuan Zheng",
+    "Xuanli Chen",
+    "Yalun Dai",
+    "Yap Kim Hui",
+    "Dingwen Zhang",
+    "Yuanyuan Gao",
+    "Ziang Cao",
+    "Cheng Huang Yean",
+    "Jackson Peng",
+    "Rui Duan",
+    "Yaobo Liu",
+    "Zetong Wang",
+    "Ziwei Liu"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "simulation",
+    "benchmark",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.17060",
+   "image": "figures/2026-11-14/2611.17060.jpg"
+  },
+  {
+   "date": "2026-11-14",
+   "rank": 3,
+   "id": "2611.17159",
+   "group": "focus",
+   "title": "Inner Product Regularization for Imitation Learning",
+   "title_ja": "模倣学習のための内積正則化",
+   "summary_ja": "センサノイズや環境変動による累積誤差に対して模倣学習方策を頑健にする内積正則化手法を提案。各状態単独での感度を抑える従来法とは異なり、異なる状態間において同一の入力摂動に対して方策出力の変化方向が局所的に一致するよう正則化する。タスクに無関係な変動に対する過剰反応を抑え、分布外状態への汎化性能を大幅に改善する。",
+   "summary_en": "This paper proposes inner product regularization to improve the robustness of imitation learning policies against state perturbations and compounding errors. Unlike prior methods that penalize policy sensitivity at isolated states, it enforces consistent policy output shifts under identical perturbations across nearby states. This formulation suppresses over-reactions to irrelevant scene variations and significantly enhances generalization.",
+   "authors": [
+    "Benjamin A. Christie",
+    "Tianyu Qiu",
+    "Amy H. Choi",
+    "David Fridovich-Keil",
+    "Dylan P. Losey"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "imitation-learning",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.17159",
+   "image": "figures/2026-11-14/2611.17159.jpg"
+  },
+  {
+   "date": "2026-11-14",
+   "rank": 4,
+   "id": "2611.16450",
+   "group": "focus",
+   "title": "A Recipe for Physical Action Model Training",
+   "title_ja": "物理行動モデル学習のための処方箋",
+   "summary_ja": "ロボットのモデル容量、実演データ量、表現、最適化の相互作用を条件付き分布ターゲットの枠組みから体系的に分析。局所情報幾何や条件付き相互情報量を用いて訓練指針を導出し、訓練時の対数尤度低下と展開時のKLダイバージェンス増大というミスマッチ現象を明らかにした。PushTベンチマーク等で固定特徴情報設計の有効性を検証している。",
+   "summary_en": "This paper analyzes physical action model training by connecting model capacity, demonstration budgets, data representation, and optimization through a conditional-distribution framework. Using local information geometry and conditional mutual information, it provides training prescriptions and highlights mismatches between negative log-likelihood and deployment KL divergence, validated on benchmarks like PushT.",
+   "authors": [
+    "Shaojiang Wang",
+    "Geer Yang"
+   ],
+   "categories": [
+    "cs.LG"
+   ],
+   "tags": [
+    "imitation-learning",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.16450",
+   "image": "figures/2026-11-14/2611.16450.jpg"
+  },
+  {
+   "date": "2026-11-14",
+   "rank": 5,
+   "id": "2611.15981",
+   "group": "general",
+   "title": "DexRemo: A Force-Sensing Hand Platform and Task Suite for Contact-Rich Removal Manipulation",
+   "title_ja": "DexRemo: 接触リッチな除去マニピュレーションのための力覚センシングハンドとタスクスイート",
+   "summary_ja": "粘着物剥離や異物清掃など、視覚や運動学だけでは接触状態が把握しにくい除去作業向けに、3軸力覚センサと高出力アクチュエータを備えた3指ロボットハンドDexRemoを開発。多指の力覚情報を手首基準座標系で統一表現し、実ロボットによる9つの除去タスクスイートを構築して接触リッチな操作性能を検証した。",
+   "summary_en": "The authors present DexRemo, a high-force three-finger robotic hand equipped with three-axis fingertip force sensors and modular fingertips, designed for contact-rich removal manipulation. By expressing fingertip forces in a shared wrist-centered frame, it facilitates multi-finger force observation fusion. A suite of nine real-robot removal scenarios validates its effectiveness in difficult contact-dependent tasks.",
+   "authors": [
+    "Liman Wang",
+    "Hanyang Zhong",
+    "Sun Zhaole",
+    "Wenting Cao",
+    "Babar Jamil",
+    "Andy Tyrrell",
+    "Shan Luo",
+    "Jihong Zhu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "hardware",
+    "manipulation",
+    "grasping"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.15981",
+   "image": "figures/2026-11-14/2611.15981.jpg"
+  },
+  {
+   "date": "2026-11-14",
+   "rank": 6,
+   "id": "2611.16728",
+   "group": "general",
+   "title": "EgoX: Egocentric Cross-Embodiment Manipulation with Embodiment Dreaming",
+   "title_ja": "EgoX: エンボディメント・ドリーミングを用いた自己中心視点クロスエンボディメント・マニピュレーション",
+   "summary_ja": "人間、実ロボット、シミュレータなど形態や制御インターフェースが異なる実演データを統合学習するEgoXを提案。意味的に対応する観測・行動モダリティを整理し、エンボディメント・ドリーミングを備えたモジュール型Transformer（MXT+）で事前学習を行った後、対象機体に微調整することで、異種形態間での効果的なスキル転移を実現した。",
+   "summary_en": "EgoX is an egocentric cross-embodiment learning framework designed to leverage heterogeneous demonstrations across humans, real robots, and simulation. It aligns semantically corresponding modalities and pretrains a Modularized Cross-Embodiment Transformer with Embodiment Dreaming (MXT+), followed by fine-tuning on target embodiments, achieving effective manipulation skill transfer across diverse morphologies.",
+   "authors": [
+    "Yaru Niu",
+    "Binghong Chen",
+    "Changwei Yao",
+    "Shangtao Li",
+    "Zhenlong Fang",
+    "Revanth Krishna Senthilkumaran",
+    "Shuai Zhou",
+    "Yuemin Mao",
+    "Kalie Ching",
+    "Po-Ju Chao",
+    "Yudong Luo",
+    "Peiqi Yu",
+    "Heng Zhang",
+    "Hao Zhang",
+    "Bingqing Chen",
+    "Chen Qiu",
+    "H. Eric Tseng",
+    "Ye Yuan",
+    "Umar Iqbal",
+    "Changliu Liu",
+    "Jonathan Francis",
+    "Ding Zhao"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "manipulation",
+    "imitation-learning",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.16728",
+   "image": "figures/2026-11-14/2611.16728.jpg"
+  },
+  {
+   "date": "2026-11-14",
+   "rank": 7,
+   "id": "2611.16918",
+   "group": "general",
+   "title": "CT-SGAL-LIO: Causal Continuous Time Refinement of Discrete LiDAR Inertial Odometry",
+   "title_ja": "CT-SGAL-LIO: 離散LiDAR慣性オドメトリの因果的連続時間平滑化",
+   "summary_ja": "従来のLiDAR慣性オドメトリ（LIO）で生じる短時間のポーズ振動を解消するため、離散SGal(3)推定量に対して因果的連続時間平滑化を行うモジュールCT-SGAL-LIOを提案。追加の重い大域最適化を伴わずに状態更新の遅延を防ぎ、急激な回転や加減速時でも滑らかで高精度な軌道推定を実現した。",
+   "summary_en": "To resolve short-horizon pose oscillations in discrete LiDAR-inertial odometry, this paper introduces CT-SGAL-LIO, a causal continuous-time refinement module for discrete SGal(3) estimators. Without introducing heavy full-trajectory optimization delays, it effectively smooths high-frequency pose streams while maintaining robustness and low latency during aggressive rotations and accelerations.",
+   "authors": [
+    "Nam Tran",
+    "Thu Tran",
+    "Toan Nguyen",
+    "William J Beksi",
+    "Tuan Dang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "perception",
+    "autonomous-driving"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.16918",
+   "image": "figures/2026-11-14/2611.16918.jpg"
+  },
+  {
+   "date": "2026-11-14",
+   "rank": 8,
+   "id": "2611.17163",
+   "group": "general",
+   "title": "UAV-Flow++: A Unified Suite for Benchmarking and Learning Language-Guided UAV Flight",
+   "title_ja": "UAV-Flow++: 言語指示型UAV飛行のベンチマークと学習のための統合スイート",
+   "summary_ja": "ドローンの自然言語誘導において、近距離かつ対象物相対の飛行動作を評価・学習する新タスク「Flow」を定式化。自然言語、自己中心視覚、機体ダイナミクスから連続飛行動作を生成することを目指し、熟練パイロットによる3万本以上の実世界飛行軌道データセット「UAV-Flow」と閉ループ評価ベンチマークを構築した。",
+   "summary_en": "This paper presents UAV-Flow++, a unified suite for evaluating and learning language-guided short-range, object-relative drone maneuvers. Defining the Flying-on-a-Word (Flow) task to generate continuous flight actions from instructions and egocentric vision, it provides a benchmark and the UAV-Flow dataset comprising 30,692 expert-piloted real-world trajectories across diverse environments.",
+   "authors": [
+    "Donglin Yang",
+    "Xiangyu Wang",
+    "Yantong Zhong",
+    "Wenhao Zheng",
+    "Zihan Ding",
+    "Yue Liao",
+    "Hongsheng Li",
+    "Ke Xu",
+    "Si Liu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "drone",
+    "benchmark",
+    "dataset",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.17163",
+   "image": "figures/2026-11-14/2611.17163.jpg"
+  },
+  {
+   "date": "2026-11-14",
+   "rank": 9,
+   "id": "2611.16872",
+   "group": "general",
+   "title": "ACE-CaP-0: Real-World Code-as-Policies in the Era of Experience",
+   "title_ja": "ACE-CaP-0: 経験の時代における実世界Code-as-Policies",
+   "summary_ja": "フロンティアモデルによるコード生成型方策（Code-as-Policies: CaP）を実世界タスクに適用する際の実行時間と試行コストを削減するフレームワークを提案。実行可能なプログラムとしてスキルを蓄積・再利用するとともに、人間のガイダンスを行動事前分布とし、シミュレーションを活用することで実機試行コストを抑えつつ高信頼なスキル獲得を可能にした。",
+   "summary_en": "ACE-CaP-0 investigates Code-as-Policies (CaP) to retain physical skills as executable programs, avoiding repetitive expensive model inference during execution. It leverages human guidance as action priors and simulation as a cost-effective testbed, enabling robotic agents to develop and reuse reliable code policies while minimizing physical experimentation costs.",
+   "authors": [
+    "ACE-CaP Team",
+    "Changxu Wei",
+    "Yunpeng Qing",
+    "Guozheng Ma",
+    "Bowen Liu",
+    "Zexin He",
+    "Yilun Kong",
+    "Haoming Gu",
+    "Jingyuan Liu",
+    "Tianyu Zhu",
+    "Jianfei Wang",
+    "Junqiang Kou",
+    "Huinan Mo",
+    "Hao Lv",
+    "Pengbin Li",
+    "Yuesong Wang",
+    "Bo Li",
+    "Huan Zhou",
+    "Shunyu Liu",
+    "Chunxiao Liu",
+    "Bixuan Jin",
+    "Shaopeng Yin",
+    "Fei Wang",
+    "Zhi Hou",
+    "Jiaxing Huang",
+    "Changqing Zou",
+    "Dacheng Tao",
+    "Xiaogang Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "planning",
+    "simulation",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.16872",
+   "image": "figures/2026-11-14/2611.16872.jpg"
+  },
+  {
    "date": "2026-11-13",
    "rank": 0,
    "id": "2611.16422",
