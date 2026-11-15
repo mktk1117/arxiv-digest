@@ -1,0 +1,142 @@
+{
+ "title_ja": "SALA: 意味的に整列した潜在行動により身体性基盤モデルの二軸スケーリングを実現",
+ "tldr_ja": "大量の人間の主観視点動画とロボットの操作データを「言語による行動の類似度」で結びつけ、共通の潜在行動空間を作る手法「SALA」を提案しました。これにより、一般的な人間動画による事前学習と、特定タスクの人間動画による事後学習の両方でロボットの制御性能が向上することを示しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "SALAの全体コンセプトです。左側のようにペアになっていない人間とロボットの動画を言語の意味的な近さで橋渡しし、中央のようにシーンの外見ではなく行動の意味で潜在行動空間を整理します。右側のグラフが示す通り、事前学習で一般的な人間動画を増やすほどロボットの行動予測誤差が下がり、事後学習でタスク特化の人間動画を増やすほど実機タスクの成功率が向上するという「2つの軸でのスケーリング」を達成しています。",
+  "caption": "Figure 1 : Overview of SALA. Left: unpaired human and robot videos are related only through language descriptions of their atomic actions. Middle: supervising a latent action tokenizer with these relations organizes latent actions by action semantics rather than by scene. Right: through the aligned latent actions, human videos supervise the same action expert that controls the robot: more human-video pre-training lowers the robot’s action prediction error without additional robot data, and more task-specific human video in post-training raises the real-world success rate.",
+  "image": "details/2611.17110/F1.jpg"
+ },
+ "overview_ja": "ロボットに汎用的な作業を教え込む「身体性基盤モデル（VLA）」の学習には、膨大で多様な操作データが欠かせません。しかし、人間がロボットを遠隔操作して集めるデータは非常に高コストです。そこで、YouTubeなどの日常的な人間の主観視点（エゴセントリック）動画を活用するアプローチが注目されています。アクションラベルのない動画から動きの特徴を抽出する「潜在行動モデル（LAM）」は、将来の映像をそのまま予測する世界モデル（WAM）に比べて計算効率が良い有望な枠組みです。しかし従来のLAMには大きな弱点がありました。動画の見た目の変化を再構成するだけで学習するため、獲得される潜在表現が「何をしたか（行動）」ではなく「背景や部屋の見た目（シーン）」で固まってしまい、人間とロボットの行動をうまく結びつけられなかったのです。\n\nそこで著者らは、「自然言語による行動説明（『コップをつかむ』など）を使えば、対になっていない人間とロボットの動画同士でも、意味の近さによって滑らかに整列させられる」というアイデアを思いつきました。提案手法の「SALA」では、ロボットの実アクションで制御に接地された潜在表現をアンカー（基準）とし、人間動画の潜在行動を言語の類似度に基づいてロボット側の表現へ近づけるように学習させます。\n\n検証として、双腕ロボットのシミュレーション環境（RoboTwin 2.0）と、63自由度を持つ全身型ヒューマノイド実機を用いました。その結果、シミュレーションでは既存のLAMやWAMを上回る成功率を記録し、特に背景が変わる環境で圧倒的な頑健性を示しました。さらに実機実験では、事前学習で最大2,678時間の人間の日常動画を増やすほど予測誤差が単調減少し、事後学習で目標タスクの人間の実演動画を追加するだけで成功率が53.75%から72.5%まで跳ね上がることを確認しました。ロボット実機を使わずに収集できる人間動画が、基盤モデル強化の真のスケーリング軸になることを実証した画期的な成果です。",
+ "contributions_ja": [
+  "対になっていない人間とロボットの動画クリップを、要素行動の言語記述から求めた類似度（ソフト近傍構造）によって潜在空間上で整列させる枠組みを提案したこと。",
+  "制御アクションで接地されたロボットの潜在表現をアンカーとし、勾配停止（stop-gradient）を用いて人間の潜在表現側だけを誘導する学習法を確立したこと。",
+  "整列した潜在行動予測を補助タスクとすることで、ロボットを制御する同一のアクションエキスパートを人間動画で直接鍛えられるようにしたこと。",
+  "大規模な一般人間動画を用いた事前学習と、タスク特化の人間動画を用いた事後学習の両方で性能が向上する「2軸スケーリング」を63自由度の実機ロボットで実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "人間の動画をロボットの「動き」として本当に役立てるには？",
+   "summary_ja": "ロボット基盤モデルの性能向上には多様なデータが必要ですが、遠隔操作データの収集は高コストです。人間の主観動画は安価に集まりますが、身体の違いや環境の差を埋める必要があり、従来の潜在行動モデルでは見た目の違いに引きずられて行動の意味が一致しないという課題がありました。SALAは言語を橋渡しとして使い、この潜在行動空間を行動の意味に基づいて整列させます。",
+   "details_ja": "近年、視覚や言語の指示を行動に変換するVLA（Vision-Language-Action）モデルが脚光を浴びています。しかし、現実環境で汎用的に動かすには、膨大な作業や物体のバリエーションを学習させる必要があります。これをすべてロボットの遠隔操作で集めるのは現実的ではありません。\n\nそこで期待されるのが、人間が日常生活を送る主観視点（エゴセントリック）動画です。ハードウェアを必要とせず大量に集められますが、人間の手とロボットのアームでは運動機構が全く異なり、作業する部屋や背景も大きく異なります。この「身体性の壁（エンボディメント・ギャップ）」をどう乗り越えるかが大きな問題でした。\n\n有望な解決策の一つが「潜在行動モデル（LAM: Latent Action Model）」です。これは動画の前後のフレームから「間で行われた変化」を潜在コード（潜在行動）として圧縮・抽出する技術です。将来の全ピクセルを予測する世界行動モデル（WAM）に比べて、推論や学習の計算コストを大幅に抑えられるメリットがあります。ところが従来のLAMは、単一の動画クリップを再構成するようにしか学習していませんでした。その結果、潜在コードが「行われた行動の意味」ではなく「背景の明るさや部屋の見た目」でまとまってしまい、人間の『コップをつかむ』とロボットの『コップをつかむ』が潜在空間でバラバラになっていたのです。\n\nここを解決するためにSALAが導入したのが、「要素行動（アトミックアクション）の自然言語記述」です。人間とロボットの動画が完全なペアでなくても、「コップをつかむ」という行動は「ボトルをつかむ」とは似ており、「皿を置く」とは遠い、といった意味の距離関係を持っています。この言語的な類似度を手がかりにすることで、異なる身体同士の潜在行動を意味に基づいて綺麗に整列させられると考えました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "論文の導入で示されているSALAの概念図です。言語を介して人間とロボットの動画を結びつけ、シーンに依存しない行動中心の潜在空間を作ることで、事前学習・事後学習の双方で人間動画によるスケーリングが可能になります。",
+     "caption": "Figure 1 : Overview of SALA. Left: unpaired human and robot videos are related only through language descriptions of their atomic actions. Middle: supervising a latent action tokenizer with these relations organizes latent actions by action semantics rather than by scene. Right: through the aligned latent actions, human videos supervise the same action expert that controls the robot: more human-video pre-training lowers the robot’s action prediction error without additional robot data, and more task-specific human video in post-training raises the real-world success rate.",
+     "image": "details/2611.17110/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Method",
+   "heading_ja": "言語で結び、制御で錨を下ろす：SALAのアーキテクチャ",
+   "summary_ja": "SALAは2段階で構成されます。まず、言語の類似度とロボットの制御アクションを用いて、意味的に整列した「潜在行動トークナイザー」を学習します。次に、このトークナイザーを固定した教師として使い、人間とロボットの動画の両方から共通のアクションエキスパートを学習させます。",
+   "details_ja": "### 2.1 潜在行動モデルの基礎\nLAMは、時刻 $t$ の画像 $\\mathbf{o}_t$ と少し先の時刻 $t+k$ の画像 $\\mathbf{o}_{t+k}$ を受け取り、エンコーダ $\\mathcal{E}_\\theta$ でその間の遷移を潜在コード $\\mathbf{z}$ に圧縮します。そしてボトルネックとなる量子化器 $\\mathcal{Q}_\\phi$ を通して $\\widetilde{\\mathbf{z}}$ を作り、デコーダ $\\mathcal{G}_v$ で未来の画像（またはその特徴量）を再構成します。しかしこれだけでは、制御に関係のない背景情報まで潜在コードに含まれてしまいます。\n\n### 2.2 ロボット制御への接地（グラウンディング）\nそこでSALAでは、ロボットデータだけが持っている「実際の関節アクション chunk $\\mathbf{a}$」を活用します。ロボット用の専用デコーダ $\\mathcal{G}_a$ を用意し、潜在コード $\\widetilde{\\mathbf{z}}$ と初期状態 $\\mathbf{s}$ からロボットの実アクションを再構成させます（損失 $\\mathcal{L}_{\\mathrm{act}}$）。これにより、ロボット側の潜在表現は単なる見た目の変化ではなく、「ロボットをどう動かしたか」という制御情報にしっかりと接地（アンカー）されます。\n\n### 2.3 ロボットを基準とした意味の整列\n次に、アクションラベルを持たない人間動画の潜在コードを、このロボット側のアンカーへ近づけます。各動画クリップには「何をしたか」を表す短い言語記述 $\\ell$（要素行動記述）が付いています。これを固定の言語モデルで埋め込み、バッチ内の人間クリップとロボットクリップの言語類似度行列 $S^\\ell$ を計算します。\n\nこれをソフトマックス関数にかけて「この人間の動きは、どのロボットクリップにどれくらい近いか」を表すソフトな近傍分布 $P_i$ を作ります。同様に、潜在コード同士のコサイン類似度から分布 $Q_i$ を計算し、両者の交差エントロピー損失 $\\mathcal{L}_{\\mathrm{align}}$ を最小化します。ここで決定的に重要なのが、ロボット側の潜在コードに勾配停止（stop-gradient: $\\operatorname{sg}$）をかける点です。制御情報で接地されたロボット側の座標を固定し、人間の潜在コード側だけを動かします。また、離散的で微分できない通常のHard VQではなく、確率分布として滑らかに潜在空間を表現できる「SoftVQ」を採用したことで、連続的な意味の整列が綺麗に学習できるようになりました。\n\n### 2.4 潜在行動で導く方策学習\nトークナイザーの学習が終わったら重みを凍結し、「潜在行動のラベル付け器」として使います。方策モデルは、VLM（Vision-Language Model）とFlow Matchingに基づくアクションエキスパートで構成されています。方策ネットワーク内に学習可能なクエリを用意し、トークナイザーが出力する潜在行動の分布を予測させます（損失 $\\mathcal{L}_{\\mathrm{LA}}$）。\n\nこれにより、アクションラベルのない人間動画であっても、「潜在行動を正しく予測する」というタスクを通じて、ロボットを動かすアクションエキスパートの内部表現を直接訓練できるようになります。学習は、人間動画のみで事前学習（Pre-training）し、ロボットの遠隔操作データで中間学習（Mid-training）し、必要に応じて特定タスクの人間・ロボットデータで事後学習（Post-training）するという綺麗なパイプラインで進みます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "SALAの全体アーキテクチャです。(a)では人間とロボットのクリップを言語類似度で整列させつつ、ロボット側のアクション再構成で制御に接地します。(b)では凍結したトークナイザーから潜在行動トークンを取り出し、人間・ロボット双方のデータで方策モデルのアクションエキスパートを訓練します。",
+     "caption": "Figure 2 : Method overview. (a) Latent action tokenizer. Robot (blue) and human (orange) clips share the visual encoder $\\mathcal{E}_{\\theta}$ , the SoftVQ quantizer $\\mathcal{Q}_{\\phi}$ , and the visual decoder $\\mathcal{G}_{v}$ ; only robot clips train the action decoder $\\mathcal{G}_{a}$ . Language similarities $S^{\\ell}$ between atomic-action descriptions define soft neighborhoods $P$ , which supervise the latent neighborhoods $Q$ derived from latent similarities $S^{z}$ , with gradients stopped through robot latents. Decoder conditioning inputs are omitted for clarity. (b) VLA policy. …",
+     "image": "details/2611.17110/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "3 Experiments",
+   "heading_ja": "シミュレータ比較と実機63自由度ヒューマノイドでの実証",
+   "summary_ja": "RoboTwin 2.0シミュレータにおいて、SALAは既存のLAMや世界モデル（WAM）を大きく上回る成功率を収め、特に背景が変化する環境で強さを発揮しました。さらに実機ヒューマノイド（63自由度）の実験では、事前学習で人間動画を増やすほど予測誤差が減少し、事後学習でタスク特化の人間動画を加えることで成功率が53.75%から72.5%へと大幅に向上することを確認しました。",
+   "details_ja": "### 3.1 実装の詳細\nトークナイザーはDINOv2特徴量を再構成ターゲットとし、256コードのSoftVQを使用しています。方策モデルはQwen3-VL-4Bをベースに、0.6Bパラメータのアクションエキスパートを組み合わせています。\n\n### 3.2 シミュレーションでの有効性検証\n双腕ロボットのベンチマーク「RoboTwin 2.0」（50タスク）を用い、ターゲットロボット（Aloha-AgileX: 2,500軌道）と非ターゲットロボット（ARX-X5: 27,000動画）の間で転移を検証しました。ARX-X5側にはアクションラベルを与えず、人間動画の代用としています。\n\n実験の結果、SALAはドメインランダム化（テクスチャや背景が変化する設定）において既存のWAM（FastWAMやOpenWAM）やLAM（UniVLAやUniT）を大きく引き離し、全50タスク平均で最高成功率を達成しました。ピクセル予測を行うWAMは綺麗な背景では高スコアを出すものの、背景が変わると予測が崩壊してしまいます。対してSALAは、見た目ではなく「行動の意味」を捉えているため、環境の変化に対して極めて頑健でした。\n\n### 3.3 実機ロボットにおける2軸スケーリング\n実機には、両手に各22自由度の五本指ハンドを備えた全身型ヒューマノイド「Sharpa North」（計63自由度）を使用しました。下流タスクとして「ギアの組み立て」「両手での粉薬の注ぎ入れ」「花の一輪挿し」「スプーンによるすくい取り」の4種類を評価しました。\n\n- **事前学習でのスケール（第1の軸）**: 人間の主観動画を0時間、473時間、1,103時間、2,678時間と増やしていくと、未知のテスト軌道に対するL1行動予測誤差が単調に減少退行しました。追加のロボットデータを一切使わずに、人間動画だけで制御精度が向上したことを意味します。\n- **事後学習でのスケール（第2の軸）**: 目標タスクの人間の手元実演動画を10%、50%、100%と増やして追加学習させたところ、実機の平均作業成功率は53.75%から60.00%、そして72.50%へと右肩上がりに伸びました。高価なロボット遠隔操作データを増やさなくても、スマホやウェアラブルカメラで人間がやって見せるだけでポリシーが賢くなるという非常に強力な結果です。\n\n### 3.4 アブレーション解析：なぜ言語整列が効くのか？\n言語による整列損失 $\\mathcal{L}_{\\mathrm{align}}$ を抜くと成功率は大きく低下しました。潜在空間の分散を分析したところ、整列損失がない場合は潜在空間の分散の多くが見た目（シーン）に依存していましたが、整列損失を入れることで行動の意味（アトミックアクション）によって説明される割合が0.41から0.67へと跳ね上がり、シーン依存性は0.14から0.04へと激減しました。また、勾配停止（stop-gradient）を外して双方向で引き合わせるとロボットの制御表現が崩れてしまい、SoftVQをHard VQに変えると整列損失が下がらなくなることも確認されています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "実機実験で使用されたデータセットの概要です。左側は事前学習および中間学習に使われた大規模な日常人間動画とロボット遠隔操作データ、右側は4つの下流タスクにおいて人間とロボットそれぞれで収集された実演動画を示しています。",
+     "caption": "Figure 3 : Real-world data. Left: examples of the large-scale data used in pre- and mid-training, i.e . , egocentric human videos ${\\color[rgb]{0.9,0.45,0.05}\\mathcal{D}_{H}}$ and robot teleoperation data ${\\color[rgb]{0.1523,0.2109,0.7617}\\mathcal{D}_{R}}$ . Right: the four downstream tasks, each performed by a person, recorded as human demonstrations ${\\color[rgb]{0.9,0.45,0.05}\\mathcal{D}_{H}^{\\mathrm{task}}}$ , and by the robot under teleoperation, recorded as teleoperated demonstrations ${\\color[rgb]{0.1523,0.2109,0.7617}\\mathcal{D}_{R}^{\\mathrm{task}}}$ .",
+     "image": "details/2611.17110/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Related Work",
+   "heading_ja": "先行研究との違い：ピクセル予測でも手の追跡でもない道",
+   "summary_ja": "VLAモデルや人間動画の活用には、手のポーズを抽出するアプローチや、世界モデル（WAM）のように未来の映像全体を生成するアプローチが存在します。SALAはこれらと異なり、明示的なキネマティクス変換や高コストな画像生成を行わず、言語の意味を手がかりに潜在行動を整列させる点で一線を画しています。",
+   "details_ja": "身体性基盤モデルの文脈において、人間の動画をロボットの学習に活かす試みは大きく3つに分類できます。\n\n1つ目は「明示的な動作抽出」です。人間の手先位置や関節ポーズをトラッキングし、ロボットのキネマティクス（運動学）へ変換して教示データにする手法です。しかし、人間の複雑な手の動きをロボットハンドへ正確にリターゲティングするのは技術的に極めて難しく、手先のオクルージョン（隠れ）にも弱いという問題があります。\n\n2つ目は「世界行動モデル（WAM）や未来予測モデル」です。現在の画像から次の画像フレームやサブゴール画像を予測させ、その変化から行動を導きます。しかし、動画全体のピクセルを生成・予測するには膨大な計算が必要な上、背景やライティングなどの「制御に関係のない視覚情報」に予測容量を奪われがちです。実験でも見られた通り、見た目の変化に弱いという弱点があります。\n\n3つ目が「潜在行動モデル（LAM）」です。動画の差分から潜在的なアクションを抽出するため計算効率に優れますが、従来のLAMはクリップ内の再構成誤差のみで学習していたため、異なる身体間で同一の行動を同一のコードにマッピングすることができませんでした。\n\nSALAはこのLAMの弱点を克服した手法です。骨格トラッキングのような明示的な対応付けも、WAMのような全ピクセル生成も必要とせず、言語記述の類似度を利用して「意味的な近さ」を潜在行動空間に埋め込むことで、効率性と汎用性を両立させました。",
+   "figures": []
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "SALAは、要素行動の言語記述を使って人間とロボットの潜在行動を整列させ、人間動画をロボット制御の直接の教師信号に変える枠組みを提案しました。シミュレーションと実機実験の両面でその有効性と2軸スケーリング特性を示しましたが、トークナイザー学習用クリップへの言語アノテーションが必要である点など、今後の改善の余地も残されています。",
+   "details_ja": "SALAは、ラベルのない人間の日常動画をロボットポリシーの学習に最大限活用するための、美しく実用的なフレームワークを提示しました。対になっていない動画同士を言語の類似度で結び、ロボットの制御アンカーに向けて整列させることで、人間動画が事前学習（一般的な基礎能力の向上）と事後学習（特定タスクの習熟度向上）の双方でスケーリングすることを明確に証明しました。\n\n一方で、著者らはいくつかの限界や今後の課題も挙げています。\n- トークナイザーを学習させる段階では、クリップごとに短い要素行動のテキストアノテーションが必要となる点（ただし一度トークナイザーができれば、ポリシー自体の事前学習には言語ラベルは不要です）。\n- 事前学習のスケーリング検証がオフラインの予測誤差（L1エラー）による評価にとどまっており、実機での直接的なタスク成功率としてどう反映されるかについてのさらなる検証が必要な点。\n- 検証された事前学習規模が約2,700時間までであり、数万時間規模に拡大した際にどのようなスケーリング則が見られるかは今後の課題である点。\n\nこれらは今後の研究にとって非常に興味深い探求テーマであり、身体性AIにおけるデータ収集のパラダイムを大きく変える可能性を秘めています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：クロスエンボディメント検索・潜在空間の可視化・実機詳細",
+   "summary_ja": "人間とロボットの間で潜在行動がどれほど一致しているかを検索タスクによって定量的に確認し、クラスタリング分析によってシーンではなく行動で行空間が整理されている様子を明らかにしました。また、63自由度を持つ実機ヒューマノイドの構成や実験タスクの詳細についても補足します。",
+   "details_ja": "### 潜在行動によるクロスエンボディメント検索\n人間や別ロボットの動画クエリに対し、潜在行動が最も近いターゲットロボットのクリップを検索する実験を行いました（表6）。シミュレータ環境では、再構成のみの従来型トークナイザーが同一要素行動を検索できた割合は41.3%にとどまりましたが、SALAでは78.2%へと大幅に向上しました。さらに実機環境（人間動画からロボット動画を検索）では、再構成のみだと3.8%とほぼランダムに近い結果だったのに対し、SALAは34.2%の確率で同じタスクのクリップを引き当てました。ロボットデータに存在しない未知の作業（例えば「ほうきで床を掃く」人間動画）を入力した場合でも、ロボットの「ちりとりでゴミを集める」動作を上位に検索できるなど、高い意味的一致が確認されています（図F8、F9）。\n\n### 潜在空間のクラスタリング可視化\nクリーン環境とランダム背景環境が混ざったデータにおいて、潜在コードをk-means法で2クラスタに分割する実験を行いました。再構成のみのモデルでは、行動の種類に関係なく「クリーン環境」と「ランダム背景環境」という見た目の違いで綺麗に分かれてしまいました。一方、SALAでは背景の違いを無視して、「ホッチキスを閉じる」「ホッチキスを押す」といった純粋な行動の種類ごとにクラスタが形成されていることが確認できました（図F10）。\n\n### 実機プラットフォームとタスクの詳細\n使用した「Sharpa North」は、車輪移動ベースの上に2つの7自由度アームと、各22自由度を持つ5本指ハンド「Sharpa Wave」を備えたロボットです。首や腰を含めた計63自由度のアクションを60Hzで予測します。評価対象となった4タスク（ギア組み、粉薬注ぎ、花挿し、スプーンすくい）は、いずれも高精度な指先の協調動作や道具使用が要求される難関タスクであり、SALAが高度に器用な手先制御においても人間動画の恩恵をフルに引き出せることを裏付けています。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "人間や別ロボットの動画クリップをクエリとし、潜在空間上で最も近いターゲットロボットの動作を検索した結果です。SALA（右端）は再構成のみ（中央）と比べて、見た目の背景に惑わされず、同じ動作や道具操作を正確に検索できていることが分かります。",
+     "caption": "Figure 8 : Cross-embodiment retrieval on shared tasks. Each query (left) and its three nearest target-robot clips under the reconstruction-only tokenizer (middle) and SALA (right). (a) RoboTwin 2.0: ARX-X5 queries, Aloha-AgileX clips. (b) Real world: human queries, robot clips. Each clip is labeled with its task (italic) and atomic action; ✓/ $\\times$ mark whether the atomic action (a) or the task and verb (b) match the query. Examples are selected.",
+     "image": "details/2611.17110/F8.jpg"
+    },
+    {
+     "key": "F10",
+     "caption_ja": "潜在行動コードを2つのクラスタに分けた可視化結果です。再構成のみ（上段）では背景がクリーンかランダムかという「見た目」で分類されてしまいますが、SALA（下段）では背景を跨いで「掴む」「置く」という「行動の意味」ごとに綺麗に分かれています。",
+     "caption": "Figure 10 : Clusters of latent actions. For three pairs of atomic actions in figure 5 (a), k-means ( $k=2$ ) is applied to the 80 ARX-X5 latents of each tokenizer, 20 per atomic action and scene type. Each half-row shows one cluster: its composition in the header and four of its clips. Without alignment (recon. only), the two clusters are the clean and the randomized clips, each mixing both atomic actions; with alignment, each cluster is one atomic action, covering both scene types. Filled circle: clean scene; open triangle: randomized scene.",
+     "image": "details/2611.17110/F10.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "動画から行動を抽出する潜在行動モデル（LAM）は、言語記述による類似度ガイダンスを入れることで、外見に引きずられず「行動の意味」で空間を整列させられる。",
+  "整列時のアンカーとして「制御アクションで接地したロボット表現」を使い、勾配停止をかけることで、ロボットの制御性能を犠牲にせずに人間動画を取り込める。",
+  "人間動画は事前学習の汎用表現獲得だけでなく、ロボット実機を使わない「タスク特化の安価な追加実演（事後学習）」としても絶大な効果を発揮する。",
+  "ピクセル全体を再構成する世界モデル（WAM）に比べ、潜在行動モデルは外見のドメイン変化（背景やテクスチャのランダム化）に対して本質的に頑健である。"
+ ],
+ "limitations_ja": [
+  "トークナイザーを事前学習させるためのクリップには、要素行動ごとの短いテキスト記述を用意する必要がある点（アノテーションコストが一部に残る）。",
+  "人間動画の大規模事前学習（最大2,678時間）による評価が検証セットの行動予測L1誤差にとどまっており、実機での成功率向上との完全な対応関係は未解明である点。",
+  "数万時間規模のさらなる大規模データにスケールさせた場合に、スケーリング則がどこまで持続するかは今後の検証が必要である点。"
+ ],
+ "keywords": [
+  "Embodied Foundation Models",
+  "Latent Action Models",
+  "Vision-Language-Action (VLA)",
+  "Cross-Embodiment Transfer",
+  "Dual-Axis Scaling"
+ ],
+ "id": "2611.17110",
+ "title": "SALA: Semantically Aligned Latent Actions Enable Dual-Axis Scaling of Embodied Foundation Models",
+ "authors": [
+  "Jiachun Jin",
+  "Zetong Zhou",
+  "Haonan Wang",
+  "Xiao Yang",
+  "Jun Zhu",
+  "Zhijie Deng"
+ ],
+ "date": "2026-11-15",
+ "group": "focus",
+ "tags": [
+  "imitation-learning",
+  "vision-language-action",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.17110",
+ "pdf_url": "https://arxiv.org/pdf/2611.17110",
+ "summary_ja": "人間の一人称視点動画から方策学習を監督する潜在行動モデル（LAM）において、従来の再構成損失依存による外見の偏りを解消するSALAを提案。視覚表現に依存せず行動の意味的整列を担保することで、行動データと動画データの双方を効率的に活用し、実機タスクにおける方策の汎化性能と学習効率を大幅に向上させた。",
+ "generated": "2026-11-15",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.17110"
+}
