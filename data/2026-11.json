@@ -1,6 +1,214 @@
 {
  "entries": [
   {
+   "date": "2026-11-15",
+   "rank": 0,
+   "id": "2611.17110",
+   "group": "focus",
+   "title": "SALA: Semantically Aligned Latent Actions Enable Dual-Axis Scaling of Embodied Foundation Models",
+   "title_ja": "SALA: 意味的に整列した潜在行動により身体性基盤モデルの二軸スケーリングを実現",
+   "summary_ja": "人間の一人称視点動画から方策学習を監督する潜在行動モデル（LAM）において、従来の再構成損失依存による外見の偏りを解消するSALAを提案。視覚表現に依存せず行動の意味的整列を担保することで、行動データと動画データの双方を効率的に活用し、実機タスクにおける方策の汎化性能と学習効率を大幅に向上させた。",
+   "summary_en": "To overcome the visual-appearance bias of latent action models (LAMs) trained solely on video reconstruction, this paper proposes SALA, an approach that semantically aligns latent actions. By enabling effective policy supervision from egocentric human videos without explicit pixel generation, SALA achieves dual-axis data scaling, significantly improving policy learning efficiency and generalization in embodied downstream tasks.",
+   "authors": [
+    "Jiachun Jin",
+    "Zetong Zhou",
+    "Haonan Wang",
+    "Xiao Yang",
+    "Jun Zhu",
+    "Zhijie Deng"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "imitation-learning",
+    "vision-language-action",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.17110",
+   "image": "figures/2026-11-15/2611.17110.jpg"
+  },
+  {
+   "date": "2026-11-15",
+   "rank": 1,
+   "id": "2611.17160",
+   "group": "focus",
+   "title": "XBot-Omni: An Omni-Modal Model for Embodied Understanding and Interaction",
+   "title_ja": "XBot-Omni: 身体性理解と相互作用のためのオムニモーダルモデル",
+   "summary_ja": "ロボットの対人インタラクション向けに、音声だけでなく身体動作や表情まで統合生成するThinker-Talker-Actor構造のXBot-Omniを提案。Thinkerがマルチモーダル知覚から文脈に応じた応答を判断し、Actorが協調的な全身動作を生成する。身体表現をロボット特有のモダリティとして統合し、自然な全身振る舞いを可能にした。",
+   "summary_en": "This paper presents XBot-Omni, a Thinker-Talker-Actor framework extending the Omni paradigm to robotic modalities including coordinated body motions and facial expressions. The Thinker processes multimodal sensory inputs to plan responses, which the Talker and Actor execute via speech and body kinematics, enabling holistic physical and communicative behaviors for embodied robotic interaction.",
+   "authors": [
+    "Kerui Gu",
+    "Xing Fu",
+    "Shuoyang Sun",
+    "Cheng Peng",
+    "Jingru Duan",
+    "Huayu Gu",
+    "Zhenyu Chen",
+    "Jiaxin Huang",
+    "Cheng Wen",
+    "Rui Zhen",
+    "Kairui Chen",
+    "Zhihui Peng",
+    "Shaoli Huang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "vision-language-action",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.17160",
+   "image": "figures/2026-11-15/2611.17160.jpg"
+  },
+  {
+   "date": "2026-11-15",
+   "rank": 2,
+   "id": "2611.17238",
+   "group": "general",
+   "title": "HEIR: Harness Egocentric Intent for Human-Robot Interactions",
+   "title_ja": "HEIR: 一人称視点の意図を活用した人間・ロボット協調",
+   "summary_ja": "人間の視線・発話・一人称視点映像とロボットのナビゲーション・マニピュレーション遠隔操作ログを同期記録したマルチモーダルデータセットHEIRを構築。多段のサブタスクからなる長期タスクにおいて、人間の意図理解から行動実行までの一連の協調動作ベンチマークを提供する。",
+   "summary_en": "This paper introduces HEIR, a benchmark and dataset designed to harness egocentric human intent for collaborative robotics. By pairing human speech, measured gaze, and egocentric video with teleoperated navigation and manipulation trajectories across multi-step episodes, it provides a comprehensive foundation for studying intent decoding and long-horizon robotic assistance.",
+   "authors": [
+    "Yichi Zhang",
+    "Bo Wang",
+    "Zhenghan Zhu",
+    "Yutong Han",
+    "Jiayin Zou",
+    "Gao Kejun",
+    "Chang Liu",
+    "Shaoxuan Xie",
+    "Chi Zhang",
+    "Shi Haoyang",
+    "Zongxuan Lai",
+    "Sen Cui",
+    "Guocai Yao",
+    "Miao Liu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "dataset",
+    "teleoperation",
+    "manipulation",
+    "navigation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.17238",
+   "image": "figures/2026-11-15/2611.17238.jpg"
+  },
+  {
+   "date": "2026-11-15",
+   "rank": 3,
+   "id": "2611.16583",
+   "group": "general",
+   "title": "ReFineR: Single image to dense point cloud registration at pixel level with point splatting",
+   "title_ja": "ReFineR: ポインティングスプラッティングを用いた単一画像と密な点群のピクセル級高精度位置合わせ",
+   "summary_ja": "振動や同期ずれによるカメラとLiDAR間の残留誤差を解消するため、単一画像と粗い初期姿勢からピクセルレベルで精密照合を行うReFineRを提案。微分可能な点スプラッティングを活用して幾何学的整合性を直接最適化し、中長距離におけるデシメートル級のずれを大幅に低減する。",
+   "summary_en": "This paper proposes ReFineR to solve fine camera-to-LiDAR registration using a single image and rough pose initializations. By leveraging differentiable point splatting, ReFineR optimizes cross-modal geometric consistency at the pixel level, significantly mitigating residual reprojection errors and decimeter-level discrepancies caused by temporal latency or vibrations.",
+   "authors": [
+    "Ugo Insalaco",
+    "Jean-Emmanuel Deschaud",
+    "Pierre Dellenbach"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "perception",
+    "autonomous-driving",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.16583",
+   "image": "figures/2026-11-15/2611.16583.jpg"
+  },
+  {
+   "date": "2026-11-15",
+   "rank": 4,
+   "id": "2611.17330",
+   "group": "general",
+   "title": "ProtoVis-Nav: Prototypical Visual Imagination for Visual-Spatial Aligned UAV Navigation",
+   "title_ja": "ProtoVis-Nav: UAVナビゲーションのためのプロトタイプ視覚想像による視覚空間整列",
+   "summary_ja": "ドローンの視覚言語ナビゲーション（VLN）において、3次元移動予測誤差を減らすためのProtoVis-Navを提案。言語指示から移動先候補の局所視覚特徴をプロトタイプの線形結合として事前に「想像」・予測させることで、不確実な3次元環境下での正確なウェイポイント生成を実現した。",
+   "summary_en": "This paper introduces ProtoVis-Nav, a vision-language navigation framework for UAVs that addresses 3D motion prediction inaccuracies. By predicting and linearly combining feature prototypes, the model imagines the visual representations of anticipated destination regions before executing maneuvers, yielding more accurate 3D waypoints from complex language instructions.",
+   "authors": [
+    "Guangyuan Sui",
+    "Yunzhong Hou",
+    "Chi Harold Liu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "drone",
+    "navigation",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.17330",
+   "image": "figures/2026-11-15/2611.17330.jpg"
+  },
+  {
+   "date": "2026-11-15",
+   "rank": 5,
+   "id": "2611.16671",
+   "group": "general",
+   "title": "NSDL: Neuro-Symbolic Division of Labor for Multi-Robot Task Planning",
+   "title_ja": "NSDL: 異種マルチロボットタスク計画のための神経記号的分業",
+   "summary_ja": "異種ロボット協調において、環境画像と指示から「どのロボットが何を行うか」をVLMで大まかな計画スケッチとして推論し、実行順序やタイミングの厳密な制約充足を決定論的ソルバに委ねる分業手法NSDLを提案。学習の柔軟性と解の厳密性を両立させた。",
+   "summary_en": "This paper presents NSDL (Neuro-Symbolic Division of Labor), an architecture for heterogeneous multi-robot task planning. A compact vision-language model extracts high-level plan sketches and task allocations directly from scene images and instructions, while a deterministic solver guarantees timing, handoffs, and prerequisite constraints, effectively balancing reasoning and optimality.",
+   "authors": [
+    "Xincheng Tan",
+    "Ke Wang",
+    "Yining Di",
+    "Minfeng Zhu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "multi-robot",
+    "planning",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.16671",
+   "image": "figures/2026-11-15/2611.16671.jpg"
+  },
+  {
+   "date": "2026-11-15",
+   "rank": 6,
+   "id": "2611.16419",
+   "group": "general",
+   "title": "I See What You Want: Decoding Hierarchical Operator Intent from Visual Teleoperation History",
+   "title_ja": "操作者の階層的意図を遠隔操作の視覚履歴から直接解読するVI AMO",
+   "summary_ja": "明示的な言語指示なしに、短時間の操作映像履歴のみからオペレータの原子行動と高次ミッションを同時に推定する階層的意図予測を定式化。11種のロボットプラットフォームにまたがる6,600エピソードの大規模データセットVI AMOを構築し、VLMの意図理解性能を検証した。",
+   "summary_en": "This work explores decoding an operator's latent intent directly from visual teleoperation histories without explicit language commands. The authors formulate hierarchical intent prediction—jointly predicting immediate atomic actions and broader ongoing missions—and contribute the VI AMO dataset comprising 6,600 episodes across eleven robotic platforms to benchmark VLM-based intent inference.",
+   "authors": [
+    "Xiangyi Jia",
+    "Kaixian Qu",
+    "Shengzhi Wang",
+    "Chenyu Yang",
+    "Robert Katzschmann",
+    "Marco Hutter"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "teleoperation",
+    "dataset",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.16419",
+   "image": "figures/2026-11-15/2611.16419.jpg"
+  },
+  {
    "date": "2026-11-14",
    "rank": 0,
    "id": "2611.17005",
