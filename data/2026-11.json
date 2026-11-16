@@ -1,6 +1,318 @@
 {
  "entries": [
   {
+   "date": "2026-11-16",
+   "rank": 0,
+   "id": "2611.18003",
+   "group": "focus",
+   "title": "Reusing Locomotion Training Recipes Across Humanoids via Body-Aligned Virtual Joints",
+   "title_ja": "身体整列仮想関節を通じたヒューマノイド間での歩行学習レシピの再利用",
+   "summary_ja": "ヒューマノイドの強化学習歩行制御において、報酬やハイパーパラメータ等の学習レシピを異なる関節構成の機体間で再利用可能にする手法を提案。共通の解剖学的基準に基づく仮想関節空間を行動・観測インターフェースとし、決定論的キネマティクス層でネイティブ関節指令へと変換することで、機体固有の座標系に依存しない方策学習を実現した。",
+   "summary_en": "This paper presents a framework to reuse reinforcement learning training recipes across humanoids with different native joint coordinates. By introducing a body-aligned virtual joint space as an anatomical action-observation interface and mapping it via a deterministic kinematic layer to native actuator targets, the policy is decoupled from robot-specific coordinates, enabling cross-embodiment reuse of rewards and hyperparameters.",
+   "authors": [
+    "Sol Choi",
+    "Mingon Kim",
+    "Seokin Seo",
+    "Jongeun Choi",
+    "Donghyeon Kim",
+    "Yisoo Lee"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.18003",
+   "image": "figures/2026-11-16/2611.18003.jpg"
+  },
+  {
+   "date": "2026-11-16",
+   "rank": 1,
+   "id": "2611.18305",
+   "group": "focus",
+   "title": "PROOF: Perceptive Robustness via Out-of-Distribution Fallback for Legged Locomotion",
+   "title_ja": "PROOF：脚ロボット歩行における分布外フォールバックによる視覚的頑健性の獲得",
+   "summary_ja": "視覚に基づく脚ロボットの歩行制御において、遮蔽や照明変動などによる転倒を防ぐフレームワークPROOFを提案。2段階のTeacher-Student学習を採用し、視覚障害を検知してロバストな固有感覚フォールバック方策へと明示的に切り替える仕組みを構築した。過酷な視覚外乱環境下でも安定した不整地踏破性能を実機で実証した。",
+   "summary_en": "This paper introduces PROOF, a perceptive locomotion framework that prevents catastrophic failures caused by severe visual disturbances such as occlusions and lighting shifts. Employing a two-stage teacher-student learning paradigm, it explicitly models perception degradation and transitions to a robust proprioceptive fallback policy, demonstrating resilient locomotion on physical legged robots under degraded sensory conditions.",
+   "authors": [
+    "Siyuan Wang",
+    "Dongjie Zhu",
+    "Jinxuan Lu",
+    "Wenjun Xu",
+    "Jiankun Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "reinforcement-learning",
+    "sim-to-real",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.18305",
+   "image": "figures/2026-11-16/2611.18305.jpg"
+  },
+  {
+   "date": "2026-11-16",
+   "rank": 2,
+   "id": "2611.17598",
+   "group": "focus",
+   "title": "X-Nav Technical Report: Real-World Long-Horizon Indoor-to-Outdoor Navigation on a Humanoid Robot",
+   "title_ja": "X-Nav：ヒューマノイドロボットによる実世界での屋内から屋外への長距離ナビゲーション",
+   "summary_ja": "二足歩行ヒューマノイドが言語指示に従い、屋内から屋外へと連続して長距離自律移動するシステムX-Navを提案。歩行によるカメラの揺れに対応し、機体内蔵の単眼RGB画像のみを入力とする軽量ナビゲーションモデルMELIORを開発した。デジタルツインと実機を跨ぐデータパイプラインにより、未知環境における長距離踏破を実機で実証した。",
+   "summary_en": "This technical report presents X-Nav, a system enabling a bipedal humanoid robot to execute language-instructed, long-horizon navigation spanning indoor and outdoor environments. Using only RGB images from an on-board camera subject to gait-induced motion, its navigation model MELIOR leverages a data pipeline bridging digital twins and real robots to achieve robust autonomous navigation in real-world deployments.",
+   "authors": [
+    "Jiaxin Huang",
+    "Chengxing Lin",
+    "Xiaoyu Luo",
+    "Sirui Chen",
+    "Jingyu Guo",
+    "Aolin Li",
+    "Kairui Chen",
+    "Rui Zhen",
+    "Cheng Wen",
+    "Kerui Gu",
+    "Shunyao Wang",
+    "Zhihui Peng",
+    "Shaoli Huang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "humanoid",
+    "navigation",
+    "locomotion",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.17598",
+   "image": "figures/2026-11-16/2611.17598.jpg"
+  },
+  {
+   "date": "2026-11-16",
+   "rank": 3,
+   "id": "2611.18491",
+   "group": "focus",
+   "title": "When Will You Hand It Over? A Hidden Start Delay Makes Self-Play Handover Robust to Unfamiliar Partners",
+   "title_ja": "受け渡し開始遅延の導入による自己対戦型ヒューマノイド手渡し方策の未知パートナー耐性",
+   "summary_ja": "自己対戦（PPO）で学習したヒューマノイドの物体受け取り方策が、未知の相手に対して成功率31%まで急減する原因を特定し解決。共有報酬下では譲渡側が即座に行動を始めるため受取側が単一のタイミングに過適合することが原因と究明し、隠れ開始遅延を導入することで未知の相手に対しても頑健な受け渡し動作を実現した。",
+   "summary_en": "This paper investigates why humanoid handover policies trained via cooperative self-play fail with unfamiliar partners, dropping from over 90% success to 31%. Finding that shared rewards cause learned givers to offer objects immediately and receivers to overfit to that specific timing, the authors introduce a hidden start delay during training, making the receiver policy robust to novel partners during dynamic object handovers.",
+   "authors": [
+    "Mohammad Khoshnazar",
+    "Mike Degany",
+    "Deyuan Qu",
+    "Qing Yang",
+    "Matyas Szanto"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "reinforcement-learning",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.18491",
+   "image": "figures/2026-11-16/2611.18491.jpg"
+  },
+  {
+   "date": "2026-11-16",
+   "rank": 4,
+   "id": "2611.18365",
+   "group": "focus",
+   "title": "Heavy Metal Acrobatics: Learning Dynamic Control for Skid-Steer Loaders",
+   "title_ja": "スキッドステアローダのためのアクロバティック動的制御の強化学習",
+   "summary_ja": "油圧アクチュエータの非線形性や遅延を伴う重機（スキッドステアローダ）を対象に、シミュレーション内強化学習とSim-to-Real転移により限界域での動的挙動を実現。転倒リスクのある高度なアクロバティック操作を物理シミュレータ上で安全に学習させ、実機での高精度かつアジャイルな動的運動制御に成功した。",
+   "summary_en": "This work applies reinforcement learning in simulation followed by sim-to-real transfer to automate acrobatic dynamic maneuvers on heavy skid-steer loaders. Overcoming challenges stemming from complex hydraulic actuation, nonlinear delays, and safety risks of high-payload machinery, the learned policies successfully push the physical machine to the limits of its actuation capabilities.",
+   "authors": [
+    "Pierre-Jean Lorentz",
+    "Pascal Egli",
+    "Edo Jelavic",
+    "Cliff Li",
+    "Ramitha Sundar",
+    "Harikrishnan Suresh",
+    "Paul Montgomery",
+    "Lee Redden",
+    "Matthias M\\\"uller",
+    "Ozan Sener",
+    "Vladlen Koltun",
+    "Marco Hutter"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "sim-to-real",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.18365",
+   "image": "figures/2026-11-16/2611.18365.jpg"
+  },
+  {
+   "date": "2026-11-16",
+   "rank": 5,
+   "id": "2611.17619",
+   "group": "general",
+   "title": "TouchTwin: Scaling Human Touch Data via Real-to-Sim-to-Real",
+   "title_ja": "TouchTwin：Real-to-Sim-to-Realによる人間の触覚データのスケーリング",
+   "summary_ja": "巧緻マニピュレーションにおいて、視覚トラッキングだけでは把握できない接触力や指の押し込みの力学的ギャップを埋めるTouchTwinを提案。人間の触覚センサ計測データをシミュレータ内で高精度に再現・拡張し、実機方策へと転移させるReal-to-Sim-to-Realパイプラインを構築して適切な力加減による把持・操作を実現した。",
+   "summary_en": "TouchTwin introduces a real-to-sim-to-real pipeline that closes the contact force gap in dexterous manipulation demonstrations. While vision-only tracking misses contact forces, TouchTwin measures human touch, replays and scales interactions in simulation with accurate forces, and trains policies that successfully execute delicate, force-adaptive physical manipulation on real hardware.",
+   "authors": [
+    "Huiwen Han",
+    "Nuo Chen",
+    "Ziyao Zeng",
+    "Dayou Li",
+    "Hao Wang",
+    "Amir Hossein Rahmati",
+    "Xiaoning Qian",
+    "Bangya Liu",
+    "Zhiwen Fan"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "sim-to-real",
+    "grasping",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.17619",
+   "image": "figures/2026-11-16/2611.17619.jpg"
+  },
+  {
+   "date": "2026-11-16",
+   "rank": 6,
+   "id": "2611.18562",
+   "group": "general",
+   "title": "Training Reasoning Models in Simulation to Natively Use Real Robots",
+   "title_ja": "実ロボットを直接操作するためのシミュレーション内推論モデル強化学習",
+   "summary_ja": "オープンウェイトの27B推論モデルを、人手デモなしにシミュレーション内強化学習のみで訓練し、実ロボットを直接操作可能にする枠組みPEARを提案。推論モデルが環境を観測して思考連鎖（CoT）を展開し、ハーネスなしでエンドエフェクタ目標姿勢を直接生成することで、プロプライエタリな最先端モデルに匹敵する汎用タスク遂行能力を達成した。",
+   "summary_en": "This paper presents PEAR, a framework that trains an open-weight 27B reasoning model entirely in simulation via reinforcement learning without demonstrations to natively control real robots. The model observes the scene, reasons via chain-of-thought, and directly predicts end-effector poses without external harnesses, matching the performance of leading proprietary frontier models on diverse manipulation tasks.",
+   "authors": [
+    "Jiaming Tang",
+    "Zhuoyang Zhang",
+    "Junxian Guo",
+    "Fangzhou Zhao",
+    "Yilong Zhao",
+    "Zekai Li",
+    "Xingyang Li",
+    "Yuyang Zhao",
+    "Song Bian",
+    "Zhijian Liu",
+    "Song Han"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "llm-agent",
+    "manipulation",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.18562",
+   "image": "figures/2026-11-16/2611.18562.jpg"
+  },
+  {
+   "date": "2026-11-16",
+   "rank": 7,
+   "id": "2611.18390",
+   "group": "general",
+   "title": "CS-MPC: Contraction-Certified Sampling-Based MPC for Nonlinear Systems Under Uncertainty",
+   "title_ja": "CS-MPC：不確実性下での非線形システム向け縮小写像保証付きサンプリング型MPC",
+   "summary_ja": "不確実性や外乱、オンラインで生じる安全制約が存在する非線形ロボットシステムに対し、縮小写像理論に基づく追従フィードバックを組み込んだサンプリング型MPCを提案。各サンプルロールアウトを基準軌道近傍に収束させ、制御バリア関数（CBF）による検証層を介することで、有限サンプルでの確率的安定性とミッションレベルの安全性を両立した。",
+   "summary_en": "This paper introduces Contraction-Certified Sampling-Based MPC (CS-MPC) for nonlinear systems under parametric uncertainty and dynamic constraints. By embedding a contraction-certified tracking controller within sampled rollouts to concentrate trajectories and verifying inputs with a discrete-time control barrier function layer, it provides finite-sample stochastic stability and mission-level safety guarantees.",
+   "authors": [
+    "Yashwanth Kumar Nakka"
+   ],
+   "categories": [
+    "eess.SY",
+    "cs.RO",
+    "cs.SY"
+   ],
+   "tags": [
+    "control",
+    "planning",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.18390",
+   "image": null
+  },
+  {
+   "date": "2026-11-16",
+   "rank": 8,
+   "id": "2611.17730",
+   "group": "general",
+   "title": "ERA: Error-Resistant Autonomous Object Navigation with Predicted Depth",
+   "title_ja": "ERA：予測深度を用いた誤差耐性型自律物体ナビゲーション",
+   "summary_ja": "物理デプスセンサを使わず、RGB画像と姿勢から推定した深度モデル出力のみで自律物体探索を行う学習不要フレームワークERAを提案。視点依存の深度誤差が地図に蓄積する課題に対し、誤差を伴いながら移動して新たな視点から地図を修正する更新可能占有格子マップと探索戦略を開発し、頑健な自律探索を実現した。",
+   "summary_en": "ERA proposes a training-free autonomous object navigation framework that relies solely on predicted depth from RGB images without dedicated depth sensors. Addressing the view-dependent error accumulation of depth models, it introduces a 'Move with Error' paradigm featuring revisable occupancy mapping and exploration strategies that actively correct map errors from newly gained viewpoints.",
+   "authors": [
+    "Shunyang Huang",
+    "Shuo Wang",
+    "Wenyuan Xie",
+    "Mingyu Lin",
+    "Yue Ding",
+    "Hongtao Lu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "navigation",
+    "perception",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.17730",
+   "image": "figures/2026-11-16/2611.17730.jpg"
+  },
+  {
+   "date": "2026-11-16",
+   "rank": 9,
+   "id": "2611.17394",
+   "group": "general",
+   "title": "Agentic-Teacher: An Agentic Data Engine for Failure-Driven VLA Post-Training",
+   "title_ja": "Agentic-Teacher：失敗駆動型VLA事後学習のための自律データエンジン",
+   "summary_ja": "事前学習済みVision-Language-Action（VLA）モデルの弱点を克服するための自律型データ生成エンジンAgentic-Teacherを提案。VLAの失敗ロールアウトを分析して介入状態を特定し、コーディングエージェントが実行フィードバックを通じて閉ループのコード方策を反復生成・検証することで、効果的な教師データを自動生成する。",
+   "summary_en": "Agentic-Teacher is an autonomous data engine for failure-driven VLA post-training. By analyzing failed VLA rollouts to identify critical intervention points, coding agents iteratively synthesize and validate closed-loop code policies based on execution feedback, generating targeted and reusable demonstration data to effectively supervise and improve VLA fine-tuning.",
+   "authors": [
+    "Gongyue Teng",
+    "Yuqing Xie",
+    "Yixian Zhang",
+    "Feng Gao",
+    "Shu'ang Yu",
+    "Jiaji Rao",
+    "Sukai Wang",
+    "Guanghui Ren",
+    "Ya Zhang",
+    "Maoqing Yao",
+    "Yu Wang",
+    "Chao Yu",
+    "Xinlei Chen"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "llm-agent",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.17394",
+   "image": "figures/2026-11-16/2611.17394.jpg"
+  },
+  {
    "date": "2026-11-15",
    "rank": 0,
    "id": "2611.17110",
