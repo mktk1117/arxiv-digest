@@ -1,0 +1,136 @@
+{
+ "title_ja": "TouchTwin：Real-to-Sim-to-Realによる人間の触覚データのスケーリング",
+ "tldr_ja": "カメラ映像だけでは分からない人間の「把持力」のズレを、触覚グローブの実測データで物理シミュレータに接地（グラウンディング）し、正確な力と接触を再現・大量生成するフレームワークを提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "TouchTwinの全体パイプラインです。実世界の映像と触覚データからMuJoCo環境へ物理的に忠実なリプレイを構築し、そこから様々な摂動を加えたデモと高品質な動画を大量生成してポリシーを学習させます。",
+  "caption": "Figure 1 : TouchTwin overview. Top: an agentic pipeline rebuilds each recording; GT touch sets where, when and how hard fingers touch and checks the replay. Bottom: each replay yields $N$ perturbed demos, decoded to video in new views and scenes, that train a hand policy.",
+  "image": "details/2611.17619/F1.jpg"
+ },
+ "overview_ja": "ロボットに器用な手先作業（デクスタラス・マニピュレーション）を教えるため、人間のデモ動画からシミュレーション環境を構築してデータを増やす「Real-to-Sim-to-Real」が注目されています。しかし、従来のパイプラインには決定的な弱点がありました。それは「カメラ映像からでは、手がどれくらいの強さで物を握っているかが分からない」という問題です。指が物体の表面で止まっているように見えても、人間がどれだけ指を締め込もうとしているか（トルクや押し込み力）は映像には映りません。その結果、映像だけを模倣すると実測の0.31倍という弱すぎる力でしか握れず、逆に映像トラッキングを単純に物理エンジンで再生すると1.55倍もの過剰な力で握ってしまうという「力のギャップ（Force Gap）」が生じていました。\n\nそこで著者らは、880個の圧力検知セル（タクセル）を備えた触覚グローブとRGB-Dカメラの計測データを活用する「TouchTwin」を開発しました。コーディングエージェント（LLM）が物体のプログラムを書き起こし、被験者ごとにキャリブレーションした手モデルを使って、実測の触覚データに基づいて指の接触位置・タイミング・押し込み力をシミュレータ（MuJoCo）内で正確に再現します。\n\n検証の結果、TouchTwinで再現したリプレイを使って学習させた制御ポリシーは、実測とほぼ同等（0.99倍）の適切な力で物体を把持できるようになり、接触予測の失敗率も32%から13%へと大幅に低減しました。さらに、この物理シミュレーションを起点にして、把持姿勢や物体の重さ・摩擦を変化させた無数のバリエーションデータを生成し、動画生成モデルでリアルな映像へとデコードできることも実証しました。",
+ "contributions_ja": [
+  "映像だけでは捉えられない把持力のズレ（力のギャップ）を、実測の触覚信号を物理シミュレーションに統合することで解消した点。",
+  "コーディングエージェントによる物体モデル作成と触覚グラウンディングを組み合わせ、人間と物体の接触インタラクションをMuJoCo上で高精度に再現した点。",
+  "物理リプレイをベースに多様な摂動（重さ・摩擦・手の姿勢など）を与え、接触・力ラベル付きのデータやリアルな動画を大規模に自動増幅するデータエンジンを構築した点。",
+  "触覚に接地したリプレイで学習することで、把持成功率を向上させ、接触検出の見逃し率を32%から13%へ半減させた点。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜカメラ映像だけでは把持力を再現できないのか？",
+   "summary_ja": "映像ベースの模倣では指の表面停止位置しか分からず、把持力が大幅に不足するか過剰になる問題がありました。TouchTwinは実測の触覚データを取り込み、物理シミュレーション上で「いつ・どこを・どれだけの力で押したか」を正確に復元します。",
+   "details_ja": "人間のデモンストレーションは、多指ハンドの操作データを集める最も手軽な手段です。近年では、1つの実世界デモ動画からシミュレーション内に複数のバリエーションを複製するReal-to-Sim-to-Realが盛んに研究されています。しかし、これらは基本的にカメラ映像から手や物体の動きを再構成しているため、「接触力」がシミュレーションに反映されないという本質的な課題を抱えていました。\n\n映像に映るのは「指が物体の表面で止まった位置」であり、「指が物体をどれだけ強く締め付けようとしているか」ではありません。また、接触面そのものが手で隠れてしまうオクルージョンも頻繁に起きます。この結果、映像だけを頼りにすると2つの極端な失敗が起きてしまいます。単純な姿勢模倣を行うと実測の0.31倍という弱すぎる力でしか握れず、トラッキングした姿勢をそのまま剛体物理シミュレーションで動かすと1.55倍もの過剰な力で握りつぶしてしまうのです。「物理計算だけで最小限の把持力を逆算すればいいのでは？」と思われるかもしれませんが、実際の人間はマグカップを持ち上げるとき、物理的に必要な最小把持力の1.6〜3.7倍もの安全マージンを取って握っています。つまり、人間が実際にどれだけの力を込めたかは、実測の触覚（Touch）を見なければ原理的に分からないのです。\n\nTouchTwinは、880タクセルのグローブと頭部・手首カメラを備えたTouchScaleデータセットを活用し、MuJoCo上に物理環境を再構築します。コーディングエージェントが物体の物理プログラムを自律記述し、実測触覚データを用いて指の締め込み力や接触タイミングを調整することで、実測の0.99倍という極めて忠実な力再現を達成しました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "被験者の手と触覚グローブのモデリングです。実世界の映像（a）から関節チェーン（c）とグローブ上の880個の圧力検知セル（b, d）をシミュレーション上の手モデルに正確に対応付けています。",
+     "caption": "Figure 2 : Simulating a tactile hand from egocentric video and paired tactile recordings. (a) A participant’s tactile glove grasping a mug, seen by the head camera. (b) The simulated hand fitted to the participant’s episodes, with the glove’s taxels on its skin. (c) The joint chain, one dot per hinge. (d) A fingertip pad and its taxels. (e) The real glove’s force map over its 880 cells, which the simulated touch is checked against.",
+     "image": "details/2611.17619/F2.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "実測（緑）とシミュレーション（橙）の接触力の比較です。親指・人差し指・中指の垂直抗力の時間変化がシミュレータ内で忠実に再現されており、物体はスクリプトではなく接触力のみによって動いています。",
+     "caption": "Figure 4 : Touch-grounded replays simulate the contact force. One column per clip, real (green) above simulation (orange). Top: a frame of the real recording from the head camera, and the simulation rendered through the same camera. Bottom: the normal force of the thumb, index and middle finger over the clip, measured by the glove and simulated as contact force, on the same axes; the vertical line marks the frame shown. The object is never scripted; it moves only through contact. (a) The left hand moves a mug to a marked spot. …",
+     "image": "details/2611.17619/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "Real-to-Simと触覚センシング、そして動画生成の交差点",
+   "summary_ja": "これまでの研究は、映像からの動作復元、触覚と映像の相互変換、あるいは動画生成の物理誘導を個別に行っていました。TouchTwinは、実測触覚を物理シミュレータに直接注入して新しい条件下でのリプレイを可能にした点で独自性を持っています。",
+   "details_ja": "TouchTwinの立ち位置を理解するために、関連する3つの研究分野を整理します。\n\n- 人間デモからのReal-to-Sim-to-Real：\n人間の単眼・主観視点動画から手と物体の姿勢を推定し、シミュレーション内でロボットやヒューマノイドのポリシーを学習させる手法が急速に発展しています。物体の初期姿勢をずらしてデモを増幅する手法もありますが、これらはすべて映像情報のみに依存しており、接触力そのものを直接扱えていませんでした。\n\n- 人間の触覚センシング研究：\n触覚グローブを使った把持圧力の計測や、主観視点映像から触覚信号を推定する研究、さらには触覚信号をロボットポリシーの教師信号にする試みが進んでいます。しかし既存研究は、記録された同一シーン内でのセンサー値の変換にとどまっていました。TouchTwinのように「実測触覚によって物理エンジン内のインタラクションそのものを駆動し、新しい物理条件下でリプレイする」という枠組みはありませんでした。\n\n- シミュレーション条件付きの動画生成：\n物理エンジンやコードで生成した骨格・軌跡をプロンプトとして拡散モデルに入力し、写実的な動画を生成するアプローチが登場しています。TouchTwinでは最新の動画生成モデル「Wan2.2」を採用し、触覚に裏打ちされた物理シミュレーション動画を条件として与えることで、物理法則に矛盾しないリアルな手作業動画を合成します。",
+   "figures": []
+  },
+  {
+   "heading": "3 Experiments",
+   "heading_ja": "触覚グラウンディングがもたらす圧倒的な精度向上",
+   "summary_ja": "触覚で接地したシミュレーションを用いることで、接触フレームの見逃し率が32%から13%に減少し、学習した手先ポリシーは実測とほぼ同じ把持力（0.99倍）で未知のテスト環境でも高成功率を収めました。",
+   "details_ja": "著者らは、シミュレーション品質、接触予測精度、そしてポリシーの把持性能の3つの観点から実験を行っています。\n\n### シミュレーションによる動画生成の誘導\n動画生成モデルWan2.2にシミュレーションのレンダリング結果を条件として与えた場合と、テキストや第1フレームのみから生成した場合を比較しました。シミュレーションの制御がない場合、マグカップが不自然な軌道を描いて物理的に破綻してしまいますが、TouchTwinのリプレイをガイドにすることで、実際の作業映像に極めて近い物理整合性のある動画が生成できました。\n\n### 接触予測（Contact Prediction）の改善\n未知のテストデータに対し、各フレームで指が接触しているかどうかを判定するモデルを学習させました。映像のみに基づくシミュレーションデータで訓練した場合、実際の接触フレームの32%を見逃してしまいました。一方、TouchTwinの触覚グラウンディングされたシミュレーションで訓練すると、見逃し率は13%へと大幅に低減しました。\n\n### ポリシーの把持力評価\n手先操作ポリシー（N0-VTLA）を学習させたところ、観察された指の姿勢だけを模倣させたモデルは、真の力の0.31倍しか力を出せませんでした。これに対し、TouchTwinの触覚リプレイで訓練したポリシーは実測値の0.99倍という適切な把持力を獲得しました。さらに、未知の記録データに対するテストで20回中20回すべて成功し、外乱を加えた36通りのテスト環境でも35回成功するという極めて頑健な把持性能を示しました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "シミュレーションで条件付けした動画生成の比較です。シミュレーションのガイドを入れた場合（Ours）は実映像（Real）の軌道と一致しますが、ガイドなし（Baseline）ではマグカップの動きが物理法則から逸脱してしまいます。",
+     "caption": "Figure 5 : Simulation-conditioned generation. From left: the touch-grounded replay rendered through the recorded head camera, the generated video conditioned on it (baseline + sim control), the real video, and generation from the first frame and text alone, all at the same moment. Same first frame, prompt and seed; lines trace the mug, green = real.",
+     "image": "details/2611.17619/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Downstream Applications",
+   "heading_ja": "1本のデモから無限の「成功・失敗」データを生み出すデータエンジン",
+   "summary_ja": "1つのリプレイに対して把持姿勢・速度・摩擦・重量などを変化させることで、正確な接触・力ラベル付きの多様なデータを生成できます。さらに動画生成モデルを介して、未知の視点や背景を持つリアルなデモ動画へと展開可能です。",
+   "details_ja": "TouchTwinの最大の強みは、1つの高品質な物理リプレイをシード（種）として、多様なバリエーションデータを無限に増幅できる点にあります。\n\n- 物理シミュレーションによる摂動（Perturbation）：\n物理リプレイ内のパラメータを1つだけ変更してシミュレーションを再実行します。例えば、把持姿勢（指の添え方を変える）、動作速度（急加速させる）、指の目標把持力（弱める）、物体の性質（摩擦を減らす、重量を増やす）などを自在に変更できます。物理法則に基づいて計算されるため、物体が滑ったり落下したりといった「失敗デモ」も自動的にラベル付けされます。実験では、摩擦や把持力を徐々に下げていくことで、元の把持がどれくらいの安全マージンを持っていたかを定量的に測定することにも成功しています。\n\n- 多様な視点・シーンの動画デコード：\n物理リプレイで得られた手と物体の動きをもとに、Wan2.2を用いて異なるカメラアングル（手首視点など）や異なる背景環境の写実的動画をレンダリングできます。生成されたすべての動画には、シミュレータが計算した各タクセル単位の触覚・接触・力ラベルが完全に紐づいています。\n\n- グローブの死角を補完する接触計測：\n実世界の触覚グローブは手のひら中央や指の付け根などにセンサーがない部分があります。しかしシミュレータ上の手モデルは皮膚全体に接触判定を持っているため、グローブでは検知できなかった手のひらの押し込み力なども正確に取得できます。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "1本の記録から生成された多様な把持姿勢と物理摂動の例です。姿勢を変えても物理計算によってスリップ量や成否が判定され、グローブ形式のタクセル力マップが自動生成されます。",
+     "caption": "Figure 6 : Perturbed replays of one recording. (a) Other hand postures with the same grip effort; under each, the simulated touch of that frame on the glove’s pad layout. The recorded grasp, thumb-index pinch, top claw and side wrap carry the mug (drift 3.8, 2.1, 1.9 and 5.1 mm in the hand); with the rim-wall pinch the mug swings 73° in the hand and lands 36 mm off target. (b) Perturbations of motion, grip and object. …",
+     "image": "details/2611.17619/F6.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "触覚リプレイからデコードされた写実的な動画です。元映像の視点だけでなく、手首カメラ視点や全く異なる背景環境・照明条件下でのインタラクション動画が合成されています。",
+     "caption": "Figure 8 : Generated videos decoded from touch-grounded replays (one frame each). From left: a generated video in the recording’s own view and scene; a wrist camera in the same scene; new viewpoints, hand postures and scenes.",
+     "image": "details/2611.17619/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Limitations",
+   "heading_ja": "現状の制約と今後の課題",
+   "summary_ja": "検証がシミュレーション内の開ループ制御にとどまっている点や、対象タスクがマグカップ把持中心である点、両手操作での微小な滑りなど、実機ロボット展開に向けた課題が挙げられています。",
+   "details_ja": "TouchTwinは非常に有望なデータエンジンですが、著者らは以下の制約を認めています。\n\n- 実機ロボットへの転移が未実施：\n本論文でのポリシー検証はすべてシミュレーション内のアセットに対する開ループ制御で行われており、実際のロボットハンドを用いた実機検証や閉ループ制御への適用は今後の課題です。\n\n- タスクの多様性とデータセット規模：\nポリシー評価や接触予測の実験は主にマグカップを持ち上げるタスクに限定されており、評価用のデータセット規模もまだ小さめです。\n\n- 接触初期フェーズの検証不足：\nテスト用クリップの多くは、手がすでに物体に触れている状態から始まっているため、指が物体に触れる瞬間（接触開始）の動的な制御については十分に評価されていません。\n\n- 両手操作におけるスリップと動画モデルの誤差：\n両手での操作リプレイでは、手の中で物体が12〜23mm滑ってしまう現象が残っています。また、生成された動画はシミュレーションの誤差を引き継ぐ可能性があり、シミュレータが直接制御していない細部で動画モデル特有の破綻が生じることがあります。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "映像だけから人間の手技をシミュレートすると把持力が0.31倍や1.55倍に狂う「力のギャップ」が存在し、実測触覚による接地が不可欠である。",
+  "実測触覚をMuJoCoに統合することで、把持力を実測比0.99倍で再現でき、接触フレームの見逃し率を32%から13%へと大幅に低減できる。",
+  "1つの触覚接地リプレイから、把持力・摩擦・重量・視点を変えたラベル付きデータ（成功・失敗・動画）を大量に自動増幅するパイプラインが有効に機能する。"
+ ],
+ "limitations_ja": [
+  "実験がシミュレーション内の開ループ評価にとどまっており、実機ロボットハンドへのSim2Real転移が未検証である点。",
+  "タスク検証が主にマグカップ把持に限定されており、接触開始の瞬間や複雑な両手操作（12〜23mmのスリップが発生）の精度に改善の余地がある点。",
+  "動画生成モデルWan2.2に依存しているため、シミュレーションが制御していない背景や細部で視覚的なアーティファクトが発生しうる点。"
+ ],
+ "keywords": [
+  "Real-to-Sim-to-Real",
+  "Tactile Sensing",
+  "Dexterous Manipulation",
+  "Physics Simulation",
+  "MuJoCo",
+  "Video Generation"
+ ],
+ "id": "2611.17619",
+ "title": "TouchTwin: Scaling Human Touch Data via Real-to-Sim-to-Real",
+ "authors": [
+  "Huiwen Han",
+  "Nuo Chen",
+  "Ziyao Zeng",
+  "Dayou Li",
+  "Hao Wang",
+  "Amir Hossein Rahmati",
+  "Xiaoning Qian",
+  "Bangya Liu",
+  "Zhiwen Fan"
+ ],
+ "date": "2026-11-16",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "sim-to-real",
+  "grasping",
+  "dataset"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.17619",
+ "pdf_url": "https://arxiv.org/pdf/2611.17619",
+ "summary_ja": "巧緻マニピュレーションにおいて、視覚トラッキングだけでは把握できない接触力や指の押し込みの力学的ギャップを埋めるTouchTwinを提案。人間の触覚センサ計測データをシミュレータ内で高精度に再現・拡張し、実機方策へと転移させるReal-to-Sim-to-Realパイプラインを構築して適切な力加減による把持・操作を実現した。",
+ "generated": "2026-11-16",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.17619"
+}
