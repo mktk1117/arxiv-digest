@@ -1,0 +1,145 @@
+{
+ "title_ja": "スキッドステアローダのためのアクロバティック動的制御の強化学習",
+ "tldr_ja": "5トンの実機スキッドステアローダに対し、シミュレーション上の深層強化学習だけで訓練したポリシーを用いて、前輪2輪でのウィリー立ち上げ・直立バランシング・その場旋回・不整地走行・衝撃緩和着地というアクロバティックな超動的動作を世界で初めて完全自律で実現しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "5トンの実機スキッドステアローダが強化学習ポリシーによって自律実行するアクロバティックな動作群です。反動をつけて前輪2輪で立ち上がるスイングアップ（A）、2輪バランシング状態のまま75cmの凹凸を走破する不整地走行（B）、アーム加減速の外乱下での平衡維持（C）、その場スピン（D）、そして地面への衝撃を逃すソフトランディング（E）までを自律で行います。",
+  "caption": "Figure 1: Acrobatic maneuvers trained with RL in simulation and deployed on a 5-tonne SSL . (A) Swing-up from four onto two wheels. (B) Driving over rough terrain on two wheels. (C) Stable balancing while moving the arm. (D) Spinning in place on the front wheels. (E) Soft landing after balancing on two wheels.",
+  "image": "details/2611.18365/F1.jpg"
+ },
+ "overview_ja": "油圧ショベルやスキッドステアローダ（前後輪の回転差で旋回する建設機械）などの重機は、建設や農業の自動化において大きな注目を集めています。しかし、重機特有の複雑な油圧アクチュエータは強い非線形性や応答遅延を持ち、第一原理に基づく正確な動力学モデルの構築が極めて困難です。そのため、従来のモデル予測制御（MPC）などでは、接触状態が激しく変化するような極限の動的動作を扱うことができませんでした。また、重量が数トンに及ぶため、実機上での試行錯誤による強化学習（RL）は重大な破損リスクを伴い不可能です。\n\nそこで著者らは、シミュレーション内で強化学習を行い実機にゼロショット転送（Sim-to-Real）するアプローチを提案しました。まず、実機を前後動作させて取得した入出力データから、油圧特有の遅延と履歴を捉える小型ニューラルネット製アクチュエータモデルを学習します。これをメジャーと台秤だけで簡易測定した剛体モデルと組み合わせ、物理シミュレータ上に組み込みました。さらに、動作全体を「スイングアップ」「安定化」「速度追従」「着地」という重複状態を持つ4つのスキルに分解し、ドメインランダム化とカリキュラム学習を適用してPPO（近接方策最適化）で個別に学習させました。\n\n5トンの実機 John Deere 332G による実験の結果、事前デモなしで前輪2輪へのスイングアップ、2輪直立状態での追従走行、最大速度でのその場スピン、75cm高の不整地の走破、そして地面に激突しない衝撃緩和着地に成功しました。MPCベースラインが転倒した高速走行や不整地でも安定性を維持し、重機の極限動的制御におけるRLの強力な汎化性能と実用性を実証しています。",
+ "contributions_ja": [
+  "5トンの実機油圧スキッドステアローダを用い、前輪2輪での立ち上がりからバランシング走行、その場スピン、衝撃を抑えた4輪着地までの一連のアクロバティック動作を世界で初めて完全自律で実証したこと。",
+  "事前の精密な機体CADモデルや専門知識に頼らず、台秤・メジャー・短時間の実機データから油圧遅延を表現するニューラルネットアクチュエータモデルを同定する、実用的なSim-to-Realパイプラインを確立したこと。",
+  "激しい接触変化と非線形性を含む極限動作を4つのサブスキルに分割・学習させ、状態分布の重なりを利用したシンプルな遷移則で滑らかに連結するモジュラー制御構成を示したこと。",
+  "小型電動4WD車両（SMB）にも同一パイプラインを適用し、プラットフォームや駆動方式（油圧/電動）を問わず転用できる汎用的な手法であることを示したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "Introduction",
+   "heading_ja": "なぜ重機に「曲芸」をさせるのか？",
+   "summary_ja": "油圧重機の自動化は人手不足解消や安全性向上に不可欠ですが、流体や配管の弾性、大きな応答遅延、接触変化のため高精度なモデル化が極めて困難でした。本研究では、シミュレーションによる強化学習とSim-to-Real転送を用い、人間の熟練オペレータでも世界記録級とされる5トン重機の2輪曲芸動作の完全自動化に挑みます。",
+   "details_ja": "重機が活躍する建設や鉱山などの現場では、生産性の向上だけでなく深刻な人手不足への対応や作業員の安全確保の観点から自律化が強く求められています。しかし、油圧駆動系は作動油の圧縮性や配管のたわみ、ヒステリシス、大きな応答遅延などを抱えており、解析的な物理モデルを正確に作ることが極めて困難です。\n\nモデル予測制御（MPC）は軌道追従などの整定された動作では成果を上げていますが、不連続な接触変化や劣駆動系のバランシングを含むダイナミックな動作では、非凸最適化や実時間計算の限界に直面します。一方で、近年の四足歩行ロボットやドローンで見られるように、深層強化学習（RL）とSim-to-Real転送の組み合わせは、多数の入出力を同時に扱い、頻繁な接触変化を伴う複雑な制御において目覚ましい成果を上げています。\n\nそこで著者らは、総重量5トンの実機スキッドステアローダ（John Deere 332G）を対象に、前輪2輪で立ち上がる「スイングアップ」、2輪での直立バランス、その場スピン、起伏のある不整地走行、そして安全な着地という一連の極限動作をRLで学習させることに挑戦しました。これらの動作はアクチュエータのリミット（全開トルク・最高速度）を要求し、これまで公式の世界記録を打ち立てた一握りのトッププロ操縦士しか実現できなかったものです。一見ショーのような曲芸ですが、これが実現できれば、足場のないトラックへの自力積載や、泥濘地でのタイヤの横滑り（地面破壊）低減、さらには不整地での障害物乗り越えやスタックからの自己復帰など、実用面でも計り知れない恩恵をもたらします。",
+   "figures": []
+  },
+  {
+   "heading": "Results",
+   "heading_ja": "5トンの巨体が宙に浮く：実機実験での圧倒的なアジリティ",
+   "summary_ja": "市販の5トン機 John Deere 332G に最小限のセンサと保護バーを追加し、標準的なノートPCでポリシーを実行しました。実機実験では、2輪立ち上げ、衝撃を逃すソフトランディング、目標速度追従、アーム動作の外乱下での平衡、超信地旋回、75cm高の不整地走破など、MPCベースラインを圧倒する頑健性と運動性能を示しました。",
+   "details_ja": "実験対象の John Deere 332G は、2軸4輪の油圧駆動スキッドステアローダで、運転席のジョイスティック入力が機体内コントローラを経由して左右輪の指令速度に変換される仕組みです。今回の実験では、ジョイスティック信号を横取りし、機体のCANバスから車輪エンコーダ値を取得、ベースとアームにIMU（慣性計測装置）を後付けした標準的なノートPC（Intel Core i7、GPUなし）から制御指令を送信しました。転倒時の機体破損を防ぐため、後方に転倒防止バー（ウィリーバー）、バケット側面に補助輪を装着していますが、これらは通常動作の接地面には一切干渉しません。\n\n### Swing-Up and Stabilize（2輪立ち上げと平衡移行）\n4輪接地で静止した状態から前後に激しく車体を揺さぶってモメンタムを蓄積し、前輪2輪の直立姿勢へと持ち込む動作です。コントローラは「スイングアップ」と「安定化」の2段階に分け、機体のピッチ角が $-30^\\circ$ に達した瞬間に切り替えます。実機上でもシミュレーション通りの「後進全開 $\\to$ 前進 $\\to$ 再度後進全開」というバンバン制御（最大入力の切り替え動作）が自動創発し、見事に直立へ移行しました。アームの角度を学習範囲外まで高くした過酷な条件（14試行中3回バケット接地）を除き、極めて高い成功率を示しました。\n\n### Soft Landing（ソフトランディング）\n直立バランス状態から安全に4輪接地へ戻す制御です。何もしない（指令0）状態で倒すと、自重5トンの衝撃で前輪が激しくバウンドし車体が大きく揺れます。一方、学習されたポリシーは、まず前進100%で後輪を素早く接地させた直後、接地寸前に後進100%へと切り替えて衝撃を吸収し、車体の跳ね返りをほぼゼロに抑えて着地することに成功しました。\n\n### Balance and Track Velocities（2輪バランシング走行と外乱耐性）\n2輪直立状態で静止するタスクでは、RLポリシーは $\\pm 1.6^\\circ$ のわずかなピッチ角振動で直立し、MPCと同等の安定度を示しました。さらに目標車輪速をステップ状に $4\\,\\mathrm{rad/s}$ まで引き上げる追従試験では、MPCが $3.5\\,\\mathrm{rad/s}$ 超でバランスを崩して転倒したのに対し、RLは最大速度まで破綻なく追従しました。\n\nまた、アームを激しく上下動させて重心位置を大きく変動させてもRLは即座に適応して平衡を維持しました。さらに、左右の車輪に最大速度差 $8.4\\,\\mathrm{rad/s}$ を生じさせるスピン旋回指令を上乗せしても安定して回り続けました。極めつけは平地でのみ学習させたポリシーを高さ75cmの起伏がある不整地に投入した実験です。MPCは段差を登れずスタックしたのに対し、RLは登り坂での減速と下り坂での重力加速を自律的に検知・補正し、前進・後退ともに軽々と凹凸を乗り越えました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "実機 John Deere 332G のシステム構成です。安全対策として後部にウィリーバー（1）とバケット保護輪（2）を装着し、アーム角度監視用のIMU（3）を追加しています。キャビン内には標準的なノートPC（6）を設置し、CANバス経由でジョイスティック信号を直接上書きしています。",
+     "caption": "Figure 2: Hardware description. (A) John Deere 332G SSL . For safety, a wheelie bar with a rolling tube was mounted at the back (1) and wheels were mounted on the bucket (2). Two IMU were added: one on the chassis (not visible) and another one on the arm to monitor its angle (3). Inside the machine, two internet devices (4) and (7) ensured wireless connectivity for the laptop (6), which ran the controller and interfaced the machine’s CAN bus. A physical switch (5) allowed us to enable autonomous mode only when needed. (B) Different positions of the arm. …",
+     "image": "details/2611.18365/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "実機における各動作の実行ログとシミュレーションの比較です。スイングアップ（A, B）ではピッチ角 $-30^\\circ$ で安定化コントローラへ滑らかに切り替わっています。ソフトランディング（C, D）では前進から後進への切り替えで着地衝撃を吸収しています。その場バランス（E）および速度追従（F）でもシミュレーションと実機が高い一致度を示しています。",
+     "caption": "Figure 3: Hardware deployment. (A) Image sequence of the swing-up maneuver. (B) Swing-up in simulation and reality. First, the swing-up controller is executed. When the machine’s pitch reaches $-30$\\mathrm{\\SIUnitSymbolDegree}$$ (dashed lines), the stabilize-and-balance controller is activated. The roman numerals refer to the corresponding images of (A). (C) Soft-landing sequence in simulation and on the real SSL compared with zero command. In the beginning, the balancing controller is active. The landing controller is triggered at $t=1\\penalty\\ $\\mathrm{s}$$ and is active after that. When the pitch, pitch rate, and wheel speed are close to zero, the commands are set to zero. …",
+     "image": "details/2611.18365/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "実機における堅牢性の検証結果です。アームを上下動させて重心を大きく揺さぶる外乱（A）、旋回指令を重畳させた2輪での超信地旋回（B）、平地訓練のみで挑んだ75cm高の起伏を持つ不整地の走破（C）のいずれにおいても、RLポリシーは転倒することなくバランスを保ち続けています。",
+     "caption": "Figure 4: Robustness analysis. For all panels, the corresponding snapshot times are indicated in the plot with roman numerals. (A) Robustness to arm movements of the RL controller and the MPC baseline. The arm is moved around its nominal position. Between (I) and (V), the arm moves downward; between (V) and (IX), the arm moves upward. (B) Robustness to spinning at different wheel speeds of the RL policy and the MPC . Spinning is achieved by overlaying a machine rotation command on the policies’ actions. (C) Traversing rough terrain. The SSL successfully navigates the $75\\penalty\\ $\\mathrm{cm}$$ bumps, driving forward and backward. …",
+     "image": "details/2611.18365/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Discussion",
+   "heading_ja": "なぜRLはMPCを超えられたのか？",
+   "summary_ja": "RLポリシーは、単純な追従タスクではMPCと同等以上の性能を示しつつ、長ホライズンの計画や接触変化を伴うスイングアップ、平地学習からの不整地への汎化においてMPCを明確に凌駕しました。計算負荷をシミュレーション訓練時にオフロードした軽量なネットワークは、未知環境でのリアルタイム制御に極めて有効です。",
+   "details_ja": "本研究の特筆すべき点は、対象重機の事前知識やCADモデルが全くないゼロの状態から、実用的な同定手順とドメインランダム化だけで実機展開を成功させたことです。動作全体を一度に学習させるのではなく、個別のスキルとしてモジュール化して訓練したことで、ハイパーパラメータの調整コストを最小限に抑えられました。\n\n古典的な強豪であるMPCとの比較において、単純な静止バランスでは両者に大きな差はありませんでした。しかし、速度追従の限界値や、平地学習ポリシーによる不整地の走破性においては、RLが圧倒的な優位性を示しました。MPCは環境の幾何学変化を考慮していないため段差を外乱として排除しきれず停止してしまいますが、RLはドメインランダム化によって獲得した頑健性のおかげで、センサが検知した速度やピッチの乱れに対して本能的に車輪速度を補正し、難なく乗り越えることができました。\n\nさらに、スイングアップのように「接地と離床」を繰り返す非凸性の高いタスクは、MPCでは専用の接触シーケンスプランナーを用意しない限り解けません。一方、RLでは報酬関数と初期状態の設計を変えるだけで、同一の学習アルゴリズム（PPO）を用いて簡単にダイナミックな全身協調動作を獲得できました。また、実機実行時の計算負荷が数層のMLP推論（数ミリ秒以下）で済むため、最適化計算の収束性に悩まされない点も現場投入における大きな強みです。\n\n現在は手動のルールベースでスキルを切り替えていますが、スキルの状態分布が意図的に重複するよう初期化されているため、切り替えは極めて頑健です。将来的には、より高度な意思決定を行う上位ポリシー（階層型強化学習）を組み合わせることで、スロープなしでのトラックへの自力乗り込みなど、より複雑な長時間の作業ミッションへ拡張できると期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "Materials and Methods",
+   "heading_ja": "Sim-to-Realの神髄：油圧アクチュエータ学習と報酬設計の工夫",
+   "summary_ja": "手法の核は、実機データから学習したニューラルネットアクチュエータモデルと、台秤等で簡易計測した剛体モデルの融合です。PPOを用い、スイングアップ・安定化・速度追従・着地の4タスクをそれぞれ適切な報酬関数とカリキュラム学習によってシミュレータ内で訓練しました。",
+   "details_ja": "全体のワークフローは「剛体モデリング」「アクチュエータ同定」「シミュレーション強化学習」「実機配備」の4段階から成ります。\n\n### Actuator Model & Rigid-Body Model（アクチュエータモデルと剛体モデル）\n油圧アクチュエータの最大の壁は遅延と非線形性です。著者らはまず、機体をジャッキアップして車輪を空転させた状態と、接地して自重5トンを動かした状態で同じ入力信号を与え、応答速度がほぼ一致することを確認しました。つまり「指令値に対して車輪速度が一意に決まる速度制御系」と見なせるということです。そこで、ランダムなステップ波や正弦波で機体を1.5時間走らせた履歴データ（制御入力と車輪速の過去1.8秒分、30点）を入力とし、20ミリ秒先の車輪速度を予測する3層の全結合ニューラルネットワーク（SoftSign活性化関数）を学習させました。剛体モデルについてはCADを使わず、メジャーで測った寸法と、大型トラック用台秤に乗せてモーメントの釣り合いから算出した重心位置・質量のみで直方体と円柱の簡易モデルを組み上げました。\n\n### Reinforcement Learning & Subtasks（強化学習とサブタスクの設計）\nシミュレータにはRaiSimを用い、PPOアルゴリズムで各スキルを訓練しました。観測空間はピッチ角、ピッチ角速度、左右平均車輪速、過去のアクション履歴などで構成され、実機のセンサ誤差を模したガウスノイズを付加しています。また、質量や慣性モーメントをエピソードごとに一様分布からサンプリングするドメインランダム化を行いました。\n\n- ### Swing-Up（立ち上げ）: 車体を揺さぶるモメンタムを得るため、正負の大きなピッチ角に報酬を与えつつ、後方への過度な傾き（後部底面の接地）をカリキュラム学習で徐々に強くペナルティ化しました。これにより、最初は接地を利用して学習し、次第に地面を擦らずに反動だけで立ち上がる技術を獲得しました。\n- ### Stabilize and Balance（安定化）: スイングアップ後のピッチ角 $-30^\\circ$ 付近から開始し、転倒やバケット接地で即座にエピソードを打ち切る設定で、小さな制御入力で平衡を維持する滑らかなアクションを学習させました。\n- ### Soft Landing（ソフトランディング）: 直立状態から後輪を着地させる際、ピッチ角が $0^\\circ$ に近づくほど報酬を与え、逆に前輪が跳ね上がるとペナルティを科すことで、接地直前の「逆噴射（後進全開）」を自動創発させました。\n- ### Balance and Track Velocities（速度追従）: 目標車輪速度との二乗誤差をペナルティとしつつ、最初はバランス学習に専念させ、後から追従ペナルティの重みを増やすカリキュラム学習を採用しました。実機投入時には出力に一次ローパスフィルタ（係数 $\\beta=0.8$）を適用して挙動を安定させています。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "提案手法の全体パイプラインです。実機で測定した過去の入力・車輪速から未来の速度を予測するアクチュエータモデルをニューラルネットで構築し（A）、シミュレーションに組み込んでいます。空転時と接地時で車輪応答が変わらない事実（B）を活かし、実機と見事に一致する挙動モデル（C）を実現しました。",
+     "caption": "Figure 5: Method overview. (A) The controllers were first trained in simulation and then deployed on real hardware. The simulation incorporated an actuator model trained to predict wheel speeds on the basis of real-world data and a rigid-body model whose properties were randomized during training around the measured values. (B) Wheel speed for the same joystick input, rotating freely in the air (machine is lifted with a car jack) and when placed on the ground (thus moving the entire SSL ). (C) Comparison of the wheel speed in simulation and on the real machine for different types of signals: ramps, sinusoidal, and commands from the controller while balancing the machine. …",
+     "image": "details/2611.18365/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "強化学習の訓練設計と学習曲線です。各サブスキルが受け取る初期状態分布（A）、ピッチ角に応じた機体姿勢（B）と報酬形状（C）が定義されています。スイングアップ（D）や速度追従（H）では、初期の探索を助けつつ徐々に制約を強めるカリキュラム学習が機能していることが分かります。",
+     "caption": "Figure 6: RL. (A) Initial state distribution at episode start (sampled on 1000 environments). (B) Visualization of different SSL pitch angles. (C) Rewards as a function of the pitch angle for swing-up and soft-landing controllers for different values of $c_{0,1}$ . (D) Swing-up learning: Average reward per time step and curriculum progression on $c_{0}$ to increasingly penalize touching the ground with the rear underside. (E) Distribution of the pitch angle at the end of an episode. All 1000 trials achieved a pitch angle smaller than $-30^{\\circ}$ , which is required for successful swing-up. …",
+     "image": "details/2611.18365/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Supplementary Materials",
+   "heading_ja": "付録：MPCベースラインの詳細と小型電動車両への横展開",
+   "summary_ja": "比較に用いたMPCは平面倒立振子モデルに基づく一階遅れアクチュエータ系として定式化しました。また、本手法の汎用性を示すため、100kgの小型電動4WD車両「Super Mega Bot」にも同様のフレームワークを適用し、人間による強いキックや段差をものともしない2輪バランシング走行を実証しました。",
+   "details_ja": "### SSL Model Predictive Control Baseline（MPCベースラインの定式化）\n比較対象のMPCは、前輪を円筒、車体全体を単一の集中質量とする平面倒立振子モデル（状態量4次元：車輪位置 $x$、車輪速度 $v$、車体ピッチ角 $\\theta$、ピッチ角速度 $\\dot{\\theta}$）として定式化しました。アクチュエータはシステム同定により決定した時定数 $T$ を持つ一階遅れ系としてモデル化し、CasADiを用いてホライズン40ステップ（0.8秒先まで、刻み幅0.02秒）の非線形最適化問題を解いています。なお、MPCでは接触不連続性を扱うことができないため、スイングアップやソフトランディングは実行できず、人間が手動で直立姿勢に持ち上げてから制御を開始しています。\n\n### Case Study: Super Mega Bot (SMB)（小型電動車両への適用事例）\n提案手法が油圧駆動や5トンという特定のスケールに依存しないことを証明するため、重量100kgの電動4WDロボット「Super Mega Bot（SMB）」への横展開を行いました。SMBは油圧ローダと異なりトルク制御が基本となるため、平地走行時の加速度と質量から車輪トルクを推定し、指令値履歴からトルクを予測するアクチュエータモデルを学習させました。車両が軽量な分、慣性モーメントが小さく、より高速かつ繊細な制御応答が要求されます。\n\n実機実験の結果、シミュレーション訓練のみを経たポリシーによって、SMBは人間が強く蹴飛ばして数メートル押し出されても倒れずに平衡を復帰し、砂利道や段差を乗り越えながら、旋回と直進が完全に独立した直観的な速度追従走行を実現しました。この結果は、本フレームワークが建機から小型探査ロボットまで、足回りや駆動方式を問わず極限の動的バランシングを可能にする汎用的な解法であることを裏付けています。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "MPCベースラインで用いたスキッドステアローダの平面倒立振子モデルです。前輪を円柱、アームを含む全車体をピッチ軸回りの慣性を持つ単一剛体として近似し、状態方程式を導出しています。",
+     "caption": "Figure 7: Mathematical description of the SSL used for the MPC . Each front wheel is modeled as a cylindrical body with radius $R$ , mass $m_{wheel}$ , and inertia $\\Theta_{wheel}$ . The rest of the machine is lumped into a body of mass $m_{body}$ and inertia $\\Theta_{body}$ .",
+     "image": "details/2611.18365/F7.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "油圧アクチュエータの強い遅延や非線形性は、短時間の実機データから履歴を入力とする小型MLPを学習させるだけで、極限動作に耐えうる精度でSim-to-Realの溝を埋められる。",
+  "CADモデルや精密なパラメータ同定がなくても、メジャーでの採寸と台秤によるモーメント計算という原始的な手法とドメインランダム化の組み合わせで十分実用に耐える。",
+  "接触状態が激しく変化する超動的動作は、全タスクを単一のポリシーで解くのではなく、状態空間が重なるサブスキルに分割して個別に学習・遷移させる設計が最も確実で効率的である。",
+  "本手法は5トンの油圧建設機械だけでなく、100kgの電動4WD車両にもそのまま適用可能であり、極限動的制御のプラットフォーム非依存な汎用解法になり得る。"
+ ],
+ "limitations_ja": [
+  "カメラやLiDARなどの外界認識センサを搭載しておらず、不整地の走破はポリシーの固有の頑健性に依存しているため、段差の形状を事前に予測した最適な踏破動作はできない。",
+  "アームの角度を学習範囲を超えて高く設定した過酷な条件では、慣性の増大により立ち上げ時に減速が間に合わずバケットが接地する失敗例が確認されている。",
+  "スキルの切り替えがピッチ角や速度の閾値に基づくルールベース（ステートマシン）であるため、より複雑で長期的な自律作業ミッションには上位の階層型強化学習の導入が必要となる。"
+ ],
+ "keywords": [
+  "Reinforcement Learning",
+  "Sim-to-Real Transfer",
+  "Heavy Machinery",
+  "Hydraulic Actuation",
+  "Dynamic Balancing",
+  "Skid-Steer Loader"
+ ],
+ "id": "2611.18365",
+ "title": "Heavy Metal Acrobatics: Learning Dynamic Control for Skid-Steer Loaders",
+ "authors": [
+  "Pierre-Jean Lorentz",
+  "Pascal Egli",
+  "Edo Jelavic",
+  "Cliff Li",
+  "Ramitha Sundar",
+  "Harikrishnan Suresh",
+  "Paul Montgomery",
+  "Lee Redden",
+  "Matthias M\\\"uller",
+  "Ozan Sener",
+  "Vladlen Koltun",
+  "Marco Hutter"
+ ],
+ "date": "2026-11-16",
+ "group": "focus",
+ "tags": [
+  "reinforcement-learning",
+  "sim-to-real",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.18365",
+ "pdf_url": "https://arxiv.org/pdf/2611.18365",
+ "summary_ja": "油圧アクチュエータの非線形性や遅延を伴う重機（スキッドステアローダ）を対象に、シミュレーション内強化学習とSim-to-Real転移により限界域での動的挙動を実現。転倒リスクのある高度なアクロバティック操作を物理シミュレータ上で安全に学習させ、実機での高精度かつアジャイルな動的運動制御に成功した。",
+ "generated": "2026-11-16",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.18365"
+}
