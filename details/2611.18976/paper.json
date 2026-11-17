@@ -1,0 +1,135 @@
+{
+ "title_ja": "TMA：触覚駆動型モータ適応によるヒューマノイドのsim-to-real力学的マニピュレーション",
+ "tldr_ja": "丸型ドアノブを開けるような高負荷かつ接触状態の変化が激しい作業に対し、多指の触覚履歴から接触環境をオンライン推定して動作を適応させる手法「TMA」を提案し、実機の等身大ヒューマノイドでSim-to-Realのゼロショット転移を成功させました。",
+ "hero_figure": {
+  "key": "F3",
+  "caption_ja": "提案手法TMAの全体アーキテクチャです。(a) 固定された歩行コントローラーと上肢マニピュレーション方針の統合、(b) 摩擦円錐に基づく力ベクトルの円錐座標表現、(c) 特権情報を用いたオラクル学習と触覚履歴からの適応器学習、(d) 実機へのゼロショット展開の流れを示しています。",
+  "caption": "Fig. 3: Overview of Tactile-Driven Motor Adaptation. (a) The upper-body manipulation policy commands the right arm and hand, while a pretrained locomotion controller commands the leg and waist joints to maintain whole-body balance under interaction-induced disturbances. The two policies share whole-body proprioceptive feedback, coupling manipulation and balance within an integrated control system. (b) Each fingertip contact force is parameterized in cone coordinates by the normal load $n$ , force cone angle $\\alpha$ , and circularly encoded shear direction $(\\sin\\phi,\\cos\\phi)$ . This formulation separates the uncertainty source while preserving the contact mechanics. …",
+  "image": "details/2611.18976/F3.jpg"
+ },
+ "overview_ja": "ヒューマノイドによる物体操作の研究は急速に進んでいますが、その多くは「レバーハンドルを押し下げる」ような、位置合わせと幾何的な拘束が支配的なタスク（Geometry-dominant）に偏っていました。しかし、表面が滑らかな「丸型ドアノブ」を回して扉を開ける作業は全く別次元の難しさを持っています。指先で十分な垂直抗力をかけながら滑りを防ぎ、バネの強い反力に負けないトルクを発生させ、さらに全身のバランスを保ち続ける必要がある「接触ダイナミクスが支配的な作業（Interaction-dominant）」だからです。\n\nこうしたタスクでは、摩擦係数やドアの内部機構（バネ定数やラッチの引っ掛かり）といった外乱が視覚や関節角度からは直接見えません。そこで著者らが着目したのが「指先触覚の時系列変化」です。接触力そのものだけでなく、ロボットが力を加えたときに接触がどう応答したかという「能動的な物理作用の履歴」の中にこそ、未観測の環境パラメータが潜んでいます。\n\n本論文が提案する「TMA（Tactile-Driven Motor Adaptation）」は、摩擦円錐の幾何構造を組み込んだ触覚表現と、過去約2秒間の触覚・固有受容感覚履歴から環境特性をオンライン推定する適応器を備えています。すべてシミュレーション上で学習させた方針を、追従制御のみの多指ハンドを持つ実機ヒューマノイド（Unitree G1）へゼロショット転移させたところ、市販の4種類の丸型ドアノブすべてにおいて、従来のRMAや反応型触覚ポリシーを大きく上回る成功率でドア開閉を達成しました。",
+ "contributions_ja": [
+  "丸型ドアノブの開放を、多指の高負荷接触制御と全身の安定化が絡み合う高難度ベンチマークとして定式化しました。",
+  "摩擦円錐の幾何学的バイアスを取り入れた触覚表現と、能動的な接触履歴から環境特性を推定する適応機構「TMA」を提案しました。",
+  "事前学習済みの全身歩行制御器と触覚マニピュレーション方針をシームレスに統合し、シミュレーションから実機ヒューマノイドへのゼロショット転移を実証しました。"
+ ],
+ "sections": [
+  {
+   "heading": "I INTRODUCTION",
+   "heading_ja": "幾何合わせから「力と摩擦のせめぎ合い」へ：丸型ドアノブが突きつける壁",
+   "summary_ja": "従来のヒューマノイド操作は幾何的なアライメントが中心でしたが、丸型ドアノブのような作業は摩擦力や内部バネの反力に即応し続ける接触主導の制御が必要です。この課題を解くため、能動的な触覚履歴を活用してオンラインで動作適応するフレームワーク「TMA」を提案しています。",
+   "details_ja": "レバー式のドアノブであれば、幾何学的な位置関係さえ合っていれば腕を振り下ろすだけで開けられます。一方で、丸型ドアノブは全く異なります。指先をどう配置して垂直抗力を配分し、滑ることなく反発トルクに打ち勝つ摩擦力を生み出すかという「接触相互作用が支配的な領域（interaction-dominant regime）」の作業だからです。\n\nこのタスクの厄介な点は、摩擦係数やラッチのバネ剛性といった重要パラメータが、視覚や関節角度（プロプリオセプション）から直接観測できない点にあります。ノブをしっかり掴めている状態と、今にも滑り落ちそうな状態は、見た目も関節角もほぼ同じです。そのため、指先の接触応答を直に捉えられる触覚センサーが極めて重要になります。\n\nしかし、現在の瞬間的な触覚値を見るだけの反応型（リアクティブ）制御では不十分です。同じ接触力であっても、手前でどう動かしてきたかによって滑り代（マージン）や機構の応答が異なるためです。そこで本研究では、過去の接触履歴を蓄積して環境の物理特性を能動的に推論し、モーター指令を適応させる「Tactile-Driven Motor Adaptation (TMA)」を考案しました。\n\n本研究の成果として、シミュレーションのみで学習した方針を、Unitree G1ヒューマノイドとBrainCo Revo2多指ハンドからなる実機システムへそのまま適用（ゼロショット転移）し、4種類の市販丸型ドアノブの開放に成功したことを報告しています。",
+   "figures": []
+  },
+  {
+   "heading": "II RELATED WORK",
+   "heading_ja": "既存の全身制御や触覚Sim-to-Realと何が違うのか？",
+   "summary_ja": "ヒューマノイドの全身操作や触覚を用いたSim-to-Real研究は進んでいますが、多くは手先効果器単位の外力適応や離散的な接触検知にとどまっていました。本研究は、各指先の3次元接触力ベクトルとその時間発展を捉えて動作適応させる点で一線を画します。",
+   "details_ja": "ロボットによる全身操作（Loco-manipulation）の学習では、遠隔操作データからの模倣学習や、大規模シミュレータを用いた強化学習が主流になってきています。大きな外力負荷に耐えながら全身のバランスを保つ研究も登場していますが、それらの多くは手先全体にかかる反力や関節トルク単位での適応であり、複数本の指先それぞれが受ける複雑な接触力の分散や制御までは踏み込めていませんでした。\n\n一方、触覚を用いたSim-to-Real転移の分野では、ドア開けやハンド内マニピュレーション（In-hand manipulation）などで実績が積み上がっています。しかし、従来の多くの手法は「接触しているか否か」の二値情報や、力のスカラー量（大きさ）のみを扱っており、力の向きを捨ててしまっていました。また、過去の履歴から潜在変数を推定するRMA（Rapid Motor Adaptation）型の適応手法も存在しますが、主に関節の固有受容感覚に頼っていました。\n\n減速比が大きく逆駆動性（バックドライバビリティ：外力によって関節が動かされる性質）が低い電動ハンドでは、外力が変わっても関節角度の変化に現れにくいため、関節情報だけのRMAは機能不全に陥ります。本研究は、指先の3次元力ベクトル（垂直力とせん断力の向き・大きさ）を物理的に扱いやすい形で表現し、その時間発展を活用することでこの限界を打破しています。",
+   "figures": []
+  },
+  {
+   "heading": "III PRELIMINARIES & PROBLEM STATEMENT",
+   "heading_ja": "丸型ドアノブ問題の物理モデルと課題の定式化",
+   "summary_ja": "浮遊リンク系ヒューマノイドが、バネ仕掛けのノブを回転させてラッチを外し、ドアパネルを押して開く一連のプロセスをPOMDPとして定式化しています。指先ローカル座標系における3次元接触力の定義やドアの物理拘束を明確に設定しました。",
+   "details_ja": "### III-A 1 座標系とドアの機構モデル\nロボットの骨盤フレームを $\\{P\\}$、ワールド座標系を $\\{W\\}$ とします。ドアノブは半径 $r_K$、回転軸方向 $\\mathbf{d}_{\\{PK\\}}$ を持ち、ヒンジ角度 $\\theta^D$ とノブ回転角 $\\theta^K$ で記述されます。ノブには戻しバネが仕組まれており、回転角に応じたバネトルク（剛性 $k_K$）および初期プリロード $\\tau_K^0$ が逆方向に作用します。ドアを開くには、まずノブを一定角度 $\\theta_{\\mathrm{rel}}$ 以上回してラッチを完全に引っ込める必要があります。\n\n### III-A 2 ロボットの構成と自由度配分\nロボット全体の関節自由度 $\\mathbf{q} \\in \\mathbb{R}^{41}$ は、右手・右腕の操作関節 $\\mathbf{q}^m \\in \\mathbb{R}^{13}$（腕7自由度＋手先ドライバ6自由度）、脚部と腰の移動関節 $\\mathbf{q}^l \\in \\mathbb{R}^{15}$（脚12自由度＋腰3自由度）、および固定姿勢を保つ非操作関節 $\\mathbf{q}^h \\in \\mathbb{R}^{13}$（左腕・左手）に分割されます。操作ポリシーは関節位置の増分指令 $\\mathbf{a}$ を出力します。\n\n### III-A 3 指先触覚センシング\n親指、人差し指、中指、薬指の4指（$n_f=4$）の先端に、局所座標系 $\\{T_i\\}$ を設定します。$+Z$ 軸をパッドの外向き法線方向とし、センサー出力は3次元力ベクトル $\\mathbf{f}_i = [f_i^x, f_i^y, f_i^z]^T$ で得られます。$f_i^z > 0$ が圧縮方向の垂直抗力、$f_i^x, f_i^y$ はパッド接平面に沿った符号付きせん断力です。\n\n### III-B 問題の定式化\nこのタスクを有限ホライズンの部分観測マルコフ決定プロセス（POMDP）としてモデル化します。展開時のポリシー $\\pi$ は、直接観測できない内部パラメータを観測履歴 $\\mathbf{o}_{0:t}$ から補いながら、累積報酬を最大化するよう強化学習で訓練されます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "本研究で対象とする連結ドア機構のモデルです。ノブのバネ回転軸 $\\theta^K$、ヒンジ回転軸 $\\theta^D$、およびノブ回転に連動して引っ込むラッチ機構で構成されています。ラッチが完全に引っ込む閾値 $\\theta_{\\mathrm{rel}}$ までノブを回し切って初めて、ドアパネルが開く仕組みになっています。",
+     "caption": "Fig. 2: Articulated door mechanism. The door model comprises a spring-loaded knob joint $\\theta^{K}$ , a revolute hinge joint $\\theta^{D}$ , and a translating latch coupled to knob rotation. Knob rotation retracts the latch: once $\\theta^{K}$ reaches the release threshold $\\theta_{\\mathrm{rel}}$ , the door panel can rotate about the hinge.",
+     "image": "details/2611.18976/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV METHOD",
+   "heading_ja": "TMAの核心：摩擦円錐の幾何構造と能動的な触覚履歴による適応",
+   "summary_ja": "TMAは、下半身の安定化歩行制御器と上半身の操作ポリシーを協調させつつ、触覚フィードバックを活用します。摩擦円錐に基づく力ベクトルの特徴量化、触覚接触を促す報酬設計、特権情報を用いた2段階学習、そしてSim-to-Realのための徹底的なドメインランダム化で構成されます。",
+   "details_ja": "### IV-A システム全体像\nロボットにはUnitree G1、手先にはBrainCo Revo2を用います。下半身は既存の頑健な歩行コントローラー（ゼロ速度指令）を固定して使い、上半身のTMAポリシーが腕と手を制御します。両者は全身の関節位置や骨盤の角速度・重力ベクトルといった固有受容感覚を共有しており、操作時に発生する反力外乱に対しても倒れずに姿勢を保ちます。\n\n### IV-B 触覚フィードバックを促す報酬構造\nロボットが「触覚情報が得られない当てずっぽうな接触」で偶然ドアを開けてしまっては、適応器が機能しません。そこで、ノブ回転やドア開放の報酬に「把持ゲート $w_t$」を掛け合わせました。親指と対向する2本以上の指先センサー領域がノブに触れている時だけ満額の報酬が与えられる仕組みです。これにより、触覚情報が豊富に得られる対向把持が自然と誘導されます。\n\n### IV-C 摩擦円錐に着想を得た触覚表現\nシミュレーション内の接触力をそのままニューラルネットワークに渡すのではなく、物理的な解釈性が高い形に変換します。力ベクトルを上限 $20\\,$N でクリップして一次遅れ低域通過フィルタ（LPF）を通した後、摩擦円錐の幾何学に基づいて「垂直抗力 $n$」「合力ベクトルと法線がなす円錐角 $\\alpha$」「せん断力の向き $(\\sin\\phi, \\cos\\phi)$」の4次元ベクトル $\\boldsymbol{\\tau}_i$ に変換します。角度の不連続性を防ぐ工夫を入れたこの4要素を4本指分並べ、16次元の触覚観測とします。\n\n### IV-D 2段階の適応学習フレームワーク\n- **第1段階（オラクル学習）**：バネ剛性、摩擦係数、ドア重量、手先ゲインなどの真値（特権情報）を privileged encoder に入力し、8次元の潜在表現 $\\mathbf{z}^*_t$ を抽出します。これと直近3ステップの観測を入力としてPPOで操作ポリシーを学習させます。\n- **第2段階（適応器の学習）**：オラクルポリシーと特権エンコーダを固定します。過去100ステップ（50Hzで約2秒間）の展開可能な観測履歴から、特権潜在表現を予測する adaptation encoder を教師あり学習で訓練します。実機ではこの適応器が潜在変数 $\\hat{\\mathbf{z}}_t$ をオンライン推定します。\n\n### IV-E 接触に特化したドメインランダム化\n実機センサーの誤差を埋めるため、センサー座標系の傾きオフセット、フィルタ時定数、垂直力・せん断角度のノイズ、指先ごとの接触脱落（ドロップアウト）をシミュレーション上で激しく揺さぶります。さらにノブの形状比率やバネ定数、摩擦係数も大きくランダム化して訓練します。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "TMAのシステム詳細です。(a) 下半身歩行器と上半身操作器の統合、(b) 法線力 $n$・円錐角 $\\alpha$・せん断方位角 $\\phi$ による接触力の円錐座標パラメータ化、(c) 特権情報を用いた第1段階学習と履歴回帰による第2段階適応器学習、(d) 実機展開時の推論パイプラインを示しています。",
+     "caption": "Fig. 3: Overview of Tactile-Driven Motor Adaptation. (a) The upper-body manipulation policy commands the right arm and hand, while a pretrained locomotion controller commands the leg and waist joints to maintain whole-body balance under interaction-induced disturbances. The two policies share whole-body proprioceptive feedback, coupling manipulation and balance within an integrated control system. (b) Each fingertip contact force is parameterized in cone coordinates by the normal load $n$ , force cone angle $\\alpha$ , and circularly encoded shear direction $(\\sin\\phi,\\cos\\phi)$ . This formulation separates the uncertainty source while preserving the contact mechanics. …",
+     "image": "details/2611.18976/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V EXPERIMENTAL RESULTS",
+   "heading_ja": "実機ヒューマノイドで検証：市販ドアノブ4種でのゼロショット成功とアブレーション",
+   "summary_ja": "シミュレーション学習後、Unitree G1実機にて4種類の市販丸型ドアノブで評価を行いました。TMAは既存のRMAや反応型触覚ベースラインを圧倒し、高い成功率を記録しました。シミュレーション上のアブレーション実験でも、垂直力とせん断力の双方が不可欠であることが実証されました。",
+   "details_ja": "### V-A シミュレーション学習とエンコーダ比較\nIsaac Gymではなくmjlab（MuJoCoベース）環境を用い、8,192並列、物理200Hz、制御50Hzで訓練しました。適応エンコーダの構造としてGRUと時間畳み込み（TConv）を比較したところ、TConvの方が学習の立ち上がりが早く、最終成功率もわずかに高かった（80% vs 78%）ため、TConvを採用しました。\n\n### V-B アブレーション実験（シミュレーション）\n触覚入力の内容を変えた比較を行いました。「完全な円錐座標表現（TMA）」に対し、「接触有無の二値マスク」「垂直抗力のみ」「せん断力のみ」の3種を比較したところ、完全版が把持成功率・ドア開放成功率ともに圧倒的な数値を叩き出しました。二値接触や垂直力のみではノブを掴むことはできても、回転に必要なせん断力を適切に調節できず開放に失敗します。また、せん断力のみでは垂直支持が不足して最悪の結果となりました。垂直力とせん断方向の両方を揃えて初めて高負荷操作が成立することが確認できます。\n\n### V-C 実機評価\n実機では、テーパー型（Knob 1）、球型（Knob 2）、薄型円盤（Knob 3）、オリーブ型（Knob 4）の4種類の市販ドアノブを用い、各ノブ10回ずつテストしました。ロボットの初期立ち位置やテーブル高さを毎回ランダムに変えて耐性を検証しています。\n- **TMA（提案手法）**：すべてのノブで大半の試行で把持から開放まで一気通貫で成功させました。\n- **Reactive Policy（反応型触覚）**：接触検知はできるものの、回す過程で滑ってしまい開放に至りません。\n- **RMA（触覚なし・プロプリオセプションのみ）**：接触した直後に手先がノブから離れて浮いてしまい、把持の維持すら困難でした。逆駆動性の低いハンドでは関節変位から接触力を推定できないという弱点が浮き彫りになりました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "実機におけるTMAの動作シークエンスです。上から順にテーパー型（Knob 1）、球型（Knob 2）、ディスク型（Knob 3）、オリーブ型（Knob 4）の4つの異なる市販ノブに対し、接近・把持・回転・開放の一連の動作を安定して完遂できている様子が分かります。",
+     "caption": "Fig. 4: Qualitative real-world rollouts of TMA. Each row presents a commercial knob in front and top views, followed by a successful rollout from left to right: reaching, multi-finger grasping, knob rotation, and door opening. An AprilTag provides knob pose estimation, and tape applied to the knob rim increases contact friction. Timestamps indicate elapsed rollout time.",
+     "image": "details/2611.18976/F4.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "実機における比較手法の典型的な失敗例です。上段の反応型触覚ポリシーはノブに触れるものの力加減を調節できずドアを開けられません。下段のRMAは接触後に手先がノブ表面から滑り落ちてしまい、接触を維持することすらできません。",
+     "caption": "Fig. 7: Representative real-world baseline failures. Top: the reactive policy, using binary-contact feedback over three observation frames, contacts the knob but fails to open the door. Bottom: RMA, using proprioceptive history without tactile feedback, fails to maintain engagement with the knob. Each sequence progresses from left to right with timestamps.",
+     "image": "details/2611.18976/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI DISCUSSION & CONCLUSION",
+   "heading_ja": "接触主導型マニピュレーションの教訓と今後の展望",
+   "summary_ja": "実験を通じて、逆駆動性の低い手先における触覚の不可欠性、能動的な接触履歴による物理パラメータの同定、そしてクーロン摩擦限界による物理的な制約という3つの重要な知見が得られました。高負荷・相互作用主導型タスクにおける触覚適応の有効性が示されました。",
+   "details_ja": "本研究の成果から、ヒューマノイドの力学的相互作用に関して3つの大きな教訓が得られました。\n\n1. **非逆駆動性ハンドにおける触覚の絶対的必要性**：産業用や一般のヒューマノイド手先はギア比が高くバックドライバブルでないため、外力負荷が関節のエンコーダ値に反映されません。RMAのような関節履歴への依存は破綻し、指先の接触力そのものを測る触覚が不可欠となります。\n2. **能動的インタラクション履歴の重要性**：単一フレームの触覚値は曖昧です。手先を動かしたときに接触力がどう推移したかという「時間変化」を見ることで初めて、摩擦限界や相手のバネの硬さが浮かび上がってきます。\n3. **指先パッドの物理限界と摩耗の影響**：クーロン摩擦の法則（$s \\leq \\mu n$）が示す通り、発生できるトルクは摩擦係数 $\\mu$ と法線力 $n$ に物理的に縛られます。実験中、指先パッドのゴムが摩耗・損傷すると成功率が急落したことからも、センサーであると同時に駆動力伝達インターフェースである指先のハードウェア的接触状態が極めてシビアに効いてくることが分かりました。\n\n今後は、丸型ドアノブ以外のさらに多様な接触支配型タスクへの拡張や、より長期的な時間コンテキストの活用が期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "丸型ドアノブのように摩擦と反力制御が成否を分ける作業では、視覚や関節角度だけでなく「3次元接触力ベクトル」の計測が必須である。",
+  "逆駆動性の低い手先では関節情報による環境推定（従来のRMA）が破綻するため、触覚履歴に基づくオンライン適応（TMA）が極めて有効に機能する。",
+  "接触力を摩擦円錐に基づき「法線力・円錐角・せん断方向」へと分解して表現することで、物理的な意味を保ったままロバストな強化学習が可能になる。",
+  "全身バランスを保つ固定の歩行コントローラーと、触覚に適応する上肢操作ポリシーを疎結合に組み合わせることで、複雑な全身連動タスクのSim-to-Realが安定して実現できる。"
+ ],
+ "limitations_ja": [
+  "指先パッドの物理的摩擦係数に強く依存しており、ゴム素材の摩耗や損傷が起こると物理的な摩擦限界を超えてしまいタスクに失敗する。",
+  "ドアノブの位置姿勢推定にはAprilTagを使用しており、実環境での完全な視覚フィードバック統合には至っていない。",
+  "ドアを引いて開ける動作や、さらに重い工業用ラッチドアなど、より広範な接触作業への汎用性はまだ検証されていない。"
+ ],
+ "keywords": [
+  "Humanoid Loco-manipulation",
+  "Tactile Sensing",
+  "Sim-to-Real Transfer",
+  "Motor Adaptation",
+  "Reinforcement Learning"
+ ],
+ "id": "2611.18976",
+ "title": "TMA: Sim-to-Real Forceful Humanoid Manipulation via Tactile-Driven Motor Adaptation",
+ "authors": [
+  "Yiting Chen",
+  "Kelin Yu",
+  "Sarthak Kaingade",
+  "Bryan Trinh",
+  "Kaiyu Hang",
+  "Roberto Martin-martin",
+  "Nima Fazeli",
+  "X. Alice Wu"
+ ],
+ "date": "2026-11-17",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "sim-to-real",
+  "control",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.18976",
+ "pdf_url": "https://arxiv.org/pdf/2611.18976",
+ "summary_ja": "幾何学的整合だけでなく大きな力制御が求められる多指ドアノブ開閉タスクを対象に、ゼロショットsim-to-realを実現する触覚モータ適応（TMA）を提案。多指の摩擦把持、滑りのないトルク生成、押し動作、全身バランスを両立する全身制御系を構築した。実環境の接触や相互作用ダイナミクスの不確実性に対し、触覚フィードバックを活用して実機での力強い全身動作を可能にした。",
+ "generated": "2026-11-17",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.18976"
+}
