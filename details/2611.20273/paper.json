@@ -1,0 +1,130 @@
+{
+ "title_ja": "DexFormer 2.0：多様なロボット形態に対応する多指把持の基盤方策",
+ "tldr_ja": "4種類のアームと6種類の多指ハンドからなる計24通りの組み合わせを単一の強化学習ポリシーで制御し、学習で見たことのないアーム・ハンドのペアや未知のハンドにも追加学習なしで適応できる手法「DexFormer 2.0」を提案した論文です。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "DexFormer 2.0の全体アーキテクチャです。入力されたアームとハンドの関節を最大29自由度の共通スロットに配置し、キネマティクス木を考慮した空間エンコーダ「MorphNode」と短期記憶を保持する「Transformer-XL」を通して、単一の共有アクターから全関節の目標角度を出力します。",
+  "caption": "Figure 2 : DexFormer 2.0 architecture. Top: one shared policy controls all 24 arm–hand combinations (18 for training, 6 held out). MorphNode encodes the canonical joint state, Transformer-XL adds a 16-step key/value memory, and a task encoder feeds the current task observations directly to the actor head, which outputs a masked Gaussian over 29 actions. The critic, used only in training, has the same structure with its own weights and memory. Bottom: MorphNode. …",
+  "image": "details/2611.20273/F2.jpg"
+ },
+ "overview_ja": "多指ハンドによる器用な把持（Dexterous Grasping）はロボティクスにおける最難関タスクの一つですが、従来の強化学習ポリシーは「特定のアーム1台＋特定のハンド1台」の固定ペア専用に作られるのが一般的でした。しかし、アームやハンドを別の機種に交換すると、自由度・関節配置・可動域・接触ダイナミクスが根本から変わってしまい、ハードウェアを追加するたびにモデルをゼロから再学習させる必要がありました。\n\nそこで著者らは、多種多様なアームとハンドの組み合わせを1つの共有ポリシーで動かし、さらに未学習のハードウェアの組み合わせにもゼロショットで汎化させる「DexFormer 2.0」を開発しました。ポイントは、すべてのロボットを最大29個の共通関節スロット（アーム7軸＋ハンド最大22軸）と有効フラグで標準化し、関節ごとの物理的特徴量（軸方向、可動域、キネマティクス木の深さなど）と関節間の木構造距離をアテンション機構に組み込んだ点です。さらにTransformer-XLによる短期履歴の保持によって、静的なモデル記述だけでは分からない接触時の動的応答をリアルタイムに推論します。\n\nシミュレータ上で4種のアームと6種のハンド（全24通り）のうち18通りを学習させ、残り6通りの未学習ペアで評価したところ、51.18%の把持成功率を達成しました。さらに、学習に一度も登場していない4種類の未知ハンドや、2本指の平行グリッパーへの動作リターゲティング、実機アーム・ハンドでのゼロショット実機転送にも成功し、クロス・エンボディメント（異種形態間）把持ポリシーの実用的な有効性を実証しました。",
+ "contributions_ja": [
+  "アーム4種と多指ハンド6種を組み合わせた多様なロボット形態を単一の強化学習ポリシーで同時に学習させ、未学習の組み合わせや未知のハンドへ転送可能な統合学習パラダイムを確立しました。",
+  "関節ごとの物理記述子、キネマティクス木の距離バイアスを持つ空間アテンション、そして過去の接触応答を推論するTransformer-XLを組み合わせた形態対応型リカレント構造を提案しました。",
+  "アブレーション実験により、時間的メモリ、キネマティクス木バイアス、そして学習時の組み合わせ網羅率の3要素が形態間の汎化において決定的な役割を果たすことを明らかにしました。",
+  "シミュレーションで学習した特権ポリシーをデプス画像入力の生徒モデルへ蒸留し、実機のFlexivアームと2種類のハンド（未学習ペアを含む）において追加学習なしのゼロショット把持を実証しました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "ロボットが変わるたびにゼロから学習し直す時代を終わらせる",
+   "summary_ja": "多指ハンドの把持制御はハードウェア構成への依存度が高く、アームやハンドを取り替えるたびに別個のポリシーを学習する必要がありました。本論文では、単一の共有ポリシーでありながら多様なアーム・ハンドの組み合わせを制御し、未見の組み合わせや未知のハンドにもゼロショットで汎化する「DexFormer 2.0」を提案します。",
+   "details_ja": "ロボットハンドによる器用な把持制御は、これまで特定のハードウェア構成（1台のアームと1台のハンドの固定ペア）に特化して開発されてきました。しかし、研究室や工場に新しいアームやハンドが導入されるたびにポリシーを個別に作り直すアプローチでは、組み合わせの数（直積）だけ学習コストが爆発してしまいます。また、ハードウェア間で獲得した運動スキルの知識を共有することもできません。\n\n異なるアーム・ハンド系を単一ポリシーで制御するのが難しい理由は大きく3点あります。第一に、ハンドごとにアクティブな関節の数や並び順が異なるため、固定の入出力インターフェースを共有できません。第二に、同じ制御指令値であっても、関節の回転軸や可動域、リンク長、キネマティクス上の階層深さが違えば、物理的に全く異なる運動を意味してしまいます。第三に、形態の幾何情報だけでは不十分で、物体と接触した際の反力や摩擦などの動的挙動は、動作中の履歴からリアルタイムに推論しなければならない点です。\n\nDexFormer 2.0は、これら3つの壁をスマートに解決します。全ロボットをアーム7軸・ハンド22軸の計29個の共通スロットと有効マスクで表現し、関節ごとの物理的特徴量（軸、位置、可動域、深さなど）を持たせます。そして、キネマティクス木の接続関係に応じた空間アテンションを行う「MorphNode」と、直近16ステップの履歴を保持する「Transformer-XL」を組み合わせることで、単一のアクターネットワークでありながら、あらゆる形態のロボットを巧みに操ることを可能にしました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "先行研究の歩み：単一ロボットの熟練から「形態をまたぐ汎用制御」へ",
+   "summary_ja": "強化学習による器用な操作は目覚ましい進歩を遂げてきましたが、多くは単一ハードウェアにおける物体汎化にとどまっていました。本研究は、四足歩行ロボットなどで先行していた「クロス・エンボディメント（異種形態間）制御」の考え方を、より難易度の高いアームと多指ハンドの協調制御へと拡張しています。",
+   "details_ja": "### Dexterous grasping and sim-to-real transfer\n強化学習とドメインランダム化（シミュレータ環境の物理パラメータをランダムに変化させて学習する手法）を組み合わせることで、実機ハンドを用いた高度なマニピュレーションが可能になってきました。UniDexGraspやUniDexGrasp++などは多様な形状の物体を把持する汎化性能を高めてきましたが、これらはすべて「特定の1つのロボット構成」を前提としていました。つまり、「物体が変わっても掴めるか」は盛んに研究されてきたものの、「ロボットそのものが変わっても動くか」は手つかずだったのです。\n\n### Generalist policies across embodiments\n形態に依存しない制御ポリシーの研究は、主に四足歩行などの移動ロボット分野で先行してきました。グラフニューラルネットワークによる関節間のメッセージパッシングや、関節をトークンとみなすTransformerモデルが提案されています。また、近年では大規模模倣学習による汎用マニピュレーションモデルも登場していますが、それらの大半はシンプルな2本指グリッパーを対象としており、多指ハンドの繊細な接触制御には対応できていません。\n\n### Cross-embodiment dexterous control\n多指ハンド間で制御を共有する試みとしては、人間の手の運動シナジー（主成分動作）を介して各ハンドにリターゲティングするCrossDexや、手のキネマティクスグラフを活用するGET-Zero、DexGrasp-Zeroなどが存在します。しかしこれらは、手先位置（手首姿勢）をデカルト空間で直接指定したり、アームを固定したりと制約がありました。DexFormer 2.0はこれらを大きく超え、4種類のアーム（Flexiv、Franka、KUKA、xArm7）と6種類のハンド（Revo3、Sharpa、LEAP、Allegro、RAPID、Shadow）が掛け合わされた、計24通りものアーム・ハンド全身の関節空間制御を単一ポリシーで直接実現する点で画期的です。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "DexFormer 2.0の仕組み：共通スロット・木構造バイアス・時間的メモリ",
+   "summary_ja": "ロボットの全関節を29スロットの共通表現にマッピングし、物理記述子を付与します。キネマティクス木のトポロジーを考慮したMorphNodeエンコーダと過去16ステップを記憶するTransformer-XLにより、単一の共有アクターで多種多様なロボットの関節目標角を生成します。",
+   "details_ja": "### 3.1 Problem Formulation\nアーム $a$ とハンド $h$ の組み合わせを形態 $e=(a,h)$ と定義します。目指すのは、あらゆる形態 $e$ を直接制御できる単一の確率的ポリシー $\\pi_{\\theta}$ の獲得です。すべてのロボットは、アーム用7スロットとハンド用22スロットからなる計29個の共通関節インターフェースにマッピングされます。使われない余剰スロットにはバイナリマスク $\\mathbf{v}_e$ が適用され、観測値・特徴量・出力行動のすべてがゼロクリアされるため、存在しない関節が学習に悪影響を与えることはありません。\n\n### 3.2 Joint-Level Morphology Representation\n各関節 $i$ には、16次元の形態記述子 $\\mathbf{m}_i$ が与えられます。ここには親リンク座標系における回転軸（3次元）、取り付け位置（3次元）、可動域の中心と幅（2次元）、速度限界（1次元）、指やアームの役割を示すOne-hotベクトル（6次元）、そしてキネマティクス木における深さ（1次元）が含まれます。単なるロボットID番号ではなく局所的な物理パラメータを与えるため、未学習のロボットにも知識を転送できます。これに関節の現在角度、角速度、前回の行動、手先座標などの状態量（6次元）を結合し、関節ごとに計22次元の特徴量を作成します。\n\n### 3.3 MorphNode Spatial Encoder\n空間エンコーダ「MorphNode」は、単純なMLPによる身体特徴抽出と、トポロジーを考慮した「MorphAttention」残差ブロックの2系統で構成されます。MorphAttentionでは、29個の関節トークンにタスク情報（物体・目標位置・接触力など）の5トークンを加えた計34トークン間で自己アテンションを計算します。ここでの工夫は、関節間のキネマティクス木上の距離（ステップ数）と役割関係（同指・別指・アームと手）をアテンションのソフトなバイアス項として加算している点です。これにより、物理的に近い関節同士の協調を自然に促します。\n\n### 3.4 & 3.5 Temporal Context and Actor Head\n空間特徴は、3層・8ヘッドのTransformer-XLに入力されます。過去16ステップ分のKey/Valueキャッシュを保持することで、静的な幾何モデルだけでは読み取れない「接触時のダイナミクスや応答遅延」を時系列の相互作用から暗黙的に推論します。最後に、最新のタスク観測量を処理した特徴量と結合し、共有アクターヘッドから全29自由度の行動（相対関節目標角）を一括出力します。\n\n### 3.6 Training Objective\n学習にはPPO（Proximal Policy Optimization）を使用し、1回のロールアウト中に多種多様なアーム・ハンドの組み合わせを混ぜ合わせて同時に実行します。これにより、すべての形態の勾配が単一のネットワークに集約され、形態を越えた強化学習が実現します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "DexFormer 2.0の全体パイプラインです。上段ではアームとハンドの組み合わせごとに共通アクターが制御指令を出し、下段のMorphNodeがキネマティクス木に基づくアテンション（MorphAttention）とMLP経路を融合して空間特徴量を抽出します。",
+     "caption": "Figure 2 : DexFormer 2.0 architecture. Top: one shared policy controls all 24 arm–hand combinations (18 for training, 6 held out). MorphNode encodes the canonical joint state, Transformer-XL adds a 16-step key/value memory, and a task encoder feeds the current task observations directly to the actor head, which outputs a masked Gaussian over 29 actions. The critic, used only in training, has the same structure with its own weights and memory. Bottom: MorphNode. …",
+     "image": "details/2611.20273/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "驚異の汎化力：未学習のペア・未知のハンド・実機へのゼロショット転送",
+   "summary_ja": "24通りの組み合わせ中18通りで学習し、残る6通りの未学習ペアで評価した結果、ベースラインを大幅に上回る把持成功率を達成しました。さらに4種類の未知ハンドや実機ロボット（Flexivアーム＋Revo3/LEAPハンド）へのゼロショット転送にも成功しています。",
+   "details_ja": "### 4.1 Experimental Setup\n評価環境にはIsaac Labを使用し、Flexiv、Franka、KUKA、xArm7の4種のアームと、Revo3、Sharpa、LEAP、Allegro、RAPID、Shadowの6種のハンドによる全24通りの組み合わせを用意しました。そのうち18通りを学習用、残り6通りをテスト用（未学習ペア）として分離しています。評価指標には「安定把持成功率（SR: Stable Success Rate）」を採用し、240ステップを完走した上で最後の30ステップ間に物体位置誤差が5cm以内を維持できた割合を計測しています。\n\n### 4.2 Comparison with Baselines\n提案手法（Ours）を、MLP＋GRUベースラインおよび形態記述子を持たない先行手法DexFormer 1.0と比較しました。学習済みの物体形状において、学習済みロボットペアでの成功率は89.01%、未学習のロボットペアでも51.18%を達成しました（GRUは31.28%、DexFormer 1.0は14.15%）。さらに未学習のYCB物体を用いた最も過酷な条件（未知物体×未学習ペア）でも48.85%を維持し、GRU（33.18%）を15.67ポイント引き離しました。\n\n### 4.3 Ablation Study\nネットワーク各部の役割を検証したところ、Transformer-XLのメモリを無効化すると未学習ペアのSRは26.73ポイント低下し、キネマティクス木の距離バイアスを抜くと27.03ポイント低下しました。またMorphAttention残差を丸ごと抜いたモデル（MLP + TXL）は18.90%まで落ち込み、トポロジーを考慮したアテンションと時間的記憶の両方が汎化に不可欠であることが証明されました。\n\n### 4.4 & 4.5 Coverage and Unseen Hands\n学習に使う組み合わせ数を6、12、18通りと増やしたところ、未学習テストセットの成功率は0.07% → 5.65% → 51.18%と劇的に跳ね上がりました。登場するアームとハンドの種類自体は最初から全種類含まれているため、「組み合わせの網羅率」こそが汎化の鍵であることが分かります。また、学習に全く登場していない4種類の未知ハンド（Wuji 1、Tesollo、XHAND1、Revo2）を接続したゼロショット評価でも平均17.45%（Wuji 1では最高27.18%）の成功率を記録しました。さらに仮想LEAPハンドを介したリターゲティングにより、2本指の平行グリッパーの開閉制御も実現しています。\n\n### 4.6 & 4.7 Faults and Real-World Experiments\n関節が途中で固まる故障耐性テストでも提案手法は高い頑健性を示しました。実機実験では、シミュレーション特権ポリシーをデプス画像入力の生徒モデルへDAggerで蒸留し、実機のFlexivアームにRevo3およびLEAPハンドを装着して評価しました。追加の実機学習なし（ゼロショット）で、学習済みペアのLEAPは92%（23/25試行）、シミュレーション学習時に未学習ペアだったRevo3でも68%（17/25試行）という極めて高い把持・運搬成功率を達成しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "(a) 対象とした4種のアームと6種のハンドからなる全24通りの組み合わせ。(b) 学習済みアクターのTransformer-XL潜在表現をt-SNEで可視化した図です。形態（アームとハンドの種類）ごとに綺麗なクラスタが形成されており、未学習ペアも適切に表現空間へ埋め込まれていることが分かります。",
+     "caption": "Figure 3 : Embodiments and temporal representations of the shared policy. (a) Four arms and six hands form 24 combinations, shown in static explanatory poses. The colored symbols provide the key for (b); only the six held-out pairs are labeled (held-out). (b) t-SNE of 19,200 actor Transformer-XL outputs (800 episodes per embodiment at 1 s) from the no-fault checkpoint at iteration 5,000. Colors identify arm–hand pairings; shapes identify arms: circles for Flexiv, triangles for Franka, squares for KUKA, and stars for xArm7.",
+     "image": "details/2611.20273/F3.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "18通りの学習組み合わせにおける把持成功率と平均エピソード報酬の推移です。提案手法（青の実線）は、キネマティクス木バイアスを抜いた構成（赤破線）やGRU、DexFormer 1.0などのベースラインよりも圧倒的に速く高い性能に到達しています。",
+     "caption": "Figure 5 : Training success and mean episode reward on the 18 training combinations (trailing 50-iteration mean).",
+     "image": "details/2611.20273/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "実機のFlexivアームを用いた卓上物体の把持・カゴへの運搬タスクの様子です。上段が未学習ペアだったRevo3ハンド、下段が学習ペアのLEAPハンドであり、多種多様な実物体を安定して持ち上げられています。",
+     "caption": "Figure 7 : Real-world grasping tasks. A Flexiv arm with a Revo3 hand (top) and a LEAP hand (bottom) grasps tabletop objects and lifts them toward a basket. Each image shows one task during the lift; the first four columns show the same object for both hands.",
+     "image": "details/2611.20273/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめと今後の展望：汎用器用マニピュレーションへの確かな一歩",
+   "summary_ja": "DexFormer 2.0は、共通スロット設計と物理記述子、トポロジー対応アテンション、時間メモリを組み合わせることで、多種多様なアーム・ハンド系のクロス・エンボディメント制御を実現しました。未学習の組み合わせや未知ハンドへの高い汎化性と、実機ゼロショット転送の成功は、将来のロボット基礎ポリシー構築に向けた強力な足がかりとなります。",
+   "details_ja": "本研究が示した最も重要な知見は、「適切な共通インターフェース設計と物理的・トポロジー的帰納バイアスを与えれば、単一のニューラルネットワークでも多種多様なロボット形態の運動特性を自然に吸収できる」ということです。\n\nアーム4種×ハンド6種の組み合わせ学習を通じて、未見のペアに対しても51%超の把持成功率を達成し、未知のハンドやグリッパー、実機ロボットへの転送まで一気通貫で実証した成果は、今後のロボット基盤モデル（Foundation Policy）の研究に大きな勇気を与えるものです。ハードウェアごとにモデルを学習し直す非効率な開発スタイルから脱却し、ひとつのポリシーがあらゆる身体を自在に乗りこなす未来へ向けた重要なマイルストーンと言えます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "共通スロット設計と関節ごとの物理記述子（軸、可動域、木の深さ）を組み合わせることで、自由度や構造が異なる多指ロボットを単一のネットワークで統一的に扱えるようになります。",
+  "キネマティクス木のトポロジー距離をアテンションのバイアスとして組み込むことと、Transformer-XLで接触ダイナミクスを推論する時間的メモリを持たせることが、未知形態への汎化性能を倍増させる決め手となります。",
+  "形態の汎化には「ハードウェアの種類」だけでなく「アームとハンドの組み合わせ網羅率」が極めて重要であり、学習ペア数を増やすことで未学習ペアの性能が飛躍的に向上します。",
+  "シミュレータ上で特権情報を用いて学習したクロス・エンボディメントポリシーは、デプス画像ベースの生徒モデルへ蒸留することで、実機へも追加学習なしで高精度にゼロショット転送可能です。"
+ ],
+ "limitations_ja": [
+  "未学習のアーム・ハンドペアにおける把持成功率は約51%であり、学習済みペア（約89%）と比較すると依然として約38ポイントの性能ギャップが存在します。",
+  "完全な未知ハンドに対するゼロショット成功率は平均17.45%にとどまっており、実用レベルで未知ハンドを即座に動かすには少量のファインチューニングやさらなる形態の多様性が必要と考えられます。",
+  "平行グリッパーへの適用は直接制御ではなく、仮想LEAPハンドの指先間距離を割り当てるリターゲティングに依存しており、グリッパーの真の形態汎化とは言えません。"
+ ],
+ "keywords": [
+  "Cross-Embodiment",
+  "Dexterous Grasping",
+  "Reinforcement Learning",
+  "Transformer-XL",
+  "Morphology-Aware Policy",
+  "Sim-to-Real Transfer"
+ ],
+ "id": "2611.20273",
+ "title": "DexFormer 2.0: Towards a Cross-Embodiment Foundation Policy for Dexterous Grasping",
+ "authors": [
+  "Lixin Xu",
+  "Ke Zhang",
+  "Xinyu Liu",
+  "Jie Tan",
+  "Senming Tan",
+  "Jiaju Yin",
+  "Yating Feng",
+  "Xiaoyi Lin",
+  "Xiyue Dong",
+  "Renjing Xu"
+ ],
+ "date": "2026-11-17",
+ "group": "general",
+ "tags": [
+  "grasping",
+  "manipulation",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.20273",
+ "pdf_url": "https://arxiv.org/pdf/2611.20273",
+ "summary_ja": "単一のアーム・ハンド構成に依存せず、未知の構成やハンドにも汎化可能な多指把持のためのクロスエンボディメント強化学習方策を提案。各ロボットの関節自由度や配置の差異を正当性マスク付きのカノニカル関節インタフェースにマッピングし、運動学トポロジーに基づくアテンションで表現する。未見のロボット構成に対しても追加訓練なしで高い把持成功率を達成した。",
+ "generated": "2026-11-17",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.20273"
+}
