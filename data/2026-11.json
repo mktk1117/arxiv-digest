@@ -1,6 +1,301 @@
 {
  "entries": [
   {
+   "date": "2026-11-17",
+   "rank": 0,
+   "id": "2611.20452",
+   "group": "focus",
+   "title": "XMimic and XSoma: Learning Humanoid Motion Tracking and Locomotion in Under a Minute",
+   "title_ja": "XMimicとXSoma：ヒューマノイドの運動追従と歩行を1分未満で学習する手法",
+   "summary_ja": "ロボットの世界モデル内で解析的勾配を用いて方策を最適化し、ヒューマノイドの運動追従および不整地歩行を1分未満の訓練で獲得するXMimicとXSomaを提案。GPU計算のパイプライン化とMuJoCo Warpシミュレータを含むJAXによる完全コンパイルにより、最大4基のGPUで並列実行を高速化した。実用的な歩行方策の学習時間を劇的に短縮する基盤技術である。",
+   "summary_en": "This paper presents XMimic and XSoma, which learn humanoid motion tracking and rough-terrain locomotion in under a minute of training. By learning a world model and optimizing policies via analytic gradients, the frameworks pipeline GPU operations and compile the entire training loop in JAX with MuJoCo Warp across up to four GPUs. This massively accelerates the training turnaround for humanoid agile locomotion and tracking.",
+   "authors": [
+    "Nico Bohlinger",
+    "Jan Peters"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.20452",
+   "image": "figures/2026-11-17/2611.20452.jpg"
+  },
+  {
+   "date": "2026-11-17",
+   "rank": 1,
+   "id": "2611.18976",
+   "group": "focus",
+   "title": "TMA: Sim-to-Real Forceful Humanoid Manipulation via Tactile-Driven Motor Adaptation",
+   "title_ja": "TMA：触覚駆動型モータ適応によるヒューマノイドのsim-to-real力学的マニピュレーション",
+   "summary_ja": "幾何学的整合だけでなく大きな力制御が求められる多指ドアノブ開閉タスクを対象に、ゼロショットsim-to-realを実現する触覚モータ適応（TMA）を提案。多指の摩擦把持、滑りのないトルク生成、押し動作、全身バランスを両立する全身制御系を構築した。実環境の接触や相互作用ダイナミクスの不確実性に対し、触覚フィードバックを活用して実機での力強い全身動作を可能にした。",
+   "summary_en": "The paper introduces Tactile-Driven Motor Adaptation (TMA) and an integrated whole-body control system for zero-shot sim-to-real forceful humanoid manipulation. Evaluated on a challenging round-doorknob opening task, the system coordinates multi-finger frictional grasping, slip-free torque generation, pushing, and balance. Tactile feedback enables the humanoid to adapt to real-world uncertainties in contact and interaction dynamics.",
+   "authors": [
+    "Yiting Chen",
+    "Kelin Yu",
+    "Sarthak Kaingade",
+    "Bryan Trinh",
+    "Kaiyu Hang",
+    "Roberto Martin-martin",
+    "Nima Fazeli",
+    "X. Alice Wu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "sim-to-real",
+    "control",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.18976",
+   "image": "figures/2026-11-17/2611.18976.jpg"
+  },
+  {
+   "date": "2026-11-17",
+   "rank": 2,
+   "id": "2611.19775",
+   "group": "focus",
+   "title": "Recovery-Guided Model-Based Diffusion for Safety-Critical Legged Locomotion",
+   "title_ja": "回復誘導型モデルベース拡散による安全重視の脚ロボット移動制御",
+   "summary_ja": "高速な脚ロボットの移動において、短い予測ホライズンでも安全性を損なわない回復誘導型モデルベース拡散（MBD）フレームワークを提案。回復方策の将来マージンを近似する終端回復クリティックを軌道最適化に導入し、実行可能性に基づく洗練戦略を組み合わせた。これにより計算負荷を抑えつつ、安全制約が厳しい動的歩行タスクにおいて高い安全予測性と機敏性を両立した。",
+   "summary_en": "This paper proposes a recovery-guided model-based diffusion (MBD) framework for safety-critical legged locomotion. It incorporates a learned terminal recovery critic, approximating future clearance under a recovery policy, into short-horizon trajectory optimization. Combined with a feasibility-guided refinement strategy, the method maintains online computational efficiency while ensuring robust foresight in safety-critical dynamic gaits.",
+   "authors": [
+    "Lei Zheng",
+    "Shivam Sood",
+    "Mithun Vanniasinghe",
+    "Guillaume Sartoretti",
+    "Armin Lederer"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "locomotion",
+    "safety",
+    "control",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.19775",
+   "image": "figures/2026-11-17/2611.19775.jpg"
+  },
+  {
+   "date": "2026-11-17",
+   "rank": 3,
+   "id": "2611.19616",
+   "group": "focus",
+   "title": "Towards Probabilistically Safe Reinforcement Learning: Theory and Deployment on Humanoid and Aerial Robots",
+   "title_ja": "確率的安全強化学習の理論拡張とヒューマノイドおよび飛行ロボットへの実機展開",
+   "summary_ja": "PPOなどの最新方策勾配法と直接統合可能な、ロバスト安全勾配流に基づく確率的安全RLフレームワーク（RSGF-RL）を拡張。制約関数の不偏推定量に依存せず、広範な安全制約を厳密に扱える理論的保証を提供した。シミュレーション検証に加え、実機のヒューマノイドおよびクアッドローターに展開し、安全制約を満たしながら複雑な運動スキルを獲得できることを実証した。",
+   "summary_en": "This paper extends the robust safe gradient flow reinforcement learning (RSGF-RL) framework to handle general constraint classes and integrate seamlessly with state-of-the-art policy optimization like PPO. Providing rigorous probabilistic safety guarantees, the method eliminates the requirement for unbiased constraint estimators. Its effectiveness and safety compliance are validated in real-world deployments on humanoid and aerial robots.",
+   "authors": [
+    "Pol Mestres",
+    "Varun Gabbita",
+    "Jason H. K. Siu",
+    "Sergio A. Esteban",
+    "Hampus Serneke",
+    "Joel W. Burdick",
+    "Aaron D. Ames"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "safety",
+    "humanoid",
+    "drone"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.19616",
+   "image": null
+  },
+  {
+   "date": "2026-11-17",
+   "rank": 4,
+   "id": "2611.19100",
+   "group": "focus",
+   "title": "Leaning Over to Reach Far-Away Objects",
+   "title_ja": "遠方の物体に到達するための環境接触を利用したヒューマノイド前傾全身制御",
+   "summary_ja": "通常の作業域を超える物体を把持するため、環境に手をついて体を支える全身モデル予測制御（MPC）アプローチを提案。Unitree H1-2実機ヒューマノイドを用い、サンプリング型MPCにより前傾・支持・到達・復帰動作をノートPC上で34Hzのリアルタイムで実行した。接触を積極的に活用することで、支持なしの直立姿勢と比べてリーチを約50cm拡張することに成功した。",
+   "summary_en": "This work explores supported reaching to extend a humanoid robot's workspace by bracing against environmental surfaces using a sampling-based whole-body model predictive control (MPC). Tested on a Unitree H1-2 humanoid, the controller operates in real time at 34 Hz and successfully transfers from sim to real. By intentionally exploiting physical contact for stability, the robot extends its reach by roughly 50 cm beyond unbraced standing.",
+   "authors": [
+    "Allen Devaraj",
+    "William Xie",
+    "Nikolaus Correll"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "sim-to-real",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.19100",
+   "image": "figures/2026-11-17/2611.19100.jpg"
+  },
+  {
+   "date": "2026-11-17",
+   "rank": 5,
+   "id": "2611.20185",
+   "group": "general",
+   "title": "RoboKit: Accelerating Parallel Differentiable Optimization for Robot Learning",
+   "title_ja": "RoboKit：ロボット学習のための並列微分可能最適化の高速化ツールキット",
+   "summary_ja": "ロボティクスにおける並列微分可能最適化を高速化する汎用ツールキットRoboKitを提案。GPU並列マルチシードソルバーと粗密ハイブリッド表現により、衝突検出・微分可能レンダリング・並列シミュレーションを統合し、4096把持の最適化を2.97秒で完了する。最適化結果の方策蒸留やRL訓練を直接サポートし、既存ベースライン比2〜60倍の高速化を達成した。",
+   "summary_en": "RoboKit is a high-performance toolkit for parallel differentiable optimization in robotics. By coupling GPU-parallel multi-seed solvers with hybrid geometry representations, it accelerates collision checking, differentiable rendering, and simulation—optimizing 4,096 grasps in 2.97 seconds. It natively supports policy distillation and RL training, achieving 2-60x speedups over task-specific baselines across multiple domains.",
+   "authors": [
+    "Jianglong Ye",
+    "Xuanbin Peng",
+    "Conor Mc Gartoll",
+    "Changwei Jing",
+    "Lai Wei",
+    "Jiali Chen",
+    "Xueyan Zou",
+    "Xiaolong Wang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "simulation",
+    "reinforcement-learning",
+    "planning",
+    "grasping"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.20185",
+   "image": "figures/2026-11-17/2611.20185.jpg"
+  },
+  {
+   "date": "2026-11-17",
+   "rank": 6,
+   "id": "2611.20273",
+   "group": "general",
+   "title": "DexFormer 2.0: Towards a Cross-Embodiment Foundation Policy for Dexterous Grasping",
+   "title_ja": "DexFormer 2.0：多様なロボット形態に対応する多指把持の基盤方策",
+   "summary_ja": "単一のアーム・ハンド構成に依存せず、未知の構成やハンドにも汎化可能な多指把持のためのクロスエンボディメント強化学習方策を提案。各ロボットの関節自由度や配置の差異を正当性マスク付きのカノニカル関節インタフェースにマッピングし、運動学トポロジーに基づくアテンションで表現する。未見のロボット構成に対しても追加訓練なしで高い把持成功率を達成した。",
+   "summary_en": "DexFormer 2.0 introduces a cross-embodiment foundation policy for dexterous grasping trained via reinforcement learning across various arm-hand combinations. It maps heterogeneous joint topologies into a canonical joint interface with validity masks and kinematic-biased attention. The resulting unified policy transfers effectively to completely unseen robotic hands and arm pairings without embodiment-specific retraining.",
+   "authors": [
+    "Lixin Xu",
+    "Ke Zhang",
+    "Xinyu Liu",
+    "Jie Tan",
+    "Senming Tan",
+    "Jiaju Yin",
+    "Yating Feng",
+    "Xiaoyi Lin",
+    "Xiyue Dong",
+    "Renjing Xu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "grasping",
+    "manipulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.20273",
+   "image": "figures/2026-11-17/2611.20273.jpg"
+  },
+  {
+   "date": "2026-11-17",
+   "rank": 7,
+   "id": "2611.20718",
+   "group": "general",
+   "title": "TaF-Foundation: Wrench-Grounded Cross-Sensor Tactile Representations",
+   "title_ja": "TaF-Foundation：6軸レンチにグラウンディングした異種センサ横断触覚表現学習",
+   "summary_ja": "多様な触覚センサ間のハードウェア格差を解消するため、ニュートン力学に基づく6次元レンチ（力・トルク）を共通の物理参照点とする触覚表現基盤を提案。24種類のセンサから1億組以上の触覚画像とレンチ計測のペアデータを独自収集して学習を行った。センサ間の直接ペアリングを必要とせず、下流の接触リッチな操作タスクへ高い転移性を示した。",
+   "summary_en": "TaF-Foundation grounds tactile representations in 6D wrenches to bridge disparate tactile sensing mechanisms across hardware. By pairing multi-sensor tactile data with physical wrench measurements, it trains on over 100 million paired observations from 24 sensors without requiring direct sensor-to-sensor pairing. This shared physical grounding yields unified tactile features that readily transfer across manipulation platforms.",
+   "authors": [
+    "Jiaming Jiang",
+    "Yuzhe Huang",
+    "Baokun Yang",
+    "Hao Liang",
+    "Li Gao",
+    "Haoran Guo",
+    "Pei Lin",
+    "Shengcheng Luo",
+    "Chenxi Xiao",
+    "Wanlin Li",
+    "Ziyuan Jiao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "perception",
+    "manipulation",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.20718",
+   "image": "figures/2026-11-17/2611.20718.jpg"
+  },
+  {
+   "date": "2026-11-17",
+   "rank": 8,
+   "id": "2611.18644",
+   "group": "general",
+   "title": "Minari: Infrastructure for Collaborative Reinforcement Learning Datasets",
+   "title_ja": "Minari：オフライン強化学習データセットの共同利用のためのオープン基盤",
+   "summary_ja": "形式の乱立や環境更新による再現性の喪失が課題だったオフライン強化学習データセットを標準化するPythonライブラリMinariを公開。Gymnasium準拠のAPIで環境をラップして記録でき、メタデータの付与、データセットのフィルタ・結合、HuggingFace Hub経由のワンコマンド共有を可能にした。環境定義や乱数シード、依存関係を完全保存し高い再現性を担保する。",
+   "summary_en": "Minari is an open-source Python library designed to standardize offline reinforcement learning datasets. Following Gymnasium APIs, it enables seamless data recording, filtering, and combination, alongside one-command publishing and downloading via the HuggingFace Hub. By storing pinned dependencies, seeds, and environment specifications, it ensures full reproducibility across evolving RL benchmarks.",
+   "authors": [
+    "Omar G. Younis",
+    "Rodrigo Perez-Vicente",
+    "John U. Balis",
+    "Alex Davey",
+    "Will Dudley",
+    "Jordan K. Terry"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.AI"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "dataset",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.18644",
+   "image": "figures/2026-11-17/2611.18644.jpg"
+  },
+  {
+   "date": "2026-11-17",
+   "rank": 9,
+   "id": "2611.19196",
+   "group": "general",
+   "title": "Ego2Sim2Humanoid: Agentic Real-to-Sim for Learning Loco-Manipulation VLAs without Robot Demonstrations",
+   "title_ja": "Ego2Sim2Humanoid：実機デモ不要で一人称動画からロコマニVLAを学習する自律的Real-to-Sim",
+   "summary_ja": "ロボット実機での高コストな遠隔操作教示を排し、人間の一人称スマートグラス映像からヒューマノイドの移動マニピュレーション（VLA）方策を学習する枠組みを提案。Real-to-Simステージで環境と人間の3D動作を再構築し、形態が異なるヒューマノイドへ接触物理を検証しながらリターゲティングして訓練軌道を生成する。実機デモなしで自律的な全身協調作業を可能にした。",
+   "summary_en": "Ego2Sim2Humanoid enables learning humanoid loco-manipulation VLA policies from human egocentric video without physical robot teleoperation. An agentic real-to-sim pipeline reconstructs collision environments and retargets human demonstrations into physically verified robot trajectories, accounting for kinematic differences. This provides a scalable path to training complex humanoid behaviors without costly in-situ demonstrations.",
+   "authors": [
+    "Chen Liu",
+    "Nikolaus Correll"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "imitation-learning",
+    "vision-language-action",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.19196",
+   "image": "figures/2026-11-17/2611.19196.jpg"
+  },
+  {
    "date": "2026-11-16",
    "rank": 0,
    "id": "2611.18003",
