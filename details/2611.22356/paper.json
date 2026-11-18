@@ -1,0 +1,134 @@
+{
+ "title_ja": "SR-VLA: 入力予測先読みと選択的KVキャッシュ修復によるVLAの制御ストール低減",
+ "tldr_ja": "ロボットが巨大な視覚言語行動（VLA）モデルの推論待ちで静止してしまう問題を解決するため、動作実行中に次の状態を予測して事前に投機的な推論を進め、実際の入力が届いた際ズレた部分のKVキャッシュだけをピンポイント修復するフレームワークです。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "同期推論（a）では行動実行の切れ目ごとに丸々推論待ち（ストール）が発生します。開始時点の画像を用いた非同期推論（b）では過去の画像に引きずられて不整合が起きますが、SR-VLAは次の切れ目の状態を予測して先行推論し、実入力との差分のみを選択修復することで安全かつ大幅な高速化を達成します。",
+  "caption": "Fig. 1: Motivation and design principle of SR-VLA. (a) Synchronous inference exposes the full next-decision inference latency. (b) An asynchronous schedule using launch-time images illustrates the timing trade-off. The right panel summarizes the remaining gap and SR-VLA principle. Here, $K$ denotes the number of action steps executed between consecutive VLA decisions, so $t+K$ is the next action-chunk boundary.",
+  "image": "details/2611.22356/F1.jpg"
+ },
+ "overview_ja": "視覚・言語・ロボット動作を単一モデルで扱うVLA（Vision-Language-Action）モデルは高い汎用性を持っていますが、モデルが巨大なため1回の推論に100ミリ秒以上の時間がかかります。ロボットは複数ステップの連続動作（アクションチャンク）を実行し終えると、次の推論が終わるまで完全に停止してしまう「制御ストール（停止時間）」という頭の痛い問題を抱えていました。\n\n既存の対策として、動作実行中に次の推論を始める非同期推論がありますが、これには大きな罠があります。早く推論を始めようとすると過去の古い画像に基づいて未来の行動を計算することになり、ロボット自身が動いて変化した実際の環境と大きなズレが生じてしまいます。かといって、実画像が届いた後に全部やり直していては推論時間を隠せません。\n\nそこで著者らは「SR-VLA」を考案しました。ロボットが現在の行動を実行している最中に、軽量な予測モデルを使って「次の判断タイミングでのカメラ画像と自身の関節状態」を先回りして予測します。そして凍結された巨大VLAを使ってあらかじめ投機的なKVキャッシュ（Transformerの中間計算結果）と行動を先回り計算しておきます。次の判断タイミングで実際のセンサ入力が届いたら、予測と実入力の差分、およびタスクの重要度をチェックし、問題なければそのまま行動を実行、ズレが大きい重要領域だけKVキャッシュを部分的に修復（リペア）して行動を再生成します。\n\n評価ベンチマークLIBEROでの実験の結果、制御成功率を維持したまま、代表的なVLAモデルであるπ0.5で2.67倍、OpenVLA-OFTで1.27倍のクエリ高速化を達成しました。さらに推論遅延の増加や外乱に対しても高い耐性を示し、実時間制御における極めて実用的なブレークスルーとなっています。",
+ "contributions_ja": [
+  "動作実行中に次の判断境界における視覚画像と固有受容感覚（ロボット状態）を同時に予測し、凍結VLAで投機的なKVキャッシュと行動を事前生成する先行推論機構を提案しました。",
+  "実際の入力が到着した際、タスク関連性と予測誤差に基づいて事前計算の受け入れ可否を判断し、必要なトークンだけを部分的に再計算する「2段階の選択的KVキャッシュ修復機構」を開発しました。",
+  "LIBEROベンチマークにおいて、π0.5で2.67倍、OpenVLA-OFTで1.27倍の高速化を達成し、対象物が動く外乱下でも同期推論と同等の成功率を維持できることを実証しました。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "ロボットが止まる問題をどう解決するか：先行推論とKV修復の着想",
+   "summary_ja": "巨大なVLAモデルは高いタスク達成能力を持つ反面、推論の重さによる制御ストールが不可避でした。従来のアプローチでは「待ち時間の削減」と「最新状況への一致」を両立できませんでしたが、本研究は入力予測と差分修復を組み合わせることでこのトレードオフを打ち破ります。",
+   "details_ja": "大規模な視覚言語モデル（VLM）をロボット制御に適応させたVLA（Vision-Language-Action）モデルは、汎用的なロボット操作を実現する主役になりつつあります。しかし、判断境界ごとに巨大なモデルをゼロから推論するため、どうしても大きな遅延が発生してしまいます。例えば30Hzの制御周波数において、最新の$\\pi_{0.5}$やOpenVLA-OFTを同期実行すると、1回の判断ごとに平均128〜135ミリ秒もの制御ストール（停止時間）が発生し、ロボットの滑らかな動作を阻害します。\n\nこれまでにもモデルの量子化やプルーニング、アクションチャンキング（複数ステップの行動を一括出力する技術）などが試みられてきましたが、「次の入力が来てから推論を始める」という同期的な依存関係そのものは解消できていませんでした。\n\n最近では、現在の行動を実行している間に次の行動を計算し始める「非同期スケジュール」も研究されています。しかし、推論を早く開始すると古い画像を見て未来の行動を計画することになり、環境変化とのミスマッチが起きるという根本的なジレンマ（Latency-Mismatch Trade-off）がありました。\n\nここで重要な問いは「事前に先回り計算した結果と、後から届いた実際の入力が食い違ったとき、計算をどう再利用するか？」です。無条件に再利用すれば事故につながりますし、全部やり直せば事前の計算が無駄になります。SR-VLAは、軽量モデルによる「入力の先読み予測」と、届いた実入力に基づく「選択的なKVキャッシュ修復」を組み合わせることで、この問題を鮮やかに解決します。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "同期推論、従来の非同期推論、そしてSR-VLAの設計原理の比較です。SR-VLAは動作実行中に次ステップの入力予測とVLA先行計算を行い、実入力到着時に差分修復を行うことで、ストールを最小化しつつ正確な制御を実現します。",
+     "caption": "Fig. 1: Motivation and design principle of SR-VLA. (a) Synchronous inference exposes the full next-decision inference latency. (b) An asynchronous schedule using launch-time images illustrates the timing trade-off. The right panel summarizes the remaining gap and SR-VLA principle. Here, $K$ denotes the number of action steps executed between consecutive VLA decisions, so $t+K$ is the next action-chunk boundary.",
+     "image": "details/2611.22356/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Background",
+   "heading_ja": "VLAの遅延モデルと「投機的先読み」の考え方",
+   "summary_ja": "VLAの行動実行時間と推論遅延の関係を定式化し、実行時間内にどれだけ推論を隠蔽できるか（隠蔽時間）を整理します。また、LLMで用いられる投機的デコーディングなどの先行技術と、未来の境界状態を扱う本研究の差分を明確にしています。",
+   "details_ja": "### II-A VLA実行におけるストールと評価指標\nVLAポリシーは時刻$t$において、視覚観測$o_t$、言語指示$g$、ロボットの固有受容状態（関節角度など）$p_t$を入力とし、$K$ステップのアクションチャンク$A_t = [a_t, \\ldots, a_{t+K-1}]$を出力します。コントローラがこの$K$ステップを実行する時間を$T_{\\mathrm{exec}}$、次のチャンクを準備するための総処理時間を$T_{\\mathrm{inf}}$とします。\n\n動作実行によって推論時間が隠蔽された部分を$T_{\\mathrm{hidden}}$と置くと、ロボットが停止してしまう境界ストール時間は次のように表されます：\n$T_{\\mathrm{stall}} = \\max(0, T_{\\mathrm{inf}} - T_{\\mathrm{hidden}})$\n同期実行では推論中にロボットが止まっているため$T_{\\mathrm{hidden}} = 0$ですが、非同期推論では実行時間と推論時間を重複させることができます。\n\nSR-VLAでは、処理経路が「予測・先行推論パス（$T_{\\mathrm{pred}}$）」と「実入力到着後の処理パス（$T_{\\mathrm{real}}$）」に分かれます。$T_{\\mathrm{pred}}$はロボットの動作実行$T_{\\mathrm{exec}}$の裏で走るため隠蔽できますが、実入力が到着した後の検証・修復処理である$T_{\\mathrm{real}}$はどうしても露出します。いかに$T_{\\mathrm{real}}$を短く抑えつつ、$T_{\\mathrm{pred}}$を隠蔽するかが腕の見せ所です。\n\n### II-B 投機的先読みと再利用可能なVLA内部状態\n現在のアクションチャンク$A_t$を実行している間、次の判断タイミング$t+K$での実際の観測$o_{t+K}$はまだ得られません。しかし、もし予測観測$\\hat{o}_{t+K}$と予測状態$\\hat{p}_{t+K}$があれば、凍結VLAを実行して投機的な内部状態（KVキャッシュなど）を事前に作っておくことができます。\n\nLLMの高速化で有名な「投機的デコーディング」も事前計算と検証を行いますが、あちらは既に入力テキストが手元にある状態でトークンを予測する技術です。一方、ロボット制御では「未来の入力そのものが未観測」という大きな違いがあります。未観測の未来境界に対する投機的計算をいかに検証し修復するか、という点が本研究の核心です。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "SR-VLAの実行パイプラインの全体図です。左側の青・緑のブロックで動作実行中に次の入力を予測してVLAの先行推論（投機的KVと行動の生成）を行い、右側の灰色のブロックで実入力到着後に修復の要否判定とピンポイントなKV修復を行います。",
+     "caption": "Fig. 2: SR-VLA execution path. During committed $A_{t}$ , predicted images and proprioceptive state drive the frozen VLA to construct a speculative KV Cache and next action. At the target boundary, real inputs, task relevance, and protection conditions selectively repair KV Cache.",
+     "image": "details/2611.22356/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "III SR-VLA Design",
+   "heading_ja": "SR-VLAの設計：どうやって未来を予測し、キャッシュを修復するのか",
+   "summary_ja": "システム全体像、軽量な行動条件付き入力予測モデル、そして2段階の選択的KVキャッシュ修復機構を詳述します。予測誤差とタスクの重要度を組み合わせ、必要なトークンだけを部分フォワードパスで修復する賢い仕組みです。",
+   "details_ja": "### III-A システム全体像\nSR-VLAのパイプラインは、実行中の先行推論と到着後の検証・修復に明確に分かれています（図F2）。現在の行動$A_t$を実行中に、学習済み予測器が次の判断境界での画像$\\hat{o}_{t+K}$と状態$\\hat{p}_{t+K}$を予測します。これを凍結された巨大VLAに通し、全層のKVキャッシュ$\\hat{\\mathcal{K}}_{t+K}$と行動チャンク$\\hat{A}_{t+K}$を投機的に生成しておきます。実入力が届いた際、ゲート判定によって問題がなければ投機的行動を即座にロボットへ送り、ズレがあれば影響を受けた視覚トークンだけを部分再計算して修復します。\n\n### III-B 行動条件付き次境界入力予測\n予測器はわずか10.08Mパラメータ（推論時51.52 GFLOPs）という非常に軽量なネットワークです。現在の観測$o_t$、状態$p_t$、および実行中の行動チャンク$A_t$を受け取り、次の境界での画像と状態を同時に予測します。構造としては、行動と状態をMLPでエンコードした共通表現を用い、固有受容状態はMLPデコーダで、画像は小型のU-Netで予測します。U-Netの中間特徴量はFiLM（特徴量ごとの線形変調）によって行動・状態表現で条件付けされており、「今アームがどう動いているか」を忠実に反映した画像変化を生成します。\n\n損失関数には画像のCharbonnier損失と状態のMSE損失を組み合わせた$\\mathcal{L}_{\\mathrm{pred}} = \\mathcal{L}_{\\mathrm{img}} + 0.1 \\mathcal{L}_{\\mathrm{prop}}$を採用しています。アブレーション実験（表I）では、予測を行わないナイーブな非同期実行だと閉ループ成功率が45.2%まで落ち込むのに対し、本予測器を導入するだけで87.6%まで改善することが確認されました。\n\n### III-C 選択的KVキャッシュ修復\n実入力が届いた後、全再計算を避けるため「2段階の選択性」を導入しています：\n- **第1段階：修復が必要かどうかのゲート判定**\n  予測画像と実画像の特徴量コサイン誤差$e_i$を計算し、先行推論時に言語・行動クエリが払っていたアテンション重みから求めた「タスク関連度$\\rho_i$」を掛け合わせて、パッチごとのリスク$r_i = \\rho_i e_i$を求めます。最大リスク$R_{\\mathrm{img}}$や固有受容状態の誤差が閾値を超えた場合、あるいはグリッパーの開閉動作や連続再利用の上限回数に達した場合にのみ修復トリガーが引かれます。\n- **第2段階：どのKVエントリを更新するかの選択**\n  修復が必要となった場合、誤差が大きい上位$k_e$個のパッチ（Top-k）と、リスクが高い上位割合$\\alpha_r$のパッチ（Top-ratio）の和集合を更新対象トークン集合$\\mathcal{S}_{\\mathrm{upd}}$とします。残りの背景などのトークンは投機的KVをそのまま再利用し、更新対象トークンだけを層ごとに部分フォワードパスしてKVを修復します。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "行動条件付き入力予測器のアーキテクチャです。U-Netによる画像予測ブランチとMLPによる状態予測ブランチから構成され、実行中の行動チャンクとロボット状態がFiLM変調を通じて画像生成に反映されます。",
+     "caption": "Fig. 3: Joint next-boundary image and proprioceptive-state prediction, conditioned on the current image, robot state, and committed action chunk.",
+     "image": "details/2611.22356/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "選択的KVキャッシュ修復の概念図です。（a）予測と実入力の画像誤差およびタスク関連度から修復要否と対象位置を決定し、（b）選ばれた視覚トークンのみ実入力からKVを更新し、残りは投機的キャッシュを再利用します。",
+     "caption": "Fig. 4: Selective KV repair schematic. (a) predict-real error and task relevance on image patches. (b) Visual KV replacement.",
+     "image": "details/2611.22356/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Evaluation",
+   "heading_ja": "実験評価：待ち時間はどれだけ減り、外乱に耐えられるか",
+   "summary_ja": "操作ベンチマークLIBEROを用い、代表的なVLAモデル2種（π0.5とOpenVLA-OFT）で評価を行いました。推論待ち時間を大幅に削減しつつ同期推論と同等のタスク成功率を維持し、追加の計算遅延や物体の移動といった外乱下でも頑健であることを示しています。",
+   "details_ja": "### IV-A 実験セットアップ\nロボット操作ベンチマーク「LIBERO」（Spatial, Object, Goal, Longの4スイート）で評価しました。ベースモデルには$\\pi_{0.5}$（チャンク長$K=5$）とOpenVLA-OFT（$K=8$）を使用し、VLA本体は重みを完全に凍結して予測器のみを追加学習しています。評価はすべてNVIDIA A100 GPU（40GB）上で実施しました。\n\n### IV-B タスク品質、クエリ遅延、露出ストール\n同期実行および最新の遅延低減ベースライン（VLASHなど）と比較した結果、SR-VLAは高いタスク成功率を維持したまま圧倒的な高速化を達成しました：\n- **$\\pi_{0.5}$ backbone**: 同期ベースラインの成功率96.4%に対し、SR-VLAは96.9%と互角以上の成績を維持しながら、クエリ実行時間を2.67倍高速化しました。平均ストール時間は128.11msから47.95msへと大幅に短縮されています。\n- **OpenVLA-OFT backbone**: 同期ベースライン比で1.27倍、キャッシュ最適化手法（VLA-Cache）に対しても1.15倍の高速化を達成しました。\n\n修復ゲートが作動した割合は4スイート平均で35.98%にとどまり、全体の約64%のステップでは予測結果をそのまま即時利用できました。また修復が行われた際も、全クエリ平均でのKV更新率はわずか20.48%であり、計算コストを最小限に抑えられていることが分かります。\n\n### IV-C クリティカルパス・ストールと遅延耐性\nリモート推論環境などを模して推論時間に意図的な遅延（+10ms, +20ms, +40ms）を注入したところ、同期実行やVLASHでは追加遅延がそのままロボットの停止時間に直結したのに対し、SR-VLAは先行推論がロボットの動作時間内でバッファとして機能するため、ストールの増加が極めて緩やかでした（40ms遅延時でも露出したストール増加は26.41msに抑制）。\n\n### IV-D 目標物移動による外乱耐性\n動作実行中に対象物を1〜5cm強制的に移動させる外乱実験を行いました。投機的予測にとっては非常に厳しい設定ですが、SR-VLAは外乱が大きくなるにつれて修復率を自動的に引き上げ（5cm移動時は60.26%が修復を発動）、同期推論とほぼ同等の成功率を粘り強く維持しました。この状況下でも1.52〜1.93倍の高速化を維持しており、安全弁としての選択的修復が正しく機能していることが実証されました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "レイテンシと外乱耐性の実験結果です。（a）通常時の平均ストール時間の内訳、（b）追加遅延を注入した際のストール増加の抑制効果、（c）ターゲット物体を強制移動させた際の外乱耐性と修復率の推移を示しています。",
+     "caption": "Fig. 5: Latency and target-motion perturbation results. (a) Normal-load mean stall. (b) Mean stall under controlled delay. (a)–(b) separate exposed prediction from forward computation with the real inputs. (c) LIBERO-Spatial task success and SR-VLA repair rate under target displacement, where 0 cm denotes no motion.",
+     "image": "details/2611.22356/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "SR-VLAは入力先読みと選択的KV修復を融合することで、巨大VLAをフリーズさせたまま制御ストールを劇的に削減できることを示しました。推論遅延や環境変化に対する優れた適応性を持つ、実用的なフレームワークです。",
+   "details_ja": "本研究では、VLAモデルの実時間制御における最大のボトルネックであった「推論待ちによる停止（制御ストール）」を大幅に緩和するSR-VLAを提案しました。その肝は、行動実行中に次の境界の観測と状態を予測してVLAの投機計算を進める「先読み機構」と、実入力が届いた後に差分のある重要な視覚トークンだけを効率的に直す「2段階の選択的KV修復機構」の連携にあります。\n\nLIBEROベンチマークでの徹底的な検証により、$\\pi_{0.5}$においてタスク成功率を落とすことなく2.67倍のクエリ高速化（平均ストール時間を128msから48msへ短縮）を達成し、OpenVLA-OFTでも確実な性能向上を示しました。さらに、通信遅延などの推論遅れに対する高い吸収力や、目標物が不意に動く外乱に対しても同期推論と同等のロバスト性を保てることを証明しました。\n\nVLAモデル本体の再学習を必要とせず、わずか10Mパラメータの軽量予測器を追加するだけで既存モデルにそのままプラグインできる点も、今後の実機ロボット展開において非常に強力な利点と言えます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「全部やり直す」か「古いのをそのまま使う」の二者択一だった非同期VLA制御に対し、タスク関連度と予測誤差に基づく「部分修復」という第3の道を切り拓いた点。",
+  "VLA本体を一切再学習（ファインチューニング）せず凍結したまま、10M規模の軽量な入力予測器を追加するだけで導入できる実用性の高さ。",
+  "動作実行時間を「計算遅延を吸収するバッファ」として活用できるため、リモート推論環境やエッジデバイスでの実行時ジッターに極めて強い耐性を持つこと。"
+ ],
+ "limitations_ja": [
+  "評価がLIBEROシミュレーション環境に限定されており、実機ロボット特有の複雑なセンサノイズやハードウェア通信遅延下での完全な実証は今後の課題であること。",
+  "予測器は次の1境界（数ステップ先）しか予測できないため、アクションチャンク長が非常に長いタスクや、予測困難な激しい接触を伴うタスクでの汎化性能が未知数であること。"
+ ],
+ "keywords": [
+  "Vision-Language-Action (VLA)",
+  "Speculative Lookahead",
+  "KV Cache Repair",
+  "Asynchronous Inference",
+  "Robot Manipulation",
+  "Real-time Control"
+ ],
+ "id": "2611.22356",
+ "title": "SR-VLA: Stall-Reduced VLA Execution via Predicted-Input Lookahead and Selective KV Cache Repair",
+ "authors": [
+  "Tao Zhang",
+  "Yi Zhong",
+  "Jinhao Ruan",
+  "Yipeng Gao",
+  "Linfeng Zhong",
+  "Youming Yang",
+  "Yuan Wang"
+ ],
+ "date": "2026-11-18",
+ "group": "general",
+ "tags": [
+  "vision-language-action",
+  "manipulation",
+  "control"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.SY",
+  "eess.SY"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.22356",
+ "pdf_url": "https://arxiv.org/pdf/2611.22356",
+ "summary_ja": "視覚言語行動（VLA）モデルの推論遅延による動作停止（制御ストール）を防ぐSR-VLAを提案。現在のチャンク実行中に軽量な予測器で次ステップの観測と固有感覚を先行予測して投機的KVキャッシュと次チャンクを生成し、実際の観測到着時に不整合部分のみを選択的に修復する。余分な再計算を抑えつつ、滑らかで遅延のない閉ループ制御を実現した。",
+ "generated": "2026-11-18",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.22356"
+}
