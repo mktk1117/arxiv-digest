@@ -1,0 +1,139 @@
+{
+ "title_ja": "DreamFAR: 多様な物体とのリアルタイムかつ長期ホライゾン相互作用を実現するワールドモデル",
+ "tldr_ja": "インターネット動画での事前学習に頼らず、ロボット実機データからゼロから学習することで、10 Hzのリアルタイム動作と1分以上の長期予測、そして高い接触物理の再現性を両立した世界モデル「DreamFAR」を開発しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "DreamFARの全体像です。10 Hzでのリアルタイムな遠隔操作インタラクションに対応し、数分間に及ぶ長期予測でも破綻せず、1,000以上の多様なタスクに汎化できることを示しています。",
+  "caption": "Figure 1: DreamFAR is a world model that is trained from a large robot-native dataset. It supports real-time interaction at 10 Hz, persists minutes of auto-regressive rollout, and generalizes across more than 1,000 tasks. We further demonstrate through experiments that DreamFAR can be used for policy evaluation and mixed-data policy co-training. See more examples and the interactive demo on the project page: www.yimingdou.com/DreamFAR .",
+  "image": "details/2611.22001/F1.jpg"
+ },
+ "overview_ja": "ロボットが自律的に複雑な作業を行うためのシミュレータとして、行動を入力して未来の視覚変化を予測する「世界モデル」が注目を集めています。しかし、既存のモデルは特定の単一環境に過学習してしまうか、あるいは接触を伴う長時間のタスクで急激に予測誤差が蓄積して画面が崩壊してしまうという大きな課題を抱えていました。\n\nそこで著者らは、Web上の膨大な動画で事前学習する従来のアプローチとは一線を画し、ロボットの遠隔操作データのみからゼロから学習する世界モデル「DreamFAR」を提案しました。長時間の予測でも物体や環境の破綻を防ぐため、ロボットが物体に触れた・離したという「接触イベント」をモデル自身が検知して重要フレームを記憶し、手先位置の近さで検索して呼び出す「接触ベースのメモリ機構」を導入しています。\n\n実験では、1,000エピソードの未知環境において、1分間の長期ロールアウト（連続予測）を行っても既存手法を大幅に上回る画質と幾何学的整合性を維持できることを確認しました。さらに、このモデル内で行った方策評価と実機実験の進捗度が高い相関（相関係数 $r=0.71$）を示し、モデル内で人間が操作して集めたデータを混ぜて学習させることで実機のタスク達成率が約2倍に向上することも実証しました。",
+ "contributions_ja": [
+  "Web動画での事前学習を行わず、ロボット特有のデータのみからゼロから学習し、市販GPU上で10 FPSのリアルタイム推論が可能な19億パラメータの世界モデルを構築したこと。",
+  "物体との接触開始・終了の瞬間を自己予測してキーフレームとして保持し、手先位置の類似度で呼び出す「接触ベースのメモリ機構」により、物体が画面外に出ても状態を失わない長期予測を可能にしたこと。",
+  "潜在変数の単位球面正規化や学習可能なアテンションシンク、パイプライン化されたデノイジングを組み合わせ、長時間の自己回帰予測における誤差蓄積を抑制したこと。",
+  "世界モデル内での方策評価が実機と強い相関（$r=0.71$）を持つことを示し、モデル内で生成した操作データとの共同学習で実機性能が倍増することを実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ世界モデルは接触を伴う長期タスクが苦手だったのか？",
+   "summary_ja": "世界モデルは強力なシミュレータになり得る一方で、数十秒を超える予測での誤差蓄積や、多様な接触タスクへの汎化が課題でした。DreamFARは、人間の触覚記憶に着想を得た接触ベースのメモリ機構などを導入し、多様な環境でのリアルタイムかつ安定した長期シミュレーションを実現しました。",
+   "details_ja": "行動を入力として未来を予測する世界モデル（World Model）は、ロボットが行動を計画したり結果をシミュレーションしたりするための理想的なツールです。しかし、既存の世界モデルを接触の多いマニピュレーション（物体の操作）タスクに適用しようとすると、2つの高い壁にぶつかります。\n\n1つ目は「長期予測（ロングホライズン）での破綻」です。数十秒先まで予測を繰り返す（自己回帰ロールアウトする）と、誤差が雪だるま式に蓄積し、画像が激しくぼやけたり形状が崩れたりします。2つ目は「接触物理への汎化」です。多様な物体と接触する複雑な物理現象を正しく捉えきれないため、未知の物体やシーンに対応できません。\n\nこの課題に対し、本論文が提案するのが「DreamFAR」です。最大の特徴は、人間が手で触れた感触を覚えるように、ロボットが物体に触れたり離したりした瞬間（接触の遷移）を検知してキーフレームとして記憶する「接触ベースのメモリ機構」です。以前の操作で物体をどこに置いたかをメモリに残し、手先が近づいたときに思い出すことで、物体が視界から外れても状態を見失いません。これにより、市販GPU上で10 Hzのリアルタイム操作を維持しながら、数分間に及ぶ安定した予測を可能にしました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "巨大動画生成モデルから「ロボットネイティブ」な因果モデルへ",
+   "summary_ja": "近年の世界モデルは数十億〜百億規模のインターネット動画事前学習モデルをロボットデータに適応させる手法が主流ですが、物理現象の再現や長期予測に課題がありました。DreamFARはロボットデータのみから因果的にゼロから学習し、メモリやキャッシュ機構をマニピュレーション向けに最適化しています。",
+   "details_ja": "世界モデルの研究は、大きく2つの系統に分かれます。\n\n### 動画生成モデルベースのアプローチ\n最近の主流は、20億〜140億パラメータ規模の巨大な動画生成モデルをWeb動画で事前学習し、それをロボットデータでファインチューニング（事後学習）する手法です。豊かな視覚表現を獲得できる反面、正確な物理ダイナミクスを再現するのが難しく、学習範囲を超える長い動画を生成しようとすると破綻しやすいという欠点があります。DreamFARはこの方針をとらず、ロボット本来のデータからゼロから因果的（過去から未来への一方向）に学習する道を選びました。\n\n### ロボットデータによる因果的世界モデル\nロボット特有のデータから直接学習する世界モデルも古くから研究されています。代表的な先行研究には、ロボット操作データで因果モデルを学習したWEAVERや、リアルタイム操作に対応したIWS（Interactive World Simulator）などがあります。DreamFARもこの系統に属しますが、長期記憶の保持と接触の扱いで一線を画しています。\n\n### 長期予測とメモリ機構の差別化\n動画生成で長期の破綻を防ぐには、「誤差の蓄積を抑える生成プロセス」と「何を記憶するかという条件付け」が重要です。先行研究ではカメラ位置や時間間隔でフレームを保存していましたが、DreamFARはモデル自身が予測した「接触の遷移」をトリガーにしてキーフレームを保存し、手先位置の近さで検索します。さらに、最初のフレームを忘れないための学習可能なアテンションシンク（注意の逃げ場）やローリングKVキャッシュを導入し、計算量を一定に抑えながらストリーミング生成を行っています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "接触メモリと単位球面トークナイザで実現するストリーミング予測",
+   "summary_ja": "DreamFARは視覚トークナイザとダイナミクス予測トランスフォーマーで構成されます。自己予測した接触遷移に基づく長期メモリ、潜在ベクトルのノルムを固定する単位球面正規化、推論遅延を隠蔽するパイプライン処理により、破綻のない10 Hzストリーミング予測を実現しました。",
+   "details_ja": "観測画像 $\\mathbf{x}_t$ とロボットの行動 $\\mathbf{a}_t$ から、未来の観測を自己回帰的に予測する仕組みを解説します。\n\n### 3.1 接触ベースのメモリ機構\n直近のフレームだけを見ていると、以前動かした物体が画角から外れた後にどこへ置かれたかを忘れてしまいます。そこでDreamFARは、直近 $T$ フレームの短期コンテキストに加え、長期メモリ $\\mathcal{M}_t$ を併用します。\n\nメモリに保存する基準は「接触の変化」です。トランスフォーマーに追加した補助ヘッドが左右のアームごとの接触フラグ $\\hat{\\mathbf{c}}_t \\in \\{0, 1\\}^2$ を予測し、フラグが反転した（掴んだ、または離した）瞬間をキーフレームとして記録します。外部のセンサやアノテーションは不要で、モデル自身の予測だけで更新可能です。呼び出す際は、現在の手先位置（順運動学で計算）との姿勢の類似度が高いフレームを優先的に取得し、合計8フレームの固定予算内でコンテキストに組み込みます。\n\n### 3.2 ストリーミング対応ダイナミクス・トランスフォーマー\n主幹となるダイナミクスモデルは、19億パラメータのトランスフォーマーです。フレーム内の空間アテンションと時間方向のアテンションを組み合わせ、一部の層では時空間アテンションを用いて複雑な動きを捉えます。さらに、常に追い出されない学習可能な「シンクフレーム」を1つ設けることで、メモリが空のときでもアテンションの行き先を安定させています。\n\n推論をリアルタイム（10 Hz）で行うため、$P=16$ フレームを異なるノイズレベルで並列に保持し、ローリングKVキャッシュを更新しながら少しずつノイズを除去するパイプライン処理を採用しました。これにより、ステップごとの計算量をロールアウトの長さに依存せず一定に保っています。\n\n### 3.3 単位球面トークナイザ\n長期の自己回帰予測では、潜在空間の数値スケールが徐々に発散していく「スケールドリフト」が問題になります。これを防ぐため、エンコーダが出力する潜在トークンを各位置でノルムが1になるよう「単位球面（Unit-Sphere）正規化」します。デコーダ側にはフロー・マッチングを採用し、ガウスノイズからわずか2ステップのオイラー積分（1視点あたり約14 ms）で高品質な $256 \\times 256$ 画像を復元します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "DreamFARのシステム概要です。(a) 各カメラ視点はエンコーダで単位球面上に射影され、フローデコーダで復元されます。(b) 接触の開始・終了時にキーフレームをメモリへ格納し、手先位置で検索します。(c) シンクフレーム、接触メモリ、短期履歴、ノイズ除去中のフレームを束ねてトランスフォーマーで処理します。",
+     "caption": "Figure 2: Overview of DreamFAR: (a) Each view is encoded as per-position latents projected onto the unit sphere and decoded by a flow decoder. (b) When the robot makes or breaks contact with an object, we insert the corresponding keyframe into contact memory , which are index by end effector pose. (c) We use a transformer that has a number of design decisions that make it well suited to streaming and long-horizon generation.",
+     "image": "details/2611.22001/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "1分間のロールアウトでも破綻しない驚異的な予測精度と実用性",
+   "summary_ja": "公開データセットABCを用いた1分間の長期予測比較において、DreamFARは既存ベースライン（Cosmos-Predict 2.5、WEAVER、IWS）を視覚品質と安定性で圧倒しました。さらに方策評価のシミュレータとしての有用性や、シミュレータ内データを用いた実機ポリシーの性能向上も確認しました。",
+   "details_ja": "### 4.1 実験設定\n実機データとして、2本のアームと3台のカメラを備えたYAMロボットのデータセットを使用しました。ベースラインとの公平な比較のため、約13.1万エピソード（約3,500時間・201タスク）を含む公開ABCデータセットでも各モデルを学習させ、未学習の1,000エピソードで評価を行いました。DreamFARは19億パラメータ、比較対象のWEAVERは約8億、Cosmos-Predict 2.5、IWSは約4億パラメータで実験しています。\n\n### 4.2 定性的な生成結果\nLegoブロックの組み立て、袋やパン、皿などの道具・容器の扱い、さらにはスカートのような変形体まで、30秒間の予測でも物体の同一性やアームの接触動作が一貫して保たれました。学習データに含まれない未知タスク（OOD）でも破綻なく動作しています。\n\n### 4.3 ベースラインとの長期予測比較\n60秒間の自律予測を行ったところ、IWSは開始10秒で画面が完全にぼやけて崩壊し、WEAVERは手先カメラのテクスチャが激しく幻覚を起こし、Cosmos-Predict 2.5はアームの形状や質感がドリフトしました。一方、DreamFARはホワイトボードへの文字書きなど細かい接触動作を含め、最後まで破綻せず生成を続けました。PSNRはDreamFARが平均16.4 dBを達成し、Cosmos-Predict 2.5（15.8 dB）、WEAVER（14.5 dB）、IWS（11.0 dB）を上回りました。知覚的品質を示すFIDでも、ベースラインが70〜180超に悪化する中、DreamFARは15から32への上昇に抑えられています。\n\n### 4.4 方策評価（ポリシー評価）への応用\n実機ロボットの代わりにDreamFAR上で方策（$\\pi_0$）を動かし、作業進捗度を評価しました。「皿を箱に入れる」「ボトルを投げる」「Tシャツを畳む」の3タスクにおいて、実機とシミュレータ内の進捗度はピアソン相関係数 $r=0.71$ という強い相関を示しました。絶対値としてはシミュレータの方がやや甘め（早く完了しやすい）の評価になる傾向はあるものの、方策の性能順位を正しく予測できることが分かりました。\n\n### 4.5 生成デモを用いた実機方策の共同学習\nDreamFARは10 Hzでリアルタイム動作するため、人間が指導アームを使ってモデル内で遠隔操作デモを収集できます。実機デモ75本に対し、モデル内で集めた75本を追加して学習させたところ、「ポテトチップスの袋をカゴに入れる」タスクの実機成功率が実機のみの場合から倍増し、63%に達しました。\n\n### 4.6 接触ベースメモリのアブレーション（分解検証）\n物体を箱に片付けるタスクにおいて、メモリなし、1秒間隔の等間隔メモリ、提案する接触ベースメモリを比較しました。メモリがないと一度視界から消えた箱の中身が空になり、等間隔メモリでは全く別の物体が幻覚されます。接触の遷移でキーフレームを保存し手先位置で呼び出すことで、初めて正しい物体配置を記憶し続けられることが実証されました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "多様なインタラクションにおけるロールアウト結果です。Legoの組み立て、パンの袋詰め、スカートの巻き取りなど、剛体から変形体まで30秒間にわたり破綻なく高精度に予測できています。",
+     "caption": "Figure 3: Rollouts on diverse interactions. DreamFAR predicts accurate dynamics across diverse interactions, including compositional assembly (Lego), tool and container use (bags, bread, plates) and deformable objects (skirt).",
+     "image": "details/2611.22001/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "60秒間の長期予測におけるベースライン比較です。IWSは10秒未満で崩壊し、WEAVERは手先カメラで幻覚が多発する中、DreamFARはホワイトボードの文字やアーム形状を1分間維持しています。",
+     "caption": "Figure 4: Visual comparison against baselines on a long-horizon prediction. We run 60-s rollout on an episode of “write a sentence on a whiteboard” task, and qualitatively compare DreamFAR against the existing baseline models. IWS collapses within seconds, WEAVER hallucinates texture drastically in the wrist view, Cosmos-Predict 2.5 drifts and over-sharpens texture, while DreamFAR manages to keep the scene layout and the manipulated objects consistent over the whole minute, and it even predicts the writings on the whiteboard that is visually similar to the GT.",
+     "image": "details/2611.22001/F4.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実機ロボットとDreamFAR内での方策評価の比較です。(a) Tシャツ折りタスクにおける時間経過と進捗度の推移、(b) 各タスク・各モデルでの平均進捗度を示しており、相関係数 r=0.71 と高い一致度を示しています。",
+     "caption": "Figure 6: Policy evaluation inside DreamFAR against the real robot. We run policy evaluation on both the real robot and inside the DreamFAR. (a) shows the task progress over time for one episode of the “t-shirt folding” task, on the real robot ( $\\times$ ) and inside DreamFAR ( $\\circ$ ). (b) summarizes the mean progress per policy and task. The simulator is generally optimistic in absolute progress but preserves the ranking on two of three tasks.",
+     "image": "details/2611.22001/F6.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "メモリ設計のアブレーション結果です。調味料ボトルを片付けるタスクで、メモリなし（w/o memory）では箱が空になり、等間隔（sparse）では中身が化けますが、提案手法（contact memory）だけが正しく再現できています。",
+     "caption": "Figure 8: Contact-based memory keeps placed objects persistent. Three models with the same architecture but different memory selection. We show one frame from a rollout of each model. Without memory the bin is empty, sparse time-strided memory hallucinates its contents, and contact-based memory matches the real observation.",
+     "image": "details/2611.22001/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Discussion and Limitations",
+   "heading_ja": "まとめと今後の課題：単一の作業台を超えた汎用シミュレータへ",
+   "summary_ja": "DreamFARは接触ベースのメモリと効率的な因果的設計により、リアルタイムかつ長期的なマニピュレーション予測を実現しました。現状の限界としては、特定のロボット環境への依存、単一のロボット形態への特化、平行グリッパに限定された器用さなどが挙げられます。",
+   "details_ja": "DreamFARは、接触の激しいロボット作業をリアルタイムかつ長期間シミュレートできる実用的な世界モデルの可能性を切り拓きました。方策の事前評価や、シミュレータ内でのデータ収集による実機性能向上など、ロボティクス研究への応用範囲は極めて広いです。\n\n一方で、現時点ではいくつかの制約も存在します。\n\n- シーンの多様性：実験が特定の作業環境（YAMステーション）内に限られており、背景や配置が大きく異なるオープンワールド環境への拡張が必要です。\n- ロボットの形態（エンボディメント）：1種類のロボット構成のみを対象としているため、異なる自由度や幾何構造を持つマルチロボットへの対応が次の課題です。\n- 手先の器用さ（デクスタリティ）：使用しているグリッパが2指の平行開閉型であるため、多指ハンドによる手先内での物体の持ち替え（インハンド・リオリエンテーション）のような、より繊細な接触動作のモデリングは今後の研究に委ねられています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix A Architecture and Training Details",
+   "heading_ja": "付録：トークナイザの工夫と接触ラベラーの舞台裏",
+   "summary_ja": "トークナイザは3視点合計で192トークンに圧縮し、単位球面正規化と均一度損失で正則化されています。接触フラグの学習には視覚言語モデル（VLM）を用いた自動アノテーションパイプラインが使用されています。",
+   "details_ja": "論文の付録から、実装と学習の重要な詳細をまとめます。\n\n### トークナイザの詳細と正規化\n各時刻の3台のカメラ画像（$256 \\times 256$ RGB）は、畳み込みエンコーダによりそれぞれ $16 \\times 16$ グリッド（16次元）の潜在表現に変換されます。各位置の潜在ベクトルは厳密にL2ノルムが1になるよう単位球面正規化され、デコーダ側で復元されます。損失関数にはフロー・マッチング誤差に加え、知覚損失（LPIPS）、事前学習済みViTとの特徴量アライメント損失、そして潜在空間が偏らないようにする均一度（Uniformity）損失が組み合わされています。\n\n### 接触ラベラーの構築\n接触予測ヘッドの教師データを作るため、微調整された視覚言語モデル（VLM）を利用しています。ベース視点と手先視点を組み合わせた8フレームの映像から接触判定確率を出力し、ヒステリシス閾値処理（0.6超で接触開始、0.4未満で離脱）とボックスフィルタで平滑化しています。グリッパの開閉状態だけで接触を判定しようとすると、押すなどの非把持接触を見逃し、実際の把持の約60%を取りこぼしてしまうため、この視覚ベースのVLMラベラーが不可欠だったと述べられています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "インターネットの動画事前学習を使わなくても、ロボット特有のデータに特化した因果的アーキテクチャを組めば、高品質で長期予測が破綻しない世界モデルが作れる。",
+  "画面外に出た物体の状態を保持するには、等間隔の時間サンプリングではなく、「接触の開始・終了」という物理的なイベントに基づいてメモリを更新・検索する設計が極めて有効である。",
+  "世界モデル内でのロールアウト進捗は実機のタスク進捗と高い相関を示し、実機を使わないシミュレータ内の遠隔操作データで実機ポリシーの性能を底上げできる。"
+ ],
+ "limitations_ja": [
+  "検証が特定の実験ステーション（YAM環境）内に留まっており、背景や照明が激しく変わる一般的なオープンワールド環境への汎化性能は未知数であること。",
+  "単一のロボットアーム形態・平行グリッパに特化しており、多指ハンドによる微細な物体操作や異なるロボット機構への直接的な適用はまだ難しいこと。",
+  "シミュレータ内の進捗評価は実機と高い相関を持つものの、全体的に実機よりも成功・進捗を甘めに見積もる傾向（楽観性）があること。"
+ ],
+ "keywords": [
+  "World Models",
+  "Robot Manipulation",
+  "Contact-Rich Interaction",
+  "Long-Horizon Prediction",
+  "Flow Matching",
+  "Real-Time Simulation"
+ ],
+ "id": "2611.22001",
+ "title": "DreamFAR: Real-Time and Long-Horizon Interaction with Diverse Objects",
+ "authors": [
+  "Yiming Dou",
+  "Botao He",
+  "Antonio Loquercio",
+  "Andrew Owens",
+  "Jitendra Malik",
+  "Sumedh Anand Sontakke",
+  "Ruoshi Liu"
+ ],
+ "date": "2026-11-18",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "world-model",
+  "simulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.22001",
+ "pdf_url": "https://arxiv.org/pdf/2611.22001",
+ "summary_ja": "接触が豊富で長期的なロボット操作をシミュレートするワールドモデルDreamFARを提案。インターネット動画の事前学習に依存せず、実機遠隔操作データからスクラッチで学習する構成を採用した。市販GPU上で10 FPSの高速推論を実現しながら接触や因果関係の物理的妥当性を向上させ、多様な物体との長時間の相互作用を高精度に予測可能にした。",
+ "generated": "2026-11-18",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.22001"
+}
