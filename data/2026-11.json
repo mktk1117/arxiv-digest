@@ -1,6 +1,317 @@
 {
  "entries": [
   {
+   "date": "2026-11-18",
+   "rank": 0,
+   "id": "2611.22445",
+   "group": "focus",
+   "title": "Autonomous Track Racing with a Commercially Available Humanoid: System Design and Real-World Deployment",
+   "title_ja": "市販ヒューマノイドによる自律トラックレース：システム設計と実世界展開",
+   "summary_ja": "市販ヒューマノイドUnitree G1によるトラック競技（100m、400m、1500m）完走に向けた自律走行システムを開発。人体の運動事前分布を用いた強化学習による走行方策と、ビジョンによる白線認識および経路追従を統合した。介入なしでの大会完走を実証し、ハードウェア限界を考慮した実機展開知見を提供している。",
+   "summary_en": "This paper presents an autonomous track running system deployed on a commercial Unitree G1 humanoid for 100 m, 400 m, and 1500 m events. The system integrates vision-based lane perception, path tracking, and an RL-trained running policy with a human motion prior. It achieves intervention-free race completions, demonstrating robust pacing within hardware limits.",
+   "authors": [
+    "Koki Inami",
+    "Takashi Sato",
+    "Hiroyuki Oka",
+    "Shota Takizawa",
+    "Yuya Takahashi",
+    "Amon Suzuki",
+    "Hayato Ono",
+    "Kohtaro Ihara",
+    "Yuki Noka",
+    "Shohei Matsugu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.22445",
+   "image": "figures/2026-11-18/2611.22445.jpg"
+  },
+  {
+   "date": "2026-11-18",
+   "rank": 1,
+   "id": "2611.22231",
+   "group": "focus",
+   "title": "From Temperature-Limited to Battery-Limited Legged Locomotion",
+   "title_ja": "温度制限からバッテリー制限へ：四足歩行ロボットの熱認識歩行制御",
+   "summary_ja": "四足歩行ロボットの長時間の運動が関節モータの過熱で停止する課題に対し、温度センサ非依存の熱認識型強化学習方策を提案。13ノードのRC熱回路網でモータ温度をRMSE 1℃未満で予測可能にし、これを活用してUnitree Go2実機で過熱を防ぎつつ長時間の歩行を可能にした。熱制限からバッテリー容量限界までの連続稼働を達成している。",
+   "summary_en": "This paper proposes a thermally aware RL framework for sustained quadruped locomotion without directly observing motor temperatures. By modeling motor heat using a 13-node lumped RC thermal network with mean RMSE below 1 °C, the policy prevents thermal shutdown on a Unitree Go2. The approach shifts the operational limit of sustained walking from motor overheating to battery depletion.",
+   "authors": [
+    "Rapha\\\"el S\\'egas",
+    "Bal\\'azs Opra",
+    "L\\'eo Ghafari",
+    "Thomas Stewart"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.22231",
+   "image": "figures/2026-11-18/2611.22231.jpg"
+  },
+  {
+   "date": "2026-11-18",
+   "rank": 2,
+   "id": "2611.22275",
+   "group": "focus",
+   "title": "Heave-Ho: Decentralized Long-Horizon Multi-Humanoid Collaboration",
+   "title_ja": "Heave-Ho: 分散型・長期ホライゾン複数ヒューマノイド協調フレームワーク",
+   "summary_ja": "複数ヒューマノイドによる長期タスクの協調全身搬送・操作を実現する分散フレームワークHeave-Hoを提案。低層では基盤全身追従モデルをローカル観測のみから協調可能な分散方策へと事後学習し、高層ではVLMプランナーと音声ベースのリーダー・フォロワー通信を統合した。実機において物理干渉を伴う長時間の協調タスクを安定して遂行できることを実証した。",
+   "summary_en": "Heave-Ho is a decentralized framework for long-horizon collaborative multi-humanoid loco-manipulation. At the low level, it post-trains a foundation tracking model into coordinated decentralized controllers driven solely by local observations. At the high level, a vision-language planner coordinates tasks via speech-based leader-follower communication, enabling robust physically coupled multi-humanoid collaboration.",
+   "authors": [
+    "Ting-Hsuan Chen",
+    "Siheng Zhao",
+    "Han Jiang",
+    "Qi Pan",
+    "Louison Lu",
+    "Jiaheng Luo",
+    "Henghui Bao",
+    "Yiyu Chen",
+    "Quan Nguyen",
+    "Yue Wang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "multi-robot",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.22275",
+   "image": "figures/2026-11-18/2611.22275.jpg"
+  },
+  {
+   "date": "2026-11-18",
+   "rank": 3,
+   "id": "2611.23102",
+   "group": "focus",
+   "title": "CADENCE: Learning Acyclic Gaits for Model-Based Quadruped Locomotion",
+   "title_ja": "CADENCE: モデル予測制御に基づく四足歩行ロボットのための非周期歩容学習",
+   "summary_ja": "四足ロボット向けに非周期歩容を学習するステッププランナーCADENCEを提案。凸MPCの上位で動作し、固定周期の歩容スケジュールや報酬を用いずに、40msごとに65通りの離散選択肢から安全な接地位置と遊脚時間をRLで決定する。最大2脚同時の遊脚制約のみから環境に応じた不規則な足運びを自然に獲得し、多様な地形での安定走行を可能にした。",
+   "summary_en": "CADENCE is a learned step planner that enables acyclic gaits for quadruped locomotion. Built on top of a convex model predictive controller, an RL policy selects from at most 65 discrete actions and predicts swing time every 40 ms without an explicit gait schedule. Constrained only to swinging at most two legs simultaneously, the policy naturally discovers acyclic stepping patterns suited for rough terrain.",
+   "authors": [
+    "Owen Sullivan",
+    "Sourav Selvaraj",
+    "Mahdi Agheli"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.23102",
+   "image": "figures/2026-11-18/2611.23102.jpg"
+  },
+  {
+   "date": "2026-11-18",
+   "rank": 4,
+   "id": "2611.23118",
+   "group": "focus",
+   "title": "Auditing a Learned Simulator for Legged Robots: The Robotic World Model on ANYmal D",
+   "title_ja": "脚ロボット向け学習型シミュレータの監査：ANYmal Dにおけるロボットワールドモデル",
+   "summary_ja": "ANYmal D四足ロボットを用いた神経網シミュレータRobotic World Model（RWM/RWM-U）の予測性能と信頼性を徹底監査した研究。101個の学習済みモデルと複数アーキテクチャを比較検証し、1ステップ予測と100ステップ以上の長期ロールアウト間での性能乖離を評価した。学習型シミュレータ内で方策を直接学習させる際の挙動と限界を体系的に明らかにしている。",
+   "summary_en": "This paper provides an extensive audit of the Robotic World Model (RWM/RWM-U), a learned neural simulator for the ANYmal D quadruped. By evaluating 101 trained models across multiple architectures, the authors examine the gap between single-step predictive accuracy and multi-step rollouts used for policy training. The findings reveal key behavioral characteristics and failure modes when training policies inside learned simulators.",
+   "authors": [
+    "Joyjeet Singh"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "quadruped",
+    "simulation",
+    "world-model",
+    "benchmark"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.23118",
+   "image": "figures/2026-11-18/2611.23118.jpg"
+  },
+  {
+   "date": "2026-11-18",
+   "rank": 5,
+   "id": "2611.21919",
+   "group": "general",
+   "title": "ALOHA Lightning: Learning Fast and Precise Manipulation",
+   "title_ja": "ALOHA Lightning: 高速かつ高精度なマニピュレーションの学習",
+   "summary_ja": "人間並みの高速かつ高精度な両腕操作を実現するシステムALOHA Lightningを提案。バックドライバブルなバイマニュアル機構を用いた直接教示により、自然で高速な実演データを直感的に収集できる。さらに滑らかな高速軌道を実行可能な学習パイプラインを構築し、従来の模倣学習方針に比べて大幅な動作速度向上と高精度なタスク達成を実機で実証した。",
+   "summary_en": "ALOHA Lightning is a bimanual manipulation system designed for fast and precise execution. By using kinesthetic teaching on a backdrivable platform, it collects natural demonstrations at near-human speeds without high-latency teleoperation artifacts. Combined with a policy learning pipeline optimized for smooth execution, it closes the speed gap between learned robot manipulation and human dexterity.",
+   "authors": [
+    "John Hua Yao. Qi Wu",
+    "Yihuai Gao",
+    "Chelsea Finn",
+    "Zipeng Fu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "manipulation",
+    "imitation-learning",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.21919",
+   "image": "figures/2026-11-18/2611.21919.jpg"
+  },
+  {
+   "date": "2026-11-18",
+   "rank": 6,
+   "id": "2611.22001",
+   "group": "general",
+   "title": "DreamFAR: Real-Time and Long-Horizon Interaction with Diverse Objects",
+   "title_ja": "DreamFAR: 多様な物体とのリアルタイムかつ長期ホライゾン相互作用を実現するワールドモデル",
+   "summary_ja": "接触が豊富で長期的なロボット操作をシミュレートするワールドモデルDreamFARを提案。インターネット動画の事前学習に依存せず、実機遠隔操作データからスクラッチで学習する構成を採用した。市販GPU上で10 FPSの高速推論を実現しながら接触や因果関係の物理的妥当性を向上させ、多様な物体との長時間の相互作用を高精度に予測可能にした。",
+   "summary_en": "DreamFAR is a real-time world model for robot manipulation trained from scratch on robot-native teleoperation data without internet-video pretraining. Running at 10 FPS on commercial GPUs, the architecture captures contact dynamics and causal interactions over long horizons. It demonstrates superior prediction fidelity in contact-rich tasks compared to standard video generation baselines.",
+   "authors": [
+    "Yiming Dou",
+    "Botao He",
+    "Antonio Loquercio",
+    "Andrew Owens",
+    "Jitendra Malik",
+    "Sumedh Anand Sontakke",
+    "Ruoshi Liu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "world-model",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.22001",
+   "image": "figures/2026-11-18/2611.22001.jpg"
+  },
+  {
+   "date": "2026-11-18",
+   "rank": 7,
+   "id": "2611.22146",
+   "group": "general",
+   "title": "HandUMI: A Modular Hand-Worn Parallel-Jaw Interface for Robot-Free Bimanual Data Capture",
+   "title_ja": "HandUMI: ロボットレスで両腕データを取得するモジュール式手装着型平行グリッパインタフェース",
+   "summary_ja": "実機ロボットを使わずに両腕操作データを収集できる手装着型グリッパHandUMIを提案。交換式指先で実機グリッパ形状に合わせ、VRコントローラとエンコーダで開閉量と姿勢を計測する。収集データはIK経由で7種の両腕ロボットに高精度（位置誤差中央値1.2mm以下）でリターゲット可能であり、PiPER実機によるタオル畳み等の実機方策学習で有効性を確認した。",
+   "summary_en": "HandUMI is a modular hand-worn parallel-jaw interface for capturing bimanual demonstrations without physical robots. It tracks hand poses and finger apertures, retargeting recordings to seven simulated dual-arm robots via IK with under 1.2 mm median error. Demonstrated policies trained from robot-free data achieved high success rates on real bimanual manipulation tasks at a low hardware cost of $557.",
+   "authors": [
+    "Brik Meza",
+    "Leonardo Perez",
+    "Alvaro Mendoza-Li",
+    "Aniela Ubillus",
+    "Mitshell Ramos",
+    "Raul Bastidas",
+    "Mauricio Olivera",
+    "Bryan Bastidas"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "imitation-learning",
+    "teleoperation",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.22146",
+   "image": "figures/2026-11-18/2611.22146.jpg"
+  },
+  {
+   "date": "2026-11-18",
+   "rank": 8,
+   "id": "2611.22356",
+   "group": "general",
+   "title": "SR-VLA: Stall-Reduced VLA Execution via Predicted-Input Lookahead and Selective KV Cache Repair",
+   "title_ja": "SR-VLA: 入力予測先読みと選択的KVキャッシュ修復によるVLAの制御ストール低減",
+   "summary_ja": "視覚言語行動（VLA）モデルの推論遅延による動作停止（制御ストール）を防ぐSR-VLAを提案。現在のチャンク実行中に軽量な予測器で次ステップの観測と固有感覚を先行予測して投機的KVキャッシュと次チャンクを生成し、実際の観測到着時に不整合部分のみを選択的に修復する。余分な再計算を抑えつつ、滑らかで遅延のない閉ループ制御を実現した。",
+   "summary_en": "SR-VLA mitigates execution stalls in VLA policies caused by inference latency. While executing the current action chunk, a lightweight predictor forecasts upcoming sensory states to speculatively precompute the next chunk and KV cache. Upon receiving actual inputs, a selective repair mechanism rectifies mismatched states without full recomputation, achieving continuous, low-latency closed-loop robot control.",
+   "authors": [
+    "Tao Zhang",
+    "Yi Zhong",
+    "Jinhao Ruan",
+    "Yipeng Gao",
+    "Linfeng Zhong",
+    "Youming Yang",
+    "Yuan Wang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.22356",
+   "image": "figures/2026-11-18/2611.22356.jpg"
+  },
+  {
+   "date": "2026-11-18",
+   "rank": 9,
+   "id": "2611.23056",
+   "group": "general",
+   "title": "RFW-S: Everyday Deformable Objects with Independent Simulation Verification",
+   "title_ja": "RFW-S: 独立したシミュレーション検証を備えた日常的変形可能物体データセット",
+   "summary_ja": "ロボット学習の大規模シミュレーションに向けた、検証済み変形物体データセットRFW-Sを構築。軟質立体、布、シェル、衣服、バッグの5系統、485カテゴリにわたる83,365個のシミュレーション検証済みアセットを収録する。自動3D生成とLLM支援による物性値推定・較正パイプラインを開発し、物理的に安定かつ忠実な相互作用シミュレーションを可能にした。",
+   "summary_en": "RFW-S is a large-scale dataset of 83,365 simulation-verified deformable assets spanning 485 everyday categories across five structural families. It combines reference-guided 3D generation with LLM-assisted physical parameter estimation and calibration. The dataset provides physically reliable and diverse deformable assets for scaling robot simulation and manipulation training.",
+   "authors": [
+    "Jiarui Guo",
+    "Saining Zhang",
+    "Jiaying Wan",
+    "Jiawei Weng",
+    "Junhao Chen",
+    "Rui Zhang",
+    "Yuanbo Lyu",
+    "Zhiheng Lee",
+    "Peishuo Li",
+    "Jingrun Du",
+    "Weiqing Xiao",
+    "Weiyi Lin",
+    "Zenan Meng",
+    "Hu Wei",
+    "Lin Qu",
+    "Zongzheng Zhang",
+    "Hao Zhao",
+    "Chaojian Li"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "simulation",
+    "dataset",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.23056",
+   "image": "figures/2026-11-18/2611.23056.jpg"
+  },
+  {
    "date": "2026-11-17",
    "rank": 0,
    "id": "2611.20452",
