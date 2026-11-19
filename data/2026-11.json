@@ -1,6 +1,306 @@
 {
  "entries": [
   {
+   "date": "2026-11-19",
+   "rank": 0,
+   "id": "2611.23916",
+   "group": "focus",
+   "title": "ReLoco: Unified Humanoid Locomotion and Fall Recovery via Behavior-Conditioned Motion Priors",
+   "title_ja": "ReLoco: 行動条件付き運動事前分布によるヒューマノイドの歩行と転倒復帰の統合",
+   "summary_ja": "ヒューマノイドの二足歩行、転倒からの起き上がり、歩行指示への復帰を単一の固有受容感覚方策で実現する枠組みを提案。ロボットの姿勢に応じて専門家プールを選択し、2つの行動特化出力を備えた識別器を条件付ける敵対的運動事前分布（AMP）を用いる。タスク報酬と正則化により、指示追従と起き上がりを両立させた。",
+   "summary_en": "ReLoco is a framework that learns bipedal locomotion, fall recovery from arbitrary fallen postures, and command resumption within a single proprioceptive policy for humanoid robots. It uses behavior-conditioned adversarial motion priors, where robot posture selects an expert pool and conditions a shared discriminator with two behavior-specific outputs. Combined with task rewards and regularization, it achieves robust locomotion and recovery.",
+   "authors": [
+    "Lequn Fu",
+    "Yufeng Hu",
+    "Yijun Zhong",
+    "Jie Zhang",
+    "Xiao Li",
+    "Lingxiang Ji",
+    "Zhiyuan Xu",
+    "Jian Tang",
+    "Shiqi Li"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.23916",
+   "image": "figures/2026-11-19/2611.23916.jpg"
+  },
+  {
+   "date": "2026-11-19",
+   "rank": 1,
+   "id": "2611.24074",
+   "group": "focus",
+   "title": "SemPhys: Semantic-Physical Co-Learning for Humanoid Motion Generation via Differentiable World Models",
+   "title_ja": "SemPhys: 微分可能ワールドモデルを用いたヒューマノイド運動生成のための意味論的・物理的共学習",
+   "summary_ja": "言語指示からヒューマノイドの全身運動を生成する際、運動学参照と物理実行時の乖離を解消する枠組みを提案。シミュレーション内の物理実行結果から得られる意味論的フィードバックを用いて運動生成器を直接訓練する。微分可能ワールドモデルを介して勾配を逆伝播し、接触やバランス制約を満たしつつ指示に合致した動作を生成する。",
+   "summary_en": "SemPhys is a framework that trains humanoid motion generators using semantic feedback directly from physically simulated executions, addressing discrepancies between kinematic references and tracking controllers under contact constraints. By backpropagating gradients through a differentiable world model, the system enables joint optimization of semantic alignment and physical balance constraints for whole-body humanoid motion.",
+   "authors": [
+    "Zejian Kang",
+    "Yeqiang Wang",
+    "Zekai Chen",
+    "Boyang Shen",
+    "Mingyu Ma",
+    "Bingqian Wu",
+    "Fan Zhou",
+    "Jianjie Zhang",
+    "Chentao Shen",
+    "Wentao Yang",
+    "Rui Qian",
+    "Xiangru Huang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "world-model",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.24074",
+   "image": "figures/2026-11-19/2611.24074.jpg"
+  },
+  {
+   "date": "2026-11-19",
+   "rank": 2,
+   "id": "2611.24011",
+   "group": "focus",
+   "title": "WAM-Policy: World Action Models with On-Policy Distillation for Quadrupedal Loco-Manipulation",
+   "title_ja": "WAM-Policy: オンポリシー蒸留を用いた四足ロボットのロコマニピュレーションのためのワールドアクションモデル",
+   "summary_ja": "四足ロボットが前脚を用いて物体操作を行うロコマニピュレーション方策を言語指示から学習する手法を提案。アーム用に事前学習されたワールドアクションモデル（WAM）を四足ロボットの形態に適応させ、オンポリシー自己蒸留（OPSD）により推論を映像1ステップ・行動2ステップへ短縮した。これにより高精度な操作と高速制御を両立している。",
+   "summary_en": "WAM-Policy enables language-conditioned quadrupedal loco-manipulation using a front leg without an attached arm. The framework adapts an arm-centric world action model (WAM) to the quadruped morphology and distills it into an efficient student policy via on-policy self-distillation (OPSD), reducing execution latency down to one video and two action steps for reactive real-time control.",
+   "authors": [
+    "Junlin Long",
+    "Xu Deng",
+    "Yiran Wang",
+    "Yue Yang",
+    "Yang Zhao",
+    "Zeyu Zhang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "manipulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.24011",
+   "image": "figures/2026-11-19/2611.24011.jpg"
+  },
+  {
+   "date": "2026-11-19",
+   "rank": 3,
+   "id": "2611.24310",
+   "group": "focus",
+   "title": "Proprioceptive Simultaneous Base and Terrain Elevation Estimation for Legged Robot Locomotion",
+   "title_ja": "脚ロボット歩行のための固有受容感覚に基づくベース状態と地形標高の同時推定",
+   "summary_ja": "視覚が利用できない環境において、固有受容感覚のみを用いて脚ロボットの鉛直方向ドリフトを防ぐオープンソース手法SBEEを提案。各接地足を永続的な標高ランドマークとして扱い、浮動ベース推定のための左不変拡張カルマンフィルタ（LI-EKF）とグリッド標高マップを双方向ループで結合した。実時間での高精度な地形・姿勢推定を可能にする。",
+   "summary_en": "SBEE is a real-time, open-source estimation framework that prevents vertical drift in blind legged locomotion using proprioceptive sensing alone. By treating each footstep as a terrain elevation landmark, it bidirectionally couples a Left-Invariant Extended Kalman Filter (LI-EKF) for floating-base estimation with a 2D elevation grid map, providing an accurate height reference for swing-leg trajectories.",
+   "authors": [
+    "Michael Maravgakis",
+    "Stylianos Piperakis",
+    "Panos Trahanias"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "control",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.24310",
+   "image": "figures/2026-11-19/2611.24310.jpg"
+  },
+  {
+   "date": "2026-11-19",
+   "rank": 4,
+   "id": "2611.24008",
+   "group": "focus",
+   "title": "Modelling the human-exoskeleton interaction interface - Benchmarking MuJoCo's deformable model",
+   "title_ja": "人間と外骨格の相互作用界面のモデル化：MuJoCoの柔軟体モデルのベンチマーク",
+   "summary_ja": "外骨格と生体軟部組織の接触界面における力伝達をシミュレートするため、MuJoCoの柔軟体モデル（flexcompのStVKおよびSNHモデル）の精度を有限要素法（COMSOL）と比較検証。球状圧入、直方体圧縮、大腿部圧縮の3課題で力や歪みエネルギー、計算時間を評価し、ロボット学習用シミュレータでの接触シミュレーションの妥当性を明らかにした。",
+   "summary_en": "This paper benchmarks the accuracy of MuJoCo's deformable model (flexcomp with StVK and SNH formulations) against a high-fidelity finite element model in COMSOL for simulating soft tissue at the human-exoskeleton interface. Evaluated across spherical indentation and limb compression scenarios in terms of forces, strain energy, and runtime, the study validates MuJoCo's capability for fast, contact-rich biomechanical simulation.",
+   "authors": [
+    "Lisette Masselink",
+    "Xiaolong Zhu Thomas George Thuruthel",
+    "Mohamed Irfan Refai"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "benchmark",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.24008",
+   "image": "figures/2026-11-19/2611.24008.jpg"
+  },
+  {
+   "date": "2026-11-19",
+   "rank": 5,
+   "id": "2611.23589",
+   "group": "general",
+   "title": "Recoverability, Not Invariance: Certified Safety for Robots at the Limits of Performance",
+   "title_ja": "不変性ではなく回復可能性：限界性能で動作するロボットのための認知的安全性認証",
+   "summary_ja": "トラクションの限界付近や学習方策などモデル化が困難な領域で動くロボットに対し、従来の正不変性ではなく「信頼できる復帰モードへと移行できる能力（回復可能性）」を収縮理論に基づいて認証する枠組みを提案。認証集合内から復帰モードへ切り替えることで、限界性能を引き出しつつ安全性を数学的に保証する。",
+   "summary_en": "This work introduces recoverability, a contraction-theoretic safety framework that certifies a robot's ability to re-engage a trusted recovery mode rather than requiring strict forward invariance of aggressive or learned controllers. By guaranteeing that the system can always transition back to safety from within a certified envelope, it enables robots to safely operate at dynamic traction limits where accurate models are unavailable.",
+   "authors": [
+    "Thomas A. Berrueta",
+    "Joshua D. Ibrahim",
+    "Gilchrist X. Johnson",
+    "John Lathrop",
+    "Soon-Jo Chung"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "control",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.23589",
+   "image": "figures/2026-11-19/2611.23589.jpg"
+  },
+  {
+   "date": "2026-11-19",
+   "rank": 6,
+   "id": "2611.23855",
+   "group": "general",
+   "title": "RoboBuilder: Agentic Robot Co-Design with Real-world Video Feedback in the Loop",
+   "title_ja": "RoboBuilder: 実環境ビデオフィードバックをループに組み込んだ自律エージェントによるロボット協調設計",
+   "summary_ja": "AIコーディングエージェントが標準部品や3Dプリント部品を用いてロボットの機構とプログラムを協調設計し、実機コースで走破性を検証するベンチマーク。シミュレーションと実機の差を埋めるため、実機走行動画や計測データからシミュレータを自己改善しながら設計最適化を行い、135台の実機試作を通じて実世界適応性を検証した。",
+   "summary_en": "RoboBuilder is a benchmark where coding agents co-design robot hardware and control software using off-the-shelf and 3D-printed parts, with all successful simulated candidates built and evaluated on physical obstacle courses. Agents learn and refine the simulator using requested sensor measurements and real-world run videos, validating agentic robot design across 135 fabricated robots.",
+   "authors": [
+    "Ghadi Nehme",
+    "Dahyun Nam",
+    "Akshay Govind Srinivasan",
+    "Faez Ahmed"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.CV",
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "llm-agent",
+    "benchmark",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.23855",
+   "image": "figures/2026-11-19/2611.23855.jpg"
+  },
+  {
+   "date": "2026-11-19",
+   "rank": 7,
+   "id": "2611.23575",
+   "group": "general",
+   "title": "LuxTac: A Flexible, Scalable, and Open-Source Optical Taxel Array with Distributed Three-Axis Force Sensing for Tactile Robot Learning",
+   "title_ja": "LuxTac: 触覚ロボット学習のための3軸力分散計測が可能な柔軟・スケーラブル・オープンソース光触覚アレイ",
+   "summary_ja": "市販部品を用いて厚さ約3.5mmで柔軟かつ拡張可能に製作できる光学式触覚アレイセンサを提案。RGBC受光素子とシリコン層を組み合わせ、交換可能なゲルカートリッジによって法線方向の変位だけでなく3軸の接触力を推定可能にした。低コストでグリッパ表面へ高密度に配置でき、触覚ロボット学習のデータ収集に適している。",
+   "summary_en": "LuxTac is a flexible, scalable, and open-source optical taxel array approximately 3.5 mm thick, constructed from commercial off-the-shelf components. Using digital RGBC light-to-digital converters with interchangeable colored-wall gel cartridges, it resolves distributed three-axis contact forces across curved robot gripper surfaces, providing an affordable tactile sensing modality for robot learning.",
+   "authors": [
+    "Md Rakibul Islam Prince",
+    "John Pelan",
+    "Zhiyuan Zhang",
+    "Adyaa Khera",
+    "Katherine Pesetski",
+    "Adeesh Desai",
+    "Akimizu Sugiyama",
+    "Minwoo Ki",
+    "Benjamin Alan Capelle",
+    "Temitope Ibrahim Amosa",
+    "Zijie Xu",
+    "Yihan Huang",
+    "Taehun Chung",
+    "Long Wang",
+    "Wei Li",
+    "Shaoting Lin",
+    "Yu She"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "hardware",
+    "perception",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.23575",
+   "image": "figures/2026-11-19/2611.23575.jpg"
+  },
+  {
+   "date": "2026-11-19",
+   "rank": 8,
+   "id": "2611.24925",
+   "group": "general",
+   "title": "Render the Robot, Generate the World: One Video World Model Across Embodiments",
+   "title_ja": "ロボットを描画し世界を生成する：多様なロボット形態に対応する統一ビデオワールドモデル",
+   "summary_ja": "数値的な行動値の代わりに、カメラ座標系に整列された将来のロボット関節・身体構成のレンダリング画像を行動入力として条件付けるビデオワールドモデルDoppelを提案。レンダリングされた運動を共通の視覚インターフェースとすることで、アームやグリッパなど異なる形態のロボット間で環境応答の予測モデルを統一的に学習可能にした。",
+   "summary_en": "Doppel is an embodiment-agnostic video world model conditioned on camera-aligned renderings of future robot configurations alongside numerical action trajectories. By explicitly providing the intended body motion through visual rendering, the model decouples robot kinematics from physical environment dynamics, establishing a shared visual interface across diverse robot embodiments and action spaces.",
+   "authors": [
+    "Yash Jangir",
+    "Karan Mirakhor",
+    "Renos Zabounidis",
+    "Muhammad Zubair Irshad",
+    "Sergey Zakharov",
+    "Yonatan Bisk",
+    "Homanga Bharadhwaj"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "manipulation",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.24925",
+   "image": "figures/2026-11-19/2611.24925.jpg"
+  },
+  {
+   "date": "2026-11-19",
+   "rank": 9,
+   "id": "2611.24138",
+   "group": "general",
+   "title": "Ego2X: Contact-aware Transfer from Egocentric Human Data to Any Robot",
+   "title_ja": "Ego2X: 一人称視点の人間のデータから任意のロボットへの接触を考慮した動作転移",
+   "summary_ja": "単眼の一人称視点の人間の作業動画から、多指ハンドや平行グリッパなどの実ロボットで実行可能な動作データを生成するフレームワーク。従来の外見一致に基づく転移と異なり、物体を駆動する接触点と接触力（CORE）に着目することで、指の空振りや貫通を防ぎ物理的に破綻のない高品質なデモデータを自動生成する。",
+   "summary_en": "Ego2X is an object-centric transfer framework that converts monocular egocentric human videos into physically executable robot manipulation trajectories across multi-fingered hands and parallel grippers. By focusing on contact locations and interaction forces rather than purely visual hand tracking, it eliminates physical artifacts like penetrations and hovering, yielding reliable demonstration data.",
+   "authors": [
+    "Xinke Lyu",
+    "Bowen Yang",
+    "Zhicheng Wang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "manipulation",
+    "imitation-learning",
+    "grasping"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.24138",
+   "image": "figures/2026-11-19/2611.24138.jpg"
+  },
+  {
    "date": "2026-11-18",
    "rank": 0,
    "id": "2611.22445",
