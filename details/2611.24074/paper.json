@@ -1,0 +1,127 @@
+{
+ "title_ja": "SemPhys: 微分可能ワールドモデルを用いたヒューマノイド運動生成のための意味論的・物理的共学習",
+ "tldr_ja": "自然言語からのヒューマノイド動作生成において、コントローラが追従・実行した後の「実際の動作」を直接評価し、微分可能な局所ワールドモデルを通じて動作生成器を end-to-end で最適化するフレームワーク「SemPhys」を提案しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "SemPhysの学習フレームワークの全体像です。(a) 生成器が作った参照動作をシミュレータ上の固定コントローラが実行し、(b) その記録から一部の区間を微分可能ワールドモデルで再現して全体の意味スコアを逆伝播させます。生成器の破綻を防ぐために初期モデルへのアンカー損失も併用しています。",
+  "caption": "Figure 2 : Overview of SemPhys training via execution-space semantic feedback. (a) Generate & Execute: A DiT generator synthesizes a reference motion from text and an LLM event plan, tracked by a frozen controller in simulation. (b) Surrogate Learning: A learned differentiable world model and the frozen controller predict a short closed-loop window ( $H=32$ at 50 Hz) from a recorded state. Spliced into the full episode, this window enables a frozen matcher to backpropagate semantic gradients to the generator’s projection heads (orange). Prior anchoring and physical shaping regularize updates; snowflakes denote frozen modules. Icons adapted from Smashicons/Flaticon.",
+  "image": "details/2611.24074/F2.jpg"
+ },
+ "overview_ja": "自然言語でヒューマノイドに複雑な動きを指示するとき、一般的なアプローチではまずテキストから幾何学的な参照軌道（キネマティクス）を作り、それを強化学習などで学習した追従コントローラに渡して実行させます。\n\nしかし、ここに大きな落とし穴があります。コントローラは転倒を防ぐためにバランス維持や接触制約を最優先するため、参照軌道を勝手に縮めたり変形させたりしてしまいます。例えば「振り返ってから歩く」という指示を出したのに、転びそうになったコントローラが旋回を途中で切り上げて歩き出すと、ロボットは指示とは全く違う方向へ進んでしまいます。これでは、人間から見て「指示通りの動き」とは言えなくなってしまいます。\n\nそこで著者らは、「意味が合っているかどうかは、コントローラが物理的に実行し終えた動作そのもので評価すべきだ」という直想的なアプローチを考えました。これが本論文の「SemPhys」です。シミュレータで実行された軌道全体を意味評価器でスコアリングし、その勾配を微分可能ワールドモデル（ロボットの局所ダイナミクスを予測する軽量モデル）とコントローラを経由して動作生成器に逆伝播させます。\n\nBONES-SEEDベンチマークや実機ヒューマノイド（Unitree G1）で検証したところ、SemPhysは実行後の一致度で従来最高水準のモデルを約20ポイントも上回る79.62%のテキスト検索精度（R@1）を達成し、転倒率も0.25‰という極めて高い安定性を実証しました。",
+ "contributions_ja": [
+  "ロボットが実際に物理実行した動作の系列全体に対して言語指示との意味的一致度を評価し、動作生成器へ直接フィードバックする学習パラダイムを確立したこと",
+  "シミュレータの記録軌道に局所的な微分可能予測区間を埋め込むことで、前後の文脈を保持したまま閉ループ制御の勾配を逆伝播させる手法（Contextual Execution Surrogate）を提案したこと",
+  "学習前の生成器出力との乖離を抑える「Paired Prior Anchoring」を導入し、動作の多様性を保ちつつ学習の不安定化や転倒リスクを大幅に低減したこと",
+  "シミュレーションおよび実機ヒューマノイド（Unitree G1）において、追従による意味の破綻を劇的に抑え、複雑な複合指示を高精度に実行できることを示したこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ指示通りの軌道を作っても、ロボットは指示通りに動かないのか？",
+   "summary_ja": "テキストから動作軌道を作っても、物理制約やバランス維持によって追従コントローラが動きを変形させてしまい、指示の意味が崩れてしまう課題を指摘します。SemPhysは実行された最終結果で意味を評価し、微分可能ワールドモデルを通じて生成器を直接賢くします。",
+   "details_ja": "ヒューマノイドに「振り返って、まっすぐ歩いて」と頼む場面を想像してみてください。ロボットにとって、両方の動作を順番通りに正しくこなすことが不可欠です。もし旋回が完了する前に歩き始めてしまうと、歩行自体は安定していても全く見当違いの方向へ進んでしまいます。\n\n従来のテキストからの動作生成（Text-to-Motion）モデルは、あくまで運動学的な参照軌道を生成するだけでした。実際のロボットは全身コントローラがバランスを取りながら関節を動かすため、転倒を防ぐためにターンを勝手に短縮したり、手を伸ばす動作を途中で中断したりします。例えば既存の MotionGPT3 というモデルでは、生成した参照軌道自体は指示との一致率が $74.08\\%$ あるのに、コントローラが実行した後の動作では $58.18\\%$ まで急落してしまいます。\n\nつまり、ロボットの動作生成は「生成された軌道」ではなく「実行された軌道」で評価されなければ意味がないのです。しかし、物理シミュレータを含む実行プロセス全体をそのまま微分して勾配を計算するのは計算コスト的にもカオス的挙動の面でも困難です。\n\nここが SemPhys の工夫のしどころです。ロボットがシミュレータで動いた記録から短い区間だけを「微分可能ワールドモデル」で予測させ、それを元の軌道の前後に埋め込んで全体を評価します。これにより、前後の文脈を保ったまま、局所的なダイナミクスを通じて生成器へ勾配を届けることに成功しました。評価実験では、従来最強のMDMを約20ポイント上回る実行時検索精度（R@1） $79.62\\%$ を達成し、実機の Unitree G1 でも見事な複合動作の実行を確認しています。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related work",
+   "heading_ja": "物理を考慮した動作生成と微分可能ダイナミクスの潮流",
+   "summary_ja": "追従報酬の予測や候補リランキング、人間の嗜好学習など、実行を意識した従来手法を整理します。SemPhysはコントローラを固定し、微分可能ワールドモデルを用いて生成器そのものを系列レベルの意味的一致度で直接最適化する点で一線を画します。",
+   "details_ja": "関連する研究は大きく分けて3つの流れがあります。\n\n### 実行を意識した動作生成（Execution-aware motion generation）\nコントローラが追従しやすい参照動作を作るため、追従報酬を予測する RobotMDM や、複数の候補からシミュレーションで選別する TeXedo、追従結果から嗜好学習（DPO）を行う PhysMoDPO などが提案されてきました。しかし、複合的な指示では「旋回を少し端折った影響が、その後の歩行全体の方向を狂わせる」といった長期的な意味の破綻が起こります。SemPhys は閉ループ制御の局所予測を微分可能にすることで、この問題に直接切り込んでいます。\n\n### 微分可能ダイナミクスと生成的アライメント\n学習されたダイナミクスモデルを使って短い区間をシミュレーションし、その勾配で方策を更新する手法は強化学習でよく使われます。最近の SuperMimic などは、ワールドモデルを通じてコントローラ側を賢く訓練しています。これに対して SemPhys は「コントローラは固定し、テキストから動作を作る生成器側を更新する」という逆のアプローチを取ります。デプロイ時にはワールドモデルは不要で、ロボットは生成された良い参照動作を既存コントローラでそのまま追従するだけで済みます。\n\n### 運動学的動作生成と全身制御\n拡散モデル（MDMなど）や離散トークンモデル（MoMask、MotionGPT3など）により自然な人間動作の生成は大きく進歩しました。また強化学習によるロバストな全身追従コントローラも整備されています。SemPhys は、これら最新の生成モデルと制御技術を、系列レベルのテキスト・動作マッチングを用いて橋渡しするフレームワークと言えます。",
+   "figures": []
+  },
+  {
+   "heading": "3 SemPhys: semantic and physical learning",
+   "heading_ja": "局所的な勾配で全体を良くする！SemPhysの学習メカニズム",
+   "summary_ja": "SemPhysは、実行後軌道に対する意味評価、微分可能ワールドモデルによる局所サロゲート勾配、そして初期モデルへのアンカー制約という3つの要素で構成されます。デプロイ時はワールドモデルを使わず、リアルタイムに動作できます。",
+   "details_ja": "### 3.1 全体構成と問題設定\nSemPhysの全体像は図 F2 の通りです。テキスト指示 $c$ とノイズ $z$ から、DiT（Diffusion Transformer）ベースの生成器 $G_\\theta$ が参照動作 $X_\\theta$ を生成します。これを固定された追従コントローラ $\\pi_{\\phi_0}$ がシミュレータ上で実行し、実際の動作系列 $Y$ が得られます。私たちの目的は、この実行された動作 $Y$ と指示 $c$ の意味的な食い違い $d(c, Y)$ を最小化することです。\n\n### 3.2 実行動作に対する意味的アライメント\n言語と動作の一致度は、事前学習済みのテキスト・動作エンコーダ $E_t, E_m$ を使って共通の潜在空間で測ります。実行された軌道から特徴ベクトル $h_Y$ を、指示文から $h_c$ を抽出し、そのコサイン距離 $d^2 = 2 - 2\\cos(h_Y, h_c)$ を最小化します。参照軌道 $X_\\theta$ ではなく実行軌道 $Y$ を直接スコアリングするため、コントローラがバランスを取るために行う補正が自然と考慮されるようになります。\n\n### 3.3 文脈を保った実行サロゲート（Contextual Execution Surrogate）\nしかし、長い軌道全体を物理シミュレータ越しに逆伝播するのは困難です。そこで、シミュレータの実行記録から長さ $H$（32ステップ＝0.64秒間）の短い区間だけを、学習済み微分可能ワールドモデル $f_\\psi$ と固定コントローラの閉ループで再現します。\n\nここが最大のポイントです。予測した区間だけを単独で評価するのではなく、記録された「過去の軌道（prefix）」と「未来の軌道（suffix）」の間に予測区間をガッチャンコして元の6秒間の系列に戻してから、全体の意味スコアを計算します。これにより、前後の文脈（例えば『歩く』前に『回った』かどうか）を壊さずに、予測区間を経由して生成器のパラメータへ綺麗に勾配を届けることができます。\n\n### 3.4 ペア型事前分布アンカー（Paired Prior Anchoring）\n自由に最適化させすぎると、生成器が予期せぬおかしな動きを出力して転倒しやすくなります。これを防ぐため、学習前の初期生成器 $G_{\\theta_0}$ に対し、全く同じテキスト指示 $c$ と同じノイズ $z$ を入力したときの出力と離れすぎないようにするペナルティ $\\mathcal{L}_{\\mathrm{anchor}}$ を加えます。同じノイズで固定することで、本来の表現の多様性を殺さずに、最適化のドリフトだけを強力に抑え込むことができます。\n\n推論時（実機デプロイ時）にはワールドモデルも意味評価器も使わないため、生成器が作った軌道をコントローラが追従するだけで、計算負荷なく高精度な動きが実現します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "SemPhysのアーキテクチャ詳細です。(a) 生成器が作った参照動作をシミュレータ上でコントローラが追従実行します。(b) その履歴から切り出した32ステップの窓を微分可能ワールドモデルで予測し、前後の固定軌道と結合してフルアクションの意味的一致度とアンカー損失を計算、生成器の射影ヘッドのみを更新します。",
+     "caption": "Figure 2 : Overview of SemPhys training via execution-space semantic feedback. (a) Generate & Execute: A DiT generator synthesizes a reference motion from text and an LLM event plan, tracked by a frozen controller in simulation. (b) Surrogate Learning: A learned differentiable world model and the frozen controller predict a short closed-loop window ( $H=32$ at 50 Hz) from a recorded state. Spliced into the full episode, this window enables a frozen matcher to backpropagate semantic gradients to the generator’s projection heads (orange). Prior anchoring and physical shaping regularize updates; snowflakes denote frozen modules. Icons adapted from Smashicons/Flaticon.",
+     "image": "details/2611.24074/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "ベンチマークと実機で実証：意味のズレを防ぎ、転倒も激減",
+   "summary_ja": "BONES-SEEDデータセットと実機Unitree G1で評価を行いました。SemPhysは既存手法を大きく引き離す79.62%の実行R@1を達成し、物理パラメータの変動に対しても極めて高い頑健性を示しました。",
+   "details_ja": "### 4.1 実験設定\n評価にはヒューマノイド向けベンチマーク「BONES-SEED」のテストセット（13,302クリップ、うち直立タスク13,082件）を使用しました。比較対象は、同じUnitree G1用のコントローラを用いて、MDM、MoMask、MotionGPT3、TeXedo、OMGなど強力な先行手法を網羅しています。評価指標は、指示検索精度（R@1〜R@3）、テキスト・動作埋め込み距離（MM）、動作の自然さを示す特徴間距離（FID）、そして直立タスク千件あたりの転倒継続率（Fail）です。\n\n### 4.2 主要な比較結果\nSemPhysは実行後のR@1で $79.62\\%$ をマークし、最強のベースラインであるMDM（$60.10\\%$）に対して19.52ポイントもの大差をつけました。さらに転倒率はわずか $0.25$ ‰（1万回に2.5回程度）と圧倒的な安定性を誇ります。人間の評価者10名によるブラインドテストでも、自然さ（2.44/3）と意味の一致度（2.68/3）の双方でトップ評価を獲得しました。\n\n特に注目すべきは「追従による意味の劣化」の小ささです。MotionGPT3は参照軌道時点のR@1が $74.08\\%$ あったのに実行後は $58.18\\%$ へと約16ポイントも急落したのに対し、SemPhysは $80.63\\%$ から $79.59\\%$ とわずか1.04ポイントの低下に留まりました。\n\n### 頑健性と定性評価\nロボットの質量やアクチュエータ強度、床の摩擦などを振った16種類の外乱テストでも、SemPhysは平均R@1 $78.89\\%$、Fail $0.70$ ‰ を維持しました。図 F6 のように、「低い位置から物を持ち上げる」動作では他手法が転倒したり屈むのをサボったりする中、SemPhysはバランスを保ちながらしっかりと深く屈んで持ち上げる動作を完遂しています。また実機Unitree G1でも、シミュレーション単体で学習したモデルが追加チューニングなしでスムーズに旋回・前進を行えることを確認しました。\n\n### 4.3 アブレーション研究\n実行空間での教師信号の重要性を検証したところ、参照軌道上で同じ損失を計算した場合はR@1が $74.21\\%$ に留まり、実行動作で評価するSemPhys（$79.30\\%$）の優位性が証明されました（約5ポイントの差）。また、Paired Prior Anchoringを外すと転倒率が $0.25$ ‰ から $6.09$ ‰ へと20倍以上悪化し、シード間の性能ばらつきも激増しました。\n\nさらに図 F8 に示す通り、32ステップの予測窓を単独で評価した場合はR@1が $64.88\\%$、両端パディングでは $68.07\\%$ でしたが、前後の文脈を保ったSemPhysの方式では $79.31\\%$ に跳ね上がりました。大域的な文脈を維持したまま局所勾配を計算する設計が、不可欠な鍵だったことが分かります。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "動作実行の比較例です。(a)「低い位置から持ち上げる」では、MotionGPT3が前屈後に転倒し、TeXedoは屈むのを省略してしまいますが、SemPhysは姿勢を保ったまま深く屈んで実行できています。(b)「振り返って物を運ぶ」でも、SemPhysだけが運搬姿勢を保ちながら旋回・歩行を完遂しています。",
+     "caption": "Figure 6 : Preserving the low reach and the carrying pose through execution. The instructions are (a) “character picks up big light object with two hands from low height up behind” and (b) “character turns back over right shoulder then walks forward while holding medium light object with two hands”. Translucent blue poses show the generated reference and solid robots show its execution at five matched times. The methods share a controller and a display scale within each example. Each trajectory’s initial heading is aligned for display. The carrying example illustrates whole-body posture.",
+     "image": "details/2611.24074/F6.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "学習時に意味評価器へ渡す文脈の違いによる比較です。32ステップの窓だけを評価した場合（上）や端点パディングした場合（中）に比べ、前後の記録軌道をそのまま文脈として繋いだOrdered context（下）が、圧倒的に高い実行R@1（79.31%）を達成しています。",
+     "caption": "Figure 8 : Motion context during training. Frames from one G1 simulation illustrate three inputs to the semantic scorer. All rows share the same 32-step differentiable window. Blank regions indicate omitted context. Scores give executed R@1 on the BONES-SEED test split (mean $\\pm$ SD across three training seeds).",
+     "image": "details/2611.24074/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめ：ヒューマノイドを「言葉通りに動かす」ための新たなスタンダード",
+   "summary_ja": "SemPhysは、ヒューマノイドが物理的に実行した動作そのものを言語指示とアライメントさせる先駆的なフレームワークです。局所的な微分可能ワールドモデルと前後の文脈保持、ペア型アンカーの組み合わせにより、高い運動表現力と物理的安定性を両立させました。",
+   "details_ja": "ヒューマノイドの制御において、「頭で考えた理想の軌道」と「体が実際に動いた結果」の間には、物理制約という大きな溝が存在していました。SemPhys は、微分可能ワールドモデルを賢く利用することで、この溝を越えて動作生成器そのものを「実行後の意味」に基づいて直接鍛え上げる道を切り拓きました。\n\n局所的な短い時間窓だけで閉ループ制御の勾配を計算しつつ、それを元のエピソードの文脈に埋め込んで大域的な意味をスコアリングするという着想は、計算量と精度のトレードオフを美しく解決しています。さらに、初期モデルとペアを組ませるアンカー損失によって、学習の暴走や物理的な破綻を抑え込みました。\n\n実機の Unitree G1 でも追加学習なしで動いたという事実は、この枠組みの実用性の高さを示しています。今後は、より複雑な環境とのインタラクションや、動的な障害物回避などを伴うタスクへの展開が大いに期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "動作生成の評価は「生成したキネマティクス」ではなく「物理追従された後の実行軌道」で行わなければ、コントローラの補正によって意味の破綻が起きる",
+  "長いエピソード全体を微分する代わりに、「短い微分可能予測窓」を「記録された前後の文脈軌道」に挟み込むことで、長期的な文脈を保ったまま安定して勾配を逆伝播できる",
+  "生成器をファインチューニングする際、同一プロンプトかつ同一乱数ノイズの初期出力との差分を抑える「Paired Prior Anchoring」が、物理的な転倒を防ぎ学習を安定させる強力な正則化になる",
+  "訓練時のみワールドモデルを活用し、推論時は固定コントローラによる通常の追従に戻す構成にすることで、デプロイ時の計算負荷を一切増やさずに性能向上を享受できる"
+ ],
+ "limitations_ja": [
+  "ワールドモデルの予測精度に依存するため、シミュレータの挙動とワールドモデルの予測が大きく乖離する極端な接触状況では勾配の信頼性が低下する可能性がある",
+  "生成器の更新を射影ヘッド（projection heads）のみに限定しており、バックボーン全体のフルパラメータ更新を行った際のスケーラビリティや安定性は検証されていない",
+  "タスク評価が主に平地での歩行・旋回や上半身動作を中心としており、階段昇降や不整地、外乱物体との接触といった複雑な環境インタラクションへの適用は今後の課題である"
+ ],
+ "keywords": [
+  "Humanoid Motion Generation",
+  "Differentiable World Models",
+  "Text-to-Motion",
+  "Whole-Body Control",
+  "Semantic Alignment"
+ ],
+ "id": "2611.24074",
+ "title": "SemPhys: Semantic-Physical Co-Learning for Humanoid Motion Generation via Differentiable World Models",
+ "authors": [
+  "Zejian Kang",
+  "Yeqiang Wang",
+  "Zekai Chen",
+  "Boyang Shen",
+  "Mingyu Ma",
+  "Bingqian Wu",
+  "Fan Zhou",
+  "Jianjie Zhang",
+  "Chentao Shen",
+  "Wentao Yang",
+  "Rui Qian",
+  "Xiangru Huang"
+ ],
+ "date": "2026-11-19",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "control",
+  "world-model",
+  "simulation"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.24074",
+ "pdf_url": "https://arxiv.org/pdf/2611.24074",
+ "summary_ja": "言語指示からヒューマノイドの全身運動を生成する際、運動学参照と物理実行時の乖離を解消する枠組みを提案。シミュレーション内の物理実行結果から得られる意味論的フィードバックを用いて運動生成器を直接訓練する。微分可能ワールドモデルを介して勾配を逆伝播し、接触やバランス制約を満たしつつ指示に合致した動作を生成する。",
+ "generated": "2026-11-19",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.24074"
+}
