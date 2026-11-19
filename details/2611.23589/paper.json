@@ -1,0 +1,142 @@
+{
+ "title_ja": "不変性ではなく回復可能性：限界性能で動作するロボットのための認知的安全性認証",
+ "tldr_ja": "実行中の制御器ではなく「実績のある安全な回復モードへ戻れる能力（回復性）」を縮小理論で保証することで、モデル化が難しい限界領域でもアグレッシブな挙動を一切制約せずに安全性を担保できる新しい枠組みを提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "提案手法「回復性（Recoverability）」の全体アーキテクチャです。普段は過激な挙動や学習ベースのコントローラ（Deployed mode）を一切フィルタリングせずに動作させ、回復不能になる手前の最適なタイミングで、安全性が形式的に保証された回復モード（Recovery mode）へと切り替えます。",
+  "caption": "Fig. 1: The recoverability architecture. Because recoverability is defined directly on closed-loop vector fields, each mode can be built from any part of an autonomy stack, including the state estimation, motion planning, and tracking control shown here, as well as policies or other learned components. The deployed mode $F_{\\mathrm{new}}$ runs unmodified, and the recovery mode $F_{\\mathrm{rec}}$ is the trusted behavior whose recovery tube is certified offline. The recoverability block summarizes Algorithm 2 , which uses the predictions of both modes to schedule the handoff at time $\\tau^{\\star}$ .",
+  "image": "details/2611.23589/F1.jpg"
+ },
+ "overview_ja": "ロボットが真価を発揮するのは、タイヤのグリップ限界や障害物スレスレなど、動作領域の境界ギリギリを攻めるときです。しかし従来の安全性理論（コントロールバリア関数など）は、「現在の動作を続けたまま安全集合の中に留まり続けること（前方不変性）」を前提としていました。境界付近は力学モデルが最も不正確になる場所ですから、従来のやり方では保証が破綻するか、過剰に保守的なブレーキがかかって性能が大幅に削がれてしまうという強いジレンマがありました。\n\nそこで著者らは発想を180度転換しました。「実行中の制御器が安全集合に留まり続けること」を諦め、「万が一のときに信頼できる回復モード（バックアップ行動）へ戻れること」だけを保証すればよいと考えたのです。これを「回復性（Recoverability）」と呼びます。縮小理論（Contraction theory）を用いることで、あらかじめオフラインで保証された「回復チューブ」の中にロボットがいる限り、いつ切り替えても指数関数的な速さで安全な基準軌道へ収束することを数学的に証明しました。\n\nさらに、いつ切り替えるべきかを決める指標として「縮小挿入勾配（CIG）」を導出し、1次元の最適化問題を解くことで、性能をギリギリまで引き出しつつ安全に切り替えるアルゴリズムを構築しました。シミュレーション上のクアッドロータ飛行や、雨天時のフルスケール自動運転レースカー（IndyNXT）による実走実験を通じて、既存のセーフティフィルタを凌駕する高い性能と確かな安全性が実証されています。",
+ "contributions_ja": [
+  "実行中の制御器ではなく回復モードに対してのみモデルの信頼性を要求し、外乱下でも頑健な指数収束を保証する「回復性」の概念を確立したこと",
+  "安全性を損なわずにいつ回復モードへ切り替えるべきかをリアルタイムに決定できる「縮小挿入勾配（CIG）」とスイッチング時間最適化を導出したこと",
+  "オンライン計算が容易な閉形式の距離関数を保ちながら、安全集合の上限（HJ生存核）に向けて回復チューブを拡大する逐次凸最適化手法を開発したこと",
+  "雨天時のフルスケール自動運転レースカー（IndyNXT）による実機限界走行において、過激なレーシングラインから安全な軌道への復帰をリアルタイムに実証したこと"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "限界性能と安全保証のジレンマを打ち破る「回復性」という逆転の発想",
+   "summary_ja": "ロボットの最高性能は動作限界付近にありますが、従来の安全性保証はモデルの不確実性が高いこの領域で破綻しがちでした。本論文は「不変性」ではなく「回復性」を保証することで、過激な制御器を一切制約せずに安全性を担保する新アーキテクチャを提案します。",
+   "details_ja": "ドローンの高速アクロバット飛行やレースカーのドリフト走行など、ロボットが最高のパフォーマンスを発揮するのは、ハードウェアの限界スレスレで動作しているときです。しかし、ロボットの動作範囲を広げようとすると、従来の安全性フレームワークが大きな壁となって立ちはだかります。\n\nなぜなら、コントロールバリア関数（CBF）やHamilton–Jacobi（HJ）到達可能性解析といった既存の安全性保証は、すべて「前方不変性（安全な領域に留まり続けること）」を基本原理としているからです。これらを成立させるには、安全集合の隅々まで信頼できる正確な物理モデルが必要です。ところが、タイヤの摩擦限界や接地・非接地が切り替わる境界領域は、最もモデル化が難しくデータも不足する領域です。つまり、最も安全保証が必要な極限領域ほど、従来の保証は頼りにならなくなってしまうのです。さらに、既存のセーフティフィルタは境界に近づくだけで介入し、本来出せるはずの性能を削いでしまいます。\n\nそこで著者らは、「安全であることを証明するために、実行中のコントローラ自身を証明する必要はない」という新しい視点を提示しました。それが「回復性（Recoverability）」です。普段実行するコントローラ（Deployed mode）には線形性も不変性も正確なモデルすら要求しません。深層強化学習ポリシーでも人間の直感的なチューニングでも何でも構いません。その代わり、あらかじめオフラインで厳密に安全性が証明された「回復モード（Recovery mode）」を1つ用意し、そこへいつでも戻れること（回復性）だけをオンラインで監視・保証します。これにより、極限性能と形式的安全保証の両立を目指します。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "既存のセーフティフィルタやバックアップ制御と何が違うのか",
+   "summary_ja": "HJ到達可能性解析やCBFはモデル要求が高く、近年のバックアップ制御器手法も介入時の性能低下や収束率の欠如という弱点がありました。提案手法は縮小理論に基づく幾何学的アプローチによって、介入直前まで完全に自由な走行を可能にします。",
+   "details_ja": "形式的安全性保証の世界で最も広く使われてきたのは前方不変性に基づく手法です。HJ到達可能性解析は真の最大安全集合を正確に計算できますが、状態の次元に対して計算量が指数関数的に爆発します。一方のCBFは2次計画問題（QP）としてオンラインで軽く解けるものの、有効なバリア関数を設計すること自体が極めて困難です。予測型セーフティフィルタも、将来予測に用いるモデルの精度に大きく依存します。これらはいずれも「現在動いている制御器」を保証の対象とするため、挙動が過激になるほどモデル化の負担が膨れ上がります。\n\nこれに対し、バックアップ制御器を用いる手法（Simplex系やBackup-CBF）は、安全なフォールバック行動を1つ固定することでモデル化の負担を軽減しようとしました。しかし、従来のBackup-CBFはフォールバック軌道を前方に積分して安全集合に入るかを判定する二値テストに過ぎず、「どれくらいの速さで安全に戻れるか」という収束率や安全マージンの概念がありませんでした。さらに、境界付近では通常制御とバックアップ制御がQPによってブレンドされるため、意図した挙動も追従できず、バックアップとしても不完全な中途半端な軌道になってしまい、常に性能ペナルティを払い続けることになります。\n\n提案手法の立ち位置は、図 F2を見ると一目瞭然です。介入なし（左）ではいつか危険領域へ飛び出し、Backup-CBF（中央）は境界付近で常にブレーキをかけて性能を損ないます。それに対し提案手法（右）は、安全な回復が保証されたチューブの限界ギリギリまで本来の過激な挙動を100%そのまま走らせ、たった1回の最適なスイッチングによって指数関数的な速さで回復基準軌道へと収縮させます。モデルの信頼性が必要なのは回復モードの周辺だけであり、通常モードの自由度を一切奪いません。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "3つの制御戦略の比較です。介入なし（左）は性能を最大化できますが安全集合を逸脱します。Backup-CBF（中央）は安全ですが制約がアクティブな間ずっと介入コストを払い続けます。提案手法（右）は、認証された切り替え時刻 $\\tau^\\star$ まで本来の挙動を全く邪魔せず、切り替え後は指数関数的な速さで安全な基準軌道へ回復します。",
+     "caption": "Fig. 2: Safety and performance under three deployment strategies. In the left panel the aggressive deployed mode runs with no intervention, so the executed trajectory follows $\\mathbf{x}_{\\mathrm{new}}(t)$ at zero performance cost but eventually leaves the safe set $\\mathcal{S}$ with no certificate to warn of the exit. In the center panel a backup-CBF filter keeps the state inside the rollout set $\\mathcal{B}_{T}$ , but the filtered trajectory deviates from $\\mathbf{x}_{\\mathrm{new}}(t)$ whenever the constraint is active, so the filter incurs a performance cost whenever the constraint is active. …",
+     "image": "details/2611.23589/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "III Preliminaries",
+   "heading_ja": "幾何学で安全を捉える：縮小計量と回復チューブの定義",
+   "summary_ja": "ロボットのダイナミクスをベクトル場として定義し、リーマン計量を用いた「縮小理論」を導入します。信頼できる回復軌道の周りに「回復チューブ」を構築することで、チューブ内の任意の状態から安全に回復できる幾何学的基盤を整えます。",
+   "details_ja": "### III-A 閉ループモードと基準一貫性\nロボットの挙動は、通常モード $F_{\\mathrm{new}}$ と回復モード $F_{\\mathrm{rec}}$ という2つの閉ループベクトル場で記述されます。ベクトル場として定式化しているため、コントローラがMPCだろうとニューラルネットワークだろうと、内部実装を問わず適用できます。回復の目標となるのは「基準軌道 $\\mathbf{x}_r(t)$」ですが、著者はここに「基準一貫性（Reference Consistency）」という条件を課しました。つまり、基準軌道そのものが回復モードの解（$\\dot{\\mathbf{x}}_r(t) = F_{\\mathrm{rec}}(\\mathbf{x}_r(t), t)$）になっているという設定です。通常モードはこの基準軌道を追従する必要は全くなく、自分自身の目標に向かって自由に動いて構いません。\n\n### III-B 回復縮小計量と回復チューブ\n軌道同士のズレを測るために、状態空間上のリーマン計量 $\\mathbf{M}(\\mathbf{x},t)$ を導入します。縮小理論（Contraction theory）とは、微小な偏差ベクトルが時間とともに指数関数的に縮小していく性質を解析する理論です。回復モードのヤコビ行列 $\\mathbf{A}_{\\mathrm{rec}}$ と計量の時間変化が特定の行列不等式を満たすとき、この計量を「回復縮小計量（率 $\\gamma > 0$）」と呼びます。\n\nこれを用いて定義されるのが「回復チューブ $\\mathcal{T}_r$」です。これは、基準軌道からのリーマン距離に基づく回復エネルギー $\\mathcal{V}_{\\mathbf{M}} = \\frac{1}{2} d_{\\mathbf{M}}^2$ が一定値 $E_{\\max} = \\frac{1}{2}r^2$ 以下となる状態の集合です。このチューブの内部にいる限り、回復モードへ切り替えさえすれば確実に基準軌道へ戻れることが、オフラインの幾何学的な解析によってあらかじめ保証されます。",
+   "figures": []
+  },
+  {
+   "heading": "IV Certified Recovery via Mode Scheduling",
+   "heading_ja": "いつ切り替えるべきか：縮小挿入勾配（CIG）と実行可能性による安全証明",
+   "summary_ja": "チューブ内の任意の状態から切り替えれば指数収束することを証明し、切り替え効果を1階微分で表す「縮小挿入勾配（CIG）」を導出しました。これにより、1次元最適化の実行可能解を見つけるだけで安全性が100%保証される仕組みを完成させました。",
+   "details_ja": "### IV-A 縮小回復性の証明\nまず著者らは、回復チューブ $\\mathcal{T}_r$ 内の任意の点から回復モード $F_{\\mathrm{rec}}$ に切り替えた場合、基準軌道へのリーマン距離 $L(t)$ がレート $\\gamma$ で指数関数的に減衰することを証明しました（Theorem 1）。さらに重要なのは、現実のシステムに不可欠な外乱やモデル化誤差に対する頑健性です。外乱 $d$ が存在しても、その大きさが $\\bar{d} \\leq \\gamma r$ を満たす限り、ロボットはチューブから飛び出すことなく、最終的な追従誤差を有界な範囲に収めることができます（Theorem 2）。境界において回復モードが引き戻す力（$\\gamma r$）が外乱の上限（$\\bar{d}$）に勝っていれば絶対に安全という明快な幾何学的マージンが示されています。\n\n### IV-B 縮小挿入勾配（CIG）\nでは、通常モードで走行中、具体的に「いつ」切り替えるべきでしょうか？ これを解く鍵が「縮小挿入勾配（Contraction Insertion Gradient; CIG）」です。回復エネルギーの勾配 $\\rho_{\\mathbf{M}}$ は、測地線の終点速度ベクトルから閉形式で瞬時に計算できます。これとモード間のベクトル場差分 $\\Delta F = F_{\\mathrm{rec}} - F_{\\mathrm{new}}$ の内積を取ることで、回復モードをほんの一瞬挿入したときに回復エネルギーがどう変化するかを1階微分として正確に捉えられます。$\\mathcal{G}_{\\mathbf{M}} < 0$ なら今すぐ切り替えるとエネルギーが減少し、正なら切り替えはまだ逆効果であることを意味します。\n\n### IV-C・IV-D スイッチング時間最適化と安全性の分離\n将来の予測区間において、回復チューブから初めて出てしまう時刻（最初の境界脱出時刻 $\\tau_{\\mathrm{exit}}$）を計算し、その手前で回復モードを挿入する最適な時刻 $\\tau^\\star$ を求める1次元の最適化問題を定式化します。ここで驚くべき結果がTheorem 3です。「この最適化問題の実行可能解（feasible solution）であること自体が、安全性の十分条件になる」のです。つまり、最適化が完全に収束していなくても、実行可能領域（チューブ内）から切り替え時刻を選びさえすれば、形式的安全性は一切損なわれません。最適性は切り替えの滑らかさや性能を調整するだけであり、安全性と最適化の難しさが完全に切り離されています。\n\n### IV-E クアッドロータによる不確実障害物回避実験\nこの枠組みを、サイズが不確実な楕円体障害物を避けてゴールを目指すクアッドロータのシミュレーションで検証しました。通常モードは障害物サイズを小さめに見積もった高速飛行計画を立て、回復モードは最大サイズの安全エンベロープを大回りする保守的な経路を準備します。標準的なCBFは障害物に激突し、Backup-CBFは安全なものの大きく遠回りしてタイムを落としました（ゴール時刻 6.718秒）。一方、提案手法は衝突寸前まで最速ラインを飛び続け、チューブ境界手前の最適な1回のスイッチングによって5.206秒で安全にゴールへ到達しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "サイズが不確実な障害物を通過するクアッドロータのシミュレーション結果です。(a) CBFは真の障害物に衝突し、Backup-CBFは大回りして遅くなりますが、提案手法は高速な飛行計画をギリギリまで維持し、1回の安全な切り替えで回避します。(b) ゴール誤差の推移。(c) チューブエネルギー $\\mathcal{V}_q$ の推移。境界（1.0）を超える前に切り替わり、急激に減少していることが分かります。",
+     "caption": "Fig. 3: Time-optimal quadrotor flight past an obstacle of uncertain size. (a) Ten trials on one side of the obstacle, whose true shape (gray) lies inside the known envelope (dashed). The CBF collides, the backup CBF detours wide, and our framework flies the fast plan until its single certified switch. (b) Normalized goal error, the excess of position and speed over the goal tolerances relative to its initial value, with crosses at collisions and circles at arrivals. Thin curves are trials and thick curves are means aligned by arc length in (a) and by flight duration in (b). …",
+     "image": "details/2611.23589/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Synthesis of Recoverability Certificates",
+   "heading_ja": "安全領域をどこまで広げられるか：逐次凸計画による回復チューブの自動合成",
+   "summary_ja": "これまではチューブが所与である前提でしたが、チューブが大きいほどロボットは大胆に動けます。測地線距離が閉形式で求まる特殊な座標変換（輸送計量）を導入し、逐次凸計画法によって安全集合の限界（HJ生存核）へ向けてチューブを単調拡大する手法を確立しました。",
+   "details_ja": "### V-A 閉形式の距離を持つ輸送証明書\n一般の多様体上でリーマン距離を計算するには、オンラインで測地線境界値問題を解く必要があり、計算負荷が高くなります。そこで著者らは、潜在座標系 $\\mathbf{z} = \\Phi(\\mathbf{x})$ への微分同相写像を利用する「輸送証明書（Transport Certificates）」を考案しました。潜在空間において回復ダイナミクスが線形となり、計量が楕円体として表されるように写像 $\\Phi$ を選ぶことで、物理空間での測地線距離が閉形式の2次形式として瞬時に計算できるようになります。さらに、写像のヤコビアン行列式を $\\det D\\Phi \\equiv 1$（体積保存）に制限することで、潜在空間の楕円体の体積がそのまま物理空間のチューブ体積と一致するという扱いやすい性質を持たせました。\n\n### V-B 逐次凸計画（SCP）によるチューブの拡大\nこの閉形式の性質を保ちつつ、チューブを安全集合いっぱいに広げるために「逐次凸計画（Algorithm 1）」を導入しました。写像 $\\Phi$ を体積保存シア写像（剪断写像）の合成として表現し、1ステップごとに1つのシア写像を追加していきます。体積拡大と縮小条件は凸最適化問題として定式化できるため、境界上のサンプル点に対する制約を解き、全体の安全性が検証された場合のみ更新を受理します。これにより、証明書の安全性を一度も破ることなく、ステップを重ねるごとにチューブの体積が単調に増大していきます。\n\n### V-C 平面モデルによるHJ生存核との厳密比較\n非線形な不安定ドリフトを持つ平面エラーモデルを用いて、合成されたチューブ $\\mathcal{T}_{\\mathrm{syn}}$ を厳密なHJ生存核（HJ Viability Kernel）と比較しました。初期シード $\\mathcal{T}_0$ から8回のシア写像を経た結果、チューブの面積は初期状態から107.3%拡大し、理論上の限界であるHJ生存核の面積の82.9%に達しました。しかも、長時間の軌道積分が必要なBackup-CBFセットと異なり、提案手法のチューブは単一の代数的な不等式チェックだけで内外判定が可能です。オンラインの超軽量な計算負荷を維持したまま、理論的限界に近い広大な安全領域を確保できることが実証されました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "平面モデルにおける合成チューブの検証結果です。(a) アルゴリズムによって初期シード $\\mathcal{T}_0$ からシア写像を繰り返し、チューブ $\\mathcal{T}_{\\mathrm{syn}}$ が大きく成長していく様子。(b) 解析的な集合比較。提案手法（緑）は、理論上の最大安全集合であるHJ生存核 $\\mathcal{V}_{\\mathrm{HJ}}$（紫）の82.9%に迫る広さを持っています。(c) 時間発展に伴い、各集合が基準原点へ収縮していく様子です。",
+     "caption": "Fig. 4: Planar recoverability example. (a) The synthesized certificate $\\mathcal{T}_{\\rm syn}$ has greater area than the seed tube $\\mathcal{T}_{0}$ while preserving a closed-form geodesic distance. The dark dashed curve is the largest centered $\\mathbf{P}$ -ellipsoid $\\mathcal{E}_{c}$ , the red curve is the deployed no-insertion trajectory, and the green curve is the recovery trajectory after the latest certified switch $\\tau_{\\rm exit}$ on the tube boundary, which contracts back to $\\mathbf{x}_{r}=0$ . …",
+     "image": "details/2611.23589/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Autonomous Racing at the Limits of Handling",
+   "heading_ja": "雨のサーキットを全開走行：フルスケール自動運転レースカーでの実機検証",
+   "summary_ja": "実機レースカー IndyNXT に提案手法を実装し、雨天のウェット路面というモデル化困難な極限状況でテストしました。車載プランナーの予測情報から代数的にCIGを計算し、危険を察知した8回のコーナー進入において完璧な回復動作を実証しました。",
+   "details_ja": "### VI-A 実機リアルタイム実装のための工夫\n理論を実際の自動運転レースカー（IndyNXT）へ落とし込むには、制御周期（約10Hz）の中でリアルタイムに動作させる工夫が必要です。そこで著者らは、保守的なレーシングラインに対する「横方向誤差 $e_\\perp$」とその変化率 $\\dot{e}_\\perp$ からなる2次元の横方向誤差座標系 $\\boldsymbol{\\zeta}$ を定義しました。この空間上で対角行列の計量 $M_\\zeta = \\operatorname{diag}(0.5, 1.5)$ を採用することで、回復エネルギーの計算は完全な代数計算となり、重いオンライン積分を完全に排除しました。\n\nまた、車載の通常モード（アグレッシブなラインを狙うMPC）と回復モード（保守的なラインを追従するMPC）は、いずれも5秒先までの将来軌道を200ノードで常時予測・配信しています。提案手法のモニターはこの予測結果をそのまま読み出し、ノードごとに代数的なCIG（式 48）を評価します。切り替えに要する有限の時間（$\\lambda = 0.5$秒）を考慮した有効閾値 $\\bar{E}$ を設定し、将来予測がチューブを逸脱する手前で、最も滑らかに回復モードへ引き継げる時刻 $\\tau^\\star$ をスケジューリングします（Algorithm 2）。\n\n### VI-B Putnam Park Road Course での雨中走行結果\n米国の Putnam Park サーキットにおいて、雨で濡れた低ミュー路面という、タイヤ力学モデルの信頼性が最も低い条件下でテストが行われました。車速は最大 20 m/s（時速約 72 km）に達します。晴天時用の過激なレーシングラインを走らせたため、コーナー進入時に車体は何度も回復チューブの境界へと押し出されました。\n\n30分間の連続走行中、システムは8回の危険なコーナー進入を検知し、いずれも破綻する約1秒手前で自動的に回復モードへと切り替えを行いました。図 F5に示されるように、予測エネルギーが閾値をまたぐ手前の $\\tau^\\star = 0.75$秒 の時点で切り替えが判断され、横方向誤差と誤差率は最大でも 0.5 m・0.5 m/s 以内に抑えられた後、スムーズにゼロへと収束しました。切り替え前の横方向誤差の中央値は 0.38 m でしたが、回復後は 0.04 m へと減少しています。何より重要なのは、回復が不要なストレートや安定した区間では、通常モードが一切のフィルタリングを受けずに100%本来の性能を発揮できた点です。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "雨天のレース場（Putnam Park）における実機 IndyNXT レースカーでの検証です。(a) コース全景と、過激な予測（赤点線）が外側へ膨らみ回復予測（青線）へ引き戻す様子。(b) 将来予測ホライズンにおけるエネルギー評価。逸脱予測時刻 $\\tau^V=1.68$s より前の $\\tau^\\star=0.75$s で切り替えを決定。(c) 切り替え前後の横方向誤差の収束。(d) 8回の回復イベントにおける切り替え前後の誤差分布です。",
+     "caption": "Fig. 5: Certified recovery mode scheduling deployed on a full-scale autonomous racecar using the architecture of Fig. 1 . (a) The vehicle is an IndyNXT racecar deployed at the Putnam Park Road Course in the rain. The inset shows the current state $\\mathbf{x}(t)$ together with the aggressive prediction $\\mathbf{x}_{\\mathrm{new}}(t)$ and the recovery prediction $\\mathbf{x}_{\\mathrm{rec}}(t)$ through the upcoming corner. (b) A single switching decision along the predictive horizon, with times measured from the planner update. …",
+     "image": "details/2611.23589/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VII Conclusion",
+   "heading_ja": "まとめと今後の展望：安全性保証は制約ではなく「出口戦略」へ",
+   "summary_ja": "提案された「回復性」は、安全性をロボットの行動を縛る足かせから、万が一のときに逃げ込む「出口戦略」へと再定義しました。今後は回復後の通常モードへの復帰条件の確立や、ハードウェア上での安全な強化学習への応用が期待されます。",
+   "details_ja": "本研究は、ロボットの極限性能と形式的安全保証が長年抱えてきた「不変性の呪縛」を打ち破るマイルストーンとなりました。モデルの信頼性が最も低い動作境界でモデル精度を要求する従来のやり方を改め、「信頼できる回復モードへの移行可能性」だけを保証の対象とすることで、実行中の制御器を完全に自由に解放しました。\n\nもちろん、今後の課題もいくつか残されています。1つ目は、現在の定式化が一方向の切り替え（一度回復に入ったらそのまま）である点です。回復モードによって誤差が十分に収縮した後、再び通常のアグレッシブなモードへ安全に復帰（Re-entry）するための形式的条件を確立できれば、攻めと守りを自律的に繰り返す真の限界走行サイクルが実現します。\n\n2つ目は回復モードの多様化です。急停止、ホバリング、安全姿勢への復帰など、複数の回復チューブをライブラリ化して持ち歩くことで、状況に応じた最適な「脱出先」を選べるようになります。さらに、この枠組みはハードウェア上での安全な強化学習（Safe RL）にとっても極めて強力な基盤となります。回復チューブがセーフティネットとして機能していれば、ニューラルネットワークは壊れる心配なく実機上で限界領域を探索・学習できるからです。「安全性を制約ではなく出口戦略として捉え直す」という本論文の思想は、自律ロボットの未来に大きな変革をもたらすはずです。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「現在の制御器を安全に保ち続ける（不変性）」のではなく、「信頼できる回復行動へいつでも戻れる（回復性）」という出口戦略に切り替えることで、モデル化が困難な極限領域でも安全保証が可能になる",
+  "縮小理論（Contraction theory）を用いることで、チューブ内からの切り替えによる指数収束性と、明確な外乱頑健マージン（$\\gamma r$）を数学的に証明できる",
+  "最適化問題の「実行可能性（feasibility）」だけで安全性が形式的に保証され、「最適性（optimality）」は切り替えのスムーズさなどの性能のみを担うため、リアルタイム計算が破綻しない",
+  "体積保存シア写像を用いた逐次凸計画により、オンラインで評価しやすい閉形式の距離関数を維持したまま、安全集合の理論限界（HJ生存核）近くまで安全領域を拡大できる"
+ ],
+ "limitations_ja": [
+  "一度回復モードに切り替えた後、安全に通常のアグレッシブなモードへ戻るための形式的な再突入（Re-entry）条件がまだ定式化されていない",
+  "全体の安全性保証の強さが、オフラインで検証された回復モードの縮小計量とモデル精度に依存するため、回復モードの設計自体には高精度な解析が必要となる",
+  "実機レースカーへの適用では、計算速度を優先して横方向2自由度の誤差座標系への射影と1階近似を採用しており、3次元的な姿勢ダイナミクス等は外乱として処理されている"
+ ],
+ "keywords": [
+  "Recoverability",
+  "Contraction Theory",
+  "Control Barrier Functions",
+  "Safe Control",
+  "Autonomous Racing",
+  "Sequential Convex Programming"
+ ],
+ "id": "2611.23589",
+ "title": "Recoverability, Not Invariance: Certified Safety for Robots at the Limits of Performance",
+ "authors": [
+  "Thomas A. Berrueta",
+  "Joshua D. Ibrahim",
+  "Gilchrist X. Johnson",
+  "John Lathrop",
+  "Soon-Jo Chung"
+ ],
+ "date": "2026-11-19",
+ "group": "general",
+ "tags": [
+  "control",
+  "safety"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.SY",
+  "eess.SY"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.23589",
+ "pdf_url": "https://arxiv.org/pdf/2611.23589",
+ "summary_ja": "トラクションの限界付近や学習方策などモデル化が困難な領域で動くロボットに対し、従来の正不変性ではなく「信頼できる復帰モードへと移行できる能力（回復可能性）」を収縮理論に基づいて認証する枠組みを提案。認証集合内から復帰モードへ切り替えることで、限界性能を引き出しつつ安全性を数学的に保証する。",
+ "generated": "2026-11-19",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.23589"
+}
