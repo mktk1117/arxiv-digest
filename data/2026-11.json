@@ -1,6 +1,307 @@
 {
  "entries": [
   {
+   "date": "2026-11-20",
+   "rank": 0,
+   "id": "2611.26293",
+   "group": "focus",
+   "title": "LocoMuJoCo: A Comprehensive Imitation Learning Benchmark for Whole-Body Control",
+   "title_ja": "LocoMuJoCo: 全身制御のための包括的な模倣学習・強化学習ベンチマーク",
+   "summary_ja": "MuJoCoのCPU/GPU（MJX・MjWarp）バックエンドを単一APIで統合した全身制御向けオープンソースベンチマーク環境を提案。9種のヒューマノイドや4種の四脚ロボットなど計16種の形態と専用MoCapデータセットを備え、JAXによる高速学習とsim-to-real基盤を提供する。",
+   "summary_en": "LocoMuJoCo is an open-source benchmark for imitation learning and reinforcement learning in whole-body control, unifying MuJoCo CPU and GPU (MJX/MjWarp) backends under a single API. It supports 16 embodiments, including 9 humanoids and 4 quadrupeds, accompanied by curated native motion-capture datasets. It provides JAX-based end-to-end training and an ecosystem for sim-to-real transfer.",
+   "authors": [
+    "Firas Al-Hafez",
+    "Davide Tateo",
+    "Oleg Kaidanov",
+    "Aditya Bhatt",
+    "Artur Zelik",
+    "Zhengyi Luo",
+    "Jan Peters"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "benchmark",
+    "reinforcement-learning",
+    "humanoid",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.26293",
+   "image": "figures/2026-11-20/2611.26293.jpg"
+  },
+  {
+   "date": "2026-11-20",
+   "rank": 1,
+   "id": "2611.25778",
+   "group": "focus",
+   "title": "ECHO: In-Context Behavior foundation model for Humanoid Whole-Body Control",
+   "title_ja": "ECHO: ヒューマノイド全身制御のためのIn-Context行動基盤モデル",
+   "summary_ja": "ヒューマノイドの多様な行動獲得と環境特化型制御を両立するIn-Context行動基盤モデルECHOを提案。混合・焼きなましサンプリングによる行動事前学習と、相互作用履歴を用いた適応機構を組み合わせることで、未知の物理条件下でも保守的な挙動に陥らず高精度な全身運動を実現する。",
+   "summary_en": "ECHO is an in-context behavior foundation model that separates broad behavioral capability from dynamics-specific execution for humanoid whole-body control. Using mixed and annealed sampling for pretraining alongside an interaction-history adaptation mechanism, it achieves environment-specific, high-precision whole-body control across varying physical conditions without compromising agility.",
+   "authors": [
+    "Xingyi Wang",
+    "Bin Li",
+    "Jiyuan Shi",
+    "Chenyun Zhang",
+    "Weiji Xie",
+    "Xiangyu Miao",
+    "Junsong Wu",
+    "Wei Song",
+    "Shiqiang Zhu",
+    "Chenjia Bai"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.25778",
+   "image": "figures/2026-11-20/2611.25778.jpg"
+  },
+  {
+   "date": "2026-11-20",
+   "rank": 2,
+   "id": "2611.25251",
+   "group": "focus",
+   "title": "WEVO: World Model-Enabled VLA Optimization for Whole-Body Loco-Manipulation",
+   "title_ja": "WEVO: 全身ロコマニピュレーションのための世界モデルを用いたVLA最適化",
+   "summary_ja": "実機ヒューマノイドの安全な探索を実現するため、行動条件付きビデオ世界モデル内で全身VLA方策を事後強化学習するWEVOを提案。シミュレーション生成データと実機20試行で世界モデルを環境に適応させ、全身コントローラ（WBC）と密な報酬を組み合わせることで実機の全身ロコマニピュレーションを改善する。",
+   "summary_en": "WEVO is a teleoperation-free framework that post-trains humanoid whole-body vision-language-action (VLA) policies inside an action-conditioned video world model. By pretraining the world model on synthetic data and aligning it with just 20 autonomous real rollouts, it enables closed-loop reinforcement learning combined with a whole-body controller for safe real-world loco-manipulation.",
+   "authors": [
+    "Qianzhong Chen",
+    "Muyuan Lin",
+    "Yuyin Sun",
+    "Mac Schwager",
+    "Cheng-Hao Kuo",
+    "Roberto Mart\\'in-Mart\\'in"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "world-model",
+    "vision-language-action",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.25251",
+   "image": "figures/2026-11-20/2611.25251.jpg"
+  },
+  {
+   "date": "2026-11-20",
+   "rank": 3,
+   "id": "2611.25215",
+   "group": "focus",
+   "title": "Bridging vision-language reasoning and learned control for legged navigation in the wild",
+   "title_ja": "未知環境における脚ロボットナビゲーションのための視覚言語推論と学習済み制御の統合",
+   "summary_ja": "四脚ロボットによるキロメートル規模の野外ナビゲーションを実現するシステムROAMを提案。Web規模データで事前学習されたVLMの高い意味理解・推論能力と、シミュレーション強化学習により学習した頑健な低レベル移動制御および局所計画方策を階層的に統合し、アルプスや都市環境での自律移動を達成した。",
+   "summary_en": "ROAM combines internet-scale Vision-Language Models for semantic reasoning with simulation-learned reinforcement learning policies for robust low-level locomotion and local planning. The framework enables legged robots to achieve kilometer-scale autonomous navigation across diverse and challenging alpine and urban environments.",
+   "authors": [
+    "Takahiro Miki",
+    "Robin Schmid",
+    "Manthan Patel",
+    "Turcan Tuna",
+    "Julia Richter",
+    "Julian Nubert",
+    "Joonho Lee",
+    "Matthias M\\\"uller",
+    "Marco Hutter"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "navigation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.25215",
+   "image": "figures/2026-11-20/2611.25215.jpg"
+  },
+  {
+   "date": "2026-11-20",
+   "rank": 4,
+   "id": "2611.25958",
+   "group": "focus",
+   "title": "Learning optimal gaits and styles for terrain-adaptive quadruped locomotion",
+   "title_ja": "地形適応型四脚ロボットロコモーションのための最適歩容とスタイルの学習",
+   "summary_ja": "地形、評価指標、速度の組み合わせに応じた最適な歩容を解明するため、中枢パターン生成器（CPG）を模した振動子ネットワークと深層強化学習を統合した手法を提案。平地から複雑な不整地まで、胴体高さや足クリアランスを含むロコモーションスタイルとともに11種類の四脚歩容の自律獲得と適応を実証した。",
+   "summary_en": "This paper investigates gait optimality across terrains, performance metrics, and speeds by combining central pattern generator (CPG) oscillator networks with deep reinforcement learning. The approach successfully learns 11 distinct quadrupedal gaits along with locomotion styles, such as base height and foot clearance, adapting effectively across varied challenging terrains.",
+   "authors": [
+    "Guillaume Bellegarda",
+    "Auke Ijspeert"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.25958",
+   "image": "figures/2026-11-20/2611.25958.jpg"
+  },
+  {
+   "date": "2026-11-20",
+   "rank": 5,
+   "id": "2611.26503",
+   "group": "general",
+   "title": "JARVIS: An Agent That Designs, Builds, and Tests Circuit Boards on Its Own",
+   "title_ja": "JARVIS: 自律的に回路基板の設計・製作・試験を行うエンボディドエージェント",
+   "summary_ja": "人手のかかる回路基板開発サイクルを自動化するエンボディドAIエージェントJARVISを提案。3Dスキャナで作業空間を取り込んでデジタルトランスフォーメーションを行い、ロボットアーム、導電インク用PCBプリンタ、検査機器を統合制御して、単一のテキスト指示から設計・製作・テストを実機で完結させる。",
+   "summary_en": "JARVIS is an embodied AI agent that autonomously designs, fabricates, and tests power electronic circuit boards. Initiated by a single text prompt, it constructs an executable digital twin using a robot-mounted 3D scanner and coordinates desktop hardware including a robotic arm and a PCB printer to close the physical build-and-test loop.",
+   "authors": [
+    "Shibo Zhou",
+    "Tianqi Hong",
+    "Zheng Yan",
+    "He Yang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "llm-agent",
+    "hardware",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.26503",
+   "image": "figures/2026-11-20/2611.26503.jpg"
+  },
+  {
+   "date": "2026-11-20",
+   "rank": 6,
+   "id": "2611.25105",
+   "group": "general",
+   "title": "MAWAM: A Multi-Agent World-Action Model for Coordinated Manipulation",
+   "title_ja": "MAWAM: 協調マニピュレーションのためのマルチエージェント世界行動モデル",
+   "summary_ja": "複数ロボットの協調作業において、各ロボットの将来視点映像と実行可能アクションを同時に単一サンプルで生成する世界行動モデルMAWAMを提案。エージェント間アテンションにより行動と将来予測を一括デノイズし、洗濯物回収やタオル折りなど3種の実機協調作業において最高成功率を達成した。",
+   "summary_en": "MAWAM is a multi-agent world-action model that jointly generates future visual predictions and executable action chunks for coordinated robot teams in a single sample. Utilizing cross-agent attention to denoise tokens while preserving separate control interfaces, it achieves state-of-the-art success across three real-world multi-robot manipulation tasks.",
+   "authors": [
+    "Xianzhe Fan",
+    "Chi-Pin Huang",
+    "Fu-En Yang",
+    "Jing Wang",
+    "Yecheng Wu",
+    "Yu-Cheng Chou",
+    "Johan Bjorck",
+    "Linxi \"Jim\" Fan",
+    "Jan Kautz",
+    "Yu-Chiang Frank Wang",
+    "Zhiding Yu",
+    "Hengshuang Zhao",
+    "Zhiqi Li"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "multi-robot",
+    "manipulation",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.25105",
+   "image": "figures/2026-11-20/2611.25105.jpg"
+  },
+  {
+   "date": "2026-11-20",
+   "rank": 7,
+   "id": "2611.25373",
+   "group": "general",
+   "title": "Differentiable Hydrodynamics for Whole-Body MPC of Underwater Robots",
+   "title_ja": "水中ロボットの全身MPCに向けた微分可能流体力学モデル",
+   "summary_ja": "スラスターとマニピュレータを備えた水中ロボットの協調制御に向け、計算流体力学（CFD）データから同定した微分可能流体力学モデルを提案。球面調和関数に基づく力・モーメント場と付加質量行列を組み合わせることで、予測ホライゾン全体での微分計算を可能にし、オンラインでの全身モデル予測制御（MPC）を実現した。",
+   "summary_en": "This paper proposes a differentiable analytical hydrodynamic model for whole-body MPC of underwater vehicle-manipulator systems. By combining smooth spherical-harmonic force/moment fields with a coupled added-inertia matrix identified from CFD, it provides efficient gradient computation across the prediction horizon for real-time optimal control.",
+   "authors": [
+    "Hefan Wang",
+    "Yvan Petillot",
+    "Carlos Mastalli"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "control",
+    "planning",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.25373",
+   "image": "figures/2026-11-20/2611.25373.jpg"
+  },
+  {
+   "date": "2026-11-20",
+   "rank": 8,
+   "id": "2611.26405",
+   "group": "general",
+   "title": "TacInno: Teaching Vision-Language-Action Models the Contact Dynamics Beyond Vision and Action",
+   "title_ja": "TacInno: 視覚と行動を超えた接触ダイナミクスをVLAに教示する触覚イノベーション",
+   "summary_ja": "接触豊富な作業において触覚情報の寄与を最大化するため、視覚と実行済み行動からは予測不可能な接触変化「触覚イノベーション」を抽出して学習目標とするTacInnoを提案。自明な接触フィードバックへの依存を排除し、滑り検知や繊細な挿入などの接触依存タスクにおいてロバストな操作性能を実現した。",
+   "summary_en": "TacInno enhances visuo-tactile VLA models by isolating tactile innovation—the contact dynamics unpredictable from visual observations and past actions—and using it as an explicit training target. This formulation prevents policies from ignoring critical contact events, significantly boosting performance in contact-rich manipulation tasks.",
+   "authors": [
+    "Weile Li",
+    "Yunfan Lou",
+    "Muqing Shi",
+    "Zihao Zhang",
+    "Zhenbiao Huang",
+    "Boxian Yao",
+    "Xiyu Zhu",
+    "Zhibo Pang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.26405",
+   "image": "figures/2026-11-20/2611.26405.jpg"
+  },
+  {
+   "date": "2026-11-20",
+   "rank": 9,
+   "id": "2611.25179",
+   "group": "general",
+   "title": "Phantom Success, Silent Failure: Auditing the Success Checkers of Simulated Manipulation Benchmarks",
+   "title_ja": "Phantom Success, Silent Failure: シミュレーション操作ベンチマークにおける成功判定器の監査",
+   "summary_ja": "シミュレーション環境でのポリシー評価において、不完全な動作を成功と誤認する「見かけの成功」や正当な達成を拒絶する「無言の失敗」を検出するLLMパイプラインSimAuditを提案。タスク指示文と判定器コードの不一致を自動検出し、手作業で書かれたベンチマーク評価器の脆弱性を体系的に監査する。",
+   "summary_en": "SimAudit is an LLM-based audit pipeline that analyzes the discrepancy between task instructions and hand-written success checkers in simulated manipulation benchmarks. It systematically identifies failure modes such as phantom success (accepting incomplete tasks) and silent failure (rejecting valid solutions), improving benchmark reliability.",
+   "authors": [
+    "Zirui Song",
+    "Jiadong Zhang",
+    "Zheng Lu",
+    "Xiaosong Ma",
+    "Xiaojun Chang",
+    "Xiuying Chen"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.RO"
+   ],
+   "tags": [
+    "benchmark",
+    "simulation",
+    "manipulation",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.25179",
+   "image": "figures/2026-11-20/2611.25179.jpg"
+  },
+  {
    "date": "2026-11-19",
    "rank": 0,
    "id": "2611.23916",
