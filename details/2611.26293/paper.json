@@ -1,0 +1,129 @@
+{
+ "title_ja": "LocoMuJoCo: 全身制御のための包括的な模倣学習・強化学習ベンチマーク",
+ "tldr_ja": "ロボットごとにバラバラだった全身制御の模倣学習環境を統合し、CPUとGPUの両方で高速に動くシミュレーションから自動リターゲティング、実機展開までを単一のAPIで実現した決定版ベンチマークです。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "LocoMuJoCoに登録された12種類のヒューマノイドや筋骨格モデルが、同一の歩行軌道を一斉に再生している様子です。体格やアクチュエータ構成が全く異なるモデル同士でも、共通の学習ループやデータセットインターフェースでそのまま扱える点が本ベンチマークの大きな強みです。",
+  "caption": "Figure 1: The 12 humanoid and (musculo-)skeletal embodiments replaying one walking trajectory; ghosted poses show time. All share one training, plug-in, and dataset interface.",
+  "image": "details/2611.26293/F1.jpg"
+ },
+ "overview_ja": "近年、ヒューマノイドロボットの急速な進化に伴い、人間のモーションキャプチャ（mocap）データから模倣学習（IL）や強化学習（RL）で全身動作を獲得させる研究が活発化しています。しかし従来の環境は、特定ロボット専用のコードベース、歩行だけの単純なタスク、あるいはマニピュレーション特化型などに細分化されており、研究者はロボットのモデルを変えるたびにデータ処理やリターゲティング（動作の体格合わせ）、評価パイプラインを一から作り直す必要がありました。\n\nそこで著者らは、CPU向けMuJoCoとGPU高速化バックエンド（MJXおよびMjWarp）を単一のAPIで統合した総合ベンチマーク「LocoMuJoCo」を開発しました。9種類のヒューマノイド、3種類の生体力学・筋骨格モデル、4種類の四足歩行ロボットを網羅し、人間の動作をあらゆるロボットへ自動で射影するリターゲティングパイプラインも備えています。\n\n検証実験では、消費者向けGPU1台で毎秒最大4.9×10^5ステップという圧倒的なシミュレーションスループットを実証したほか、11種類のロボットと13種類の動作クリップにわたる大規模な追従評価を行いました。さらに、姉妹リポジトリ「loco-mujoco-real」を通じて、学習した方策を実機のヒューマノイド（AgiBot X2 Ultra）にゼロショット転送し、43秒間のダイナミックな全身動作を安定して成功させています。",
+ "contributions_ja": [
+  "CPU（MuJoCo）とGPU並列環境（MJX/MjWarp）を同一のコードで透過的に切り替えられる統合APIを構築したこと。",
+  "ヒューマノイド9種、筋骨格モデル3種、四足歩行4種をサポートし、SMPLモデルを介して人間からロボット、およびロボット間の動作を自動変換するリターゲティングパイプラインを確立したこと。",
+  "観測、報酬、制御方式、ドメインランダム化などをFlaxデータクラスで完全に分離した、JAXのJITコンパイルと並列化に対応するプラグイン構造を実現したこと。",
+  "シミュレータ内の大規模ベンチマークにとどまらず、実機ヒューマノイドへのSim-to-Real展開パイプラインまで一貫して提供したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "バラバラだったヒューマノイド学習環境をひとつにまとめる",
+   "summary_ja": "ヒューマノイドの模倣学習において、コードベースや評価基盤が分断されていた課題を指摘しています。これらを解決するため、高速なGPU並列シミュレーションから実機展開までを一本化するLocoMuJoCoの誕生背景を述べています。",
+   "details_ja": "ヒューマノイドロボットのハードウェアが急速に進歩し、シミュレーションで学習した方策を実機へ持ち込む「Sim-to-Real」が現実味を帯びてきました。人間とヒューマノイドは似た身体構造を持つため、人間のモーションキャプチャデータは極めて貴重な教師データになります。\n\nしかし、これまでの模倣学習（IL）や強化学習（RL）のベンチマーク環境はひどく分断されていました。特定ロボットの専用コード、腕の操作だけに特化したタスク、あるいは単純な平地歩行トイタスクばかりで、研究者は対象ロボットを変えるたびに、データ変換パイプライン、シミュレータ連携、評価指標の再実装に追われていたのです。\n\n初期のLocoMuJoCoはCPU版MuJoCoのみの対応でしたが、今回のメジャーアップデートによりJAXベースで全面刷新されました。GPU並列実行エンジンであるMJXやMjWarpを統合し、主要な学習アルゴリズムや自動リターゲティング、さらに実機への展開環境までワンストップで扱えるよう進化しました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "既存ライブラリのいいとこ取りをした最強の統合環境",
+   "summary_ja": "先行するロボット・キャラクタ動作学習ライブラリの特徴を比較しています。それぞれが得意分野に特化する中、LocoMuJoCoはシミュレータの柔軟性、自動リターゲティング、生体力学モデル、実機対応をすべて網羅する唯一の基盤であることを示しています。",
+   "details_ja": "近年のヒューマノイド学習ライブラリは、それぞれ異なる強みを持っています。例えば、HumanoidBenchは接触の多い強化学習タスクに秀でていますが模倣学習用データがありません。MyoSuiteは高精度な筋骨格モデルを扱えますがGPU並列化やSim-to-Realに対応していません。mjlabはWarpを活用した高速シミュレーションを提供しますが、動作データセットや自動リターゲティングが欠けています。またProtoMotionsやMimicKitはキャラクタアニメーションや追従アルゴリズムに強みがありますが、統一ベンチマークとしての整備が不十分でした。\n\nLocoMuJoCoは、これら既存ツールの強みを1つのプラットフォームに凝縮しました。NumPyによるCPU逐次実行とJAXによるGPU並列実行を同一APIで両立し、登録されたあらゆるロボットへの自動モーションリターゲティング、筋骨格系バイオメカニクスモデル、軌道類似度評価指標、そして実機転送パイプラインを同時にサポートしています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "LocoMuJoCoがサポートする12種類のヒューマノイドと筋骨格モデルの一覧です。すべてのモデルで同じデータ形式、プラグイン、学習ループをそのまま共有できる点が特徴です。",
+     "caption": "Figure 1: The 12 humanoid and (musculo-)skeletal embodiments replaying one walking trajectory; ghosted poses show time. All share one training, plug-in, and dataset interface.",
+     "image": "details/2611.26293/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "3 The LocoMuJoCo Library",
+   "heading_ja": "高速GPU並列から実機まで繋がるモジュール設計の全貌",
+   "summary_ja": "LocoMuJoCoの内部アーキテクチャ、対応ロボット、アルゴリズム実装、実機展開の流れを解説しています。ステートレスなプラグイン設計によってJAXのJITコンパイルを最大限に活かし、実機ヒューマノイドでの全身動作追従まで実証しています。",
+   "details_ja": "### 3.1 デュアルバックエンド設計\nシミュレーションは、CPU向けの逐次NumPy/MuJoCoバックエンドと、GPU並列実行向けのJAX/MJXバックエンドの2通りで動作します。JAXの構文はNumPyとほぼ同じなので、観測や報酬などの環境ロジックは単一のコードベースで共有され、無駄な重複がありません。さらにオプションのMjWarpバックエンドを有効化（use_mjwarp=True）すると、単一の消費者向けGPUで毎秒4.9×10^5環境ステップという驚異的な速度を叩き出します。\n\n### 3.2 完全に交換可能なプラグイン構造\n環境内部の各要素（観測、報酬、モータや筋肉のアクチュエーション、ドメインランダム化、地形生成、終了判定など）は独立したプラグインとして疎結合になっています。すべてのプラグインは内部状態をグローバル変数に持たず、明示的なFlaxデータクラスとしてステップ関数間で受け渡すため、環境ステップ全体がJAXのJIT（実行時コンパイル）に完全対応しています。\n\n### 3.3 多様なロボットモデルと自動リターゲティング\nUnitree H1/H1v2/G1、Atlas、Talos、Apollo、Booster T1、ToddlerBot、Fourier GR1T2といった9種類のヒューマノイドに加え、3種類の筋骨格モデル、4種類の四足ロボット（Go2やSpotなど）を標準搭載しています。人間の体型・動作モデルであるSMPLを媒介とし、AMASSやLAFAN1などの大規模モーションデータを、設定ファイルひとつで任意のロボット関節軌道へと自動変換します。\n\n### 3.4 JITコンパイルに最適化された学習・評価基盤\nPPO、GAIL、AMP、DeepMimic、世界モデルを用いたSuperMimic、さらにSACやTD3、モデル蒸留パイプラインなど多彩なアルゴリズムをJAX/Flaxでコンパクトに実装しています。環境ステップと勾配更新がlax.scanにより単一のJITループに統合されており、Pythonのオーバーヘッドが一切生じません。\n\n### 3.5 実機ヒューマノイドへのシームレスな展開\n姉妹リポジトリ「loco-mujoco-real」により、Unitree G1やAgiBot X2 Ultraの実機環境へ直接ポリシーを転送できます。図F2に示す通り、ドメインランダム化を施して学習した追従ポリシーをAgiBot X2 Ultraに適用し、50 Hzで43秒間にわたるダイナミックな全身ダンス動作を安定して成功させています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "実機ヒューマノイド「AgiBot X2 Ultra」上での43秒間にわたる全身動作追従の様子です。LocoMuJoCoのMjWarpバックエンドでドメインランダム化を用いて学習したポリシーが、実機へゼロショットで転送され、スムーズかつダイナミックに動作しています。",
+     "caption": "Figure 2: Sim-to-real transfer on the AgiBot X2 Ultra: one motion-tracking policy trained in LocoMuJoCo, running on the real robot over a 43 s motion.",
+     "image": "details/2611.26293/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Availability",
+   "heading_ja": "オープンソース公開と高品質なコードベース",
+   "summary_ja": "LocoMuJoCoはMITライセンスで完全公開されており、ロボットモデルや実機コード、データセットが整備されています。テストカバレッジ93%を達成しており、研究コミュニティからの貢献を広く受け入れています。",
+   "details_ja": "LocoMuJoCoはMITライセンスのもと、GitHubにてオープンソースで公開されています。本体リポジトリ（loco-mujoco）だけでなく、実機展開用のloco-mujoco-real、各種ロボットモデルを集めたloco-mujoco-models、Hugging Face Hub上のデータセット群、そして詳細なオンラインドキュメントが完備されています。\n\nリポジトリには500以上の単体テストが用意されており、オフライン環境では実行できない一部コンポーネントを除いて93%のコードカバレッジを誇ります。GitHub Actionsを用いた継続的インテグレーション（CI）により、コードの信頼性と保守性が高く保たれています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録: 3段階リターゲティングの詳細とベンチマーク結果",
+   "summary_ja": "SMPLモデルを介した3段階のリターゲティング手法、シミュレータの実行速度の比較、そして11種類のロボットを横断した大規模実験の詳細を解説しています。実機とシミュレーションの挙動の忠実な一致も示されています。",
+   "details_ja": "### リターゲティングの3段階パイプライン\n人間の動作をロボットへ写す処理は、次の3つのステージで進みます。\n- **Stage 1（形状フィッティング）**: ロボットをTポーズに固定し、15箇所の対応部位（ミミックサイト）の位置が合うようにSMPLモデルの体型パラメータ $\\boldsymbol{\\beta}$ とスケール $s$ をAdamオプティマイザで最適化します。例えばUnitree G1では、初期に112.1 mmあった対応誤差が最適化後は21.8 mmまで大幅に縮小します。\n- **Stage 2（SMPLからロボットへの軌道生成）**: 最適化された体型を持つSMPLの関節軌道から目標位置と姿勢（$SE(3)$）を計算し、MuJoCoの拘束条件を用いてロボットの関節角度系列を逆運動学的に解き出します。\n- **Stage 3（ロボット間転送）**: あるロボットの軌道を一度SMPLに逆投影し、別のロボットの目標軌道へと転送します。手動でのマーカー設定を繰り返すことなく、ロボット間で動作を共有できます。\n\n### シミュレーションスループットの比較\nUnitree G1を用いた速度比較では、自己衝突判定を有効にしたフルモデルにおいて、MjWarpは毎秒4.9×10^5ステップを記録し、MJX（毎秒約1万〜2.5万ステップ）に比べて20〜54倍の高速化を達成しました。MjWarpの広域衝突判定（Broad Phase）が遠方の接触ペアを効率的に足切りできるためです。\n\n### 大規模ベンチマークと実機検証\n全11種類のヒューマノイドに対して13種類の動作クリップを学習させた結果、PPO + DeepMimicの組み合わせが最も安定して高い累積報酬と追従精度（動的時間伸縮法DTWやフレシェ距離などによる評価）を達成しました。図F11に示すように、シミュレータ上の姿勢と実機の挙動は時間経過を通じて極めて高精度に一致しており、Sim-to-Realのギャップが最小限に抑えられていることが確認できます。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "3段階のリターゲティングパイプラインの可視化です。左（Stage 1）ではSMPLの体型をロボットのTポーズに最適化して誤差を激減させ、右上（Stage 2）ではSMPLのダンス動作をロボットの関節軌道へ変換し、右下（Stage 3）ではUnitree H1v2の歩行動作をBooster T1へとロボット間転送しています。",
+     "caption": "Figure 4: Rendered examples of the three retargeting stages. Panels (a,e) show Stage 1 shape fitting for the Unitree G1 before and after optimization; the mean 15-site correspondence error decreases from $112.1$ to $21.8$ mm. Panels (b–d) show Stage 2 on a dance sequence: the original SMPL surface, the target-shaped SMPL skeleton (blue) and 15-site target skeleton (orange), and the resulting Fourier GR1T2 trajectory. Panels (f–h) show Stage 3 on a different walking sequence: the Unitree H1v2 source trajectory, its H1v2-shaped synthetic SMPL intermediate, and the resulting Booster T1 trajectory. …",
+     "image": "details/2611.26293/F4.jpg"
+    },
+    {
+     "key": "F11",
+     "caption_ja": "AgiBot X2 Ultraにおけるシミュレーション（左半分）と実機（右半分）の同一時刻での比較です。全身を大きく動かすダイナミックなポーズにおいても、シミュレーションと実機の挙動が極めて精密に同期していることがわかります。",
+     "caption": "Figure 11: Simulation and real robot for the motion of Figure 2 . Each panel shows the simulation (left) and the real AgiBot X2 Ultra (right) at the same time of the motion.",
+     "image": "details/2611.26293/F11.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "ロボットの体格や自由度が異なっていても、15箇所のミミックサイトを定義するだけで人間のmocapデータを自動でリターゲティングできる。",
+  "JAX/Flaxによるステートレスなプラグイン設計とMjWarpバックエンドの採用により、単一GPUで毎秒4.9×10^5ステップという超高速並列学習が可能になった。",
+  "シミュレータ内のスコアだけでなく、動的時間伸縮法（DTW）やフレシェ距離などの軌道類似度指標を用いて、模倣品質を多角的に定量評価できる。",
+  "公式のSim-to-Realパイプライン（loco-mujoco-real）が整備されており、学習した追従ポリシーをそのまま実機ヒューマノイドで動かせる。"
+ ],
+ "limitations_ja": [
+  "人間の体型・動作モデルであるSMPLやAMASSデータセットを利用する際、商用利用やライセンスの制約を個別に確認・同意する必要がある点。",
+  "今回の実機検証は主に平地での動作追従タスクに限定されており、段差や不整地、外乱が激しい動的環境での頑健性検証は今後の課題である点。",
+  "MjWarpバックエンドは極めて高速な反面、GPU環境やドライバ、MuJoCoのバージョン依存など環境構築のハードルがやや高い点。"
+ ],
+ "keywords": [
+  "Imitation Learning",
+  "Reinforcement Learning",
+  "Humanoid Robots",
+  "MuJoCo",
+  "Motion Retargeting",
+  "Sim-to-Real"
+ ],
+ "id": "2611.26293",
+ "title": "LocoMuJoCo: A Comprehensive Imitation Learning Benchmark for Whole-Body Control",
+ "authors": [
+  "Firas Al-Hafez",
+  "Davide Tateo",
+  "Oleg Kaidanov",
+  "Aditya Bhatt",
+  "Artur Zelik",
+  "Zhengyi Luo",
+  "Jan Peters"
+ ],
+ "date": "2026-11-20",
+ "group": "focus",
+ "tags": [
+  "benchmark",
+  "reinforcement-learning",
+  "humanoid",
+  "simulation"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.26293",
+ "pdf_url": "https://arxiv.org/pdf/2611.26293",
+ "summary_ja": "MuJoCoのCPU/GPU（MJX・MjWarp）バックエンドを単一APIで統合した全身制御向けオープンソースベンチマーク環境を提案。9種のヒューマノイドや4種の四脚ロボットなど計16種の形態と専用MoCapデータセットを備え、JAXによる高速学習とsim-to-real基盤を提供する。",
+ "generated": "2026-11-20",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.26293"
+}
