@@ -1,0 +1,138 @@
+{
+ "title_ja": "ECHO: ヒューマノイド全身制御のためのIn-Context行動基盤モデル",
+ "tldr_ja": "ヒューマノイドの全身動作スキルと環境適応を分離し、過去の行動履歴（コンテキスト）から物理ダイナミクスを推定して追加の残差補正を行うことで、テスト時のパラメータ更新なしに重負荷や未知環境へ即座に適応できる行動基盤モデルを提案しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "ECHOの全体像です。事前学習された単一の行動事前分布により、アクロバティックな跳躍や地形適応といった多彩な遠隔操作動作を可能にしつつ、手足に負荷が加わった際にも行動履歴から物理環境の違いを読み取って安定した追従とマニピュレーションを実現しています。",
+  "caption": "Figure 1 : ECHO: Broad whole-body capabilities with in-context adaptation. A shared behavior prior supports whole-body teleoperation spanning extreme acrobatics (a) and terrain-interactive behaviors (b), while interaction-derived context enables adaptation to payload-induced dynamics changes during manipulation and whole-body control (c).",
+  "image": "details/2611.25778/F1.jpg"
+ },
+ "overview_ja": "近年、大規模な動作模倣学習と強化学習を組み合わせたヒューマノイド向けの行動基盤モデル（BFM: 行動の土台となる大規模モデル）が注目されています。しかし、歩行や転倒からの復帰、アクロバットなど多様な動作を1つのモデルで学習させると、環境ごとの摩擦やペイロード（可搬重量）の違いを識別できず、あらゆる環境で平均的に破綻しないような「無難で保守的な動き」に落ち着いてしまい、各環境に応じた高精度な動作追従が損なわれるという根本的な課題がありました。\n\nそこで著者らは、一般的な動作遂行能力と環境特有のダイナミクス（力学特性）への適応を切り分ける「ECHO」を考案しました。まず事前学習段階において、失敗しやすい難関動作を重点的に練習しつつ徐々に網羅的な学習へと移行する「MIAS」というサンプリング手法を用い、極めて広範な動作レパートリーを単一ポリシーに獲得させます。その上で、固定されたこの事前分布の動作履歴（固有受容感覚と過去の行動）から環境のダイナミクス表現を抽出するエンコーダと、その表現に基づいて動作指令を微修正する「残差ポリシー（Residual Policy: 基準行動への補正値を学習する方策）」を学習させました。\n\nシミュレーションおよび実機ヒューマノイド（Unitree G1）による実験の結果、ECHOは激しいダイナミクス変化（重負荷など）の下でも特権的な物理情報を利用する教師モデルを凌ぐ動作追従精度を達成しました。さらに、テスト時の重み更新を一切行わずに、手足に合計10 kgの重りを装着した状態での片足立ちやスクワット、リアルタイムな遠隔操作動作を頑健に成功させることを実証しました。",
+ "contributions_ja": [
+  "ヒューマノイドの広範な動作追従能力と環境特有の力学適応を切り離し、推論時のパラメータ更新なしに環境適応を可能にするインコンテキスト行動基盤モデル「ECHO」を提案した点",
+  "難易度の高い動作の重点練習と網羅的探索をバランスさせ、アクロバットから接地動作までを単一ステージで事前学習する「MIAS」を開発した点",
+  "マルチステップの先読み予測と物理パラメータ空間の近傍整合性を組み合わせて動作非依存の環境表現を学習し、残差ポリシーで制御を補正する「CRA」を確立した点",
+  "実機Unitree G1において、過酷な重負荷（四肢に合計10 kg）や様々な地形への適応、および高難度アクロバット動作の遠隔操作を実現した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜヒューマノイドの「器用さ」と「環境への適応力」は両立しづらいのか",
+   "summary_ja": "大規模な動作模倣によってヒューマノイドの行動レパートリーは劇的に拡大しましたが、単一ポリシーで多様な物理環境をカバーしようとすると追従精度が犠牲になります。本論文では、動作履歴をコンテキストとして活用し、テスト時の学習なしに環境特有の制御へと適応するインコンテキスト行動基盤モデル「ECHO」の着想を導入します。",
+   "details_ja": "ヒューマノイドロボットが人間社会で活躍するためには、多様な全身動作を俊敏かつロバストにこなす必要があります。近年では大規模モーションキャプチャデータを用いた強化学習により、全身制御の行動基盤モデル（BFM）が急速に発展してきました。\n\nしかし、ここで大きな壁にぶつかります。同じ参照動作を真似ようとしても、ロボットが手足に重りを持っていたり、床の摩擦が異なったり、アクチュエータの出力特性が変わったりすれば、本来出力すべき最適な関節トルクや位置指令はまったく異なります。環境の物理パラメータが観測できない状態で単一のポリシーを鍛えると、モデルはどの環境でも転倒しないような「安全側の妥協策」を学んでしまい、結果として動作のキレや追従精度が落ちてしまいます。\n\nこの課題に対し、著者らはロボット自身の「相互作用履歴（過去の状態遷移や行動の履歴）」に着目しました。ロボットが過去に下した指令に対して身体がどう反応したかを見れば、背後にある物理環境（重さや摩擦など）の手がかりが必ず含まれています。そこで、一般的な全身動作の基盤となるポリシー（行動事前分布）を凍結したまま、履歴から環境ダイナミクスを推定し、その情報をもとに追加の制御補正を行うインコンテキスト適応の枠組み「ECHO」を提案しました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "ECHOによる実機実証の様子です。(a) アクロバティックな跳躍やバク転、(b) 階段昇降や傾斜地での接触動作、(c) 腕や脚に重りを装着した状態でのマニピュレーションや片足立ちなど、単一のフレームワークで多岐にわたるタスクを安定して遂行できています。",
+     "caption": "Figure 1 : ECHO: Broad whole-body capabilities with in-context adaptation. A shared behavior prior supports whole-body teleoperation spanning extreme acrobatics (a) and terrain-interactive behaviors (b), while interaction-derived context enables adaptation to payload-induced dynamics changes during manipulation and whole-body control (c).",
+     "image": "details/2611.25778/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "行動基盤モデルとインコンテキスト学習の潮流",
+   "summary_ja": "ヒューマノイドの全身制御モデルと、ロボット工学におけるダイナミクス適応技術の流れを整理しています。ECHOは、広範なスキル事前学習と、相互作用履歴を用いた残差適応アプローチを融合させた点に独自性があります。",
+   "details_ja": "本研究の基盤には、大きく分けて2つの研究潮流が存在します。\n\n### 行動基盤モデル（Behavior Foundation Models: BFM）\n全身動作の再利用可能な基盤を目指し、生成モデルを用いた多様なインターフェース構築や、大規模データ・並列強化学習を用いた追従性の向上（SONIC、HoloMotion-1など）が盛んに研究されています。また、重量物運搬に特化したHEFTや極限動作に特化したExtreme-RGMTなども登場していますが、これらは特定スキルの追求にとどまっていました。ECHOは後述のMIASによって、これら多様なスキルを単一のポリシーへと統合します。\n\n### インコンテキスト学習とダイナミクス適応\nテスト時にモデルの重みを書き換えることなく、プロンプトや相互作用履歴からタスクや環境に適応する手法は、近年急速に発展しています。四足歩行ロボットではRMAのように特権的情報を蒸留する手法や固有受容感覚の履歴を利用する手法が知られていますが、ヒューマノイドの大規模動作追従において、動作の種類に依存しない物理ダイナミクスの構造化表現を獲得し、それを残差ポリシーと組み合わせた例はこれまで確立されていませんでした。ECHOは世界モデル的な未来予測と近傍整合性学習を組み合わせることで、動作の違いに惑わされない純粋な物理表現の獲得に成功しています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "ECHOの構造：広範な事前分布の獲得と履歴に基づく残差適応",
+   "summary_ja": "ECHOは2つの要素から構成されます。難所を重点練習するサンプリング（MIAS）で広範な行動事前分布「ECHO-PRE」を獲得し、その上で履歴から環境ダイナミクスを抽出して制御を補正する「CRA」を導入します。",
+   "details_ja": "全体像を図 F2に示します。定式化から学習手法まで、ステップを追って解説します。\n\n### 3.1 問題設定\n環境パラメータ $c$（質量、摩擦、ペイロードなど）が直接観測できない強化学習タスクとして定式化します。ロボットは自身の固有受容感覚（関節角度や角速度など）と目標動作をもとに行動しますが、これに加えて過去の状態・行動の履歴 $\\mathcal{H}_t = (s_{t-H:t-1}^p, a_{t-H:t-1})$ をエンコーダ $E_\\varphi$ に通して環境潜在変数 $z_t = E_\\varphi(\\mathcal{H}_t)$ を生成し、方策 $\\pi(a_t \\mid s_t^p, m_t, z_t)$ が適応的な行動を出力します。\n\n### 3.2 MIASによる汎用行動事前分布の事前学習\n多様な環境に適応するための土台として、まずはあらゆる動作を破綻なくこなす行動事前分布「ECHO-PRE（$\\pi_\\theta$）」を学習します。従来の均一サンプリングでは難しい動作の習得に失敗しがちでした。そこで導入されたのがMIAS（Mixed and Annealed Sampling）です。\n- **失敗適応型サンプリング**: 参照動作を時間ビンに分割し、過去の失敗率 $f_i$ に応じた重み付き確率分布 $p^{\\mathrm{A}}$ で難所を重点的にサンプリングします。\n- **混合サンプリング**: 失敗直後に失敗区間の最初からやり直す「リワインド」、全体から均等に選ぶ「一様探索」、そして失敗率重視の「適応型」の3つを状況に応じて混ぜ合わせます（失敗時は各1/3ずつ）。\n- **アニーリング**: 学習が進むにつれて温度パラメータや確率上限を徐々に緩和し、特定動作への偏りをなくして均一な練習へとスムーズに移行させます。\n\n### 3.3 CRAによるインコンテキスト適応\n次に、事前学習したECHO-PREを凍結し、履歴から物理環境を読み取るCRA（Context Representation and Residual Adaptation）を適用します。\n- **短期と長期のコンテキスト**: 直近の応答を保持する短期履歴 $\\mathcal{S}_t$（50ステップ/1秒）と、同一物理環境セッション内の過去動作から蓄積した長期メモリ $\\mathcal{M}_t$ を併用します。\n- **マルチステップ予測損失**: エンコーダ $E_\\varphi$ が制御に関連するダイナミクスを捉えられるよう、予測器 $D_\\psi$ を用いて未来 $K_\\mathrm{p}$ ステップの特権的ロボット状態や接触力などを予測させます（損失 $\\mathcal{L}_\\mathrm{pred}$）。\n- **物理近傍ソフトアライメント**: 動作が違っても同じ物理環境なら潜在表現が近くなるように、物理パラメータ間のユークリッド距離分布と潜在表現の類似度分布のKLダイバージェンスを最小化します（損失 $\\mathcal{L}_\\mathrm{soft}$）。\n- **残差適応**: 事前分布 $\\pi_\\theta$ とエンコーダ $E_\\varphi$ を完全に凍結した状態で、潜在変数 $z_t$ を入力とする残差ポリシー $\\pi_\\Delta$ だけを強化学習で訓練します。最終出力は $a_t = a_t^\\theta + a_t^\\Delta$ となり、基盤の動作能力を壊さずに環境特有の力加減だけを微調整できます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "ECHOの学習アーキテクチャの概要です。(a) MIASによる事前学習で多様な動作をバランスよく習得し、(b) 収集した履歴から未来予測と物理近傍アライメントによってコンテキスト表現を学習、(c) 最後に両者を凍結して残差ポリシーを訓練する3段階の流れが明確に示されています。",
+     "caption": "Figure 2 : Method Overview. ECHO-PRE $\\pi_{\\theta}$ is pretrained using Mixed and Annealed Sampling , which balances targeted practice with broad motion coverage. Context Representation Learning extracts in-context latents from the frozen prior’s interaction context histories through dynamic prediction and physical neighborhood soft alignment. Residual Adaptation learns in-context corrections with both the pretrained prior and context encoder frozen, enabling in-context adaptation without test-time updates. …",
+     "image": "details/2611.25778/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "シミュレーションと実機で実証された適応能力と表現の質",
+   "summary_ja": "シミュレーションにおいて追従精度と環境適応能力を検証し、学習された表現が物理パラメータを正確に線形反映していることを確認しました。さらに実機Unitree G1を用いて過酷な重負荷実験を行い、提案手法の有効性を立証しました。",
+   "details_ja": "実験はUnitree G1を用い、約1,236時間（2億2,000万フレーム以上）のモーションデータを使って行われました。\n\n### 動作追従の忠実度（Fidelity）\n未知の日常動作（AMASS-2000）および激しい動作（BONES-SEED-100）において比較しました。均一サンプリングを用いたECHO-PRE w/o MIASに比べ、MIASを採用したECHO-PREは追従成功率（SR）と関節位置誤差（MPJPE）の両面で既存のHEFTやSONIC v1.1を上回りました。さらにCRAを適用したECHO-Nでは、公称環境（名目環境）下でも追従誤差が一段と低下しました。\n\n### コンテキスト利用能力（Adaptation）\n四肢に最大合計13 kgの負荷が加わる過酷なドメインランダム化環境（HDR）において、特権情報を用いる教師モデル（RMA-Teacher）やその蒸留モデル（RMA-Student）、履歴潜在変数を用いるAny2Track、残差表現のないVanillaと比較しました。ECHO-HはHDR環境において成功率98.1%を達成し、特権情報を持つRMA-Teacher（97.15%）をも上回る最高精度を記録しました。Any2TrackがVanillaに対して明確な優位性を示せなかったのに対し、ECHOは明確な追従改善を示しています。\n\n### 表現の解析とコンテキスト長のスケーリング\n学習された潜在表現から線形プローブ（Ridge回帰）を用いて物理パラメータを読み取れるか検証したところ、ペイロード質量で $R^2 = 0.8357$、摩擦係数で $R^2 = 0.9208$ という高い決定係数を達成しました。アブレーション解析により、物理近傍整合性（$\\mathcal{L}_\\mathrm{soft}$）が動作間の一貫性に寄与し、未来予測損失（$\\mathcal{L}_\\mathrm{pred}$）が物理量の線形可読性に直結していることが判明しました。また、コンテキスト長を1秒（50ステップ）から9秒（450ステップ）へ拡張するにつれて、環境識別精度や質量の読取精度が単調に向上することが示されました。\n\n### 実機実験\n実機Unitree G1での遠隔操作において、這い這い、階段昇降、バク転などの高難度動作に成功しました。さらに両足のすねに各2 kgの重りを装着した動作追従テストでは、ECHO-Hが最も低い関節位置誤差を達成し、手足に合計10 kgの負荷をかけた状態でも片足立ちや前屈、スクワットを転倒せず実行できる適応力を実証しました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "コンテキスト長（相互作用履歴の長さ）を1秒から9秒へ拡張した際の性能変化とt-SNE可視化です。履歴を長く保持するほど環境識別精度やペイロード推定精度（$R^2$）が右肩上がりに向上し、t-SNE上でも同一環境のサンプルがAny2Trackに比べて極めて明確にクラスタリングされていることが分かります。",
+     "caption": "Figure 4 : Context-length scaling of environment representations. Linear environment identification accuracy, cross-motion retrieval mAP, and payload-mass linear readout $R^{2}$ on LAFAN-40 (left to right). The points and shaded bands denote the mean and sample standard deviation over three evaluations.",
+     "image": "details/2611.25778/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "10 Real world experiments",
+   "heading_ja": "実ロボットへの展開：重りを付けたままでも倒れず動けるか",
+   "summary_ja": "実機Unitree G1を用いて、事前学習された広範な全身スキルの遠隔操作と、追加ペイロードに対するインコンテキスト適応の挙動を検証しました。突然の負荷変化に対しても、テスト時更新なしに姿勢を適切に補正できることが確認されました。",
+   "details_ja": "実機における検証は「動作の広さ」と「環境への適応」の2つの側面から行われました。\n\n### 多彩な全身行動の遠隔操作\nECHO-PREを適用したUnitree G1は、立ち姿勢と床面姿勢の間のシームレスな移行、高さのあるプラットフォームへの昇降、さらには空中での宙返り（フリップ）といった過酷なダイナミクスを伴う動作を、単一の学習済みモデルだけで追従することに成功しました（図 F6）。これは、従来のタスク特化型ポリシーを個別に用意することなく、1つの基盤モデルで広範な全身制御をカバーできることを物語っています。\n\n### オンラインでのペイロード適応\n手足に重りを装着した状態でのマニピュレーション（卓上ブロックの配置など）や、スクワット、片足立ち、正座からの立ち上がりなど多様な動作を検証しました。特に興味深いのは、ロボットの腕にカゴなどの重りが掛けられたり取り外されたりする瞬間です。ロボットはパラメータ更新を行っていないにもかかわらず、腕が沈み込んだ後の動作履歴（コンテキスト）から瞬時に負荷を察知し、腕の高さを基準位置まで自律的に引き戻す補正動作を見せました（図 F7）。定量評価においても、両下肢に重りを装着した4種類の動作すべてにおいて、ECHO-Hは比較手法の中で最小の追従誤差を達成しました。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "実機Unitree G1におけるインコンテキスト適応の様子です。上段では手首に負荷をかけた状態での正確な物体操作を、中段では手足に負荷をつけた状態での片足立ちや起き上がりを、下段では腕に荷物を掛けられた瞬間に自律的に姿勢を戻す補正プロセスを示しています。",
+     "caption": "Figure 7 : Real-world in-context adaptation with ECHO. Top: manipulation. The robot performs object manipulation with an added wrist payload; insets highlight the hand–object interactions. Middle three rows: in-context whole-body behaviors. Under payloads attached to its limbs, the robot executes diverse behaviors, including single-leg balance, squatting, sitting, and transitions between standing and prone postures. Bottom: in-context adaptation process. Successive frames show the robot’s postural responses as a payload is attached to and removed from its arm. ECHO uses interaction-derived context to guide dynamics-specific control corrections without test-time parameter updates. …",
+     "image": "details/2611.25778/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "11 Limitations",
+   "heading_ja": "今後の課題と残された限界",
+   "summary_ja": "ECHOが示す高い適応能力の一方で、シミュレーション依存の学習や、セッション内での突発的な環境変化への対応、他ロボットへの汎用化など、いくつかの現実的な制約と今後の展望が論じられています。",
+   "details_ja": "著者らは率直に以下の限界点を挙げています。\n\n- **シミュレーションと特権情報の依存**: コンテキスト表現の学習にはシミュレータ環境でのロールアウトと特権的な状態（接触力など）の教師信号が必要です。学習時のランダム化範囲を大きく逸脱する未知の物理現象に対してどこまで汎化できるかは、さらなる検証が必要です。\n- **セッション内での動的変化への対応**: 現在のメモリ機構は「同一セッション内では物理パラメータが一定である」という前提を置いており、エピソード境界で履歴を破棄します。セッションの途中で予告なく摩擦や重量が激変した場合、蓄積された過去の履歴が逆に誤った適応を引き起こす恐れがあり、変化検知型のメモリ管理が求められます。\n- **他ロボットや自律タスクへの拡張**: 実験対象がUnitree G1に限定されている点、および参照動作を追従するトラッキング制御に特化している点も制約です。異なるロボットの形態（モーフォロジー）への転移や、高レベルなタスク計画モデル（VLM等）との直接的な結合は今後の研究課題とされています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "基盤モデルの「動作レパートリー（事前分布）」と「環境特有の制御（残差適応）」を明示的に分離することで、動作の幅広さと追従精度を両立できる。",
+  "過去の動作履歴（固有受容感覚と行動）から未来の状態予測と物理パラメータ近傍整合性を学習させることで、動作の種類に依存しないピュアな物理表現が獲得できる。",
+  "コンテキスト長（履歴時間）を数秒単位で拡張・蓄積することで、物理パラメータの推定精度が単調に向上し、ヒューマノイド制御が目に見えて安定する。",
+  "テスト時のオンライン微調整や特権情報の蒸留を行わなくても、残差ポリシーと適切なコンテキスト表現の組み合わせで実機の過酷な重負荷に適応可能である。"
+ ],
+ "limitations_ja": [
+  "学習時にシミュレーションの特権情報（接触力や正確な質量パラメータ）を必要とするため、Sim-to-Realのギャップが極めて大きい現象には限界がある。",
+  "セッション中に物理パラメータが急変した場合、過去の長期メモリがノイズやバイアスとなり、適応遅れや破綻を招くリスクがある。",
+  "実証がUnitree G1かつ動作追従タスクに限定されており、未知のロボット形態へのゼロショット転移や高次の自律意思決定との統合は未検証である。"
+ ],
+ "keywords": [
+  "Behavior Foundation Model",
+  "Humanoid Whole-Body Control",
+  "In-Context Adaptation",
+  "Residual Reinforcement Learning",
+  "Sim-to-Real Transfer"
+ ],
+ "id": "2611.25778",
+ "title": "ECHO: In-Context Behavior foundation model for Humanoid Whole-Body Control",
+ "authors": [
+  "Xingyi Wang",
+  "Bin Li",
+  "Jiyuan Shi",
+  "Chenyun Zhang",
+  "Weiji Xie",
+  "Xiangyu Miao",
+  "Junsong Wu",
+  "Wei Song",
+  "Shiqiang Zhu",
+  "Chenjia Bai"
+ ],
+ "date": "2026-11-20",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "control",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.25778",
+ "pdf_url": "https://arxiv.org/pdf/2611.25778",
+ "summary_ja": "ヒューマノイドの多様な行動獲得と環境特化型制御を両立するIn-Context行動基盤モデルECHOを提案。混合・焼きなましサンプリングによる行動事前学習と、相互作用履歴を用いた適応機構を組み合わせることで、未知の物理条件下でも保守的な挙動に陥らず高精度な全身運動を実現する。",
+ "generated": "2026-11-20",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.25778"
+}
