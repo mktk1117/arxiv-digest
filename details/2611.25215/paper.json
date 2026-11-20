@@ -1,0 +1,139 @@
+{
+ "title_ja": "未知環境における脚ロボットナビゲーションのための視覚言語推論と学習済み制御の統合",
+ "tldr_ja": "視覚言語モデル（VLM）が持つ常識推論を「リスクや好ましさのセマンティックマップ」に変換し、シミュレーション強化学習で鍛えた四足歩行・局所ナビゲーション制御と繋ぐことで、アルプス山脈の10km hikingを含む過酷な実世界を自律踏破できるシステム「ROAM」を開発しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "ROAMシステムの全体アーキテクチャです。カメラ画像からVLMが0.1Hzでシーン内の物体ラベルとリスク・踏破可能度（steppable）・選好度（preferred）を出力し、オープンボキャブラリセグメンテーション（6Hz）を経て標高マップ（20Hz）へと投影されます。この意味情報が付与された地図をもとに、シミュレーションで事前学習された強化学習ポリシーが局所ナビ（10Hz）と歩行制御（50Hz）を高速に実行します。",
+  "caption": "Figure 1: Overview of the ROAM pipeline. The proposed system bridges high-level reasoning from vision-language models (VLMs) with low-level actuator commands for autonomous robot control. It processes RGB images and robot descriptions through a VLM to generate object labels enriched with risk, preferred area, and steppable values. These labels are converted into semantic images using open-vocabulary semantic segmentation, which operates at a higher frequency than the VLM analysis. The semantic images are then fused with elevation maps to create an environmental representation that reinforcement learning (RL) policies utilize for fast and robust robot control.",
+  "image": "details/2611.25215/F1.jpg"
+ },
+ "overview_ja": "脚式ロボットの歩行制御は大きく進歩しましたが、自然の山道や市街地といった未知の環境（in the wild）を目的地まで自律的に歩き切ることは依然として極めて困難です。従来の幾何形状（段差や傾斜）だけに頼るナビゲーションでは、踏むと沈む水たまりや深い草むら、私有地や立入禁止の標識といった「見た目の意味」や「社会的なルール」を判断できないからです。\n\n人間が遠隔操作すれば難なく進めることから、ボトルネックは脚の運動性能ではなく「どこを進むべきかという常識的な判断力」にあります。そこで著者らは、Web規模の画像・テキストで事前学習された視覚言語モデル（VLM）の常識推論に着目しました。しかし、VLMに直接モータ指令や移動軌跡を出力させようとすると、空間認識のズレや高い推論遅延（レイテンシ）が物理制御の破綻を招きます。\n\n本研究が提案する「ROAM」は、VLMに具体的な座標や軌道を計算させず、「道＝低リスク」「草＝中リスク」「水たまり＝通行不可」といった意味ラベルと数値コストの出力に専念させます。それをオープンボキャブラリセグメンテーションでリアルタイムな2次元リスク画像にし、LiDAR等で作る2.5次元標高マップに重ね合わせます。足元の制御と局所経路計画には、シミュレーション強化学習（RL）で鍛えた高周波な低レイヤポリシーを組み合わせました。\n\nスイス・アルプスでの実験では、標高差1220m・総距離10.1kmの登山コースを96.7%の時間自律率で完走しました。さらに工事標識や警告看板を理解して危険を回避するなど、高レベルな意味推論と低レベルな敏捷運動の見事な融合を実証しています。",
+ "contributions_ja": [
+  "VLMの推論出力を空間座標ではなく「ラベルと連続値（リスク・踏破性・選好度）」に抽象化し、オープンボキャブラリセグメンテーションを介して標高マップへ投影する意味・空間分離アーキテクチャを提案したこと。",
+  "意味情報を仮想的な段差やペナルティとして組み込み、不整地の足配置と局所経路計画をシミュレーション強化学習（RL）のみでゼロショット転移可能にしたこと。",
+  "スイス・アルプスの過酷な山岳地帯における10.1kmおよび2.38kmの長距離ハイキング実証において、96%以上の高い自律走行率を達成したこと。",
+  "標識の文章理解（「工事中につき通行止め」「地雷注意」など）やマネキンの人間認識に基づき、動的に移動経路や足の置き場を変更できる常識的な文脈適応力を実機で実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜロボットは山道で迷うのか：常識推論と物理制御の溝",
+   "summary_ja": "四足歩行ロボットの運動性能は飛躍的に向上したものの、草や水たまり、私有地のマナーなどを幾何情報だけで判断してナビゲーションすることは困難です。本章では、人間のような常識判断をVLMから引き出しつつ、低レイヤのリアルタイムな物理制御とどのように結びつけるべきかという核心的な問いを提示します。",
+   "details_ja": "不整地を歩くロボットの制御技術は近年めざましい進化を遂げました。しかし、自然のトレイルや市街地を一人前に自律移動させるとなると、途端に壁にぶつかります。\n\n従来のナビゲーションは、LiDARや深度カメラで得た「地面の凹凸（幾何情報）」に頼り切っていました。そのため、幾何学的には平坦に見える深い水たまりに突っ込んだり、下が見えない背の高い草むらに入ってスタックしたりします。さらに、「登山道を外れずに歩く」「他人の牧草地を無闇に横切らない」といった人間社会の暗黙のルールを理解することもできません。\n\n### 1.1 VLM for robot navigation\n人間がプロポで操縦するとあっさり踏破できることから、足りないのは脚力ではなく「どこを歩くべきか」という常識です。この常識を補う存在としてVLMが期待されていますが、ロボティクスへの適用には大きな壁があります。\n\n一番単純なアプローチは、VLMやVLA（Vision-Language-Action）モデルに直接関節トルクや画像上の通過点（waypoint）を出力させる方法です。しかし、これには大量の実機データが必要なうえ、現在のVLMは「画像の何ピクセル目が実世界の何メートル先か」という精密な空間幾何計算が苦手です。また、VLMの推論には数秒かかるため、ミリ秒単位の俊敏な足の踏み替えには到底間に合いません。\n\n### 1.2 The ROAM system\nそこで著者らは「意味理解」と「物理制御」を綺麗に役割分担させるハイブリッド手法「ROAM（Robust Open-world Autonomous Mobility）」を着想しました。\n\nVLMには空間座標を一切計算させず、カメラ画像に何が映っていて危険度がどれくらいかという「意味ラベルとコスト（0.0〜1.0）」だけを言葉で出力させます。これをオープンボキャブラリセグメンテーション（未知の語彙も切り出せる画像認識モデル）に渡し、リアルタイムなリスク画像へと変換します。\n\n空間的な幾何計算と実際の足さばきは、シミュレーション強化学習（RL）で鍛え上げた「歩行ポリシー（50Hz）」と「局所ナビゲーションポリシー（10Hz）」に任せます。これにより、VLMの推論遅延に足を引っ張られることなく、意味論に基づいた機敏で安全なナビゲーションが実現できます。",
+   "figures": []
+  },
+  {
+   "heading": "2 Results",
+   "heading_ja": "アルプス踏破から看板の読解まで：実世界で見せた圧倒的な適応力",
+   "summary_ja": "スイス・アルプスでの10km超の長距離登山、看板の指示に従う迂回走行、足元の危険物回避など、多彩な実機実験を行いました。VLMに座標を直接出力させる従来手法よりも、意味ラベルを介して計画する提案手法の方が格段に安全かつ人間の意図に沿った経路を生成できることが定量・定性の両面で実証されています。",
+   "details_ja": "ROAMの実力を検証するため、山岳トレイル、森林、都市キャンパス、屋内など多様な環境で実機（ANYmal D）による走行実験を行いました。\n\n### 2.1 Hiking in the Swiss Alps\n本研究のハイライトは、スイス・アルプスでの長距離ハイキング実証です。\n\n- ツェルマット（Zermatt）：標高3000m超のゴルナーグラート駅から下流の駅まで、総距離10.1km、標高差1220m、最大勾配30%の荒れた山道を走破しました。瓦礫道、湖沿いの狭路、線路脇、森林、アスファルト道路へと環境が次々に変わる中、VLMは「gravel_path」から「road」へとラベルを柔軟に切り替えながら進みました。途中の工事現場フェンスの検出漏れ等で2回の人手介入があったものの、時間ベースの自律率は96.7%に達しました。\n- ゼーアルプ湖（Seealpsee）：湖畔の2.38kmコースでは、湖（水没リスク）や農家の私有牧草地（マナーとしての進入禁止）を意味情報から正しく識別し、道に留まり続けました。狭い回転ゲートを越えるための持ち上げなどを含めても、自律率は97.5%を記録しました。\n\n### 2.2 Contextual awareness and sign comprehension\nチューリッヒ工科大学のキャンパスで行われた1.2kmの比較実験では、従来の幾何ベース計画（Field Local Planner）および目標画像追従型のベースライン（ViNT）と対決しました。\n\n- 大域パスのズレ：意図的に大域パスを藪の中にずらした場合、幾何ベースは藪に突進してスタックしましたが、ROAMは草むらを避けて砂利道を自律選択しました。\n- マネキン回避：路上に置かれたマネキンを、ROAMは「human」と認識してスムーズに迂回しました。一方、幾何ベースやViNTは単なる低い凹凸とみなして脚で踏みつけてしまいました。\n- 工事看板の理解：「10m先工事中につき歩道通行止め」の看板を見たROAMは、即座に砂利道のリスクを引き上げ、草むらへ迂回しました。その先で「工事終了・歩道へ戻れ」の看板を読むと、再び砂利道へと復帰しました。ベースラインはいずれも看板を無視して工事区画へ進入・衝突しました。\n\n### 2.3 Validation of system components\n意味情報が足の置き場にどう影響するかも検証しています。「爆発の危険がある空き缶」や「地雷注意」の看板を置くと、VLMはその物体を「non-steppable（踏行不可）」と判定し、歩行ポリシーが缶や特定の地面を避けて足先を着地させました。\n\n### 2.4 Evaluating different levels of action abstraction\n「VLMに何を出力させるべきか」を27シーンの静止画データセットで比較しました。VLMに直接ピクセル座標や軌道を出力させるベースラインは、空間認識の破綻により危険領域へ大きく逸脱しました（安全領域率64〜70%）。対して、ROAMのように意味ラベルとリスクを出力させてA*探索と組み合わせる方式は、安全領域率98.7%、人間の好む経路との一致率86.7%と圧倒的な性能を示しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "スイス・アルプスでのハイキング実験の様子です。(A) ツェルマットでの10.1kmコース（標高差1220m）。瓦礫道(i)、湖畔(ii)、30%勾配の急斜面(iii)、線路脇(iv)、森林(v)、舗装路(vi)という劇的な環境変化を96.7%の自律率で走破しました。(B) ゼーアルプ湖畔の2.38kmコース。水辺や放牧地を認識しつつ97.5%の自律走行を達成しています。",
+     "caption": "Figure 3: Long-distance hiking experiments in the Swiss Alps. (A) Zermatt experiment. This experiment covered a total distance of $10.1\\text{\\,}\\mathrm{km}$ with an elevation change of $1220\\text{\\,}\\mathrm{m}$ . The route encompassed diverse terrains, including gravel paths, rocky sections, grassy areas, and segments near a lake and train tracks. The steepest segment of the hike had a gradient of approximately 30%, posing a substantial challenge for locomotion. (B) Seealpsee experiment. This experiment covered a total distance of $2.38\\text{\\,}\\mathrm{km}$ with an elevation change of $20\\text{\\,}\\mathrm{m}$ , following a path around the lake. …",
+     "image": "details/2611.25215/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "キャンパス内1.2kmコースでの比較実験です。(A) 意図的にズレを生じさせた大域パスに対して、ROAMは草や藪を避けて砂利道を選択。(B) 倒れているマネキンを人間と認識して迂回。(C) 「工事中・歩行禁止」「工事終了・合流せよ」のテキスト看板を正しく読み取り、草むらへ迂回した後に自律的に本線へ復帰しています。",
+     "caption": "Figure 4: Comparison of ROAM with baselines on a course with semantic and contextual challenges. The experiment covered a $1.2\\text{\\,}\\mathrm{km}$ path with challenges such as an inaccurate global path deviating into bushes or grass, a mannequin lying on the path as an obstacle, and a construction zone with warning signs. (A) Robust pathfinding. The global path was offset into bushes [(i) and (ii)] and into grass [(iii) and (iv)]; (i) and (iii) show ROAM, and (ii) and (iv) show the geometry-only baseline. (B) Semantic hazard avoidance with a mannequin lying on the path for ROAM, the geometry-only baseline, and ViNT. (C) Contextual awareness with construction signs. …",
+     "image": "details/2611.25215/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "意味情報が低レイヤ制御に及ぼす影響の検証です。(A) 「爆発物」「踏むな」の看板に応じて空き缶やパレットをnon-steppable（踏行不可）と判定し、足を乗せないよう着地点を選定しています。(B) 意味情報がない幾何のみの場合、芝生をショートカットしたり線路に侵入して行き止まりになりますが、ROAMは社会的に望ましい道路を選びます。",
+     "caption": "Figure 5: ROAM brings world knowledge to locomotion, local navigation, and exploration. (A) ROAM reads signs and uses this information in locomotion: (i) metal cans with a “WARNING: EXPLOSIVE CANS” sign and (ii) wooden pallets on grass without a sign, with a sign on the pallet, and with signs on the grass. The table in (i) lists the VLM labels and their values, the boxes in (ii) show the VLM responses, and the map in (ii) shows the wooden pallet (orange outline) and the foot trajectories for the three sign conditions. (B) Comparison of ROAM with a geometry-only baseline on (i) a campus route, (ii) a route next to a railroad, and (iii) a snow-covered path. …",
+     "image": "details/2611.25215/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "VLMの出力抽象度の比較実験です。(A) 座標やモータ指令を直接出力させるとVLM自身に高度な空間・機体理解が要求されますが、ROAMはセマンティックラベル出力に特化して空間処理を下流に委譲します。(B, C) 静止画上での経路計画比較において、直接座標出力やラベル選択ベースラインが危険領域に侵入する中、ROAMパイプラインは群を抜いて高い安全性と選好率を記録しました。",
+     "caption": "Figure 6: Comparison of VLM output abstractions for navigation. (A) Comparison of VLM-based navigation methods by output type. ROAM outputs semantic labels and values, avoiding the need for spatial understanding. Methods outputting directions or coordinates require spatial reasoning; those generating direct commands (such as velocity) additionally require embodiment understanding. (B) Example trajectories from different methods, including three “select label” variants. ROAM information can augment label placement on ground regions. …",
+     "image": "details/2611.25215/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "3 Discussion",
+   "heading_ja": "基底モデルをどう組み込むべきか：成功の鍵と残された物理世界の壁",
+   "summary_ja": "ROAMの成功は、VLMの得意な意味推論とRLの得意な高速物理制御を疎結合にした設計にあります。一方で、下流のオープンボキャブラリセグメンテーションの認識失敗や、クラウド依存の通信遅延、薄氷や泥などの触覚・力学的な特性の把握といった、基底モデルの身体化における重要な課題も浮き彫りになりました。",
+   "details_ja": "ROAMが示した最大の成果は、事前学習済みVLMの常識推論を、過酷な実世界の閉ループ制御へと確実に繋ぎ込めることを証明した点です。\n\n### 疎結合アーキテクチャの強み\n成功の鍵は「空間認識をVLMに丸投げしなかったこと」に尽きます。現在のVLMにピクセル座標や軌道を生成させると、空間の幾何関係を頻繁に見誤ります。ROAMはVLMに「何が危険か」というテキストと数値の評価だけを求め、密な空間配置はセグメンテーションモデルに、地面の凹凸や運動ダイナミクスはRLポリシーに委譲しました。この階層的な分離により、VLMの数秒におよぶ遅延を許容しながら、50Hzの機敏な不整地歩行を一切邪魔しないシステムが成立しました。\n\n### 現状の限界と今後の課題\nしかし、完全自律への道にはまだ多くの課題が残されています。\n\n- セグメンテーションの誤認識：アルプス実験で発生した介入の主因は、VLM自体の推論ミスではなく、後段のオープンボキャブラリセグメンテーションの失敗でした。例えば、VLMが「フェンス」や「新しい小道」を正しく認識していても、セグメンテーションモデルがその境界を画像上で正確に切り出せず、結果として障害物に接触したり崖側へ向かったりしました。\n- クラウド依存と通信：実験ではクラウド上のGPT-4V APIを利用したため、山岳地帯でのモバイル通信環境に依存していました。近年急速に進化しているオープンウェイトのオンボードVLMへの置き換えが急務です。\n- 視覚を超えた物理特性の理解：現在のVLMはRGB画像しか見ていません。しかし、「薄い氷」「深いぬかるみ」「崩れやすい砂利」といった接地リスクの微妙な差は、足裏の反力やスリップ量などの触覚・固有感覚（プロプリオセプション）と連動しなければ本質的な判断ができません。視覚と言語だけでなく、ロボットの身体的な相互作用データをネイティブに扱える基底モデルの登場が待たれます。",
+   "figures": []
+  },
+  {
+   "heading": "4 Materials and Methods",
+   "heading_ja": "ROAMを支える技術：システム統合・強化学習・マルチセンサ融合",
+   "summary_ja": "ANYmal D実機をベースに、GPT-4V、オープンボキャブラリセグメンテーション、GPU標高マップ、そしてシミュレーションで学習した2つの強化学習ポリシー（歩行・局所ナビ）を統合しました。さらに長距離の山道でも破綻しない因子グラフベースの状態推定系（Graph-MSF）により、安定した自己位置推定を実現しています。",
+   "details_ja": "ROAMのシステムを構成する各技術要素の詳細は以下の通りです。\n\n### 4.2 Hardware & 4.3 Software overview\n実機には四足歩行ロボット「ANYmal D」を採用しました。近距離深度カメラ6台、上部LiDAR、超広角（198度）HDRフロントカメラ、RTK-GNSS、4G/LTEルーター、およびGPU処理用のNVIDIA Jetson AGX Orinを搭載しています。ソフトウェアはROS上で各モジュールが非同期に連携動作します。\n\n### 4.4 Environmental perception\n- VLM推論：フロント・リアカメラ画像をリサイズし、10秒ごとにGPT-4Vへ送信します。プロンプトにはロボットの能力（四足歩行、段差は登れるが水や高所は不可など）や出力形式（JSON）、過去3回の文脈メモリを含めます。出力フィールドは「risk（危険度 0〜1）」「steppable（足踏み可能度 0〜1）」「preferred_area（選好度 0〜1）」の3つです。\n- セグメンテーション統合：VLMが出力したラベル文字列をもとに、オープンボキャブラリセグメンテーションモデル（Xuら）が6Hzでピクセル単位の確率を計算します。これにVLMの各数値を重み付けし、温度付きソフトマックスで合成して密なリスク画像を生成します。\n- 標高マップ統合：生成された意味画像を、LiDARと深度カメラから作る2.5次元標高マップ（解像度4cm、8m四方）の各レイヤ（risk, preferred, steppable）へとリアルタイムに逆投影します。\n\n### 4.5 Locomotion control & 4.6 Local navigation policy\n- 歩行ポリシー（50Hz）：シミュレーション（Isaac Gym）内でパーリンノイズを用いてランダムな踏行可能・不可領域を生成し、Teacher-Student方式のRLで学習させました。不可領域に接地するとペナルティ（$-\\alpha$、$\\alpha=0.1$）が与えられます。\n- 局所ナビゲーションポリシー（10Hz）：標高マップに加え、高リスク領域への侵入に大きな負の報酬を与えて学習させました。また、選好領域（preferred）の外側にある非選好領域（草むらなど）には「仮想的な高さ（virtual height）」を上乗せすることで、ロボットが自然と道を外れにくくする工夫を施しています。\n\n### 4.8 Holistic fusion localization\n山岳地帯では樹木によりGNSSが遮断され、平坦な地形ではLiDAR SLAMが縮退します。これに対処するため、因子グラフに基づく最適化フレームワーク「Graph-MSF」を拡張し、IMU、RTK-GNSS、LiDARオドメトリ、運動学オドメトリを統合して、ジャンプのない滑らかで大域的に正確な位置姿勢推定を400Hzで維持しています。",
+   "figures": []
+  },
+  {
+   "heading": "Supplementary Methods",
+   "heading_ja": "付録：ラベルの動的遷移、プロンプト検証、および認識限界の分析",
+   "summary_ja": "付録では、ハイキング中のVLMラベルの時系列変化や、プロンプト設計に関するアブレーション研究、階段の段差限界に関する検証結果が報告されています。固定ラベル表に対するオープンボキャブラリの優位性や、看板文字の暗黙的な意図理解の強健性がデータで裏付けられています。",
+   "details_ja": "補足資料から、システムの設計思想を裏付ける重要な追加実験データを紹介します。\n\n### Labels during experiments\nツェルマットやゼーアルプ湖での走行中、VLMが出力するラベルは静止することなく、状況に応じて動的に変化し続けました。例えば、湖に近づくと「water_body」「puddle」が現れてリスク値1.0が割り振られ、放牧エリアでは牛を認識して「animal」が高リスクとして出現しました。都市部に入ると「gravel_path」から「paved_road」へと自然に語彙が移行し、セグメンテーションの精度を自律的に維持していることが確認できます。\n\n### Prompt ablation and robustness studies\nプロンプトの各指示がどれほど結果に寄与しているかを、TartanGround（372画像）およびSign（12画像）ベンチマークで検証しました。\n\n- 表現の言い換え（Perturbation）：「Risk」を「Danger Level」に変えるなどの同義語置換を行っても、IoUスコアはほぼ低下せず、特定の言い回しに過学習していないことが分かりました。\n- ガイドラインの削除：「方向詞（left, rightなど）を使うな」という禁止令や地形ガイドラインを外すとスコアはやや低下（Sign IoUが0.80台へ）しましたが、致命的な崩壊には至りませんでした。\n- 固定ラベル表との比較（Fixed Labels）：人間が事前定義した55クラスの固定辞書を使った場合、IoUは0.665（TartanGround）および0.612（Sign）へと大幅に低下しました。実世界の多様なシーンに対応するには、固定ラベルではなくVLMによる動的なオープンボキャブラリ生成が不可欠であることが示されています。\n\n### Robustness to nonexplicit signage & Stair height reasoning\n- 暗黙的な警告の読解：看板から「Do Not Walk on Path」などの直接的な指示文を消し、「DANGER」などの警告文字だけに画像編集しても、VLMは背後の工事バリケードなどの文脈と結びつけ、正しく道路を高リスクと判定できました。\n- 階段高さの認識限界：ロボットの登坂限界（例：15cm以上は通行不可）をプロンプトで与えた場合、Gemini 3.0/3.5などの最新モデルでも、15.5〜16.0cmといった境界付近の段差を「登れる（低リスク）」と誤判定する事例が多発しました。この結果からも、ミリメートル〜センチメートル単位の精密な物理可否判断をVLMの目視だけに頼るのは危険であり、LiDAR等による標高マップに委ねるROAMの設計判断が極めて妥当であることが裏付けられています。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "ツェルマットの10.1kmハイキング中におけるVLM生成ラベルとリスク値の時系列変化（Figure S1）です。青が低リスク、赤が高リスクを示します。スタート直後の瓦礫道から、湖(B)での水域ラベル、放牧地や線路脇(F)、舗装路(I)へと、環境の変化に合わせてVLMが語彙とリスク評価を柔軟に適応させている様子が分かります。",
+     "caption": "Figure S1: VLM labels during the Zermatt hike. The labels and their risk values throughout the mission. It shows what label the VLM outputs in different scenarios as a colored bar, where the color represents the risk value and the bar represents the existence of the label.",
+     "image": "details/2611.25215/F7.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "「VLMには意味と言語によるコスト評価（何が危険か）だけを任せ、空間認識や運動制御は下流のセグメンテーションやRLポリシーに任せる」という役割分担が、実世界ロボティクスにおける最も手堅いアプローチであること。",
+  "VLMの推論（0.1Hz）とセグメンテーション（6Hz）、標高マップ（20Hz）、歩行制御（50Hz）を非同期かつ階層的に結合することで、大きな推論遅延を抱える基底モデルでも敏捷な実機運動を阻害しないこと。",
+  "事前学習済みVLMのオープンボキャブラリ生成能力は、人間が手作業で定義した固定ラベルセットよりも圧倒的に未知環境へのゼロショット適応力が高いこと。",
+  "一方で、ミリメートル単位の段差判断や薄氷・ぬかるみといった物理接触特性の判断を現在のVLMだけに頼るのは危険であり、幾何センサや触覚センシングとのハイブリッド化が不可欠であること。"
+ ],
+ "limitations_ja": [
+  "VLMが意味的に正しく危険物を特定していても、後段のオープンボキャブラリセグメンテーションが画像の境界線を誤認識して障害物に衝突・接近する失敗（介入の主因）が存在すること。",
+  "商用のクラウドVLM（GPT-4V等）に依存しているため、山岳地帯などの電波状況が不安定な環境下での通信切断リスクやレイテンシのばらつきが運用上の制約となること。",
+  "カメラによる視覚情報のみに依存しているため、濃霧、大雨、夜間、強烈な逆光などの視界不良環境におけるロバスト性がまだ十分に検証されていないこと。",
+  "長期ミッションにおける大域経路計画（数百メートル〜数キロ先のルート選定）まではVLM単体で行えず、事前の衛星地図や大域ウェイポイントの指定に依存していること。"
+ ],
+ "keywords": [
+  "Vision-Language Models (VLM)",
+  "Legged Locomotion",
+  "Reinforcement Learning (RL)",
+  "Open-Vocabulary Segmentation",
+  "Autonomous Hiking",
+  "Field Robotics"
+ ],
+ "id": "2611.25215",
+ "title": "Bridging vision-language reasoning and learned control for legged navigation in the wild",
+ "authors": [
+  "Takahiro Miki",
+  "Robin Schmid",
+  "Manthan Patel",
+  "Turcan Tuna",
+  "Julia Richter",
+  "Julian Nubert",
+  "Joonho Lee",
+  "Matthias M\\\"uller",
+  "Marco Hutter"
+ ],
+ "date": "2026-11-20",
+ "group": "focus",
+ "tags": [
+  "quadruped",
+  "locomotion",
+  "navigation",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.25215",
+ "pdf_url": "https://arxiv.org/pdf/2611.25215",
+ "summary_ja": "四脚ロボットによるキロメートル規模の野外ナビゲーションを実現するシステムROAMを提案。Web規模データで事前学習されたVLMの高い意味理解・推論能力と、シミュレーション強化学習により学習した頑健な低レベル移動制御および局所計画方策を階層的に統合し、アルプスや都市環境での自律移動を達成した。",
+ "generated": "2026-11-20",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.25215"
+}
