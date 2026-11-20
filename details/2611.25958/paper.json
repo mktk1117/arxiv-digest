@@ -1,0 +1,135 @@
+{
+ "title_ja": "地形適応型四脚ロボットロコモーションのための最適歩容とスタイルの学習",
+ "tldr_ja": "CPG（中枢パターン生成器）と強化学習を2段階構成で組み合わせることで、4脚ロボットに11種類の多様な歩容と地形適応スタイルを学習させ、あらゆる歩容が地形・評価指標・速度の組み合わせ次第で「最適」になり得ることを実証しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "急斜面、階段、溝、不整地、段差ブロックなど7種類の過酷な地形を11種類の歩容（ウォーク、トロット、バウンド、ギャロップなど）で踏破する様子です。同一の位相結合を用いて、前脚立ちや後脚立ちによる2脚歩行モードへの拡張や、実機（Unitree Go1/Go2）でのゼロショット検証も達成しています。",
+  "caption": "Figure 1: Diverse gaits on challenging terrains. Locomotion with 11 distinct gait couplings on slopes, stairs, gaps, rough terrain, and random blocks. Color indicates the gait: lateral sequence walk , diagonal sequence walk , amble , trot , pace , pronk , half-bound , bound , canter , transverse gallop , and rotary gallop . The same gait couplings are also used to learn bipedal-mode locomotion. Bottom: hardware deployment with the height map estimated onboard from a forward-facing depth camera.",
+  "image": "details/2611.25958/F1.jpg"
+ },
+ "overview_ja": "動物は移動速度や地形、消費エネルギーに応じて歩行（ウォーク）、速歩（トロット）、駆歩（ギャロップ）など多彩な歩容（歩き方のパターン）を切り替えます。しかし、ロボティクスや生物学において「どの歩容が最も優れているのか」という問いは、平地でのエネルギー効率ばかりに焦点が当てられ、過酷な地形や異なる評価基準（胴体の安定性や関節の滑らかさなど）のもとでどう変わるのかは未解明でした。近年の深層強化学習（DRL）による4脚制御では、報酬設計の都合上、平地ではトロットばかりが創発して局所解に陥りやすく、多様な歩容の体系的な比較が困難でした。\n\nそこで著者らは、脊椎動物の脊髄にある「中枢パターン生成器（CPG）」を抽象化した発振器ネットワークと深層強化学習を組み合わせた階層的アーキテクチャを提案しました。まずStage 1では、CPGの結合行列によって全11種類の歩容を強制的に切り替えながら、各歩容における歩幅・歩周波数や姿勢スタイル（胴体高さ、遊脚クリアランス、足先オフセット）を単一ポリシーで学習させます。次にStage 2では、Stage 1の制御器を固定した上で軽量な歩容選択ポリシーを学習させ、エネルギー効率や胴体安定性などのユーザー指定基準を最適化します。\n\nシミュレーションの大規模検証により、定義された11種類すべての歩容が、少なくとも1つの「地形・評価指標・速度」の組み合わせにおいて最適（コスト最小）になるという驚くべき事実が明らかになりました。さらに、訓練時に存在しない3脚同位相の異常歩容へのゼロショット適応、訓練範囲を大きく超える障害物や溝の踏破、体重が5倍の別機体への転移、ピッチ角報酬を1つ足すだけで実現する2脚歩行モードなど、圧倒的な汎化性能も実証しています。",
+ "contributions_ja": [
+  "CPG発振器ネットワークと深層強化学習を統合し、過酷な7種類の地形において11種類の古典的歩容と地形適応スタイルを単一ポリシーで獲得したこと。",
+  "低レベル制御（Stage 1）と歩容選択（Stage 2）を分離する2段階学習により、局所解への収束を回避し、任意の評価指標（省電力、安定性など）に特化した歩容選択器を数分で再学習可能にしたこと。",
+  "大規模な定量的比較を通じて、11種類すべての歩容が特定の地形・評価指標・速度の組み合わせにおいて「最適」になり得ることを世界で初めて系統的に示したこと。",
+  "未学習の異常歩容へのゼロショット適応、訓練最大値の2倍のクリアランス設定、5倍の質量を持つ大型機体へのクロスエンボディメント転移、実機搭載カメラによる自律走行を実証したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "Introduction",
+   "heading_ja": "なぜ動物は多彩な歩容を持つのか？ロボティクスからの挑戦",
+   "summary_ja": "平地でのエネルギー効率だけでなく、多様な地形や安定性・滑らかさといった多面的な基準から歩容の最適性を問い直します。CPG発振器モデルと深層強化学習を融合した2段階フレームワークにより、11種類の歩容の獲得と目的に応じた選択を実現します。",
+   "details_ja": "4脚動物が速度や地形に応じて歩容を滑らかに切り替えるメカニズムは、長年研究者の関心を集めてきました。しかし生物学では平地でのエネルギー効率（代謝コスト）の観点に偏りがちであり、不整地や段差での転倒回避（生存性）や安定性がどう影響するかは十分に解明されていませんでした。\n\n一方、近年のロボティクスにおける深層強化学習（DRL）では、パルクールや高速走行ができる制御器が作られていますが、学習から「自然に現れる」歩容は平地トロットばかりになりがちです。また、模倣学習では参照データに依存し、モデル予測制御（MPC）では歩容シーケンスの同時最適化が計算上重すぎるという課題がありました。\n\nそこで著者らは、生物の脊髄CPG（リズム生成器とパターン形成器）に着想を得たアプローチを採用しました。ヒルデブランドの分類体系に基づく11種類の歩容を結合発振器の位相関係として厳密に拘束し、単一の低レベルポリシーに多様な地形適応スタイル（胴体高さ $h$、足先クリアランス $g_c$、前後オフセット $x_{off}$）を学習させます（Stage 1）。その上で、学習済み低レベル制御器を固定し、目的に応じて歩容を選択・遷移する軽量ポリシーを別個に学習させる2段階学習（Stage 2）を提案しました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "提案手法の2段階制御アーキテクチャです。Stage 1ではCPG状態（遠心性コピー）と外界認識をもとに足先軌道パラメータを生成し、Stage 2では指定の目的に応じて11種類の歩容を切り替えます。実機では深度カメラから小型GRU/MLPで局所標高マップをリアルタイム推定します。",
+     "caption": "Figure 2: Control architecture for terrain-adaptive gait learning and selection. Stage 1 : the policy observes a velocity command $v^{*}_{b,x}$ , exteroceptive sensing (height-map scan dots $\\bm{d}$ ), proprioceptive sensing (body velocities $\\bm{v}_{b}$ , $\\bm{\\Omega}_{b}$ ; orientation $\\phi_{b,r}$ , $\\theta_{b,p}$ , $\\psi_{b,y}$ ; joint states $\\bm{q}$ , $\\dot{\\bm{q}}$ ; previous action $\\bm{a}_{t-1}$ ), and CPG states ( $\\bm{r}$ , $\\bm{\\theta}$ , $\\dot{\\bm{r}}$ , $\\dot{\\bm{\\theta}}$ ), all as inputs to a multilayer perceptron (MLP). …",
+     "image": "details/2611.25958/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Results",
+   "heading_ja": "驚くべき結果：すべての歩容に「出番」が存在した",
+   "summary_ja": "過酷な7地形・4速度で網羅的に評価した結果、全11歩容が何らかの条件で最適となりました。また、訓練外の新規歩容への適応、パラメータ強制変更、5倍の質量の機体への転移、さらには2脚歩行モードまで極めて高い汎化性を示しました。",
+   "details_ja": "### あらゆる地形で全歩容を検証する（Stage 1の評価）\n斜面の昇降、階段の昇降、溝、不整地、段差ブロックの7地形（難易度1〜5）を用意し、4つの速度（0.5, 1.0, 1.5, 2.0 m/s）で並列100台のロボットを走らせました。評価指標として、エネルギー効率を表す輸送コスト（COT）、胴体安定性を表す平均角速度、滑らかさを表す平均関節加速度の3つを計測しました。\n\nその結果、11種類すべての歩容が、少なくとも1つの「地形・指標・速度」の組み合わせで最適（最小値）を記録しました。平地や低難度ではウォークやペースなどの省エネ歩容が優れ、胴体安定性ではトロットが半分以上の条件で優勢でしたが、エネルギー面でトロットがベストだったのは約25%に過ぎませんでした。また、大きな溝や高速階段ではバウンドやギャロップなどの前後対称に近いダイナミックな歩容がCOTや関節加速度を大きく抑制しました。さらに、位相結合をなくして各脚を自由に協調させたベースライン（学習で勝手に創発させた歩容）は局所解に陥り、ほとんどのシナリオで最適歩容に勝てないことが判明しました。\n\n### 目的別に歩容選択を最適化する（Stage 2の評価）\nStage 1のポリシーを固定し、(1) 電力最小化、(2) 胴体角速度最小化、(3) 関節加速度最小化を個別に学習させた3つのStage 2選択器をパルクールコースで比較しました。平地では、電力最小化ポリシーはラテラルシーケンスウォーク、安定性最小化ポリシーはトロット、関節加速度最小化ポリシーはアンブルを選択し、溝や大きな段差に差し掛かるといずれも自動的にバウンド系歩容へ遷移して跳躍しました。各ポリシーは狙った指標で他を圧倒しており、数分の追加学習だけで目的別の振る舞いを獲得できることが確認されました。\n\n### 驚異的な汎化性能とゼロショット転移\n本フレームワークは訓練分布外（OOD）の環境に対しても破綻しません。\n- **未知の歩容**: 訓練で一切見ていない「3脚が同位相、残り1脚が逆位相」という人工的なビッコ歩行カップリングに対しても、ゼロショットで階段を高速走破しました。\n- **スタイルの強制上書き**: 足先クリアランスを訓練上限の2倍（0.24 m）に引き上げたり、胴体高さを最小に固定したりしても、ロボットは転倒せず溝を飛び越えました。\n- **過酷な未知地形**: 訓練時の最大溝幅（0.55 m）より約50%広い0.8 mの溝をギャロップで飛び越え、60%高い0.4 mの階段も走破しました。\n- **別機体への転移**: 小型機Unitree Go1で学習した単一の制御器が、そのままGo2、Aliengo（質量2倍）、B2（質量5倍、全高2.15倍）へ追加学習なしでゼロショット転移しました。関節トルクではなくCPG発振器空間を行動空間に選んだことが功を奏しています。\n\n### 2脚歩行モードへの拡張\nStage 1の報酬にピッチ角追従項を「たった1つ」追加するだけで、前脚立ち（倒立歩行）および後脚立ちの2脚歩行モードを学習できました。追加のデモデータやカリキュラムなしで、11種類すべての脚カップリングを維持したまま、階段の昇降や段差スキップを達成しています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "7つの地形・難易度1〜5・4つの指令速度において、COT（輸送コスト）、胴体角速度、関節加速度を最小化した最適歩容の分布マップです。色分けされた11種類の歩容すべてが、いずれかの条件下でマス目を獲得しており、普遍的に最強の歩容は存在しないことを示しています。",
+     "caption": "Figure 3: Optimal gaits across terrains and metrics. Top : test terrains ranked in difficulty from 1 (easiest) to 5 (most difficult). Difficulty 5 corresponds to the steepest slopes, tallest steps, widest gaps (and smallest platforms), most uneven rough terrain, and largest random mixed blocks. Bottom : the gait achieving the lowest mean Cost of Transport, base angular velocity, and joint acceleration across five terrain difficulties and four velocity commands (0.5–2 m/s), averaged over 100 parallel agents on 10 m terrains. Lower values are better for each metric, and the corresponding gait is shown for each terrain difficulty and velocity combination. …",
+     "image": "details/2611.25958/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "多様な地形が連続するパルクールコースでのStage 2歩容選択実験です。(a)コース全景、(b)電力最小化ポリシーが選択した歩容と適応された姿勢スタイルパラメータ、(c)各目的別ポリシーの歩容使用割合、(d)各ポリシーが狙い通り自身の評価指標を最小化できていることを示すグラフです。",
+     "caption": "Figure 4: Stage 2 gait selection on a parkour course. a : parkour course incorporating all considered terrain types. Robot snapshots show results from the power-minimizing policy. b : gaits selected by the power-minimizing Stage 2 policy at 1.5 m/s along the course shown in a , together with the corresponding gait style parameters (body height, foot ground clearance, foot offset) output by the Stage 1 policy. A single gait is active at each timestep, plotted against course position. …",
+     "image": "details/2611.25958/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "想定外の環境に対する汎化性の検証です。(a)訓練にない3脚同位相の異常歩容、(b,c)クリアランスを訓練最大値の2倍に強制設定した階段昇降、(d-f)極端な姿勢設定での溝跳躍、(g-i)質量が最大5倍異なる大型4脚ロボット（Go2, Aliengo, B2）へのゼロショット転移を示しています。",
+     "caption": "Figure 5: Generalization to out-of-distribution conditions. a : zero-shot locomotion with a novel 3-legged gait coupling not seen during training. b : pronk up stairs with overridden ground clearance ( $g_{c}=0.2$ m, approximately $1.7\\times$ the training maximum). c : pace up stairs with ground clearance overridden to $2\\times$ the training maximum ( $g_{c}=0.24$ m). d–f : gap traversal with different gait style parameter settings. d : base height forced to the training minimum (0.18 m). e : nominal traversal without overrides. f : ground clearance forced to $2\\times$ the training range maximum (0.24 m). g–i : generalization to other quadruped platforms. …",
+     "image": "details/2611.25958/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "ピッチ角報酬を1つ足すだけで獲得された2脚歩行モードです。前脚立ち（上段）と後脚立ち（下段）の双方において、11種類すべての脚結合位相を保ちながら不整地や階段を走破できています。",
+     "caption": "Figure 6: Bipedal-mode locomotion on diverse terrains with all gait couplings. The robot locomotes on the front legs (handstand, positive pitch) and on the rear legs (negative pitch), using all 11 quadrupedal gait couplings in each configuration. Only one additional reward term (for base pitch) is needed, without any expert data or reference motions. The robot autonomously transitions from quadrupedal stance to a front-leg handstand, while rear-leg locomotion begins from an upright stance.",
+     "image": "details/2611.25958/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Discussion",
+   "heading_ja": "考察：なぜ1つの歩容に頼ってはいけないのか",
+   "summary_ja": "「全歩容がどこかで最適になる」という発見は、動物の歩容の多様性が生存や多目的適応のために進化したという仮説を強力に後押しします。また、2段階設計と強結合CPGの組み合わせが、ロボット制御における探索の局所解を打破する鍵であることが示されました。",
+   "details_ja": "本研究の最も核心的なメッセージは、「あらゆる歩容に固有の存在意義がある」という点です。直感的には、プロンク（4脚同時のピョンピョン跳び）のような不器用で高エネルギーな歩容は淘汰されそうに思えますが、特定の階段周期では胴体安定性を最も高める歩容として最適解に現れました。また、強化学習で最も創発しやすいトロットがエネルギー面で最適だったのはわずか25%に過ぎず、「1つの歩容をエンドツーエンドで学習させる」従来のアプローチがいかに局所解に縛られていたかを浮き彫りにしています。\n\n低レベル制御と歩容選択を分けた2段階学習も決定的な役割を果たしています。低レベル学習時に歩容を強制的にサンプリングして全地形を踏破させることで、歩容レパートリーの網羅的な獲得が保証されます。もし同時に歩容選択まで学習させてしまうと、初期に安定した1つの歩容（例えばトロット）に即座に収縮してしまい、他の戦略を探索できなくなります。Stage 1を一度凍結してしまえば、Stage 2の選択器は数分で別目的に再学習可能です。\n\nまた、発振器間の結合強度 $w_{ij}$ の重要性も示唆に富んでいます。結合が弱いとポリシーが勝手に位相を歪めてしまうため、強い結合（$w_{ij}=10$）で指定歩容を強制することが不可欠でした。生物界でもショウジョウバエは低速歩行では脚間結合が弱く、高速になると強結合に移行することが知られており、速度に応じた結合強度の動的調整は今後の魅力的な研究課題です。\n\n限界としては、現在のコントローラが主に前後・上下の矢状面（サジタルプレーン）内での動作に最適化されているため、左右非対称なブロック段差に斜めから進入した際の横転復旧に弱さがある点が挙げられます。横方向の足配置制御の統合が今後の課題です。",
+   "figures": []
+  },
+  {
+   "heading": "Methods",
+   "heading_ja": "手法詳細：数式で見るCPGと2段階強化学習の実装",
+   "summary_ja": "Hopf型発振器に基づくCPGリズム生成器、足先軌道を空間座標に落とし込むパターン形成層、Stage 1/2の入出力および報酬設計、DAggerによる実機用深度標高マップ蒸留の技術的詳細を解説します。",
+   "details_ja": "### リズム生成層とパターン形成層（CPGモデル）\n各脚 $i$ に割り当てられた発振器は、振幅 $r_i$ と位相 $\\theta_i$ のダイナミクスとしてモデル化されます。自励振幅 $\\mu_i$、固有角周波数 $\\omega_i$、収束定数 $a$、結合重み $w_{ij}$、位相バイアス $\\phi_{ij}$ を用い、結合項 $\\sum_j w_{ij} \\sin(\\theta_j - \\theta_i - \\phi_{ij})$ によって厳密な脚間位相差が強制されます。結合重みには強い値（$w_{ij}=10$）が設定され、11種類の歩容に応じた $4\\times 4$ 位相差行列 $\\bm{\\Phi}$ が切り替えられます。\n\nパターン形成層では、発振器の出力が直交座標系の目標足先位置へと変換されます。前後方向は歩幅 $d_{step}$ とオフセット $x_{off}$、高さ方向は胴体高 $h$、最大遊脚クリアランス $g_c$、接地沈み込み量 $g_p$ に基づく楕円軌道として幾何学的に決定され、逆運動学（IK）を経て1 kHzのPDコントローラで追従されます。\n\n### Stage 1: 全歩容・全地形の統一学習\nIsaac Gym上でUnitree Go1を4,096台並列シミュレーションし、PPOにより33 Hzで制御します。状態空間には指令速度、標高マップ（$17\\times 11$ グリッド）、角速度・姿勢角・関節角度/角速度、直前のアクションに加え、脊髄の「遠心性コピー」に相当するノイズのないCPG内部状態（$\\bm{r}, \\bm{\\theta}, \\dot{\\bm{r}}, \\dot{\\bm{\\theta}}$）と歩容インデックスが含まれます。行動空間は $\\bm{a}_{t,s} = [h, g_c, x_{off}, \\bm{\\mu}, \\bm{\\omega}] \\in \\mathbb{R}^{11}$ です。報酬は速度追従と不要な胴体動揺・関節急変のペナルティのみで構成され、姿勢スタイルを強制する報酬は一切使用していません。\n\n### Stage 2: 目的特化の歩容セレクター\n学習済みのStage 1ネットワークを完全に固定（Freeze）し、同じ観測を入力として11次元の歩容選択ベクトル $\\bm{a}_{t,g}$ を出力するMLPを学習させます。argmaxにより選ばれた歩容が位相差行列 $\\bm{\\Phi}$ を決定します。頻繁すぎる歩容切り替えを防ぐアクションレートペナルティとともに、目的別（省電力、角速度低減など）の報酬を与えて数分で学習を完了させます。\n\n### オンボード標高マップ推定器（Sim-to-Real）\n実機展開のため、前面のRealSense D435i深度カメラ画像（$48\\times 16$）とプロプリオセプションから標高マップを回帰するネットワークを構築しました。CNNとGRU（隠れユニット256）を組み合わせ、過去の観測を統合して死角となった真下の地形情報を保持します。学習にはDAggerを用い、ポリシー自身の走行データ上で蒸留することで実環境での予測誤差累積を防いでいます。",
+   "figures": []
+  },
+  {
+   "heading": "Gait definitions and tracking",
+   "heading_ja": "付録：11歩容の位相定義と追従精度",
+   "summary_ja": "本研究で定義されたヒルデブランド分類に基づく11種類の歩容およびテスト用の未知歩容の位相オフセット定義を整理し、実環境での高い位相追従性を確認します。",
+   "details_ja": "ヒルデブランド分類体系に基づく11種類の歩容は、1歩行周期内での各脚（前右FR、前左FL、後右HR、後左HL）の接地タイミングの位相差 $\\phi_{ij} \\in [0, 2\\pi)$ として定義されます。\n\n- **対称歩容**: トロット（対角脚ペアが同期、互いに $\\pi$ の位相差）、ペース（左右同側脚が同期、左右で $\\pi$ の位相差）、プロンク（4脚すべてが完全同期）、各種ウォーク（側対歩・斜対歩など、脚ごとに順次25%ずつ位相がずれる）。\n- **非対称・跳躍歩容**: バウンド（前脚ペアと後脚ペアが交互に同期）、ハーフバウンド、キャンター、横ギャロップ、回転ギャロップ。\n- **テスト専用の人工歩容**: 3脚が完全同位相（位相0）、残り1脚のみ逆位相（位相 $\\pi$）という、生物界に存在しない異常歩容を設定。\n\nこれらの歩容は $4\\times 4$ の位相差行列 $\\bm{\\Phi}$ に展開されて発振器ダイナミクスに注入されます。シミュレーション評価では、指令されたスタンス（接地）時間の95〜100%が実際の地面接地として実現されており、極めて高い歩容追従精度（Gait-tracking Accuracy）が達成されていることが確認されています（幅の広い溝を飛び越える瞬間など、物理的に足場が存在しない場合を除く）。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "本研究で扱った11種類の歩容およびテスト時専用の人工歩容（3脚同位相）における、1歩行周期内の各脚接地タイミングです。前脚・後脚・左右脚の相対的な位相遅れがパーセンテージで定義され、CPGの結合行列へと変換されます。",
+     "caption": "Figure 1: Contact timing for each foot with the ground as a percentage of a single gait cycle for various quadruped gaits: Lateral Sequence Walk (L.S. Walk), Diagonal Sequence Walk (D.S. Walk), Amble, Trot, Pace, Pronk, Half-Bound, Bound, Canter, Transverse Gallop (T. Gallop), Rotary Gallop (R. Gallop). While not considered during training as it is not a biological gait, during test time we show that the policy can still adapt to an artificial gait where 3 legs are coupled together. The timings are converted to matrices that denote phase offsets between different limbs (i.e. …",
+     "image": "details/2611.25958/F7.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "「最強の単一歩容」は存在せず、過酷な地形においてはエネルギー効率・安定性・滑らかさの要求に応じて11種類の歩容すべてに最適な活躍の場がある。",
+  "低レベル制御（歩容・スタイルの遂行）と高レベル選択（歩容の決定）を分離する2段階アーキテクチャにより、強化学習の局所解トラップを回避し、目的別の行動適応を数分で実現できる。",
+  "関節トルクではなくCPG発振器パラメータを行動空間に設定することで、質量比5倍もの異なる機体へのゼロショット転移や、未学習の異常歩容への驚異的な適応力が手に入る。"
+ ],
+ "limitations_ja": [
+  "現在の制御器は主に矢状面（前後・上下方向）の運動を前提としており、左右の足配置を個別に大きく変更できないため、左右非対称な障害物に斜めから突入した際の横転復帰に課題がある。",
+  "Stage 2の最適化は歩容の選択と遷移のみに留まり、Stage 1で固定された足先軌道パラメータやスタイル自体を新しい評価基準に合わせて直接再微調整する仕組みにはなっていない。",
+  "シミュレーション環境は剛体地形に限定されており、泥、雪、水、砂などの変形・流体床における歩容の有効性や流動的な適応は検証されていない。"
+ ],
+ "keywords": [
+  "Quadruped Locomotion",
+  "Central Pattern Generators (CPG)",
+  "Deep Reinforcement Learning",
+  "Gait Transitions",
+  "Terrain Adaptation",
+  "Cross-Embodiment Transfer"
+ ],
+ "id": "2611.25958",
+ "title": "Learning optimal gaits and styles for terrain-adaptive quadruped locomotion",
+ "authors": [
+  "Guillaume Bellegarda",
+  "Auke Ijspeert"
+ ],
+ "date": "2026-11-20",
+ "group": "focus",
+ "tags": [
+  "quadruped",
+  "locomotion",
+  "reinforcement-learning",
+  "control"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.25958",
+ "pdf_url": "https://arxiv.org/pdf/2611.25958",
+ "summary_ja": "地形、評価指標、速度の組み合わせに応じた最適な歩容を解明するため、中枢パターン生成器（CPG）を模した振動子ネットワークと深層強化学習を統合した手法を提案。平地から複雑な不整地まで、胴体高さや足クリアランスを含むロコモーションスタイルとともに11種類の四脚歩容の自律獲得と適応を実証した。",
+ "generated": "2026-11-20",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.25958"
+}
