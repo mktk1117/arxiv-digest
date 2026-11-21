@@ -1,6 +1,180 @@
 {
  "entries": [
   {
+   "date": "2026-11-21",
+   "rank": 0,
+   "id": "2611.26054",
+   "group": "focus",
+   "title": "Reference-Free Humanoid Skateboarding via Termination-Shaped Reinforcement Learning",
+   "title_ja": "終了条件シェイピング強化学習による参照軌道を用いないヒューマノイドのスケートボード走行",
+   "summary_ja": "スケートボードのような受動的物体を介したヒューマノイドの移動制御を、人間のデモ軌道や解析的操舵モデルを用いずに実現する深層強化学習フレームワークを提案。終了条件の設計（Termination-shaping）を活用し、地面と可動ボードとの同時接触を伴う高難度な協調動作を自律獲得させている。",
+   "summary_en": "This paper presents a reference-free deep reinforcement learning framework for object-mediated humanoid locomotion such as skateboarding. Using termination-shaped RL without human demonstrations or analytical steering models, the method successfully enables robots like the K1 humanoid to coordinate simultaneous interactions between the ground and a movable board.",
+   "authors": [
+    "Ganeshvar Soenessardien",
+    "Michael Przystupa",
+    "Kevin Sebastian Luck"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.26054",
+   "image": null
+  },
+  {
+   "date": "2026-11-21",
+   "rank": 1,
+   "id": "2611.25385",
+   "group": "focus",
+   "title": "Drifting, Discriminating, and Directioning for Action Coordination in Higher-dimensional Action Space",
+   "title_ja": "高次元行動空間での協調動作に向けたドリフティング・モデル強化学習",
+   "summary_ja": "高次元な行動空間における強化学習の難しさを緩和するため、ドリフティング・モデルを用いた軽量な方策モデルと3段階の学習アルゴリズムを提案。Q勾配の逆伝播のみでは捉えにくい行動間の協調関係を潜在分布の最適化等により改善し、多自由度制御において効率的な方策獲得を可能にした。",
+   "summary_en": "This paper proposes a lightweight policy model using drifting models along with a three-step learning algorithm to tackle reinforcement learning in high-dimensional action spaces. By improving action coordination beyond standard Q-gradient backpropagation, it enables efficient and coordinated continuous control for complex, multi-DoF robotic systems.",
+   "authors": [
+    "Taisuke Kobayashi"
+   ],
+   "categories": [
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.25385",
+   "image": "figures/2026-11-21/2611.25385.jpg"
+  },
+  {
+   "date": "2026-11-21",
+   "rank": 2,
+   "id": "2611.25320",
+   "group": "focus",
+   "title": "Improving Imitation Policies for Multi-Phase Tasks through Residual Learning Allocation",
+   "title_ja": "残差学習割り当てによるマルチフェーズタスクの模倣方策改善",
+   "summary_ja": "マルチフェーズタスクにおいて、限られた相互作用バジェットをどのフェーズの残差強化学習に割り当てるかを最適化する手法を提案。各フェーズでの方策修正がタスク全体達成率に与える影響を「completion gain」として定式化し、失敗フェーズにとらわれず最も改善効果の高いフェーズへ効率的に修正を配分する。",
+   "summary_en": "This paper introduces a residual reinforcement learning allocation method to improve imitation-trained policies for multi-phase tasks under limited environment interaction budgets. By formalizing and decomposing the completion gain across phases, it identifies and targets the phases where corrections yield the highest full-task success rather than merely fixing the failing phase.",
+   "authors": [
+    "Clinton Enwerem",
+    "Saleh Kemal",
+    "John S. Baras",
+    "Calin Belta"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "imitation-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.25320",
+   "image": "figures/2026-11-21/2611.25320.jpg"
+  },
+  {
+   "date": "2026-11-21",
+   "rank": 3,
+   "id": "2611.25461",
+   "group": "general",
+   "title": "ActMem: From Latent Memory Reasoning to Grounded Robotic Action",
+   "title_ja": "ActMem: 潜在記憶の推論と接地されたロボット行動の分離フレームワーク",
+   "summary_ja": "長期マニピュレーション向けVLAモデルにおいて、記憶推論と現在の知覚グラウンディングを分離するインコンテキスト記憶手法「ActMem」を提案。単一のVLM上で過去の経験から行動方針を導く記憶推論と現在の視覚に基づく精密制御を両立させ、文脈圧迫を防ぎつつタスク遂行能力を向上させた。",
+   "summary_en": "This paper introduces ActMem, an in-context memory framework for Vision-Language-Action models in long-horizon manipulation. Inspired by cognitive science, it decouples latent memory reasoning about past experience from real-time perceptual grounding within a single VLM backbone, preventing context crowding and improving real-world robotic task performance.",
+   "authors": [
+    "Linfeng Dong",
+    "Jianwei Niu",
+    "Jiuyi Zhao",
+    "Ruibing Feng",
+    "Xinghao Wu",
+    "Wu Yang",
+    "Shuai Tao",
+    "Wulong Liu",
+    "Mu Li"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.LG"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.25461",
+   "image": "figures/2026-11-21/2611.25461.jpg"
+  },
+  {
+   "date": "2026-11-21",
+   "rank": 4,
+   "id": "2611.26617",
+   "group": "general",
+   "title": "One Prior, Two Dynamics: Repurposing Video Diffusion Transformers for Self-Supervised Latent Action Learning",
+   "title_ja": "O2LaF: 事前学習済み動画DiTを再利用した自己教師あり潜在行動学習",
+   "summary_ja": "行動ラベルのない動画から逆・順ダイナミクスを自己教師あり学習するフレームワーク「O2LaF」を提案。単一の事前学習済み動画DiTを共有知識として初期化し、逆ダイナミクス用エンコーダと行動条件付き順ダイナミクス生成器の双方に適応させることで、ダイナミクスのゼロからの学習を回避し表現力を高めた。",
+   "summary_en": "This paper proposes O2LaF, a framework for self-supervised latent action learning from videos without action labels. By initializing both inverse and forward dynamics models from the same pretrained video Diffusion Transformer (DiT), it leverages video priors to avoid learning world dynamics from scratch and achieves effective visual latent action representations.",
+   "authors": [
+    "Yuxin Jiang",
+    "Wenqiang Sun",
+    "Jiaqi Li",
+    "Yuchao Gu",
+    "Lvmin Zhang",
+    "Ivor Tsang",
+    "Mike Zheng Shou"
+   ],
+   "categories": [
+    "cs.CV",
+    "cs.AI",
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "world-model",
+    "imitation-learning",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.26617",
+   "image": "figures/2026-11-21/2611.26617.jpg"
+  },
+  {
+   "date": "2026-11-21",
+   "rank": 5,
+   "id": "2611.25594",
+   "group": "general",
+   "title": "Bradley-Terry Training Can Distort Outcome Probabilities of Initially Accurate Language World Models",
+   "title_ja": "Bradley-Terry学習による言語ワールドモデルの予測確率の歪み",
+   "summary_ja": "比較フィードバックに基づきBradley-Terry（BT）目的関数で学習した言語ワールドモデルが、行動結果の真の確率分布を歪める問題点を指摘。ロボットの押し動作シミュレーションにおいて、未知環境で高精度だったモデルがBT目的関数により未観測事象へ過剰に確率を配分してしまう現象を明らかにした。",
+   "summary_en": "This paper demonstrates that training language world models with the Bradley-Terry objective on comparative feedback can distort outcome probabilities. In a simulated robot push task, the objective shifted 33-43% of probability mass to outcomes that never occur, showing that comparative optimization fails to recover true underlying probability distributions.",
+   "authors": [
+    "Xinze Shi",
+    "Litian Zhang",
+    "Zhenjie Su",
+    "Zelong Yu",
+    "Yuting Zhang",
+    "Qihua Feng",
+    "Zifeng Kang",
+    "Chaozhuo Li",
+    "Zhengxuan Hu"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "world-model",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.25594",
+   "image": "figures/2026-11-21/2611.25594.jpg"
+  },
+  {
    "date": "2026-11-20",
    "rank": 0,
    "id": "2611.26293",
