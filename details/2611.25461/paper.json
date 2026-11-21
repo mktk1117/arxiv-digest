@@ -1,0 +1,137 @@
+{
+ "title_ja": "ActMem: 潜在記憶の推論と接地されたロボット行動の分離フレームワーク",
+ "tldr_ja": "過去の経験から「何をすべきか」を推論する潜在記憶と、現在画像から「どう動くか」を決める知覚を分離することで、長時間の記憶が必要なロボット操作タスクで高い成功率と高速な推論を両立した研究です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "ActMem の全体設計思想と性能の要約です。(a) 認知科学の知見に基づき、過去の経験から「何をするか（記憶）」と現在の見た目から「どう動くか（知覚）」を分離。(b) VLA モデル内で潜在記憶 CoT と知覚アテンションとしてこの分離を実現。(c) ベンチマークで従来手法を大きく上回る成功率を達成しています。",
+  "caption": "Figure 1 : ActMem: history becomes action. (a) Human-inspired action: past experience is reconstructed into memory and spatial reasoning that determines what to do, while current perception determines how to act. (b) ActMem realizes this division inside a VLA: latent memory reasoning in the vision-language backbone produces Memory CoT states that condition the action expert, and Perception Attention grounds the action in the current view. (c) RoboMemArena completion versus task success (left) and memory-task success across RoboMemArena categories and MIKASA-Robo (right).",
+  "image": "details/2611.25461/F1.jpg"
+ },
+ "overview_ja": "ロボットがコップで隠された積み木を取ったり、箱からティッシュを決められた枚数だけ引き抜いたりする作業では、現在のカメラ画像を見ただけでは正解の行動が分かりません。コップの下は見えませんし、ティッシュを何枚抜いたかは現在の1枚の画像には写っていないからです。従来の記憶付き VLA（Vision-Language-Action）モデルは、過去の画像をそのまま記憶バンクに溜め込んで検索するか、長大な履歴動画を現在の画像と同じ文脈に詰め込んで処理していました。しかし、前者は過去が意味する文脈を推論するのが難しく、後者は履歴が長くなるにつれて現在の細かな見た目の情報が履歴に圧迫されてしまうという問題がありました。\n\nそこで著者らは、認知科学の「記憶は過去から何をすべきかを決め、知覚は現在の状況に合わせてどう動くかを導く」という原則に着目しました。過去のフレームそのものを保持するのではなく、履歴全体からサブタスク（小目標）を推論し、その推論過程で得られる潜在状態を「潜在記憶 CoT（Chain-of-Thought）」として行動生成モデルに渡します。同時に、現在の画像特徴へ直接アクセスできる「知覚アテンション」を設けることで、記憶の推論と現在の知覚グラウンディングを分離しました。\n\nシミュレータ環境の RoboMemArena と MIKASA-Robo、さらに実機の双腕ロボットによる 4 つの作業で評価した結果、ActMem は既存の記憶付き VLA を大きく上回る成功率を達成しました。さらに、過去の計算結果を再利用する効率的な推論手法により、履歴が長くなっても 1 判断あたり 0.6 秒未満という高速な動作を可能にしています。",
+ "contributions_ja": [
+  "記憶と知覚の分離という認知科学の原則に基づき、履歴からの潜在推論と現在の視覚グラウンディングを分けた新しい VLA アーキテクチャを提案した点",
+  "履歴付き動画からサブタスクを推論する際の隠れ状態を「潜在記憶 CoT」として取り出し、テキスト以上の文脈（作業回数など）を行動モデルに渡す仕組みを構築した点",
+  "直前の推論結果や KV キャッシュを厳密に再利用することで、出力精度を落とさずに長い履歴でも 0.33〜0.52 秒で推論できる効率化手法を提案した点",
+  "シミュレータ（RoboMemArena、MIKASA-Robo）および実機ロボットの多様な記憶タスクにおいて、最先端のベースラインを大幅に上回る性能を実証した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "「何をするか」と「どう動くか」を分ける：記憶と知覚の新しい関係",
+   "summary_ja": "現在の画像だけでは判断できない記憶依存タスクにおいて、従来の VLA は過去の推論不足か現在知覚の圧迫という二者択一に陥っていました。本研究では認知科学にヒントを得て、履歴から「何をすべきか」を推論する潜在記憶と、現在画像から「どう動くか」を決める知覚を分離する ActMem を提案します。",
+   "details_ja": "ロボットの一般的な行動基盤モデルとして VLA が注目されていますが、多くのモデルは現在のカメラ画像だけを入力とするため、過去に起きた出来事の痕跡が現在の見た目に残っていないタスクを解くことができません。例えば、コップでブロックを隠してシャッフルされた場合、どのコップも同じに見えるため、直前の画像だけではどのコップを持ち上げればよいか分かりません。\n\nこれに対し、過去の観測画像を保持して検索する手法や、動画全体をそのままプロンプトに入れて処理する手法が登場しました。しかし、前者は過去の画像を集めるだけで「その履歴が今何を意味するのか」を行動モデル側で推論しなければならず、後者は履歴が長くなると現在の精密な手元画像が文脈の中で圧迫され、精密な操作が難しくなります。\n\n著者らの重要な洞察は、「ロボットの決定に必要なのは過去の画像そのものではなく、履歴から推論される作業の進行度や回数といった意味である」という点です。例えばティッシュを抜く作業では、何枚抜いたかはどの画像にも直接写っておらず、動画の流れから推論するしかありません。\n\n認知科学では、過去を再構築して「何をすべきか」を決める記憶系と、現在の感覚情報をもとに「どう動くか」を導く知覚系が明確に分かれています。ActMem はこの原則に従い、VLM（Vision-Language Model）のバックボーンで履歴からサブタスクを推論し、その隠れ状態を「潜在記憶 CoT」として行動生成エキスパートに渡すとともに、「知覚アテンション」を通じて現在画像の詳細な特徴量を直接参照できる構造にしました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "これまでの VLA は記憶とどう向き合ってきたか",
+   "summary_ja": "最新の VLA モデルは連続行動の生成に長けていますが、記憶の扱いは観測の蓄積や検索にとどまり、履歴からの意味推論が不足していました。また階層型の手法もサブタスクをテキストだけで渡すため、文脈情報が抜け落ちる課題がありました。",
+   "details_ja": "ロボット向けの VLA モデルは、離散トークンによる自己回帰生成から、Diffusion や Flow Matching を用いた連続軌道生成エキスパートへと急速に進化してきました。しかし、その多くは依然として現在の観測のみに依存しています。\n\n記憶を扱う研究としては、過去のフレームを蓄積するメモリバンク方式や、関連するキーフレームを検索する手法が提案されてきました。しかし、これらは生の画像や圧縮特徴をそのまま行動モジュールに渡すため、履歴から何が導かれるのかを行動側でゼロから解釈しなければならないという負担がありました。\n\nまた、高レベルな言語サブタスクを生成して行動モデルを誘導する階層的な手法も存在しますが、生成されたテキスト（文字列）だけを行動モデルに渡すと、テキスト化の段階で作業の細かな進行状況やニュアンスが抜け落ちてしまいます。さらに、履歴動画をそのまま入力する最新手法（SimpleMemVLA など）でも、記憶の推論と現在の知覚が同じ文脈内で競合してしまい、長時間のタスクで手元の精密さが失われる傾向がありました。ActMem は、潜在空間での推論状態をそのまま渡しつつ、現在画像のパスを独立して確保することでこの問題を解決します。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "ActMem の仕組み：潜在記憶 CoT と知覚アテンションの統合",
+   "summary_ja": "バックボーン VLM が履歴動画から現在のサブタスクを推論し、その最終層の隠れ状態を潜在記憶 CoT として抽出します。行動エキスパートはこれを受け取りつつ、知覚アテンションを介して現在画像の詳細な特徴量を取り込んで連続軌道を生成します。",
+   "details_ja": "ActMem のアーキテクチャは、事前学習済み VLM バックボーン（Qwen3-VL）と、Flow Matching に基づく行動エキスパート（DiT: Diffusion Transformer）で構成されます。\n\n### 3.1 問題設定と全体像\nロボットは各決定ステップ $t$ で、指示文 $g$、タイムスタンプ付きの履歴画像列 $\\mathcal{H}_t$、現在の手先カメラ画像 $o_t$、自己受容感覚状態（関節角度など）$s_t$ を受け取り、$H$ ステップ先までの連続行動チャンク $A_t = (a_{t+1}, \\dots, a_{t+H})$ を予測します。\n\n### 3.2 潜在記憶 Chain-of-Thought (Memory CoT)\nまず、頭部カメラの過去画像にタイムスタンプを付与した動画 $V_t$ と、現在の手先画像 $w_t$、指示文 $g$ をまとめてバックボーンに入力します。バックボーンは自己回帰的に現在のサブタスク文字列 $\\ell_t$ を予測します。ここがポイントなのですが、生成されたテキストそのものではなく、そのサブタスク文字列に対応する最終層の隠れ状態 $C_t$ を「潜在記憶 CoT」として取り出します。因果マスク（Causal Mask）により、この隠れ状態には過去の全履歴を統合して推論したエッセンスが凝縮されています。\n\n### 3.3 行動生成のための知覚アテンション\nサブタスク推論の隠れ状態 $C_t$ は「何をするか」という抽象的な方針を持っていますが、ミリ単位の手先制御には現在の精密な視覚情報が不可欠です。そこで、バックボーンがエンコードした現在の手先画像トークン $P_t$ を、行動エキスパートの特定層（16 層中 3, 7, 11, 15 層）に対してゲート付きクロスアテンション（Perception Attention）で直接注入します。ゲート係数 $\\alpha_l$ は 0 で初期化されるため、学習初期の安定性を保ちながら徐々に視覚詳細を取り込めるようになっています。\n\n### 3.4 ポリシー学習と高速推論\n学習時は、サブタスクのクロスエントロピー損失と Flow Matching による行動生成損失を足し合わせたマルチタスク損失で全体を end-to-end に最適化します。また、展開時の推論遅延を抑えるため「Efficient Memory CoT Inference」を導入しました。連続する決定ステップでは履歴動画の差分が高々数フレームであり、サブタスクも直前と同じであることが多い点に着目し、過去フレームの画像特徴と KV キャッシュをそのまま再利用します。直前のサブタスクをドラフトとして 1 回の並列フォワードで検証することで、標準推論と完全に一致する結果を保ちながら計算時間を半分以下に削減しています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "ActMem のアーキテクチャ構成です。(a) VLM バックボーンが履歴と現在画像からサブタスクを推論し、その隠れ状態（潜在記憶 CoT）と現在画像特徴を行動エキスパートに渡す構造を示しています。(b) サブタスク推論時のアテンション構造。(c) 直前の推論結果を再利用して高速化する推論効率化の仕組みです。",
+     "caption": "Figure 2 : Overview of ActMem. (a) A pretrained vision-language backbone (Qwen3-VL) encodes the instruction, the timestamped historical frames, and the current perception, and performs latent memory reasoning inside the backbone to produce the subtask together with its Latent Memory CoT states $C_{t}$ , which condition a flow-matching action expert; Perception Attention additionally routes the current visual features to the action expert. …",
+     "image": "details/2611.25461/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "シミュレータと実機での検証：高い成功率と推論効率の実証",
+   "summary_ja": "RoboMemArena と MIKASA-Robo の 2 つのベンチマーク、および実機ロボットの 4 種類のタスクで評価を行いました。ActMem は既存の最良モデルを有意に上回り、潜在記憶 CoT と知覚アテンションの双方が性能向上に不可欠であることをアブレーションで確認しました。",
+   "details_ja": "### 4.1 実験設定\nシミュレーションでは、長時間の記憶を要する RoboMemArena（全 26 タスク）と MIKASA-Robo（全 5 タスク）を用いました。評価指標は、全サブタスクを達成した割合を示すタスク成功率（TSR）と、達成した段階の割合を示す完了成功率（CSR）などです。実機では双腕移動ロボットを用い、外部要因による記憶（遮蔽物の裏の探索）、自己起因の記憶（引き出しの探索履歴）、痕跡の残らない記憶（ティッシュの枚数カウント）の 4 タスクを評価しました。\n\n### 4.2 シミュレーション結果\nRoboMemArena において、ActMem は TSR 71.1%、CSR 80.8% を達成しました。これは最強のベースラインである SimpleMemVLA（TSR 63.6%、CSR 72.1%）をそれぞれ 7.5 ポイント、8.7 ポイント上回る結果です。特に過去の出来事に強く依存する「Occlusion（遮蔽）」や「Sequence（順序）」タスクで顕著な改善が見られました。また MIKASA-Robo でも平均成功率 73.8% を記録し、比較手法中トップの成績を収めました。\n\n### 4.3 実機ロボット実験\n実機実験（各タスク 40 試行）では、ActMem は平均成功率 68.8% を記録し、SimpleMemVLA（58.8%）や MemoryVLA（55.0%）を大きく引き離しました。「コップとブロック」や「ハサミの回収」といった外的な遮蔽タスクで 75%、「ティッシュの引き抜きカウント」で 65% の成功率を達成しています。\n\n### 4.4 アブレーションと分析\nRoboMemArena での削ぎ落とし実験（Table 3）により、以下の点が明らかになりました：\n- 履歴動画を完全に取り除くと TSR は 52.3% から 17.7% に激減し、直近 10 秒だけ残しても 31.2% にとどまるため、長い文脈の保持が必須です。\n- 潜在記憶 CoT の代わりにサブタスクの「単語埋め込み」だけを渡すと TSR は 40.4% に低下しました。生成テキストの単語だけでなく、隠れ状態に含まれる文脈情報が効いている証拠です。\n- 知覚アテンションを外すと TSR は 47.7% に低下し、現在画像の精密な誘導が不可欠であることが裏付けられました。\n\n### 4.5 潜在記憶 CoT は何を保持しているのか\nワインを 2 回注ぐタスクにおいて、1 回目と 2 回目の終了直後の特徴量を比較しました（Figure 5a）。入力画像の特徴量同士はコサイン類似度 0.99 とほぼ見分けがつきませんが、潜在記憶 CoT では 0.22 と明確に分離されていました。あえてサブタスク文字列を同じテキストに強制固定（Teacher-forcing）しても類似度は 0.25 と分離されたままであり、隠れ状態そのものが「何回注いだか」という進行状況を記憶していることが確認されました。\n\n### 4.6 推論速度\n効率的推論手法を用いることで、履歴が 90〜126 フレームに達しても決定遅延を 0.52 秒（標準推論では 1.42 秒）に抑え、実用的な速度を維持できることを示しました。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "実機ロボット実験の様子と各手法の成功率比較です。左は評価した 4 つのタスク（コップとブロック、ティッシュカウント、引き出し探索、ハサミ回収）、右は成功率のグラフです。ActMem（黄色）がすべてのタスクで既存手法を上回っています。",
+     "caption": "Figure 3 : Visualization of real-world tasks and comparison of real-world performance. Left : (a) Cup-and-Block, (b) Tissue Counting, (c) Cabinet Search, and (d) Scissor Retrieval, spanning exogenous, endogenous, and traceless memory. Right : success rates of MemoryVLA, MEM- $\\pi_{0.5}$ , SimpleMemVLA, and ActMem. Each task is evaluated over 40 trials, and success rates are computed accordingly.",
+     "image": "details/2611.25461/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "RoboMemArena のタスク実行中における過去フレームへのアテンション可視化です。現在ステップ（61秒時点）ではすでに隠れて見えなくなっている重要なイベントのフレーム（33秒時点、星印）に強く注目していることが分かります。",
+     "caption": "Figure 4 : Attention over historical frames. History frames of the RoboMemArena task Put cookies into the top drawer and put chocolate into another drawer , overlaid with ActMem’s attention (green) at 61 s (predicted subtask: “close the middle drawer”). Attention is the causal softmax from the generated subtask tokens to the history tokens, averaged over subtask tokens, heads, and backbone layers 3, 7, …, 31. The starred frame (33 s) contains the task-relevant event, no longer visible at the decision step.",
+     "image": "details/2611.25461/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "潜在記憶 CoT の解析と推論遅延のグラフです。(a, b)「ワインを2回注ぐ」作業で、1回目と2回目の特徴量が潜在記憶 CoT では明確に分離されている様子を示しています。(c) 履歴フレーム数が増加しても、提案の Efficient 推論（濃い青線）なら遅延が緩やかにしか増えないことを示しています。",
+     "caption": "Figure 5 : (a) What Latent Memory CoT encodes. Representations after the first (circles) and second (triangles) pour in Pour wine into the mug twice (100 demonstrations); numbers give the cosine similarity between the two class means. Same text: “pour the wine into the mug” is teacher-forced for all samples. Residual axes are magnified for visibility. (b) Class-mean distance between the two moments in each feature space, divided by the mean feature norm. (c) Inference latency per decision (median, single GPU) versus history length on RoboMemArena; shaded: interquartile range; dashed: $\\pi_{0.5}$ -family models with fixed-size memory (see supplementary material).",
+     "image": "details/2611.25461/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "ActMem は潜在空間での記憶推論と現在知覚のグラウンディングを分離することで、長時間の記憶を要するロボット操作を高い精度と速度で実現しました。今後の課題は、数十分におよぶ超長時間の作業における過去フレームの取捨選択です。",
+   "details_ja": "ActMem は、単一の VLM バックボーンの中で「記憶推論」と「知覚グラウンディング」を明確に切り分けるインコンテキスト記憶フレームワークです。履歴から推論したサブタスクの隠れ状態（潜在記憶 CoT）がテキストに現れない作業進行度を保持し、知覚アテンションが手元の精密な動作を支えます。シミュレーションおよび実機タスクにおいて、既存の最高性能を更新する成果を収めました。\n\n本手法の限界として、現状の実装ではサンプリングした全フレームをコンテキスト内に保持し続ける点が挙げられます。KV キャッシュの再利用により計算量は抑えられているものの、アテンションの計算対象自体はエピソード長とともに増えていくため、決定遅延は 0.33 秒から 0.52 秒へと徐々に増大します。今後、数十分から数時間に及ぶような超長期タスクを扱うためには、過去のすべてのフレームを抱え込むのではなく、潜在空間で保持すべき記憶を選択・検索する仕組みが必要になると指摘されています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：実装の詳細と実機ロボット環境",
+   "summary_ja": "双腕移動ロボット ARX LIFT2 を用いた遠隔操作データ収集や、VLM バックボーンへのプロンプト形式、推論時の KV キャッシュ再利用率などの詳細が記されています。",
+   "details_ja": "### 実機ロボットプラットフォーム\n実機実験では、全方位移動台車と昇降コラムを備えた双腕ロボット「ARX LIFT2」を使用しました。各アームは 6 自由度の ARX X5 で、頭部に 1 台、両手先に各 1 台の計 3 台の RealSense D405 カメラを搭載しています。教示データは VR ヘッドセットとハンドコントローラを用いたテレオペレーションにより収集されました。推論ステーション（RTX 5090 D）と有線 LAN で接続し、30 Hz で 50 ステップの行動チャンクを実行する構成です。\n\n### プロンプトとサブタスク注釈\nバックボーン VLM には「Front camera: [動画] Wrist camera: [現在画像]」に続けて、ロボットの仕様や現在のサブタスクを特定するよう促す指示文を入力します。実機タスクのサブタスクラベルは、Qwen3-VL を用いて自動生成した後に手動でスポットチェックを行って作成しました。\n\n### キャッシュ再利用の詳細\n推論効率化メカニズム（Efficient Memory CoT Inference）を適用した際、KV キャッシュのプレフィックス再利用率は 98.4% に達しました。また、直前のサブタスクがそのまま採択されて新規デコードが不要だった割合は全体の 71.2%（履歴 60 フレーム以下では 94%）に上り、これが大幅な高速化の要因となっています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "記憶付き VLA では、過去画像をそのまま渡すのではなく「履歴から何が言えるか」を潜在空間で推論させてから渡す設計が極めて有効である",
+  "サブタスクをテキスト文字列として渡すと進行回数などの情報が落ちるが、推論時の隠れ状態（潜在記憶 CoT）をそのまま渡せば情報を失わずに済む",
+  "履歴の推論と手元の知覚（Perception Attention）の入力経路を分けることで、長時間の履歴を扱っても手元の細かな操作精度を落とさずに両立できる",
+  "ロボット制御の連続するステップ間ではサブタスクや履歴の変化が少ないため、投機的デコードに似たドラフト再利用と KV キャッシュの活用で大幅なレイテンシ削減が可能である"
+ ],
+ "limitations_ja": [
+  "エピソード内の全フレームをコンテキストに保持し続けるため、数十分〜数時間に及ぶような超長時間のタスクではメモリと計算時間が線形に増加してしまう",
+  "自己の探索履歴を追跡するタスク（一度開けた引き出しを再度開けないようにする探索など）は、外的な遮蔽タスクに比べて成功率がやや低く、課題が残る",
+  "サブタスクのアノテーション（または VLM による自動分割）が学習時に必要であり、完全に教師なしで記憶構造を獲得しているわけではない"
+ ],
+ "keywords": [
+  "Vision-Language-Action (VLA)",
+  "Robot Manipulation",
+  "Long-Horizon Task",
+  "Chain-of-Thought (CoT)",
+  "Flow Matching",
+  "In-Context Memory"
+ ],
+ "id": "2611.25461",
+ "title": "ActMem: From Latent Memory Reasoning to Grounded Robotic Action",
+ "authors": [
+  "Linfeng Dong",
+  "Jianwei Niu",
+  "Jiuyi Zhao",
+  "Ruibing Feng",
+  "Xinghao Wu",
+  "Wu Yang",
+  "Shuai Tao",
+  "Wulong Liu",
+  "Mu Li"
+ ],
+ "date": "2026-11-21",
+ "group": "general",
+ "tags": [
+  "vision-language-action",
+  "manipulation",
+  "planning"
+ ],
+ "categories": [
+  "cs.CV",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.25461",
+ "pdf_url": "https://arxiv.org/pdf/2611.25461",
+ "summary_ja": "長期マニピュレーション向けVLAモデルにおいて、記憶推論と現在の知覚グラウンディングを分離するインコンテキスト記憶手法「ActMem」を提案。単一のVLM上で過去の経験から行動方針を導く記憶推論と現在の視覚に基づく精密制御を両立させ、文脈圧迫を防ぎつつタスク遂行能力を向上させた。",
+ "generated": "2026-11-21",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.25461"
+}
