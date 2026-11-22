@@ -1,6 +1,281 @@
 {
  "entries": [
   {
+   "date": "2026-11-22",
+   "rank": 0,
+   "id": "2611.26600",
+   "group": "focus",
+   "title": "A Tutorial on Complementarity-Based Contact Models for Robotics",
+   "title_ja": "ロボティクスのための相補性に基づく接触モデルのチュートリアル",
+   "summary_ja": "ロボットの運動生成や制御、機構設計に不可欠な接触を含む剛体ダイナミクスシミュレーションについて、錐相補性定式化とソルバーを体系的に整理したチュートリアル。計算力学やCG分野に分散していた知見を、ロボティクス向けに統一的な表記と完全な導出で網羅的に解説している。",
+   "summary_en": "This tutorial presents a self-contained pedagogical treatment of cone complementarity-based contact models and numerical solvers for rigid-body simulation in robotics. It unifies theoretical formulations and algorithms previously scattered across computational mechanics and graphics into consistent notation with complete derivations.",
+   "authors": [
+    "Onur Beker",
+    "A. René Geist",
+    "Michael Posa",
+    "Marc Toussaint",
+    "Justin Carpentier",
+    "Georg Martius"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.GR",
+    "math.OC"
+   ],
+   "tags": [
+    "simulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.26600",
+   "image": "figures/2026-11-22/2611.26600.jpg"
+  },
+  {
+   "date": "2026-11-22",
+   "rank": 1,
+   "id": "2611.26420",
+   "group": "focus",
+   "title": "Awaken-HI: Scaling Humanoid Intelligence with Whole-Body Human Experience",
+   "title_ja": "Awaken-HI: 全身の人身体験によるヒューマノイド知能の拡張",
+   "summary_ja": "ヒューマノイドの全身移動操作（loco-manipulation）のため、約5万時間の人間の主観視点ステレオ映像と同期全身動作を収録したデータセットAwaken-Humanを構築。さらに、人間の元動作とロボットへのリターゲティング動作を共通のエキスパートで予測するVLAモデルAwaken-HIを提案した。",
+   "summary_en": "The authors build Awaken-Human, a dataset pairing around 50,000 hours of egocentric stereo video with synchronized whole-body human motion across over 100 skills. Leveraging this, they propose Awaken-HI, a vision-language-action model that jointly predicts human motion and retargeted humanoid actions using a shared action expert for loco-manipulation.",
+   "authors": [
+    "EngineAI"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.26420",
+   "image": "figures/2026-11-22/2611.26420.jpg"
+  },
+  {
+   "date": "2026-11-22",
+   "rank": 2,
+   "id": "2611.26596",
+   "group": "focus",
+   "title": "PGX: Physically Grounded Execution for Long-Horizon Humanoid Loco-Manipulation",
+   "title_ja": "PGX: 長期ヒューマノイド移動操作のための物理的グラウンディング実行",
+   "summary_ja": "ヒューマノイドの長期移動操作において、VLAモデル単体での制御困難を解決するPGXフレームワークを提案。物理述語に基づく状態遷移マシンと幾何アライメント計画という2つの学習不要モジュールを導入し、時間構造や精度管理を外部化することで、VLAを各段階のスキル実行に専念させて高精度な遂行を達成した。",
+   "summary_en": "The authors introduce Physically Grounded Execution (PGX), a framework that offloads temporal progress and spatial precision to two training-free modules: a predicate-based state machine and a geometric alignment planner. This allows the VLA model to focus on stage-specific skill dynamics, enabling reliable long-horizon humanoid loco-manipulation.",
+   "authors": [
+    "Kai Lu",
+    "Chenyang Ma",
+    "Ioannis Havoutis"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.26596",
+   "image": "figures/2026-11-22/2611.26596.jpg"
+  },
+  {
+   "date": "2026-11-22",
+   "rank": 3,
+   "id": "2611.26074",
+   "group": "focus",
+   "title": "Controlling the Humanoid Robot H1-2 With a Simulated Biologically Plausible Network",
+   "title_ja": "生体妥当性を持つシミュレーションネットワークによるヒューマノイドロボットH1-2の制御",
+   "summary_ja": "生物学的妥当性を有する人工スパイキングニューラルネットワーク（SNN）を用い、実機ヒューマノイドUnitree H1-2の歩行制御を検証した研究。生体外神経培養を模した固定リザーバーから全結合リカレント層の学習まで複数手法を比較し、生物学的忠実度と動的安定性の両立可能性を実証している。",
+   "summary_en": "This work investigates biologically inspired spiking neural networks (SNNs) for controlling humanoid locomotion, evaluated on the Unitree H1-2 robot. By comparing training schemes ranging from fixed biological reservoirs to fully trainable recurrent networks, it demonstrates the feasibility and trade-offs between biological plausibility and dynamic walking stability.",
+   "authors": [
+    "Fatima Atwi",
+    "Constant Roux",
+    "Christian Bergaud",
+    "Olivier Stasse"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.26074",
+   "image": "figures/2026-11-22/2611.26074.jpg"
+  },
+  {
+   "date": "2026-11-22",
+   "rank": 4,
+   "id": "2611.26218",
+   "group": "focus",
+   "title": "MixReact: Physics-Based Reactive Humanoid Control from Multimodal Cues via a Discrete-Continuous Mixture of Transformers",
+   "title_ja": "MixReact: 離散・連続混合Transformerによるマルチモーダル刺激からの物理的ヒューマノイド反応制御",
+   "summary_ja": "テキストや音声、映像などの合図に応じて物理的に実行可能なヒューマノイドの反応動作を生成する統合制御フレームワークMixReactを提案。離散・連続Mixture-of-Transformersによる状態予測と行動変換器による制御実行を結合し、従来の運動学的生成特有の物理的アーティファクトを解消した。",
+   "summary_en": "The authors propose MixReact, a unified framework for physics-based reactive humanoid control driven by multimodal cues including text, audio, and video. It couples a Discrete-Continuous Mixture of Transformers for state prediction with an Action Transformer for physical execution, eliminating physical artifacts typical of kinematic generation.",
+   "authors": [
+    "Bin Li",
+    "Xing Zhu",
+    "Jingya Wang"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "humanoid",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.26218",
+   "image": "figures/2026-11-22/2611.26218.jpg"
+  },
+  {
+   "date": "2026-11-22",
+   "rank": 5,
+   "id": "2611.25980",
+   "group": "general",
+   "title": "Learning What Actions Change: Action Effect Matching for Dynamics-Faithful World Models",
+   "title_ja": "行動が何を変えるかを学ぶ: ダイナミクスに忠実な世界モデルのための行動効果マッチング",
+   "summary_ja": "微小な行動変化がもたらす観測の差異を忠実に捉える世界モデルの補助学習法AFFECTを提案。方策の行動に時間相関ノイズを注入し、行動摂動によって生じる視覚変化の分布を整合させることで、方策評価やモデルベースプランニングにおける予測信頼性を大幅に向上させた。",
+   "summary_en": "The paper proposes AFFECT, an auxiliary training objective for robotic world models designed to faithfully capture how action perturbations alter future observations. By injecting temporally correlated action noise and matching visual change distributions, it substantially improves dynamics fidelity for policy evaluation and model-based planning.",
+   "authors": [
+    "John Won",
+    "Yonghoon Dong",
+    "Jinwoo Shin"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "world-model",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.25980",
+   "image": "figures/2026-11-22/2611.25980.jpg"
+  },
+  {
+   "date": "2026-11-22",
+   "rank": 6,
+   "id": "2611.26565",
+   "group": "general",
+   "title": "PhyDEX: A Benchmark for Physical Reasoning in Vision-Language-Action Models via Dynamic Extrinsic Dexterity",
+   "title_ja": "PhyDEX: 動的外在器用さを通じた視覚言語行動モデルの物理推論ベンチマーク",
+   "summary_ja": "VLAモデルが物体の質量や重心、摩擦などの物理特性を真に理解しているかを検証するベンチマークPhyDEXを提案。ロボットの可動域外へ物体を投擲するタスクを設定し、140種類の物体と3.5万本の軌跡からなるシミュレーションと実機評価を通じて、既存モデルの物理推論の限界を明らかにした。",
+   "summary_en": "The authors present PhyDEX, a benchmark evaluating whether VLA models comprehend physical properties like mass, center of mass, and friction through dynamic extrinsic dexterity. Using object-throwing tasks beyond the robot's kinematic reach across 35K trajectories and 140 objects, it reveals key limitations in current policies' physical reasoning capabilities.",
+   "authors": [
+    "Hao Vo",
+    "Taisei Hanyu",
+    "Yuki Ikebe",
+    "Pham Tri Quang",
+    "Sreevenkata Anjani Tishita Godavarthi",
+    "Nghi D. Q. Bui",
+    "Daniel Sonntag",
+    "Chase Rainwater",
+    "Duy Minh Ho Nguyen",
+    "Anh Nguyen",
+    "Ngan Le"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "benchmark",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.26565",
+   "image": "figures/2026-11-22/2611.26565.jpg"
+  },
+  {
+   "date": "2026-11-22",
+   "rank": 7,
+   "id": "2611.26485",
+   "group": "general",
+   "title": "An Open-Source ROS 2 Framework for Shared Control in Surgical Teleoperation: Integrating the Haply Inverse3 with the da Vinci Research Kit",
+   "title_ja": "手術遠隔操作における共有制御のためのオープンソースROS 2フレームワーク",
+   "summary_ja": "手術支援ロボットの遠隔操作における力覚提示共有制御研究のため、小型3自由度力覚提示デバイスHaply Inverse3とda Vinci Research Kit（dVRK）を統合するROS 2フレームワークを開発。並進と姿勢追従を組み合わせた6自由度マッピング手法と仮想固定具ガイダンスを実装した。",
+   "summary_en": "This paper presents an open-source ROS 2 framework integrating the Haply Inverse3 haptic device with the da Vinci Research Kit (dVRK) for surgical teleoperation. It introduces a mapping strategy fusing translational input with tool orientation into 6-DOF commands, along with virtual fixture-based guidance modes.",
+   "authors": [
+    "Balint Varga",
+    "Sebastian Fritz",
+    "Gergely Kiss",
+    "Kristof Takacs",
+    "Peter Galambos"
+   ],
+   "categories": [
+    "cs.RO",
+    "eess.SY"
+   ],
+   "tags": [
+    "teleoperation",
+    "medical",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.26485",
+   "image": null
+  },
+  {
+   "date": "2026-11-22",
+   "rank": 8,
+   "id": "2611.26341",
+   "group": "general",
+   "title": "Reasoning on Call: Efficient Agentic Robot Control for Long-Horizon Robot Manipulation",
+   "title_ja": "Reasoning on Call: 長期ロボットマニピュレーションのための高効率エージェント制御",
+   "summary_ja": "長期マニピュレーションにおいてマルチモーダル基盤モデルの呼出頻度と遅延を削減するRoCを提案。時系列画像と履歴からサブタスクの進捗を常時監視し、低レイヤ方策の実行失敗や計画修正が必要なタイミングのみ高次推論をイベント駆動で呼び出すことで、低コストかつ高信頼な制御を実現した。",
+   "summary_en": "The authors propose Reasoning on Call (RoC), a framework for long-horizon robot manipulation that minimizes latency and model API costs. An online monitor tracks subtask progress using visual and interaction memory, invoking the high-level reasoning agent only upon execution failures or phase transitions.",
+   "authors": [
+    "Zilang Cen",
+    "Chao Tang",
+    "Fangcheng Liu",
+    "Weishi Mi",
+    "Wei Hao",
+    "JiaYu Xu",
+    "Dehao Huang",
+    "Yehui Tang",
+    "Xiaohui Cui",
+    "Tingguang Li",
+    "Xiaoyuan Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "llm-agent",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.26341",
+   "image": "figures/2026-11-22/2611.26341.jpg"
+  },
+  {
+   "date": "2026-11-22",
+   "rank": 9,
+   "id": "2611.26276",
+   "group": "general",
+   "title": "I See You: Initial Multi-Robot LiDAR Registration with Mutual-Observation Checks",
+   "title_ja": "I See You: 相互観測検証を用いたマルチロボット初期LiDARレジストレーション",
+   "summary_ja": "捜索救助等の環境において外部インフラや事前の地図重複なしに複数ロボット間で初期点群位置合わせを行う手法を提案。ロボット同士の相互観測に基づく幾何学的検証を導入することで、縮退環境での誤整合を防ぎ、2台を超えるチームへのスケールを可能にした。",
+   "summary_en": "The paper proposes a decentralized LiDAR registration framework for multi-robot teams operating in infrastructure-free environments. By leveraging mutual-observation geometric checks among robots, it robustly rejects false matches in degenerate or aliased scenes and scales successfully to teams of more than two agents.",
+   "authors": [
+    "Jonathan Lichtenfeld",
+    "Oskar von Stryk"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "multi-robot",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.26276",
+   "image": "figures/2026-11-22/2611.26276.jpg"
+  },
+  {
    "date": "2026-11-21",
    "rank": 0,
    "id": "2611.26054",
