@@ -1,0 +1,141 @@
+{
+ "title_ja": "MixReact: 離散・連続混合Transformerによるマルチモーダル刺激からの物理的ヒューマノイド反応制御",
+ "tldr_ja": "テキスト・音声・動画の手がかりからヒューマノイドの多様で物理的に破綻のない反応動作を生成・制御する統合フレームワークMixReactを提案し、離散トークンによる大局的計画と連続拡散による状態予測を片方向Attentionで組み合わせることで、平均化崩壊を防ぎつつ高精度な閉ループ制御を実証しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "MixReactの全体構成。テキスト・音声・動画の入力をMCAで意味メモリに変換し、DisCo-MoT内で離散系列計画と連続拡散予測を片方向Mixture Attentionで結合して次の状態を生成します。これを履歴考慮型コントローラHATが受け取り、物理シミュレータ上でロバストな閉ループ制御を実現します。",
+  "caption": "Figure 2 : Overview of MixReact. MCA maps a text, audio, or video cue to the semantic memory $C$ . Within DisCo-MoT, discrete masked modeling samples a complete reaction once, providing cached intermediate keys and values that guide history-conditioned autoregressive diffusion through one-way mixture attention. HAT converts each predicted next state and observed execution history into an executable action, while simulator feedback updates both prediction and control histories.",
+  "image": "details/2611.26218/F2.jpg"
+ },
+ "overview_ja": "日常生活における人間は、飛んできたボールを避けたり挨拶に手を振り返したりと、周囲の状況に自然に反応します。ヒューマノイドにも同様の応答性が求められますが、従来の反応生成手法は「相手の3D骨格データ」という特殊な入力を前提にしていたり、生成が物理法則を無視したキネマティクス（幾何的な動き）に限られていたりしました。そのため、足の滑りや空中浮遊、さらには物理シミュレータ上で追従できずに転倒してしまう問題が起きていました。また、1つの手がかり（挨拶など）に対して会釈・手振り・お辞儀など複数の妥当な反応が存在する「1対多マッピング」において、連続表現だけでは動きが平均化されて不自然になり、離散トークンだけでは量子化誤差で物理バランスに必要な微細情報が失われるというジレンマもありました。\n\nそこで著者らは、テキスト・音声・動画のマルチモーダルな手がかりから物理シミュレーション駆動の反応制御を行う統合フレームワーク「MixReact」を開発しました。核心となるのは、離散表現と連続表現のいいとこ取りをした状態生成モデル「DisCo-MoT」です。まず離散ブランチで反応全体のトークン列を大局的な行動計画として一括サンプリングし、その中間特徴をKey-Valueキャッシュとして保持します。次に連続ブランチが片方向Mixture Attentionを通じてその大局文脈を参照しつつ、過去の実行履歴を考慮して未来の物理状態を自己回帰拡散モデルで直接予測します。さらに、予測された次状態と実行履歴から実行可能な関節トルク指令を生成する履歴考慮型コントローラ「HAT」を組み合わせました。\n\n実験では、ReactMotionNet（テキスト・音声）とViMo（動画）のデータセットを用い、Isaac Gym環境で評価を実施しました。MixReactは既存手法と比べて動作の忠実度（FID）、多様性、接地性（浮遊・足滑り誤差の削減）の全指標で大幅な改善を達成し、約1.15倍の実時間速度での閉ループ制御も確認されました。これにより、マルチモーダル入力から多彩かつ物理的に安定した反応動作を生成・実行できることが明確に示されました。",
+ "contributions_ja": [
+  "テキスト・音声・動画のマルチモーダル入力から物理シミュレーション上のヒューマノイド反応動作を閉ループ制御する初の統合フレームワークMixReactを提案したこと",
+  "離散マスクモデリングと連続自己回帰拡散モデルを片方向Mixture Attentionで結合し、1対多の平均化崩壊を防ぎつつ量子化ボックネックを回避するDisCo-MoTアーキテクチャを導入したこと",
+  "予測状態と過去の実行履歴を統合して関節アクションへマッピングし、物理シミュレーション下でのロバストな追従を実現する制御器HATを開発したこと",
+  "3つのモダリティすべてにおいて既存ベースラインを上回る動作忠実度・多様性・物理的一貫性と、実時間（約1.15倍速）での制御性能を実証したこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "言葉や音、映像からヒューマノイドが自然に反応するために",
+   "summary_ja": "人間は周囲の様々な刺激に対して多種多様な反応を返しますが、従来の反応生成は相手の3Dモーションを仮定したキネマティクス生成が中心でした。本論文はテキスト・音声・動画を入力とし、物理シミュレーション上で破綻なく動くヒューマノイド制御を目指します。",
+   "details_ja": "人間は日常空間で孤立して動いているわけではありません。犬が飛びかかってくれば身を引き、ボールが飛んでくれば腕でガードし、声をかけられれば手を振り返します。こうした柔軟な応答性をヒューマノイドに獲得させることは、ロボティクスやEmbodied AIにおける重要課題です。\n\nしかし、従来の反応生成研究には2つの大きな壁がありました。1つ目は、入力が対話相手の綺麗な3D骨格モーションに依存していたり、テキストや動画など限られた1つのモダリティにしか対応していなかった点です。2つ目は、生成される動作がキネマティクス（純粋な関節角度の軌道）に留まり、物理制約が考慮されていない点です。そのため、身体のめり込みや足の滑り（スケーティング）、空中浮遊が発生し、物理シミュレータにそのまま流し込むとバランスを崩して倒れてしまいます。\n\nさらに本質的な難しさは、刺激に対する反応が「1対多」である点にあります。例えば「おめでとう！」と言われたとき、拍手する人もいれば、ハグをしたりダンスを踊ったりする人もいます。従来の連続空間でのモデル化では、これら複数の反応モードが混ざり合って「何もしない中途半端な姿勢」に平均化（モード崩壊）しがちでした。一方で離散トークンを用いたモデリングは多様なモードを選択できますが、離散化に伴う情報欠落が激しく、バランス維持や接触に必要な微細な状態量を正確に復元できません。\n\nそこで著者らは「どの反応をするかは離散的な選択、それをどう実行するかは連続的な制御」という役割分担に着目し、両者を統合したMixReactを提案しました。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "物理ヒューマノイド制御とマルチモーダル反応生成の交差点",
+   "summary_ja": "物理ベースの追従制御や拡散モデルを用いた動作生成、対話相手に応じた反応生成の研究が発展してきました。MixReactは、入手が困難な相手の3Dモーションを不要とし、マルチモーダルな刺激から閉ループ物理制御までを一貫して扱う点で一線を画します。",
+   "details_ja": "本研究は主に以下の3つの研究分野の交差点に位置づけられます。\n\n### 物理ベースヒューマノイド制御\n強化学習を用いて参照モーションを追従するDeepMimicやAMP、多様な動作をロバストに追従するPHCなどが発展してきました。さらに、拡散モデルをプランナとして組み込み、シミュレータの物理フィードバックを受けながら動作生成を行うCLoSDのような試みも登場しています。しかし、マルチモーダルな刺激に対して1対多の反応を物理的に成立させる研究はまだほとんど手付かずでした。\n\n### 人間の反応動作生成\n対話動作の合成は、相手の3Dモーションを入力とする手法が主流でした。近年ではHEROやNOUSのように動画から反応を生成したり、ReactMotionのように発話テキストや音声からリスナー動作を生成する研究も現れています。しかしこれらはキネマティクス生成に閉じており、物理追従させようとすると破綻します。一部に物理追従を試みる手法もありますが、やはり相手の3Dモーションが必要でした。MixReactは、実環境で取得が難しい3D骨格を仮定せず、テキスト・音声・RGB動画から直接物理制御を可能にします。\n\n### Mixture of Transformers (MoT)\n離散トークン予測と連続拡散モデルを1つのTransformerアーキテクチャに統合する試み（TransfusionやMoTなど）が近年注目を集めています。MixReactのDisCo-MoTは、大局的な反応計画を離散マスクモデリングで一度決定し、その特徴を片方向のAttentionを通じて連続拡散プロセスに伝える独自の非対称構造を採用しています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "離散と連続のハイブリッド構造「DisCo-MoT」と制御器「HAT」",
+   "summary_ja": "MixReactは、マルチモーダル入力を意味メモリに写すMCA、離散大局文脈と連続拡散を片方向Attentionで繋ぐDisCo-MoT、そして状態と履歴からトルク指令を出すHATで構成されます。これにより、平均化を防ぎつつ物理実行可能な精密な状態系列を生成します。",
+   "details_ja": "システム全体は、知覚からアクション生成までの閉ループとして設計されています。\n\n### 3.1 マルチモーダル適応器（MCA）\nテキスト（CLIP）、音声（AudioCLIP）、動画（TC-CLIP）の各事前学習済み凍結エンコーダから特徴量を抽出し、モダリティごとの線形層と共通射影層を経て、統一された意味メモリ $C$ に変換します。DisCo-MoTはこれを条件情報として参照します。\n\n### 3.2 離散・連続混合Transformer（DisCo-MoT）\nDisCo-MoTは本手法の心臓部であり、2つのブランチから構成されます。\n- **離散マスクモデリングブランチ**: ヒューマノイドの状態軌道を事前にVQ-VAEで離散トークン化しておきます。推論開始時に、意味メモリ $C$ を条件として反応全体のトークン列 $Z$ を一括サンプリングします。これにより「今回は拍手をする」といった大局的な反応方針が確定し、以降の予測ウィンドウを通じて固定の文脈として保持されます。\n- **連続自己回帰拡散ブランチ**: 離散トークンをそのままデコードすると量子化誤差で物理バランスが崩れるため、未来の状態量（$D_s=358$ 次元）を連続空間で直接予測します。過去 $h_d$ フレームのシミュレーション履歴と離散ブランチの中間特徴を参照しながら、10ステップの拡散過程で未来 $n_f$ フレームの状態ウィンドウをクリーンにデノイズします。\n- **片方向Mixture Attention**: ここが重要な工夫です。連続ブランチのクエリは、自身のKey-Valueに加えて離散ブランチの中間Key-Valueキャッシュを参照できますが、勾配はstop-gradientで遮断されます。また離散ブランチ側からはマスクによって連続ブランチの特徴を一切見せないようにしています。これにより、連続デノイズの局所的な揺らぎが大局的な行動計画を破壊するのを防ぎます。\n\n### 3.3 履歴考慮型アクション制御器（HAT）\nHATは、DisCo-MoTが予測した次の望ましい状態 $\\hat{s}_{t+1}$ と、シミュレータから得られた直近の実行履歴 $H_t^a$ を入力として受け取り、関節PD制御器への目標関節角アクション $a_t \\in \\mathbb{R}^{69}$ を出力します。教師ポリシー（PHC）からのDAggerベースのオンライン蒸留によって学習されており、自身の制御誤差によるズレを履歴から補正できるため、高い外乱耐性を誇ります。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "DisCo-MoTの内部処理フロー。上段の離散ブランチが大局的なトークン列を一括生成し、その中間Key-Valueが片方向Attention経由で下段の連続自己回帰拡散ブランチをガイドします。予測された状態は右側のHATに渡され、シミュレータからのフィードバック履歴とともに閉ループを形成します。",
+     "caption": "Figure 2 : Overview of MixReact. MCA maps a text, audio, or video cue to the semantic memory $C$ . Within DisCo-MoT, discrete masked modeling samples a complete reaction once, providing cached intermediate keys and values that guide history-conditioned autoregressive diffusion through one-way mixture attention. HAT converts each predicted next state and observed execution history into an executable action, while simulator feedback updates both prediction and control histories.",
+     "image": "details/2611.26218/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "ベースラインを圧倒する表現力と物理安定性",
+   "summary_ja": "ReactMotionNetとViMoを用いて評価を行い、MixReactはFID・多様性・物理的一貫性（浮遊・滑りの低減）のすべてで従来手法を凌駕しました。アブレーション実験により、離散と連続の相補的な組み合わせと片方向Attentionの必然性が裏付けられました。",
+   "details_ja": "評価には、テキスト・音声対話データセット「ReactMotionNet」と、動画駆動データセット「ViMo」を用い、Isaac Gymシミュレータ（SMPL骨格モデル、24関節・69アクチュエータ）上で検証しました。\n\n### 定量評価とベースライン比較\n比較対象として、既存のキネマティクス生成手法に追従コントローラを組み合わせたReactMotion++、HERO++、NOUS++、および拡散プランナと制御器を統合したCLoSD（マルチモーダル対応に拡張）を用意しました。\n- **生成品質と多様性**: MixReactは全モダリティで最も低いFIDを達成しました。動画（ViMo）ではNOUS++比でFIDが17.5%改善。また、同一刺激に対する反応の広がりを示すMultiModality（MModality）でも最高値を記録し、1対多の反応を豊かに生成できています。\n- **物理的一貫性**: 足の滑りを測るSkating誤差ではNOUS++比で34.2%削減、空中浮遊を測るFloating誤差では音声入力時でReactMotion++比40.9%削減を達成しました。キネマティクス参照軌道を無理に追従する既存手法と異なり、実際のシミュレーション履歴を考慮しながら未来状態を連続生成しているためです。\n\n### 定性評価\n図3〜5に示すように、MixReactは「勝利の瞬間」というテキストに対して拍手や軽快なステップで応じ、リズミカルな音楽にはダンスで反応します。動画で爆発が起きると驚いて後退りしながらもしっかりバランスを保ちます。一方、ベースライン手法は爆発に驚いた拍子に転倒したり、逆に直立不動に近い抑えめの動きしか出せない様子が顕著でした。\n\n### アブレーション研究\n各コンポーネントの有効性を検証しました。\n- **離散ブランチの除去**: 音声のMModalityが38.4%も急落し、動作が平均化されておとなしくなりました。大局的な方針決定における離散トークンの重要性が証明されました。\n- **連続ブランチの除去（離散トークンをVQ-VAEで直接デコード）**: FIDが動画で20.1%悪化し、接地エラーが増加しました。量子化誤差が物理制御に与える悪影響を示しています。\n- **双方向Attentionへの変更**: 連続デノイズの勾配が離散表現を乱すため、動作の滑らかさを示すJerk（躍度）が約2倍に悪化し、転倒しやすくなりました。片方向設計の正しさが確認できます。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "テキスト駆動反応の比較。勝利の言葉に対して、MixReact（右・桃色）は拍手やダンスなどの豊かな表現をバランスを崩さずに行いますが、ReactMotion++（左）は転倒し、CLoSD（中央）は微小な動きに留まっています。",
+     "caption": "Figure 3 : Qualitative comparison of text-driven humanoid reaction control. MixReact responds with celebratory clapping and expressive dancing. ReactMotion++ [ 44 , 45 ] loses balance in the first example and exhibits limited articulation in the second, whereas CLoSD [ 69 ] produces restrained responses in both. Color shading indicates temporal progression, from light (earlier) to dark (later ).",
+     "image": "details/2611.26218/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "音声駆動反応の比較。リズミカルな音声刺激に対し、MixReactは躍動的なステップを踏みつつ転倒しません。ベースラインは激しい動きに追従できずバランスを失っています。",
+     "caption": "Figure 4 : Qualitative comparison of audio-driven humanoid reaction control. MixReact produces expressive reactions while maintaining balance, whereas ReactMotion++ [ 44 , 45 ] loses balance and CLoSD [ 69 ] exhibits comparatively restrained responses.",
+     "image": "details/2611.26218/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "動画駆動反応の比較。爆発シーン（上段）に対してMixReactは後退りして身を守る動作を安定して行いますが、他の手法はバランスを崩して地面に倒れ込んでいます。",
+     "caption": "Figure 5 : Qualitative comparison of video-driven humanoid reaction control. MixReact responds to the explosion with a startled retreat and to the striking action with a defensive posture. The baselines lose balance in the explosion example, while HERO++ [ 86 , 45 ] and CLoSD [ 69 ] exhibit less pronounced defensive responses to the striking action.",
+     "image": "details/2611.26218/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "アブレーション実験の定性結果。離散ブランチを抜くと反応が希薄になり、連続ブランチを抜くと動作幅が制限され、双方向Attentionにすると動作が不安定化して転倒が生じます。",
+     "caption": "Figure 6 : Ablation study of MixReact. Qualitative comparison of MixReact and its variants.",
+     "image": "details/2611.26218/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめ：日常世界と対話できるヒューマノイドに向けて",
+   "summary_ja": "MixReactは、テキスト・音声・動画から物理ベースのヒューマノイド反応制御を実現する新しい統合フレームワークです。離散大局計画と連続拡散予測を片方向Attentionで結びつけることで、多様性と物理整合性の両立を実証しました。",
+   "details_ja": "本論文では、マルチモーダルな日常の刺激に対して人間らしく物理的に妥当な反応動作を生成・制御する「MixReact」を提案しました。\n\nDisCo-MoTによる「離散的な大局行動の選択」と「連続空間での精緻な状態予測」の相補的な統合、そしてシミュレーション履歴を考慮して確実に関節を駆動するHATの導入により、これまで困難だった1対多の反応生成における平均化崩壊と物理破綻の問題を同時に解決しました。\n\n実験では定量的・定性的な評価に加え、実時間（約1.15倍速）で動作可能であることも示されており、ゲームやVR/ARのNPC、さらには実世界で人間と協調するフィジカルAI・ヒューマノイドロボットの実現に向けた重要な一歩となります。",
+   "figures": []
+  },
+  {
+   "heading": "付録（Appendix）",
+   "heading_ja": "付録：実装の詳細、ユーザスタディ、実時間性能、1対多生成の挙動",
+   "summary_ja": "HATのオンライン蒸留手法の詳細、20名の被験者によるユーザスタディ結果、30Hz制御下で約1.15倍の実時間処理を達成した計算レイテンシ、そして同一刺激から多様な反応を生み出す1対多生成の具体例を解説します。",
+   "details_ja": "論文付録から、本手法の理解と再現に役立つ重要ポイントをまとめました。\n\n### HATのオンライン蒸留と転倒率の削減\nHATは、凍結された追従教師ポリシー（PHC）からDAggerに基づくオンライン蒸留で学習されています。物理シミュレータ上でHAT自身が訪れた状態 $s_t$ と履歴 $H_t^a$ のもとで、教師のアクション $a_t^T$ を模倣します。この履歴考慮設計により、教師のPHCをそのまま使う場合と比べて転倒率が大幅に低減しました（テキスト時: 0.82% → 0.30%、動画時: 18.29% → 15.89%）。動画タスクの転倒率が全体的に高いのは、ViMoの動作がよりダイナミックで重心移動が激しいためです。\n\n### ユーザスタディと実時間性能\n- **ユーザスタディ**: 20名の参加者が反応の品質と文脈的一致度を5段階評価した結果、MixReactはテキスト4.22、音声4.13、動画4.17といずれもベースライン（最高でもNOUS++の3.63、ReactMotion++は2点台）を大きく引き離しました。\n- **計算速度**: 単一のNVIDIA RTX 3090 GPU上で、DisCo-MoTの離散大局計画サンプリングは初回に52.47ms（以降再利用）、連続ブランチの60フレーム状態予測（2秒分）は79.49ms（754.8状態/秒）です。HATの推論はわずか3.39msで済み、シミュレーションを含めたシステム全体の実行スループットは34.51ステップ/秒に達し、規定の30Hz制御に対して約1.15倍の実時間動作を確認しています。\n\n### 1対多反応のバリエーション\n同一の手がかりに対しても、離散ブランチのサンプリングによって全く異なる反応を生成できます。例えば悲哀・後悔を伝える音声に対して、両手を顔に当てて心配を示す反応、片手を挙げて安心させる反応、前傾姿勢で話を聞こうとする反応など、多様でありながら文脈に沿った動作を物理破綻なく実行できます。",
+   "figures": [
+    {
+     "key": "F10",
+     "caption_ja": "1対多反応生成の例。同一のテキスト・音声・動画の手がかりに対して、MixReactがサンプリングによって生成した3種類の異なる反応。いずれも文脈に適合しつつ、異なる身体動作と姿勢変化を物理シミュレーション内で安定して実現しています。",
+     "caption": "Figure 10 : One-to-many reaction generation. Each row shows three distinct reactions generated by MixReact from the same text, audio, or video cue and executed in physics-based simulation. Colors progress from light to dark to indicate temporal order.",
+     "image": "details/2611.26218/F10.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "動作生成における「何をするか（大局方針）」は離散トークンで、「どう動かすか（微細制御）」は連続拡散で解くという役割分担が、1対多の平均化崩壊と量子化誤差を同時に防ぐ強力な設計パターンになる",
+  "離散ブランチから連続ブランチへの情報伝達を片方向（stop-gradientかつアテンションマスク）に制限することで、局所的な拡散ノイズが大局的な行動文脈を破壊する現象を確実に防げる",
+  "物理ヒューマノイド制御においては、静的なキネマティクス軌道を追従するのではなく、シミュレータの実際の実行履歴を生成プランナ（DisCo-MoT）と低レベル制御器（HAT）の双方に入力し続ける閉ループ設計が転倒防止に決定的に重要である"
+ ],
+ "limitations_ja": [
+  "入力刺激に映る対象（例: 映像内の犬や物）との相対的な3D空間位置関係や直接の接触制約が考慮されておらず、手で対象に触れるなどの精密なインタラクションにはまだ至っていない",
+  "マルチモーダル入力を扱えるが、学習データセットの制約上、一度の推論ではテキスト・音声・動画のうちいずれか1つのモダリティしか受け取れず、複合的な同時入力に対応していない",
+  "検証が物理シミュレータ（Isaac Gym）内に限定されており、実機ヒューマノイドへ展開する際のセンサノイズやSim-to-Realギャップの検証が今後の課題として残されている"
+ ],
+ "keywords": [
+  "Humanoid Control",
+  "Reaction Generation",
+  "Multimodal Embodied AI",
+  "Mixture of Transformers",
+  "Physics-based Simulation",
+  "Diffusion Models"
+ ],
+ "id": "2611.26218",
+ "title": "MixReact: Physics-Based Reactive Humanoid Control from Multimodal Cues via a Discrete-Continuous Mixture of Transformers",
+ "authors": [
+  "Bin Li",
+  "Xing Zhu",
+  "Jingya Wang"
+ ],
+ "date": "2026-11-22",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "control"
+ ],
+ "categories": [
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.26218",
+ "pdf_url": "https://arxiv.org/pdf/2611.26218",
+ "summary_ja": "テキストや音声、映像などの合図に応じて物理的に実行可能なヒューマノイドの反応動作を生成する統合制御フレームワークMixReactを提案。離散・連続Mixture-of-Transformersによる状態予測と行動変換器による制御実行を結合し、従来の運動学的生成特有の物理的アーティファクトを解消した。",
+ "generated": "2026-11-22",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.26218"
+}
