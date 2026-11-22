@@ -1,0 +1,143 @@
+{
+ "title_ja": "Reasoning on Call: 長期ロボットマニピュレーションのための高効率エージェント制御",
+ "tldr_ja": "大規模マルチモーダルモデル（LMM）を毎ステップ呼ぶのではなく、タスク状態モニターが「必要な時だけ」呼び出して動作修正と計画見直しを連動させることで、低遅延・低コストかつ高成功率な長時間作業を実現した研究です。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "提案手法 RoC の全体像と既存手法との比較です。常にエージェントを呼ぶ従来アプローチと異なり、軽量なモニターが必要と判断したタイミング（金のマーカー）でのみ推論エージェントを呼び出し、動作修正と計画見直しを効率よく行います。",
+  "caption": "Figure 1 : Efficient agentic robot control with RoC. (a) Monitor-triggered agent intervention reduces its token overhead while supporting execution repair and plan revision. (b,c) Frequent agent calls incur repeated reasoning costs, whereas (d) policy-only control lacks agent assistance. Gold markers denote agent calls.",
+  "image": "details/2611.26341/F1.jpg"
+ },
+ "overview_ja": "近年、視覚と言語を扱えるマルチモーダルな推論エージェント（LMM）を使ってロボットに複雑な長時間作業をさせようという研究が盛んです。しかし、賢いエージェントを毎ステップ呼んでいると、莫大なトークン消費と大きな推論遅延が発生し、ロボットの動きがぎこちなくなってしまいます。かといって、下位の動作ポリシーだけに任せると、予期せぬ失敗からのリカバリーやタスクの切り替えでつまずいてしまいます。\n\nそこで著者らは、「普段の定型作業は軽量な下位ポリシーに任せ、困った時やタスクの節目だけエージェントを呼び出せばいいのではないか」と考えました。このオンコール推論を実現するのが、提案フレームワーク「RoC（Reasoning on Call）」です。RoC の心臓部は、現在のサブタスクの進捗を監視しつつ次の目標を予測する「オンライン・タスク状態モニター」です。このモニターが進捗の停滞・逆行などの異常や、サブタスクの完了、把持・配置といったクリティカルな接触を検知した瞬間だけ、エージェントを呼び出します。呼ばれたエージェントは、単に次の指示を出すだけでなく、ポリシーの動作を修正すべきか、計画（次のサブタスク）を変更すべきかを統合して判断します。\n\nシミュレーションベンチマーク「RMBench」と 5自由度ロボットアーム「SO-ARM101」の実機環境で検証したところ、RoC は従来のエージェント型ベースラインに比べてトークン消費量を 65.3% も削減しながら、タスク成功率を 24.0 ポイント向上させました。賢いモデルを「常に使う」のではなく「必要な時だけ呼ぶ」設計が、実用的なロボット知能への大きな近道であることを示しています。",
+ "contributions_ja": [
+  "低位ポリシーと推論エージェントを状態モニター経由で連携させ、動作修正と計画見直しを同時に行う高効率な制御フレームワーク「RoC」を提案したこと",
+  "Robometer をベースに、サブタスク進捗推定・遷移要求・次サブタスク予測を同時に行えるプラグイン型のオンライン・タスク状態モニターを開発したこと",
+  "進捗異常・遷移要求・クリティカル接触イベントの3種によるトリガー機構を設計し、無駄な推論呼び出しを大幅に削減したこと",
+  "RMBench シミュレータおよび実機アーム実験において、既存のエージェント型・ポリシー型ベースラインを大幅に上回る成功率とトークン節約効果を実証したこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "推論エージェントを「常駐」から「オンコール」へ",
+   "summary_ja": "長時間の作業には動作実行と高レベル計画の両立が不可欠ですが、LLM/LMMを頻繁に呼び出すとレイテンシとトークンコストがボトルネックになります。RoC は、タスク状態モニターが必要な時だけエージェントを呼び出すことで、このトレードオフを解消します。",
+   "details_ja": "ロボットが複数の工程からなる長時間の作業をこなすには、各サブタスクを確実に実行する能力と、「今何が終わって、次に何をすべきか」を判断する計画能力の両方が求められます。最近の VLA（Vision-Language-Actionモデル）などの視覚運動ポリシーは動作の実行に長けていますが、状況に応じた柔軟な意思決定は苦手です。一方で GPT-4 などのマルチモーダルエージェントを使う手法は推論力に優れるものの、毎ステップ呼び出すと膨大なトークン費用と推論遅延（レイテンシ）がかかり、ロボットの動作が止まってしまいます。\n\n問題の本質は、「いつエージェントの介入が必要なのか」、そして「起きた問題に対して、低レベルの動作を直すべきなのか、それとも計画自体を見直すべきなのか」を判断することにあります。\n\nそこで本論文が提案するのが **RoC (Reasoning on Call)** です。RoC では、普段のロボット制御は軽量な低位ポリシーに任せつつ、背後で「オンライン・タスク状態モニター」が状況を監視します。進捗の異常やタスクの切り替え、物体を掴む直前などの重要局面だけエージェントを呼び出します（図 F1 参照）。これにより、定常動作の俊敏さを保ちながら、失敗のリカバリーやタスク遷移をスマートに行えるようになります。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "RoC と既存のロボット制御手法との比較です。(a) RoC はモニターがトリガーした時だけエージェントを呼び出すため、コストを抑えつつ動作修正と計画見直しが可能です。(b, c) 従来のエージェント併用や直接制御では呼び出し回数が膨大になり、(d) ポリシー単体ではリカバリー能力が不足します。",
+     "caption": "Figure 1 : Efficient agentic robot control with RoC. (a) Monitor-triggered agent intervention reduces its token overhead while supporting execution repair and plan revision. (b,c) Frequent agent calls incur repeated reasoning costs, whereas (d) policy-only control lacks agent assistance. Gold markers denote agent calls.",
+     "image": "details/2611.26341/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "記憶付きポリシーとエージェント制御のいいとこ取り",
+   "summary_ja": "長時間マニピュレーションを解く従来のアプローチには、記憶機構を備えたポリシー学習と、LLM等の推論エージェントを用いる手法があります。RoC は、進捗評価モデルの知見を取り入れ、モニター主導で両者を協調させる点に独自性があります。",
+   "details_ja": "### 2.1 長時間マニピュレーション\n過去の観測や作業結果を記憶しながら複数ステップの作業を進めるため、MEM や MemoryWAM のように短期・長期メモリを組み込んだポリシーや、階層的に過去ログを検索する手法が研究されてきました。しかし、これらは「ポリシー自身が学習データ内のリカバリー行動を再現できるか」に依存しており、未知の失敗や柔軟なサブタスクの切り替えには限界がありました。RoC は、定常動作はこうしたポリシーに任せつつ、失敗時や計画変更の局面をエージェントに委ねることでこの限界を突破します。\n\n### 2.2 エージェント型ロボット制御\nLLM やマルチモーダルモデルを用いたロボット制御（GPT-as-Policy や Harness VLA など）は、意味理解や高度な推論が可能です。しかし、毎ステップや固定周期での呼び出しはレイテンシとトークン消費の温床でした。最近ではフィードバックに基づく再計画や異常検知器も提案されていますが、「検知したエラーに対して、動作を直すべきか、計画を直すべきか」を協調して扱う枠組みが不足していました。RoC は介入時にこの両方を一度にレビューできる点が新しいアプローチです。\n\n### 2.3 ロボティクスにおける進捗・報酬モデル\nサブタスクの進行度を推定するモデルとして VICtoR や SARM、そして Robometer などが存在します。RoC は Robometer の知見を土台とし、単に進捗を測るだけでなく、「遷移要求の確率」と「次のサブタスクの言語予測」までを同一のモニターで同時に解く形に発展させました。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "モニターが異常を検知し、エージェントが動作と計画を直す仕組み",
+   "summary_ja": "RoC は「監視・実行・レビュー」のループで動きます。軽量なタスク状態モニターが進捗推定と次タスク提案を行い、異常や節目を検知した時だけエージェントが介入して、動作の短縮・修正や計画の見直しを行います。",
+   "details_ja": "### 3.1 問題設定と制御ループ\nロボットには言語指示 $g$、画像観測 $o_t$、関節状態 $q_t$ が与えられます。低位ポリシーは行動の塊（アクションチャンク $A_t = (a_{t,1}, \\dots, a_{t,H})$）を提案し、通常はその先頭部分（実行プレフィックス）をロボットがそのまま実行します（図 F2 参照）。しかし、後述する3種類のトリガーのいずれかに引っかかった場合、動作の実行を一時保留し、推論エージェントにレビューを求めます。\n\n### 3.2 進捗監視とサブタスク予測\nモニター $F_\\phi$ は、現在のサブタスク $\\ell_k$ の進捗推定値 $p_t \\in [0, 1]$、遷移要求確率 $s_t$、そして次のサブタスク候補 $\\widetilde{\\ell}_t$ を出力します。ロボットの報酬・進捗基盤モデルである Robometer をベースに構築されています。\n- **履歴の持ち方**: 過去の全画像をそのまま突っ込むと計算が重くなるため、過去のサブタスクは粗くサンプリングし、現在のサブタスク内は密にサンプリングする「ステージ適応サンプリング」を採用しています（図 F3 参照）。また、過去の完了サブタスクの指示や結果をテキスト化した「相互作用メモリ $\\mathcal{M}_t$」を併用します。\n- **マルチタスク学習**: サブタスクの境界付近はデータが少なくなりがちなので、境界前後のサンプリング密度を2倍にして学習します。進捗分類損失、遷移要求の交差エントロピー損失、次サブタスクの自己回帰生成損失 $\\mathcal{L}_{\\mathrm{AR}}$ を同時に最適化します。\n\n### 3.3 イベント駆動のエージェント介入\nエージェントが呼び出されるトリガーは次の3つです。\n1. **遷移イベント**: $s_t$ が閾値を超え、モニターが「このサブタスクは終わった」と判断した時。\n2. **進捗イベント**: 推定進捗 $p_t$ が急激に低下した、一定値で行き来を繰り返している（振動）、あるいは停滞している時。\n3. **重要接触イベント**: アクションチャンク内に「掴む」「離す」動作が含まれている直前。\n\n介入したエージェントは、以下のいずれかの対応をとります。\n- **動作修正**: 実行プレフィックスを短くして様子を見る（prefix shortening）、手先の位置姿勢やグリッパーを微修正する（local refinement）、あるいは完了まで直接操作を乗っ取る（subtask takeover）。\n- **計画見直し**: まだ終わっていないと判断して遷移を却下する（transition rejection）、または提示された次目標が不適切なら正しい目標に書き換える（successor revision）。\n何も問題がなければ、そのままポリシーの実行を承認します。サブタスク完了が確認されると結果が相互作用メモリ $\\mathcal{M}_t$ に書き込まれ、次の工程へ進みます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "RoC の制御ループ（上）とタイムライン（下）です。低位ポリシーが行動を生成する間、モニターが常時状態を監視します。進捗異常や接触前、遷移要求が生じた時だけポリシーの実行を保留し、エージェントが呼び出されて修正・承認を行います。",
+     "caption": "Figure 2 : RoC control loop and reasoning on call. (a) The online task-state monitor estimates subtask progress, predicts transition requests, and proposes the next subtask or task termination. The low-level policy proposes an action chunk. RoC executes its prefix unless a progress anomaly, transition request, or critical contact event triggers agent review. During review, the agent can authorize continued execution or intervene through execution repair, plan revision, or both. (b) The agent approves the initial subtask and is called selectively thereafter. Monitor queries continue during policy holds, so routine execution can proceed between agent calls.",
+     "image": "details/2611.26341/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "視覚履歴 $\\mathcal{H}_t$ と相互作用メモリ $\\mathcal{M}_t$ の構成です。過去のサブタスクは粗く、現在実行中のサブタスクは密に画像をサンプリングすることで、計算量を抑えつつ細かな動きの変化を捉えられるように工夫されています。",
+     "caption": "Figure 3 : Illustration of visual history $\\mathcal{H}_{t}$ (top) and ordered interaction memory $\\mathcal{M}_{t}$ (bottom).",
+     "image": "details/2611.26341/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "シミュレーションと実機で実証：圧倒的なトークン削減と成功率",
+   "summary_ja": "RMBench の全9タスクでシミュレーション評価を行い、最強のエージェントベースライン比で成功率を 24.0 ポイント向上、トークン消費を 65.3% 削減しました。実機アーム SO-ARM101 の3タスクでも 73.3% の成功率を達成しています。",
+   "details_ja": "### 4.1 実験セットアップ\n- **シミュレーション**: 長期的な記憶追跡が必要な RMBench（9タスク）を使用。単一の過去観測を思い出す $M(1)$ タスクと、複数ステップの履歴を追跡する $M(n)$ タスクで構成されます。\n- **実機環境**: 5自由度のロボットアーム「SO-ARM101」を用い、固定カメラと手先カメラの2視点で評価しました。タスクは「引き出し整理（Drawer Sorting）」「カップで覆って当てる（Cover and Reveal）」「机の片付け（Tabletop Cleanup）」の3種です。\n- **ベースライン**: エージェント型（GPT-as-Policy、Direct Control；エージェントには GPT-6 Astra を使用、RoC は GPT-6.1 Sol を使用）およびポリシー型7手法（FastWAM や MemoryWAM など）。\n\n### 4.2 実装のポイント\n低位ポリシーには FastWAM（50ステップの拡散逆過程で 32ステップのアクションチャンクを出力）を使用。モニターの動作周波数はサブタスク生成なしで 7.10 Hz、全体のスループットは 2.77 Hz と実時間で動作します。\n\n### 4.3 シミュレーション結果\n- **対エージェント手法**: RoC の平均成功率は 99.6% に達し、GPT-as-Policy（75.6%）や Direct Control（71.9%）を圧倒しました。特筆すべきはトークン消費量で、GPT-as-Policy から 65.3%、Direct Control から 84.4% もの削減を達成しました。図 F4 に示すように、従来手法が無駄な試行錯誤でトークンを溶かしているのに対し、RoC は必要な局面だけで的確に介入するため、呼び出し回数が半分以下（46回 vs 84/209回）で済んでいます。\n- **対ポリシー手法**: 最強の記憶付きポリシー MemoryWAM（83.0%）に対しても、RoC は 98.1% を記録し、15.1 ポイントの差をつけました。\n\n### 4.4 アブレーション研究\nモニターと介入の各要素を削った比較（表3・図 F5）では、ポリシー単体（5.9%）にモニターを加えるだけで 63.7% まで向上しました。しかし、モニターだけでは複雑な $M(n)$ タスクの成功率は 51.0% に留まります。ここにエージェント介入が加わることで 98.1%（$M(n)$ では 97.3%）へと跳ね上がりました。不適切な姿勢で次のタスクに進みそうになった際、エージェントが把持をやり直させる介入が決定的な差を生んでいます（図 F5）。\n\n### 4.5 実機実験と失敗分析\n実機アーム実験（図 F6）では、ポリシー単体が 30.0%、モニター追加が 56.7% だったのに対し、RoC は全体で 73.3%（Drawer 70%、Cover 80%、Cleanup 70%）を達成しました。失敗例の多くは、エージェントが介入したものの視覚情報から正しい把持修正を生成しきれなかったケースでした。モデル自体の視覚推論能力が向上すれば、本フレームワークのままさらに性能が伸びると期待されます。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "RMBench における定性的な挙動比較です。Direct Control は把持失敗を繰り返し、GPT-as-Policy は電池操作で予算を使い果たして失敗していますが、RoC は必要な46回の呼び出しだけで的確に手先姿勢を修正し、タスクを完遂しています。",
+     "caption": "Figure 4 : Qualitative comparison of agent-based methods. Vertical markers indicate agent calls, while blue and yellow segments denote policy execution and agent intervention, respectively.",
+     "image": "details/2611.26341/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "エージェント介入の有無による比較です。介入がない場合（上）、ブロックの向きがズレたまま次のサブタスクに進んで失敗します。一方 RoC（下）では、エージェントが把持のズレを検知してリ grasp（掴み直し）を指示し、成功に導いています。",
+     "caption": "Figure 5 : Qualitative comparison on RMBench without event-triggered agent intervention (top) and with the full RoC framework (bottom).",
+     "image": "details/2611.26341/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実機アーム SO-ARM101 による評価結果です。(a) 引き出し整理、カップ覆い、片付けの3タスクの様子。(b) 各タスク10試行での成功率。RoC（茶色）がモニターのみ（緑）やポリシー単体（青）を大きく上回り、実機でも介入の有効性が確認されました。",
+     "caption": "Figure 6 : Real-robot evaluation on SO-ARM101. (a) Representative sequences for Drawer Sorting, Cover and Reveal, and Tabletop Cleanup. (b) Success over 10 trials per task.",
+     "image": "details/2611.26341/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめ：適材適所の知能配置が拓く実用的なロボット自律制御",
+   "summary_ja": "RoC は、低位ポリシー、オンライン状態モニター、推論エージェントを有機的に結びつけ、高効率で粘り強い長時間作業を実現しました。常に推論し続けるのではなく、必要な時だけ賢い頭脳を呼び出す設計思想の重要性が示されました。",
+   "details_ja": "本論文では、長時間ロボットマニピュレーションに向けた効率的なエージェント型制御フレームワーク「RoC」を提案しました。定常的な運動制御は軽量なポリシーに委ね、タスク進捗や遷移をオンラインモニターで常時追跡し、異常や重要局面でのみ推論エージェントをオンコールで呼び出す構成をとっています。\n\nこの設計により、推論遅延とトークンコストを大幅に抑えながら、失敗からの復帰や正確なサブタスク遷移が可能になりました。シミュレーションおよび実機実験の結果は、タスク状態の明示的なモニタリングと選択的な推論介入の組み合わせが、実用的で堅牢な自律ロボット制御の鍵であることを力強く裏付けています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「常に巨大モデルに推論させる」のではなく、「軽量なモニターで監視し、異常時だけエージェントを呼ぶ」オンコール設計が、計算コストと反応速度の最良のバランスをもたらす。",
+  "エージェント介入時には、「手先動作の微修正（実行の修復）」と「次の目標の差し替え（計画の見直し）」を同時に判断させることが、失敗の伝播を防ぐ上で極めて効果的。",
+  "進捗モデル（Robometer 等）は単なる報酬付けにとどまらず、サブタスク遷移予測や介入トリガーの発生器として強力なプラグインになる。",
+  "制御ループと推論エージェントが疎結合になっているため、将来より高性能な LMM が登場した際にそのまま差し替えて性能向上が見込める。"
+ ],
+ "limitations_ja": [
+  "現在のマルチモーダル推論エージェントでも、複雑な接触やミリ単位の精密な把持修正を画像から指示しきれずに失敗するケースが残っている。",
+  "モニター自体がサブタスク境界の学習を必要とするため、未知の作業にそのままゼロショット適用できるかは限定的である。",
+  "実機実験の試行回数が各タスク10回とやや小規模であり、より多様な環境や外乱に対する長期的なロバスト性の検証が今後の課題。"
+ ],
+ "keywords": [
+  "Long-Horizon Manipulation",
+  "Agentic Robot Control",
+  "Large Multimodal Models",
+  "Task-State Monitoring",
+  "Visuomotor Policy"
+ ],
+ "id": "2611.26341",
+ "title": "Reasoning on Call: Efficient Agentic Robot Control for Long-Horizon Robot Manipulation",
+ "authors": [
+  "Zilang Cen",
+  "Chao Tang",
+  "Fangcheng Liu",
+  "Weishi Mi",
+  "Wei Hao",
+  "JiaYu Xu",
+  "Dehao Huang",
+  "Yehui Tang",
+  "Xiaohui Cui",
+  "Tingguang Li",
+  "Xiaoyuan Zhang"
+ ],
+ "date": "2026-11-22",
+ "group": "general",
+ "tags": [
+  "manipulation",
+  "llm-agent",
+  "planning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.26341",
+ "pdf_url": "https://arxiv.org/pdf/2611.26341",
+ "summary_ja": "長期マニピュレーションにおいてマルチモーダル基盤モデルの呼出頻度と遅延を削減するRoCを提案。時系列画像と履歴からサブタスクの進捗を常時監視し、低レイヤ方策の実行失敗や計画修正が必要なタイミングのみ高次推論をイベント駆動で呼び出すことで、低コストかつ高信頼な制御を実現した。",
+ "generated": "2026-11-22",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.26341"
+}
