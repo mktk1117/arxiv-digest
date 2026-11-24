@@ -1,0 +1,131 @@
+{
+ "title_ja": "S-BFM: 疎な時空間目標からヒューマノイドを制御する行動基底モデル",
+ "tldr_ja": "詳細な軌道指示を与えなくても、「どこに、どんな姿勢で、何秒後に着くか」というまばらなゴールだけで、ヒューマノイドが移動のペースや全身の遷移動作を自律的に組み立てて時間通りに到達できる制御モデル「S-BFM」を提案しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "S-BFM の 3 段階フレームワークの全体像です。Stage I でワールド座標を埋め込んだ行動表現を学習し、Stage II で残り時間に応じた実動作のペースを教師モデルから蒸留し、Stage III で生成モデルにより多様な移動距離と所要時間のバリエーションを補強します。",
+  "caption": "Figure 2 : Overview of our S-BFM framework. Stage I learns a behavior representation grounded in world-frame position and heading. Stage II distills reference-guided transitions conditioned on the remaining time. Stage III broadens the range of distances and horizons through generative fine-tuning.",
+  "image": "details/2611.27552/F2.jpg"
+ },
+ "overview_ja": "従来のヒューマノイド全身制御では、毎フレームごとの密な参照軌道（dense reference trajectories）をトラッキングする手法が主流でした。しかし実際の作業指示では、「3 秒後に 2 メートル先の机の前へ行って中腰になる」といった、まばらな時空間ゴール（どこに・どんな姿勢で・いつ着くか）だけが指定されるのが自然です。密な軌道を必要とするコントローラでは、上位のプランナーが途中の軌道や遷移動作を一コマずつ生成し続けなければならず、目標が変化したときの適応も大変でした。\n\nそこで著者らは、人間の運動協調に着目しました。人間が歩くとき、大脳皮質は大まかな目的地を決め、小脳や脳幹・脊髄が感覚フィードバックを使いながら歩幅や全身の協調動作を無意識に調整しています。この仕組みに倣い、「下位コントローラ自身が現在の身体状態から、まばらなゴールと残り時間だけを手がかりに途中の動作とペースを組み立てられないか？」と考えたのが本研究の核心です。\n\n提案された S-BFM は、Forward-Backward 表現に基づく行動潜在空間を用い、3 つの段階で学習されます。まずワールド座標での位置と向きを学習する Spatial Grounding、次に残り時間に応じた自然な遷移とペースを密な教師から学ぶ Time-Conditioned Distillation、そして実データにない距離と時間の組み合わせを生成モデルで補強する Generative Fine-Tuning です。\n\nシミュレータ（Unitree G1）での実験では、最良のベースラインと比較してグローバル関節位置誤差を 32% 以上低減し、外乱下でも高い目標到達率を示しました。さらに等身大ヒューマノイド（AGIBOT A3）の実機でも、指定した時間に応じた歩行・走行の切り替えや床からの起き上がり動作を成功させ、まばらな目標だけで自然な全身運動が実現できることを示しました。",
+ "contributions_ja": [
+  "まばらな時空間ゴール（目標姿勢・ワールド座標・目標時刻）から、下位コントローラが自律的に自然な全身遷移運動とペースを生成する制御問題を定式化しました。",
+  "空間埋め込み（Spatial Grounding）、時間条件付き蒸留（Time-Conditioned Distillation）、生成モデルによる微調整（Generative Fine-Tuning）の 3 段階からなる S-BFM フレームワークを提案しました。",
+  "シミュレーションにおいて既存の全身制御手法を有意に上回る到達精度・姿勢維持性能を達成し、等身大ヒューマノイド実機（AGIBOT A3）でもまばらな指示からの動作生成と展開を実証しました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "細かな軌道指示はもう不要？小脳のように動くヒューマノイド制御",
+   "summary_ja": "近年の全身制御トラッカーは多様な動作を実行できますが、毎フレームの密な軌道指示を必要としていました。本論文では、人間の運動協調に着想を得て、目標姿勢・位置・到着時間というまばらなゴールから途中の動作を自律的に生み出す「S-BFM」を提案します。",
+   "details_ja": "ヒューマノイドロボットの制御は、特定のタスクに特化したポリシーから、大規模動作データと物理シミュレーションを活用した汎用的な全身トラッカーへと移行してきました。しかし、これらは「与えられた密な軌道を忠実に追従する」ことには優れているものの、途中の動作そのものを作り出すことはできません。そのため、目標が変わるたびに別のプランナーが新しい中間軌道を滑らかに補間して生成し直す必要がありました。\n\n一方、人間の身体運動を考えてみると、大脳皮質が大まかなゴールや経路を選択し、脳幹や脊髄が歩行パターンを支え、小脳が感覚フィードバックをもとに動きの調和を取っています。人間は一歩ごとの関節角度を意識して計算しているわけではありません。ここから著者らは、「下位コントローラが、目標位置・目標姿勢・到着時間だけを受け取り、現在の物理状態から途中の全身運動を自分でオーガナイズできないか？」という問いを立てました。\n\n既存の潜在空間ベースの手法（BFM-Zero や BeJEPA、PLAT など）も存在しますが、「ワールド座標系での正確な位置姿勢制御」「目標間の自然な遷移動作」「指定された到着時間に応じた適切なペース配分」の 3 つを同時に満たすことはできていませんでした。S-BFM はこれら 3 つの課題に 1 段階ずつアプローチする 3 ステージ学習法を採用することで、中間の参照軌道を一切使わずに、まばらな指示だけで動く自律的な制御を実現しています。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "既存の全身トラッカーや潜在空間モデルと何が違うのか",
+   "summary_ja": "密な参照軌道を追従する全身制御、ゴール条件付きの潜在表現、動作補間（Motion In-Betweening）の 3 つの分野を整理しています。S-BFM はそれらの弱点を克服し、物理的な閉ループ実行下で時間適応と空間制御を両立します。",
+   "details_ja": "関連研究は大きく 3 つの領域に分かれます。\n\n- 密な参照軌道に基づく全身制御（Dense-reference whole-body control）：\n物理シミュレーションを用いた模倣学習（SONIC や SuperMimic、ExBody など）は目覚ましい成果を上げています。しかし、これらは「軌道を実行する」モジュールであり、「軌道を作り出す」モジュールではありません。まばらなゴールしか与えられない環境では、中間軌道を生成する外部システムに依存してしまいます。\n\n- まばらな指示と時間条件による運動制御（Sparse and time-conditioned motion control）：\n目標状態のみを指定する制御手法として、BFM-Zero などの Forward-Backward（FB）表現や BeJEPA、キーフレームを扱う PLAT などがあります。しかし、ワールド座標での正確な誘導、自然な全身遷移、そして要求された到着時間に合わせたペース調整をすべて兼ね備えた手法は存在しませんでした。\n\n- 動作補間と制御可能な動作生成（Motion in-betweening and controllable generation）：\n拡散モデルなどを用いてキーフレーム間を補間する生成モデル（Kimodo や CondMDI など）は、運動学（kinematics）としては妥当な動きを出力できます。しかし、生成された軌道を物理シミュレータや実機で閉ループ実行させたとき、トルク制限や接触などの物理制約によって時間通りに正確な位置へ到達できる保証はありません。\n\nS-BFM は、生成モデルを推論時に直接使うのではなく「訓練時にコントローラが経験する距離と時間のバリエーションを広げるデータ拡張」として位置づけ、物理的な閉ループ制御器の中で 3 つの要件を統合しています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "S-BFM を支える 3 つの学習ステージ",
+   "summary_ja": "S-BFM はワールド座標を埋め込む Spatial Grounding、残り時間に応じたペースを実データから学ぶ Time-Conditioned Distillation、生成モデルで対応範囲を拡張する Generative Fine-Tuning の 3 段階で学習されます。推論時は中間軌道なしで動作します。",
+   "details_ja": "S-BFM の問題設定と、それを解決する 3 段階の学習プロセスについて解説します。\n\n### 3.1 問題設定（Problem Formulation）\nロボットに与えられるゴール $g$ は、平面上の位置・向き（ヨー角）と全身の目標姿勢、そして目標到着時刻 $T$ です。ロボットの初期位置を原点とする固定ワールド座標系 $\\mathcal{W}$ 上で定義されます。コントローラには常に残り時間 $\\Delta_t = T - t$ が入力され、到達後にその姿勢を保つか（hold）、そのまま次の動作へ移行するか（continue）を示すモードフラグ $m$ も与えられます。\n\n### 3.2 全体像（Overview）\n3 つの学習段階を順に実行します。重要なのは、後続のステージで前のステージが獲得した能力を破壊しないよう、Stage I で獲得した状態エンコーダ $B_0$ とアクター $\\pi_0$ を Stage II 以降は完全に凍結（フリーズ）し、その上にコントローラ $C_\\theta$ を学習させる点です。\n\n### 3.3 Stage I: Spatial Grounding（空間グラウンディング）\nBFM-Zero の Forward-Backward 表現を出発点とします。従来の潜在空間は「どんな姿勢か」は捉えていても「ワールド座標のどこにいるか」を保持していませんでした。そこで、ルートの位置と向きを表す特徴量 $\\rho_t$ をエンコーダ入力や観測履歴に追加します。さらに、潜在埋め込みからルート座標を復元する読み出しデコーダ $H_\\eta$ を導入し、空間再構成損失 $\\mathcal{L}_{\\mathrm{sp}}$ で学習します。これにより、目標状態をエンコードするだけで「その場所へ向かう」潜在コードが得られるようになります。\n\n### 3.4 Stage II: Time-Conditioned Distillation（時間条件付き蒸留）\nStage I だけでは、「どのくらいのスピードで、どういう経路を辿って向かうべきか」が分かりません。そこで、密な参照軌道を見ながら動く教師ポリシーの行動を、まばらなゴールと残り時間 $\\tau_t = \\Delta_t / s_\\tau$ だけを見る生徒コントローラ $C_\\theta$ に蒸留します。DAgger のように生徒自身の軌道上で教師の行動を模倣させる閉ループ蒸留を行うことで、途中のドリフトから自律的に復帰する能力も獲得させます。\n\n### 3.5 Stage III: Generative Fine-Tuning（生成微調整）\n実世界のモーションキャプチャデータでは、「特定の姿勢遷移」に対して特定の距離と所要時間の組み合わせしか存在しません（例: 立ち上がり動作は常に同じ場所・同じ秒数）。そこで、事前学習済み拡散モデル Kimodo を軽量蒸留した生成器 $\\mathcal{G}_\\omega$ を使い、同じ姿勢遷移に対して距離 $d$ と時間幅 $H$ を人工的に変化させた軌道を大量に生成します。物理チェックをパスした生成動作を実データに混ぜてコントローラをファインチューニングすることで、未知の距離や極端に短い時間指示にも頑健に適応できるようになります。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "フレームワークの構成詳細です。下段に示すように、Stage I で得られたエンコーダとアクターをフリーズしたまま、Stage II で残り時間に応じた潜在コード $\\zeta_t$ を出力するコントローラ $C_\\theta$ を蒸留し、Stage III で生成データを用いて微調整します。",
+     "caption": "Figure 2 : Overview of our S-BFM framework. Stage I learns a behavior representation grounded in world-frame position and heading. Stage II distills reference-guided transitions conditioned on the remaining time. Stage III broadens the range of distances and horizons through generative fine-tuning.",
+     "image": "details/2611.27552/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "シミュレーションと実機で検証：既存手法を圧倒する精度と適応力",
+   "summary_ja": "29 自由度の Unitree G1 シミュレータと等身大の AGIBOT A3 実機で評価しました。S-BFM は競合手法と比較してグローバル関節位置誤差を 32% 以上低減し、外乱にも強く、指定時間に応じた実機の歩行・走行切り替えや起き上がりを達成しました。",
+   "details_ja": "4 つの問い（Q1: まばらなキーフレーム追従、Q2: 自律的な空間ゴール到達と保持、Q3: 各ステージの寄与、Q4: 実機性能）に答える形で実験が行われました。\n\n### 4.1 実験設定\nシミュレーションは 29 自由度の Unitree G1 を用い、MuJoCo（50 Hz 制御、2 ms 物理ステップ）上で動作させました。比較対象は SONIC、UFO（UFO-FB）、BeJEPA、PLAT です。関節位置誤差（MPJPE）、ルートの XY 誤差・ヨー角誤差、時間通りの到達率（On-time rate, OTR）、目標到達率（Reach）、5 秒間の姿勢維持率（Hold 5）などで評価しました。\n\n### 4.2 まばらなキーフレーム追従（Q1）\n指示間隔が固定（Fixed）およびランダム（Mix）なスケジュールで追従精度を測定しました。S-BFM は両方の設定で最も優れた追従性能を示し、グローバル MPJPE はそれぞれ 38.35 cm、37.60 cm でした。特に指示間隔が 2.5〜3.5 秒と極めて長くなった場合、PLAT などのベースラインは誤差が急増したのに対し、S-BFM は平坦な誤差曲線を維持しました。\n\n### 4.3 空間ゴールの到達と保持（Q2）\n25 秒間のタスクで、伏臥位（うつ伏せ）、座位、しゃがみ、片足立ちなど多様な姿勢と距離（0.4〜4 m）の到達を評価しました。BeJEPA と比較して、目標到達率（Reach）は 43.5% から 74.6% へ、到達後の 5 秒維持率（Hold 5）は 7.4% から 35.2% へと大幅に向上し、最終位置誤差は 1.667 m から 0.257 m へと激減しました。胴体に強い横・下方向の外乱インパルス（1.5 / -1.0 m/s）を加えた 3〜4 m の長距離テストでも、BeJEPA の到達率が 23.6% に留まったのに対し、S-BFM は 68.0% という高い頑健性を維持しました。\n\n### 4.4 アブレーション研究（Q3）\nStage I（P1）のみでは、目標位置へ移動する前にその場でうつ伏せ姿勢を取ってしまい、移動不能に陥る現象が見られました（図 F5）。Stage II（P2）を加えることで「近づいてから倒れ込む」という正しい遷移順序と時間配分を獲得し、時間通りの到達率（OTR）が 4.63% から 17.35% へ改善しました。さらに Stage III（P3）を加えることで、短い残り時間指定下での 5 秒維持率が 2 m 地点で 13.6% から 92.0% へと劇的に跳ね上がりました。\n\n### 4.5 実機実験（Q4）\n等身大ヒューマノイド AGIBOT A3 に展開したところ、2 秒間隔のまばらな指示に対する安定した追従や、連続的な目標姿勢への移行に成功しました。さらに、残り時間 5 秒では「歩行」、3 秒では「走行」へと自動でペースを切り替えて目標地点に到達する様子や、床に寝そべった状態から自律的に起き上がる協調動作が確認されました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "目標距離（0.4〜4 m）と外乱条件ごとの到達率ヒートマップです。外乱が厳しく距離が伸びる右下の過酷な領域でも、S-BFM は高い到達率（68.0%）を維持しており、ベースライン（BeJEPA: 23.6%）を大きく引き離しています。",
+     "caption": "Figure 4 : Goal-reaching rates across target distances and external perturbations. Rows denote perturbation conditions and columns denote target-distance ranges. Cells report Reach (%), with a shared 0–100% color scale across methods.",
+     "image": "details/2611.27552/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "学習ステージごとのシミュレーション比較です。P1 単体では手前で早々にうつ伏せになってしまい目標に届きませんが、P2、P3 と進むにつれて、走って目標位置に近づいてから自然に伏臥姿勢へ移行していることが分かります。",
+     "caption": "Figure 5 : Qualitative comparison across training stages in simulation. Transitions from a shared start to a prone goal 2 m away. Gold: target; faint blue: past poses.",
+     "image": "details/2611.27552/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "等身大ヒューマノイド AGIBOT A3 での実機実験の様子です。(a) 2 秒間隔のまばらなキーフレーム追従、(b) 異なる目標姿勢への連続的な全身遷移動作を安定して実行できています。",
+     "caption": "Figure 6 : Real-robot executions. (a) Sparse tracking with a 2 s command horizon; selected poses are highlighted in gold and intermediate poses are shown translucently. (b) Two continuous goal-reaching transitions, with elapsed video time shown below each frame.",
+     "image": "details/2611.27552/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "実機における時間適応と起き上がり動作です。残り時間 5 秒では歩行、3 秒では走行と、指定時間に応じて移動ペースを自律的に切り替えているほか、床からの自然な立ち上がりも実現しています。",
+     "caption": "Figure 7 : Time-conditioned real-robot motions. Left and middle: the robot walks with 5 s remaining and runs with 3 s remaining to reach the target. Right: the robot autonomously organizes a coordinated whole-body transition from lying on the ground to standing.",
+     "image": "details/2611.27552/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion, Limitation and Future Work",
+   "heading_ja": "まとめと今後の課題：エンドツーエンド化と上位モデルとの連携へ",
+   "summary_ja": "S-BFM は中間軌道なしにまばらな時空間ゴールから全身運動を自律組織化できることを示しました。今後の課題としては、3 段階の学習プロセスの統合や、VLA（視覚言語行動）モデルとの連携が挙げられています。",
+   "details_ja": "本研究は、密な参照軌道を必要とせず、まばらな時空間ゴールだけでヒューマノイドが移動のペースや全身協調動作を自律決定できることを実証しました。一方で、論文では以下の 3 つの限界と今後の方向性が挙げられています。\n\n- 3 段階に分かれた学習パイプラインの複雑さ：\n現在は空間埋め込み、時間蒸留、生成微調整を順に行っていますが、これらを 1 つのステージにまとめられないかが課題です。残り時間や終端条件を Forward-Backward 表現やベルマン更新に直接組み込み、時間条件付きの敵対的動作事前分布（motion prior）と組み合わせる単一ステージ学習が展望されています。\n\n- 視覚言語行動（VLA）モデルや世界モデルとの統合：\nVLA などの上位知能モデルが、実行可能で適切な時空間ゴールを出力できるようなインターフェースの構築がまだ未開拓です。実機データ収集の手順や上位モデルの目的関数の調整が必要です。\n\n- S-BFM を前提とした上位アーキテクチャの再設計：\n下位コントローラが自律的に中間の全身動作を組織化できるようになったため、上位システムは一歩ごとの軌道計画から解放され、シーン理解やタスク推論に専念できるようになります。S-BFM 側から上位モデルへ「到達可能性（Reachability）」のフィードバックを返す仕組みなども期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "ヒューマノイドの全身制御において、下位コントローラに「残り時間」と「ワールド座標」を明示的に認識させることで、密な中間軌道がなくても自然なペース配分と遷移動作が自律生成できる。",
+  "Forward-Backward 表現のエンコーダとアクターをフリーズし、その上に時間条件付きコントローラを蒸留する設計により、破局的忘却を防ぎながら段階的に能力を積み上げられる。",
+  "実データに偏りがある動作と時間の組み合わせは、運動学的な生成モデル（拡散モデル）を用いたデータ拡張で補うアプローチが物理コントローラの頑健化に極めて有効である。"
+ ],
+ "limitations_ja": [
+  "3 つの学習ステージを順番に実行する必要があり、学習パイプライン全体の管理やハイパーパラメータ調整が複雑である。",
+  "現在の実装ではカメラ画像などの視覚情報を直接扱っておらず、上位の VLA モデルや環境認識システムとのエンドツーエンドな統合は未検証である。",
+  "生成モデルが出力した動作のうち物理チェックを通過したものだけを選別して使っているため、生成モデルの品質やフィルタリング基準に学習効率が左右される。"
+ ],
+ "keywords": [
+  "Humanoid Whole-Body Control",
+  "Behavioral Foundation Model",
+  "Sparse Spatiotemporal Goals",
+  "Forward-Backward Representation",
+  "Imitation Distillation"
+ ],
+ "id": "2611.27552",
+ "title": "S-BFM: A Behavioral Foundation Model for Humanoid Control from Sparse Spatiotemporal Goals",
+ "authors": [
+  "Kun Yang",
+  "Xuanyu Chen",
+  "Jing Tan",
+  "Yanjing Liu",
+  "Yubo Zhao",
+  "Renjing Xu",
+  "Addison Lin Wang"
+ ],
+ "date": "2026-11-23",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "locomotion",
+  "control",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.27552",
+ "pdf_url": "https://arxiv.org/pdf/2611.27552",
+ "summary_ja": "密な参照軌道を用いず、到達目標の姿勢・位置・時間という疎な情報のみから全身遷移動作を自律生成する行動基底モデルS-BFMを提案。身体の時空間的接地を取り入れ、多様な到達時間制約に応じた歩容や動作ペースの自己組織化を可能にした。シミュレーションおよび実機ヒューマノイドで自然かつロバストな動作遷移を実証した。",
+ "generated": "2026-11-24",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.27552"
+}
