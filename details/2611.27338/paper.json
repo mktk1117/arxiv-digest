@@ -1,0 +1,136 @@
+{
+ "title_ja": "Latent Jacobian Steer: 学習済みヒューマノイド制御器からの接触豊富な分布外挙動の誘発",
+ "tldr_ja": "事前学習済みの全身コントローラを一切追加学習させずに、ダンピング付きヤコビアン逆写像を介して関節空間の探索を潜在空間へ引き戻すことで、未知の接触リッチな全身協調動作をシミュレータ上で引き出す手法「LJS」を提案しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "Latent Jacobian Steer（LJS）の全体フローです。関節空間でサンプリングした変化量 $\\Delta u$ を、固定された方策のダンピング付きヤコビアン局所逆写像によって潜在空間の変化量 $\\Delta z$ に変換し、物理シミュレーションによる評価スコアをもとに候補を最適化していきます。",
+  "caption": "Figure 2: Latent Jacobian Steer overview. (A) CEM proposes joint-action perturbations $\\Delta u$ . (B) A damped inverse of the frozen policy Jacobian maps each proposal to a latent change $\\Delta z$ ; the updated latent command is normalized and simulated through the pretrained controller. (C) Physical-effect scores rank the rollouts and guide CEM updates. The best admissible candidate is executed for a short window before replanning. The actor remains frozen throughout.",
+  "image": "details/2611.27338/F2.jpg"
+ },
+ "overview_ja": "近年、ヒューマノイドロボット向けに事前学習された汎用的な潜在空間駆動コントローラ（行動基盤モデル）が登場しています。しかし、人間のように学習外の複雑な接触タスク（障害物をまたぐ、シャッターを持ち上げてくぐる、箱を持ちながらドアを開けるなど）を行わせようとすると、途端に難易度が跳ね上がります。\n\n関節角度の空間で直接探索（残留強化学習など）を行うと、手先を接触させるといった目的は達成しやすいものの、コントローラが元々持っていた全身のバランス感覚や協調性が壊れてしまいます。一方、潜在空間をそのまま探索すると協調性は維持されるものの、どの潜在変数をいじれば希望の接触が起きるのかのコントロールが極めて困難でした。\n\nそこで著者らは、「方策のヤコビアン」に着目しました。関節空間で直感的にサンプリングした摂動を、学習済み方策のヤコビアンのダンピング付き逆写像を使って潜在変数の摂動へと変換する手法「Latent Jacobian Steer（LJS）」を提案しました。これにより、関節空間の精密な探索能力と、潜在空間が持つ全身協調の事前知識を両立させています。\n\n実験では、物体操作の経験が一切ない事前学習済みモデル「BFM-Zero」を用い、ハードル越えやシャッター通過などの過酷な接触タスクを検証しました。その結果、潜在空間単独や関節残差単独の探索を大きく上回るタスク完了率を達成しました。さらに、多指ハンドによる精密組み立てタスクへの適用や、探索結果から閉ループ制御器を蒸留できることまで実証しています。",
+ "contributions_ja": [
+  "関節空間での探索提案をダンピング付き方策ヤコビアン逆写像により潜在空間へと射影し、全身協調を崩さずに精密な接触行動を引き出す枠組み「LJS」を提案したこと。",
+  "追加学習や人間の模倣データを一切使わず、物理シミュレーションと段階的な物理効果スコアの組み合わせのみで、未学習の接触リッチな全身行動系列を生成できることを示したこと。",
+  "ヒューマノイドのロコ・マニピュレーションだけでなく、多指ハンドの組み立てタスクや他のロボット・制御器（ASE、SPiRLなど）にもそのまま汎用できることを実証したこと。",
+  "LJS で見つけた単一の探索軌道が、外乱やダイナミクス変動に対して頑健な閉ループ方策を学習するための高品質なデモデータとして機能することを示したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "事前学習済みコントローラを、学習し直さずにどう操るか？",
+   "summary_ja": "ヒューマノイドが新しい接触タスクを獲得するには膨大なデータや再学習が必要でした。本研究では、自由空間の動作を学んだ汎用コントローラに本来備わっている協調能力を、方策ヤコビアンを介して操作することで、再学習なしに未知の接触動作を引き出せることを示します。",
+   "details_ja": "ヒューマノイドが真に実用的なロボットになるためには、多様で接触の多い環境や物体と柔軟に対話できる必要があります。近年のモーションキャプチャ技術や追従制御の進展により、ダイナミックな全身動作のレパートリーは大幅に広がりました。しかし、物を運んだり障害物を乗り越えたりするような、接触が頻繁に発生する「ロコ・マニピュレーション（移動マニピュレーション）」を新しい環境で実現しようとすると、従来は人間による専用のデモンストレーションや Real2Sim パイプラインによる軌道再構成が必要でした。\n\n最近では、Meta Motivo や BFM-Zero のような「行動基盤モデル（Behavioral Foundation Models）」が登場し、単一の潜在空間条件付きポリシーをプロンプトで操作できるようになってきました。ここで素朴な疑問が湧きます。「未知の接触タスクに対して、デモの収集やポリシーの追加学習を一切行わず、固定されたコントローラを操るだけで高度な行動を引き出せないだろうか？」という問いです。\n\n著者らの洞察は明快です。自由空間で動くことを学んだ人間が、その運動の事前知識を使って直感的に物を動かせるのと同様に、汎用的な事前学習済みモデルの中にはすでに全身協調の基礎が眠っています。問題は、それをいかに狙った接触へと誘導するかです。\n\n- 関節空間での直接探索：手の位置を少し動かすなど目的の接触は表現しやすいですが、コントローラが学んだバランス維持などの協調性を破壊してしまいます。\n- 潜在空間での直接探索：全身の協調性は保たれますが、どの潜在変数をどう動かせば希望の接触力が生まれるかを予測するのが非常に困難です。\n\nこの2つの空間を結ぶ鍵こそが、固定された方策自身の「局所ヤコビアン」です。関節の変化を潜在空間のコマンドへと引き戻す Latent Jacobian Steer（LJS）によって、両者のいいとこ取りを実現します。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Works",
+   "heading_ja": "行動の探索と再利用：これまでのアプローチとの違い",
+   "summary_ja": "運動追従やスキル学習、残差強化学習などの既存研究を整理し、LJS の立ち位置を明確にしています。人手による修正動作や学習済みの誘導方策を必要とせず、物理シミュレータの接触評価だけで未知の行動を自律的に見つけ出す点が本手法の独自性です。",
+   "details_ja": "本研究に関連する先行研究は、大きく3つの系統に分かれます。\n\n### 運動追従から接触行動の発見へ\nTWIST や SONIC などの汎用トラッカーや、OMOMO、CHOIS などの人間・物体インタラクション生成器が発展してきました。しかし、新しい接触タスクに対して動作を見つけるには、依然として接触を考慮した軌道最適化（Contact-implicit TO）や、OmniContact のような接触フロー表現が必要でした。LJS は、参照軌道を与えたりタスク特化の方策を訓練したりすることなく、既存の協調動作を操ることでインタラクションを発見します。\n\n### 事前学習済み行動の再利用とステアリング\nSPiRL や ASE、BFM-Zero などの潜在スキル手法は、下流タスクの計画や強化学習のためのプリミティブを提供します。また、OpenVLA のような基盤モデルへの残差接続や、FlowDAgger、UniSteer のように人間の修正を潜在ノイズ空間に射影する手法もあります。これらに対し LJS は、人間の専門家による修正アクションや学習された誘導ポリシーを一切使わず、シミュレータ上の物理的成果の評価のみから有用な修正を導き出します。\n\n### 方策の局所逆写像を通じた探索\nCEM（クロスエントロピー法）や MPPI などのサンプリングベースの探索は広く使われています。また、ダンピング付き逆運動学（IK）や操作空間制御のように、ヤコビアンの逆写像を使う着想は古典制御で親しまれてきました。LJS はこの古典的な局所逆写像の考え方を、学習済みニューラルネット方策の入力（潜在空間）と出力（関節空間）の関係に適用した点が極めてユニークです。",
+   "figures": []
+  },
+  {
+   "heading": "3 Latent Jacobian Steer",
+   "heading_ja": "手法のコア：ヤコビアンで関節の変更を潜在変数へ逆写像する",
+   "summary_ja": "タスクを一連の「物理的効果」として定義し、関節空間で提案された摂動をダンピング付き最小二乗ヤコビアン逆写像によって潜在空間に引き戻します。これをクロスエントロピー法と組み合わせ、固定された方策を通じてシミュレータ上で評価・実行します。",
+   "details_ja": "LJS の全体アーキテクチャとアルゴリズムの仕組みを見ていきましょう。\n\n### 3.1 採用した事前学習済みコントローラ：BFM-Zero\n本論文では、29自由度の Unitree G1 ヒューマノイド向けに教師なし強化学習で事前学習された BFM-Zero をメインに採用しています。潜在変数 $z \\in \\mathbb{R}^{256}$（ノルムが 16 に正規化された超球面上）を入力とし、50 Hz で関節位置指令を出力します。重要なのは、BFM-Zero は事前の学習において環境との接触や物体操作を一切経験していないという点です。\n\n### 3.2 接触リッチな OOD タスクを「物理効果」で定義する\n本手法では密な報酬関数を職人技で設計するのではなく、タスクを順序付けられた物理効果の列 $\\mathcal{T}=(E_1, \\ldots, E_K)$ として定義します。例えばシャッターくぐりなら、「(1) 手のひらをシャッターの下に滑り込ませる」「(2) 一定以上の高さまで押し上げる」「(3) 頭と胴体をくぐらせる」「(4) 全身を通過させる」「(5) 向こう側で立ち上がる」といった具合です。各ステージには評価用のスコア関数と、次のステージに進むための明確な完了判定条件（Acceptance condition）を設けます。\n\n### 3.3 潜在空間と関節空間の連動メカニズム\n探索は以下のステップで進みます（図 F2 参照）。\n\n1. **関節空間での摂動提案**: クロスエントロピー法（CEM）を用いて、関節位置指令の摂動 $\\Delta u$ を対角ガウス分布からサンプリングします。\n2. **ダンピング付きヤコビアン逆写像**: 現在の観測履歴 $h$ と潜在変数 $z$ における方策のヤコビアン $J = \\frac{\\partial u}{\\partial z}$ を計算します。この $J$ は長方形行列であり感度が低い方向もあるため、ダンピング付き最小二乗逆写像を適用します：\n   $$\\Delta z = J^\\top (J J^\\top + \\lambda^2 I)^{-1} \\Delta u$$\n   ここで $\\lambda$ はダンピング係数です。感度が極端に低い方向への無謀な潜在変数の跳躍を抑えます。\n3. **候補の実行と評価**: 更新された潜在変数 $z + \\Delta z$ を超球面に正規化し、事前学習済みコントローラに入力してシミュレータ上で $H$ ステップ先までロールアウトします。物理効果スコアによって候補をランク付けし、CEM の分布をエリート候補に更新します。\n4. **実行と前進**: CEM の反復後、最も優れた候補を短い時間窓 $L$ ステップだけ実行し、次の計画ステップへと進みます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "LJS の制御・探索ループです。(A) 関節空間で CEM が変化量 $\\Delta u$ を提案し、(B) 固定方策のヤコビアンのダンピング付き逆写像で潜在空間の $\\Delta z$ に変換され、(C) シミュレーション評価を経て最良の潜在コマンドが実行されます。",
+     "caption": "Figure 2: Latent Jacobian Steer overview. (A) CEM proposes joint-action perturbations $\\Delta u$ . (B) A damped inverse of the frozen policy Jacobian maps each proposal to a latent change $\\Delta z$ ; the updated latent command is normalized and simulated through the pretrained controller. (C) Physical-effect scores rank the rollouts and guide CEM updates. The best admissible candidate is executed for a short window before replanning. The actor remains frozen throughout.",
+     "image": "details/2611.27338/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "実験結果：シャッター持ち上げから多指ハンドのネジ締めまで",
+   "summary_ja": "ヒューマノイドの過酷な3タスクと多指ハンドの4タスクで LJS を検証しました。潜在空間単独や関節残差単独の探索を圧倒し、低エネルギーかつ滑らかな動作を実現しています。さらに、見つけた軌道から閉ループ制御器を学習できることも示しました。",
+   "details_ja": "LJS の有効性を確認するため、多岐にわたる検証が行われました。\n\n### 4.1 対象タスクとベースライン\n- **ヒューマノイドタスク（BFM-Zero + G1）**: ① ハードル越え（手足をかけて乗り越える）、② シャッター開けと通過（両手で下から押し上げ、しゃがんでくぐり抜けて立ち上がる）、③ 箱を抱えたままのドア開け（箱を落とさずにドアノブを操作する）。\n- **多指ハンド組み立てタスク（Play2Perfect + Franka + Sharpa hand）**: ビーム組み立て（2種）、ネジ締め、精密ペグ挿入の4タスク。目標ゴール空間（6次元）と関節空間（29次元）の連携を評価。\n- **ベースライン**: 潜在空間を直接 CEM で探索する「CEM direct-$z$」、学習済みモデルの出力に関節残差を直接足し込む「CEM residual-BFM」。\n\n### 4.2 主な結果とパフォーマンス\n- **タスク完了率の圧倒的な差**: シャッター通過では、手のひらを正確に差し込んで支える必要があるため、CEM-LJS だけが唯一クリアできました（10シード中成功）。direct-$z$ は最初の手の配置すらほぼ失敗し、residual-BFM は手先を合わせられるものの全身バランスを崩して床を這いつくばる解に陥りました（図 F1 参照）。\n- **多指ハンドへの汎用性**: ネジ締めタスクにおいて、direct-goal の成功が 10 シード中 3 回だったのに対し、CEM-LJS は 9 回成功しました（図 F4 参照）。指先がネジをしっかりホールドして回すための微細な関節変化を、ヤコビアンが適切にゴール空間へ反映できたためです。\n- **動作の質（Motion Quality）**: 関節残差法（residual-BFM）と比較して、CEM-LJS は機械的消費電力が約 40% 削減され、関節躍度（Jerk）は半分以下でした。事前学習モデルの持つ人間らしい協調性を保ったまま動けている証拠です。\n\n### 4.3 下流タスクへの応用（テーブル登り）\nLJS で得られた軌道は特権情報を使った開ループ探索列ですが、これをもとに SuperMimic を使って閉ループポリシーを学習させました（図 F7）。G1 が高さ 0.75 m の机によじ登るタスクにおいて、机の位置や高さ、摩擦、ロボットの質量がランダムに変化する環境でも 96% の成功率を達成し、学習で使っていない標準 MuJoCo 上でも 100% 成功しました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "シャッター通過タスクにおける各手法の比較です。CEM-LJS（上段）は両手でシャッターを持ち上げ綺麗にくぐり抜けますが、direct-z（中段）は持ち上げられず、residual-BFM（下段）は手先の残差に引っ張られて全身の姿勢が崩れ、床を這ってしまいます。",
+     "caption": "Figure 1: Shutter traversal Chronological frames from comparing CEM-based ( Rubinstein, 1999 ) searches of our method and the best seeds of baseline methods over ten seeds. CEM-LJS(ours) lifts the shutter, crosses on its feet, and stands up. CEM with direct- $z$ search never lifts the shutter. CEM with residual raw joint-action search over BFM hacks the task by crawling on its torso.",
+     "image": "details/2611.27338/F1.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "本研究で LJS を適用した多様なロボットとタスク群です。左からヒューマノイド（BFM-Zero）、多指ハンド（Play2Perfect）、四足歩行ロボットやアームなど、コントローラを追加学習することなく多彩な接触タスクを実現しています。",
+     "caption": "Figure 3: Behaviors elicited from frozen pretrained controllers with LJS. Left: the BFM-Zero humanoid controller. Middle: the Play2Perfect dexterous hand policy. Right: further controllers and a second simulator (Appendix I ). No controller was trained or fine-tuned for these tasks.",
+     "image": "details/2611.27338/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "Play2Perfect ポリシーを用いたネジ締めタスクの比較です。CEM-LJS（上段）は指先を適切に使って 10 シード中 9 回成功しましたが、CEM direct-goal（下段）は 3 回にとどまりました。",
+     "caption": "Figure 4: Screwing with the frozen Play2Perfect policy. Seven evenly spaced frames from a successful run of each method. CEM-LJS completes screwing from 9 of 10 seeds and CEM direct-goal from 3. Appendix H shows the other assembly tasks.",
+     "image": "details/2611.27338/F4.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "LJS の探索結果から学習された閉ループ方策による机登り（高さ 0.75 m）動作です。シミュレータのドメインランダム化にも耐え、学習環境とは異なる標準 MuJoCo 上でも安定して登りきることができます。",
+     "caption": "Figure 7: A closed-loop policy trained from one CEM-LJS rollout climbs onto a 0.75 m table and stands up. It runs here in standard MuJoCo, a simulator it was not trained in, on a randomized table.",
+     "image": "details/2611.27338/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "LJS は行動基盤モデルに精密な探索能力を与える強力なインターフェースです。現在はオフラインの挙動探索パイプラインですが、将来的には高品質なデモ生成や Sim-to-Real への展開が期待されます。",
+   "details_ja": "本論文では、事前学習済みの潜在空間駆動ヒューマノイドコントローラから、未知の接触リッチな行動を引き出すフレームワーク「Latent Jacobian Steer（LJS）」を提案しました。関節空間での意味のある探索提案を、ダンピング付き方策ヤコビアン逆写像によって潜在空間に射影することで、コントローラの協調能力を破壊することなく精緻なタスクを完遂できることを示しました。\n\n特筆すべきは、LJS が出力するのは単なる開ループの関節軌道ではなく、「潜在コマンドの系列 $(z_1, \\ldots, z_M)$」である点です。短い実行窓の間でも、固定されたポリシーはリアルタイムに自己受容感覚（Proprioception）のフィードバックを受け取って関節トルクを生成し続けます。\n\n現状の限界としては、シミュレータへの特権アクセスや状態リセット、多数の並列ロールアウトを必要とするオフライン手法であるため、実機で直接リアルタイム動作させることはできません。しかし、LJS で生成した動作を閉ループ方策へと蒸留できることが示されたため、強化学習や模倣学習のための「自動デモ生成エンジン」として非常に有望です。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：なぜ LJS が数学的・実験的に機能するのか",
+   "summary_ja": "LJS がうまく機能する数学的理由（ヤコビアンによる感度の不均一性の補正）の解説と、アブレーション実験、プロンプト開発の知見がまとめられています。",
+   "details_ja": "### なぜ LJS が数学的に優れているのか（Appendix B）\n方策ニューラルネットは、ある潜在方向には極めて敏感に反応し、別の方向にはほとんど反応しないという「感度の不均衡」を抱えています。もし潜在空間を等方的にランダム探索（ガウス分布でサンプリング）すると、特定の関節ばかりが激しく動き、他の関節はほとんど動かない状態に陥ります。\n\n方策ヤコビアンの特異値分解を $J = U \\Sigma V^\\top$ とすると、LJS のダンピング付き逆写像を通すことで、感度が高い方向（特異値 $s_i \\gg \\lambda$）では関節空間での分散がほぼ等しく補正されます。つまり、LJS は「コントローラが実現可能な範囲で、すべての関節が公平に探索されるように自動スケーリングする」役割を果たしているのです。単に探索次元を下げているだけではありません。\n\n### アブレーション実験による検証（Appendix B.1, D）\n- **特異値ベクトル方向の直接探索**: ヤコビアンの右特異ベクトル方向（敏感な方向）だけを潜在空間で探索し、LJS のスケーリングを省いた場合、成功率は半分以下（30試行中9回）に激減しました。\n- **ランダムな29次元部分空間**: 潜在空間からランダムに選んだ29次元で探索したところ、タスク完了率はゼロでした。\n- これらにより、「敏感な方向を選ぶこと」と「ダンピング逆写像で感度を均一化すること」の双方が不可欠であることが証明されました。\n\n### 実務者へのアドバイス（Appendix M）\nタスクを物理効果で定義する際は、最初からガチガチに制約を作らないことが推奨されています。まずは素朴な物理目標だけを設定し、シミュレーションの失敗動画を見ながら「途中で立ち上がろうとして頭をぶつけたから、高さ制限を加えよう」といった具合に段階的に効果を追加していくのが最も効率的であると述べられています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "基盤モデルの潜在空間を直接いじるのではなく、「関節空間で摂動を作ってヤコビアン逆写像で戻す」という発想が、協調性を保ったまま精密な接触を生み出すブレイクスルーになった。",
+  "事前学習モデルに接触動作の経験が全くなくても、自由空間で培った全身協調の事前知識だけで、障害物越えやドア開けなどの複雑な接触タスクを十分に解くことができる。",
+  "シミュレータ内での並列探索（LJS）によって高品質な動作系列を見つけ出し、それを模倣学習（SuperMimic等）で閉ループ方策に蒸留するパイプラインは、ヒューマノイドのデータ収集問題に対する極めて現実的な解決策になる。"
+ ],
+ "limitations_ja": [
+  "シミュレータの状態保存・リセットや特権的な接触情報の読み取り、大量の並行ロールアウトを前提としているため、実機上で直接オンライン実行することはできない。",
+  "タスクを構成する「物理効果（ステージ）」の分解や完了条件の閾値設定は依然として人間（および LLM アシスタント）の手作業に依存している。",
+  "事前学習済みコントローラがそもそも潜在的に持っていない極端な動作（コントローラの行動分布から完全に逸脱した動作）までは引き出すことができない。"
+ ],
+ "keywords": [
+  "Humanoid Loco-manipulation",
+  "Behavioral Foundation Models",
+  "Policy Jacobian",
+  "Contact-rich Control",
+  "Cross-Entropy Method"
+ ],
+ "id": "2611.27338",
+ "title": "Latent Jacobian Steer: Eliciting Contact-Rich Out-of-Distribution Behaviors from Pretrained Humanoid Controllers",
+ "authors": [
+  "S K Swaminathan",
+  "Shivam Sood",
+  "Shreyansh Kansal",
+  "Chengyang He",
+  "Guillaume Adrien Sartoretti"
+ ],
+ "date": "2026-11-23",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "control"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.LG"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.27338",
+ "pdf_url": "https://arxiv.org/pdf/2611.27338",
+ "summary_ja": "事前学習済みの全身潜在制御器から、分布外の接触豊富な動作を引き出す手法Latent Jacobian Steerを提案。生関節空間での探索と潜在空間のセマンティクスをヤコビアンを介して結合することで、基本協調構造を破壊せずに目的の物理的効果へと動作を誘導し、重い障害物の押退け等の高負荷な接触タスクを達成した。",
+ "generated": "2026-11-24",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.27338"
+}
