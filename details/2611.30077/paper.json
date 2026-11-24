@@ -1,0 +1,128 @@
+{
+ "title_ja": "PushMimic: 動的運動拡張と参照蒸留によるヒューマノイドの適応的箱押し学習",
+ "tldr_ja": "平地でのたった1つの人型押し動作から、サンプリング軌道最適化と観測・報酬の切り離し学習を通じて、箱の重さや坂の傾斜を直接測ることなくリアルタイムに姿勢を適応させて押し切る強化学習フレームワーク「PushMimic」を提案しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "PushMimicの全体フレームワークです。左側で平地の基準動作を動力学的に拡張し、中央で平地動作だけを見ながら拡張動作を追従するよう単一ポリシーへ蒸留学習させ、右側のように未知の環境で自律適応させます。",
+  "caption": "Fig. 2: Overview of PushMimic. Dynamic motion augmentation : sampling-based trajectory optimization (SBTO) [ 21 ] turns the nominal reference motion into one dynamically feasible reference motion for each box mass and ramp inclination on a grid, using a torso pitch prior and a foot placement dead zone. Reference distilled motion tracking : an RL policy observes only the nominal reference motion and the states of the robot and the box, and is rewarded for tracking the augmented reference motion of its task parameter. Deployment : the policy adapts its posture to the box mass and the ramp inclination without observing them.",
+  "image": "details/2611.30077/F2.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットに大きな箱を押させようとすると、箱の重さや床の傾斜が事前に分からない現場では途端に難しくなります。重い箱や急な坂道では、人間のようにグッと前傾姿勢を取って足を踏ん張らないと押し負けて転倒してしまうからです。しかし、あらゆる傾斜や重量ごとに人間の動作キャプチャを撮り直すのは現実的ではありません。\n\nそこで著者らは「平地で軽めの箱を押す基準動作が1つあれば十分なのでは？」と考えました。まず、準静的モデルの知見を取り入れたサンプリングベースの軌道最適化（SBTO）を使い、様々な重さや斜度に対応する動力学的に無理のない動作データセットを自動生成します。次に、ここが一番面白い工夫なのですが、強化学習のポリシーには「平地の基準動作」しか見せず、報酬系だけは「その環境の真の最適動作」との一致度を与えるという、観測と報酬の切り離しを行いました。\n\nこれにより、ロボットは重さや斜度を直接教えられなくても、箱から押し返される反力を体感することで「今は重いから前傾姿勢になろう」と自律的に姿勢を変えられるようになります。Unitree G1を用いたシミュレーションでは成功率が大幅に向上し、腕にかかる負荷も削減されました。さらに実機トレッドミル実験でも、押している最中に重りを追加されたり坂が急になったりしても、転倒することなく滑らかに前傾度合いを深めて押し続ける適応力を実証しました。",
+ "contributions_ja": [
+  "平地での1つのキネマティクス動作から、動力学的に実現可能な動作群の自動拡張と1段階ポリシー蒸留を行う適応的箱押しフレームワーク「PushMimic」を提案したこと。",
+  "質量5〜15 kg、傾斜最大15°のシミュレーションにおいて、ベースラインの成功率57.8%を88.8%まで高め、腕の押しコストを22%削減したこと。",
+  "物理ヒューマノイド「Unitree G1」にゼロショット展開し、連続押し動作中に箱の重さ（最大19 kg）や斜度（最大12.6°）が変化しても即座に体幹ピッチを適応できることを示したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "平地の動作1つから、重い箱や急な坂へどう適応するか",
+   "summary_ja": "ヒューマノイドによる箱押しは、接触力によって適切な押し姿勢が変化するため困難です。既存研究は報酬設計による不自然な姿勢か、記録時の条件に固定された模倣に留まっていました。本研究は平地動作1本から未知の質量や斜度に適応するアプローチを切り拓きます。",
+   "details_ja": "製造や物流の現場でヒューマノイドに荷物を運ばせる需要が高まっていますが、大きな箱を押すタスクは簡単ではありません。箱の重さや摩擦、床の傾斜などの物理パラメータ（タスクパラメータ）が事前に分からず、しかも押すたびに変わるからです。\n\n例えば坂道で重い箱を押す場合、人間は自然と上体を深く前に倒し、足の位置を後ろへ下げて踏ん張ります。もしロボットが平地と同じ直立に近い姿勢のまま力任せに押そうとすると、無駄なエネルギーを消費するだけでなく、反力で後ろに倒れて失敗してしまいます。\n\n既存の強化学習アプローチには大きく2つの系統があります。1つはタスク報酬だけで学習させる方法ですが、これだとどの部位でどう押すかが定まらず、不自然な押し方になりがちで報酬の調整も大変です。もう1つはモーションキャプチャなどの人間の基準動作を追従させる方法ですが、手に入る人間の動作データは平地のものがほとんどです。あらゆる重さや傾斜の組み合わせごとに動作を収録するのは不可能です。\n\nそこで本研究が提案するのが「PushMimic」です。平地で記録されたたった1つの基準動作を出発点とし、動力学を考慮した最適化で多様な環境向けの動作データを自動生成した上で、未知の環境でも自身の状態から状況を察して姿勢を変えられる単一のポリシーへとまとめ上げます。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "傾斜10°のトレッドミル上で箱を押す実機G1の様子です。押している途中で箱に重りが追加され、10 kgから15 kg、19 kgへと重くなるにつれて、ロボットが自動的に体幹の前傾角度を深めて対応していることが分かります。",
+     "caption": "Fig. 1: Online posture adaptation of the G1 when weights are added to the box during continuous pushing on a treadmill inclined at $10^{\\circ}$ . (a) to (c) Snapshots with box masses of $10$ , $15$ , and $19~\\mathrm{kg}$ , where the angle between the belt normal (dashed) and the line from the pelvis to the top of the head (yellow) illustrates the torso pitch. (d) Torso pitch from the belt normal on hardware and in simulation, averaged over one stride, and that of the nominal reference motion that the policy observes. The faint curve is the raw measurement. …",
+     "image": "details/2611.30077/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Dynamic Motion Augmentation",
+   "heading_ja": "物理モデルと軌道最適化で、負荷に負けない動作を自動量産する",
+   "summary_ja": "人間が箱を押す際の簡易的な準静的力学モデルに基づき、上体の前傾と足位置の後退が不可欠であることを導出しました。これらを事前分布および不感帯として組み込んだサンプリングベース軌道最適化により、様々な条件に対応する物理的に妥当な基準動作を一挙に生成します。",
+   "details_ja": "### II-A & II-B 簡易モデルから導く姿勢の直感\nまず著者らは、坂道での箱押しを2次元の平面準静的モデル（Fig. 3）として数式化しました。箱を押し上げる力 $F=mg(\\sin\\alpha+\\mu\\cos\\alpha)$ の反力が手に加わると、ロボットを坂の下側へ転倒させようとするモーメントが発生します。足裏の圧力中心（CoP: 力を支える支点）のまわりのモーメントの釣り合いを解くと、重心を前に傾けるべき角度 $\\psi$ は、重力に抗して立つための傾きと、押す反力に抵抗するための追加の傾き（傾斜角 $\\alpha$ や箱の質量 $m$ に比例して増大）の和になることが分かります。支点は足裏の内側にしか置けないため、ロボットがバランスを保つには「上体（体幹）を前に倒すこと」と「足を坂の下側に引くこと」が力学的に必須となります。\n\n### II-C & II-D 動力学を考慮した軌道最適化（SBTO）\nこの知見を活かし、サンプリングベース軌道最適化（SBTO）を用いて、箱の質量（5〜15 kg）と坂の傾斜（0〜15°）の組み合わせ格子点176通りについて、物理シミュレータ上で破綻しない基準動作を生成します。SBTOは間欠的な手足の接触を明示的に定式化せず、シミュレータの並列ロールアウトで探索するためロバストに解が得られます。\n\n最適化のコスト関数には以下の工夫が凝らされています：\n- **体幹ピッチの事前分布**：数式 (1) の関係を模して、傾斜が急で箱が重いほどあらかじめ体幹を前傾させるオフセットを与え、平地の基準動作姿勢からスムーズに前傾姿勢へ誘導します。\n- **足配置の不感帯（デッドゾーン）**：平地動作の足位置に厳密に追従させようとすると足が後ろに下がれず、急坂で箱が止まってしまいます。そこで坂の方向に対して広めの不感帯を設け、その範囲内なら動力学に従って自由に足を後ろへ置けるようにしました。これにより、足の接地タイミングという元の動作の特徴を保ちつつ、必要な踏ん張りを両立させています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "箱押しタスクの平面準静的モデルです。押し反力Fに抗してバランスを崩さないためには、CoP（足裏の圧力中心）に対してCoM（重心）を前傾させ、足を後方に引く必要がある力学的な関係を示しています。",
+     "caption": "Fig. 3: The simplified planar quasi-static model of the box pushing task.",
+     "image": "details/2611.30077/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "III Reference Distilled Motion Tracking",
+   "heading_ja": "あえて「平地の動き」だけを見せて、適応力を引き出す蒸留テクニック",
+   "summary_ja": "ポリシーには平地の基準動作情報しか入力しない一方で、強化学習の報酬計算にはその環境に合わせた拡張動作を与える「観測と報酬の切り離し」を導入しました。これによりロボットは、押した際の手応えから環境を自律推定して最適な前傾姿勢をとるようになります。",
+   "details_ja": "### III-A マルコフ決定プロセス（MDP）の設計\n生成した176通りの動作データセットを、実機で動く1つのニューラルネットワークポリシーに集約（蒸留）します。並列環境ごとに異なる質量と傾斜 $\\theta=(m, \\alpha)$ を割り当てますが、ここでの大きな特徴は観測と報酬で参照する動作を変えている点です。\n\n- **観測（ポリシーへの入力）**：ロボットの関節状態や角速度、ベースから見た重力方向、箱の相対姿勢・速度に加えて、「平地の公称基準動作」の関節位置・速度を入力します。箱の重さや斜度の真値は一切教えません。\n- **報酬（評価の基準）**：その環境の真のタスクパラメータに対応する「拡張された基準動作」との誤差に対して報酬を与えます。さらに、足と手以外の部位が箱に触れたらエピソードを即時終了させることで、膝や肩で無理やり押すようなズルを防ぎます。\n\n### III-B 観測と報酬の切り離しによる1段階蒸留\nなぜこの方法で適応できるのでしょうか？答えは「箱を押した時の手応え（反動）」にあります。重い箱や急坂では、同じ力で押しても箱がなかなか加速せず、ベースにかかる重力ベクトルの向きも変わります。ポリシーは高い報酬（＝拡張動作の姿勢）を得ようとする過程で、観測できる手応えの履歴から環境の違いを自然に察知し、教えられてもいないのに前傾姿勢を作り出すよう学習するのです。\n\n個別の環境ごとに別々のポリシーを学習してから蒸留する二段階方式と違い、最初から非対称Actor-Critic（Critic側には真のタスクパラメータや拡張動作を特権情報として与える）を用いることで、わずか1回の強化学習でスマートに単一ポリシーへと落とし込むことに成功しています。",
+   "figures": []
+  },
+  {
+   "heading": "IV Results",
+   "heading_ja": "成功率88.8%への跳躍と、実機トレッドミルで見せた驚きの粘り",
+   "summary_ja": "シミュレーション評価では、ベースラインの成功率57.8%に対しPushMimicは88.8%を達成し、腕の関節負荷を22%軽減しました。実機ヒューマノイドUnitree G1でも、押し動作中に質量が10 kgから19 kgに増えても、斜度が12.6°まで変化しても、リアルタイムに体幹を傾けて押し続ける適応性を実証しました。",
+   "details_ja": "### IV-A & IV-B 実験設定と拡張動作データの検証\n検証には全高約1.3 mの小型ヒューマノイド「Unitree G1」を使用しました。手先には箱との面接触を維持できるよう、パッシブダンパ蝶番付きのフラットプレートを装着しています（Fig. 4）。\nまず生成された拡張動作データ自体を確認すると、傾斜角と質量が大きくなるほど体幹ピッチ角が綺麗に深くなり、15°の坂では5 kg時の43.6°から15 kg時の59.3°まで前傾が増大していました（Fig. 7）。簡易力学モデルの予測通りの動作が自動生成されていることが確認できます。\n\n### IV-C シミュレーションによる比較検証\n平地動作を単純に坂に合わせて傾けただけのベースライン（Vanilla）と比較しました。\n- **成功率（Task Completion）**：グリッド全体での成功率はVanillaが57.8%にとどまったのに対し、提案手法は88.8%と圧倒しました（Fig. 8）。特に11 kg以上の重い領域や急勾配において、Vanillaが押し負けて失敗する領域でも確実に箱を押し切っています。50%成功力（$F_{50}$）も66 Nから92 Nへと大幅に向上しました。\n- **適応度（Adaptiveness）**：傾斜に対する適応度は0.99、質量に対する適応度は0.83（Vanillaはそれぞれ0.28と-0.20）を記録し、拡張動作の姿勢変化をほぼ完璧に再現しました。押している最中にパラメータが急変しても、リアルタイムに姿勢を滑らかに変えて追従します（Fig. 5）。\n- **押しコスト（Cost of Push）**：成功した試行における腕の関節トルク二乗和に基づく押しコストは、提案手法の方が22%低減されました。これは腕の力だけで踏ん張るのではなく、倒れ込む体幹の重みを使って効率的に箱を押せているためです。\n\n### IV-D 実機G1によるトレッドミル実験\n傾斜可変トレッドミルを無限に続く坂道に見立て、実機での検証を行いました。歩行周期1.52秒（0.94 m進むペース）をループさせ、ベルトを0.6 m/sで動かすことで、その場で押し続けられる環境を構築しています。\n1. **質量のオンライン変化**：10°の斜面で押している最中に、箱の上に手作業で重りを載せて10 kg→15 kg→19 kgと増やしたところ、体幹ピッチは46.8°→48.4°→52.8°へと即座に深くなりました（Fig. 1）。\n2. **傾斜のオンライン変化**：10 kgの箱を押しながら、トレッドミルを0°から12.6°まで46秒かけて徐々に傾けたところ、体幹ピッチは39.1°から48.3°へと傾斜1°あたり0.71°のペースで滑らかに前傾を深めました。\n合計9回の走行（計8.5分間、総歩行距離307 m）において、一度も転倒することなく安定した箱押しを継続できました。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "生成された拡張動作データにおける体幹の平均ピッチ角です。横軸が箱の質量（5〜15 kg）、縦軸が坂の傾斜（0〜15°）で、等高線が右下がりの対角線を描いており、「緩い坂の重い箱」と「急な坂の軽い箱」で同等の前傾姿勢が必要になる力学的傾向が如実に現れています。",
+     "caption": "Fig. 7: Mean torso pitch of the augmented reference motions during the push over the task parameter grid of box mass, from $5$ to $15~\\mathrm{kg}$ , and ramp inclination, from $0^{\\circ}$ to $15^{\\circ}$ , one grid point per reference motion, with iso-pitch contours every $5^{\\circ}$ .",
+     "image": "details/2611.30077/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "シミュレーションでのグリッド別成功数（3シード中）の比較です。(a) PushMimic（88.8%）は重い領域でも安定して成功しているのに対し、(b) Vanillaベースライン（57.8%）は質量が10 kgを超えると急激に失敗（赤色）が増えていることが分かります。",
+     "caption": "Fig. 8: Success over the task parameter grid in simulation for (a) the proposed method and (b) the vanilla baseline, as the number of seeds whose push placed the box within the criterion, with the success rate over all rollouts in the panel label.",
+     "image": "details/2611.30077/F8.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "押している最中に負荷が変化した際のオンライン姿勢適応の様子です。左は15°の坂で箱の質量が15 kgから5 kgに減少した例、右は15 kgの箱で斜面が15°から0°に平坦化した例です。PushMimic（橙）はパラメータの変化（破線）に合わせて体幹ピッチを柔軟に変化させています。",
+     "caption": "Fig. 5: Online posture adaptation when the box mass or the ramp inclination changes during the push. The left column shows a push in which $m$ falls from $15$ to $5~\\mathrm{kg}$ on a $15^{\\circ}$ ramp. The right column shows a push in which $\\alpha$ falls from $15^{\\circ}$ to $0^{\\circ}$ with a $15~\\mathrm{kg}$ box. Top and middle rows: strobe renders of the vanilla baseline and of PushMimic, with the goal position of the box drawn in green when the push delivered the box and in red when it did not. Bottom row: torso pitch over time, with the task parameter as a dashed line on the right axis.",
+     "image": "details/2611.30077/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusions",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "PushMimicは平地の1動作から動力学的に妥当な動作集合を生成し、観測と報酬の切り離しによって環境パラメータ非観測のまま適応できるロバストな箱押しを実現しました。格子点探索の計算コストや外部MoCap依存といった課題が今後の発展の鍵となります。",
+   "details_ja": "本論文では、平地で記録されたたった1つのキネマティクス基準動作から、未知の箱質量や床面傾斜に適応可能なヒューマノイドの箱押し制御手法「PushMimic」を提案しました。\n\n動力学を考慮した軌道最適化による動作拡張と、観測には平地動作・報酬には拡張動作を与える1段階のポリシー蒸留を組み合わせることで、ロボットは自身の体感する手応えのみを頼りに、状況に応じた前傾姿勢へと自律適応できるようになりました。シミュレーションでの大幅な成功率向上と省エネ効果に加え、実機Unitree G1による過酷なトレッドミル負荷変動テストでもその有効性が実証されました。\n\n今後の課題として、著者らは2つの限界を挙げています。1点目は、タスクパラメータをグリッド（格子点）状に離散化して動作を生成しているため、パラメータの次元が増えると計算量が指数関数的に爆発することです。今後はグリッド全探索ではなくサンプリングベースの拡張が期待されます。2点目は、実機実験で箱の位置姿勢計測にモーションキャプチャを用いている点です。真の物流現場やスロープで自律作業を行うには、車載カメラやLiDARなどのオンボードセンサのみで箱の状態を推定する拡張が必要となります。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "「観測と報酬の参照動作を切り離す」設計により、タスクパラメータを直接推定するモジュールを作らなくても、ロボット自身の手応えから潜在的に状況を察して動作適応させることができる。",
+  "キネマティクスのみのリターゲットでは接触力を考慮した姿勢変化（踏ん張りや前傾）を作れないため、シミュレータを挟んだ動力学的拡張（SBTO）が極めて有効である。",
+  "物理モデルから「どの自由度を解放すべきか（体幹ピッチの事前分布、足位置のデッドゾーン）」という直感を抽出し、最適化のコストに落とし込む設計アプローチが泥臭くも強力に効く。"
+ ],
+ "limitations_ja": [
+  "タスクパラメータ（質量・斜度）をグリッド状に全探索して基準動作を作っているため、箱の寸法や摩擦係数などパラメータが増えると計算時間が爆発する。",
+  "実機での箱の位置姿勢追従に外部のモーションキャプチャシステムを必須としており、オンボードカメラや触覚のみでの完全自律化には至っていない。"
+ ],
+ "keywords": [
+  "Humanoid Robot",
+  "Loco-manipulation",
+  "Reinforcement Learning",
+  "Trajectory Optimization",
+  "Sim-to-Real Transfer"
+ ],
+ "id": "2611.30077",
+ "title": "PushMimic: Learning Adaptive Humanoid Box Pushing via Dynamic Motion Augmentation and Reference Distillation",
+ "authors": [
+  "Yulun Zhuang",
+  "Hanyu Zhang",
+  "Jingyu Liu",
+  "Yanran Ding"
+ ],
+ "date": "2026-11-24",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "control",
+  "planning",
+  "imitation-learning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.30077",
+ "pdf_url": "https://arxiv.org/pdf/2611.30077",
+ "summary_ja": "箱の質量や斜面傾斜が未知の状況下でヒューマノイドが適応的に箱押しを行う手法を提案。平地での単一キネマティック参照動作からサンプリングベースの軌道最適化で動的に実行可能な動作データを生成し、それを1つの運動追従方策へと蒸留する。5〜15kgの質量変化や傾斜に対して押し姿勢を自律適応させることに成功した。",
+ "generated": "2026-11-24",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.30077"
+}
