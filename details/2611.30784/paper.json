@@ -1,0 +1,135 @@
+{
+ "title_ja": "Beyond Domain Randomization: 実環境でのダイナミクス学習による脚ロボットの方策適応",
+ "tldr_ja": "シミュレーションでの静的なドメインランダム化（DR）に頼る限界を突破するため、実機から集めたわずか30分のデータで学習済みダイナミクスモデルを適応させ、その中で方策を安全に強化学習（PPO）で再ファインチューニングする手法を提案しました。自重の約80%に達する15kgの荷物追加やオイルを塗った超低摩擦路面といった、事前の想定を大きく超える過酷な環境でも安定した二足歩行を実現しています。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "提案フレームワークの全体像です。(a) シミュレータ上でTeacher-Student構成により方策とダイナミクスモデルを事前学習し、(b) 多様な挙動方策で実機データを収集、(c) 実機データでダイナミクスモデルを目標環境へ適応させ、(d) その適応済みモデルを代理環境としてシミュレーション内で方策をPPOにより追加学習します。",
+  "caption": "Fig. 1: Overview of the framework. The pipeline operates in four phases. (a) Simulator online pre-training, where a nominal policy is trained via a teacher-student architecture, while a dynamics model is learned concurrently using aggregated off-policy data. (b) Real world data collection with the pre-trained behavior policies. (c) The aggregated simulation and real data are used to fine-tune the dynamics model. (d) The dynamics model creates a high-fidelity surrogate to fine-tune the policy against physical variations.",
+  "image": "details/2611.30784/F1.jpg"
+ },
+ "overview_ja": "強化学習をロボットの歩行制御に適用する際、シミュレータ内の摩擦や質量をランダムに変えて頑健にする「ドメインランダム化（DR）」が広く使われています。しかし、実世界の変動が訓練時の想定幅を超えてしまうと、ロボットは転倒するか、あるいはどんな環境でも倒れないように膝を深く曲げた極端に保守的な歩行しかできなくなってしまいます。\n\nそこで著者らは、「実世界データを少しだけ使ってダイナミクスモデル（環境の物理挙動を予測するニューラルネットワーク）を現場に合わせて微調整し、その学習済みモデルの中で方策をオンポリシー強化学習（PPO）し直せばよいのでは？」というモデルベース強化学習（MBRL）のアプローチを考えました。ポイントは、実機との対話をデータ収集時のみに限定し、方策の最適化は完全にニューラルネットワークで構築された代理シミュレータの中で完結させる点です。さらに、モデルの予測誤差によるハルシネーション（嘘の安定軌道の予測）を防ぐため、多様な挙動方策を用いたデータ収集とアンサンブルによる不確実性ペナルティを導入しました。\n\n提案手法を重量約19kgの点足（point-foot）二足歩行ロボット「TRON 1」で検証したところ、自重の約80%に相当する15kgの重量物を背負わせた状態や、床に油を塗った極端に滑りやすい環境において、従来のDRや先行の適応手法（RMAやSysID）が転倒・機能不全に陥る中、姿勢を崩さず軽快に歩き続けることに成功しました。事前のランダム化の幅をむやみに広げるのではなく、現場のデータに合わせてモデルと方策を二段階で適応させる有効性を明確に示しています。",
+ "contributions_ja": [
+  "静的ドメインランダム化の範囲を超える物理変動に対し、実機データで適応させた学習済みダイナミクスモデルの中でオンポリシー強化学習を行う適応フレームワークを提案した点。",
+  "特権情報（シミュレータでしか得られない接地力や正確な重心速度）を活用するTeacherと固有感覚情報のみを使うStudentのパラダイムを、方策だけでなくダイナミクスモデルにも同時に適用する単一ステージ事前学習アーキテクチャを設計した点。",
+  "単一ポリシーによる実機データ収集で生じるダイナミクスモデルのハルシネーション（誤った楽観的予測）を、多様な行動ポリシー群を用いることで抑制し、モデルの予測信頼性を大幅に高めた点。",
+  "点足二足歩行ロボットの実機において、自重の80%（15kg）の積載負荷や油を塗布した低摩擦床面という極限条件下で高い適応性と歩行性能を実証した点。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜ従来のドメインランダム化だけでは限界があるのか？",
+   "summary_ja": "シミュレータと現実のギャップを埋める標準手法であるドメインランダム化（DR）は、想定範囲外の大きな物理変動（大幅な積載重量増や深刻なハードウェア劣化）に直面すると破綻するか過度に保守的になります。本研究では、少量の実機データで学習済みダイナミクスモデルを現場に合わせて更新し、そのモデル内で方策を再訓練するフレームワークを提案します。",
+   "details_ja": "強化学習による脚ロボット制御は目覚ましい成果を上げていますが、その成功の多くは物理シミュレータを活用したドメインランダム化（DR：学習中に摩擦や質量などのパラメータをランダムに揺らす技術）に支えられています。しかし、あらかじめ決めた静的なパラメータ範囲には原理的な限界があります。想定を超える積載量の変化や激しい摩耗が起きると、学習された方策は安定性を優先して腰を極端に落とした保守的すぎる動きになるか、最悪の場合は転倒してしまいます。\n\nこれに対し、システム同定（SysID）で物理パラメータを推定するアプローチもありますが、剛体動力学モデル自体の構造的な誤差（非線形な減衰やアクチュエータの応答遅れなど）までは修正できません。また、アクチュエータネットなどの局所モデルではシステム全体の変動を捉えきれません。\n\nそこで本論文が提案するのが、システムレベルのダイナミクスモデルをニューラルネットワークで学習し、実機環境へ適応させるアプローチです。実機で収集した少量のオフライン軌跡データを用いてダイナミクスモデルをターゲット環境に適合（アライメント）させ、その後、このモデルを「代理シミュレータ」としてPPO（Proximal Policy Optimization：安定した方策勾配法の一種）によるオンポリシー学習を行います。\n\nこの方法の優れた点は、実機でのデータ収集と方策の最適化を切り離したことです。実機との追加インタラクションなしに、数千ステップのロールアウトを安全かつ高速にGPU上で回して方策をブラッシュアップできます。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "提案パイプラインの全体フローです。シミュレーション事前学習、実機データ収集、ダイナミクスモデルの適応、そして適応モデルを用いた方策の事後ファインチューニングの4フェーズで構成されています。",
+     "caption": "Fig. 1: Overview of the framework. The pipeline operates in four phases. (a) Simulator online pre-training, where a nominal policy is trained via a teacher-student architecture, while a dynamics model is learned concurrently using aggregated off-policy data. (b) Real world data collection with the pre-trained behavior policies. (c) The aggregated simulation and real data are used to fine-tune the dynamics model. (d) The dynamics model creates a high-fidelity surrogate to fine-tune the policy against physical variations.",
+     "image": "details/2611.30784/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "先行する適応手法やワールドモデルと何が違うのか？",
+   "summary_ja": "履歴から環境潜在変数を推定するRMAなどの手法は因果的な予測モデルを持たないため、極端な外乱に対して反応が後手に回りがちです。また、従来のモデルベース強化学習（MBRL）と異なり、本手法は事前学習済みモデルの適応と特権情報の蒸留を組み合わせることで、少量の実機データから高精度な方策改善を可能にしています。",
+   "details_ja": "脚ロボットの環境適応手法は、大きく分けていくつかの系統があります。\n\n### 履歴ベースの適応手法（History-Based Adaptation）\n代表例であるRMA（Rapid Motor Adaptation）は、過去の関節角度などの固有感覚（proprioception）の履歴をエンコーダで圧縮し、環境の潜在パラメータを推定して方策に入力します。しかし、これらは履歴と特権状態（摩擦係数やベース速度など）の相関関係を学んでいるに過ぎず、物理的な因果関係を順方向に予測しているわけではありません。そのため、想定を超える大きな外乱が加わると潜在変数の推定が破綻し、場当たり的な反応しかできなくなります。\n\n### 学習済みダイナミクスとMBRL（Learned Dynamics）\n剛体シミュレータにアクチュエータモデルや残差モデルを組み合わせるハイブリッド手法や、オフラインデータから世界モデルを学習する手法（Dreamerなど）が存在します。しかし、Dreamerのような潜在変数空間でのモデルは解釈や特権シミュレータ情報の注入が困難です。また、ゼロからオフラインデータだけで方策を学習する手法はロボット制御ではデータ効率や安定性に課題があります。\n\n### 本手法の独自性\n本研究では、明示的な物理状態空間上で予測を行うTransformerベースのダイナミクスモデルを採用しました。さらに、Teacher-Studentパラダイムを方策だけでなくダイナミクスモデル側にも同時に適用することで、シミュレータでしか得られない「特権情報」の予測能力をモデルに持たせ、実機データによる適応時には固有感覚の予測ブランチのみを微調整するという明快な分離を実現しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Methodology",
+   "heading_ja": "同時事前学習からモデル適応、そして代理環境でのPPOへ",
+   "summary_ja": "本フレームワークは4段階で進行します。シミュレータ内で方策と因果Transformer型ダイナミクスモデルを同時に事前学習し、多様なポリシーで実機データを収集、固有感覚ブランチを実機データに適応させた後、モデルの不確実性ペナルティを組み込んだ報酬でPPOファインチューニングを行います。",
+   "details_ja": "### III-A 問題設定と誤差の分解\nターゲット環境でのダイナミクス誤差 $\\epsilon^{t}_{m}$ は、事前学習時のシミュレータ誤差 $\\epsilon_{\\text{pre}}$ と、ソース環境からターゲット環境への物理変化を捉えるシフト誤差 $\\epsilon_{\\text{shift}}$ の和として三角不等式で分解できます。本手法の狙いは、事前学習で物理法則の基礎を捉えて $\\epsilon_{\\text{pre}}$ を抑えつつ、実機データによるモデル更新で $\\epsilon_{\\text{shift}}$ を最小化することです。\n\n### III-B シミュレーションでのオンライン事前学習\nシミュレータ内で4つのモジュールを1ステージで同時学習します。\n- **Teacher方策とStudent方策**：特権情報（重心速度、外力、接触状態など）を受け取るTeacher方策をPPOで学習しつつ、固有感覚の履歴（関節角度・角速度、IMU情報）のみを入力とするStudent方策へ特徴量を蒸留します。\n- **ダイナミクスモデルの2つのブランチ**：物理状態を予測する固有感覚ブランチと、報酬計算に必要な特権情報を予測する特権ブランチを並列に学習します。\n\n### III-C ニューラルダイナミクスモデルの構造\nモデルのバックボーンには、GPT-2スタイルの因果（Causal）Transformer（6レイヤー、12ヘッド）を採用しました。過去16ステップの状態・行動トークン系列を入力とし、自己回帰的に未来の状態を予測します。また、シミュレーションパラメータ $\\xi$ を埋め込んだダイナミクスベクトル $z^d$ をFiLM（Feature-wise Linear Modulation：特徴量ごとの線形変調）によって各層に注入し、物理特性に応じた挙動の切り替えを可能にしています。出力部にはアンサンブルMLPヘッドを備え、ヘッド間の分散から認識論的不確実性（モデル自身の自信のなさ）を算出します。\n\n### III-D 実世界オフライン適応と代理環境での強化学習\n実機データの収集では、単一の収束済み方策ではなく、事前学習途中のチェックポイントやノイズを加えた「多様な行動ポリシー群」を実機に投入します。これにより、状態行動空間を適度に励起（excitation）し、モデルが誤った予測をする「ハルシネーション」を防ぎます。集めた実機データで固有感覚ブランチのみを自己回帰損失により微調整し、特権ブランチは凍結します。\n\n適応完了後、このダイナミクスモデルの中でStudent方策をPPOで追加学習します。その際、アンサンブルの分散に基づく不確実性ペナルティ $\\beta \\sigma_e$（$\\beta < 0$）を報酬から差し引くことで、モデルの予測が不確かな未知領域を方策が探索しないよう抑制しています。",
+   "figures": []
+  },
+  {
+   "heading": "IV Experimental Results",
+   "heading_ja": "自重80%の過積載とオイル床面：過酷な極限環境を突破",
+   "summary_ja": "自重約19kgの点足二足歩行ロボット「TRON 1」を用い、15kgの荷物追加とオイル潤滑床面で評価しました。提案手法はシミュレーション間（Sim-to-Sim）および実機（Sim-to-Real）の両方で既存手法（Narrow/Wide-DR、RMA、SysID）を圧倒し、実機実験では過積載で80%、オイル床で100%の歩行成功率を記録しました。",
+   "details_ja": "### IV-A 実験セットアップ\n検証には、支持多角形が極小でバランス維持が極めて難しい点足二足歩行ロボット「TRON 1」（自重約19kg）を使用しました。テスト条件は、(a) 胴体に15kg（自重の約80%）を積載した超高負荷条件、(b) オイルを塗布した超低摩擦路面（摩擦係数約0.25）の2つです。比較対象は、狭いDR（Narrow-DR）、広大なDR（Wide-DR）、潜在変数適応のRMA、システム同定ベースのSysIDです。実機データは約30分間収集しました。\n\n### IV-B モデルの忠実度解析（ハルシネーションの抑制）\nTransformerバックボーンと自己回帰（AR）損失、ダイナミクス条件付けの組み合わせが、100ステップにわたる長期予測でも累積誤差を最小に抑えることが確認されました。また、多様な挙動方策（$N=320$）から集めたデータで学習すると、モデルが勝手に「安定して歩けている」と嘘をつくハルシネーションが劇的に解消され、ポリシーの獲得報酬が0.15から0.90へと大幅に向上しました。\n\n### IV-C Sim-to-Sim 転移結果（MuJoCoでの検証）\nIsaacSimからMuJoCoへの転移実験において、Narrow-DRは15kgの重力に耐えきれず後方に即座に転倒しました。Wide-DRは倒れはしないものの、膝を極限まで曲げて歩く「這い蹲り歩行」となり、二足歩行としては破綻しました。RMAやSysIDは歩行を維持したものの、追従誤差や消費電力が大きい結果となりました。提案手法はRMAと比較して速度追従誤差を45.4%改善、消費電力を33.8%削減し、SysIDに対しても同様に25%以上の改善を示しました。\n\n### IV-D アブレーション実験\nダイナミクス条件付けを取り除くと成功率が10〜13ポイント低下し、モデルの構造設計が極めて重要であることが判明しました。また、不確実性ペナルティ係数 $\\beta$ は、ペナルティなし（$\\beta=0$）だと不確実な領域に突っ込んで失敗し、厳しすぎても（$\\beta=-10$）探索が抑制されすぎて性能が落ちるため、適度な値（$\\beta=-1$）が最適でした。\n\n### IV-E 実機での実証結果\n実機「TRON 1」での実験では、Narrow-DRが激しい腰の落ち込みと足踏みの乱れを起こして全試行で失敗したのに対し、提案手法で適応した方策は直立姿勢とリズミカルな遊脚・接地を維持しました。5回の試行において、15kg積載で80%、オイル床面では100%の成功率を達成し、屋外での追加積載歩行にも成功しました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "ダイナミクスモデルのハルシネーション現象の可視化です。左：単一ポリシーのデータで学習したモデルは、実シミュレータ（赤）では即座に崩壊する方策に対しても「安定して歩行できる」と誤予測（青）してしまいます。中：多様なポリシー群のデータを用いることで、予測が正解と正確に一致します。右：ポリシー候補数 $N$ を増やすほど獲得報酬が向上することが示されています。",
+     "caption": "Fig. 4: Model hallucination. Left: the neural dynamics model (blue) predicts stable locomotion for a policy that fails catastrophically in the ground-truth simulator (red). Middle: training on data collected from diverse policies produces predictions that closely match the ground truth. Right: Policy reward versus behavioral pool size $N$ in held-out IsaacSim episodes.",
+     "image": "details/2611.30784/F4.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "MuJoCoシミュレータにおける15kg積載時の各手法の比較です。Narrow-DRは即座に後ろへ転倒し、Wide-DRは極端に膝を曲げた不自然な姿勢になっています。RMAやSysIDに対し、提案手法（Ours）は綺麗に直立姿勢を保ちながら歩行できています。",
+     "caption": "Fig. 6: Qualitative comparison of the locomotion task under a 15 kg heavy payload in MuJoCo. Time-lapse snapshots illustrate the robot’s behavior across the different baselines and our method.",
+     "image": "details/2611.30784/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "実機における15kg積載時の歩行比較です。Narrow-DR（上）は荷重を支えきれず胴体が沈み込み、歩行リズムが破綻して転倒に至りますが、提案手法（下）は左右均等で周期的な接地を維持し、安定して直立歩行を継続できています。",
+     "caption": "Fig. 7: Real-world locomotion under a 15 kg payload. Snapshots and foot-contact sequences show that our method maintains a stable upright posture and highly periodic gait, while Narrow-DR fails to support the weight, resulting in severe body sagging and gait arrhythmia.",
+     "image": "details/2611.30784/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "適応済み方策を用いた実機実験のスナップショットです。(a) 重りを取り付けた状態での屋外舗装路歩行、(b) ビニールシートに油を塗布した超低摩擦路面での歩行の様子を示しており、どちらも安定した直立歩行を実現しています。",
+     "caption": "Fig. 8: Real-world snapshots of the adapted policy. (a) Outdoor walking with an added payload. (b) Walking on oil-lubricated ground.",
+     "image": "details/2611.30784/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "本研究は、静的ドメインランダム化を広げるのではなく、現場の実機データで適応させた世界モデルの中でオンポリシー強化学習を完結させる新しいパラダイムを確立しました。今後は、実機データをさらに安全かつ自動的に収集する仕組みの探求が期待されます。",
+   "details_ja": "本論文では、静的なドメインランダム化の枠組みを超え、実世界データを用いて適応させたニューラルダイナミクスモデルの中で方策をオンポリシー再学習する新しいフレームワークを実証しました。あらかじめシミュレーションのランダム化幅を広げて頑健性を狙う従来のアプローチは、極端な環境変化に対して過度に保守的な動作を招くか、破綻してしまいます。これに対し、本アプローチはターゲット環境に特化した高効率かつアグレッシブな適応を可能にします。\n\n実機の点足二足歩行ロボットを用いた検証により、自重の80%におよぶ荷重変化やオイルを塗った低摩擦環境という極限条件でも、約30分という短時間の事前データ収集だけで見事に歩行適応できることが確認されました。\n\n著者らは今後の課題として、実機データ収集時の安全性確保を挙げています。現場で未知の環境に直面した際、ロボットを転倒・破損させるリスクを最小限に抑えつつ、ダイナミクス同定に有用な励起信号（多様な動作データ）をどのように安全に取得するかが、実用化に向けた重要な研究テーマとなります。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "DRの範囲を広げすぎるとロボットは腰を落とした超保守的で非効率な動きになるため、「適度に狭いDR＋現場データによる世界モデル適応」が有効な解決策になる。",
+  "モデルベース強化学習において実機データが限られる場合でも、「多様なポリシーから集めたデータ」を用いれば、モデルが嘘の安定軌道を予測するハルシネーションを強力に防止できる。",
+  "Teacher-Student蒸留は方策だけでなくダイナミクスモデルにも極めて有効であり、特権情報（報酬計算用）と固有感覚情報（状態遷移用）をブランチ分離して学習する構成が実用的な鍵となる。",
+  "アンサンブルモデルから得られる不確実性を報酬ペナルティとして組み込むことで、モデル予測が不正確な危険領域への方策の過剰適合（エクスプロイト）を防ぐことができる。"
+ ],
+ "limitations_ja": [
+  "適応のためにターゲット実機環境で約30分のデータ収集が必要であり、完全なゼロショット（事前準備なしの即座の適応）ではない点。",
+  "実機データ収集時に多様な挙動ポリシーを投入するため、未知環境でのデータ収集フェーズにおいてロボットが転倒・破損する潜在的リスクが残る点。",
+  "実機検証が点足二足歩行ロボットの直進・旋回等の平地ロコモーションに絞られており、不整地踏破や激しいマニピュレーションを伴う全身協調タスクへの汎用性は未検証である点。"
+ ],
+ "keywords": [
+  "Sim-to-Real Transfer",
+  "Model-Based Reinforcement Learning",
+  "Domain Adaptation",
+  "Legged Locomotion",
+  "Dynamics Model"
+ ],
+ "id": "2611.30784",
+ "title": "Beyond Domain Randomization: Real-World Policy Adaptation in Learned Dynamics for Legged Robots",
+ "authors": [
+  "Rui Dai",
+  "Shunpeng Yang",
+  "Zhen Fu",
+  "Maolin Lei",
+  "Jiaqi Song",
+  "Hua Chen",
+  "Nikos Tsagarakis"
+ ],
+ "date": "2026-11-24",
+ "group": "focus",
+ "tags": [
+  "locomotion",
+  "reinforcement-learning",
+  "sim-to-real",
+  "quadruped"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.SY",
+  "eess.SY"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.30784",
+ "pdf_url": "https://arxiv.org/pdf/2611.30784",
+ "summary_ja": "従来の静的ドメインランダム化では対応困難な未知のダイナミクス変化に対し、実環境で学習済みダイナミクスモデルを適応させる枠組みを提案。方策と環境モデル双方に教師・生徒構造を適用し、オンポリシー強化学習ループ内で高精度に適応させる。実機展開時における未モデル化の摩擦や可搬重量変化に対するロバスト性を大幅に改善した。",
+ "generated": "2026-11-24",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.30784"
+}
