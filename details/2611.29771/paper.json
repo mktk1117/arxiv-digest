@@ -1,0 +1,148 @@
+{
+ "title_ja": "Into My Arms: 物体および人間を自律搬送するための構造化強化学習",
+ "tldr_ja": "高次元・接触豊富・長時間の3拍子が揃ったヒューマノイドによる全身搬送タスクを、強化学習に最小限の幾何学的ガイド構造（SIE・IGT・HOP）を組み込むことで解決しました。医療用マネキンを用いたベッドから車椅子への完全自律移乗を、実機ロボットで人間の介助なしに初めて実証しています。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "ヒューマノイドロボットAIRECが、ベッドに横たわる医療用訓練マネキン（155 cm、15 kg）を抱え上げ、車椅子へと移乗させる一連の実機動作です。従来の介助ロボットのように人間が途中で手助けすることなく、シミュレーションで学習した方策の再生によって完全自律で移乗を完了させています。",
+  "caption": "Figure 1 : Autonomous human bed-to-wheelchair transfer on AIREC. Trajectories from a policy trained entirely in simulation are deployed zero-shot on the physical robot, lifting a medical mannequin (155 cm, 15 kg) from a bed to a wheelchair with no human intervention during execution. Unlike prior humanoid bed-to-chair systems that required a caregiver for key sub-actions [ 1 ] , our full transfer process runs unattended. Two wheelchair placements are shown, with the corresponding simulated rollout inset.",
+  "image": "details/2611.29771/F1.jpg"
+ },
+ "overview_ja": "ヒューマノイドロボットによる全身を使った物体搬送は、ロボティクスにおける長年の難問です。ロボット自身の35自由度に加えて対象物の自由度が加わる「高次元空間」、抱え込み時の「複雑な不連続接触」、そして把持・運搬・配置という異なるスキルを連続でこなす「長時間の非周期タスク」という3つの困難が同時に押し寄せるため、従来の強化学習（RL）では探索が破綻してしまいます。\n\nそこで著者らは、方策の自由度を奪わずに探索だけを巧みに導く3つの幾何学的構造を提案しました。まず、ロボットと対象物のキーポイント間を結ぶ「スパース相互作用エッジ（SIE）」で観測と報酬を一致させ、全身を使った抱え込みを促します。次に、そのエッジ距離に応じて運搬報酬をゲート制御する「相互作用ゲート運搬（IGT）」により、放り投げなどの退行行動を防いで密着運搬を維持させます。さらに、障害物を迂回する大まかな参照軌道を対象物側にだけ与える「ヒント付き物体パス（HOP）」により、局所解へのスタックを回避しました。\n\n実験では、剛体球の運搬から、ベッドから車椅子への人間移乗タスクまでを検証しました。単一の民生用GPU（RTX 5090）を使い、1時間以内の学習でタスクを達成しています。さらに、シミュレーションで学習した方策を実機の双腕移動ヒューマノイドAIRECに適用し、医療用マネキンを人の介入なしにベッドから車椅子へ移乗させることにも成功しました。体格や体重の大幅な変化、外乱にも適応できるロバスト性を示しています。",
+ "contributions_ja": [
+  "ロボットと対象物のキーポイント間を結ぶエッジ（SIE）で観測と報酬を統合し、関節空間での手探り探索を排して全身協調の抱え込みを実現したこと。",
+  "SIEの距離に基づいて運搬報酬をソフトに切り替えるゲート機構（IGT）を導入し、長時間の搬送中に生じる「対象物を放り投げる」などの不正解を抑制したこと。",
+  "ロボットの関節軌道ではなく対象物の大まかな移動経路のみをヒント（HOP）として与え、障害物との接触不連続面を回避しつつ方策自体の自由な戦略発見を両立させたこと。",
+  "ヒューマノイド実機において、人間の補助者を介さずにベッドから車椅子への全身マネキン移乗タスクを完全自律で初めて達成したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "Introduction",
+   "heading_ja": "なぜヒューマノイドの介護移乗は強化学習にとって最難関なのか",
+   "summary_ja": "強化学習はドローンレースや四足歩行パルクールで目覚ましい成果を上げていますが、全身ヒューマノイドによるマニピュレーションでは依然として苦戦しています。その原因は高次元性・不連続な接触・非周期な長時間の3重苦にあり、本論文は介護現場で最も切実な「ベッドから車椅子への移乗」をターゲットにその解決を図ります。",
+   "details_ja": "強化学習（RL）はシミュレータ内で人間とは異なる独自の身体の使い方を発見できる強力な枠組みです。しかし、ヒューマノイドの全身マニピュレーションにおいては、従来の成功例の多くが人間の動作模倣や事前軌道に依存していました。純粋なRLだけでは、小さな剛体の手渡しや単純な箱の運搬程度に留まっていたのが実情です。\n\n著者はこの壁を生み出している原因として、互いに絡み合う3つのボトルネック（トリレンマ）を指摘しています。\n- ロボットと対象物の結合による高次元性：ロボット自身の35自由度（DoF）に加え、人間モデルの15自由度も同時に制御・考慮する必要があり、探索空間が爆発します。\n- 接触リッチな環境による最適化ランドスケープの不連続性：関節空間での等方的なガウス探索を行うと、ベッドや人体との狭い隙間ですぐに衝突や拘束が起こり、滑らかな勾配が得られなくなります。\n- 長く非周期的なタスクホライズン：歩行のような周期的動作と異なり、抱え上げ・運搬・慎重な着座配置という全く異なるスキルを順序立てて実行しなければならず、信用割り当て（どの行動が成功に結びついたかの評価）が極めて困難になります。\n\n本研究が取り組む「ベッドから車椅子への移乗」は、介護者の腰痛や人手不足が深刻化する現実世界で極めて価値が高いだけでなく、この3重苦がすべて詰まった究極のベンチマークです。著者らは、方策の柔軟性を奪うようなガチガチの拘束を与えるのではなく、「探索の道標」となる最小限のタスク構造を与えるアプローチでこの難関に挑みました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "提案手法とベースラインRLの学習曲線（上段）および獲得された戦略（下段）の比較です。ベースラインは人間を放り投げたり片足・頭だけを持ち上げたりと異常な解に収束しますが、提案手法は5つの乱数シードすべてで安定して全身で抱きかかえる自然な搬送戦略を獲得しています。",
+     "caption": "Figure 2 : Mean evaluation returns and characteristic strategies across 5 seeds. Top: normalised mean evaluation return with the guidance reward component shaded during training for Ball , Human (near) and Human (far) . Bottom: qualitative strategies of the ablated RL baseline versus our method in each environment.",
+     "image": "details/2611.29771/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Results",
+   "heading_ja": "ボールから人間まで：提案手法が切り開いた圧倒的な搬送性能",
+   "summary_ja": "剛体球の運搬と2種類の人間移乗環境（近距離・障害物あり遠距離）で評価を行い、ベースラインがことごとく失敗するなか、提案手法は全シードで安定した全身搬送に成功しました。さらに、体格や質量の変化、外乱に対しても頑健であり、実機でのマネキン移乗も実証しています。",
+   "details_ja": "実験は、35自由度を持つ移動型ヒューマノイドAIRECを対象に、Isaac Labを用いて行われました。評価タスクは「剛体球の箱入れ（Ball）」、「ベッドから至近の車椅子への移乗（Human (near)）」、そして「障害物を回り込む遠距離移乗（Human (far)）」の3つです。\n\n### 学習効率とベースライン比較\n提案手法の計算負荷は非常に低く、単一のRTX 5090 GPU上で、Ball環境は約30分、接触計算の重いHuman環境でも約60分で実用的な性能に達します。一方、先行研究で一般的な「関節角度観測＋手先とゴールの距離報酬」で構成したベースラインRLは、Ball環境では片手でボールを転がすだけで持ち上げられず、Human環境では人間を空中に放り投げたり頭だけを掴んだりといった不適切な戦略に陥り、遠距離タスクをクリアできませんでした。\n\n### 3つの要素技術がもたらす効果\nアブレーション実験によって、各構成要素の役割が明確になりました。\n- SIE（エッジ構造）の導入：手先だけでなく前腕や胸のキーポイントも考慮させることで、片手押しから「両腕で抱え込む全身動作」へと戦略が劇的に切り替わります。\n- IGT（ゲート機構）の導入：ロボットと対象物が離れた状態での運搬報酬を遮断することで、抱え上げた後に投げ飛ばす不正解を封じ、密着したまま運び続ける一貫した行動が得られます。\n- HOP（ヒント軌道）の導入：障害物や車椅子の枠を避ける粗い軌道ヒントを与えることで、障害物の壁に向かって突進してしまう局所解を脱出し、安全な迂回ルートを発見できるようになります。\n\n### 驚異的な汎化性と外乱適応\n特筆すべきは、追加学習なしでの適応力です。体重11〜33 kg、身長115〜180 cmという大幅な体格差に対しても、単一の方策がそのまま移乗を成功させました。また、搬送中に300〜500 Nという大きなランダムな外力が対象物に加わる環境で学習させると、ロボットは報酬で一切指示されていないにもかかわらず、腕を深く回して胸に強く引き寄せる「より強固な抱き抱え戦略」を自発的に獲得しました。\n\n### 実機AIRECによるマネキン移乗の実証\n学習済み方策の軌道を実機AIRECに開ループで再生したところ、155 cm・15 kgの関節可動型医療用マネキンをベッドから持ち上げ、向きを90度変えて車椅子に正確に着座させることに成功しました。車椅子がベッドの頭側にある場合と足側にある場合の両方で成功しており、人間介助者の介入なしでのヒューマノイド移乗として初の快挙です。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "ヒント付き物体パス（HOP）の軌道と学習挙動です。上段は各環境のウェイポイント、左下はHuman (near)で学習された実際の軌跡（黒）とヒント（ピンク）の比較、右下は学習の進行に伴うヒント達成率の推移です。初期に100%追従した後、方策自身の最適化によってヒントから適度に離脱していることが分かります。",
+     "caption": "Figure 4 : Hinted Object Paths (HOP) across environments. Top: HOP waypoints in Ball , Human (near) , and Human (far) . Bottom left: an example learned rollout (black) versus hints (pink) in Human (near) . Bottom right: HOP completion rises early in training, then falls as the policy refines a path that still succeeds.",
+     "image": "details/2611.29771/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "体格差への汎化性と外乱への適応性です。(a) 体重11〜33 kg（色スケール）や身長115〜180 cmの広範な変化に対しても共通の搬送経路を維持します。(b) 対象物にランダムな外力外乱を加えると、人間を胸元深くに抱き寄せるより強固な把持戦略を自発的に学習します。",
+     "caption": "Figure 5 : Generalisation, robustness, and a path toward safer deployment. (a) A single policy adapts across diverse human morphologies in simulation, including mass variation (colour scale) and body size ( $115$ – $180$ cm). (b) Random force perturbations that emulate unexpected recipient motion induce a tighter, more secure carry compared with an unperturbed mannequin. (c) Several existing ingredients could help bring such a systems closer to real human trials.",
+     "image": "details/2611.29771/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Discussion",
+   "heading_ja": "制約ではなく「ヒント」を与える設計思想と、実世界展開への課題",
+   "summary_ja": "提案手法の神髄は、厳格なルールでロボットを縛るのではなく、全報酬の5〜10%程度の「ヒント」を与えるだけで劇的な探索誘導を実現した点にあります。汎用ヒューマノイドによる介護の意義を論じつつ、本物の人間を対象とするために残されたモータ出力と安全性の課題を整理しています。",
+   "details_ja": "なぜこれほどシンプルなガイドで、解けなかった問題が解けるようになるのでしょうか。ここが本論文の最大の洞察です。SIE、IGT、HOPの誘導報酬が占める割合は、エピソード全体の総リターンに対してわずか5〜10%に過ぎません。つまり、これらの構造はロボットに対する「絶対命令」ではなく、探索空間の有望な領域へと背中を押す「ヒント」として機能しています。実際、ロボットは学習初期にヒント軌道をなぞりますが、学習が進むと自分にとってより動かしやすい軌道へと自発的に修正していきます。\n\n専用のリフト装置ではなく汎用ヒューマノイドを使う意義について、著者らは「単一のハードウェアで多様な介護タスクを横断できる点」や「ベッドサイドにとどまらず不整地や公共交通機関まで人間と同行できる拡張性」を挙げています。先行の日本の介護ロボット（RI-MANやRIBAなど）は人間の介助者が足を持ち上げるなどの補助を前提とした半自律システムでしたが、本手法はRLを用いることで完全自律への扉を開きました。\n\n一方で、マネキンから「本物の生身の人間」へ移行するには、まだ明確な壁が存在します。\n- モータ出力の工学的限界：50 kgの人間を抱えるには肩関節に約375 Nmのトルクが必要ですが、現在のAIRECの定格は220 Nmにとどまります。\n- 破局的失敗を防ぐ安全性の保証：ニューラルネットワーク方策には予期せぬ動作を完全に防ぐ保証がありません。今後は、接触時の力制御リミッターや、全身触覚センサによるリアルタイムのすべり・挟み込み検知を統合していくことが不可欠です。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "Ball環境における段階的なアブレーション結果です。ベースラインの状態から、SIE（全身抱え込み）、IGT（投擲防止と保持）、HOP（箱を越える迂回経路）を順に有効化していくことで、動作がどのように洗練されタスク成功に至るかが一目瞭然に示されています。",
+     "caption": "Figure 6 : Method ablation on the Ball environment. Starting from the ablated RL baseline, SIE, IGT, and HOP are enabled in sequence to highlight the direct effect of each method on the behaviour rollout. In the final panel, the agent is trained with random force perturbations applied to the object (red arrows). Note that the actual HOP waypoint tolerance is set to $0.5$ m, but the waypoints are sized down for visualisation.",
+     "image": "details/2611.29771/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Methods",
+   "heading_ja": "探索空間を劇的に圧縮する3つの構造化アプローチとABC報酬調整",
+   "summary_ja": "提案フレームワークは、SIE（スパース相互作用エッジ）、IGT（相互作用ゲート運搬）、HOP（ヒント付き物体パス）、そして報酬スケールを解析的に決定するABC（解析的帯域幅計算）で構成されます。標準的なPPOなどの強化学習アルゴリズムを変更することなく、観測と報酬の拡張だけで適用可能です。",
+   "details_ja": "本手法の全コンポーネントはマルコフ決定過程（MDP）の観測空間と報酬関数にのみ作用するため、既存の任意の強化学習アルゴリズムと組み合わせて使用できます。\n\n### 1. Sparse Interaction Edges (SIE)\n従来のRLではロボットの関節角度と手先の位置のみを観測させることが多く、これが全身マニピュレーションの探索を妨げていました。SIEでは、ロボット側（台車、胸、上腕、前腕、手など8点）と対象物側（人間の場合は肩、腰、大腿など5点）に疎なキーポイントを設定し、その間を結ぶ3次元エッジベクトルを定義します。このエッジ長を縮める報酬を与えることで、観測空間の特徴量と最適化勾配の向きが完全に一致し、全身を使った接触形状への収束が大幅に加速します。\n\n### 2. Interaction Gated Transport (IGT)\n通常の運搬報酬は「対象物と目標地点の距離」だけで測られるため、ロボットは対象物を投げ飛ばして報酬を稼ごうとします。そこでIGTでは、ロボットと対象物のSIEエッジ長が一定の閾値（Human環境では0.3 m）以下に収まっている度合いをシグモイド関数で評価し、運搬報酬に対してソフトな「ゲート（掛け算の重み）」として適用します。これにより、対象物を身体の近くにホールドしている間だけ運搬報酬が支払われるようになり、密着した安全な運搬動作が自然に強制されます。\n\n### 3. Hinted Object Path (HOP)\n障害物がある環境で目標地点との距離だけを報酬にすると、最急降下方向が障害物の壁の中に突っ込む方向を向いてしまい、局所解に捕まります。HOPでは、対象物のキーポイントに対して初期位置から目標位置までの大まかな4次ベジェ曲線をヒント軌道として提示します。エージェントにはパスに沿ったウェイポイントの通過進行度と追従誤差に応じた報酬を与えます。重要なのはロボットの関節軌道ではなく「対象物が通るべき空間ルート」だけを指定している点であり、ロボットがどう身体を使ってそのルートを実現するかは完全に自由です。\n\n### 4. Analytical Bandwidth Computation (ABC)\n各報酬項で距離を正規化するハイパボリック・タンジェント変換において、帯域幅パラメータ $k$ のチューニングは試行錯誤を要する面倒な作業でした。ABCでは「初期距離 $\\delta$ における報酬値を $r_0=0.05$ に設定する」という幾何学的な初期条件から、逆算によって解析的に $k$ を一意に決定する数式を導出しました。これにより、試行錯誤のハイパーパラメータ調整を不要にしています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "提案する3つの幾何学的ガイダンス手法の概念図です。1. SIEによるキーポイント間の距離短縮、2. シグモイド関数を用いたIGTによる近接依存の運搬報酬ゲート、3. 局所解を回避して対象物をゴールへと導く粗いHOP参照軌道、の3要素がシームレスに連携します。",
+     "caption": "Figure 3 : Structured reinforcement learning for object transport. We propose three generalisable methods to guide learning in whole-body, contact-rich, and long-horizon manipulation: Sparse Interaction Edges, Interaction Gated Transport, and Hinted Object Path. These ideas can be integrated into the MDP’s observation and reward function without changes to the RL algorithm or training process.",
+     "image": "details/2611.29771/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：Sim-to-Realの壁をどう乗り越えたか、そして模倣学習の限界",
+   "summary_ja": "シミュレーションから実機AIRECへのゼロショット転送では、インピーダンス制御器との乖離、厳格な転倒防止機能（ZMP監視）、車椅子への過大接触力といった課題を克服しました。また、遠隔操作による人間デモの収集が物理的に困難であった検証結果についても付記されています。",
+   "details_ja": "シミュレーション環境（Isaac Lab、物理120 Hz・制御30 Hz）で得られた方策を実機へと展開するにあたり、著者らはいくつかの重要なSim-to-Realギャップに対処しました。\n\n### 実機展開における5つの課題と対策\n- 制御器のダイナミクス乖離：シミュレータ上の理想的なPD制御則に対し、実機は未モデル化のインピーダンス制御器で駆動していたため、速度が上がるとトルク指令が発散しました。これに対し、実機展開時の制御周波数を1/3（10 Hz）に落として再生することで挙動を安定化させました。\n- 転倒防止安全機能（ZMP監視）：実機にはゼロモーメントポイント（ZMP）が $12\\times 12\\text{ cm}^2$ の支持基底面を外れると即座に非常停止する保護機能があります。シミュレーション内でもZMP逸脱に大きなペナルティ（-1000）を与え、観測にZMP情報を加えることで、安定姿勢を維持させました。\n- 車椅子との接触力：シミュレータ内で車椅子を床に固定していたため、方策が車椅子を強く押し付けて体をねじ込むズルを学習してしまいました。実機では車椅子が倒れてしまうため、車椅子の衝突判定メッシュを膨らませることで、物理的な接触を回避させました。\n- 現実環境の幾何学的キャリブレーション：マネキンの各リンク寸法を正確に測定してシミュレータに反映し、手足の関節のバタつきを抑えるため手首と膝を緩く拘束して実機試験に臨みました。\n- トルク・位置偏差制限：着座時の慎重な下降動作において関節トルク制限によるハード停止が発生しやすく、完全な成功には作業空間の高さ調整（昇降式車椅子の活用など）が有効であると考察されています。\n\n### テレオペレーション（模倣学習）の失敗\nそもそもなぜ強化学習でなければならなかったのかという点について、著者らはマスタースレーブ型のロボットパペットを用いた遠隔操作デモ収集の試みを紹介しています。15 kgあるマネキンを遠隔操作で抱え上げようとしたところ、マネキンの自重による滑り落ちる速度に人間の操作者の反応が追いつかず、熟練の操作者でも安定した持ち上げ動作を行うことができませんでした。この結果は、接触リッチで重たい物体の全身ハンドリングにおいて、人間の動作をそのまま真似る模倣学習よりも、ロボット独自の高出力と反射的な閉ループ制御を学習できるRLのアプローチが本質的に適していることを裏付けています。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "模倣学習の試行と限界を示した様子です。上段は人間による介護動作の模倣、下段はロボットパペットによる遠隔操作の試行です。マネキンの自重による滑落速度に操作者のフィードバックが追いつかず、遠隔操作によるデータ収集自体が破綻してしまったことが報告されています。",
+     "caption": "Figure 8 : Pathways for imitation learning: mimicking a human demonstration (top), or teleoperating the robot (bottom). An expert teleoperator failed to lift the mannequin robustly with a high-fidelity puppet. The mannequin slipped under its own weight faster than the operator could compensate.",
+     "image": "details/2611.29771/F8.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "関節空間での探索に頼るのではなく、ロボットと対象物のキーポイント間エッジ（SIE）で観測と報酬を一致させることが、全身協調動作の獲得において極めて効果的である点。",
+  "長時間の搬送タスクでは、対象物単独のゴール距離ではなく、ロボットとの近接度に応じたゲート（IGT）をかけることで、放り投げなどの退行行動を劇的に抑制できる点。",
+  "ロボットの関節軌道を縛らず、対象物の大まかな空間経路（HOP）だけをヒントとして与える設計思想により、衝突回避と自由な戦略発見の両立が可能になる点。",
+  "重量物の接触リッチな抱え込み動作では、人間の反応速度を超える滑落が起きるため、人間からの模倣学習よりも強化学習による反射的閉ループ制御の獲得が優位性を持つ点。"
+ ],
+ "limitations_ja": [
+  "実機での検証は開ループの軌道再生にとどまっており、センサーフィードバックを用いた完全な閉ループでの実機制御や外乱適応までは実証されていない点。",
+  "現在の実機AIRECの肩関節トルク（220 Nm）では、成人の平均体重（約50 kg以上）を抱え上げる物理的強度が不足している点。",
+  "対象物の正確なキーポイント位置を外部認識できている前提に依存しており、全身触覚センサによる接触状態の推定や安全保護機構がまだ統合されていない点。"
+ ],
+ "keywords": [
+  "Whole-Body Manipulation",
+  "Reinforcement Learning",
+  "Humanoid Robot",
+  "Assistive Robotics",
+  "Sim-to-Real Transfer"
+ ],
+ "id": "2611.29771",
+ "title": "Into My Arms: Structured reinforcement learning for autonomous transport of objects and humans",
+ "authors": [
+  "Elle Miller",
+  "Reem Almheiri",
+  "Takuma Tsukakoshi",
+  "Ben Sanati",
+  "Tamon Miyake",
+  "Yushi Wang",
+  "Namiko Saito",
+  "Shigeki Sugano",
+  "Tetsuya Ogata",
+  "Rika Antonova",
+  "Oisin Mac Aodha",
+  "Sethu Vijayakumar"
+ ],
+ "date": "2026-11-24",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "locomotion",
+  "manipulation",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.29771",
+ "pdf_url": "https://arxiv.org/pdf/2611.29771",
+ "summary_ja": "高次元状態空間と密な接触を伴うヒューマノイドの全身搬送タスクに対し、探索を誘導する構造化強化学習を提案。疎な接触関係グラフ、搬送維持ゲート、ヒント軌道により探索複雑度を低減しつつ、方策自身が有効な把持・搬送戦略を獲得できるようにした。剛体だけでなく人間の搬送タスクへも一般化を実証した。",
+ "generated": "2026-11-24",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.29771"
+}
