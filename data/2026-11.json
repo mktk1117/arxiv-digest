@@ -1,6 +1,333 @@
 {
  "entries": [
   {
+   "date": "2026-11-23",
+   "rank": 0,
+   "id": "2611.27061",
+   "group": "focus",
+   "title": "PACE: Policy Augmentation and Compensation With Explicit Disturbance Estimation for Robust Locomotion",
+   "title_ja": "明示的外乱推定による方策増強と補償を用いたロバストなロコモーション",
+   "summary_ja": "四脚ロボットの強化学習において、ドメインランダム化への過度な依存を緩和するため、明示的に外乱を推定して方策と低レイヤ制御器にフィードフォワードする手法PACEを提案。積載重量変化や重心変位、アクチュエータ劣化を一括推定し、広範なダイナミクス変動下でも高精度な追従とロバストな実機歩行を実現した。",
+   "summary_en": "To mitigate over-reliance on domain randomization in legged locomotion, this paper proposes PACE, which explicitly estimates disturbances and feeds them back into both the policy and controller. By lumping unmodeled dynamics such as payload variations, CoM shifts, and actuator degradation, it achieves precise tracking and robust locomotion across varying conditions.",
+   "authors": [
+    "Shixuan Han",
+    "Yuyang Wang",
+    "Jingting Jia",
+    "Zeshuai Chen",
+    "Jindou Jia",
+    "Kexin Guo",
+    "Xiang Yu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "locomotion",
+    "reinforcement-learning",
+    "quadruped",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.27061",
+   "image": "figures/2026-11-23/2611.27061.jpg"
+  },
+  {
+   "date": "2026-11-23",
+   "rank": 1,
+   "id": "2611.27552",
+   "group": "focus",
+   "title": "S-BFM: A Behavioral Foundation Model for Humanoid Control from Sparse Spatiotemporal Goals",
+   "title_ja": "S-BFM: 疎な時空間目標からヒューマノイドを制御する行動基底モデル",
+   "summary_ja": "密な参照軌道を用いず、到達目標の姿勢・位置・時間という疎な情報のみから全身遷移動作を自律生成する行動基底モデルS-BFMを提案。身体の時空間的接地を取り入れ、多様な到達時間制約に応じた歩容や動作ペースの自己組織化を可能にした。シミュレーションおよび実機ヒューマノイドで自然かつロバストな動作遷移を実証した。",
+   "summary_en": "This paper proposes S-BFM, a behavioral foundation model that autonomously generates whole-body transitions from sparse spatiotemporal goals (target posture, pose, and arrival time) without dense reference trajectories. It self-organizes motion pacing and coordination to achieve natural, robust transitions on both simulated and real humanoid robots.",
+   "authors": [
+    "Kun Yang",
+    "Xuanyu Chen",
+    "Jing Tan",
+    "Yanjing Liu",
+    "Yubo Zhao",
+    "Renjing Xu",
+    "Addison Lin Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.27552",
+   "image": "figures/2026-11-23/2611.27552.jpg"
+  },
+  {
+   "date": "2026-11-23",
+   "rank": 2,
+   "id": "2611.27338",
+   "group": "focus",
+   "title": "Latent Jacobian Steer: Eliciting Contact-Rich Out-of-Distribution Behaviors from Pretrained Humanoid Controllers",
+   "title_ja": "Latent Jacobian Steer: 学習済みヒューマノイド制御器からの接触豊富な分布外挙動の誘発",
+   "summary_ja": "事前学習済みの全身潜在制御器から、分布外の接触豊富な動作を引き出す手法Latent Jacobian Steerを提案。生関節空間での探索と潜在空間のセマンティクスをヤコビアンを介して結合することで、基本協調構造を破壊せずに目的の物理的効果へと動作を誘導し、重い障害物の押退け等の高負荷な接触タスクを達成した。",
+   "summary_en": "This work introduces Latent Jacobian Steer (LJS) to elicit contact-rich out-of-distribution behaviors from pretrained humanoid whole-body controllers. By coupling joint-action exploration with the latent space via Jacobians, it steers the robot toward desired physical interactions without disrupting base coordination, enabling challenging contact tasks like pushing heavy obstacles.",
+   "authors": [
+    "S K Swaminathan",
+    "Shivam Sood",
+    "Shreyansh Kansal",
+    "Chengyang He",
+    "Guillaume Adrien Sartoretti"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.27338",
+   "image": "figures/2026-11-23/2611.27338.jpg"
+  },
+  {
+   "date": "2026-11-23",
+   "rank": 3,
+   "id": "2611.27223",
+   "group": "focus",
+   "title": "LiDAR Signals for Robot Locomotion: Spherical Range Images Enable Robust Sim-to-Real Transfer",
+   "title_ja": "ロボットロコモーションのためのLiDAR信号: 球面距離画像による堅牢なSim-to-Real転移",
+   "summary_ja": "脚ロボットの不整地歩行において、深度カメラのシミュレーション誤差や標高マップのドリフトを克服するLiDAR知覚パイプラインを提案。実機LiDARの走査パターンを再現し球面距離画像に変換して高頻度制御器に入力することで、幾何特徴の整合性を維持し、追加調整なしに頑健なSim-to-Real転移を実証した。",
+   "summary_en": "Addressing sim-to-real gaps in depth images and drift in elevation maps for legged locomotion, this work proposes a LiDAR perception pipeline using spherical range images. By matching real angular sampling patterns in simulation and feeding compact representations to policies, it achieves robust, zero-shot sim-to-real transfer over varied rough terrains.",
+   "authors": [
+    "Nian Liu",
+    "Xinyi Tong",
+    "Ming Ren",
+    "Long Ye",
+    "Zhaofeng He"
+   ],
+   "categories": [
+    "cs.AI"
+   ],
+   "tags": [
+    "locomotion",
+    "sim-to-real",
+    "perception",
+    "quadruped"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.27223",
+   "image": "figures/2026-11-23/2611.27223.jpg"
+  },
+  {
+   "date": "2026-11-23",
+   "rank": 4,
+   "id": "2611.27648",
+   "group": "focus",
+   "title": "Trust What Repeats: Capped World-Model Policy Gradients for Humanoid Motion Tracking",
+   "title_ja": "反復性を信じる: ヒューマノイド動作追従のための上限付きワールドモデル方策勾配",
+   "summary_ja": "Unitree G1ヒューマノイドの動作追従学習において、学習済みワールドモデルを用いた逆伝播時の勾配信頼性を調査。過大な勾配ノルムが実環境と乖離することを示し、勾配に上限（クリップ）を設けることでモデル誤差に起因する方策破綻を防ぎ、シミュレータ上での安定した動作追従学習を達成した。",
+   "summary_en": "Investigating world-model policy gradients for humanoid tracking on the Unitree G1, the authors show that extreme imagined gradient norms diverge sharply from actual simulation dynamics. By introducing gradient capping based on repetition reliability, they mitigate optimization collapse and achieve stable, efficient humanoid motion learning.",
+   "authors": [
+    "Xuzhe Dang",
+    "Stefan Edelkamp"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "world-model",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.27648",
+   "image": null
+  },
+  {
+   "date": "2026-11-23",
+   "rank": 5,
+   "id": "2611.26676",
+   "group": "general",
+   "title": "One Behavior, Out of Order: Deterministic Execution and Parallel Simulation of ROS 2 Applications",
+   "title_ja": "順序外の単一振る舞い: ROS 2アプリケーションの決定論的実行と並列シミュレーション",
+   "summary_ja": "ROS 2の非同期通信に起因する非決定性を解消するため、軽量な協調スケジューリング機構を導入。同一入力に対する実行の完全な再現性を保証するとともに、計算と通信の分離によりマルチコア環境での高速な並列システムレベルシミュレーションを可能にした。",
+   "summary_en": "To resolve nondeterminism caused by asynchronous publish-subscribe mechanisms in ROS 2, this paper presents a lightweight coordination scheme where components exchange data at predefined times. This decouples computation from communication, enabling reproducible execution and accelerated parallel system-level simulation.",
+   "authors": [
+    "Chengzi Huang",
+    "Behnam Khodabandeloo",
+    "Duc Anh Nguyen",
+    "Chuanchao Gao",
+    "Wang Yi"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.DC"
+   ],
+   "tags": [
+    "simulation",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.26676",
+   "image": "figures/2026-11-23/2611.26676.jpg"
+  },
+  {
+   "date": "2026-11-23",
+   "rank": 6,
+   "id": "2611.26916",
+   "group": "general",
+   "title": "RoboCap-10k: A Metrically Accurate Egocentric Dataset for Robot Learning",
+   "title_ja": "RoboCap-10k: ロボット学習のための高精度メトリック身体視点データセット",
+   "summary_ja": "11カ国の実現場で収集された10,000時間に及ぶ非演出の人間操作データセットRoboCap-10kを構築。6台の同期グローバルシャッターカメラとデュアルIMUを備えた250gの専用ヘッドセットを用い、オンライン校正によってミリ単位の正確な3D手・物体トラッキング注釈を提供する。",
+   "summary_en": "This paper presents RoboCap-10k, a dataset comprising 10,000 hours of unscripted human manipulation recorded across 11 countries. Captured using a lightweight custom headset with synchronized cameras and IMUs, it provides accurate metric 3D annotations to scale robot imitation learning.",
+   "authors": [
+    "Kheri Hughes",
+    "Qasim Ali",
+    "Nikash Bhardwaj",
+    "Owen Akhibi",
+    "Niresh Dravin",
+    "Vivek Sharma",
+    "Sam Cho",
+    "Ethan Lee",
+    "Paul Luo",
+    "Sunny Yu",
+    "Jonathan Victor",
+    "Amanda Young",
+    "Michael Cho",
+    "Ademi Adeniji",
+    "Vincent Liu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "dataset",
+    "imitation-learning",
+    "manipulation",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.26916",
+   "image": "figures/2026-11-23/2611.26916.jpg"
+  },
+  {
+   "date": "2026-11-23",
+   "rank": 7,
+   "id": "2611.26855",
+   "group": "general",
+   "title": "Coherent Moment Propagation: Epistemic Uncertainty for Pre-trained Robot Policies",
+   "title_ja": "コヒーレントモーメント伝播: 事前学習済みロボット方策のための認識的不確実性",
+   "summary_ja": "Flow matchingに基づく最新ロボット操作方策において、推論時にモデルの認識的不確実性を定量化する手法Coherent Moment Propagationを提案。ODEソルバーの全積分過程を通して平均と分散を解析的に伝播させ、分布外状況の検出や安全なフォールバック判定を可能にした。",
+   "summary_en": "This work introduces Coherent Moment Propagation to quantify epistemic uncertainty for pretrained flow matching robot policies at inference time. By propagating uncertainty moments through the full ODE integration process, it enables the robot to detect novel out-of-distribution states and assess action reliability.",
+   "authors": [
+    "Miguel Saavedra-Ruiz",
+    "Anqi Li",
+    "Claudia D'Arpino",
+    "Alperen Degirmenci",
+    "Tucker Hermans",
+    "Fabio Ramos"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "control",
+    "safety",
+    "imitation-learning",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.26855",
+   "image": "figures/2026-11-23/2611.26855.jpg"
+  },
+  {
+   "date": "2026-11-23",
+   "rank": 8,
+   "id": "2611.27042",
+   "group": "general",
+   "title": "RoboColiseum: Co-evolution of Simulation, Evaluation, and Models",
+   "title_ja": "RoboColiseum: シミュレーション、評価、モデルの共進化プラットフォーム",
+   "summary_ja": "実機とシミュレーションのギャップを埋めるため、高精度なシステム同定と剛体・変形体物理エンジンを統合した評価プラットフォームRoboColiseumを提案。22種類の実機・シミュレーション構成ペアでピアソン相関0.9686を達成し、多角的な操作タスクの厳密な評価環境を提供する。",
+   "summary_en": "RoboColiseum is an embodied evaluation platform combining system identification, composable multi-physics simulation, and diverse benchmarks. Across 22 paired real-simulation robot-task configurations, it demonstrates a high real-to-sim correlation (Pearson r=0.9686), enabling rigorous simulation-based policy validation.",
+   "authors": [
+    "Chenghao Yin",
+    "Da Huang",
+    "Di Yang",
+    "Jichao Wang",
+    "Junhui Wu",
+    "Nanshu Zhao",
+    "Tong Ran",
+    "Zhijun Li",
+    "Gang Zhao",
+    "Linting Guo",
+    "Rui Feng",
+    "Sheng Zhang",
+    "Tianyu Jiang",
+    "Wenjun Sun",
+    "Yongxin Su",
+    "Zhaobo Liu",
+    "Zheyuan Xing",
+    "Sukai Wang",
+    "Yue Zhou",
+    "Qihan Jiang",
+    "Jianhua Jiang",
+    "Chuang Men",
+    "Yuxiang Yan",
+    "Daizhen Lv",
+    "Kunyu Yu",
+    "Yongjian Shen",
+    "Tianxiang Zhu",
+    "Siying Zhang",
+    "Wenhao Wang",
+    "Jun Zhao",
+    "Bowen Jiang",
+    "Zhi Zeng",
+    "Maoqing Yao",
+    "Qian Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "benchmark",
+    "manipulation",
+    "sim-to-real"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.27042",
+   "image": "figures/2026-11-23/2611.27042.jpg"
+  },
+  {
+   "date": "2026-11-23",
+   "rank": 9,
+   "id": "2611.27645",
+   "group": "general",
+   "title": "Efficient VLA Reinforcement Learning via Subchunk Rollouts in Latent World Models",
+   "title_ja": "潜在ワールドモデルにおけるサブチャンクロールアウトを通じた効率的なVLA強化学習",
+   "summary_ja": "大規模画像生成モデルを用いず、軽量な潜在ワールドモデルを活用してVLA方策を事後改善する強化学習手法LS-MBPOを提案。階層的フォーシングとサブチャンクロールアウトにより再帰的誤差の蓄積を抑え、計算コストを大幅に削減しつつ操作性能を効果的に引き上げた。",
+   "summary_en": "LS-MBPO is a lightweight model-based RL framework using latent world models to improve pretrained VLA policies. By employing hierarchical forcing and subchunk rollouts, it mitigates compounding errors during trajectory prediction and substantially cuts computation while boosting manipulation success.",
+   "authors": [
+    "Nan Tang",
+    "Han-Tao Zhang",
+    "Jing-Cheng Pang",
+    "Hao-Nan Wang",
+    "Hao-Xiang Ren",
+    "Yi-Fei Sheng",
+    "Jun-Yin Ye",
+    "Tian Xu",
+    "Fan-Ming Luo",
+    "Hao-Xin Lin",
+    "Yang Yu"
+   ],
+   "categories": [
+    "cs.LG"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "world-model",
+    "vision-language-action",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.27645",
+   "image": "figures/2026-11-23/2611.27645.jpg"
+  },
+  {
    "date": "2026-11-22",
    "rank": 0,
    "id": "2611.26600",
