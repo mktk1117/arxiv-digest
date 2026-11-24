@@ -1,0 +1,176 @@
+{
+ "title_ja": "RoboColiseum: シミュレーション、評価、モデルの共進化プラットフォーム",
+ "tldr_ja": "実機とシミュレータのタスク成功度相関を0.9686まで高めた高精度な同定技術と、物理・描画を分離した柔軟な実行基盤をもとに、8つの評価軸で最新のVLAやLLMエージェントの真の身体能力を暴き出す統合プラットフォームです。",
+ "hero_figure": {
+  "key": "F8",
+  "caption_ja": "実機環境とシミュレーション環境におけるタスクスコアの相関関係を示した図です。4種類のロボット構成と16のタスク（計22構成）にわたってピアソン相関係数0.9686（R² = 0.938）という極めて高い一致度を達成しており、シミュレータ上での評価が実機の挙動を正確に反映していることを裏付けています。",
+  "caption": "Fig. 8: Paired real–simulation task scores across 22 robot–task configurations. Colors denote robot configurations; the solid line is the fitted regression and the dashed line denotes equality. Scores are fractional task metrics, separate from the benchmark leaderboard scale.",
+  "image": "details/2611.27042/F8.jpg"
+ },
+ "overview_ja": "近年、視覚・言語・行動を統合したVLA（Vision-Language-Action）モデルやLLMを活用したロボットエージェントの研究が急速に進んでいます。しかし、これらを現実世界で安全かつ公平に評価するのはコストも時間もかかりすぎます。そこで頼りになるのがシミュレータですが、従来のシミュレータ評価には「シミュレータで成功しても実機では動かない（Sim2Realギャップ）」という深刻な問題がありました。また、剛体だけでなく布や紙のような変形体の扱い、さらにはロボットの手先だけでなく全身協調や細かな精密作業まで網羅した統一的なベンチマークは存在していませんでした。\n\nそこで著者らは、シミュレーション、評価体系、そしてモデル開発を一体で進化させるプラットフォーム「RoboColiseum」を立ち上げました。まず、実機動作のコマンド再生を通じてロボットと対象物の動力学パラメータを厳密に同定（システム同定）し、実機とシミュレータの挙動を揃えました。さらに、物理エンジン（PhysX、Newton、libuipc）と描画エンジン（Isaac Sim、OVRTX）を疎結合にする共通プロトコルを策定し、変形体シミュレーション（IPC）と関節動力学計算（MuJoCo）の連携を可能にしました。\n\nこの基盤の上で、指示理解や空間推論といった基礎能力（Season I）に加え、手先器用さ、全身協調、精密操作、ロボット間転移の4軸（Season II）を加えた計8トラックのベンチマークを構築。22種類の実機・シミュレータ対照実験でタスクスコアの相関係数0.9686を実証し、さらに最新のVLAモデルやエージェントシステムを同一基準で評価したところ、精密作業や多指ハンド操作において各モデルが抱える顕著な弱点が浮き彫りになりました。",
+ "contributions_ja": [
+  "実機で記録したコマンドを忠実に再生するアプローチにより、22の実機・シミュレーション構成にわたってタスクスコアのピアソン相関係数0.9686という極めて高い一致度を達成したこと",
+  "物理演算と描画処理を分離する「RoboColiseum Protocol」を導入し、剛体・変形体（布・紙・ソフトボディ）が混在する接触リッチなタスクを柔軟に構築可能にしたこと",
+  "指示追従やロバスト性から手先器用さ、全身協調、精密操作、クロスエンボディメント転移までを網羅する8つの評価トラックと、計算・実行コストを考慮したプログレス評価基準を策定したこと",
+  "最新のVLAモデル3種とLLMベースのエージェントシステム8種を公開リーダーボード上で同一条件評価し、特に精密操作や多指ハンド操作における性能限界とモデル間の得意・不得意を体系的に明らかにしたこと"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜ今、シミュレーションと評価とモデルの「共進化」が必要なのか",
+   "summary_ja": "VLAや世界行動モデルの発展に伴い、指示理解から物理的実行までを一貫して評価できる環境が求められています。本論文は、パラメータの物理的妥当性、変形体を含む計算の結合、推論と実行リソースの適切な分離という3つの課題を解決する統合基盤「RoboColiseum」を提案します。",
+   "details_ja": "身体性AI（Embodied AI）の進展により、視覚と言語を直接ロボットの低レベルアクションに変換するVLAモデルや、世界モデルに基づく方策が注目を集めています。これらを実環境で再現性高く評価することは極めて難しいためシミュレータが活用されますが、従来のシミュレーション評価には大きく3つの壁が存在していました。\n\n1つ目は「Sim2Realの信頼性」です。パラメータ同定を行って物理的に妥当な数値を設定しても、それがタスクレベルの成功率に直結するとは限りません。実機とシミュレータをペアにしてタスクスコアの一致度を検証する必要があります。\n\n2つ目は「複合的な物理現象の表現」です。ロボットの剛体リンクと、布や紙、スポンジといった柔軟物の接触・変形は数値表現が根本的に異なります。これらを効率的に連成できる柔軟なシミュレーション構造が不可欠でした。\n\n3つ目は「推論・実行・リソース消費の分離評価」です。モデルが賢いのか、試行回数に物を言わせているだけなのかを区別するため、ステップ数や推論呼び出し回数に制限（バジェット）を設けた厳密な評価指標が求められていました。\n\nRoboColiseumは、システム同定とコマンド再生による高精度な挙動再現、物理と描画を切り離した疎結合プロトコル、そして全8トラックからなる大規模ベンチマークの3本柱でこれらの課題を一挙に解決します。",
+   "figures": []
+  },
+  {
+   "heading": "II System Identification and Real2Sim",
+   "heading_ja": "見た目だけでなく挙動を揃える：厳密なシステム同定とReal2Sim検証",
+   "summary_ja": "実機で記録した関節制御コマンドをシミュレータ上でそのまま再生し、ロボットの動力学と物体の接触パラメータを同定します。位置追従だけでなくトルク誤差や接触状態の成立を段階的に検証し、単なる外見の模倣にとどまらない忠実な物理再現を実現しています。",
+   "details_ja": "シミュレータの調整で最も大切なのは「見た目を似せること」ではなく「同じコマンドを与えたときに同じ動き・接触が起きるか」です。本研究では、ロボット動力学、物体接触パラメータ、制御器・センサ設定を独立して同定する体系的なReal2Simパイプラインを構築しました。\n\n### II-A Real2Simの定式化と再生プロトコル\n実機で取得した関節およびグリッパの目標値系列 $u_k$ を、物理エンジン側で1ms刻みのサブステップで進めながら約100Hzで忠実に再生します。ここで重要なのは、物体を磁石のように吸着させる疑似把持（アタッチメント）を使わず、すべて純粋な接触摩擦によって物体を把持・操作している点です。これにより、ロボットの追従性と接触モデルの双方が正確でなければタスクを再現できません。\n\n### II-B ロボットと物体のシステム同定\nロボットアーム（G2 crsBなど）では、摩擦・粘性・電機子慣量・剛体慣性パラメータを一度に解くのではなく、段階的な加振実験によって分離推定します。まず定速スイープで摩擦とダンピングを推定し、次に正弦波運動で加速度依存項を求め、最後に連成フーリエ運動によってリンクの慣性行列を特定します。この順序により、摩擦と慣性の相殺による過学習を防ぎます。また、物体の同定では質量を固定した上で、把持中のグリッパ開口度RMSE（二乗平均平方根誤差）や画像特徴点の残差を最小化する最適化を行います。\n\n### II-C 制御器の適合と検証の階層構造\nシミュレータ側のPDゲイン（$K_p = 1000\\mathbf{I}_7$、各軸の $K_d$ 設定など）が強すぎると、物理モデルが狂っていても位置追従だけは合ってしまう現象（マスキング）が起きます。これを見抜くため、関節位置誤差だけでなく、センサトルクのRMSEも独立して評価しています。さらに物体の同定では、画像上の画素残差が減っても把持自体が失敗することがあるため、残差評価とタスク成立判定を切り離して評価しています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "記録されたコマンドを用いた物体リプレイと同定の流れです。MuJoCoでフィットした同一パラメータを他エンジンに移植して検証するパラメータ転移（上）と、エンジンネイティブの環境で設定を合わせた上でタスク成否と観測誤差を検証するネイティブ適応（下）の2つの経路で評価しています。",
+     "caption": "Fig. 2: Recorded-command object replay. Fixed-parameter transfer evaluates the same fitted object parameters across backends. Native PhysX evaluation uses matched settings and includes a separate sponge-friction refit.",
+     "image": "details/2611.27042/F2.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "7自由度アームの各関節における再現実験のRMSEヒートマップです。左パネルが関節角度誤差（deg）、右パネルがセンサトルク誤差（N・m）を表し、フーリエ運動、定速スイープ、正弦波運動の3つの加振パターンでそれぞれ評価されています。",
+     "caption": "Fig. 4: Joint-wise replay RMSE for seven joints under Fourier, constant-speed, and sine excitations. Position error is reported in degrees and uncentred sensor-torque error in N m. Each column summarizes its corresponding excitation record; Sweep denotes constant-speed motion. Darker cells indicate larger errors within each panel.",
+     "image": "details/2611.27042/F4.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "PhysX上でのシャトルコック（上段）とホワイトボードマーカー（下段）の手渡しタスクにおける軌道と画像残差の診断結果です。パラメータ同定前後で実機観測値（黒点）への追従性がどのように変化するかを示しており、画素残差の減少だけでは把持の成否を保証できない難しさが可視化されています。",
+     "caption": "Fig. 3: Native PhysX handover diagnostics for shuttlecock (top) and pen (bottom). In the position panels, dashed blue and solid teal denote baseline and tested-model trajectories; dark points are real observations. In the RGB-residual panels, blue crosses and teal circles denote baseline and tested-model errors at valid observation times. The printed RMSE values summarize the full valid-time RGB observations, rather than only the plotted examples.",
+     "image": "details/2611.27042/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "III Composable Physics and Rendering",
+   "heading_ja": "剛体から布・紙の変形まで：物理と描画を分離するプラグ可能アーキテクチャ",
+   "summary_ja": "物理演算、描画、タスク制御を疎結合にする共通プロトコルを開発しました。剛体動力学と変形体計算（IPC）を異なるエンジンに分担させ、ロボット運動と材料変形を高効率かつ高精度に連成させています。",
+   "details_ja": "ロボットタスクには、高速な剛体シミュレーションで十分なものもあれば、布の折りたたみのように高度な有限要素法が必要なものもあります。これらを1つの閉じたエンジンで完結させるのは困難です。そこでRoboColiseumは、システム全体を疎結合にモジュール化しました。\n\n### III-A 分離型アーキテクチャと共通プロトコル\n「RoboColiseum Protocol」は、制御コマンド、関節状態、剛体姿勢、シミュレーション時刻、そして変形メッシュの幾何更新データをやり取りする共通規格です。物理エンジンが状態を管理・更新し、描画側（Isaac SimやOVRTXなど）がその状態を受け取ってカメラ画像をレンダリングします。別プロセスで動作するため、物理演算とレンダリングを異なるフレームレートで非同期実行できます。\n\n### III-B プラグ可能な物理エンジン\nPhysX、Newton、そして高精度接触ソルバであるlibuipcを用途に応じて切り替えることができます。エンジンのアダプターが初期化やステップ実行、状態読み出しの共通規約を実装しているため、タスクスクリプト側はエンジンの差異を意識する必要がありません。\n\n### III-C 剛体・変形体の相互作用（libuipcとIPC）\n布や巾着袋のような薄膜には三角形シェルモデルを用い、紙の折り目を維持するために塑性曲げ変形もサポートしています。ブロックなどの柔軟物には四面体有限要素法（Neo-Hookeanモデル）を採用し、これらをIncremental Potential Contact（IPC、貫通を起こさず接触力を安定計算する手法）によって厳密に解きます。\n\n### III-D ロボット動力学とIPCの効率的連成\n高負荷なロボットの関節動力学はCPU上のMuJoCoワーカーで高速に前進させ、そのロボットリンクの位置と速度を境界条件としてIPC側に kinematic（運動学的）に入力します。IPC側は変形体と接触計算だけにリソースを集中できるため、全体の計算負荷を大幅に削減できます。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "RoboColiseum Protocolを中心としたシステム構成図です。制御クライアント、複数の物理アダプター（PhysX/Newton/libuipc）、描画アダプター（Isaac Sim/OVRTX）が共通プロトコルを介して疎結合に接続されており、必要に応じたエンジンの差し替えを可能にしています。",
+     "caption": "Fig. 6: Physics and rendering adapters exchange commands, states, geometry, and simulation time through the RoboColiseum Protocol. MuJoCo also supplies solver integration and the auxiliary robot-dynamics worker used by IPC; it is not a separate adapter in this diagram.",
+     "image": "details/2611.27042/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Benchmark Design and Evaluation Protocol",
+   "heading_ja": "8つの評価軸とバジェット制：身体性AIの真の実力を測るベンチマーク",
+   "summary_ja": "言語理解・空間推論などの基礎能力（Season I）に、手先器用さ・全身協調・精密操作・転移性（Season II）を加えた計8トラックを設計しました。行動回数制限（バジェット）や動的隠れテストセットを導入し、過学習やズルを防ぐ厳格なルールを定めています。",
+   "details_ja": "モデルの「地頭の良さ」と「身体の器用さ」を多角的に分解するため、計8つのトラックで構成される評価体系を設計しました。\n\n### IV-A Season I：4つの基礎トラック\n基礎的な知能と操作を問う4トラックで構成されます。\n- **Instruction Following（指示追従）**: 色や形状、カテゴリ、論理否定などを含む多様な指示から正しい対象を特定する10タスク。\n- **Spatial Reasoning（空間推論）**: 相対位置（左、右、距離）やサイズの順序を理解して積み上げや整列を行う8タスク。\n- **General Manipulation（一般操作）**: 鍋の両手持ち、片付け、ポップコーンのすくい取りなど、把持・運搬・状態変化を連続して行う10タスク。\n- **Robustness（ロバスト性）**: 背景照明、視点変化、カメラノイズ、初期姿勢のズレといった外乱下での安定性を検証する5カテゴリ。\n\n### IV-B Season II：4つの発展的能力トラック\nより高度な身体能力を試すために新設された4トラックです。\n- **Dexterous Manipulation（手先器用さ）**: 多指ハンド（Wuji hand）を用いたハサミの操作、本棚からの本の引き抜き、布折りなど。従来の二指グリッパでは不可能な指先の独立した連動が必須です。\n- **Whole-Body Coordination（全身協調）**: 移動台車、胴体、アームを連動させるトラック。トレイ配膳、ゴミ拾い、ドア通過など、移動しながら姿勢を制御する長手数タスクです。\n- **Precision Manipulation（精密操作）**: ストロー挿入、ペンのキャップ締め、LANケーブルや充電器の接続など、ミリ単位の位置・姿勢合わせが求められる8タスク。\n- **Cross-Embodiment Transfer（ロボット間転移）**: ARX、AgileX、G1、G2など機構や可動域が異なる複数のロボットで同一タスク（ゴミ箱開け、カップ掛け、液体注ぎなど）を実行させ、形態変化への適応力を測ります。\n\n### IV-C〜E 評価ルールとバジェット考慮型スコアリング\nテスト環境には固定の公式セットと、提出ごとに変化する動的隠れセットを用意し、配置の丸暗記を防止しています。スコアリングには行動ステップ数の制限（バジェット $B_j$）を組み込みました。チェックポイントごとの進捗点（最大100点）に加え、規定ステップ数以内で全工程を完遂した場合のみ完了ボーナス（25点）が付与されます。上限の1.5倍を超えるとスコアは0になるため、「時間を無限にかけて総当たりで成功させる」ような方策は厳しく排除されます。",
+   "figures": []
+  },
+  {
+   "heading": "V Experiments",
+   "heading_ja": "実機スコア相関0.9686の実証と、最新VLA・エージェントの現在地",
+   "summary_ja": "22種類の実機・シミュレータ構成でタスクスコア相関0.9686を記録し、評価の信頼性を証明しました。Season IおよびSeason IIの公開リーダーボードでは、ClaudeやGPTなどのLLMエージェントとπ0.5などのVLAモデルを比較し、精密操作や多指操作における各モデルの課題を浮き彫りにしました。",
+   "details_ja": "本ベンチマークの妥当性検証と、現行トップモデルの評価結果について詳細に報告されています。\n\n### V-A Real2Simの適合性とタスク相関\nロボット単体の15回の長時間動作実験において、21の関節・加振条件全体での位置RMSEは0.035度〜1.002度と極めて小さい値に収まりました。さらに、16種類のタスク・22のロボット構成にわたる実機とシミュレータのタスクスコア比較では、ピアソン相関係数 $r = 0.9686$（$R^2 = 0.938$）という驚異的な一致度を示しました（図 F8）。これは、シミュレータ上での優劣がほぼそのまま実機での性能に反映されることを意味します。\n\n### V-B Season Iリーダーボードの知見\n基礎4トラックでは、Prime-0がOverall 77.54で首位を獲得し、指示追従、一般操作、ロバスト性の3軸を牽引しました。次点でHiDream-O1-Embodied（76.92）が続き、特に空間推論トラックで最高点を記録しました。基礎的な言語・空間・動作の連携は高水準に達していることが分かります。\n\n### V-C & D Season II：最新モデルが直面した壁\nSeason IIでは、Agent2Actを介してロボット制御コマンドを直接生成するエージェント8種と、教師ありファインチューニングを行ったVLAモデル3種（$\\pi_{0.5}$、LingBot-VLA-2.0、GR00T N1.7）が評価されました。\n\n- **エージェント陣営**: Claude Fable 5.2がOverall 18.30で首位。精密操作（33.04）やロボット間転移（17.99）で高スコアをマークしました。全身協調ではGPT-6 Astra（18.96）とClaude Opus 5.5（18.94）がトップ争いを演じました。一方で、多指ハンドを用いる手先器用さトラックは0.00〜5.19点と、どのモデルも壊滅的な低スコアに沈みました。\n- **VLA陣営**: $\\pi_{0.5}$ がOverall 11.22でトップとなり、転移、全身協調、手先器用さでリードしました。しかし、精密操作トラックではGR00T N1.7（4.60）を含む全モデルが4点台にとどまりました。\n\nこの結果から、現在の大規模身体性モデルは「大まかな推論や移動の計画」は得意とする一方、「数ミリ単位の精密な位置合わせ」や「多指の複雑な接触制御」に共通の大きな弱点を抱えていることが明確になりました。",
+   "figures": [
+    {
+     "key": "F7",
+     "caption_ja": "基礎的な物体操作および変形体操作における、実機環境（1行目・3行目）とシミュレーション環境（2行目・4行目）の対応シーン一覧です。G1、G2、ARX X5など多様なロボット形態で、実機環境のセットアップが極めて忠実に再現されている様子が分かります。",
+     "caption": "Fig. 7: Representative real and simulated scenes for foundational manipulation and deformable-object interactions. In each column, real rows 1 and 3 correspond to simulation rows 2 and 4. This montage illustrates the paired scene setting, rather than the coverage of the four Season II tracks.",
+     "image": "details/2611.27042/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Limitations and Future Directions",
+   "heading_ja": "見えてきた課題：力覚フィードバックの欠落と今後の展望",
+   "summary_ja": "現状のReal2Sim検証ケース数の少なさや、変形体からロボット側への接触力フィードバックの欠落といった限界が存在します。評価データの完全公開や、評価結果をシミュレーション改良・学習データ拡充へ循環させる「共進化ループ」の実証が今後の課題です。",
+   "details_ja": "本研究はシミュレーション評価に大きな前進をもたらしたものの、いくつかの明確な制約を認めています。\n\n- **Real2Sim同定の限界**: 今回の検証は22のタスク構成に限られています。また、フィードバック制御器のゲインが強い場合、ハードウェア側の物理パラメータのズレが隠蔽されてしまうリスクが残ります。\n- **単方向連成の問題**: ロボットの関節運動を変形体ソルバ（IPC）に伝える一方で、変形体からロボットへの反力・接触力をMuJoCo側にフィードバックしていません。そのため、強い接触抵抗がロボットの関節軌道を押し戻すような高度なインタラクションは未再現です。\n- **リーダーボードの透明性**: 公開リーダーボードでは推論呼び出し回数や個別エピソードごとの分母が完全に公開されておらず、モデルファミリ間での厳密な因果関係の比較にはさらなるオープン化が必要です。\n\n論文が掲げる究極の目標は「評価で判明した弱点をシミュレーションの改良や学習データの収集にフィードバックし、モデルとともに進化させる」という共進化ループであり、このループの定量的な実証が今後の最重要課題となります。",
+   "figures": []
+  },
+  {
+   "heading": "VII Conclusion",
+   "heading_ja": "まとめ：身体性AIの次なるブレイクスルーを支える土台として",
+   "summary_ja": "RoboColiseumは、厳密なシステム同定、柔軟なマルチ物理エンジン構成、そして8つの能力軸からなるベンチマークを統合しました。実機相関の高い信頼できるシミュレーション基盤として、今後のロボット基底モデルの発展に不可欠な羅針盤を提供します。",
+   "details_ja": "RoboColiseumは、システム同定、疎結合な物理・描画アーキテクチャ、そして多次元の能力別ベンチマークを一体化させた革新的なプラットフォームです。実機とのタスクスコア相関0.9686という数字が示す通り、シミュレータ上の評価が実機性能の確かな指標となることを証明しました。\n\nSeason IおよびSeason IIの公開リーダーボードを通じて、最新のVLAモデルやエージェントシステムが持つ現在の能力プロファイルと、精密操作・多指制御における明確な限界が浮き彫りになりました。リソース消費や途中経過を正当に評価する仕組みを備えたRoboColiseumは、これからの身体性知能研究において、モデルの弱点を正確に診断し、次世代の学習とシミュレーション開発を駆動する強力な基盤となるはずです。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "シミュレータ評価の信頼性は「見た目」ではなく「同じコマンドに対するタスクスコアの実機相関（本研究ではr=0.9686）」で測るべきであること",
+  "物理（剛体・変形体）と描画を共通プロトコルで分離することで、大規模・高精度な接触タスクを柔軟かつ高速にシミュレートできること",
+  "最新のVLAやLLMエージェントは言語推論や大まかな移動計画には長けているが、ミリ単位の精密位置合わせや多指ハンドの連動操作には依然として大きな壁があること",
+  "無制限の試行錯誤を防ぐため、行動ステップ数や計算バジェットを組み込んだ進捗ベースのスコアリングが公平な評価に不可欠であること"
+ ],
+ "limitations_ja": [
+  "ロボットから変形体への運動伝達は行われているが、変形体からロボットへの反力フィードバック（双方向連成）が実装されていない点",
+  "Real2Simの検証タスクが22構成に限定されており、高ゲインPD制御によるモデル誤差のマスキングが完全に排除しきれていない点",
+  "公開リーダーボードにおける一部モデルの詳細な推論コストやエピソードごとの生ログが完全には公開されていない点"
+ ],
+ "keywords": [
+  "Vision-Language-Action (VLA)",
+  "System Identification",
+  "Real-to-Sim",
+  "Deformable Manipulation",
+  "Benchmarking",
+  "Robotic Manipulation"
+ ],
+ "id": "2611.27042",
+ "title": "RoboColiseum: Co-evolution of Simulation, Evaluation, and Models",
+ "authors": [
+  "Chenghao Yin",
+  "Da Huang",
+  "Di Yang",
+  "Jichao Wang",
+  "Junhui Wu",
+  "Nanshu Zhao",
+  "Tong Ran",
+  "Zhijun Li",
+  "Gang Zhao",
+  "Linting Guo",
+  "Rui Feng",
+  "Sheng Zhang",
+  "Tianyu Jiang",
+  "Wenjun Sun",
+  "Yongxin Su",
+  "Zhaobo Liu",
+  "Zheyuan Xing",
+  "Sukai Wang",
+  "Yue Zhou",
+  "Qihan Jiang",
+  "Jianhua Jiang",
+  "Chuang Men",
+  "Yuxiang Yan",
+  "Daizhen Lv",
+  "Kunyu Yu",
+  "Yongjian Shen",
+  "Tianxiang Zhu",
+  "Siying Zhang",
+  "Wenhao Wang",
+  "Jun Zhao",
+  "Bowen Jiang",
+  "Zhi Zeng",
+  "Maoqing Yao",
+  "Qian Wang"
+ ],
+ "date": "2026-11-23",
+ "group": "general",
+ "tags": [
+  "simulation",
+  "benchmark",
+  "manipulation",
+  "sim-to-real"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.27042",
+ "pdf_url": "https://arxiv.org/pdf/2611.27042",
+ "summary_ja": "実機とシミュレーションのギャップを埋めるため、高精度なシステム同定と剛体・変形体物理エンジンを統合した評価プラットフォームRoboColiseumを提案。22種類の実機・シミュレーション構成ペアでピアソン相関0.9686を達成し、多角的な操作タスクの厳密な評価環境を提供する。",
+ "generated": "2026-11-24",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.27042"
+}
