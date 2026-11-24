@@ -1,0 +1,148 @@
+{
+ "title_ja": "コヒーレントモーメント伝播: 事前学習済みロボット方策のための認識的不確実性",
+ "tldr_ja": "Flow Matching 方策の不確実性を推論時に計算する既存手法 BayesDiff が、数値積分のステップ数を増やすと分散がゼロに縮退する「分散崩壊」を起こすことを理論的に証明しました。その原因である状態と重みの相互相関を保持して伝播する新手法「CoMP」を提案し、ステップ数に依存しない正確な不確実性推定と失敗検出・データ収集の効率化を実現しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "積分ステップ数 $T$ に対する分散の振る舞いを示した図です。既存の BayesDiff はステップ数を増やすと全分散が $O(1/T)$ で減衰し、推定不確実性がゼロに潰れてしまいます（b, d）。提案手法 CoMP（EKF/UKF）は状態と重みの相互共分散を追跡することで、ステップ数によらず真の不確実性（グラウンドトゥルース）を正確に復元します（c, d）。",
+  "caption": "Figure 1: Variance collapse in moment propagation. State covariance $P_{T}$ at the end of integration of a flow matching model on a two-mode mixture under a last-layer Laplace posterior for one sample $x_{0}$ at $T=100$ Euler steps. (a) The reference is the empirical covariance of $4000$ trajectories, one per posterior draw $\\theta^{(m)}\\sim\\mathcal{N}(\\theta_{\\mathrm{MAP}},\\Sigma_{\\theta})$ . (b) BayesDiff returns $1/46$ of it, consistent with Theorem 1 . (c) Our estimators CoMP-EKF and CoMP-UKF carry the cross-covariance between the state and the weights and recover the reference to within $1\\%$ . …",
+  "image": "details/2611.26855/F1.jpg"
+ },
+ "overview_ja": "Flow Matching や Diffusion モデルは近年のロボット方策（VLA など）で圧倒的な性能を示していますが、モデル自身が「自分の出力にどれくらい自信がないか（認識的不確実性）」を評価する仕組みを持っていません。未知の状況に直面した際にロボットが安全に停止したり追加学習データを集めたりするには、この不確実性を知ることが不可欠です。しかし、ODE（常微分方程式）を積分して行動を生成する過程を通じて重みの不確実性を伝播させるのは極めて困難でした。複数のモデルを保持するアンサンブルは、巨大な基盤モデルでは計算・メモリコストの観点から非現実的です。\n\nそこで注目されたのが、事前学習済みモデルの最終層にラプラス近似を適用し、平均と共分散をサンプリング過程に沿って送る「モーメント伝播法（BayesDiff）」です。ところが本論文では、BayesDiff の推定分散がオイラー積分のステップ数 $T$ に反比例して $O(1/T)$ で減衰し、積分精度を上げるほど不確実性がゼロへと消え去ってしまう「分散崩壊」という重大な欠陥があることを数学的に証明しました。\n\nこの崩壊の原因は、各ステップで重みを状態から独立として周辺化してしまい、「今の状態がこれまでの重みによって生成された」という履歴依存性を捨てていた点にあります。そこで著者らは、状態と重みの偏差を結合して状態・重み間の相互共分散（クロス共分散）を同時に保持・伝播する「Coherent Moment Propagation（CoMP）」を提案しました。拡張カルマンフィルタ（EKF）やアンセンテッドカルマンフィルタ（UKF）に着想を得た2つの更新式を導出し、積分ステップ数に依存しない理論的一貫性を達成しています。さらに、既存の VLA が内部で計算している視覚言語特徴量で最終層を拡張することで、モデルの再学習なしに入力文の曖昧さに対する感度を劇的に向上させました。\n\nシミュレーション環境（robomimic、LIBERO、RoboLab）による実験では、真の共分散をほぼ100%復元することを確認し、ロボットの動作失敗の早期検知や、少ないデモデータでの効率的なファインチューニングにおいて既存のテスト時不確実性推定手法を上回る性能を示しました。",
+ "contributions_ja": [
+  "BayesDiff などの既存モーメント伝播法が Flow Matching や Diffusion ODE において $O(1/T)$ で分散崩壊を起こすことを理論的に証明した。",
+  "状態と重みの相互共分散を保持することで分散崩壊を防ぎ、ステップ数に依存しない不確実性を推定できる新手法 CoMP（EKF版およびUKF版）を提案した。",
+  "モデルの再学習や出力を一切変えずに、既存の観測埋め込みを用いてラプラス近似の最終層を拡張し、言語指示などの入力曖昧性への感度を高める手法を導入した。",
+  "失敗検出やファインチューニング用デモ選択のベンチマークにおいて、CoMP がアンサンブル法に匹敵する性能を単一モデルのわずかな追加コストで達成することを示した。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ今、事前学習済みロボット方策の「自信のなさ」を測る必要があるのか？",
+   "summary_ja": "Flow Matching に基づくロボット基盤モデルは強力ですが、未知の環境で予測を信用できるかを自ら判断できません。重みの不確実性をテスト時に低コストで測る手法として BayesDiff が登場しましたが、本論文ではこれが積分ステップ数に応じて推定分散が消失する致命的な「分散崩壊」を起こすことを突き止めました。",
+   "details_ja": "近年、Flow Matching は長時間のタスク計画から器用なマニピュレーションに至るまで、最先端のロボット基盤モデル（VLA）のアクション生成ヘッドとして広く使われています。しかし、学習データから外れた新規の状況において、モデルが提示した行動コマンドを本当に信用してよいかを測る術がありません。モデルのパラメータが持つ不確実性、すなわち「認識的不確実性（epistemic uncertainty）」を定量化することは安全なロボット運用のために極めて重要です。\n\n通常、認識的不確実性を測るには複数のモデルを訓練する深層アンサンブルが使われますが、巨大な基盤モデルを何個も学習・保持するのはコスト面で現実的ではありません。そこで、事前学習済みの単一モデルの最終層にラプラス近似を施し、平均と分散をデノイジングの過程に沿って送る「モーメント伝播（BayesDiff）」が注目されました。\n\nしかし、著者はここで驚くべき現象を発見しました。Flow Matching や Diffusion の ODE サンプラーにおいて、BayesDiff が推定する全分散の上界はオイラー積分のステップ数 $T$ に対して $O(1/T)$ で減衰してしまうのです。つまり、「積分の刻み幅を細かくして数値計算の精度を高めるほど、報告される不確実性がゼロに潰れていく」という本末転倒なトレードオフが生じていました。\n\nこの問題を解決するため、本論文では状態と重みの相互共分散（cross-covariance）を明示的に運ぶ新しいフレームワーク「Coherent Moment Propagation（CoMP）」を提案します。さらに、基盤モデルがすでに計算している観測特徴量を活用して最終層のラプラス近似表現を広げる手法も導入しています。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "モーメント伝播における分散崩壊の様子です。100ステップのオイラー積分において、BayesDiff（b）は真の共分散（a）のわずか 1/46 しか捉えられず、ステップ数を増やすと分散が $O(1/T)$ で消失します（d）。一方、提案手法 CoMP（c）は真の分散を 99〜100% 正確に復元し、ステップ数に依存せず安定しています。",
+     "caption": "Figure 1: Variance collapse in moment propagation. State covariance $P_{T}$ at the end of integration of a flow matching model on a two-mode mixture under a last-layer Laplace posterior for one sample $x_{0}$ at $T=100$ Euler steps. (a) The reference is the empirical covariance of $4000$ trajectories, one per posterior draw $\\theta^{(m)}\\sim\\mathcal{N}(\\theta_{\\mathrm{MAP}},\\Sigma_{\\theta})$ . (b) BayesDiff returns $1/46$ of it, consistent with Theorem 1 . (c) Our estimators CoMP-EKF and CoMP-UKF carry the cross-covariance between the state and the weights and recover the reference to within $1\\%$ . …",
+     "image": "details/2611.26855/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Preliminaries",
+   "heading_ja": "Flow Matching 方策とモーメント伝播の基礎知識",
+   "summary_ja": "Flow Matching による行動生成の定式化と、事後分布をガウス分布で近似するラプラス近似、そして従来手法 BayesDiff の更新式を整理します。BayesDiff が各ステップで重みを周辺化してしまい、生成過程の履歴依存性を無視している点が浮き彫りになります。",
+   "details_ja": "本研究の土台となる要素技術をおさらいしておきましょう。\n\n### Flow Matching による行動生成\nFlow Matching では、ノイズ分布 $x_0 \\sim \\mathcal{N}(0, I)$ から目標データ $x_1$ への軌道を速度場 $u_\\theta(x, t)$ で学習します。ロボット方策では、観測 $o$（カメラ画像や指示文など）をコンテキストとして条件付け、ノイズから $H$ ステップ先までの行動チャンク $x \\in \\mathbb{R}^{D}$（$D = H \\times d_a$）を ODE（常微分方程式）の数値積分によって一度に生成します。オイラー法では刻み幅 $\\Delta t = 1/T$ として、$x_{i+1} = x_i + \\Delta t \\, u_\\theta(x_i, t_i)$ を $T$ 回繰り返します。\n\n### ラプラス近似と最終層の拡張\nモデルの重み事後分布 $p(\\theta \\mid \\mathcal{D})$ を、最適化された MAP（最大事後確率）推定値の周りで損失関数のヘッセ行列（曲率）を用いてガウス分布 $\\mathcal{N}(\\theta_{\\mathrm{MAP}}, \\Sigma_\\theta)$ として近似します。全パラメータのヘッセ行列計算は重すぎるため、通常は最終層の重みだけに限定します。しかし、最終層だけでは特徴量がつぶれる（feature collapse）恐れがあるため、LULA という先行研究では出力を変えずに隠れ層の特徴量を広げる手法が取られていました。\n\n### BayesDiff の更新式とその盲点\nBayesDiff は、状態の平均 $m_i$ と各座標の分散 $P_i$（対角成分のみ）を積分ステップに沿って伝播させます。しかし、その期待値計算は各ステップで重み $\\theta$ を周辺化した予測分布 $p(u \\mid x_i, t_i, \\mathcal{D})$ を使っています。これは「各ステップで重みが独立に引き直されている」と仮定しているのと同じです。実際にはサンプリングの最初から最後まで同じ重み $\\theta$ が使われており、状態 $x_i$ 自身がその重みの影響を強く受けています。この依存性を捨ててしまうことが、分散崩壊の根本原因でした。",
+   "figures": []
+  },
+  {
+   "heading": "3 Coherent Moment Propagation",
+   "heading_ja": "分散崩壊のメカニズム解明と CoMP アルゴリズム",
+   "summary_ja": "BayesDiff の全分散が $O(1/T)$ でゼロになる定理を示し、その処方箋として状態と重みの偏差を結合した線形化モデルに基づく CoMP を導出します。EKF 版と UKF 版の2つの実装を用意し、さらに VLA の内部埋め込みを用いたヘッド拡張法を提案します。",
+   "details_ja": "### 分散崩壊の理論的証明\n速度場がリプシッツ連続であり、予測分散が有界であるという標準的な仮定のもとで、BayesDiff の全分散 $\\operatorname{tr} P_T$ を追跡すると、各ステップで注入される不確実性のスケールが $\\Delta t^2 = 1/T^2$ になります。これを $T$ ステップ足し合わせても、全体として $\\operatorname{tr} P_T \\le e^{2L} \\bar{\\sigma}_{\\max}^2 / T$ となり、$T \\to \\infty$ で分散が完全にゼロに潰れることが証明されます。オイラー積分の近似精度を上げようとステップ数 $T$ を増やすほど、不確実性が消滅してしまうのです。\n\n### 相互共分散を運ぶ CoMP の導出\nこの問題を根本から直すため、CoMP では重みを途中で周辺化せず、平均軌道の周りで状態偏差 $\\delta x_i$ と重み偏差 $\\delta \\theta$ を同時に線形化します。結合ベクトル $z_i = (\\delta x_i, \\delta \\theta)$ を作ると、オイラー更新はブロック行列による線形写像として閉じた形で扱えます。ここから、以下の3つの量を同時に伝播させる更新式が得られます。\n- 状態平均 $m_i$：MAP 軌道を追従\n- 状態共分散 $P_i$：状態の広がり\n- 状態・重み相互共分散 $C_i = \\mathrm{Cov}(\\delta x_i, \\delta \\theta)$：状態のズレが重みによってどれだけ引き起こされたかの履歴\n\nこの $C_i$ を保持することで、ステップごとの寄与が二乗和ではなく振幅として足し合わされ、最終的な全分散の上界は $T$ に依存しない定数 $O(1)$ に収まることが数学的に保証されます。\n\n### 2つの実装（EKF と UKF）とヘッド拡張\n- **CoMP-EKF**: 状態に対するヤコビ行列を行動エキスパートの自動微分で計算し、拡張カルマンフィルタの予測ステップとして更新します。\n- **CoMP-UKF**: シグマポイント（代表点）を用いて非線形写像を通すアンセンテッド変換を利用します。EKF の局所線形化の誤差を回避し、非線形な挙動を捉えられます。\n- **観測埋め込みによるヘッド拡張**: LULA と異なり OOD データを集めるのではなく、事前学習済み VLA（$\\pi_{0.5}$ や SmolVLA など）が画像・言語から生成した潜在特徴量 $c(o)$ を最終層の入力に追加します。追加した重みの初期値をゼロにすることで、元の方策の予測出力を1ミリも変えずに、不確実性推定の表現力だけを底上げできます。",
+   "figures": []
+  },
+  {
+   "heading": "4 Evaluation",
+   "heading_ja": "ベンチマーク実験：共分散の正確さ、言語の曖昧性、失敗検出、ファインチューニング",
+   "summary_ja": "3つのロボット方策と3つの操作ベンチマークを用い、4つの問いを検証しました。CoMP は真の共分散を 99% 以上の精度で復元し、言語指示の曖昧さを正確に感知し、ロボットの動作失敗検出や効率的なデモデータ選択でベースラインを上回りました。",
+   "details_ja": "### Q1: 伝播された共分散は事後分布と一致しているか？\nrobomimic の3タスク（Lift、PickPlaceCan、NutAssemblySquare）で、事後分布からサンプリングした4,000本の軌道によるアンサンブル（グラウンドトゥルース $P^\\star$）と比較しました。BayesDiff は真の分散のわずか 6%〜23% しか復元できず、全共分散行列を扱っても過小評価が残りました。一方、CoMP は全分散比で誤差 0.2% 以内、共分散の相関構造（バリグラム乖離度）も 10% 以内で真の分布を正確に復元しました。\n\n### Q2: 拡張ヘッドは言語指示の曖昧さに反応できるか？\nRoboLab の10タスクを用い、同一の初期状態に対して「具体的」「標準」「曖昧」の3段階の指示文を与えたときの推定不確実性を比較しました（図 F8）。通常のヘッドではどの手法も不確実性がほぼ一定で指示の違いを無視していましたが、観測埋め込みを取り入れた拡張ヘッドを使うと、指示が曖昧になるほど明確に不確実性が上昇しました。また、ステップ数を増やすと BayesDiff は感度が低下したのに対し、CoMP は安定して高い感度を維持しました。\n\n### Q3: 実行時の動作失敗を早期に検出できるか？\nrobomimic の摂動環境（初期姿勢のズレ、図 F11）と LIBERO-90 の9タスク（図 F12）において、コンフォーマル予測に基づく早期失敗検出を行いました。CoMP-UKF は robomimic で最良のベースラインと同等、LIBERO-90 では検出精度（Accuracy 0.794）、早期検出ペナルティ付き精度（TWA 0.643）、平均検出時間（DT 0.474）のすべてでテスト時推定ベースライン中トップを記録しました。深層アンサンブルに迫る性能を、モデル1個分のメモリと1%以下の追加パラメータで達成しています。\n\n### Q4: 不確実性を用いたデモデータ選択でファインチューニングを効率化できるか？\nSmolVLA を用いた LIBERO-10（図 F13）のタスク適応において、限られた予算 $X$（25〜250個）のデモを不確実性が高い順に選んでファインチューニングしました。CoMP-UKF はランダムサンプリングに対して平均 +3.5 ポイントの成功率向上を達成し、2つのモデルを学習する VFD アンサンブル（1.2GB）を、単一モデル＋わずか 75MB の事後分布ファイルで上回りました。ステップ数を10から50に増やした際、BayesDiff は効果が +2.7 から -2.9 ポイントへと激減したのに対し、CoMP-UKF は +3.3〜+3.7 ポイントを安定して維持しました。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "言語指示の曖昧性検証に用いられた RoboLab の10タスクの初期シーンです。画像とロボットの初期状態を固定したまま、指示文を「具体的」「標準」「曖昧」に変えた際の不確実性の変化をテストしました。",
+     "caption": "Figure 8: The ten RoboLab tasks of § 4.2 . Initial scene of each task from the front camera view, with its default instruction; the study runs every task under three wordings (specific, default and vague) from the same scenes.",
+     "image": "details/2611.26855/F8.jpg"
+    },
+    {
+     "key": "F11",
+     "caption_ja": "robomimic における摂動実験の設定です。エンドエフェクタや対象物の初期位置にノイズを加えた過酷な環境下で、実行時の失敗をどれだけ早く高精度に検知できるかを検証しました。",
+     "caption": "Figure 11: Perturbations on robomimic. The nominal initial state of each task from the front camera (solid), with perturbed resets overlaid as ghosts: the target object displaced in the table plane (translucent) and the end effector displaced from its reset pose (blue). Walls and floor are removed for clarity. The object displacements on PickPlaceCan are shown for illustration only, as its sweep perturbs the end effector alone.",
+     "image": "details/2611.26855/F11.jpg"
+    },
+    {
+     "key": "F12",
+     "caption_ja": "失敗検出実験で使用された LIBERO-90 の9タスクです。成功率が中程度（0.3〜0.7）の難易度のタスクが選定され、CoMP-UKF が早期かつ高精度に異常を検知できることが示されました。",
+     "caption": "Figure 12: The nine LIBERO-90 tasks of § 4.3 . Initial scene and instruction of each task from the simulator’s front camera.",
+     "image": "details/2611.26855/F12.jpg"
+    },
+    {
+     "key": "F13",
+     "caption_ja": "デモ選択ファインチューニング実験で用いられた LIBERO-10 の10タスクです。CoMP の推定不確実性に基づいて効果的なデモを優先選択することで、学習効率が大幅に向上しました。",
+     "caption": "Figure 13: The ten LIBERO-10 tasks of § 4.4 . Initial scene and instruction of each task from the simulator’s front camera.",
+     "image": "details/2611.26855/F13.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Related Work",
+   "heading_ja": "関連研究と本論文の立ち位置",
+   "summary_ja": "機械学習における不確実性推定（アンサンブル法やベイズ法）、拡散モデルへのモーメント伝播の応用、そしてロボティクスにおける失敗検出や能動的学習の文脈から、CoMP の新規性を位置づけます。",
+   "details_ja": "認識的不確実性の定量化は、モデルの信頼性確保において古くから研究されてきました。深層アンサンブルやベイズニューラルネットが代表例ですが、大規模基盤モデルでは計算と保存のコストがネックになります。拡散モデルや Flow Matching では、軌道分岐による相互情報量推定（DECU）や速度場の不一致度積分（VFD）などが提案されてきましたが、これらも複数モデルや複数回のサンプリングを前提とすることが多いのが現状です。\n\nモーメント伝播法（BayesDiff）は単一モデルの事後分布から効率的に分散を送る有望なアプローチでしたが、本論文が示した通り分散崩壊という致命的な弱点を抱えていました。CoMP は状態と重みの相互共分散を回復することでこの理論的欠陥を初めて克服しました。\n\nロボティクス応用においては、実行時モニタリングや能動学習、データ効率的なファインチューニング（SAVE、CUPID 等）で不確実性が活用されていますが、CoMP は基盤モデルを再学習することなく、後付け（post-hoc）かつ高精度にそれらの応用を支える実用的なツールを提供します。",
+   "figures": []
+  },
+  {
+   "heading": "6 Limitations",
+   "heading_ja": "CoMP が抱える限界と今後の課題",
+   "summary_ja": "重みヤコビアンを解析的に得るために最終層が線形である必要がある点、アクションチャンク長 $D$ に応じて推論計算時間とメモリが増大する点などが制約として挙げられています。",
+   "details_ja": "強力な性能を示す CoMP ですが、実運用に向けていくつか明確な限界が存在します。\n\n- **線形最終層への依存**: 重みに対するヤコビアンを解析的に求めるため、方策の最終層が線形結合である構造を前提としています。より深い層までラプラス近似を広げようとすると計算が困難になります。\n- **出力次元 $D$ に対する計算コスト**: 行動チャンク長と自由度の積 $D = H \\times d_a$ が大きくなると計算負荷が増えます。CoMP-UKF では各ステップで $2D+1$ 個のシグマポイントを評価し、CoMP-EKF では $D$ 回の逆伝播が必要になります。\n- **推論速度のトレードオフ**: $\\pi_{0.5}$（$D=70$）では CoMP-UKF の推論時間は 1 決定あたり 1.85 秒ですが、チャンク長の長い SmolVLA（$D=350$）では 3.38 秒・ピークメモリ 4.6GB を消費します。オフラインでのデモ選択には全く問題ありませんが、高頻度なリアルタイム制御ループに組み込むには、共分散の低ランク近似などの軽量化が今後の課題となります。",
+   "figures": []
+  },
+  {
+   "heading": "7 Conclusion",
+   "heading_ja": "まとめ",
+   "summary_ja": "Flow Matching 方策における従来のモーメント伝播の分散崩壊を暴き、相互共分散を伝播する CoMP と埋め込み拡張ヘッドによって、単一モデルから高品質な不確実性を引き出す道を切り拓きました。",
+   "details_ja": "本研究は、事前学習済み Flow Matching ロボット方策における認識的不確実性推定手法「CoMP」を提案しました。従来の BayesDiff が持っていた「積分を精密にするほど不確実性がゼロに消滅する」という分散崩壊のメカニズムを理論的に解明し、状態と重みの相互相関をモデル化することでこの問題を解決しました。さらに、VLA が持つ観測埋め込みを活用したヘッド拡張により、追加学習なしに入力文の曖昧性を感知できるようになりました。ロボットが自らの能力の限界を自覚し、安全に動作し、効率的に学ぶための極めて実践的な基盤技術といえます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "BayesDiff などの既存モーメント伝播法は、ODE サンプラーのステップ数を増やすと推定分散が $O(1/T)$ で消失する「分散崩壊」を起こす。",
+  "状態と重みの相互共分散（cross-covariance）を一緒に伝播させることで、ステップ数に依存しない理論的に正しい不確実性を復元できる。",
+  "VLA がすでに計算している画像・言語の埋め込みベクトルで最終層を拡張すれば、方策の出力を変えずに指示文の曖昧さへの感度を大幅に強化できる。",
+  "高価な深層アンサンブルを学習しなくても、単一の事前学習済みモデルにラプラス近似＋CoMP を適用するだけで、失敗検出やデータ選択で同等以上の成果が得られる。"
+ ],
+ "limitations_ja": [
+  "アクションチャンク長 $D$ が大きい場合、UKF のシグマポイント評価や EKF のヤコビアン計算の負荷が増え、推論時間が数秒オーダーになるためリアルタイム制御には工夫が必要。",
+  "解析的なパラメータ微分を可能にするため、ネットワークの最終層が線形層であるという構造的制約がある。",
+  "共分散行列のサイズが $D \\times D$ でスケールするため、より高次元な全身制御や長大なホライズン予測への適用には低ランク近似などの拡張が求められる。"
+ ],
+ "keywords": [
+  "Flow Matching",
+  "Epistemic Uncertainty",
+  "Moment Propagation",
+  "Vision-Language-Action Models",
+  "Kalman Filter",
+  "Laplace Approximation"
+ ],
+ "id": "2611.26855",
+ "title": "Coherent Moment Propagation: Epistemic Uncertainty for Pre-trained Robot Policies",
+ "authors": [
+  "Miguel Saavedra-Ruiz",
+  "Anqi Li",
+  "Claudia D'Arpino",
+  "Alperen Degirmenci",
+  "Tucker Hermans",
+  "Fabio Ramos"
+ ],
+ "date": "2026-11-23",
+ "group": "general",
+ "tags": [
+  "control",
+  "safety",
+  "imitation-learning",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.26855",
+ "pdf_url": "https://arxiv.org/pdf/2611.26855",
+ "summary_ja": "Flow matchingに基づく最新ロボット操作方策において、推論時にモデルの認識的不確実性を定量化する手法Coherent Moment Propagationを提案。ODEソルバーの全積分過程を通して平均と分散を解析的に伝播させ、分布外状況の検出や安全なフォールバック判定を可能にした。",
+ "generated": "2026-11-24",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.26855"
+}
