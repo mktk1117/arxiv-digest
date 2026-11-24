@@ -1,0 +1,153 @@
+{
+ "title_ja": "明示的外乱推定による方策増強と補償を用いたロバストなロコモーション",
+ "tldr_ja": "未知の負荷や外力などの外乱を関節空間のひとつの量として明示的にオンライン推定し、トルクのフィードフォワード補償と方策の追加観測の双方に使うことで、シミュレーション平地学習のみから自重に匹敵する11.5 kg可搬や16 cm段差踏み下がりを実現しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "PACEフレームワークの全体構造です。(a)の学習段階では、明示的に推定した外乱トルクを低レイヤのトルク補償に回すと同時に方策ネットワークの観測にも入力します。(b)の実機展開時では、足先力センサがなくても搭載センサから接触力を推定し、学習時と同一構造のオブザーバを回します。",
+  "caption": "Fig. 2: Overview of the proposed PACE framework. (a) During training, privileged observations are encoded into the latent representation $\\mathbf{z}_{t}$ , while the explicit disturbance estimation is used for torque-level feedforward compensation and further provided to the policy as an additional observation. (b) During deployment, the adaptation module infers $\\hat{\\mathbf{z}}_{t}$ from temporal partial observations, and the sensorless foot-force estimator reconstructs the contact-force input required by the DO, preserving the same disturbance-aware closed-loop structure without privileged information or foot-force sensors. …",
+  "image": "details/2611.27061/F2.jpg"
+ },
+ "overview_ja": "強化学習（RL）を使った四足歩行ロボットの制御は、近年めざましい進化を遂げています。しかし、実世界で発生する荷物の積載、重心のずれ、アクチュエータの経年劣化、そして不整地からの外力といった「モデル化されていない外乱」にどう対処するかは今なお大きな課題です。一般的なアプローチはドメインランダム化（学習環境の物理パラメータを大きく揺らす手法）ですが、これはいわば「どんな環境でも破綻しない無難な動き」を方策に強いるため、速度追従の正確性が落ちたり、想定範囲外の大きな変化に対応できなかったりします。\n\nそこで著者らは、「外乱をブラックボックスな潜在変数として丸め込むのではなく、関節空間の物理的な外乱トルクとして明示的にオンライン推定してしまえばよいのではないか」と考えました。提案手法の「PACE」では、非線形外乱オブザーバ（DO）を導入し、加速度センサの微分ノイズを避ける工夫を取り入れつつ外乱を推定します。ここがポイントなのですが、この推定外乱をPD制御器のトルクに直接フィードフォワード補償するだけでなく、高レベルの方策の追加観測としても入力します。さらに、このオブザーバを学習ループの初期から組み込むことで、方策自身が「あらかじめ外乱が補償された世界」で最適な行動を学習できるようにしました。\n\n実機（自重約11.6 kgのDeepRobotics Lite3）や物理シミュレータで検証したところ、シミュレーションの平地かつ最大3 kgの追加負荷という限定的な環境で学習させただけにもかかわらず、実機では自重とほぼ同等の11.5 kgの負荷を背負って歩行し、16 cmの未学習の段差を踏み下り、砂地や岩場などの5種類の屋外不整地を踏破することに成功しました。追従誤差もベースラインから大幅に削減されており、制御理論の良さと強化学習の適応力が見事に融合した成果となっています。",
+ "contributions_ja": [
+  "負荷変動や外力などの多様な不確かさを単一の関節外乱としてまとめ、関節加速度測定を必要としない非線形外乱オブザーバでオンライン推定する枠組みを構築しました。",
+  "推定外乱を低レイヤのトルクフィードフォワード補償に用いるだけでなく、方策の観測入力にも加える二重の補償経路を提案し、学習中も実機展開時も一貫して閉ループに維持しました。",
+  "市販ロボットの多くが足先力センサを持たない問題に対し、関節状態とIMU情報のみから接触力を幾何的・動力学的に再構成するセンサレス接触力推定器を開発しました。"
+ ],
+ "sections": [
+  {
+   "heading": "I INTRODUCTION",
+   "heading_ja": "なぜ今、明示的な外乱推定を強化学習に組み合わせるのか",
+   "summary_ja": "四足歩行のロバスト性向上にはドメインランダム化や適応モジュールが用いられてきましたが、追従精度とのトレードオフや実機展開時の動特性不一致という壁がありました。本論文では、外乱を明示的に推定してトルク補償と方策入力の両方に活用し、平地学習のみから過酷な実環境へゼロショット適応させるPACEを提案します。",
+   "details_ja": "四足歩行ロボットは不整地を踏破できる機動性を持っていますが、実環境で安定して動かすためには、積載荷重の変化や外力、アクチュエータの劣化といったモデルの不確かさに耐える必要があります。これまでのモデル予測制御（MPC）などのモデルベース手法は、高精度なダイナミクスモデルと緻密なパラメータ調整に強く依存しており、現実のロボット特性が設計時の前提からずれると性能が著しく落ちてしまう弱点がありました。\n\n一方で、シミュレータを用いた深層強化学習（RL）は目覚ましい成果を上げています。RLにおけるロバスト化の主流は、物理パラメータを散らすドメインランダム化（DR）や、ロボットの応答履歴から環境特性を潜在表現として推定する手法（RMAなど）です。しかし、これらは方策ネットワークという単一のチャンネルにすべてを背負わせるため、学習した範囲外（OOD）への汎化が難しかったり、条件ごとの精密な速度追従性を犠牲にしたりするトレードオフが存在しました。また、学習後に外乱適応モジュールを後付けする手法もありますが、学習時と実機展開時でロボットから見える動特性が変わってしまうという根本的なミスマッチが残ります。\n\nそこで著者らは、様々な不確かさを「関節空間の等価外乱トルク」として一括して扱い、非線形外乱オブザーバ（DO）で明示的に推定するPACE（Policy Augmentation and Compensation with Explicit disturbance estimation）を提案しました。推定された外乱は、まずトルクレベルのフィードフォワード補償として関節PD制御器に加えられ、さらに方策の観測情報としても渡されます。学習中からこのオブザーバをループに入れ続けることで、方策は最初から「外乱が部分的に打ち消された状態」を前提に賢く動くことができます。\n\nまた、実機（Lite3）には高精度な足先力センサがついていないため、搭載されている関節エンコーダとIMUから接触力を高精度に逆算するセンサレス接触力推定器も合わせて構築しました。その結果、シミュレーション平地のみで学習した単一の方策が、実機で自重と同等の11.5 kg可搬や16 cm段差の踏み下がり、多彩な屋外路面をクリアできることを実証しました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "シミュレーションの平地でのみ学習したポリシーを、そのまま実環境の未知地形にゼロショット展開した様子です。(a)は不揃いな敷石が並ぶ遊歩道、(b)は小石が敷き詰められた砂利道を進んでおり、足元の不整地外乱に崩れることなく安定して踏破できています。",
+     "caption": "Fig. 1: Representative locomotion sequences on unseen real-world terrains after training exclusively on flat terrain in simulation. (a) Traversal of a flagstone path composed of irregular stone slabs. (b) Traversal of a gravel road covered with loose stones. Successive frames illustrate the robot’s progression across the two terrain types.",
+     "image": "details/2611.27061/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "モデルベース制御と強化学習の適応技術、その進化と隙間",
+   "summary_ja": "モデル予測制御などの従来アプローチはモデルの正確さに頼り切り、近年の強化学習アプローチは潜在表現によるブラックボックスな適応に偏っていました。PACEは、物理的に意味が明瞭な外乱推定値をトルク補償と方策入力の双方に流し込み、かつ学習初期からループに組み込む点で先行研究と一線を画しています。",
+   "details_ja": "### II-A モデルベース歩行制御\nモデル予測制御（MPC）や全身インパルス制御（WBC）は、物理法則に基づく透明性の高い制御を実現してきました。しかし、その性能はロボットの正確な慣性パラメータや接触モデルに依存します。現場で荷物を積んだり足元が滑ったりすると仮定が崩れ、再調整が必要になります。PACEでは、モデルベース制御を主役に据えるのではなく、学習方策を主制御器とし、モデルベースの外乱オブザーバを残差ダイナミクスの補償モジュールとして補助的に位置づけています。\n\n### II-B 汎化のための学習ベース方策\n近年のRL研究では、ドメインランダム化や、過去の観測履歴から環境潜在変数（latent code）を推定する手法（RMAやDreamWaQ、HIMLOCOなど）が主流です。しかし、これらで得られる潜在変数は抽象的であり、物理的な単位を持たないため関節トルクに直接足し込むことができません。そのため、外乱修正の応答速度が方策の推論周期（通常20〜50 Hz程度）に縛られてしまいます。PACEは抽象的な潜在表現に頼るだけでなく、物理単位（$\\mathrm{N\\cdot m}$）を持つ明示的な外乱トルクを推定することで、高応答な補償を可能にしています。\n\n### II-C 強化学習とモデルベース適応の融合\nRL2ACのように、学習済み方策の後ろにプラグインで適応制御器を取り付ける試みや、方策の下流に物理フィルタを挟む研究も登場しています。しかしこれらは「方策を学習し終えた後」に適応器を結合するため、学習環境と実機環境の間で動特性のギャップが生じます。また、急峻に変化する足先接触力を一括して残差として扱ってしまうため推定が乱れやすいという課題もありました。PACEは外乱オブザーバを学習時から閉ループに維持し、さらに接触力を解析項として明示的に分離して扱う点でこれらを克服しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Preliminaries",
+   "heading_ja": "部分観測マルコフ決定過程とロボットの基礎力学モデル",
+   "summary_ja": "四足歩行を部分観測マルコフ決定過程（POMDP）として定式化し、教示・生徒（Teacher-Student）形式の強化学習構造を定義します。また、ロボットの12関節における剛体動力学方程式と、標準的な関節PD制御器の構成を整理します。",
+   "details_ja": "### III-A 強化学習の定式化\n四足歩行タスクを無限期間の部分観測マルコフ決定過程（POMDP）として定式化します。ロボットが実機で直接観測できるのは、自身の内部状態を中心とする観測ベクトル $\\mathbf{o}_t \\in \\mathbb{R}^{117}$ のみであり、床の摩擦係数や背負っている荷物の質量といった環境パラメータは含まれません。\n\nそこで、過去 $H=40$ ステップの観測履歴 $\\mathbf{o}_t^H$ と、シミュレータ内でのみ取得可能な特権情報（privileged observation）を圧縮した潜在表現 $\\mathbf{z}_t \\in \\mathbb{R}^{18}$ を導入します。シミュレーション学習中には特権情報から教示潜在変数 $\\mathbf{z}_t$ を生成し、実機展開時には観測履歴 $\\mathbf{o}_t^H$ から生徒モジュール（Adaptation Module）が推定値 $\\hat{\\mathbf{z}}_t$ を予測する二段階の知識蒸留（Teacher-Student）構造を採用しています。\n\n### III-B 四足ロボットのダイナミクスと低レイヤ制御器\nロボットの12個の関節位置・速度・加速度を $\\mathbf{q}, \\dot{\\mathbf{q}}, \\ddot{\\mathbf{q}} \\in \\mathbb{R}^{12}$ とすると、関節空間の運動方程式は以下のように記述されます。\n\n$$\\mathbf{M}(\\mathbf{q})\\ddot{\\mathbf{q}} + \\mathbf{C}(\\mathbf{q}, \\dot{\\mathbf{q}})\\dot{\\mathbf{q}} + \\mathbf{G}(\\mathbf{q}) - \\mathbf{J}^\\mathrm{T}\\mathbf{F}_\\mathrm{c} = \\boldsymbol{\\tau}$$\n\nここで $\\mathbf{M}$ は慣性行列、$\\mathbf{C}$ はコリオリ・遠心力項、$\\mathbf{G}$ は重力項、$\\mathbf{J}$ は接触ヤコビアン、$\\mathbf{F}_\\mathrm{c}$ は4脚の足先接触力ベクトル、$\\boldsymbol{\\tau}$ は関節トルクです。通常、RL方策は目標関節角度 $\\mathbf{q}_\\mathrm{des}$ を出力し、関節PD制御器によってトルク $\\boldsymbol{\\tau}_\\mathrm{PD} = \\mathbf{K}_\\mathrm{p}(\\mathbf{q}_\\mathrm{des} - \\mathbf{q}) - \\mathbf{K}_\\mathrm{d}\\dot{\\mathbf{q}}$ に変換されてモータ駆動されます。",
+   "figures": []
+  },
+  {
+   "heading": "IV Method",
+   "heading_ja": "外乱オブザーバとセンサレス接触力推定を融合したPACEの全貌",
+   "summary_ja": "公称モデルからのズレを一括外乱として加速度計測なしで推定する非線形外乱オブザーバ（DO）を設計し、トルク補償と方策観測へ分配します。さらに実機展開のため、IMUと関節センサから足先接触力を高精度に逆算するセンサレス推定器を導入してオブザーバの入力を完成させます。",
+   "details_ja": "### IV-A フレームワークの概要\nPACEの全体構造は図F2に示されています。学習方策が生成した関節目標位置をPD制御器が追従するラインと並行して、非線形外乱オブザーバ（DO）が公称モデルと実運動のズレを一括外乱 $\\boldsymbol{\\tau}_\\mathrm{d}$ としてオンライン推定します。この推定値はトルクに直接加算されるフィードフォワード補償となり、同時にお方策への追加観測値としても入力されます。\n\n### IV-B 外乱オブザーバの設計と収束性\n負荷変動、重心移動、アクチュエータ劣化、外部からの押し力を個別に同定するのは困難です。そこでPACEでは、これらをひとまとめの等価関節外乱 $\\boldsymbol{\\tau}_\\mathrm{d} \\in \\mathbb{R}^{12}$ として扱います。計算負荷を最小限に抑え、複雑な姿勢依存の慣性計算誤差を避けるため、慣性行列は対角の定数公称行列 $\\mathbf{M}$ で近似します。\n\n関節加速度 $\\ddot{\\mathbf{q}}$ の直接測定はノイズが酷いため、補助変数 $\\boldsymbol{\\eta} \\in \\mathbb{R}^{12}$ と $\\boldsymbol{\\rho}(\\dot{\\mathbf{q}}) = L\\mathbf{M}\\dot{\\mathbf{q}}$ を導入した加速度フリーの非線形オブザーバを構築します（式5, 6）。\n\n$$\\dot{\\boldsymbol{\\eta}} = -L\\boldsymbol{\\eta} - L\\left(-\\mathbf{C}\\dot{\\mathbf{q}} - \\mathbf{G} + \\mathbf{J}^\\mathrm{T}\\mathbf{F}_\\mathrm{c} + \\boldsymbol{\\tau} - L\\mathbf{M}\\dot{\\mathbf{q}}\\right)$$\n$$\\hat{\\boldsymbol{\\tau}}_\\mathrm{d} = \\boldsymbol{\\eta} + \\boldsymbol{\\rho}(\\dot{\\mathbf{q}})$$\n\nオブザーバゲイン $L > 0$ （実験では $L=1$ に固定）により、推定誤差のダイナミクスは $\\dot{\\hat{\\boldsymbol{\\tau}}}_\\mathrm{d} = L(\\boldsymbol{\\tau}_\\mathrm{d} - \\hat{\\boldsymbol{\\tau}}_\\mathrm{d})$ となり、外乱の変化率が有界であれば推定誤差が一様最終有界（UUB）になることが解析的に証明されています。この推定外乱を用いて、制御トルクを $\\boldsymbol{\\tau} = \\boldsymbol{\\tau}_\\mathrm{PD} - \\hat{\\boldsymbol{\\tau}}_\\mathrm{d}$ と補償します。\n\n### IV-C センサレス接触力推定器\nオブザーバを動かすには足先接触力項 $\\mathbf{J}^\\mathrm{T}\\mathbf{F}_\\mathrm{c}$ が不可欠ですが、実機には力センサがありません。そこで関節エンコーダとIMU情報のみから接触力を復元する推定器を設計しました。浮遊ベースの逆動力学（再帰的ニュートン・オイラー法）からモデルトルクを計算し、アクチュエータの計測トルクとの残差 $\\boldsymbol{\\tau}_\\mathrm{r} = \\mathbf{J}^\\mathrm{T}\\mathbf{F}$ を求めます。\n\n足先ヤコビアンの特異点近傍での数値的不安定性を防ぐため、減衰特異値分解（Damped SVD）を用いて足先力 $\\hat{\\mathbf{F}}_\\mathrm{raw}$ を算出します。さらに、片側接触条件（引っ張り力は出ない）、法線力上限（$F_{z,\\max}=300~\\mathrm{N}$）、および摩擦円錐条件（$\\mu=1.0$）を射影作用素 $\\mathcal{P}_\\mu$ で強制し、ローパスフィルタ（$\\alpha_\\mathrm{F}=0.35$）を適用して最終的な接触力 $\\hat{\\mathbf{F}}_\\mathrm{c}$ を得ます。MuJoCoでの検証では、真値との垂直抗力RMSEが $2.728~\\mathrm{N}$、DO出力における関節トルク誤差が平均わずか $0.0542~\\mathrm{N\\cdot m}$ に収まる極めて高い精度を示しました。\n\n### IV-D 強化学習フレームワーク\nポリシーはPPOにより学習されます。方策の観測にはベース速度指令、オイラー角、角速度、関節状態、短い履歴情報に加え、明示的外乱推定値 $\\hat{\\boldsymbol{\\tau}}_\\mathrm{d}$ が含まれます。行動空間は公称起立姿勢からの関節目標オフセット（12次元）です。報酬関数は一般的な速度追従、姿勢安定化、滑らかな関節挙動を促す設計を採用しており、外乱オブザーバのために特殊な報酬調整を行うことなく汎用的な枠組みで学習させています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "シミュレータ（MuJoCo）での足先垂直接触力推定の検証結果です。上段の拡大図が示すように、接地（Touchdown）時の遅れはわずか3 ms、離地（Liftoff）時も9 msと極めて高い時間追従性を示しており、垂直力の二乗平均平方根誤差（RMSE）も2.73 Nに抑えられています。",
+     "caption": "Fig. 3: Vertical foot-contact force estimation for the front-left leg over $4$ – $6\\,\\mathrm{s}$ . The main force plot compares the estimate with the MuJoCo reference, and shaded regions indicate reference stance intervals. The lower plot shows the signed estimation error, with a marker highlighting the maximum absolute error within the displayed interval. The two upper insets show enlarged views of the regions in the main force plot: touchdown on the left and liftoff from the following gait cycle on the right. In these insets, $\\Delta t$ denotes the estimation delay.",
+     "image": "details/2611.27061/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "真の接触力を用いた場合と、提案のセンサレス推定器を用いた場合での外乱オブザーバ出力（後右脚Hip-X関節）の比較です。波形はほぼ完全に重なっており、右側の誤差分布を見てもズレは極めてわずかであることが分かります。",
+     "caption": "Fig. 4: Effect of contact-force substitution on the DO output at the HR Hip-X joint. Left: observer outputs obtained using MuJoCo contact forces and estimated contact forces over $4$ – $6\\,\\mathrm{s}$ . Right: distribution of their signed difference using the same samples as in the left plot. Horizontal bar lengths indicate the percentage of samples in each difference bin, and the dashed line marks the mean difference.",
+     "image": "details/2611.27061/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V EXPERIMENTS",
+   "heading_ja": "11種類の動特性変動、未学習コマンド、そして実機での極限テスト",
+   "summary_ja": "シミュレーション評価では、11種類の動特性変動下でベースラインより速度追従誤差を最大57%削減し、未学習の2 m/s指令や80 N横押しにも即座に適応しました。実機実験では、自重相当の11.5 kg可搬、16 cm段差踏み下がり、5種類の屋外不整地を走破しました。",
+   "details_ja": "### V-A 実験セットアップと V-B 比較手法\n学習はIsaac Gymを用い、4,096並列環境で15,000イテレーション実施しました。実機にはDeepRobotics Lite3（質量約11.6 kg）を使用し、外乱オブザーバは制御周期3 ms（約333 Hz）で動作させました。比較対象は以下の4つです。\n- **BASELINE**: RMAスタイルの潜在環境因子推定を用いた標準的強化学習\n- **HIMLOCO**: ロボット内部応答から環境を階層推定する最新手法\n- **PACE 0**: 推定外乱をトルク補償のみに使い、方策観測には入れない構成（アブレーション）\n- **PACE**: トルク補償と方策観測の両方に推定外乱を用いる完全構成\n\n### V-C 実験結果\n#### 1. 動特性変動下での速度追従\n荷物積載（最大+6 kg）、重心位置の前後左右シフト、アクチュエータ出力低下（70%への減衰）を含む11種類の環境でテストしました。11条件の平均速度追従RMSEにおいて、PACEはBASELINEに対して57.0%、HIMLOCOに対して18.1%、PACE 0に対して32.8%もの誤差削減を達成し、全条件で最も高精度な追従を示しました。\n\n#### 2. 学習範囲外（OOD）の速度指令\n学習時の指令範囲 $[-1, 1]~\\mathrm{m/s}$ を超える $2.0~\\mathrm{m/s}$ の前進指令を与えた評価（図F6）では、BASELINEが転倒を繰り返したのに対し、PACEは中央値誤差わずか $0.11~\\mathrm{m/s}$（前後）と $0.03~\\mathrm{m/s}$（左右）で安定走行を維持しました。\n\n#### 3. 瞬間的な横押し外乱からの復帰\n前進歩行中に $80~\\mathrm{N}$ の横押し外乱を0.48秒間加えたテスト（図F7）では、復帰時間がHIMLOCO（300 ms）、BASELINE（204 ms）、PACE 0（144 ms）に対し、PACEはわずか **72 ms** でした。ベースラインに比べて復帰時間を64.7%〜76.0%短縮しており、トルク補償と方策適応の連携が劇的な回復力をもたらしています。\n\n#### 4. 実機での段差踏み下がりテスト\n未学習の段差（8〜16 cm）を踏み下りる試験では、BASELINEが14 cmで着地失敗して転倒したのに対し、PACE 0は14 cmをクリアし、完全版PACEは最大の **16 cm段差** を100%の成功率でクリアしました（図F8(a)）。\n\n#### 5. 実機での最大積載テスト\n追加重量を徐々に増やしたところ、BASELINEは8 kgで歩行不能（最大7.5 kg）、PACE 0は11 kgまで成功。PACEは自身の体重とほぼ同じ **11.5 kg**（本体11.6 kg）を背負って堂々と歩行を継続しました（図F8(b)）。学習時のドメインランダム化では最大3 kgしか負荷をかけていなかったため、学習範囲を大幅に超えた驚異的なゼロショット適応です。\n\n#### 6. 未学習の屋外不整地テスト\n敷石、芝生、砂地、砂利道、大きな岩場の5種類の屋外地形において走破試験を行いました（表V）。平地学習のみにもかかわらず、BASELINEが多くの地形で足を取られ転倒する中、PACEおよびPACE 0はいずれの地形でも80%〜100%の高い走破率を記録しました。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "学習範囲（最大1.0 m/s）を大きく超える2.0 m/sのOOD速度指令を与えたときの速度追従誤差分布（Raincloudプロット）です。BASELINEが転倒して裾野の広い大誤差を出しているのに対し、PACE（最下段・緑）は前後・左右ともに誤差がゼロ付近に極めてシャープに集中しています。",
+     "caption": "Fig. 6: Raincloud distributions of absolute forward (left) and lateral (right) velocity tracking errors under the OOD command of $2\\,\\mathrm{m/s}$ . Half-violins show density estimates scaled to equal peak height. Boxes indicate the interquartile range (IQR), with internal lines marking the median, and whiskers extend to the most extreme samples within the $1.5\\,\\mathrm{IQR}$ fences. Dots represent the displayed time samples.",
+     "image": "details/2611.27061/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "歩行中に80 Nの横押し外力を0.48秒間加えた際の横方向速度の応答波形です。外乱除去後の復帰基準（破線）を満たすまでの時間は、HIMLOCOが300 ms、BASELINEが204 msかかったのに対し、PACEはわずか72 msと驚異的な立ち直りの速さを示しました。",
+     "caption": "Fig. 7: Lateral velocity responses to an $80\\,\\mathrm{N}$ push along the $y$ direction during forward locomotion commanded at $1\\,\\mathrm{m/s}$ . Shaded regions indicate force application from $1.20$ to $1.68\\,\\mathrm{s}$ . Colored vertical dashed lines mark the recovery instants, which are determined using the full planar velocity and yaw-rate criteria defined in the text.",
+     "image": "details/2611.27061/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "実機ロボット（Lite3）による極限ロバスト性評価です。(a)の段差テストでは、BASELINEが14 cmで失敗、PACE 0が16 cmで転倒する中、PACEのみが16 cm段差の踏み下がりを成功させました。(b)の積載テストでは、自重（約11.6 kg）とほぼ等しい11.5 kgの負荷を背負った状態でもPACEは安定歩行を維持しています。",
+     "caption": "Fig. 8: Real-world robustness experiments. (a) Time-composited step-down trials: BASELINE fails at $14~\\mathrm{cm}$ , whereas PACE 0 successfully recovers; at $16~\\mathrm{cm}$ , PACE 0 fails while PACE maintains stable locomotion. (b) Payload trials: BASELINE fails with an $8~\\mathrm{kg}$ payload, whereas PACE 0 successfully traverses under the same load; with an $11.5~\\mathrm{kg}$ payload, PACE 0 fails while PACE maintains stable forward locomotion. Successive overlaid poses in (a) indicate temporal progression, and white arrows denote the commanded travel direction.",
+     "image": "details/2611.27061/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI CONCLUSIONS",
+   "heading_ja": "まとめと今後の展望：古典制御の明快さと強化学習の適応力の融合",
+   "summary_ja": "PACEは、一括外乱を明示的に推定し、トルク補償と方策観測に流し込むことで、過酷な実環境へのゼロショット適応を実証しました。固定ゲインの適応化や、人型ロボット・接触マニピュレーションへの展開が今後の展望として挙げられています。",
+   "details_ja": "本論文では、モデル化されていないダイナミクスや未知の外力を単一の関節外乱としてまとめ、加速度センサ不要の非線形外乱オブザーバ（DO）によってオンライン推定・補償する歩行フレームワーク「PACE」を提案しました。\n\nトルクレベルのフィードフォワード補償によって低レイヤのダイナミクスを公称状態へと引き戻しつつ、推定外乱を方策の追加観測として渡すことで、外乱を考慮したハイレベルな足踏み動作の生成を両立させています。さらに、センサレス接触力推定器により、足先力センサを持たない一般的な実機ロボットでもシミュレーションと全く同じオブザーバ構造を動作させることに成功しました。\n\n現状の制約として、外乱オブザーバのゲイン $L$ がすべての関節や状況で定数（$L=1$）に固定されている点が挙げられます。今後は、外乱の追従速度と推定ノイズへの感度を状況に応じてバランスさせる適応ゲイン機構の導入が期待されます。また、著者らはPACEのアーキテクチャを人型ロボット（ヒューマノイド）や、接触が頻繁に生じるマニピュレーションタスクへと拡張していく展望を示しています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix A Implementation Details of the Sensorless Foot-Force Estimator",
+   "heading_ja": "付録：センサレス接触力推定の信号処理と直接加速度推定の失敗例",
+   "summary_ja": "接触力推定器における差分加速度のフィルタリングや座標変換の実装詳細を解説します。また、オブザーバを使わずに再構成した加速度から直接外乱を計算して補償した比較実験では、ノイズ増幅により実機が即座に転倒した失敗事例を紹介しています。",
+   "details_ja": "### 接触力推定の信号前処理\n逆動力学計算に必要となる関節加速度 $\\ddot{\\mathbf{q}}_k$ やベース角加速度 $\\boldsymbol{\\alpha}_{\\mathrm{B},k}$ は、計測された関節速度および角速度の前進差分によってまず粗く計算されます。しかし、数値微分は高周波ノイズを極端に増幅するため、低パスカットフィルタ（係数 $\\alpha_\\mathrm{d}=0.45$）を通して平滑化します。平滑化されたIMUの並進・角加速度はワールド座標系に変換され、浮遊ベースの再帰的ニュートン・オイラー法の初期境界条件として与えられます。\n\n### なぜ加速度フリーの外乱オブザーバが必要だったのか？\nここで「逆動力学で加速度が計算できているなら、オブザーバなど使わずにそのまま外乱トルクを逆算して補償すれば良いのではないか？」という疑問が生じます。論文ではこの疑問に答えるため、再構成された加速度から逆動力学で直接求めた外乱をフィードフォワード補償および方策観測に使う比較検証を実機で行っています。\n\nその結果、直接加速度ベースの手法は実機に展開した瞬間、センサノイズと微分誤差のループフィードバックによって制御が激しく発散し、即座にバランスを崩して転倒してしまいました。この失敗例は、PACEが採用した「加速度は制約付き接触力推定の中間変数としてのみ用い、外乱推定そのものは積分型の加速度フリー外乱オブザーバに委ねる」という二段階のノイズ抑制構造が、ハードウェア展開において決定的に重要であったことを裏付けています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "強化学習の潜在変数（latent）にすべてを任せるのではなく、物理単位を持つ外乱トルクを明示的に推定してPD制御器へフィードフォワード補償することで、低レイヤの応答性が劇的に向上します。",
+  "外乱オブザーバを学習済みモデルへの「後付け」にするのではなく、学習ループの最初から組み込むことで、方策は外乱が補償された前提の自然で無理のない行動戦略を獲得できます。",
+  "足先力センサがなくても、IMUとエンコーダを用いた逆動力学にSVD減衰・摩擦円錐制約・出力フィルタを組み合わせることで、実用上十分な接触力推定が可能です。"
+ ],
+ "limitations_ja": [
+  "外乱オブザーバのゲイン $L$ が全関節共通の固定値（$L=1$）となっており、急峻な衝撃外乱への追従性とセンサノイズ感度の最適なトレードオフが関節ごとに追求されていません。",
+  "公称慣性行列 $\\mathbf{M}$ を対角定数行列として大幅に簡略化しているため、脚が極端に曲がった特異姿勢などではモデル化誤差が一括外乱の許容範囲を超えるリスクがあります。",
+  "大きな岩場のような極めて不整で三次元的な接触が連続する環境では、方策観測への外乱追加が逆にわずかな性能低下を招くケースが報告されており、接触環境の性質に応じた適応が必要です。"
+ ],
+ "keywords": [
+  "Quadrupedal Locomotion",
+  "Reinforcement Learning",
+  "Disturbance Observer",
+  "Feedforward Compensation",
+  "Sim-to-Real Transfer"
+ ],
+ "id": "2611.27061",
+ "title": "PACE: Policy Augmentation and Compensation With Explicit Disturbance Estimation for Robust Locomotion",
+ "authors": [
+  "Shixuan Han",
+  "Yuyang Wang",
+  "Jingting Jia",
+  "Zeshuai Chen",
+  "Jindou Jia",
+  "Kexin Guo",
+  "Xiang Yu"
+ ],
+ "date": "2026-11-23",
+ "group": "focus",
+ "tags": [
+  "locomotion",
+  "reinforcement-learning",
+  "quadruped",
+  "control"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.27061",
+ "pdf_url": "https://arxiv.org/pdf/2611.27061",
+ "summary_ja": "四脚ロボットの強化学習において、ドメインランダム化への過度な依存を緩和するため、明示的に外乱を推定して方策と低レイヤ制御器にフィードフォワードする手法PACEを提案。積載重量変化や重心変位、アクチュエータ劣化を一括推定し、広範なダイナミクス変動下でも高精度な追従とロバストな実機歩行を実現した。",
+ "generated": "2026-11-24",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.27061"
+}
