@@ -1,6 +1,326 @@
 {
  "entries": [
   {
+   "date": "2026-11-25",
+   "rank": 0,
+   "id": "2611.32665",
+   "group": "focus",
+   "title": "DiffGR00T: Execution-Aware Differentiable Training for Humanoid Whole-Body Vision-Language-Action Models",
+   "title_ja": "DiffGR00T: ヒューマノイド全身VLAモデルのための実行を意識した微分可能学習",
+   "summary_ja": "ヒューマノイドの全身制御（WBC）とVLAの統合において、動作生成と実機実行の分離による追従・バランス誤差を解決する微分可能学習手法を提案。非微分可能なシミュレータを行動条件付きワールドモデルに置き換え、GR00T N1.7と全身基底モデルSONICを結合して複数ステップの動力学損失から直接勾配を逆伝播させることで、全身協調と動的バランスを両立する。",
+   "summary_en": "To bridge the gap between motion generation and dynamic balance execution in humanoid whole-body control, this paper proposes DiffGR00T, an end-to-end differentiable training framework. By replacing the non-differentiable simulator with an action-conditioned world model, it couples GR00T N1.7 with the SONIC whole-body behavior model, enabling gradient propagation directly through multi-step physical rollouts for balanced locomotion and manipulation.",
+   "authors": [
+    "Sichen Wu",
+    "Qian Sun",
+    "Mengfan Liu",
+    "Weikai Qin",
+    "Bike Zhu",
+    "Hesheng Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "vision-language-action",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.32665",
+   "image": "figures/2026-11-25/2611.32665.jpg"
+  },
+  {
+   "date": "2026-11-25",
+   "rank": 1,
+   "id": "2611.31863",
+   "group": "focus",
+   "title": "Ada-BFM: Adapting Behavior Foundation Models for Humanoid Scene Interaction",
+   "title_ja": "Ada-BFM: ヒューマノイドの環境接触インタラクションに向けた行動基底モデルの適応",
+   "summary_ja": "大規模行動データで事前学習されたヒューマノイド行動基底モデル（BFM）を、幾何制約や接触動力学が存在する実環境インタラクションへ適応させる後学習フレームワークを提案。事前学習済みの全身協調制御能力を保持したまま軽量なアダプタを追加することで、タスクごとのコントローラ再設計を不要にし、接触を伴う複雑な環境操作への高い汎化性と適応性を実現した。",
+   "summary_en": "While behavior foundation models (BFMs) excel at whole-body coordination, extending them to scene interaction with geometric and contact constraints remains difficult. Ada-BFM introduces a lightweight adapter module to post-train pretrained BFMs for scene interaction. This framework preserves underlying control capabilities while adapting to contact dynamics without building per-task controllers from scratch.",
+   "authors": [
+    "Furui Xu",
+    "Weishuai Zeng",
+    "Zirui Wang",
+    "Kangning Yin",
+    "Jiacheng Bao",
+    "Huayi Wang",
+    "Yingying Qin",
+    "Yufei Xue",
+    "Yang Tang",
+    "Zenghao Tang",
+    "Kailin Li",
+    "Jingbo Wang",
+    "Weinan Zhang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.31863",
+   "image": "figures/2026-11-25/2611.31863.jpg"
+  },
+  {
+   "date": "2026-11-25",
+   "rank": 2,
+   "id": "2611.31588",
+   "group": "focus",
+   "title": "One Phase Is Enough: Sim-to-Real Transfer with Direct Visual Reinforcement Learning",
+   "title_ja": "1段階で十分：直接的な視覚強化学習によるSim-to-Real転移",
+   "summary_ja": "特権的状態情報を用いた教師方策から視覚生徒方策への模倣蒸留という従来の2段階アプローチに伴う性能低下を克服するため、直接視覚RLを行う枠組みDRIFTを提案。画像入力から直接タスク関連表現と制御方策を効率的に学習するシンプルな学習手順を構築し、教示例や特権情報蒸留なしにシミュレーションから実機へと高精度にゼロショット転移できることを実証した。",
+   "summary_en": "Conventional sim-to-real pipelines train a privileged teacher via RL and distill it into a visual student, often degrading performance. The authors propose DRIFT, a recipe for sample-efficient, one-phase visual reinforcement learning directly on image observations. Eliminating the distillation phase, DRIFT learns robust visual representations and achieves seamless zero-shot sim-to-real transfer on physical robotic systems.",
+   "authors": [
+    "John Marangola",
+    "Antonia Bronars",
+    "Younghyo Park",
+    "Stephen Andrews",
+    "Kushal Kedia",
+    "Pulkit Agrawal"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "sim-to-real",
+    "control",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.31588",
+   "image": "figures/2026-11-25/2611.31588.jpg"
+  },
+  {
+   "date": "2026-11-25",
+   "rank": 3,
+   "id": "2611.32944",
+   "group": "focus",
+   "title": "DynaMimic: A Physics-Informed World Model for Humanoid Motion Tracking",
+   "title_ja": "DynaMimic: ヒューマノイドの動作追従のための物理情報付きワールドモデル",
+   "summary_ja": "人間のデモから多様なスキルを模倣するヒューマノイド全身制御において、従来の微分可能ワールドモデルが支持脚の切り替え時に累積する誤差を低減するDynaMimicを提案。動力学的制約や接触物理を考慮した物理整合性の高いワールドモデルを組み込むことで、クラスタ規模の計算資源を要するモデルフリーRLに比べ、計算効率を大幅に向上させつつ忠実な動作トラッキングを実現する。",
+   "summary_en": "Whole-body motion tracking on humanoids usually demands massive computation in model-free RL or suffers from accumulation errors across support-phase transitions in implicit world models. DynaMimic introduces a physics-informed world model that explicitly captures physical dynamics and contact transitions, allowing humanoids to accurately track and reproduce diverse human demonstrations with significantly lower computational overhead.",
+   "authors": [
+    "Chaoyue Xing",
+    "Linyi Huang",
+    "Yiting He",
+    "Yixuan Yin",
+    "Siqi Hou",
+    "Yi Zhang",
+    "Liyuan Pan",
+    "Miaomiao Liu",
+    "Daqi Liu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "world-model",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.32944",
+   "image": "figures/2026-11-25/2611.32944.jpg"
+  },
+  {
+   "date": "2026-11-25",
+   "rank": 4,
+   "id": "2611.32642",
+   "group": "focus",
+   "title": "BARE: Body-Aware Reflexive Evasion for Humanoid Robots",
+   "title_ja": "BARE: ヒューマノイドロボットのための身体認識型反射的回避行動",
+   "summary_ja": "接近する障害物に対し、従来の四足歩行ロボットのような全身の大幅な退避移動ではなく、ヒューマノイド特有の多自由度関節を活かした局所的な身体変形による反射的回避手法BAREを提案。衝突の脅威がある部位のみを迅速に変形させることで、狭い空間や限られた時間でも支持状態や質量中心のバランスを損なわずに安全な回避を可能にした。",
+   "summary_en": "Humanoids can exploit their high-degree-of-freedom articulation to evade approaching dynamic obstacles via localized body adjustments rather than large-scale whole-body displacement. BARE coordinates rapid, localized reflexive maneuvers while maintaining dynamic balance and support conditions, enabling safe evasive responses in confined spaces and under stringent reaction-time constraints.",
+   "authors": [
+    "Zihao Li",
+    "Tong Chen",
+    "Hua Song",
+    "Zitong Ding",
+    "Zihao Xu",
+    "Ce Hao",
+    "Weibang Bai"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "safety",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.32642",
+   "image": "figures/2026-11-25/2611.32642.jpg"
+  },
+  {
+   "date": "2026-11-25",
+   "rank": 5,
+   "id": "2611.31577",
+   "group": "general",
+   "title": "FabricBench: A Standardized Policy Benchmark for Bimanual Fabric Manipulation with a Contact-Driven Deformable Simulator",
+   "title_ja": "FabricBench: 接触駆動変形体シミュレータによる双腕布操作ベンチマーク",
+   "summary_ja": "衣服や布地、バッグなど変形体の双腕操作評価のため、オープンソースのNewtonソルバ上に構築された物理シミュレータと10,000個の資産を備えるFabricBenchを提案。擬似的な固定拘束を用いず、接触力と双方向力結合のみで布の把持・保持・解放を安定してシミュレートし、アーム・布・剛体間の相互作用を忠実に再現する環境を提供する。",
+   "summary_en": "Standard manipulation benchmarks predominantly focus on rigid bodies. FabricBench introduces a bimanual deformable manipulation benchmark featuring 10,000 assets and 6 diverse tasks. Built upon a contact-driven Newton solver, it enables stable bimanual grasping and release purely via contact forces without artificial attachments, realistically coupling arms, deformable fabrics, and free rigid objects.",
+   "authors": [
+    "Wenkang Hu",
+    "Haoran Wang",
+    "Liu Liu",
+    "Wenchao Huang",
+    "Yiji Chen",
+    "Mengao Zhao",
+    "Xincheng Tang",
+    "Zhengjie Shu",
+    "Lai Jiang",
+    "Wei Li",
+    "Zhendong Wang",
+    "Zhizhong Su",
+    "Huamin Wang",
+    "Ruigang Yang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "simulation",
+    "benchmark",
+    "manipulation",
+    "grasping"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.31577",
+   "image": "figures/2026-11-25/2611.31577.jpg"
+  },
+  {
+   "date": "2026-11-25",
+   "rank": 6,
+   "id": "2611.33013",
+   "group": "general",
+   "title": "RFW-W: Scaling Physical Asset Universes for Generative Embodied Simulation",
+   "title_ja": "RFW-W: 身体性知能シミュレーション生成のための物理アセットユニバース",
+   "summary_ja": "物理シミュレーションによる身体性学習をスケールさせるため、剛体52万点、可動リンク40万点、変形体8万点からなる合計100万点以上の検証済み3D物理アセット群RFW-Wを構築。衝突幾何や物理特性、インタラクション注釈を統合し、言語やタスクに応じた多様かつ物理的に破綻のないシミュレーション環境の自動合成を可能にした。",
+   "summary_en": "To scale embodied simulation, RFW-W presents an asset ecosystem comprising over one million physics-ready entities across rigid, articulated, and deformable categories. Fully annotated with collision geometry, mass properties, and interaction affordances, it supports task-conditioned procedural scene composition, providing a scalable foundation for embodied training.",
+   "authors": [
+    "Jiawei Weng",
+    "Rui Zhang",
+    "Saining Zhang",
+    "Changjian Pan",
+    "Yuanbo Lyu",
+    "Jiarui Guo",
+    "Yongzhi Li",
+    "Guolin Liu",
+    "Jialu Liu",
+    "Jiankun Wang",
+    "Yi Yang",
+    "Peishuo Li",
+    "Zhiheng Li",
+    "Jiaying Wan",
+    "Junhao Chen",
+    "Weiqing Xiao",
+    "Jingrun Du",
+    "Wenyi Li",
+    "Weiyi Lin",
+    "Zenan Meng",
+    "Hu Wei",
+    "Lin Qu",
+    "Zongzheng Zhang",
+    "Hao Zhao",
+    "Chaojian Li"
+   ],
+   "categories": [
+    "cs.CV"
+   ],
+   "tags": [
+    "simulation",
+    "dataset",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.33013",
+   "image": "figures/2026-11-25/2611.33013.jpg"
+  },
+  {
+   "date": "2026-11-25",
+   "rank": 7,
+   "id": "2611.32797",
+   "group": "general",
+   "title": "Supply Geometry, Learn Execution: Screw Attention for Zero-Shot Policy Transfer in Robot Manipulation",
+   "title_ja": "幾何を与えて実行を学ぶ：ロボット操作のゼロショット転移を実現するスクリューアテンション",
+   "summary_ja": "タスクの幾何構造を陽に与え、実行動作のみを学習するわずか3万パラメータの超軽量操作モデルを提案。対象物のSE(3)相対姿勢や関節のスクリュー軸情報を利用することで、単一のロボットアームを用いたシミュレーション学習のみで、未知のレイアウトや5種類の未知のロボットアーム、さらに実機環境へ追加学習なしでゼロショット転移を達成した。",
+   "summary_en": "Screw Attention Policy decouples task geometry from execution, using a compact 30K-parameter policy operating on relative SE(3) transforms and screw axes. Trained purely in simulation on a single robotic arm, it demonstrates robust zero-shot transfer to unseen scene layouts, five distinct robot embodiments, and real-world execution without any fine-tuning.",
+   "authors": [
+    "Aly Magassouba"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "sim-to-real",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.32797",
+   "image": "figures/2026-11-25/2611.32797.jpg"
+  },
+  {
+   "date": "2026-11-25",
+   "rank": 8,
+   "id": "2611.31658",
+   "group": "general",
+   "title": "Collision Rendering: GPU-Accelerated Trajectory Planning on Sparse Voxel Radiance Fields with Risk-Bounded Collision Checking",
+   "title_ja": "Collision Rendering: リスク境界付き衝突判定を備えた疎ボクセル放射輝度場上のGPU軌道計画",
+   "summary_ja": "ニューラル放射輝度場（NeRF系）表現を軌道計画に直接利用するため、疎ボクセル放射輝度場（SVR）のボリュームレンダリングパイプラインを衝突確率の高速近似器として活用する手法を提案。GPU上で微分可能な衝突コストと確率的リスク境界付きの衝突判定を並列計算することで、明示的なメッシュ化なしに複雑環境下でのリアルタイム軌道最適化を実現した。",
+   "summary_en": "Bridging neural radiance fields with motion planning, Collision Rendering leverages sparse voxel radiance fields (SVR) as fast numerical approximators of collision probabilities. By evaluating risk-bounded collision checks and differentiable costs on the GPU, it enables real-time, gradient-based trajectory planning directly over implicit volumetric scene representations.",
+   "authors": [
+    "Byoungkwon Yoon",
+    "Han Gyeom Lee",
+    "Hojun Lee",
+    "Yuseop Sim",
+    "Daniel Sungwoo Bae",
+    "Martin Byung-Guk Jun"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "planning",
+    "perception",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.31658",
+   "image": "figures/2026-11-25/2611.31658.jpg"
+  },
+  {
+   "date": "2026-11-25",
+   "rank": 9,
+   "id": "2611.33040",
+   "group": "general",
+   "title": "At the Limit: Autonomous Vehicle Drifting under Generative Policies",
+   "title_ja": "限界走行領域：生成モデル方策による自動運転車両のドリフト制御",
+   "summary_ja": "タイヤ摩擦限界を超え強い非線形性を持つドリフト走行において、SDEサンプリングによる探索と価値関数最適化を統合したフローベース方策のオンライン強化学習手法を提案。F1TENTHデジタルツイン上で円形や8の字ドリフトの安定制御を実証し、実時間制御において高精度な限界機動制御を可能にした。",
+   "summary_en": "Drifting operates near tire saturation limits with severe non-linear dynamics. This paper introduces an online reinforcement learning framework for generative flow policies, combining SDE-based exploration with value-based optimization. Demonstrated on an F1TENTH platform for circular and figure-eight drifting, it achieves robust real-time extreme dynamic control.",
+   "authors": [
+    "Jie He",
+    "Meixun Qu",
+    "Cheng Hu",
+    "Lei Xie",
+    "Ezio Bartocci",
+    "Radu Grosu"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control",
+    "autonomous-driving"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.33040",
+   "image": "figures/2026-11-25/2611.33040.jpg"
+  },
+  {
    "date": "2026-11-24",
    "rank": 0,
    "id": "2611.30784",
