@@ -1,6 +1,325 @@
 {
  "entries": [
   {
+   "date": "2026-11-24",
+   "rank": 0,
+   "id": "2611.30784",
+   "group": "focus",
+   "title": "Beyond Domain Randomization: Real-World Policy Adaptation in Learned Dynamics for Legged Robots",
+   "title_ja": "Beyond Domain Randomization: 実環境でのダイナミクス学習による脚ロボットの方策適応",
+   "summary_ja": "従来の静的ドメインランダム化では対応困難な未知のダイナミクス変化に対し、実環境で学習済みダイナミクスモデルを適応させる枠組みを提案。方策と環境モデル双方に教師・生徒構造を適用し、オンポリシー強化学習ループ内で高精度に適応させる。実機展開時における未モデル化の摩擦や可搬重量変化に対するロバスト性を大幅に改善した。",
+   "summary_en": "To overcome the limitations of static domain randomization under out-of-distribution dynamic shifts, this paper proposes an on-policy reinforcement learning framework that adapts a learned dynamics model to target real-world conditions. By employing a concurrent teacher-student paradigm across both policy and dynamics models, the policy successfully adapts online to unmodeled real-world variations such as payload and friction shifts.",
+   "authors": [
+    "Rui Dai",
+    "Shunpeng Yang",
+    "Zhen Fu",
+    "Maolin Lei",
+    "Jiaqi Song",
+    "Hua Chen",
+    "Nikos Tsagarakis"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "locomotion",
+    "reinforcement-learning",
+    "sim-to-real",
+    "quadruped"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.30784",
+   "image": "figures/2026-11-24/2611.30784.jpg"
+  },
+  {
+   "date": "2026-11-24",
+   "rank": 1,
+   "id": "2611.30449",
+   "group": "focus",
+   "title": "CHAMP: Coordinated Humanoid Loco-Manipulation with Whole-Body Motion Priors",
+   "title_ja": "CHAMP: 全身運動事前分布を用いたヒューマノイドの協調的移動マニピュレーション",
+   "summary_ja": "ヒューマノイドの移動とマニピュレーションの協調制御に向け、約2,298時間の人手およびロボットデータから全身運動を予測するVLA基盤モデルを事前学習した。全身共通の潜在表現により異種データソースを統一的に扱い、実機ヒューマノイドにおける長時間の移動・操作タスクで滑らかな全身協調制御を実現している。",
+   "summary_en": "This paper presents CHAMP, a framework for humanoid loco-manipulation that pretrains a vision-language model on approximately 2,298 hours of heterogeneous human and robot data to foresee whole-body and hand motions. A shared motion representation enables unified cross-embodiment learning, facilitating fluid, robust whole-body coordination across diverse long-horizon tasks on physical humanoids.",
+   "authors": [
+    "Lijun Han",
+    "Muyuan Ma",
+    "Zichen Wang",
+    "Siyuan Liu",
+    "Yuxi Liu",
+    "Yutong Wang",
+    "Bohao Zhang",
+    "Heng Zhou",
+    "Wei Sui"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.30449",
+   "image": "figures/2026-11-24/2611.30449.jpg"
+  },
+  {
+   "date": "2026-11-24",
+   "rank": 2,
+   "id": "2611.29771",
+   "group": "focus",
+   "title": "Into My Arms: Structured reinforcement learning for autonomous transport of objects and humans",
+   "title_ja": "Into My Arms: 物体および人間を自律搬送するための構造化強化学習",
+   "summary_ja": "高次元状態空間と密な接触を伴うヒューマノイドの全身搬送タスクに対し、探索を誘導する構造化強化学習を提案。疎な接触関係グラフ、搬送維持ゲート、ヒント軌道により探索複雑度を低減しつつ、方策自身が有効な把持・搬送戦略を獲得できるようにした。剛体だけでなく人間の搬送タスクへも一般化を実証した。",
+   "summary_en": "To tackle the high-dimensional, contact-rich challenge of whole-body humanoid transport, this paper introduces structured RL using Sparse Interaction Edges, Interaction Gated Transport, and Hinted Object Paths. These structures alleviate exploration bottlenecks while allowing the policy to discover emergent manipulation and locomotion strategies, successfully generalizing to transporting both rigid objects and humans.",
+   "authors": [
+    "Elle Miller",
+    "Reem Almheiri",
+    "Takuma Tsukakoshi",
+    "Ben Sanati",
+    "Tamon Miyake",
+    "Yushi Wang",
+    "Namiko Saito",
+    "Shigeki Sugano",
+    "Tetsuya Ogata",
+    "Rika Antonova",
+    "Oisin Mac Aodha",
+    "Sethu Vijayakumar"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "manipulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.29771",
+   "image": "figures/2026-11-24/2611.29771.jpg"
+  },
+  {
+   "date": "2026-11-24",
+   "rank": 3,
+   "id": "2611.30077",
+   "group": "focus",
+   "title": "PushMimic: Learning Adaptive Humanoid Box Pushing via Dynamic Motion Augmentation and Reference Distillation",
+   "title_ja": "PushMimic: 動的運動拡張と参照蒸留によるヒューマノイドの適応的箱押し学習",
+   "summary_ja": "箱の質量や斜面傾斜が未知の状況下でヒューマノイドが適応的に箱押しを行う手法を提案。平地での単一キネマティック参照動作からサンプリングベースの軌道最適化で動的に実行可能な動作データを生成し、それを1つの運動追従方策へと蒸留する。5〜15kgの質量変化や傾斜に対して押し姿勢を自律適応させることに成功した。",
+   "summary_en": "PushMimic enables adaptive humanoid box pushing under unknown physical properties, such as box mass and slope angles, from a single flat-ground kinematic reference. The framework augments the reference into dynamically feasible trajectories across varying parameters and distills them into a single tracking policy, effectively adapting pushing postures to loads from 5 to 15 kg and inclined terrains.",
+   "authors": [
+    "Yulun Zhuang",
+    "Hanyu Zhang",
+    "Jingyu Liu",
+    "Yanran Ding"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "planning",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.30077",
+   "image": "figures/2026-11-24/2611.30077.jpg"
+  },
+  {
+   "date": "2026-11-24",
+   "rank": 4,
+   "id": "2611.28274",
+   "group": "focus",
+   "title": "Neural Fidelity Calibration for Informative Sim-to-Real Adaptation",
+   "title_ja": "有効なSim-to-Real適応のためのニューラル忠実度較正",
+   "summary_ja": "実機展開時の実行データからシミュレータの物理パラメータと残差ドメインをオンライン較正するNeural Fidelity Calibration（NFC）を提案。条件付きフローマッチングにより、未モデル化の動力学誤差やセンシング起因の幾何ギャップを推定・補正する。手動チューニングに依存せず、実環境への効率的な方策転移を可能にする。",
+   "summary_en": "This paper presents Neural Fidelity Calibration (NFC), a framework using conditional flow matching to calibrate simulator physical parameters and residual fidelity domains online from execution data. By capturing unmodeled dynamics discrepancies and perception-induced geometric errors during deployment, NFC provides effective, automated sim-to-real adaptation beyond manual parameter tuning.",
+   "authors": [
+    "Youwei Yu",
+    "Lantao Liu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "sim-to-real",
+    "simulation",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.28274",
+   "image": "figures/2026-11-24/2611.28274.jpg"
+  },
+  {
+   "date": "2026-11-24",
+   "rank": 5,
+   "id": "2611.31002",
+   "group": "general",
+   "title": "RoboUniverse-10K: Toward the Scaling Era of Agentic Robotics via Real-to-Sim Environments",
+   "title_ja": "RoboUniverse-10K: Real2Sim環境を通じたエージェント型ロボティクスのスケーリング基盤",
+   "summary_ja": "実世界動画から自動Real2Simパイプラインにより構築された、10,807個の物理シミュレーション環境スイートを提案。検証可能かつリセット可能な環境群を標準ハーネスで提供し、コード生成エージェントやファウンデーションモデルの大規模な強化学習ポストトレーニングと実機転移可能な評価を可能にする。",
+   "summary_en": "RoboUniverse-10K introduces 10,807 interactive, resettable, and verifiable physics environments automatically generated from real-world videos via an automated Real2Sim pipeline. Encapsulated in isolated harnesses, this large-scale environment suite facilitates post-training and scalable benchmark evaluation for coding agents and generalist robot policies.",
+   "authors": [
+    "Jinkun Liu",
+    "Yingze Wang",
+    "Situ Wang",
+    "Deyao Hong",
+    "Mingju Gao",
+    "Wenyi Li",
+    "Yizhe Chi",
+    "Youjie Zheng",
+    "Kaisen Yang",
+    "Xiangyang Wang",
+    "Bingxiang He",
+    "Yuxin Zuo",
+    "Boyuan Chen",
+    "Yue Chen",
+    "Cheng Qian",
+    "Tianxing Chen",
+    "Huichi Zhou",
+    "Huaxiu Yao",
+    "Hao Tang",
+    "Hao Zhou",
+    "Ya-Qin Zhang",
+    "Calvin Xiao",
+    "Tiga Altman",
+    "Huan-ang Gao"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CL"
+   ],
+   "tags": [
+    "simulation",
+    "benchmark",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.31002",
+   "image": "figures/2026-11-24/2611.31002.jpg"
+  },
+  {
+   "date": "2026-11-24",
+   "rank": 6,
+   "id": "2611.28873",
+   "group": "general",
+   "title": "NAT: Scaling Causal Neural Action Tokenizers Across Embodiments",
+   "title_ja": "NAT: 複数エンボディメントにスケールする因果的ニューラル行動トークナイザ",
+   "summary_ja": "実ロボット、遠隔操作、シミュレーション、人間を含む4.9万時間の異種行動データで訓練した因果的ニューラル行動トークナイザ（NAT）を提案。自己回帰的なトークン生成と並行して即座に実機実行可能なデコーダ構造を持ち、未見のロボット機構に対しても既存手法を上回る表現汎用性を実証した。",
+   "summary_en": "Trained on 49k hours of diverse action data spanning real robots, handheld grippers, simulations, and humans, the Neural Action Tokenizer (NAT) provides a universal causal action tokenizer for embodied foundation models. Its causal decoder allows immediate action execution as tokens are generated, outperforming existing tokenizers on unseen robot embodiments.",
+   "authors": [
+    "Ahad Jawaid",
+    "Alexander Swerdlow",
+    "Yu Xiang"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.LG"
+   ],
+   "tags": [
+    "vision-language-action",
+    "control",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.28873",
+   "image": "figures/2026-11-24/2611.28873.jpg"
+  },
+  {
+   "date": "2026-11-24",
+   "rank": 7,
+   "id": "2611.29646",
+   "group": "general",
+   "title": "JKO-GRPO: Augmenting GRPO with Wasserstein Proximal Steps for Flow-Matching VLAs",
+   "title_ja": "JKO-GRPO: フローマッチング型VLAのためのワッサースタイン近接ステップによるGRPO拡張",
+   "summary_ja": "フローマッチング型VLA方策に対するオンライン強化学習において、サンプリングされた行動間の幾何的距離を考慮するJKO-GRPOを提案。サンプル群を経験分布として扱いJordan-Kinderlehrer-Otto（JKO）ステップを適用することで、方策更新の安定化と汎化性能の大幅な向上を達成した。",
+   "summary_en": "This work introduces JKO-GRPO, which enhances Flow-GRPO for flow-matching VLAs with Wasserstein proximal steps. By treating sampled action chunks as an empirical distribution and formulating policy improvement through Jordan-Kinderlehrer-Otto (JKO) steps, it explicitly accounts for geometric distances between candidate actions, improving reinforcement learning stability and performance.",
+   "authors": [
+    "Jiyong Kwon",
+    "Yikun Bai",
+    "Amirhossein Mollaali",
+    "Guang Lin"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "vision-language-action",
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.29646",
+   "image": "figures/2026-11-24/2611.29646.jpg"
+  },
+  {
+   "date": "2026-11-24",
+   "rank": 8,
+   "id": "2611.28411",
+   "group": "general",
+   "title": "ScaleEvals: Scaling Generalist Policy Evaluation through Reset-Free Autonomous Play",
+   "title_ja": "ScaleEvals: リセット不要な自律プレイによる汎用方策の大規模実機評価",
+   "summary_ja": "実機ロボット群を用いた汎用方策評価の自動化プロトコルを提案。VLMによる自動課題提示と自動採点（人間の評価と90.7%一致）を組み合わせ、人間の手動リセットなしに3,000回以上の実機物理プレイを通じた大規模評価を実現。Bradley-Terryモデルによる能力診断を可能にした。",
+   "summary_en": "ScaleEvals presents a scalable, reset-free evaluation protocol for generalist policies via continuous physical play across a robot fleet. Utilizing a VLM AutoPrompter for scene-grounded task generation and a VLM AutoGrader that achieves 90.7% agreement with humans, it demonstrates automated benchmarking across over 3,000 real-world rollouts.",
+   "authors": [
+    "Amitoj Sandhu",
+    "Ethan Sick",
+    "Omkaar Buddhikot",
+    "Nadia Laswi",
+    "Wesley Durbano",
+    "Nadun Ranawaka",
+    "You Liang Tan"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.SY",
+    "eess.SY"
+   ],
+   "tags": [
+    "benchmark",
+    "multi-robot",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.28411",
+   "image": "figures/2026-11-24/2611.28411.jpg"
+  },
+  {
+   "date": "2026-11-24",
+   "rank": 9,
+   "id": "2611.28697",
+   "group": "general",
+   "title": "Distilling Touch into Vision-Only Policies for Contact-Rich Manipulation",
+   "title_ja": "接触リッチなマニピュレーションに向けた触覚情報の視覚専用方策への蒸留",
+   "summary_ja": "実機展開時に触覚センサを必要としない視覚専用方策に対し、学習時の触覚経験を行動レベルで直接蒸留するフレームワークTacitTouchを提案。触覚画像の生成・再構成を介さず「触覚を感じているかのように振る舞う」行動を直接模倣させることで、誤差伝播を防ぎ接触リッチな作業の成功率を高めた。",
+   "summary_en": "TacitTouch introduces a distillation framework that transfers tactile-guided manipulation skills directly into a vision-only policy, bypassing hardware dependencies at deployment. By shifting from predicting intermediate tactile images to directly learning touch-informed behavior, it avoids reconstruction error propagation and achieves robust contact-rich manipulation.",
+   "authors": [
+    "Chen Yang",
+    "Linhao Wang",
+    "Linzhe Shi",
+    "Guohui Zhang",
+    "Changjie Wu",
+    "Hang Zhang",
+    "Haoyu Li",
+    "Mu Xu",
+    "Jiansheng Fan",
+    "Chen Wang"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "imitation-learning",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.28697",
+   "image": "figures/2026-11-24/2611.28697.jpg"
+  },
+  {
    "date": "2026-11-23",
    "rank": 0,
    "id": "2611.27061",
