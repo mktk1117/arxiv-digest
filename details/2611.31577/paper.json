@@ -1,0 +1,157 @@
+{
+ "title_ja": "FabricBench: 接触駆動変形体シミュレータによる双腕布操作ベンチマーク",
+ "tldr_ja": "吸着ルールに頼らず純粋な物理接触で把持・保持・解放を再現する布シミュレータを開発し、最新のロボット操作ポリシーが布のしわや変形に対してどれほど脆弱であるかを体系的に明らかにしました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "FabricBenchの全体像です。1万点に及ぶ布アセット、接触力と双方向の力学結合で安定した把持・解放を実現するシミュレータ、そして6種類の両腕操作タスクから構成され、見た目の変化と初期変形の影響を切り分けて評価できます。",
+  "caption": "Figure 1: Overview of FabricBench. Assets (top left): garments, silk, and bags with geometry, appearance, and physical properties. Simulator (bottom left): contact detection, penetration handling, frictional grasp and release, force-limited grippers, and bidirectional coupling make grasping, release, and load transfer arise from contact forces without artificial attachment. Benchmark evaluation (right): shared demonstrations and matched test episodes; separate configuration and appearance tests, with geometry and physics fixed for appearance shifts; sim–real task difficulty comparison using the same checkpoint per task. …",
+  "image": "details/2611.31577/F1.jpg"
+ },
+ "overview_ja": "洗濯物をたたむ、バッグを持ち運ぶといった布の操作は、家庭用ロボットにとって非常に身近で重要な課題です。しかし、布は自己遮蔽が起きやすく、接触状態が刻一刻と変化するため、シミュレーションで再現することが極めて困難でした。従来の多くのベンチマークでは、グリッパを閉じると布が指先に「吸着」するような人工的なルールを使っていましたが、これでは学習済みポリシーの微妙な指先の動きで意図しない離反が起きるなど、正しい性能評価ができませんでした。\n\nそこで著者らは、吸着ルールを一切使わず、純粋な接触力と摩擦力だけで布の把持・保持・解放を実現する新しい布シミュレータを開発しました。さらに、ロボットアーム、布、剛体の間で双方向の力を伝え合える仕組みを導入し、物を入れたバッグを持ち上げると内容物の重みがアームに伝わるような高度な相互作用も物理的に計算できるようにしました。この環境をベースに、Tシャツの折りたたみや平滑化、シルクの持ち上げ、バッグの運搬など6種類の両腕操作タスクを揃えた「FabricBench」を提案しています。\n\n本ベンチマークで最新のVLAモデル（Vision-Language-Actionモデル）や世界行動モデル（World Action Model: WAM）を含む6つのポリシーを評価したところ、長手番のTシャツ折りたたみでは最高でも成功率36%に留まりました。さらに、見た目（テクスチャ）の変化よりも、初期の「くしゃくしゃ具合（変形度）」が深くなるほど性能が激減し、最難関の変形状態では成功率が6〜14%まで落ち込むことが分かりました。実機へのゼロショット展開でもシミュレータと高い難易度相関を示しており、布操作ポリシーの現在地と弱点を精密に測れるプラットフォームになっています。",
+ "contributions_ja": [
+  "衣服、シルク、バッグを扱う6つの両腕操作タスクと、初期変形および外観汎化を独立に検証できる評価プロトコルを備えたベンチマーク「FabricBench」を構築したこと",
+  "人工的な吸着拘束を使わず、三角形レベルの距離場判定と静止摩擦アンカーにより、接触力のみで把持・保持・解放を安定して再現する布シミュレータをオープンソースで開発したこと",
+  "ロボットアーム、布、剛体間の双方向力学連成を実現し、バッグによる内容物の支持とグリッパへの荷重伝達を物理的に成立させたこと",
+  "最新のVLAや世界行動モデルでも初期変形が進むと性能が著しく低下することを定量的に示し、シミュレータと実機ロボットのタスク難易度順序が高い相関（Spearman相関 $\\rho=0.94$）を持つことを実証したこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜ今、布操作ベンチマークに本物の接触物理が必要なのか",
+   "summary_ja": "布の操作は形状変化や自己遮蔽が多く難関ですが、従来の剛体中心のベンチマークでは評価できませんでした。既存の布環境で多用される「吸着ルール」を取り払い、接触力だけで安定して把持・解放できる新しいシミュレータとベンチマークを提案します。",
+   "details_ja": "布操作は日常生活に不可欠ですが、折れ曲がりや自己遮蔽、複雑な接触が絡み合うため、標準的な評価環境の整備が剛体と比べて大きく遅れていました。近年、VLA（Vision-Language-Action）モデルや世界行動モデル（WAM）が布タスクでも進展を見せていますが、既存のシミュレーション環境には深刻な問題がありました。\n\n多くのシミュレータでは、布の貫通や激しい振動が起きたり、それを避けるために「グリッパが閉じたら布の頂点を指に吸着（アタッチ）させる」というアドホックなルールに頼ったりしていました。しかし、連続的なコマンドを出力する学習済みポリシーを走らせると、わずかなグリッパの開閉変動によって吸着と解除が誤って頻発し、ポリシー本来の能力ではなくシミュレータのルールの都合で成否が決まってしまいます。\n\nここがポイントです。著者らは、物理エンジンNewtonのStyle3Dソルバを大幅に改良し、布と剛体の接触計算および双方向の力学連成を一新しました。これにより、吸着ルールを完全に排除し、純粋な法線力と摩擦力だけで布を挟み、支え、指を開けば重力で自然に落ちる動作を安定して実現しました。\n\nさらに、衣服やシルク、バッグを用いた6つの両腕タスクを設計し、テクスチャなどの外観変化だけでなく、布のくしゃくしゃ具合（初期変形度）を段階的に変えて汎化性能を切り分けられる評価軸を導入しました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "FabricBenchの構成概要です。左上で1万点のアセットを展開し、左下で三角形レベルの距離場や摩擦アンカーによる接触ソルバを実装、右側で標準化されたポリシー評価と外観・初期変形の系統的な検証を行っています。",
+     "caption": "Figure 1: Overview of FabricBench. Assets (top left): garments, silk, and bags with geometry, appearance, and physical properties. Simulator (bottom left): contact detection, penetration handling, frictional grasp and release, force-limited grippers, and bidirectional coupling make grasping, release, and load transfer arise from contact forces without artificial attachment. Benchmark evaluation (right): shared demonstrations and matched test episodes; separate configuration and appearance tests, with geometry and physics fixed for appearance shifts; sim–real task difficulty comparison using the same checkpoint per task. …",
+     "image": "details/2611.31577/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "剛体から変形体へ、そして吸着から物理接触へのパラダイムシフト",
+   "summary_ja": "ロボット操作ベンチマークは剛体から変形体へと広がりつつありますが、接触計算の簡略化が課題でした。FabricBenchは物理の忠実性を高め、実世界とのギャップを根本から埋める位置づけにあります。",
+   "details_ja": "### 操作ポリシーとベンチマークの進化\n模倣学習（ACTやDiffusion Policy）から始まったロボット操作は、大規模な多ロボットデータで事前学習されたOpenVLA、$\\pi_0$、$\\pi_{0.5}$、GR00TなどのVLAモデル、さらには将来予測を統合したLingBot-VAやFast-WAMといった世界行動モデルへと急速に発展しています。これらを支えてきたのがLIBEROやRoboTwinなどの標準化ベンチマークですが、その評価対象はほぼ剛体に限られていました。\n\n### 布シミュレーションの限界と本研究の立ち位置\n従来の布ベンチマーク（SoftGymやDaXBench、近年ではIsaac SimベースのGarmentLabなど）は、位置ベース動力学（PBD/XPBD）を採用することが多いです。PBDは計算が軽くて安定している反面、過度な伸びや自己貫通が発生しやすく、連続体力学的な正確さに欠けます。高精度な有限要素法（FEM）は計算コストが高すぎてポリシーの大規模評価には向きません。\n\nさらに決定的だったのは接触の扱いです。先行研究のほぼ全てが、指先の一定距離内にある頂点を強制的に拘束する吸着ルールや、指と布の間に人工的な接着力を加える手法を採用していました。これに対してFabricBenchは、連続体力学に即した高速な薄膜・曲げモデルを基礎にしつつ、双方向の接触力のみで把持・解放・荷重伝達を成立させており、物理的な妥当性を飛躍的に高めています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Deformable Simulation and Contact Formulation",
+   "heading_ja": "吸着なしで布をつかんで放すための接触力学と双方向連成",
+   "summary_ja": "三角形メッシュ全体に対する符号付き距離場（SDF）による接触検出、すべり出しを防ぐ弾塑性摩擦アンカー、そして布と剛体ロボット間の双方向力学連成を設計し、リアルな把持と解放を実現しました。",
+   "details_ja": "### 布のダイナミクス\n布は三角形メッシュとしてモデル化され、面内変形には異方性膜モデル（縦糸・横糸・せん断剛性）、面外変形には離散曲げモデルを用いています。これらは物性測定値から直接設定されるため、非物理的なパラメータ調整が不要です。時間積分には陰解法オイラー法を用い、射影動力学（Projective Dynamics）反復によりCUDA上で高速に解かれます。\n\n### 接触の定式化：なぜ吸着なしで成立するのか\n従来のソルバが失敗していた原因を、本研究は以下の3つの工夫で解決しました。\n- **接触検出**: 頂点単位ではなく三角形全体で剛体の符号付き距離場（SDF）を評価します。指先の鋭いエッジが三角形の内部を通り抜けるのを防ぐため、頂点や重心だけでなく、剛体エッジと三角形平面の交点も探索の初期値（シード）として使います。\n- **貫通処理**: 布の法線方向剛性を材料物性（圧縮弾性率）と幾何形状から理論的に決定し、メッシュの細かさに依存しない把持力を得ています。万が一の深部貫通時には安全機構としてシェル境界面へ射影します。\n- **摩擦と解放**: 速度正則化による摩擦モデルではなく、静止摩擦領域を持つ古典的な弾塑性アンカーモデルを導入しました。速度正則化モデルではわずかな力でも定常的にすべり（クリープ）が発生するため、保持に過大な摩擦係数が必要になり、結果として指を開いても布が指先に絡みついて離れなくなります。アンカー方式を採用することで、余計な摩擦係数の水増しをすることなくしっかり保持でき、グリッパが開けば接触力がゼロになって自重でするりと落ちる自然な解放が実現しました。\n\n### 剛体ソルバとの双方向連成と安定性\n布ソルバが計算した接触力は、作用・反作用の法則に従って等大逆向きの力とトルクとして剛体ソルバ（MuJoCo）へ外力としてフィードバックされます。これにより、「バッグを持ち上げると、中に入った剛体のお菓子の重みがバッグを介してロボットの指先に伝わる」という相互作用が正しく再現されます。千鳥足（スタガード）連成における接触剛性は、ハプティクスの受動性限界に基づき、発振しない安全マージン内に厳密に設計されています。",
+   "figures": []
+  },
+  {
+   "heading": "4 Benchmark Design",
+   "heading_ja": "6つの物理レジームを網羅するタスクと1万点のアセット",
+   "summary_ja": "Tシャツの折りたたみや平滑化、シルクの持ち上げ、バッグ運搬など6タスクを整備しました。また、高品質な1万点の布アセットを用意し、初期変形（C0〜C2）と外観変化を切り離して評価できるプロトコルを確立しました。",
+   "details_ja": "### プラットフォームと6つのタスク\n両腕ロボット（Piper）を用い、両手合計14自由度の関節位置とグリッパ指令を25 Hzで制御します。タスクは以下の5つの物理レジームをカバーするように設計された6種類です。\n- **Fold T-shirt**: 多層自己接触を伴う準静的で長手番のTシャツ折りたたみ\n- **Flatten T-shirt / Flatten silk**: 動的な振り動作と自己遮蔽からの形状復元が求められる平滑化（素材の違いを検証）\n- **Lift silk**: 純粋に摩擦力のみで布を滑らせずに持ち上げるタスク\n- **Carry bag**: 持ち手に指を通して両腕で持ち上げるバッグ運搬\n- **Pack snack**: 剛体のお菓子をつかんでバッグに入れ、重みを支えて運ぶ複合タスク\n\n評価指標は、特定の軌道をなぞるのではなく目標状態に到達したかを判定する成功率（SR）と、進行度を測る段階的スコア（0〜100）を採用しています。\n\n### 1万点のシミュレーションアセット\n生成AIで作られた3Dモデルは二重メッシュや不整合なUV展開が多く、そのまま布シミュレータに投入すると一瞬で発散します。そこで高品質なテンプレートから出発し、形状（モルフォロジー）、外観（テクスチャ・プリント）、物理特性をそれぞれ独立に変形・拡張できるパイプラインを構築し、1万点の安定動作確認済みアセットを用意しました。\n\n### 変形度と外観の分離評価プロトコル\n布の汎化性を調べるため、平滑化タスクにおいて2つの独立な評価軸を設定しました。\n- **初期変形ラダー（C0〜C2）**: 外観や物性は同一のまま、初期のくしゃくしゃ度合いを段階的に難しくします（C0は片隅の軽い折れ、C1は複数角の折れ、C2は一度持ち上げて落とした深いシワ）。\n- **外観シフト**: 初期形状はC0のまま、学習時には見ていない50種類の未知の外観（テクスチャ）を適用します。",
+   "figures": []
+  },
+  {
+   "heading": "5 Experiments",
+   "heading_ja": "接触精度の検証とポリシー評価：初期変形という最大の壁",
+   "summary_ja": "提案ソルバだけが45試行すべてで把持・保持・解放に成功しました。最新ポリシーの比較では、外観の変化よりも「初期の変形度」が深くなることで性能が壊滅的に低下することが判明し、実機でもシミュレータと高い難易度相関を示しました。",
+   "details_ja": "### シミュレータの接触検証\nTシャツの把持・保持・解放シーケンスを15箇所で各3回（計45試行）テストしました。Isaac SimのPBDでは両腕でつかむことすらできず、NewtonのVBDや従来型Style3Dでは指が布を貫通してしまい指を開いても布が落ちませんでした。すべての試行（45/45）で正しくつかみ、保持し、きれいに落とせたのは本提案手法のみでした。\n\n### 既存の吸着モデルがもたらす弊害\n従来の吸着ルール（距離閾値によるアタッチ・デタッチ）を使うと、同じ学習済みDiffusion PolicyでもLift silkの成功率が19/50から9/50へと半減しました。指先が微小に動いた瞬間に吸着解除判定が誤作動して布を落としてしまうため、ポリシー自体の性能を過小評価してしまうことが実証されました。\n\n### ベンチマーク評価で見えた主要な発見\nACT、Diffusion Policy、VLA（$\\pi_{0.5}$、GR00T）、WAM（LingBot-VA、Fast-WAM）の6モデルを評価し、以下の知見を得ました。\n- **発見1（長手番の壁）**: 全タスク平均では$\\pi_{0.5}$が77%、LingBot-VAが70%と健闘しましたが、長手番のFold T-shirtではどのモデルも最高36%にとどまりました。一度折り目が乱れるとリカバリーが効きません。\n- **発見2（外観シフトへの耐性）**: テクスチャの変更に対して、$\\pi_{0.5}$やLingBot-VAは2〜14ポイントの低下で踏みとどまりましたが、模倣学習モデルやFast-WAMは大きく性能を落としました（Fast-WAMは92%から大幅低下、シルクでは64%から0%へ）。\n- **発見3（初期変形に対する極端な脆弱性）**: これが最も重要な発見です。Tシャツ平滑化において、初期変形がC0からC2へと深くなると、すべてのポリシーの成功率が6〜14%まで激減しました（58〜78ポイントの低下）。外観の変化よりも、布のシワや幾何学的状態の乱れのほうがはるかに致命的であることが浮き彫りになりました。\n\n### 実機との整合性（Sim-to-Real）\nシミュレータのデモのみで学習した$\\pi_{0.5}$を実機ロボットへゼロショット展開したところ、6タスクの難易度順序はSpearman相関 $\\rho=0.94$、Kendall $\\tau_b=0.87$ という極めて高い一致を示しました。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "実機と4つのシミュレータにおける把持・保持・解放の比較です。実機と同様につかんで持ち上げ、指を開いたときに自重で布が離脱する一連の挙動を正しく再現できたのは提案シミュレータ（左から2番目）だけでした。",
+     "caption": "Figure 6: The same grasp–hold–release trajectory on the real robot and in four simulators , at $t=3$ , 6, and 10 s on a shared timeline; frames are taken from the side-by-side videos in the supplementary material. Only our contact matches the real robot in all three stages. Red: Isaac Sim PBD forms no grasp and the T-shirt stays on the table; in Newton VBD and Style3D the fingers penetrate the T-shirt, which remains on them after the jaws open.",
+     "image": "details/2611.31577/F6.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "実機ロボットとシミュレータにおける$\\pi_{0.5}$のタスク別成功率の相関です。絶対値の差はあるものの、タスク間の難易度の相対関係がSpearman相関 $\\rho=0.94$ と極めて綺麗に一致していることが分かります。",
+     "caption": "Figure 4: Sim-to-real evaluation of $\\pi_{0.5}$ . (a) Simulation ( $N{=}50$ ) vs. real-robot ( $N{=}20$ ) success rate per task; whiskers are 95% Wilson intervals, dashed line is $y{=}x$ . $\\rho$ and $\\tau_{b}$ measure agreement in task ordering, not in absolute rate (bootstrap CIs in Appendix D ). (b) Real-robot frames; colors and markers match (a).",
+     "image": "details/2611.31577/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Limitations and Future Work",
+   "heading_ja": "今後の課題：より密な変形空間とマルチタスク汎化への展開",
+   "summary_ja": "本ベンチマークは布・衣服・バッグに特化しており、ロープや弾塑性体は今後の対象です。また、3段階の変形度ラダーをより連続的な評価へと拡張することや、単一ポリシーによるマルチタスク学習でのスキルの忘却検証が今後の展望として挙げられています。",
+   "details_ja": "FabricBenchは現時点で薄手の織物・編物（衣服、シルク、バッグ）を対象としており、ロープや弾塑性材料、肉厚な3次元柔軟体は含まれていません。また、初期変形ラダーはC0〜C2の離散的な3段階にとどまるため、変形空間全体の密な網羅には至っていません。\n\n今後は、より連続的な変形状態のサンプリングや、幾何形状・布素材の違いに対する汎化評価の追加が計画されています。さらに、1つの大規模ポリシーに全タスクを同時に学習させ、個別スキルの破滅的忘却が起きないかを検証するマルチタスク評価の導入も期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "7 Conclusion",
+   "heading_ja": "まとめ：布操作研究を再現可能で物理的に正しい基盤へ",
+   "summary_ja": "純粋な接触力学と双方向連成を備えた布シミュレータと、初期変形・外観を独立に評価できる「FabricBench」を提案しました。シミュレータ、アセット、デモデータ、評価コードはオープンソースとして公開されます。",
+   "details_ja": "FabricBenchは、従来の吸着モデルによるごまかしを排除し、接触力と摩擦力、そして双方向の荷重伝達を厳密に計算できる布操作ベンチマークを確立しました。実験により、最先端のロボット基底モデルであっても、長手番の折りたたみや高度に変形した布の扱いにおいて依然として大きな課題を抱えていることが明確になりました。\n\n実機との高い難易度相関が示されたことで、シミュレーション上でのポリシー改善が実世界の布操作能力向上に直結することが期待されます。研究コミュニティの発展のため、シミュレータ、1万点のアセット、教師デモ、評価コード一式が公開されます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：吸着方式の失敗メカニズムとRGBenchでの実機忠実度検証",
+   "summary_ja": "吸着ルールが学習済みポリシー下で破綻する様子や、接触判定の各アブレーション結果を詳述しています。また、実機布軌道ベンチマークRGBenchにおいて従来シミュレータを大幅に上回る幾何忠実度を記録しました。",
+   "details_ja": "### 吸着方式が失敗する理由（定性比較）\n図F5に示す通り、学習済みポリシーによる閉ループ制御下ではグリッパ指令値に微小な振動が生じます。吸着（アタッチ・デタッチ）方式では、このわずかな隙間の変化を「解放」と誤判定してしまい、布を持ち上げる途中でポロリと落としてしまいます。本手法の物理接触では、十分な摩擦と法線力が保たれている限り布を安定して保持し続けます。\n\n### 接触コンポーネントのアブレーション\n接触判定を三角形SDFから従来の頂点球方式に変えると、指を開いた後もTシャツが指に引っかかり続け、バッグタスクでは20回中9回で計算が発散しました。また、双方向連成を無効にすると、バッグは持ち上がるものの底が抜けたようになり、中のお菓子がテーブルに置き去りにされました。三角形単位の判定と双方向連成が必須であることが裏付けられています。\n\n### RGBenchによる定量的な実機忠実度評価\n実機ロボットの軌道を再生してシミュレーションと実機の点群距離（Chamfer距離）を比較するRGBenchにおいて、提案ソルバは14条件中13条件で最小誤差を達成しました。Isaac Sim（PBD）に対して平均誤差を39%、PyBulletに対して58%削減しており、特に持ち上げ時に布がすべり落ちないかどうかの再現性において圧倒的な差をつけました。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "学習済みポリシー制御下での把持の挙動比較です。提案手法（上段）は安定してシルクを把持し持ち上げに成功していますが、吸着ルールを用いた手法（下段）では微小な制御の揺らぎで吸着が途切れ、布を落として失敗しています。",
+     "caption": "Figure 5: Qualitative grasp outcomes under learned-policy control. Top: our contact maintains the grasp and lifts the silk off the table ( success ). Bottom: attach–detach fails to maintain an effective grasp ( failure ). Frames progress from approach to the final outcome; timestamps are relative to the beginning of each source clip, and the two rows are not synchronized replays. These examples illustrate the grasp behavior; success rates are reported in Table 2 b.",
+     "image": "details/2611.31577/F5.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "布操作ポリシーの最大の弱点は外観（色や柄）の変化ではなく、初期の「くしゃくしゃ具合（変形度）」であり、変形が深くなると現行モデルの成功率は一桁台まで暴落する",
+  "シミュレータの「吸着ルール」はポリシーの微小な制御振動で誤解除を引き起こすため、純粋な物理接触と摩擦アンカーによる定式化が不可欠である",
+  "バッグに物を入れて運ぶようなタスクでは、布と剛体の双方向力学連成がないと荷重が正しく伝達されず、物理的に破綻する",
+  "FabricBench上のタスク難易度は実機ロボットでの難易度順序と極めて高く一致（$\\rho=0.94$）しており、信頼できるSim-to-Real開発基盤となる"
+ ],
+ "limitations_ja": [
+  "扱っている対象が薄手の布地（衣服、シルク、バッグ）に限定されており、紐（ロープ）やスポンジのような3次元体、塑性変形する素材は未対応である",
+  "初期変形ラダーが離散的な3段階（C0〜C2）にとどまっており、変形状態空間全体を網羅的にサンプリングできているわけではない",
+  "現状の評価はタスクごとの個別学習が中心であり、1つのモデルで全タスクを解くマルチタスク汎化やスキルの忘却耐性の検証は今後の課題とされている"
+ ],
+ "keywords": [
+  "Fabric Manipulation",
+  "Bimanual Manipulation",
+  "Deformable Simulation",
+  "Vision-Language-Action Models",
+  "World Action Models",
+  "Sim-to-Real Transfer"
+ ],
+ "id": "2611.31577",
+ "title": "FabricBench: A Standardized Policy Benchmark for Bimanual Fabric Manipulation with a Contact-Driven Deformable Simulator",
+ "authors": [
+  "Wenkang Hu",
+  "Haoran Wang",
+  "Liu Liu",
+  "Wenchao Huang",
+  "Yiji Chen",
+  "Mengao Zhao",
+  "Xincheng Tang",
+  "Zhengjie Shu",
+  "Lai Jiang",
+  "Wei Li",
+  "Zhendong Wang",
+  "Zhizhong Su",
+  "Huamin Wang",
+  "Ruigang Yang"
+ ],
+ "date": "2026-11-25",
+ "group": "general",
+ "tags": [
+  "simulation",
+  "benchmark",
+  "manipulation",
+  "grasping"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.31577",
+ "pdf_url": "https://arxiv.org/pdf/2611.31577",
+ "summary_ja": "衣服や布地、バッグなど変形体の双腕操作評価のため、オープンソースのNewtonソルバ上に構築された物理シミュレータと10,000個の資産を備えるFabricBenchを提案。擬似的な固定拘束を用いず、接触力と双方向力結合のみで布の把持・保持・解放を安定してシミュレートし、アーム・布・剛体間の相互作用を忠実に再現する環境を提供する。",
+ "generated": "2026-11-25",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.31577"
+}
