@@ -1,0 +1,158 @@
+{
+ "title_ja": "RFW-W: 身体性知能シミュレーション生成のための物理アセットユニバース",
+ "tldr_ja": "剛体・可動体・変形体を統合した100万件超の物理シミュレーション対応アセット基盤「RFW-W」を構築し、物理特性や把持アノテーションを備えた剛体アセット「RFW-R」を用いることで、既存手法を大幅に超えるシーン充足率とロボット操作ポリシーの学習性能を実証しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "RFW-Wの全体像です。左の変形体（RFW-S）、中央の剛体（RFW-R）、右の可動体（RFW-A）という性質の異なる3つのアセット群を共通インターフェースで統合し、タスクに応じた embodied シミュレーション環境の自動構築を可能にしています。",
+  "caption": "Figure 1 : RFW-W physical asset universe. RFW-W brings together three complementary asset sources: deformable objects (RFW-S, left), rigid objects (RFW-R, center), and articulated objects (RFW-A, right), connecting them through a common interface for task-conditioned embodied scene composition. Together, these sources comprise 1,010,386 reported asset records across 2,228 dataset–category entries. Each asset type retains its own construction and verification pipeline to preserve its specific physical properties and simulation requirements.",
+  "image": "details/2611.33013/F1.jpg"
+ },
+ "overview_ja": "ロボットが実世界で多様なタスクをこなすためには、シミュレータ上で膨大かつ多様な環境を構築して学習させることが鍵になります。しかし、Web上に存在する既存の3Dモデルや生成モデルから得られるメッシュは、見た目こそ綺麗でも、ロボットが物理的に触って動かすために不可欠な質量・摩擦・衝突形状・関節構造といった物理情報が欠けていました。これでは物理エンジンが破綻してしまい、シミュレーション学習のスケールに限界が生じます。\n\nそこで著者らは、剛体・可動体（ドアや引き出しなど）・変形体（布や軟体など）の3つを統合した超大規模な物理アセット宇宙「RFW-W（RoboFlywheel-World）」を提案しました。合計で1,010,386件、2,228カテゴリに及ぶアセットが揃えられており、本論文では特にその中核となる52万件超の剛体コレクション「RFW-R」の構築パイプラインと検証に焦点を当てています。RFW-Rでは、生成AIを用いた形状生成から、視覚言語モデル（VLM）による品質検査、機能パーツ分割、凸分解による衝突形状作成、パーツ単位の物理プロパティ推定、そして6種類の手先ロボットハンドによる把持シミュレーション検証までを一貫して自動化しています。\n\n検証実験では、複数の物理シミュレータ間での挙動の一致度、器用なハンドでの把持成功率、指示文に基づいた部屋シーンの構築能力、そして模倣学習によるマニピュレーションポリシーの獲得性能を網羅的に評価しました。その結果、RFW-Rのデータで学習したポリシーは既存の主要データセット（ManiTwinなど）を10〜15ポイント以上上回る成功率を記録し、生成されたシミュレーション軌道が実ロボットでもそのまま再生可能であることを示しました。",
+ "contributions_ja": [
+  "剛体（52万件）、可動体（40万件）、変形体（8万件）からなる、合計100万件超・2,228カテゴリの物理シミュレーション対応アセット基盤「RFW-W」を構築した点",
+  "剛体アセット「RFW-R」向けに、生成・VLMによる多視点品証・パーツ単位の物性推定・6種の多指ハンドによる把持検証を含む自動化パイプラインを確立した点",
+  "PyBullet、MuJoCo、Genesis、Isaac Simの4大シミュレータ間で同一アセットの落下挙動が高い一致度（80.77%）を示すことを定量的に実証した点",
+  "指示文からのタスク駆動型シーン構築で100%の充足率を達成し、ポリシー学習において既存の最高ベースラインを10ポイント以上上回る操作成功率を示した点"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜロボット学習には「見た目」だけでなく「物理アセット」が必要なのか",
+   "summary_ja": "身体性を持つロボット知能の汎用化には多様な環境での学習が不可欠ですが、従来の3Dデータセットは外見中心で物理シミュレーションに必要な情報が不足していました。本論文では、剛体・可動体・変形体を包括し、実行可能な物理表現を備えた100万件規模の基盤「RFW-W」を提案しています。",
+   "details_ja": "実世界でのデータ収集には莫大なコストと安全上のリスクが伴うため、物理シミュレーションによる大規模データ生成がロボット学習の主戦場になっています。しかし、シミュレータの真の限界は動かす「3Dアセット（物体モデル）」の質と量で決まります。\n\n昨今の3Dリポジトリや生成モデルは数百万規模のメッシュを出力できますが、それらの多くは単なる「中空の殻」に過ぎません。現実的なシミュレーションを実行するには、実スケール、衝突形状（コライダー）、質量、摩擦、慣性モーメント、さらにはロボットがどこをどう掴めるかというインタラクション情報が必須です。YCBやGoogle Scanned Objectsのような既存の物理データセットは高品質ですが、規模が高々数十〜千個程度と小さく、カテゴリの多様性に乏しいという課題がありました。\n\nこの壁を打ち破るために提案されたのが「RFW-W」です。内訳は、剛体524,611件（RFW-R）、可動体402,410件（RFW-A）、変形体83,365件（RFW-S）という前例のない規模を誇ります。共通のインターフェースを介してタスクに応じたアセット検索とシーン合成ができるように設計されており、本研究では特に剛体パイプライン「RFW-R」の品質、シミュレータ間での再現性、そしてロボット学習への実効性を徹底的に検証しています。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "3Dアセット生成から物理世界シミュレーションへの系譜",
+   "summary_ja": "視覚的CGモデルの収集・生成から、近年は物理特性や可動部位を付与したアセット研究へと関心が移っています。本研究は、これら先行研究の課題であったカテゴリ規模の小ささやパーツ単位の物理表現の不足を解消し、上流の統一アセット基盤として位置づけられます。",
+   "details_ja": "### 3Dアセット収集と物理データセットの進化\nObjaverseなどの登場により視覚的な3Dメッシュは爆発的に増え、TRELLISやHunyuan3Dなどの生成モデルによってオープンカテゴリの3D生成が可能になりました。しかし、これらは見た目の形状復元に特化しており、シミュレーション用には作られていません。これに対し、ManiTwinやSeed3D、EmbodiedGenなどは物理特性や把持アノテーションを付与する試みを進めてきましたが、カバーするカテゴリ数やアセット数が限られており、多指ハンドによる器用な操作への対応も不十分でした。\n\n### 物理化とインタラクション表現\n形状をシミュレータで動かす「物理化（Physicalization）」には、機能パーツの認識と適切な衝突判定形状の作成が欠かせません。先行研究ではCoACDによる凸分解や、PUGSによる体積・質量推定などが提案されてきました。本研究のRFW-Rはこれらを発展させ、セマンティックパーツごとの材質・摩擦の推定、体積に基づく慣性テンソルの合成、そして複数種類のロボットハンドによる接触・持ち上げ・外乱テストを通じた把持アノテーションの生成までをパイプラインに組み込んでいます。\n\n### シーン生成とロボットポリシー\nプロンプトから室内シーン全体を自動生成する研究（Infinigenなど）や、Diffusion Policy、Open X-Embodimentのように大規模データから方策を学ぶ研究が急速に進展しています。RFW-Wは下流のシーン生成やデータ収集を支える「上流の物理基盤」として、統一された検索インターフェースを提供します。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "100万件を支える生成・物理化・シーン合成のアーキテクチャ",
+   "summary_ja": "RFW-Wは剛体・可動体・変形体の3系統から構成され、統一インターフェースで統合されています。中心となる剛体パイプラインRFW-Rでは、生成からVLM品証、パーツ分割、衝突モデル生成、物性推定、把持検証までを自動実行し、タスクの指示に応じたシーン構築を可能にしています。",
+   "details_ja": "### 3.1 物理アセットの3大ソースと統合インターフェース\nRFW-Wは3種類のアセット源を統合しています。\n- **RFW-R（剛体）**: 1,212カテゴリ・52万件超。本論文の主役で、生成からシミュレーション検証までを一貫処理します。\n- **RFW-A（可動体）**: 531カテゴリ・40万件超。再利用可能なプロシージャル生成プログラムを用い、ドアや引き出しなどの関節構造とリンク階層を明示的に保持します。\n- **RFW-S（変形体）**: 485カテゴリ・8万件超。PBD（位置ベース動力学）やMPM（物質点法）に対応し、衣服やバッグ、軟体の物理応答と実行時負荷が検証されています。\nこれらを共通インターフェースで抽象化し、タスクに応じた検索を可能にしています。\n\n### 3.2 カテゴリ主導の剛体生成パイプライン（L0〜L2）\nRFW-Rの構築は段階的な自動パイプライン（L0〜L5）で進みます。まずL0でQwen3.7-plusが多様な物体テキストを生成し、FLUX.2-kleinで画像化、TRELLIS.2で3Dメッシュへ復元します。L1で5視点（前後左右底）からレンダリングし、L2でVLM（Qwen3.7-plus）が「単一物体か」「剛体として適切か」「破綻がないか」を判定します。ここでカテゴリ分類がずれたものは再ラベリングして再検査するループを備えており、無駄な破棄を減らしています。\n\n### 3.3 物理化と多指把持アノテーション（L3〜L4）\n見た目が合格したメッシュはL3でP3-SAMによりパーツ分割され、CoACDで凹凸を保った複数の凸形状（convex hulls）へ自動分解されます。L4ではVLMがパーツごとの材質、密度、摩擦係数、実スケールを推定します。各パーツの体積 $V_p$ と密度 $\\rho_p$ から質量 $m_p = \\rho_p V_p$ を求め、平行軸の定理を使って物体全体の重心と慣性テンソルを合成します。全体質量推定値との比率が $[0.5, 2]$ から外れる場合は一括スケーリングして整合性を保ちます。さらに、6種類のロボットハンドに対してTRO-Graspを拡張した手法を用い、把持ポーズのシミュレーション（接触、干渉、把持、持ち上げ、外乱耐性）をパスした実行可能ポーズのみを記録します。完成データはURDF、MJCF、USD形式で出力されます。\n\n### 3.4 タスク駆動型シーン構築\nシーン生成では「タスクコア優先戦略」をとります。指示文からタスクに必須の対象物（カップと机など）を先に配置して座標を固定（フリーズ）し、その周囲にInfinigenを用いて壁や部屋を後から構築します。これにより、環境生成の乱数でタスクの実行可能性が崩れるのを防ぎます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "剛体アセット構築パイプライン（RFW-R）の流れです。L0〜L2でのテキスト・画像からの3D生成とVLMによる多視点品証ループ、L3〜L4でのパーツ分割・凸分解・物性推定、そしてL5でのシミュレーション検証と各シミュレータ向けフォーマット（URDF/MJCF/USD）への書き出しが示されています。",
+     "caption": "Figure 2 : RFW-R rigid-asset construction pipeline. Stages L0–L2 perform category-guided generation, multi-view rendering, and VLM-based quality control. Stages L3–L4 construct semantic part and collision representations, estimate physical attributes, and export the physicalized assets; L5 summarizes downstream simulation evaluations. The blue feedback loop supports category reassignment and reinspection, while the green feedback loop guides physical refinement. Assets exported after L4 support URDF, MJCF, and USD representations.",
+     "image": "details/2611.33013/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "タスク駆動型シーン構築の手順です。タスク指示から対象物と支持面からなる「タスクコア」をまず組み立てて位置を凍結（Frozen）し、その周囲に部屋の壁や周辺家具を配置することで、タスクの成立を担保しながら多様な部屋環境を生成します。",
+     "caption": "Figure 3 : Task-driven scene construction. Task instructions are compiled into structured specifications, followed by asset retrieval and task-core assembly. The frozen core guides room generation, appearance synthesis, and scene composition, while functional and visual checks support bounded refinement before export.",
+     "image": "details/2611.33013/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "指示文に基づいて生成されたタスク整合シーンの例です。机からのピックアップ、キッチン台からのスパイス瓶取り出しなど、様々な部屋のレイアウトと家具・小物の配置が指示文通りに破綻なく構成されている様子が分かります。",
+     "caption": "Figure 4 : Task-aligned scene examples. Ten task instructions paired with their corresponding scene renderings. Each example illustrates the requested action, target object, and support surface in the generated scene.",
+     "image": "details/2611.33013/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "物理挙動の整合性からロボットポリシー学習・実機検証まで",
+   "summary_ja": "RFW-Rのアセットを用いて、物性アノテーション精度、4つの物理シミュレータ間での挙動一致度、6種のハンドでの把持成功率、シーン充足率、そしてRoboTwin上でのポリシー学習性能を評価しました。いずれの検証でも既存の主要データセットを凌駕する結果が得られています。",
+   "details_ja": "### 4.1 アセットアノテーションと物理表現の整合性\nVLMを用いたパーツレベルのセマンティック評価において、RFW-Rはカテゴリ一致度0.981、機能一致度0.860と、比較対象（EmbodiedGen v2やPhysX-3Dなど）の中で最も高いスコアを記録しました。また、2,424個のアセットを用いた数値検証では、URDF/MJCFへエクスポートした後の質量誤差は最大でも $1.5 \\times 10^{-6}$ に収まり、パーツ質量の総和と全体質量の相対誤差も98.5%のアセットで $10^{-3}$ 以内でした。内部を一様な密度で埋める「ソリッドフィル」と比較すると、パーツごとの密度を考慮したRFW-R本来の表現のほうが、落下試験の合否基準達成率が約7.5〜9.2ポイント高くなり、重心・慣性の偏りを正しく表現することの重要性が示されました。\n\n### 4.2 シミュレータ間での落下応答の一致性\nPyBullet、MuJoCo、Genesis、Isaac Simの4つの代表的エンジンに同一アセット（2,257個）をインポートし、3つの高さ・5つの姿勢から自由落下させて変位や回転、めり込みを計測しました。4エンジン全体での合否一致率は80.77%（Fleiss' $\\kappa = 0.481$）に達し、特にMuJoCoとGenesis間では94.20%の一致率（相関係数 $r = 0.919$）を記録しました。RFW-Rの物理表現が特定のエンジンに依存せず、普遍的に機能することが確認できます。\n\n### 4.3 多指ハンドによる把持実行\nGenesisシミュレータ上で、6種類のハンド（Ability、Inspire、Shadowなど）を用いてアノテーションされた把持の実行テストを行いました。候補数を64個まで探索した場合、全ハンドのマクロ平均で持ち上げ成功率79.5%、外乱を加えたロバスト把持成功率73.7%を達成しました。特にAbilityやInspireハンドでは90%以上の高い成功率を示した一方、自由度が高く制御が繊細なShadowハンドでは成功率が下がるなど、ハンドの機構に応じた現実的な挙動差も浮き彫りになりました。\n\n### 4.4 ポリシー学習と実機ロボットへの軌道リプレイ\nRoboTwinベンチマークの5タスクにおいて、各データセットから100エピソードずつデモを収集し、Diffusion Policyベースの $\\pi_{0.5}$ モデルを同一条件で学習させました。クリーン環境において、RFW-Rで学習したポリシーはマクロ平均成功率71.2%を達成し、最高ベースラインのManiTwin（55.4%）を15.8ポイント上回りました。見た目や机の高さなどを変化させたランダム化環境でも41.8%を維持し、ベースライン（31.2%）に対して10.6ポイントの優位性を保ちました。さらに、シミュレーション上で生成されたエンドエフェクタの軌道を実機のPiperロボットにリターゲティングして再生したところ、5タスクすべてで現実の物体に対するピック＆プレース動作が確認できました。\n\n### 4.5 シーン構築と充足度\n16種類の固定された部屋の間取りにおいて、家具や小物の配置要求（計265インスタンス、153グループ）に対する充足度を評価しました。ManiTwinが240インスタンス、EmbodiedGen v2が258インスタンスを満たしたのに対し、RFW-Rは265件すべての要求（100%）を過不足なく配置することに成功しました。VLMによるシーンの外観・配置の美観スコアでも3.878点（10点満点評価）とトップを獲得しました。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "シミュレーションで学習・生成された動作軌道を実ロボット（Piper）へリプレイした実験結果です。5つのタスクにおいて、把持（Grasp）、持ち上げ（Lift）、配置（Place）の各段階がシミュレーションと実機の間で整合性をもって実行できている様子を示しています。",
+     "caption": "Figure 6 : Cross-embodiment real-robot replay of simulation-generated trajectories. For five RoboTwin task families, the policy runs in simulation using RFW-R assets and its recorded trajectory is then executed on a physical robot. Sim and Real show the grasp, lift, and place stages in simulation and on hardware, respectively. The real-robot phase is trajectory replay, not closed-loop policy inference.",
+     "image": "details/2611.33013/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Conclusion",
+   "heading_ja": "具現化AIのための物理世界の標準インフラへ",
+   "summary_ja": "RFW-Wは100万件超の多様な物理アセットとタスク駆動型シーン生成を統合し、実世界の複雑さに耐えうるシミュレーション学習基盤を築きました。本基盤はロボット学習の大規模化に向けた確固たる一歩となります。",
+   "details_ja": "本研究では、剛体・可動体・変形体を包括する100万件規模の物理アセットユニバース「RFW-W」を提案しました。特に剛体コレクション「RFW-R」を通じて、カテゴリ主導の生成、VLMを活用した多段階の品質保証、パーツ単位の物性推定、そしてシミュレーションで検証された多指把持アノテーションの有効性を実証しました。\n\nRFW-Rのアセットを活用することで、指示文に忠実なシーン生成において100%の要求充足を達成し、マニピュレーションポリシーの学習成功率を大幅に向上させることができました。これにより、単なる「見た目の3Dデータセット」から「物理的に実行可能なインタラクション環境」へのパラダイムシフトが実現しました。今後は、可動体や変形体に対する把持・アフォーダンスアノテーションの拡充や、動的な世界生成への拡張が期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：データ分布、物理割り当ての詳細、および診断プロトコル",
+   "summary_ja": "付録では、アセットのカテゴリ分布、パーツ単位での質量・密度割り当ての仕組み、幾何形状の修復基準、およびシミュレータ間での落下試験判定の詳細なプロトコルが記載されています。",
+   "details_ja": "### アセット分布と重複スクリーニング\nRFW-Rは30のドメインと1,212カテゴリに分散しており、有効カバレッジ（エントロピー等価カテゴリ数）は905.1と、一部のカテゴリに偏っていた既存データセット（PhysX-3Dでは7.8）に比べて圧倒的な網羅性を持っています。各カテゴリから2サンプルを抽出した2,424個のサブセットにおいて、画像特徴量を用いた重複判定を行ったところ、近傍重複の疑いがあるクラスタは全体の2.27%に過ぎず、カテゴリ内でも高い多様性が保たれていることが確認されました。\n\n### パーツ単位の物理割り当てとソリッドフィルとの違い\nフライパンや金づちを例にとると、フライパンの金属面と木製・プラスチック製の柄では密度が大きく異なります。RFW-Rでは部位ごとに異なる密度 $\\rho_p$ を付与し、体積 $V_p$ から質量を積み上げるため、重心の位置や回転慣性が現実の道具に近くなります。全体を一様な密度で計算してしまうと、頭部が重いはずの金づちの重心が柄の方へ寄ってしまい、ロボットが持ち上げた際や振った際の挙動が現実と乖離してしまいます。\n\n### 幾何診断と落下試験の閾値判定\n衝突形状の品質を保証するため、連結成分数、境界エッジ比率、凸包に対する体積比率（ソリディティ）などのチェックを設けています。落下応答試験では、高さ0.05m、0.15m、0.30mから落とした際に、水平変位が $\\max(0.05\\,\\mathrm{m}, 0.1d)$ 以下（$d$ は物体サイズ）、姿勢変化が $8^\\circ$ 以下、床面へのめり込みが 0.01m 未満という極めて厳格な基準で安定性を評価しています。",
+   "figures": [
+    {
+     "key": "F9",
+     "caption_ja": "パーツ単位の物性割り当ての可視化です。フライパンと金づちについて、体積比による一様密度配分（グレー）と、推定された材質密度に基づくRFW-Rの配分（青）を比較しています。頭部と柄で密度が大きく異なる道具において、現実的な質量分布が再現されていることが分かります。",
+     "caption": "Figure S4 : Part-wise physical assignment. For each asset, the uniform-density baseline allocates the fixed total mass in proportion to stored part volume. Assigned masses use the exported annotations; both allocations sum to 0.800 kg for the pan and 0.852 kg for the hammer. The comparison shows how part annotations redistribute mass within the common object representation.",
+     "image": "details/2611.33013/F9.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "外見だけの3D生成モデルから、衝突形状・質量分布・摩擦・把持ポーズまでを備えた「物理実行可能アセット」への転換がロボット学習に必須であること",
+  "パーツ単位での材質・密度推定を行うことで、均一密度（ソリッドフィル）に比べてより正確な重心・慣性が再現され、シミュレーションの挙動安定性が向上すること",
+  "シミュレーション内でタスクに必須の物体群（タスクコア）を先に確定させてから部屋を生成することで、環境の多様性とタスク実行可能性を両立できること",
+  "物理的に整合した高品質なアセットライブラリからデモを収集することで、同一のエピソード数でも下流の操作ポリシーの成功率が大幅に向上すること"
+ ],
+ "limitations_ja": [
+  "本論文における詳細な評価や下流ポリシー学習の実験対象が主に剛体（RFW-R）に集中しており、可動体（RFW-A）や変形体（RFW-S）を含む複雑な相互作用の学習評価は今後の課題である点",
+  "実機ロボットでの検証はシミュレーション軌道の開ループ再生（リプレイ）にとどまっており、実環境のカメラ画像を用いた閉ループでのポリシー推論までは行われていない点",
+  "一部の薄い開口部や複雑な形状を持つアセットでは水密メッシュ（watertight）の維持が難しく、体積に基づく正確な評価が一部のアセットに限定される点"
+ ],
+ "keywords": [
+  "Embodied AI",
+  "Physics Simulation",
+  "Asset Generation",
+  "Dexterous Grasping",
+  "Robotic Manipulation"
+ ],
+ "id": "2611.33013",
+ "title": "RFW-W: Scaling Physical Asset Universes for Generative Embodied Simulation",
+ "authors": [
+  "Jiawei Weng",
+  "Rui Zhang",
+  "Saining Zhang",
+  "Changjian Pan",
+  "Yuanbo Lyu",
+  "Jiarui Guo",
+  "Yongzhi Li",
+  "Guolin Liu",
+  "Jialu Liu",
+  "Jiankun Wang",
+  "Yi Yang",
+  "Peishuo Li",
+  "Zhiheng Li",
+  "Jiaying Wan",
+  "Junhao Chen",
+  "Weiqing Xiao",
+  "Jingrun Du",
+  "Wenyi Li",
+  "Weiyi Lin",
+  "Zenan Meng",
+  "Hu Wei",
+  "Lin Qu",
+  "Zongzheng Zhang",
+  "Hao Zhao",
+  "Chaojian Li"
+ ],
+ "date": "2026-11-25",
+ "group": "general",
+ "tags": [
+  "simulation",
+  "dataset",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.33013",
+ "pdf_url": "https://arxiv.org/pdf/2611.33013",
+ "summary_ja": "物理シミュレーションによる身体性学習をスケールさせるため、剛体52万点、可動リンク40万点、変形体8万点からなる合計100万点以上の検証済み3D物理アセット群RFW-Wを構築。衝突幾何や物理特性、インタラクション注釈を統合し、言語やタスクに応じた多様かつ物理的に破綻のないシミュレーション環境の自動合成を可能にした。",
+ "generated": "2026-11-25",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.33013"
+}
