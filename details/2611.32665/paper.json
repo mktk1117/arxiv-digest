@@ -1,0 +1,132 @@
+{
+ "title_ja": "DiffGR00T: ヒューマノイド全身VLAモデルのための実行を意識した微分可能学習",
+ "tldr_ja": "ヒューマノイドVLAが生成した動作トークンと実機全身コントローラの間の実行ギャップを埋めるため、学習済みワールドモデルを通じて物理実行損失の勾配をVLAのアクションヘッドまで直接逆伝播させる微分可能学習フレームワークを提案しました。シミュレーション上の4タスクで成功率が平均12.5ポイント向上し、実機ヒューマノイドでも閉ループ動作を確認しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "DiffGR00Tの全体アーキテクチャです。学習時のみ微分不可能な物理シミュレータを学習済みワールドモデルに置き換え、身体の実行損失をワールドモデル、凍結されたSONICデコーダ、4ステップのFlow-Matchingサンプラを経由してVLAのアクションヘッドへと逆伝播させます。",
+  "caption": "Fig. 2: DiffGR00T architecture. The GR00T N1.7 VLA action head is trained; the VLA backbone, the SONIC decoder, the action-conditioned world model, and the training-only critic are frozen. The execution loss is backpropagated through the world model, the SONIC decoder, and the four-step flow-matching sampler. The critic supplies a fixed tail value and is not part of the deployed controller. The world model is trained once from multi-source replay and replaces the simulator only during training; it is not used at inference.",
+  "image": "details/2611.32665/F2.jpg"
+ },
+ "overview_ja": "近年、視覚・言語・行動を統合したVLA（Vision-Language-Action）モデルがロボットマニピュレーションで大きな成果を挙げています。しかし、これをヒューマノイドの全身制御に拡張しようとすると、バランス維持や全身協調といった厳しい物理制約の壁にぶつかります。現在主流の階層型アプローチでは、VLAが高レベルな動作意図（潜在トークンなど）を生成し、事前学習済みの全身コントローラがそれを関節指令に変換して追従します。ところが、この構成ではコントローラの追従誤差や転倒リスクといった「実際の物理実行エラー」がVLAの学習に直接フィードバックされません。\n\nそこで著者らは、微分可能な学習済みワールドモデルをシミュレータの代理として挟む「DiffGR00T」を考案しました。ロボットの順動力学をニューラルネットで模倣することで、多ステップ先で生じる身体の追従誤差やドリフトを計算し、その勾配を全身コントローラとFlow-Matchingのサンプリング過程を通してVLAのアクションヘッド（LoRA）へ直接届ける仕組みです。\n\nヒューマノイドベンチマーク「HumanoidArena」の4タスクで評価したところ、教師あり学習のみのベースラインと比べて平均タスク成功率が59.2%から71.7%へと12.5ポイント向上しました。さらに、成功までに要するステップ数も20%削減され、実機Unitree G1での閉ループ動作も達成しています。",
+ "contributions_ja": [
+  "ヒューマノイドの29自由度全身動力学を高精度かつ微分可能に近似する行動条件付きワールドモデルを構築しました。",
+  "物理実行損失の勾配を、凍結した全身コントローラ（SONIC）およびFlow-Matchingのサンプラを貫通させてVLAアクションヘッドまで直接届ける微分可能学習パイプラインを確立しました。",
+  "ヒューマノイド特有のドリフト抑制、タスク遷移フレームの強調、歩行を維持するサンプリング配分など、効果的な実行監視手法を体系化しました。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜVLAが生成した動作をヒューマノイドでそのまま動かせないのか",
+   "summary_ja": "ヒューマノイドは固定アームと違い、接触変化やバランス維持を伴う劣駆動系であるため、高位の動作意図と低位の物理実行の間に大きなギャップが生じます。本論文では、学習済みワールドモデルを経由して身体実行の勾配をFlow-Matching VLAへ直接逆伝播させる「DiffGR00T」を提案します。",
+   "details_ja": "ロボットアームのマニピュレーションでは、VLAが予測した手先姿勢や関節角度を低レベルサーボで直接追従させることが一般的でした。しかし、ヒューマノイドロボットは足元が固定されていない「浮遊基地局（floating-base）」の劣駆動システムです。歩行、手先操作、姿勢維持を同時にバランスを取りながら成立させる必要があり、大きなVLAモデルの中で高周波な安定化制御まで一括して学習するのは極めて困難です。\n\nそのため、現在の多くの研究では「階層型アーキテクチャ」が採用されています。高レベルのVLAが動作意図（例えばSONICなどの基盤モデルが解釈できる潜在トークン）を出力し、低レベルの全身コントローラ（WBC: Whole-Body Controller）が自己受容感覚（プロプリオセプション）のフィードバックを受けながら関節トルクや位置目標を生成する構造です。\n\nしかし、ここに大きな落とし穴があります。コントローラ側でどれだけ踏ん張ってバランスを取ろうとしても、あるいは追従遅れが発生していても、その「実行時の物理的ペナルティ」がVLAの生成器側には一切勾配として伝わらないという点です。これを微分可能シミュレータで繋ごうとしても、足裏の接触切り替えなどの不連続性や計算負荷の高さから、高次元な全身ヒューマノイド制御にスケールさせるのは困難でした。\n\nそこで著者らは、シミュレータの代わりに「微分可能な学習済みワールドモデル」を導入しました。これにより、接触を含む物理遷移を滑らかに微分可能にし、短時間ホライズンの実行損失からVLAのアクションヘッドまで勾配を貫通させることに成功しました。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "Flow-Matching、全身制御、そして微分可能学習の交差点",
+   "summary_ja": "従来のFlow-Matching方策やヒューマノイド制御では、強化学習によるスカラー報酬や関節残差学習に頼っており、物理実行の勾配を生成器へ直接戻す手法はありませんでした。DiffGR00Tは、学習済みワールドモデルを介して実行勾配をトークン条件付きコントローラとサンプラへ流す初の枠組みです。",
+   "details_ja": "本研究は、大きく3つの研究領域の交差点に位置しています。\n\n### Flow-Matching方策とその改善\n$\\\\pi_0$に代表されるFlow-Matching方策は、連続的なアクションチャンクを高品質に生成できます。これに対して、価値関数を使ってサンプリングを誘導する手法（RECAPやQ-VGM）や、ODEソルバーを微分する試み（VITA）が提案されてきました。しかし、これらは全身コントローラや実機の物理遷移を挟んだ多ステップの身体実行損失を直接バックプロパゲーションするものではありませんでした。\n\n### ヒューマノイドの全身行動生成と制御\nヒューマノイドの移動マニピュレーション（loco-manipulation）では、SONICやWholeBodyVLA、OpenHLMのように高レベル方策と低レベル追従コントローラを分離する構成が主流です。しかし、これらは追従誤差の吸収を下流のコントローラや残差方策（SENTINELなど）に丸投げしており、高レベル生成器そのものを実行結果に合わせて直接鍛え直す仕組みはありませんでした。\n\n### 微分可能全身制御と実行認識学習\n物理シミュレータ自体を微分可能にするDiffMimicや、学習済みワールドモデルを使って方策を最適化するControlVAE、SuperMimicなどの試みがあります。特にSuperMimicはワールドモデル上でBPTT（時間を通じた逆伝播）を行いトラッキング方策を学習していますが、これをFlow-Matchingサンプラとフリーズされた全身コントローラを持つ巨大なヒューマノイドVLAへと拡張した研究はこれまで存在しませんでした。",
+   "figures": []
+  },
+  {
+   "heading": "III Method",
+   "heading_ja": "DiffGR00Tの仕組み：ワールドモデルとFlow-Matchingを貫く微分可能ループ",
+   "summary_ja": "GR00T N1.7のアクションヘッド、凍結された全身動作基盤モデルSONIC、学習済みワールドモデルを微分可能に接続します。40ステップの動作チャンクのうち最初の20ステップを実行対象とし、10ステップ分の短ホライズンロールアウトから計算した実行損失をVLAへ逆伝播させます。",
+   "details_ja": "DiffGR00Tの学習パイプラインは、以下の3つの主要コンポーネントと精巧な順伝播・逆伝播メカニズムで成り立っています。\n\n### 全体構成と制御インターフェース\nデプロイ時（実機やシミュレータ実行時）には、VLA、凍結されたSONICデコーダ、および手指インターフェースのみが動きます。VLAは画像・言語・プロプリオセプションを受け取り、4ステップのFlow-Matchingオイラー積分によって40ステップ分のアクションチャンクを出力します。1ステップあたり64次元の全身動作トークンと14次元の手指コマンドで構成されます。50 Hzの制御周期において、凍結されたSONICデコーダ $\\\\pi_\\\\psi$ が直近10フレームのプロプリオセプション履歴 $O_j$ と動作トークン $z_j$ を受け取り、29次元の正規化関節目標 $u_j$ に変換します。\n\n### 微分可能ワールドモデルの構築\n学習時のみ、物理シミュレータをニューラルネットによる行動条件付きワールドモデル $F_\\\\phi$ に置き換えます。ワールドモデルは絶対状態ではなく、20 ms刻みの「状態増分 $d_t$」を予測し、これを積分して次状態 $s_{t+1}$ を求めます。状態はルート姿勢、関節位置、並進・角速度、関節速度を含む71次元です。データ収集には4つのソース（通常追従ログ、トークンにノイズを加えた摂動データ、閉ループ走行データ、同一状態から異なるトークンを試す分岐グループ）を混合し、事前に1回だけ学習して以降は完全にパラメータを固定（凍結）します。\n\n### 順伝播：想像上の身体実行ロールアウト\nVLAのアクションヘッドからサンプリングされたトークンは、 straight-through estimator（STE）を用いて量子化グリッドを通され、凍結SONICデコーダに入ります。得られた関節指令によってワールドモデルを $H=10$ ステップ（0.2秒分）想像上でロールアウトし、プロプリオセプション履歴もステップごとに仮想更新します。残りの10ステップ分は、ステップ10の状態から評価される学習時専用の「凍結Critic」が末尾の期待リターンとして補完します。実行損失には、ルート位置・姿勢のドリフトペナルティ、関節限界違反ペナルティ、タスク遷移フレームの加重（1.5倍）、そして立ち往生を防ぐ「アンチストール項」が含まれます。\n\n### 逆伝播：凍結モジュールを通り抜ける勾配パス\n計算された実行損失から、随伴変数（Adjoint）を用いて時間逆方向に勾配を伝播します。ワールドモデルのヤコビアン $B_i$、SONICデコーダのヤコビアン $C_i$、そしてFlow-Matchingサンプラの4ステップ分のヤコビアンを通り抜け、最終的にVLAのアクションヘッド（LoRAパラメータおよび出力プロジェクション層）のみを更新します。VLMバックボーン、SONIC、ワールドモデル、Criticは一切更新されません。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "DiffGR00Tの学習パイプラインです。左でワールドモデルを事前学習し、右で実行損失の勾配をワールドモデル、凍結SONIC、4ステップサンプラを通過させてVLAアクションヘッド（LoRA）へ伝えます。",
+     "caption": "Fig. 2: DiffGR00T architecture. The GR00T N1.7 VLA action head is trained; the VLA backbone, the SONIC decoder, the action-conditioned world model, and the training-only critic are frozen. The execution loss is backpropagated through the world model, the SONIC decoder, and the four-step flow-matching sampler. The critic supplies a fixed tail value and is not part of the deployed controller. The world model is trained once from multi-source replay and replaces the simulator only during training; it is not used at inference.",
+     "image": "details/2611.32665/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "シミュレーションベンチマークでの大幅な成功率向上と実機検証",
+   "summary_ja": "HumanoidArenaの4タスクにおいて、教師ありベースラインに対して平均成功率が59.2%から71.7%へと12.5ポイント向上し、成功に要するステップ数も20%減少しました。また、実機のUnitree G1を用いた閉ループ動作も達成しています。",
+   "details_ja": "実験はUnitree G1ヒューマノイド（全身29自由度＋両手14自由度）を用い、Isaac Lab上の「HumanoidArena」環境で実施しました。\n\n### ベンチマーク評価（閉ループ性能）\nタスクは「OpenDoor（ドア開け）」「SitSofa（ソファに座る）」「Boxing（サンドバッグ殴打）」「VisionNavi（障害物回避ナビ）」の4つです。ベースラインである教師ありファインチューニング済みVLA（Base）と、DiffGR00TでLoRA更新したモデル（Full）を比較しました。\n- 平均成功率は59.2%から71.7%へ12.5ポイント向上（OpenDoor: 65.0% $\\\\to$ 78.3%、SitSofa: 48.3% $\\\\to$ 65.0%、Boxing: 71.7% $\\\\to$ 81.7%、VisionNavi: 51.7% $\\\\to$ 61.7%）。全タスクで統計的に有意な改善を示しました。\n- 1成功あたりにかかるシミュレータステップ数は平均3102から2490へと約20%削減され、特にタイムアウトの多かったSitSofaで30%削減されました。無駄な足踏みや停滞が減り、より俊敏にタスクをこなせていることを意味します。\n\n### 微分可能ホライズン $H$ の選定\nワールドモデルをどこまで先まで信じてロールアウトするか（$H$ の決定）は極めて重要です。シミュレータ真値との4択順位付け精度70%以上、ケンドールの順位相関係数 $\\\\tau \\\\ge 0.65$ という基準を設けて調査した結果、$H=5$ が最も高精度（76.8%）でしたが、実行ブロック全体（20ステップ）へのクレジット割り当てを考慮し、基準を満たす最大の長さである $H=10$（精度70.4%、$\\\\tau=0.67$）が最適値として選定されました。\n\n### アブレーション研究\n各要素を1つずつ抜くアブレーションにより以下の役割が判明しました。\n- **カバレッジサンプリング**: 抜くと歩行の安定性が落ち、全タスクで3〜8ポイント低下。\n- **遷移フレーム加重**: ハンドル接触時などの重要局面を強調する項。抜くとドア開けや着座で約7ポイント低下。\n- **アンチストール項**: 動作停止を防ぐ項。特にSitSofaで決定的であり、抜くと65.0%から50.0%まで大幅に低下しました。\n\n### 実機ロボットでの閉ループ検証\nUnitree G1実機を用い、ゴミ袋の拾い上げ、ペダル式ゴミ箱への投棄、膝立ちでの試験管配置、ボールキックの4動作で閉ループ実行を確認しました。シミュレーションと同一の微分可能学習レシピを実機データ適応時にも適用できることが定性的に示されています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "評価に用いたHumanoidArenaの4タスク（OpenDoor, Boxing, SitSofa, VisionNavi）です。接近、接触、完了までの各フェーズが含まれ、特に接触と姿勢変化が激しいSitSofaで最大の改善が見られました。",
+     "caption": "Fig. 3: Simulation evaluation tasks. Each cell is one task; the frames show the first frame, two key moments, and the final frame (“end”), labeled by time or “end”. OpenDoor: approach, handle contact, and opening. Boxing: approach and two punch/contact moments. SitSofa: approach, contact, and seated posture. VisionNavi: crossing the obstacle field to the goal. Frames are illustrative, not success annotations.",
+     "image": "details/2611.32665/F3.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "微分可能ホライズン $H$ の検討結果です。シミュレータとの4択順位一致率（円）とケンドールの $\\tau$（四角）を評価し、基準（70%, 0.65）を満たす最大ホライズンとして $H=10$ が選ばれました。",
+     "caption": "Fig. 5: Surrogate ranking versus horizon. Four-way selection accuracy (circles) and Kendall $\\tau$ (squares) between surrogate and simulator returns over 405 counterfactual groups; dashed lines are the thresholds used to choose the window (70% and 0.65). The chosen window is $H=10$ . The $H$ values are shown at equal spacing for readability.",
+     "image": "details/2611.32665/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "実機Unitree G1での閉ループ動作検証です。(a) ゴミ袋の持ち上げ、(b) ペダル式ゴミ箱を踏んでゴミ捨て、(c) 膝立ちでの試験管配置、(d) 目標へのボールキックという多様な全身タスクを実行しています。",
+     "caption": "Fig. 6: Real-robot closed-loop inference on a Unitree G1. (a) Bend down and pick up a trash bag. (b) Walk to a pedal-operated bin, press the pedal, and deposit the trash. (c) Kneel, pick up a test tube, and place it on the table. (d) Kick a ball to a target position. Each panel shows the full recorded sequence; frames are illustrative, and no quantitative success rate is claimed.",
+     "image": "details/2611.32665/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Limitations",
+   "heading_ja": "現状の課題：粗い代理モデルと手先・物体のモデル化",
+   "summary_ja": "ワールドモデルは短ホライズンの勾配シグナルとしては機能しますが、長時間の正確な予測器ではありません。また、手先指の14自由度や外部物体の状態はモデル化されておらず、オンラインでのオンポリシー更新も行われていません。",
+   "details_ja": "著者らは率直にいくつかの限界を認めています。\n\n- **ワールドモデルの予測精度**: 学習済みワールドモデルは勾配の方向性を提供する「粗いシミュレータ代理」に過ぎず、評価用シミュレータの代わりにはなりません。$H=10$ でルート位置に3〜4 cm、角度に7〜8度の誤差があり、特に速度チャネルの推定精度は低いため、損失関数側で速度項の重みを下げるなどの工夫が必要でした。\n- **固定データによるオフライン学習**: ワールドモデルは固定されたデータセットで1度だけ学習され、方策学習中にオンポリシーで更新されません。方策が変化した際の状態分布のズレに対応しきれないため、学習可能な性能向上に上限があります。\n- **手先指と物体ダイナミクスの欠如**: 最適化対象は身体の29関節に限定されており、14自由度の手指は初期の模倣学習パラメータのままです。また、ワールドモデル自体に外部環境の物体（ドアや椅子など）の状態や接触力が明示的に組み込まれていません。",
+   "figures": []
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "まとめ：身体実行を意識したVLA学習の新たな道",
+   "summary_ja": "DiffGR00Tは、学習済みワールドモデルを介して全身コントローラとFlow-Matchingサンプラを貫通する微分可能学習を実現しました。これにより、トークンの模倣にとどまらず、ロボットの実際の物理身体に適合したVLAの学習が可能になります。",
+   "details_ja": "DiffGR00Tは、従来の「VLAは意図トークンを出すだけ、コントローラはそれを追従するだけ」という分断された階層型構造に風穴を開けました。微分可能なワールドモデルを介することで、コントローラの奥深くに存在する物理実行の損失を、Flow-Matchingの生成ヘッドへ直接フィードバックできることを実証しました。\n\nシミュレーションでは4つのタスクすべてで大幅な成功率向上と実行効率の改善が確認され、実機ヒューマノイドへの適応性も示されました。今後は、物体状態を考慮したワールドモデルへの拡張や、オンポリシーでのワールドモデル逐次更新、手先マニピュレーションを含めた完全な全身協調への発展が期待されます。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "ヒューマノイドVLAにおいて、高レベルの動作トークン生成と低レベル物理実行の乖離は、学習済みワールドモデルを挟んだ微分可能学習によって埋めることができる。",
+  "微分可能シミュレータを用いずとも、短ホライズン（10ステップ程度）に絞れば、オフライン学習したニューラル動力学モデルが十分信頼できる勾配方向を提供する。",
+  "Flow-Matchingサンプラ（オイラー積分）や量子化層（STE使用）を含んでいても、エンドツーエンドの勾配逆伝播は数値的に安定して機能する。",
+  "実行損失には単なる追従だけでなく、ドリフト抑制やストール防止（アンチストール項）など、接触やバランス崩壊を回避する設計が不可欠である。"
+ ],
+ "limitations_ja": [
+  "ワールドモデルの予測精度が粗いため、速度項の信頼度が低く、最適化できるホライズンが10ステップ（0.2秒）程度に制限されている。",
+  "ワールドモデルが固定データで事前学習されており、方策の改善に伴う分布シフトに追従するオンライン更新ループが回っていない。",
+  "指先14自由度の器用な操作や、操作対象となる物体の物理挙動・接触力はワールドモデルにモデル化されていない。"
+ ],
+ "keywords": [
+  "Vision-Language-Action Models",
+  "Humanoid Whole-Body Control",
+  "Differentiable World Model",
+  "Flow Matching",
+  "Reinforcement Learning"
+ ],
+ "id": "2611.32665",
+ "title": "DiffGR00T: Execution-Aware Differentiable Training for Humanoid Whole-Body Vision-Language-Action Models",
+ "authors": [
+  "Sichen Wu",
+  "Qian Sun",
+  "Mengfan Liu",
+  "Weikai Qin",
+  "Bike Zhu",
+  "Hesheng Wang"
+ ],
+ "date": "2026-11-25",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "control",
+  "vision-language-action",
+  "world-model"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.32665",
+ "pdf_url": "https://arxiv.org/pdf/2611.32665",
+ "summary_ja": "ヒューマノイドの全身制御（WBC）とVLAの統合において、動作生成と実機実行の分離による追従・バランス誤差を解決する微分可能学習手法を提案。非微分可能なシミュレータを行動条件付きワールドモデルに置き換え、GR00T N1.7と全身基底モデルSONICを結合して複数ステップの動力学損失から直接勾配を逆伝播させることで、全身協調と動的バランスを両立する。",
+ "generated": "2026-11-25",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.32665"
+}
