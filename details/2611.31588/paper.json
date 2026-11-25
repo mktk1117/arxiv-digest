@@ -1,0 +1,155 @@
+{
+ "title_ja": "1段階で十分：直接的な視覚強化学習によるSim-to-Real転移",
+ "tldr_ja": "特権情報を持つ教師からの蒸留（2フェーズ）を使わず、事前学習済み画像エンコーダを凍結して直接画像から強化学習（1フェーズ）を行う手法「Drift」を提案。実機での成功率を従来比で相対的に58.8%向上させ、未知環境への頑健性を示しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "特権情報を使う2フェーズ蒸留（左）と、提案手法である1フェーズ視覚強化学習「Drift」（右）の比較です。Driftは教師モデルを介さず、凍結した視覚バックボーンと軽量なAttention Poolingを用いて画像から直接ポリシーを強化学習します。",
+  "caption": "Fig. 2: DRIFT learns visual policies directly from task rewards. Simulation provides privileged state information, such as object poses and velocities, that is not directly available at deployment. Two-phase approaches use this information to train a teacher, then train a visual student to imitate its actions (left). We instead optimize the visual policy directly with RL, using a frozen pretrained vision encoder to make training efficient (right).",
+  "image": "details/2611.31588/F2.jpg"
+ },
+ "overview_ja": "シミュレータ環境で強化学習を行い実機へ展開するSim-to-Realは、ロボットの動作獲得で大きな成果を上げてきました。しかしカメラ画像を入力とする視覚ポリシーを作る際、シミュレータの内部状態（特権情報）で学習した教師モデルの行動を、画像を入力とする生徒モデルに模倣させる「2フェーズ蒸留」が主流でした。このアプローチには、生徒が観測できない情報に教師が依存する「実現可能性ギャップ」や、模倣学習特有の実環境での分布外への弱さという根本的な課題がありました。\n\nそれなら最初から画像入力で直接強化学習を行えばよいはずですが、ゼロからの特徴抽出器の学習は計算コストが極めて高く、実用が困難でした。そこで著者らは、事前学習済みの視覚基盤モデル（ViT）を凍結して特徴抽出を固定し、強化学習側は制御ポリシーの学習だけに専念させる「Drift」というシンプルな枠組みを考案しました。エンコーダの逆伝播を省くことで高速化し、軽量なAttention Poolingによって接触リッチな操作に必要な局所特徴を効率よく集約します。\n\n計算資源やモデル規模を揃えた比較実験の結果、シミュレーション内では同等の成功率であっても、実環境への転移ではDriftが2フェーズ蒸留を圧倒し、3つのマニピュレーション課題で平均58.8%の相対的改善を達成しました。さらにシミュレータ内の分布シフト実験でも、分布外環境においてDriftが61%も高い成功率を維持しました。直接強化学習で獲得した方策は、模倣による生徒よりも分布シフトに対する本質的な頑健性が高いことが明らかになりました。",
+ "contributions_ja": [
+  "凍結した事前学習済み視覚エンコーダと軽量なAttention Poolingを組み合わせ、直接画像からポリシーを最適化する1フェーズ視覚強化学習レシピ「Drift」を提案した点",
+  "シミュレーション内の制御された分布シフト評価により、1フェーズ視覚強化学習が2フェーズ蒸留に比べて分布外環境で約61%高い成功率を維持する「汎化ギャップ」を明らかにした点",
+  "ペグ挿入・押し操作・直方体把持の3つの実機タスクにおいて、同等計算量の2フェーズ蒸留に対して実機平均成功率で58.8%の相対的向上を実証した点",
+  "シミュレーション訓練時とは外見や幾何形状が異なる未知の物体に対しても、追加学習なし（ゼロショット）で高い適応能力を示した点"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "なぜ2段階の蒸留ではなく「直接」画像から強化学習するのか",
+   "summary_ja": "従来のSim-to-Realで標準的だった「特権教師からの生徒蒸留」には、情報の非対称性や実環境での汎化低下という問題がありました。本研究は凍結した事前学習済みエンコーダを活用することで、直接画像から強化学習を行う1フェーズ手法が、実機転移や分布外への頑健性において蒸留を大きく上回ることを示します。",
+   "details_ja": "シミュレーションを用いた強化学習（Sim-to-Real RL）は、ロボットの移動や器用なマニピュレーションを飛躍的に進化させてきました。しかし、これまでの成功の多くは、高精度に作り込まれた知覚パイプラインから得られる物体の位置姿勢など、コンパクトな状態情報に依存していました。\n\n実機のカメラ画像から直接動くポリシーを展開するため、現場で広く使われてきたのが「2フェーズ蒸留」です。まずシミュレータ内の特権情報（物体の正確な位置や速度など）を使ってRLで優秀な教師ポリシーを育て、その振る舞いを画像入力の生徒ポリシーに模倣学習（DAggerなど）で教え込みます。しかしここには2つの大きな落とし穴があります。1つは、教師が生徒の画像からは推定不可能な情報に依存してしまう「実現可能性ギャップ（realizability gap）」です。もう1つは、模倣で訓練された生徒がシミュレータと実環境の間のギャップ（分布シフト）に対して脆いという点です。その結果、シミュレータ内では優秀に見えても、実機に持っていくと性能がガタ落ちすることが珍しくありませんでした。\n\nそれなら最初から画像を入力にしてRLを回す「1フェーズ視覚RL」にすればよいのですが、画像の表現学習とロボットの制御学習を同時にゼロから解こうとすると、莫大なサンプル数と計算時間が必要になってしまいます。そこで本研究では、大規模事前学習された視覚基盤モデル（ViT）を「凍結」して固定特徴として使い、制御学習のみに計算資源を集中させる枠組み「Drift」を提案しています。ラスタライズによる高速描画シミュレーションと組み合わせることで、同じ計算予算のもとで2フェーズ蒸留よりもはるかに実機転移に強いポリシーが得られることを突き止めました。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "特権情報を用いた2フェーズ蒸留（左）と提案する1フェーズ視覚強化学習（右）のアーキテクチャ概要です。Driftは教師モデルを一切介さず、特権情報を訓練時のCriticのみに与える非対称Actor-Critic構成と凍結ViTを用いて、エンド・ツー・エンドで行動方策を学習します。",
+     "caption": "Fig. 2: DRIFT learns visual policies directly from task rewards. Simulation provides privileged state information, such as object poses and velocities, that is not directly available at deployment. Two-phase approaches use this information to train a teacher, then train a visual student to imitate its actions (left). We instead optimize the visual policy directly with RL, using a frozen pretrained vision encoder to make training efficient (right).",
+     "image": "details/2611.31588/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "先行研究の歩み：教師生徒蒸留から表現の凍結へ",
+   "summary_ja": "特権教師からの蒸留は成功例が多いものの情報非対称性による性能劣化が常に議論されてきました。一方で、GPU並列レンダリングの普及や事前学習済みモデルの凍結利用により直接視覚RLが現実味を帯びてきており、本論文はこれらを接触リッチなマニピュレーションタスクへと発展させています。",
+   "details_ja": "本研究の背景には、大きく分けて3つの先行研究の流れがあります。\n\n1つ目は「教師・生徒蒸留」のアプローチです。これまで多指ハンドやヒューマノイドの制御で多用されてきましたが、教師が持つ特権情報と生徒が持つ画像観測の差による「実現可能性ギャップ」が常に課題視されてきました。先行研究では教師と生徒を同時学習して乖離にペナルティを与えたり、中間ステップとして深度画像を用いたりする工夫がなされてきましたが、本研究ではそもそも蒸留という枠組み自体を使わず、直接RGB画像から解く立場をとっています。\n\n2つ目は「効率的な視覚強化学習と凍結表現」の流れです。近年、GPU上で並列レンダリングを行うシミュレータが登場し、画像からの直接RLのハードルが下がってきました。さらに、画像エンコーダをスクラッチから学習するのではなく、DINOv2のような事前学習済みモデルの重みを固定（凍結）して使う試みがナビゲーションなどで注目を集めています。本研究はこのアプローチを、ミリ単位の精度が求められる接触リッチなマニピュレーションタスクへと拡張しました。局所的な空間解像度を保つため、パッチ特徴に対する学習可能なAttention Poolingを導入しているのが工夫点です。\n\n3つ目は「強化学習と教師あり学習における汎化性能の違い」です。近年の基礎モデル研究において、RLによる事後学習は教師ありファインチューニングに比べて分布外（OOD）への汎化性能を保ちやすいことが指摘されていました。本論文はロボット制御のSim-to-Realにおいても、模倣による蒸留よりRLによる直接最適化のほうが本質的に外乱や分布シフトに強いことを、制御された実験条件で検証しています。",
+   "figures": []
+  },
+  {
+   "heading": "III Preliminaries",
+   "heading_ja": "定式化：直接視覚RLと2フェーズ蒸留の学習目標の違い",
+   "summary_ja": "直接視覚RLは画像観測から得られる将来リターンを最大化するよう方策を直接最適化します。対照的に2フェーズ蒸留は、特権情報で最大リターンを学んだ教師の行動を生徒が模倣する教師あり損失で学習するため、目的関数そのものが異なります。",
+   "details_ja": "ロボットは各時刻 $t$ において、RGB画像 $I_{t}$ と関節角度などの自己受容感覚（プロプリオセプション） $p_{t}$ からなる観測 $o_{t}=(I_{t},p_{t})$ を受け取り、連続値の行動 $a_{t}$ を決定します。本論文では、シミュレーションから視覚ポリシーを導く2つのアプローチを数式レベルで対比しています。\n\n### III-A 直接視覚強化学習（1-Phase）\n直接視覚RLでは、ポリシー $\\pi_{\\theta}(a_{t} \\mid o_{t})$ はシミュレーション内で自身が生成する軌道分布のもとで、将来の割引累積報酬（リターン）の期待値を最大化するように学習します。つまり、ある行動をとった結果としてタスクが達成できたかどうか（結果責任）を行動価値として直接評価しながらパラメータ $\\theta$ を更新していきます。\n\n### III-B 2フェーズ方策蒸留（2-Phase）\n一方の2フェーズ蒸留では、まず物体の正確な位置や速度といったシミュレータ特権状態 $s_{t}^{\\mathrm{priv}}$ を観測できる教師ポリシー $\\pi_{T}(a_{t} \\mid s_{t}^{\\mathrm{priv}})$ をRLで学習します。次に第2段階として、画像を入力とする生徒ポリシー $\\pi_{S,\\theta}(a_{t} \\mid o_{t})$ を訓練します。本論文で採用されているDAggerスタイルの蒸留では、現在の生徒自身が環境を動かして収集した状態に対して、凍結された教師が「模範解答」となる平均行動 $a_{t}^{T}$ をラベル付けし、生徒はその差（平均二乗誤差など）を小さくするように教師あり学習で更新されます。生徒は自身のタスクリターンを最大化しているのではなく、あくまで「教師の真似」をしているに過ぎない点が根本的に異なります。",
+   "figures": []
+  },
+  {
+   "heading": "IV Method",
+   "heading_ja": "Driftの設計思想：事前学習モデルを凍結して無駄を削ぎ落とす",
+   "summary_ja": "提案手法「Drift」は、PPOを用いた非対称Actor-Critic構成を基盤とし、視覚エンコーダを完全に凍結したまま制御ポリシーを学習します。軽量なMultihead Attention Pooling（MAP）を組み合わせることで、パッチ特徴の空間詳細を失わずに計算スループットを最大化しています。",
+   "details_ja": "Drift（Direct Reinforcement Learning from Images For Transfer）のアーキテクチャと学習パイプラインは、極めて洗練されていて無駄がありません。\n\n### IV-A 強化学習アルゴリズムとポリシー構造\n訓練には並列化されたPPO（Proximal Policy Optimization）を採用しています。ポイントは訓練時のみ特権シミュレータ状態 $s_{t}^{\\mathrm{priv}}$ を見ることができる非対称Critic $v_{\\psi}(s_{t}^{\\mathrm{priv}})$ を使う点です。価値関数の学習には特権情報を使って安定させつつ、現場で動くActor（ポリシー）には実機で得られる画像とプロプリオセプションのみを入力します。Actor本体は隠れ層次元64、3層のEncoder-only Transformerという非常に軽量な構成です。自己受容感覚トークンと画像トークンを共通の自己注意（Self-Attention）層で統合して処理します。\n\n### IV-B 凍結視覚特徴量とAttention Pooling\n本手法の最大の肝は、視覚エンコーダ $f_{\\phi}$（DINOv3 ViT-S/16など）の重みを完全に凍結（stop-gradient）して使う点です。エンコーダの逆伝播を丸ごとカットできるだけでなく、PPOの複数エポック（$K$ 回の更新）にわたって同一ステップの画像特徴量をキャッシュして再利用できます。これにより、エンコーダの順伝播計算回数を $1/K$ に削減でき、1時間あたりに収集・処理できる環境ステップ数が劇的に向上します。\n\nさらに、自然画像で事前学習された強固な特徴表現が破壊されないため、高速で粗いラスタライズ描画のシミュレーション画像を入力しても、実機画像へゼロショットで頑健に転移します。高コストなレイトレーシング描画を行う必要がありません。\n\nただし、ViTの[CLS]トークン（画像全体の要約特徴）だけでは、ミリ単位の接触を伴う精密なマニピュレーションに必要な空間情報が欠落してしまいます。かといって全パッチトークンをTransformerポリシーに流し込むと、トークン数の2乗で計算量が爆発します。そこでDriftでは、学習可能なクエリを用いてパッチ特徴を少数のトークンへと圧縮する「Multihead Attention Pooling（MAP）」を導入しました。これにより、空間解像度を保ったまま下流の計算コストを大幅に抑えることに成功しています。",
+   "figures": []
+  },
+  {
+   "heading": "V Experimental Setup",
+   "heading_ja": "実験設定：3つのマニピュレーション課題と過酷な分布シフト検証",
+   "summary_ja": "評価には把持（Pick-Cube）、非把握押し（Push-T）、高精度なペグ挿入（Peg-Insertion）の3タスクを採用。シミュレータにはManiSkillを用い、物体の質量やゴール位置、カメラ視点、外乱力などを意図的に変化させた分布外（OOD）耐性を綿密に評価します。",
+   "details_ja": "Driftの実力を検証するため、シミュレーションおよび実機ロボット（Franka Research 3）を用いて厳密な比較実験が行われました。\n\n### V-A 対象タスク\n性質の異なる3つのマニピュレーションタスクを選定しています。\n- **Pick-Cube**: キューブを把持して持ち上げる基本的なタスク。\n- **Push-T**: T字型のブロックを押して、視覚的に示されたゴール枠へと正確にアライメントさせる非把握タスク。\n- **Peg-Insertion**: クリアランス（隙間）がわずか2 mmしかない四角い穴にペグを挿入する、高精度かつ接触リッチなタスク。\n\n### V-B 訓練環境とドメインランダム化\nGPU並列シミュレータ「ManiSkill」を用い、20 Hzで動作するアームの相対関節目標位置とグリッパー指令（合計8次元）を行動空間としました。実機への転移を促すため、物体の摩擦やテクスチャ、環境光（HDRマップ）、カメラの外力パラメータを系統的にランダム化し、背景領域には約2万7000枚の自然画像コレクションをランダムに合成しています。\n\n### V-C 評価プロトコル\nポリシーの公平な比較のため、Driftと2フェーズ蒸留の両者に全く同一のNVIDIA L40S GPU計算予算（150 GPU時間相当）を割り当てています。シミュレーション内で1,024エピソードの評価を定期的に行い、各シードから最良のチェックポイントを抽出。実機での5回の試行を経て最終モデルを選抜し、実機において20〜30回の本格試行で成功率とスループット（単位時間あたりのタスク完了数）を計測しました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "シミュレーション（上段）と実機環境（下段）における3つのタスク（Pick-Cube、Peg-Insertion、Push-T）の初期状態です。半透明で描かれているのは物体の初期配置のバリエーションであり、実機環境でも同様に様々な位置からタスクを開始します。",
+     "caption": "Fig. 4: Tasks in simulation and the real world. Initial-state views for Pick-Cube, Peg-Insertion, and Push-T in simulation (top) and the real world (bottom). Translucent objects in the simulation row illustrate different initial poses for the objects. The goal state in the realworld is shown as well.",
+     "image": "details/2611.31588/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VI Experimental Results",
+   "heading_ja": "実験結果：シミュレーションでは同等でも、実機と未知環境で圧倒的な差に",
+   "summary_ja": "シミュレータ内の訓練分布（ID）では両者の差は約9%にとどまりましたが、分布外（OOD）ではDriftの優位性が61%に拡大しました。実機転移でもDriftは平均58.8%の相対改善を達成し、未知形状の物体に対しても高い汎化性能を発揮しました。",
+   "details_ja": "実験から得られた知見は非常にクリアです。\n\n### VI-A シミュレーション内での汎化・分布シフト評価\nまずシミュレータ内において、訓練時と同じ分布（ID）と、意図的に変化を加えた分布外（OOD）で性能を比較しました。OOD条件として、物体の質量（最大4倍）やスケール、初期ゴール位置の拡大、カメラ視点のズレ（24ピクセルの平行移動）、グリッパーへのランダム外乱力（80 N）の4つを課しています。\nID環境ではDriftの成功率は蒸留法に対して相対8.6%増と、そこまで劇的な差はありませんでした。ところがOOD環境に放り込むと、2フェーズ蒸留は成功率を約42%も落としたのに対し、Driftの低下はわずか14%にとどまりました。その結果、OODにおけるDriftの優位性は相対61%にまで拡大しています。特にゴール位置を訓練範囲外に広げた実験では、蒸留ポリシーが範囲外で急激に崩壊するのに対し、Driftは広い領域で粘り強く成功を維持しました。\n\n### VI-B 実機ゼロショット転移の結果\n実機へそのままポリシーを持ち込んだ際、シミュレーション以上の決定的な差が現れました。難関タスクであるPeg-Insertionにおいて、凍結ViTを用いた2フェーズ蒸留の実機成功率が23.3%に沈んだのに対し、Driftは66.7%を達成しました。シミュレーションから実機への性能低下幅は、蒸留の55.2ポイント減に対し、Driftはわずか15.7ポイント減に抑えられています。Push-Tでも蒸留の30.0%に対してDriftは76.7%と圧倒しました。3タスク平均で、実機成功率は相対58.8%の大幅向上です。\nさらに、訓練では単一の黒い立方体しか見ていないPick-Cubeポリシーを、赤い立方体、円柱、大型立方体、ルービックキューブという4種の未知物体でテストしたところ、蒸留が平均50.0%まで落ち込んだのに対し、Driftは88.8%の高い成功率を維持しました。\n実機実行中の内部潜在表現（Latent）の対数尤度を分析したところ、Driftは蒸留に比べて実機動作中もシミュレーション時の分布から乖離しにくいことが判明しました。直接RLで鍛えたポリシーは、実機の視覚的・力学的ズレに直面しても軌道修正が効きやすい行動様式を身につけているといえます。\n\n### VI-C 最適な視覚エンコーダの選定\nViTやCNN、DINOv3、SigLIP2、ImageNet事前学習など7種類のエンコーダを比較したところ、DINOv3 ViT-S/16がシミュレーション成功率（82.2%）および実機成功率（66.7%）ともにトップでした。興味深いことに、SigLIP2やConvNeXt-Bはシミュレーションでは70%以上の高いスコアを出したものの、実機に持っていくと成功率が3.3%〜10.0%へと壊滅的に低下しました。モデルのパラメータ数が大きいことやシミュレーション内での成績が良いことと、実機転移の強さは必ずしも比例しないという重要な教訓を示しています。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "シミュレーション環境における分布内（ID）と分布外（OOD）の成功率比較です。物体の質量・スケール、初期位置、視点ズレ、外乱力のいずれにおいても、OOD条件下（ハッチング部分）で2フェーズ蒸留が急落する一方、Driftは高い成功率を維持しています。",
+     "caption": "Fig. 5: One-phase visual RL retains higher success under distribution shifts. In-distribution (In-distr.) and selected out-of-distribution (Out-of-distr., hatched) success for 1-Phase Visual RL and 2-Phase Distillation (DAgger with a frozen encoder). Object mass and scale use $4\\times$ mass for both tasks and $1.2\\times$ tee and goal scale for Push-T . Initial-state shifts use a 2 cm goal-position ring for Push-T (training jitter $\\pm 1$ cm), a 10 cm box-position ring for Peg-Insertion (training range $\\pm 5$ cm), and peg-start offsets in $(1,1.25]$ times the training half-range; rings use the maximum absolute axis offset. …",
+     "image": "details/2611.31588/F5.jpg"
+    },
+    {
+     "key": "F6",
+     "caption_ja": "Push-T（上段）とPeg-Insertion（下段）におけるゴール位置の汎化マップです。中央の黒枠が訓練時の範囲を示します。Drift（左）は訓練範囲を大きく超えたオフセット位置でも広範囲にわたって高いタスク成功率を保持しています。",
+     "caption": "Fig. 6: One-phase RL generalizes over a wide range of goals. Simulation success for Push-T goal positions (top) and Peg-Insertion box positions (bottom), comparing 1-Phase Visual RL (left) with 2-Phase Student Distillation using DAgger with a frozen encoder (right). Each panel subsamples a $5\\!\\times\\!5$ grid of 2 cm evaluation cells at the labeled offsets; numbers show mean success (%) over three training seeds and 100 episodes per seed and cell. Black squares mark the displayed offsets within the training range ( $\\pm$ 1 cm for Push-T ; $\\pm$ 5 cm for Peg-Insertion ), represented by the center cell in each panel.",
+     "image": "details/2611.31588/F6.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "黒い立方体のみで訓練したポリシーを、未学習の実機物体（赤立方体、円柱、大型立方体、ルービックキューブ）にゼロショット適用した結果です。幾何形状や模様が変わっても、Driftは蒸留法に比べて大幅に高い成功率を記録しています。",
+     "caption": "Fig. 7: One-phase visual RL transfers better to unseen real-world objects than two-phase distillation. Policies are trained in simulation on a single black 4,cm cube and evaluated zero-shot on four unseen objects over 20 real-world trials each. Both methods achieve 100% success on the training object, while Drift retains substantially higher success on objects with novel appearance and geometry.",
+     "image": "details/2611.31588/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "実機実行時におけるポリシー内部潜在表現の標準化対数尤度の推移です。Drift（青線）はシミュレーション分布からの乖離ペナルティが小さく抑えられており、実環境でもシミュレーションで学んだ典型的な状態空間にとどまり続けていることが分かります。",
+     "caption": "Fig. 8: Drift real-world latents remain more consistent with simulation. Mean standardized latent log-likelihood over 30 real-world episodes per policy. Scores are standardized using each policy’s mean and standard deviation across completed held-out simulation rollouts. Shading denotes pointwise 95% bootstrap confidence intervals over real-world episodes. Drift (blue) exhibits a smaller standardized likelihood deficit than two-phase distillation (gold), consistent with its real-world latents remaining closer to its simulation distribution throughout rollout.",
+     "image": "details/2611.31588/F8.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "VII Conclusion and remarks",
+   "heading_ja": "まとめ：Sim-to-Realは1フェーズの直接RLで十分である",
+   "summary_ja": "凍結された視覚基盤モデルとAttention Pooling、高速シミュレーション描画を組み合わせることで、特権教師からの蒸留を挟まない1フェーズ視覚RLが極めて実用的であることが実証されました。直接RLがもたらす汎化の強さは、今後のロボット視覚制御の標準レシピを塗り替える可能性を秘めています。",
+   "details_ja": "本論文「Drift」が示したメッセージは非常に明快です。すなわち、「Sim-to-Realの視覚ポリシー獲得に、わざわざ特権教師を介した2フェーズの蒸留を踏む必要はない。適切なレシピを用いれば、1フェーズの直接視覚RLで十分であり、むしろそのほうが実機では遥かに強い」ということです。\n\n大規模自然画像で事前学習された視覚エンコーダを凍結して特徴抽出を任せ、下流の軽量Transformerポリシーだけを強化学習で訓練する。この割り切りによって、重いバックボーンの逆伝播計算や高コストな写実的レンダリングを回避し、GPUリソースの大半を「環境との相互作用（試行錯誤の数珠つなぎ）」に注ぎ込むことが可能になりました。\n\nそして何より重要な発見は、訓練分布内での見かけの性能に惑わされてはいけないという点です。シミュレーション内で蒸留ポリシーと同等の成功率であっても、実機への転移や分布外環境、未知の物体と対峙したとき、直接RLによって自らの行動の結果から学んだポリシーは圧倒的な粘り強さ（頑健性）を発揮します。特権教師の模倣から脱却し、基礎モデルを固定足場として直接タスクリターンを追求するこのアプローチは、今後のロボットマニピュレーション研究における強力なベースラインとなるはずです。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "特権教師からの模倣蒸留はシミュレータ内で高スコアが出ても分布シフトに脆く、実機展開時に大きく性能を落とす「見かけ倒し」に陥りやすい",
+  "事前学習済みViT（DINOv3など）を「凍結」して使うことで、高価なレイトレーシングや重い逆伝播を避けつつ、ラスタライズ描画からでも実機転移可能な表現が得られる",
+  "精密マニピュレーションには画像全体の[CLS]トークンだけでなく、局所パッチ特徴を保つMultihead Attention Pooling（MAP）によるトークン集約が極めて有効である",
+  "シミュレータ内の訓練分布（ID）での性能比較だけでなく、意図的なパラメータ変動（OOD）を課した評価が、実機転移の成否を予測する上で決定的に重要になる"
+ ],
+ "limitations_ja": [
+  "事前学習エンコーダの性能に大きく依存しており、エンコーダの選定（DINOv3とSigLIP2など）によって実機成功率が劇的に変動してしまう理由が完全には理論解明されていない",
+  "手首カメラ（インハンド視点）かつ単一アームのタスクを中心に検証されており、複数台の外部定点カメラの統合や、長時間のマルチタスク・長大シーケンスにおける検証は今後の課題である",
+  "訓練環境の背景置換やテクスチャのランダム化（ドメインランダム化）は依然として手動設計に依存しており、完全にチューニングフリーというわけではない"
+ ],
+ "keywords": [
+  "Sim-to-Real",
+  "Visual Reinforcement Learning",
+  "Policy Distillation",
+  "Foundation Vision Models",
+  "Robot Manipulation",
+  "Out-of-Distribution Generalization"
+ ],
+ "id": "2611.31588",
+ "title": "One Phase Is Enough: Sim-to-Real Transfer with Direct Visual Reinforcement Learning",
+ "authors": [
+  "John Marangola",
+  "Antonia Bronars",
+  "Younghyo Park",
+  "Stephen Andrews",
+  "Kushal Kedia",
+  "Pulkit Agrawal"
+ ],
+ "date": "2026-11-25",
+ "group": "focus",
+ "tags": [
+  "reinforcement-learning",
+  "sim-to-real",
+  "control",
+  "perception"
+ ],
+ "categories": [
+  "cs.LG",
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.31588",
+ "pdf_url": "https://arxiv.org/pdf/2611.31588",
+ "summary_ja": "特権的状態情報を用いた教師方策から視覚生徒方策への模倣蒸留という従来の2段階アプローチに伴う性能低下を克服するため、直接視覚RLを行う枠組みDRIFTを提案。画像入力から直接タスク関連表現と制御方策を効率的に学習するシンプルな学習手順を構築し、教示例や特権情報蒸留なしにシミュレーションから実機へと高精度にゼロショット転移できることを実証した。",
+ "generated": "2026-11-25",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.31588"
+}
