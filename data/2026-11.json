@@ -1,6 +1,307 @@
 {
  "entries": [
   {
+   "date": "2026-11-26",
+   "rank": 0,
+   "id": "2611.34569",
+   "group": "focus",
+   "title": "Riding the Wave: Sim-to-Real Humanoid Control on Elastic Terrain",
+   "title_ja": "波に乗る：弾性変形地形におけるヒューマノイドのSim-to-Real制御",
+   "summary_ja": "たわみや反発が時空間的に連動する大変形弾性地形をヒューマノイドが踏破するためのSim-to-Real学習フレームワーク「RIPPLE」の提案。事前張力バネ質量メッシュモデルElasticMembraneをMJLabに統合し、GPU並列で接触ダイナミクスを解きながら強化学習を行う。実機の固有受容感覚のみを用いた方策により、変形地表での安定歩行を実現した。",
+   "summary_en": "This paper presents RIPPLE, a sim-to-real learning framework for humanoid locomotion on large-deformation elastic terrains. By integrating ElasticMembrane, a mass-spring mesh modeling coupled deflection and rebound, into MJLab for GPU-parallel RL, it trains proprioceptive policies that reliably stabilize humanoid walking on soft, springy surfaces.",
+   "authors": [
+    "Yinglei Zhu",
+    "Qin Li",
+    "Honghao Pan",
+    "Bozhao Wang",
+    "Binghui Xu",
+    "Jie Lu",
+    "Wentao Song",
+    "Xiyu Wang",
+    "Xinyu Zhu",
+    "Wei Liu",
+    "Xinjun Liu",
+    "Kai Lu",
+    "Huichan Zhao"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "sim-to-real",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.34569",
+   "image": "figures/2026-11-26/2611.34569.jpg"
+  },
+  {
+   "date": "2026-11-26",
+   "rank": 1,
+   "id": "2611.33828",
+   "group": "focus",
+   "title": "Learning a Whole-Body Pivot-Walking Gait for Heavy-Box Transport with a Humanoid",
+   "title_ja": "ヒューマノイドによる重物体運搬のための全身ピボット歩行歩容の学習",
+   "summary_ja": "ヒューマノイドが持ち上げられない重量物を運搬するピボット歩行を単一の強化学習方策で実現する手法の提案。従来のステップと操作を分離する手法と異なり、交互のピボット運動報酬と物体の変位に応じた位相参照を用いて、足踏み、バランス維持、全身マニピュレーションを協調制御する。シミュレーション環境において、動的接触を伴う重量物の安定かつ継続的な運搬を実証した。",
+   "summary_en": "The authors propose a single reinforcement learning policy to achieve humanoid pivot-walking for transporting objects too heavy to lift. Unlike traditional methods separating stepping and manipulation, the policy coordinates stepping, balance, and whole-body manipulation using alternating pivot rewards and object-displacement-driven phase reference.",
+   "authors": [
+    "Rikuto Hidaka",
+    "Tsung-Yuan Chen",
+    "Kento Kawaharazuka"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "control",
+    "reinforcement-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.33828",
+   "image": "figures/2026-11-26/2611.33828.jpg"
+  },
+  {
+   "date": "2026-11-26",
+   "rank": 2,
+   "id": "2611.33407",
+   "group": "focus",
+   "title": "An Adversarial Multi-Agent Pursuit Game for Locomotor Agility Pretraining",
+   "title_ja": "移動運動の俊敏性事前学習に向けた敵対的マルチエージェント追跡ゲーム",
+   "summary_ja": "ヒューマノイドの俊敏かつ頑健な移動運動制御器を獲得するため、マルチエージェント追跡ゲームを通じた自己対戦強化学習フレームワークを提案。人手による密な報酬設計や参照軌道追従に依存せず、動的な運動生成と運動制御を同時に学習させる。環境の急激な変化や外乱に対して柔軟に適応できる俊敏な歩行・走行動作の創発をシミュレーション上で実証した。",
+   "summary_en": "This paper introduces an adversarial multi-agent pursuit game using self-play reinforcement learning to pretrain agile humanoid locomotion controllers. Moving beyond hand-crafted dense rewards and reference trajectory tracking, the framework jointly learns motion generation and dynamic control, resulting in emergent agility and robust adaptation to rapid shifts.",
+   "authors": [
+    "Nathan A. C. Hogg",
+    "Matt Hyatt",
+    "Neil Klingensmith",
+    "George K. Thiruvathukal"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.LG"
+   ],
+   "tags": [
+    "humanoid",
+    "locomotion",
+    "reinforcement-learning",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.33407",
+   "image": "figures/2026-11-26/2611.33407.jpg"
+  },
+  {
+   "date": "2026-11-26",
+   "rank": 3,
+   "id": "2611.33460",
+   "group": "focus",
+   "title": "Fast Muscle-Driven Whole-Body Motion Tracking with a Differentiable World Model",
+   "title_ja": "微分可能ワールドモデルを用いた高速な筋駆動全身運動トラッキング",
+   "summary_ja": "数百本の筋肉と接触を伴う高自由度筋骨格モデル（MS-Human-700、MyoFullBody）の運動追従方策を、微分可能ワールドモデルを介して高速に学習する手法を提案。Unitree G1向け高速化手法を筋肉モデル向けに刷新し、筋幾何情報の除外やデータ収集と最適化の並列化などを導入。従来数日〜数時間要したGPU学習時間を大幅に短縮した。",
+   "summary_en": "This paper extends differentiable world model-based tracking to high-dimensional musculoskeletal models (MS-Human-700 and MyoFullBody) with MuJoCo activation dynamics. By redesigning training recipes with parallelized data collection and geometry-free observations, it drastically accelerates GPU training time for whole-body motion tracking.",
+   "authors": [
+    "Kaibo He",
+    "Maciej Bakowicz",
+    "Shihe Zhou",
+    "Yusen Feng",
+    "Yanan Sui",
+    "Dhanush Radhakrishnan"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.RO"
+   ],
+   "tags": [
+    "humanoid",
+    "control",
+    "world-model",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.33460",
+   "image": "figures/2026-11-26/2611.33460.jpg"
+  },
+  {
+   "date": "2026-11-26",
+   "rank": 4,
+   "id": "2611.33911",
+   "group": "focus",
+   "title": "CoTAMP: Cooperative Task and Motion Planning for Quadruped Robots with Large Language Models",
+   "title_ja": "CoTAMP: 大規模言語モデルを用いた4脚ロボットの協調タスク・モーションプランニング",
+   "summary_ja": "単独では踏破できない段差や隙間を乗り越えるため、4脚ロボット同士が協調して動作するタスク・モーションプランニング（TAMP）フレームワークの提案。LLMとコード生成を組み合わせ、一方のロボットの背中を踏み台にするような未知の協調動作を段階的に考案し、それを満たす運動軌道を自動生成する。事前定義スキルに限定されない柔軟な協調踏破動作を実現した。",
+   "summary_en": "The paper presents CoTAMP, a cooperative task and motion planning framework for quadruped robots to overcome impassable terrains like ledges and wide gaps. Combining LLM-based reasoning and code-based motion generation, it invents novel cooperative skills—such as climbing using a partner robot's back—without relying on predefined skill libraries.",
+   "authors": [
+    "Woojin Kim",
+    "Jemin Hwangbo"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "quadruped",
+    "planning",
+    "llm-agent",
+    "multi-robot"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.33911",
+   "image": "figures/2026-11-26/2611.33911.jpg"
+  },
+  {
+   "date": "2026-11-26",
+   "rank": 5,
+   "id": "2611.34597",
+   "group": "general",
+   "title": "$\\mu$MPC: Microsecond-Scale Nonlinear and World Model Control from Edge to GPU via Koopman-Linearized Precompilation",
+   "title_ja": "μMPC: クープマン線形化事前コンパイルによるエッジからGPU向けのマイクロ秒級非線形・ワールドモデル制御",
+   "summary_ja": "クープマン作用素を用いて非線形ダイナミクスを事前コンパイルし、オンライン計算を劇的に削減する高速MPCフレームワークの提案。有限ホライズンの制御-出力写像を事前に解くことで決定変数を入力次元のみに圧縮した二次計画問題（KC-QP）に帰着。行列ベクトル積と射影のみの計算により、マイクロ秒級での制御更新と微分可能QPとしての学習ループ統合を実現した。",
+   "summary_en": "The authors present $\\mu$MPC, an ultra-fast MPC framework that precomputes Koopman-linearized dynamics into an action-only quadratic program. By eliminating lifted-state variables and utilizing fixed primal operators for matrix-vector projections, it achieves microsecond-scale control and supports end-to-end control-aware dynamics learning on GPUs and edge devices.",
+   "authors": [
+    "Devesh Nath",
+    "Glen Chou"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV",
+    "cs.LG",
+    "cs.SY",
+    "eess.SY",
+    "math.OC"
+   ],
+   "tags": [
+    "control",
+    "planning",
+    "world-model"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.34597",
+   "image": "figures/2026-11-26/2611.34597.jpg"
+  },
+  {
+   "date": "2026-11-26",
+   "rank": 6,
+   "id": "2611.33380",
+   "group": "general",
+   "title": "FOCI: Trajectory Optimization on Gaussian Splats for Gaussian Robots",
+   "title_ja": "FOCI: ガウシアンロボットのための3Dガウシアンスプラッティング上での軌道最適化",
+   "summary_ja": "3D Gaussian Splatting（3DGS）で表現された環境とロボットモデルに対し、ガウシアン同士の重なり積分を利用して直接軌道最適化を行うアルゴリズム「FOCI」の提案。明示的なメッシュ化や符号付距離場を介さず、解釈性の高い滑らかな衝突指標を定式化。マニピュレータ、脚ロボット、UAVなど多様なロボット形態や動的環境において効率的かつ安全な軌道生成を実現した。",
+   "summary_en": "This paper proposes FOCI, a trajectory optimization method that plans directly on 3D Gaussian Splatting (3DGS) representations using the overlap integral between Gaussians as a collision metric. Applicable to manipulators, legged robots, and UAVs, it enables smooth and interpretable collision avoidance in both static and dynamic environments.",
+   "authors": [
+    "Mario Gomez Andreu",
+    "Carlos Martinez Cuenca",
+    "Maximum Wilder-Smith",
+    "Victor Klemm",
+    "Vaishakh Patil",
+    "Marco Hutter",
+    "Jesus Tordesillas"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "planning",
+    "control",
+    "perception"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.33380",
+   "image": "figures/2026-11-26/2611.33380.jpg"
+  },
+  {
+   "date": "2026-11-26",
+   "rank": 7,
+   "id": "2611.34849",
+   "group": "general",
+   "title": "Real2SimLab: A Unified Platform for Real-to-Simulation Transfer",
+   "title_ja": "Real2SimLab: 実環境からシミュレーションへの転送のための統合プラットフォーム",
+   "summary_ja": "実世界の動画観察からシミュレーション環境を構築するReal-to-Sim研究の断片化を解決する統一プラットフォームの提案。コーディングエージェントが生成したシミュレーションプログラムを実行し、既存の複数ベンチマークのスコア算出を一括評価可能にする。入力形式や評価基準の違いを吸収し、Real-to-Sim手法の公正かつ体系的な比較検証を可能にした。",
+   "summary_en": "Real2SimLab is a unified platform for evaluating real-to-simulation transfer methods that synthesize simulation assets from real-world videos. By standardizing diverse inputs, outputs, and scoring pipelines across multiple existing benchmarks into an automated pipeline, it enables rigorous and systematic comparison of real2sim coding agents.",
+   "authors": [
+    "Yongchang Zhang",
+    "Jie Huang",
+    "Yunhe Ni",
+    "Ningyu Zhou",
+    "Guangyu Zhao",
+    "Ruixun Liu",
+    "Rui Huang",
+    "Yidi Wu",
+    "TianZe Zhang",
+    "Zixiang Jiang",
+    "Xiang Li",
+    "Kevin Shen",
+    "Yiwu Zhong"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.CV"
+   ],
+   "tags": [
+    "simulation",
+    "benchmark",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.34849",
+   "image": "figures/2026-11-26/2611.34849.jpg"
+  },
+  {
+   "date": "2026-11-26",
+   "rank": 8,
+   "id": "2611.34449",
+   "group": "general",
+   "title": "HoloBrain-0.5 Technical Report",
+   "title_ja": "HoloBrain-0.5 技術レポート",
+   "summary_ja": "多様なロボット形態で動作可能なマニピュレーション向けVLAモデル「HoloBrain-0.5」の提案。URDFの関節軸や座標系を標準化し、キネマティクスグラフを統一3D表現としてエンコード。拡散ベースの連続制御版とFSQによる離散自己回帰版を開発し、15種以上のロボット形態にまたがる1万時間以上の実機・シミュレーション・人間動画で事前学習した。",
+   "summary_en": "The technical report introduces HoloBrain-0.5, a family of cross-embodiment VLA models for robotic manipulation. It unifies robot URDF kinematic graphs into a shared 3D representation and supports both continuous diffusion and discrete autoregressive action generation, pretrained on over 10,000 hours of multi-robot, simulation, and human data.",
+   "authors": [
+    "Xuewu Lin",
+    "Jiahao Wang",
+    "Jiawei Li",
+    "Mengdi Li",
+    "Zhengmao Sun",
+    "Yiwei Jin",
+    "Hongyu Xie",
+    "Zhengyang Feng",
+    "Kun Wu",
+    "Zihao Chen",
+    "Lianzhou Zhang",
+    "Lichao Huang",
+    "Zhizhong Su"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "manipulation",
+    "imitation-learning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.34449",
+   "image": "figures/2026-11-26/2611.34449.jpg"
+  },
+  {
+   "date": "2026-11-26",
+   "rank": 9,
+   "id": "2611.34936",
+   "group": "general",
+   "title": "DexLink: Synthesizing Dexterous Behaviors from Chained Hand-object Poses",
+   "title_ja": "DexLink: 手と物体の姿勢連鎖による器用な操作行動の合成",
+   "summary_ja": "多指ロボットハンドによる多様な器用マニピュレーション方策を合成するフレームワーク「DexLink」の提案。タスクのキーウェイポイントに対して手と物体の空間関係を保持する静的接触テンプレートを最適化し、それらを補間した参照軌道に残差強化学習を適用して動的な方策を獲得する。大量の人間デモなしに多様な物体の器用な操作動作の獲得に成功した。",
+   "summary_en": "DexLink presents a framework to synthesize diverse dexterous manipulation policies without massive human demonstrations. By retargeting sparse hand-object interaction templates to preserve spatial relationships and chaining them into reference trajectories, it uses residual reinforcement learning to produce robust finger-level manipulation behaviors.",
+   "authors": [
+    "Meenal Parakh",
+    "Deep Patel",
+    "Beining Han",
+    "Jia Deng"
+   ],
+   "categories": [
+    "cs.RO"
+   ],
+   "tags": [
+    "manipulation",
+    "reinforcement-learning",
+    "grasping"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.34936",
+   "image": "figures/2026-11-26/2611.34936.jpg"
+  },
+  {
    "date": "2026-11-25",
    "rank": 0,
    "id": "2611.32665",
