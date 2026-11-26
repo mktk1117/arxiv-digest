@@ -1,0 +1,141 @@
+{
+ "title_ja": "波に乗る：弾性変形地形におけるヒューマノイドのSim-to-Real制御",
+ "tldr_ja": "トランポリンのように面全体がたわんで波打つ大変形弾性地形で、外部センサを使わず固有受容感覚のみで安定歩行・バランス維持・連続ジャンプを可能にする強化学習フレームワーク「RIPPLE」を開発し、実機ヒューマノイドへのゼロショット転送に成功しました。",
+ "hero_figure": {
+  "key": "F2",
+  "caption_ja": "提案された弾性地面モデル「ElasticMembrane」の構成図です。衝突判定メッシュ、初期張力（プリテンション）を持つテンドン格子、固定外枠が質点ノードを共有しており、面全体のたわみ・エネルギー蓄積・接触間の時間遅れを伴う反発を効率的にGPUシミュレーションします。",
+  "caption": "Fig. 2: ElasticMembrane representation. The exploded view separates the collision-only flex surface, pretensioned tendon lattice, and fixed boundary for visualization; the surface and lattice share node positions. All views show the same simulated impact state. Solid and dashed lines in the local view denote axial and diagonal springs, respectively.",
+  "image": "details/2611.34569/F2.jpg"
+ },
+ "overview_ja": "従来の二足歩行ロボットの制御は、変形しない剛体床や、足裏の直下だけが局所的に沈み込む砂地のような地形を前提とすることが一般的でした。しかし、吊り橋、防護ネット、マットレス、トランポリンのような「弾性地形」では話が一変します。足を踏み込むと面全体が大きなたわみを生じ、蓄えられた弾性エネルギーによって接触が離れた後も波打つような運動が続きます。さらに、一方の足にかかる荷重がもう一方の支持点へと空間的に伝播するため、次に足をつく瞬間の地面の状態は、ロボット自身の直前の行動に強く依存することになります。\n\nそこで著者らは、このような時空間の連動を捉えるSim-to-Real学習フレームワーク「RIPPLE」を開発しました。核心となるのは、初期張力を持つ質点ばね格子によって薄膜の弾性ダイナミクスを再現する「ElasticMembrane」モデルです。これをGPU並列物理エンジンMuJoCo-WarpおよびMJLabに組み込み、接触面のたわみと反発を高速に解きながら強化学習を行える環境を構築しました。\n\n学習では、剛体床での歩行スキルを出発点として、カメラや足裏力センサを一切使わない「関節角度や角速度などの固有受容感覚（プロプリオセプション）のみ」を共通インターフェースとした段階的カリキュラムを適用しました。実機ヒューマノイド（MagicBot Z1）を用いた検証では、追加のハードウェア調整なし（ゼロショット）でトランポリン上での外乱耐性、連続15回のジャンプ、さらには剛体プラットフォームからトランポリンへの進入歩行に成功しました。大変形するダイナミックな地面を「波に乗るように」攻略できることを実証した、画期的な研究です。",
+ "contributions_ja": [
+  "薄膜力学に着想を得た初期張力付き質点ばね格子「ElasticMembrane」をMuJoCo-Warp/MJLabに統合し、弾性変形とロボットの連動をGPU並列計算できるシミュレーション環境を構築したこと。",
+  "剛体床の歩行スキルから弾性地形のバランシングやジャンプへと適応させる段階的学習手法を提案し、カメラや足裏力センサを使わない固有受容感覚のみで実機ヒューマノイドへのゼロショット転送を達成したこと。",
+  "実機トランポリン上で人からの突き飛ばしやベッドの揺らしに耐える安定性、15回以上の連続ジャンプ、剛体床からの進入歩行を世界で初めて実証したこと。",
+  "シミュレーション上で複数の地形モデルや剛性変化（0.35〜2.8倍）、サイズ変化（最大7m）、さらに吊り橋や竹筏など7種の応用シナリオへの高いゼロショット汎化性能を定量的に示したこと。"
+ ],
+ "sections": [
+  {
+   "heading": "I Introduction",
+   "heading_ja": "トランポリンを歩く難しさと、本論文の挑戦",
+   "summary_ja": "ヒューマノイドの実環境進出には、吊り橋やネットなどの弾性変形する地面への適応が不可欠です。しかし、地面全体が連動して変形・反発し続ける動的環境での強化学習はこれまで達成されていませんでした。本論文は、これを解決するフレームワーク「RIPPLE」を提案します。",
+   "details_ja": "ヒューマノイドロボットが災害救助やインフラ点検、家庭内で活躍するためには、硬く平らな床だけでなく、吊り橋、防護ネット、浮体プラットフォーム、マットレスといった柔らかく変形する地面を移動できなければなりません。\n\nこれまでの脚ロボット研究でも砂地や泥のような降伏面（踏み込むと局所的に沈む地面）の歩行は研究されてきましたが、トランポリンのような「弾性地形」は根本的に性質が異なります。踏み込んだ荷重によって面全体がたわんでエネルギーが蓄えられ、足を浮かせた後も振動が持続し、さらに片足への荷重がもう片方の足の支持状態を変化させます。つまり、ロボットの過去の踏み込みが未来の足場ダイナミクスを決定するのです。\n\n四足ロボットではモデル予測制御によるトランポリン移動の先行例がありましたが、ヒューマノイドにおいて、しかも強化学習によってこの動的連動を攻略したハードウェア実証は存在しませんでした。\n\n本研究が提案する「RIPPLE (Robust Interaction via Proprioceptive Policies on Large-deformation Elastic terrain)」は、薄膜モデル「ElasticMembrane」をGPUシミュレータ上に構築し、固有受容感覚（プロプリオセプション：関節エンコーダやIMUの値）のみを入力として、剛体床から弾性地形へと段階的にスキルを転送する仕組みです。カメラや足裏の触覚センサに頼ることなく、実機ヒューマノイド「MagicBot Z1」でトランポリン上のバランス維持、連続ジャンプ、剛体床からの乗り移りをゼロショットで実現しました。",
+   "figures": []
+  },
+  {
+   "heading": "II Related Work",
+   "heading_ja": "変形地形のモデル化と脚ロボット制御の系譜",
+   "summary_ja": "粘塑性や砂粒モデルなど接触直下の局所変形を扱う先行研究や、四足ロボットの跳躍力学モデルは存在しました。しかし、面全体が時間的・空間的に結合する境界付き弾性地形において、ヒューマノイドを強化学習で制御する研究は未踏でした。",
+   "details_ja": "本研究の位置づけを理解するために、先行研究の4つの系統を整理しておきましょう。\n\n### II-A 柔軟・変形地形のモデリング\n従来の脚ロボット研究では、ばねダンパの連続体モデルや、砂地などの粒状体モデル（Granular-media）、あるいは接触パラメータの動的ランダム化（Domain Randomization）によって地面の柔軟性を扱ってきました。しかし、これらは足裏の直下が局所的に沈み込む現象が中心であり、踏んだ場所から離れた場所へ波が伝わり、接触後も地面が振動し続けるような境界付き弾性膜の時空間ダイナミクスは表現できませんでした。\n\n### II-B エネルギー蓄積地形での移動\nトランポリンのように環境側がエネルギーを蓄える地形は、外乱となる一方でエネルギー交換の好機でもあります。四足ロボットがピッチ軸の揺れを抑えながらトランポリン上を跳躍する研究などはありましたが、自由度が高く転倒しやすいヒューマノイドへの適用や、学習ベースでのアプローチは未開拓でした。\n\n### II-C 固有受容感覚学習とSim-to-Real転送\nRMA（Rapid Motor Adaptation）などに代表されるように、過去の状態行動履歴（プロプリオセプション履歴）から環境特性を潜在的に推論する手法がヒューマノイドでも成功を収めています。RIPPLEもこの思想を受け継ぎ、外界センサに頼らず自身の関節と姿勢の履歴のみから弾性地面の揺れに対応します。\n\n### II-D ポリシー学習のための並列シミュレーション\nIsaac GymやMuJoCo-Warp、MJLabなどの登場により、GPU上で数千並列のシミュレーションを回すことが可能になりました。RIPPLEはこの最新スタックの上に、初期張力付き弾性膜と接触メッシュの連動機構を実装しています。",
+   "figures": []
+  },
+  {
+   "heading": "III RIPPLE Framework",
+   "heading_ja": "RIPPLEの仕組み：弾性膜の物理モデルと段階的学習",
+   "summary_ja": "初期張力を持たせた質点ばね格子「ElasticMembrane」をMuJoCoに実装し、GPU上で高速並列シミュレーションを実現しました。学習は剛体床から速度追従、そして跳躍へと段階的に進め、ロボット自身の固有受容感覚履歴のみを行動決定に用います。",
+   "details_ja": "### III-A ロボット–地形の力学とシミュレーションモデル\nトランポリンの膜をそのままシミュレートしようとすると、初期張力（プリテンション）がないモデルでは自重や接触で過剰に沈み込んでしまいます。そこで本研究では、質点ノードを正方格子状に並べ、縦横（軸方向）および斜め方向をばねとダンパで結合した「ElasticMembrane」を設計しました。\n\n境界ノードは空間に固定され、内部ノード（1m×1mのベッドでは10cm間隔の81ノード）が3次元的に動きます。MuJoCoの空間テンドン（spatial tendon）の自然長を短く設定することで初期張力 $T_0 = 55\\,\\mathrm{N}$ を与え、面外方向への復元力を生み出しています。また、接触判定専用の2Dメッシュをノード位置に共有させることで、ロボットの足と膜の接触力を厳密に計算します。シミュレーションは50Hzの制御に対して2msのタイムステップ（1制御周期あたり10ステップ）で安定して動作します。\n\n### III-B 並列シミュレーションと高速化\nMuJoCo-WarpとMJLabを用いてGPU並列実行を行いますが、テンドンの減衰計算においてスパースな行列書き込みを最適化し、不要な描画レコードを省くことで、シミュレーションのスループットを21.8%向上させました。\n\n### III-C 学習セットアップと段階的転送\nロボットの観測は、胴体角速度、投影重力ベクトル、速度/高さコマンド、23自由度の関節位置・速度、前回の行動の過去4フレーム分（合計312次元）です。足裏圧力センサやカメラなどの外部センサは一切使いません。\n\n学習アルゴリズムにはPPOを採用し、4台のRTX 5090 GPU上で計4096並列環境を用いました。学習は以下の段階的カリキュラム（Staged Policy Transfer）で行われます：\n1. **Flat-VelocityTracking**：剛体平地での歩行スキルを学習。\n2. **ElasticMembrane-VelocityTracking**：膜地形に移行し、アクターと正規化器を引き継いで歩行・バランスを学習。\n3. **ElasticMembrane-Jump**：跳躍タスク用に微調整。目標高さを指示し、対空時間や踏み切り速度を促す報酬を追加。\n\n重要なのは、弾性地形で特別な報酬成形（シェイピング）を行っていない点です。環境側の力学が忠実であるため、物理的な連動に対応する動作が強化学習によって自然に創発します。\n\n### III-D 実機へのSim-to-Real展開\n学習したアクターネットワークはONNX経由でRKNNに変換され、ヒューマノイド「MagicBot Z1」のオンボードPCで50Hz推論されます。シミュレーションと全く同じ固有受容感覚インターフェースをそのまま実機に適用します。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "図F2：ElasticMembraneのレイヤー構造。衝突判定専用のflexサーフェス（200個の三角形）、初期張力を持つテンドン格子（81ノード、420テンドン）、固定外枠（40ノード）がノード位置を共有して一体となって機能します。局所図の実線は軸方向ばね、破線は対角線ばねを示します。",
+     "caption": "Fig. 2: ElasticMembrane representation. The exploded view separates the collision-only flex surface, pretensioned tendon lattice, and fixed boundary for visualization; the surface and lattice share node positions. All views show the same simulated impact state. Solid and dashed lines in the local view denote axial and diagonal springs, respectively.",
+     "image": "details/2611.34569/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "IV Experiments",
+   "heading_ja": "実機検証とシミュレーション：トランポリンを乗りこなす",
+   "summary_ja": "実機MagicBot Z1において、トランポリン上での外乱復帰、旋回、剛体床からの進入、連続15回のジャンプをゼロショットで成功させました。比較実験では、面全体の動的連動をモデル化することがSim-to-Real成功の決定打であることが示されました。",
+   "details_ja": "### IV-A 実験セットアップと評価プロトコル\n実機実験には直径1.5m、耐荷重200kgの市販トランポリンを使用しました。シミュレーション評価では、静止状態から20秒間待って地面の揺れが収まった後、21秒、24秒、27秒の時点でランダムな水平速度外乱（0.1〜0.9 m/s）を加え、姿勢の傾きやベッドからの逸脱（0.5m以内）を30秒間耐えきれるかを「立位成功率（Standing Success）」として評価しました。\n\n### IV-B ゼロショット実機展開の結果\n実機において、提案手法のポリシー（ElasticMembrane-VelocityTracking）は目覚ましい頑健性を示しました：\n- **外乱への復帰**：ロボットの腕を引っ張る、胴体や太ももを蹴る、あるいは人間がトランポリンの端を踏む・蹴る・持ち上げるといった激しい外乱に対しても、転倒することなくバランスを保ち続けました。累積で657.5秒間の制御中、一度も転倒しませんでした。\n- **剛体床からの進入歩行**：剛体の台からトランポリンへと歩いて進入するテストでは、足を踏み入れた瞬間の大きなたわみにも動じず、2.3秒および3.3秒で体幹の動揺を収束させて安定歩行に移行しました。\n- **連続ジャンプ**：跳躍ポリシー（ElasticMembrane-Jump）により、空中時間150ms以上、足裏の最高クリアランス約22cmの連続ジャンプを15回連続で成功させました。興味深いことに、トランポリンの弾性エネルギーを利用することで、剛体床でのジャンプに比べて脚の正の仕事量が39%削減（96Jから59J）、最大総出力が32%削減（1.94kWから1.33kW）され、省エネ化が確認されました。\n\n一方、剛体床モデルや単純な接触柔軟性モデルで学習したベースラインは、実機トランポリンに乗せた直後に足を取られてすべて転倒しました。\n\n### IV-C 地形モデリングが転送に与える影響\nシミュレーション上で4つの地形モデル（CompliantContact, IndependentSprings, BouncyPlate, ElasticMembrane）を比較しました。接触面のみを柔らかくしたCompliantContact-DRは、動的に動く面への転送に失敗（ElasticMembrane上で成功率8.0%）。一方、ElasticMembraneで学習したポリシーは、0.3 m/s外乱下で4つの地形すべてにおいて98.7%以上の立位成功率を叩き出しました。地面自体が質量と弾性を持ち、動的に状態が変化する環境で訓練することが不可欠であると分かります。\n\n### IV-D 剛性とサイズに対する頑健性\nシミュレーションの膜剛性を0.35倍から2.8倍まで変化させても高い成功率を維持し、剛体床（剛性無限大）でも100%成功しました。また、直径1mから7mまでのサイズ変化にも耐え、事前の厳密な剛性キャリブレーションなしでも実機に転送できる理由が裏付けられました。\n\n### IV-E さらなる応用シナリオ\n同じ固定ポリシーを用いて、吊り橋、竹筏、防護ネット、エアドームなど7種類の異なるシミュレーション環境を歩行させたところ、一切の再学習なしで転倒せずに前進歩行を達成しました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "図F4：実機ヒューマノイドへの外乱実験の様子。上段はロボット本体への外乱（腕の引っ張り、蹴り、胴体押し）、下段はトランポリンへの外乱（人間がベッドを踏み込む、側面を蹴る、枠を持ち上げる）です。いずれの衝撃に対しても姿勢を崩さず適応しています。",
+     "caption": "Fig. 4: Experimental perturbations during zero-shot hardware deployment. Top row, applied to the robot: (a) pulling its hand, (b) kicking the robot, and (c) pushing its torso. Bottom row, applied to the trampoline: (a) stepping on the bed, (b) kicking the bed laterally, and (c) lifting its edge.",
+     "image": "details/2611.34569/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "図F5：比較された4つの地形モデルの応答特性。接触直下のみ沈むCompliantContact、ノードが独立ばねで支えられたIndependentSprings、板全体が上下するBouncyPlate、そして面全体が連動するElasticMembraneです。同じ球体を落下させた際、たわみ量と反発の仕方に明確な違いが現れます。",
+     "caption": "Fig. 5: Four terrain models and cross-terrain standing success. Top: responses of four terrain models to the same probe impact: compliant contact against a fixed plane (CompliantContact), independently spring-supported nodes (IndependentSprings), a vertically moving spring-supported rigid plate (BouncyPlate), and a coupled mass–spring mesh (ElasticMembrane). Bottom: standing success on each terrain under 0.1–0.9 m/s velocity perturbations, with a 20 s wait and 0.50 m drift limit, Eq. ( 5 ); curves denote training methods, and colors identify their training terrain. …",
+     "image": "details/2611.34569/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "図F7：ElasticMembraneで学習した単一のポリシーを他の弾性環境へ適用したシミュレーション例。(a)吊り橋、(b)竹筏、(c)エアドーム、(d)防護ネットのいずれにおいても、再学習なしで0.3 m/sの前進歩行コマンドに追従できています。",
+     "caption": "Fig. 7: Simulated application sequences at 2, 4, and 6 s (rows). The top row shows overviews; the lower rows are fixed per-column crops at $2\\times$ . One fixed ElasticMembrane-VelocityTracking policy follows a 0.3 m/s forward command (arrows); materials and lighting are illustrative.",
+     "image": "details/2611.34569/F7.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "V Discussion and Limitations",
+   "heading_ja": "なぜ上手くいったのか？ そして残された課題",
+   "summary_ja": "境界付き弾性膜の特性が「暗黙の剛性カリキュラム」として機能したことが高い汎化性の鍵でした。一方で、実機トランポリンの精密な物理同定や、さらなる計算スループットの向上が今後の課題です。",
+   "details_ja": "### V-A 物理的な解釈と成功の要因\nなぜElasticMembraneで学習したポリシーは、これほど広範な環境に汎化できたのでしょうか？ 著者らは「暗黙の剛性カリキュラム」が存在したと考察しています。\n\n境界が固定された膜では、中央部が最も柔らかく、端（境界）に近づくほど実効的な剛性が高くなります。ロボットが中心で足踏みし、速度指令を受けて端へと移動し剛体床へ抜ける過程で、エピソード中に「柔軟から剛体まで」の連続的な硬さを自然に経験することになります。これにより、明示的にパラメータをランダム化しなくても、広範な剛性変化に適応できる頑健性が身についたのです。\n\nまた、同じ押し込み量であっても反発高さが異なる実験（剛体球を落とした際、ElasticMembraneは361mm反発し、他モデルより圧倒的に高いエネルギーを蓄積・返還する）から分かるように、最もダイナミックな反発環境で訓練されたことが、他の穏やかな地形への転送を容易にしました。\n\n### V-B 限界と今後の課題\n一方で、論文では以下の限界も挙げられています：\n- 実機のトランポリンに対する荷重–たわみ曲線や反発応答の厳密な定量的キャリブレーションは行われておらず、定性的な一致に留まっている点。\n- 膜のサイズが8mを超えると、自重による沈み込みが0.9m以上に達し、初期配置の瞬間にトルク飽和で転倒してしまう点（動作可能範囲の限界）。\n- MuJoCo-Warpの計算フローにおいて、GPUスループットをさらに最適化する余地がある点。\n- トランポリン以外の吊り橋や竹筏といったシナリオは、まだシミュレーション内での実証に留まっている点です。",
+   "figures": []
+  },
+  {
+   "heading": "VI Conclusion",
+   "heading_ja": "まとめ：波打つ地面を乗りこなすヒューマノイドの未来",
+   "summary_ja": "大変形弾性地形において、固有受容感覚のみでヒューマノイドを制御するSim-to-Realフレームワーク「RIPPLE」を確立しました。コードも公開予定であり、不整地歩行の新たな基盤となることが期待されます。",
+   "details_ja": "本研究は、面全体がダイナミックに連動・変形する弾性地形において、ヒューマノイドロボットが安定して立位・歩行・跳躍を行えることを世界で初めて実証しました。\n\n初期張力付き薄膜モデル「ElasticMembrane」によるGPU並列物理シミュレーションと、剛体床から段階的に適応させる学習カリキュラムを組み合わせることで、カメラや触覚センサを用いない固有受容感覚のみのポリシーが、実機のトランポリン上へ見事にゼロショット転送されました。剛性やサイズの変化に対する驚異的な頑健性、そしてジャンプ時に環境の弾性エネルギーを活用して脚の消費エネルギーを抑える適応性など、弾性地形ならではの興味深い振る舞いも明らかになりました。\n\nRIPPLEのシミュレーション環境と学習コードはオープンソースとして公開される予定です。従来の「硬い地面」という制約を打ち破り、あらゆる柔軟・動的環境でヒューマノイドが文字通り『波に乗る（Ride the Wave）』ための重要なマイルストーンとなる研究です。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "接触点直下の局所的な柔軟性だけでなく、面全体の質量と初期張力による時空間的な連動（エネルギー蓄積と反発）をモデル化することが、弾性地形におけるSim-to-Real成功の決定打となる。",
+  "固定境界を持つ膜地形は、中心（軟）から端（硬）へと自然な剛性変化を生むため、明示的なドメインランダム化を行わなくても「暗黙の剛性カリキュラム」として機能する。",
+  "カメラや足裏力センサを使わず、関節エンコーダとIMUのみの過去履歴（プロプリオセプション履歴）からでも、変形する地面の動的状態を十分に推定・適応できる。",
+  "弾性地形でのジャンプ動作では、地面の反発エネルギーを巧みに利用することで、剛体床よりも脚の正の仕事量を約39%削減する省エネ跳躍が創発する。"
+ ],
+ "limitations_ja": [
+  "実機トランポリンのばね定数や減衰特性に関する厳密なシステム同定（物理パラメータ計測）は行われておらず、モデルとの厳密な一致度は検証されていない。",
+  "膜のスパンが8m以上になると自重沈み込みが大きくなりすぎて初期接地時にトルク飽和を起こすなど、対応可能な変形スケールにハードウェア上の上限が存在する。",
+  "吊り橋や竹筏、エアドームなどの魅力的な実応用シナリオはシミュレーション検証に留まっており、これら多様な実環境でのハードウェア実証は今後の課題である。"
+ ],
+ "keywords": [
+  "Humanoid Locomotion",
+  "Sim-to-Real Transfer",
+  "Elastic Terrain",
+  "Reinforcement Learning",
+  "Deformable Contact",
+  "Proprioceptive Control"
+ ],
+ "id": "2611.34569",
+ "title": "Riding the Wave: Sim-to-Real Humanoid Control on Elastic Terrain",
+ "authors": [
+  "Yinglei Zhu",
+  "Qin Li",
+  "Honghao Pan",
+  "Bozhao Wang",
+  "Binghui Xu",
+  "Jie Lu",
+  "Wentao Song",
+  "Xiyu Wang",
+  "Xinyu Zhu",
+  "Wei Liu",
+  "Xinjun Liu",
+  "Kai Lu",
+  "Huichan Zhao"
+ ],
+ "date": "2026-11-26",
+ "group": "focus",
+ "tags": [
+  "humanoid",
+  "locomotion",
+  "sim-to-real",
+  "reinforcement-learning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.34569",
+ "pdf_url": "https://arxiv.org/pdf/2611.34569",
+ "summary_ja": "たわみや反発が時空間的に連動する大変形弾性地形をヒューマノイドが踏破するためのSim-to-Real学習フレームワーク「RIPPLE」の提案。事前張力バネ質量メッシュモデルElasticMembraneをMJLabに統合し、GPU並列で接触ダイナミクスを解きながら強化学習を行う。実機の固有受容感覚のみを用いた方策により、変形地表での安定歩行を実現した。",
+ "generated": "2026-11-26",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.34569"
+}
