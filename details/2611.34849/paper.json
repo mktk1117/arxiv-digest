@@ -1,0 +1,149 @@
+{
+ "title_ja": "Real2SimLab: 実環境からシミュレーションへの転送のための統合プラットフォーム",
+ "tldr_ja": "実世界動画からシミュレーションプログラムを生成するAI（コーディングエージェント）の評価や学習を、$N \\times M$ 通りの個別実装なしに $N + M$ 回の接続だけで行える統合プラットフォーム「Real2SimLab」が登場しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "本研究の全体像です。動画からシミュレーションコードを書く最新のコーディングエージェント（左）を、共通インターフェースを介して多様なベンチマークで公式スコア付きで一括評価・学習データ生成できる仕組み（中央）と、約300本の関連研究を体系化した研究マップ（右）を提供しています。",
+  "caption": "Figure 1: Overview of this work. (1) The new paradigm: a coding agent turns a recording of a real event into a program that simulates it. Every simulation frame here is rendered by re-running a program that the Codex agent wrote for the input video recording.(2) Real2SimLab runs the program that a method writes, scores its output with the scorer of the benchmark, and creates training data and reward annotations. (3) Awesome-Real2Sim organizes nearly 300 real-to-simulation papers according to what they deliver or ask for.",
+  "image": "details/2611.34849/F1.jpg"
+ },
+ "overview_ja": "ロボット学習やシーン理解において、現実世界の観測データ（画像や動画など）からシミュレータ環境を再構築する「Real-to-Sim（現実からシミュレーションへの転移）」技術は極めて重要です。近年、大規模言語モデルを基盤としたコーディングエージェントが急速に進化し、現実の動画を観察して物理シミュレーションを動かすPythonコードやBlenderスクリプトを自動生成する新しいパラダイムが注目を集めています。\n\nしかし、ここで大きな壁となって立ちはだかっていたのがベンチマークの断片化です。あるベンチマークは生成動画の見た目を評価し、別のベンチマークはロボットのアクションパッケージを要求し、また別のベンチマークは物体の4D軌道を求めるなど、入力仕様・提出形式・採点方法がバラバラでした。その結果、$N$ 個の手法を $M$ 個のベンチマークで試すには $N \\times M$ 個もの個別アダプタを泥臭く実装する必要があり、手法同士の公正な比較が極めて困難でした。\n\nそこで著者らは、手法側が提出する「実行可能なプログラム」を共通インターフェースとする統一プラットフォーム「Real2SimLab」を開発しました。各手法とベンチマークを一度アダプタで接続するだけで、わずか $N + M$ 回の統合で相互乗り入れが可能になります。さらに、ベンチマークのテスト動画が学習データに混ざる「データ汚染」を画像照合で厳密に排除しながら、強化学習やファインチューニングに使える報酬付き学習データを自動生成するパイプラインも備えています。\n\n現在、47種類のエージェントと5種類の非エージェント手法、そして6つの主要ベンチマークに対応しており、約300本の論文を整理したリサーチマップ「Awesome-Real2Sim」とともにオープンソースとして公開されています。",
+ "contributions_ja": [
+  "動画からシミュレーションを構築する多様な手法とベンチマークを、プログラムという共通規格でつなぎ、$N+M$ 回の統合で一括評価できる統一プラットフォーム Real2SimLab を構築したこと",
+  "エージェントが作業した環境を再現してオフラインで再実行し、再現性や公式スコアとの整合性を保ったまま厳密に自動採点するサンドボックス機構を実現したこと",
+  "動画の切り出しや再エンコードによるデータ汚染をフレーム比較で検出し、クリーンな学習データと報酬ラベルを生成する学習パイプラインを提供したこと",
+  "47種のコーディングエージェント、5種のベースライン、6つのベンチマークへの対応に加え、約300本の論文を分類したサーベイマップ Awesome-Real2Sim を整備したこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜReal-to-Simの評価に共通プラットフォームが必要なのか？",
+   "summary_ja": "現実世界の動画からシミュレーションプログラムを生成するAIが登場し、多くのベンチマークが提案されましたが、入出力仕様の違いから評価コストが爆発していました。本章では、プログラムを共通インターフェースにして接続回数を $N \\times M$ から $N + M$ へと劇的に削減する Real2SimLab の着想と狙いを説明しています。",
+   "details_ja": "ロボティクスやコンピュータビジョンにおいて、現実の観測データからシミュレーションを構築するReal-to-Simは長年研究されてきました。これまでは物体の質量や摩擦係数をフィッティングしたり、3Dスキャンからロボットの訓練部屋を作ったりと、シーンごとに専用の個別パイプラインを組むのが普通でした。\n\nしかし、近年の大規模モデル（ClaudeやGPTなど）の進化により、コーディングエージェントに動画を見せて「この現象を再現するシミュレータのコードを書いて」と頼む新しいパラダイムが生まれました。たとえばグラスに赤いジュースを注ぐ動画を渡すと、エージェントが物理エンジンを使ってグラスと液体を配置し、注ぐ挙動を再現するコードを自律的に書きます。一度プログラムになれば、別の視点からレンダリングしたり、任意の時刻の物体の物理状態を取り出したりと自由自在です。\n\nところが、この進歩を測るベンチマーク側はバラバラでした。最初の3秒を見て続く5秒の予測動画フレームを求める「Physics-IQ」、ロボット操作動画から再現シーンと動作パッケージを求める「Video2World」、4D世界のスクリプトを要求する「4DCodeBench」、Blenderシーンを求める「PhysCodeGym」など、入力も提出物も採点コードも各コミュニティで勝手に作られていたのです。このため、$N$ 個の手法を $M$ 個のベンチマークで動かすには $N \\times M$ 回のアダプタ開発が必要となり、誰も複数ベンチマークでの横断比較ができませんでした。\n\nReal2SimLab はこの問題を解決するため、エージェントが書いた「プログラム」を共通のインターフェースとして固定しました。手法側はプログラムを提出するアダプタを1つ作り、ベンチマーク側は課題を共通フォーマットに変換して公式採点器を呼ぶアダプタを1つ作るだけです。これで統合回数は $N + M$ 回に抑えられます。さらに、データ汚染を避けた学習データ生成機能や、約300本の関連論文をまとめた研究マップ「Awesome-Real2Sim」も提供しています。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "共有プラットフォーム導入のメリットです。(a) 従来は手法とベンチマークの組み合わせごとに専用アダプタが必要で $N \\times M$ 回の実装が必要でしたが、(b) Real2SimLab はプログラムを共通インターフェースとして挟むことで、$N + M$ 回の統合で横断的な評価を可能にします。",
+     "caption": "Figure 2: Why a shared platform helps. (a) Without a shared platform, benchmarks differ in what they provide to a method, what they ask the method to deliver, and how they score the output. Every pair of a method and a benchmark thus requires its own adapter to run. (b) Real2SimLab makes the delivered program into the interface between methods and benchmarks. So each method and each benchmark is integrated only once.",
+     "image": "details/2611.34849/F2.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "他分野の共通プラットフォームとReal-to-Sim研究の広がり",
+   "summary_ja": "言語モデルやロボット方策ですでに成功している統一評価基盤の考え方をReal-to-Sim分野に持ち込み、先行研究との決定的な違いを明確にしています。また、約300本の関連論文を成果物の種類ごとに分類したサーベイマップの位置づけについても整理しています。",
+   "details_ja": "### 他分野の評価プラットフォームと本研究の位置づけ\n評価の統一化はすでに各分野で大きな成果を上げています。言語モデルでは lm-evaluation-harness や HELM、マルチモーダルでは VLMEvalKit、ソフトウェア開発エージェントでは SWE-bench や Harbor、そしてロボット方策では SIMPLER や XPolicyLab などがあります。Real2SimLab も XPolicyLab と同様にアダプタ方式で $N + M$ の接続を目指していますが、扱う中身が根本的に異なります。\n\nロボット方策は環境と逐次やり取りする「生きたモデル」ですが、Real2SimLab が扱うのはエージェントが作業の最後に一度だけ出力する「プログラム」です。プログラムは後から何度でも単体で実行できるため、エージェントが試行錯誤したセッション環境とは切り離し、固定された環境で再実行してスコアを計算します。Harbor のようにエージェントが動いたコンテナ内部を直接検証するのではなく、外部の独立したサンドボックスで凍結再実行を行う点が大きな特徴です。\n\n### 300本を分類したリサーチマップ\n著者らが公開した Awesome-Real2Sim では、約300本の論文を「手法が届ける成果物」と「ベンチマークが求めるもの」によって分類しています。\n- **手法の5分類**: 物理パラメータを合わせ込む Physical twins（Fitted/Assigned）、シミュレーション用アセット、環境全体を再現する Scene twins、物理エンジンを呼び出す Simulation programs、ニューラルネット等による Learned simulators\n- **ベンチマークの4分類**: 実行可能なシミュレーションを求めるもの、物理の問いに答えるもの、動画フレーム生成を競うもの、シミュレータと現実の一致度を検証するもの\n\nReal2SimLab が対象とするのは、コーディングエージェントが「実行可能なシミュレーションプログラム」を生成する最新の系統です。また、動画データが別データセット間で転用されることによる「データ汚染」を防ぐため、フレーム照合による厳密なフィルタリング機構も先行研究の知見を活かして設計されています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "Awesome-Real2Sim から作成された Real-to-Sim 分野の年表です。物理パラメータの推定から始まり、近年では 4DCodeBench や Video2World など、コーディングエージェントにシミュレーションコードを書かせるベンチマークが急増している潮流がひと目で分かります。",
+     "caption": "Figure 3: A roadmap of real-to-simulation, from Awesome-Real2Sim. Selected methods (gray) and benchmarks (violet) are placed by the month of their first arXiv version (for Galileo, which has none, by the month of its conference). Each card names the institution and what the paper delivers or asks for. The methods deliver many kinds of results, such as physical twins (fitted or assigned), simulation-ready assets, scene twins, learned simulators, and simulation programs. One recent trend is that coding agents write simulation programs, and recent benchmarks such as 4DCodeBench, PhysCodeGym, and Video2World are proposed to evaluate these agents.",
+     "image": "details/2611.34849/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "3 The Real2SimLab Platform",
+   "heading_ja": "プラットフォームの設計：サンドボックス、凍結再実行、統一スコアリング",
+   "summary_ja": "Real2SimLab の中核アーキテクチャを解説しています。タスクデータの可視/不可視の厳密な分離、提出物のサンドボックス内での凍結とオフライン再実行、そして公式スコアや独自指標による公平な自動採点パイプラインがどのような仕組みで動くかを詳述します。",
+   "details_ja": "### 3.1 タスクの設計とデータ分離\n評価を公正に行うため、各タスクは `visible/`（手法側に見せてよい動画やカメラパラメータ、シーン説明）と `hidden/`（正解出力や採点用データ）の2つのディレクトリに物理的に隔離されています。手法が動作するサンドボックスには `hidden/` は一切マウントされず、シンボリックリンクなどの不正参照もバリデーションで弾かれます。また、必要なコンテナイメージや制限時間などをメタデータに記述し、エージェントへの指示文を自動生成します。\n\n### 3.2 手法側のアダプタと提出物の規約\n手法側アダプタは「`visible/` を受け取って提出物（プログラム一式）を返す」という単一の関数を実装するだけで完成します。提出形式は以下の4つの規約に対応しており、これで主要ベンチマークを網羅できます:\n- **Real2SimLab 規約**: 指定ディレクトリに物体の軌道データやレンダリング動画を出力する `solution/run.py`\n- **4DCodeBench 規約**: 4Dワールド構築スクリプト\n- **PhysCodeGym 規約**: 動画をレンダリングするBlenderシーンファイル\n- **Video2World 規約**: 再建シーンとロボットのアクションを含むシミュレーションパッケージ\n\nエージェントは自分専用の隔離ワークスペースで作業し、外部アクセスはモデルのAPI通信のみに制限されます。また、自前で2回実行して同じ結果が出るかを確認できる自己診断ツールも提供されます。\n\n### 3.3 凍結（Freeze）とオフライン再実行（Re-run）\nエージェントが作業中にたまたま出した結果ではなく、「完成したプログラムそのものの実力」を測るため、提出されたコードをコピーしてハッシュ値（フィンガープリント）を取り、内容を凍結します。そしてネットワークを遮断した読み取り専用のサンドボックス（Docker または root権限不要の bubblewrap）で再実行します。同じシード値で2回再実行して結果が一致するか（再現性）、作業セッション中の出力と一致しているか（セッション一貫性）を厳密にチェックします。\n\n### 3.4 採点プロトコルとレポーティング\n採点には2つのプロトコルを用意しています:\n- **Native プロトコル**: ベンチマーク公式の採点コードをピン留めされたコミットから呼び出して実行します（6つのうち5つで採用）。\n- **Reproduction プロトコル**: 公式採点器がない場合やユーザー自前の動画を採点するための独自プロトコルです。物体の軌道誤差 $e$ と、物体が一切動かない静止シーンの誤差 $e_{\\text{static}}$ を比較し、再現スキル（$\\text{skill} = 1 - e / e_{\\text{static}}$）としてスコア化します。完全再現で 1、静止状態と同等なら 0、それより悪ければ負の値になります。\n\nマシントラブルやコンテナ起動失敗などはインフラエラーとして記録され、手法のスコアから除外されるため、純粋なアルゴリズム性能を比較できます。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "Real2SimLab のシステム構成図です。左の手法側アダプタと右のベンチマーク側アダプタが中央の共通タスク形式を介して接続されます。提出されたプログラムはサンドボックス内で一度凍結され、オフラインで再実行された出力に対して公式採点または再現度採点が行われます。",
+     "caption": "Figure 4: Architecture of Real2SimLab. A method-wise adapter (left) passes the visible part of a task to a method and collects its deliverable, and a benchmark-wise adapter (right) turns the data of a benchmark into tasks. In between (center), Real2SimLab fixes one task format. It builds each deliverable in a sandbox, freezes it, re-runs it offline, and scores it with the protocol of the benchmark. All results are stored in one record format and reported in one scorecard. Training tasks use the same format as evaluation tasks, and their rewards are computed by the scoring code of evaluation (Section 5 ).",
+     "image": "details/2611.34849/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Ecosystem",
+   "heading_ja": "対応する47種類のエージェントと6つのベンチマーク",
+   "summary_ja": "Real2SimLab が現在サポートしている具体的なエージェント群やベンチマークの内訳、公式環境との整合性検証結果、そして新たなベンチマークや手法をプラグインとして追加するための拡張性について説明しています。",
+   "details_ja": "### 多様なベンチマークへの接続\n現在、以下の6つの主要ベンチマークと、物理法則を厳密にシミュレートした独自の合成データスイートに対応しています:\n- **Physics-IQ**: 実動画の最初の3秒から残り5秒の動画をレンダリング\n- **Video2World**: ロボット操作動画からシーンと動作パッケージを生成\n- **4DCodeBench**: 時間発展する3Dシーン（4Dワールド）の構築スクリプトを生成\n- **PhysCodeGym**: 参照動画を再現する Blender シーンを生成\n- **PhySimCode**: 物理現象動画からシミュレーションコードと物理パラメータを推定\n- **IRIS**: ボール落下などの実動画から物理パラメータを推定（本基盤では抽出した運動軌道の再現スキルで評価）\n- **Synthetic suite**: 跳ねるボール、減衰振り子、摩擦のある斜面を滑るブロック、空気抵抗のある放物運動、2球の衝突という5つの基礎現象を厳密な真値付きで生成\n\n各アダプタは公式の元リポジトリと照合確認されており、Physics-IQ や Video2World（Push-Tタスクなど）で公式スコアと完全に一致することが確かめられています。\n\n### 47のエージェントと非エージェント手法\nHarbor フレームワークとのブリッジ接続により、OpenHands、Aider、Cursor CLI、Goose、Qwen Code など合計47種類のエージェントを即座に実行可能です。また、Codex、Claude Code、Gemini CLI、OpenCode、mini-SWE-agent の5つについては、Harbor を介さずに Real2SimLab のサンドボックス内で直接動くネイティブアダプタも用意されています。比較基準として、単純な非エージェント手法5種も同梱されています。\n\n### 柔軟なプラグイン設計\nベンチマーク、手法、評価指標、提出形式、サンドボックス環境はすべてプラグイン化されています。また、コーディングエージェント自身が新しいベンチマークや手法の追加手順を踏めるよう設計された「Agent skills」も同梱されており、コミュニティ主導でエコシステムを容易に拡大できるよう工夫されています。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "対応している6つのベンチマークと独自合成スイートの一覧です。各タスクで何が入力として見え、何を出力として提出し、どのような基準（公式採点または再現度スキル）で評価されるかが整理されています。",
+     "caption": "Figure 5: The benchmarks that Real2SimLab adapts so far. Each card shows what a method sees, what it delivers, and how the deliverable is scored. Of the 6 existing benchmarks, 5 keep their official scorers, while IRIS (marked Lab ) and our synthetic suite (marked exact truth ) use the reproduction skill of Real2SimLab. New benchmarks and recordings of users are added by converting them into tasks of the shared format (Section 3.1 ).",
+     "image": "details/2611.34849/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Training with Real2SimLab",
+   "heading_ja": "データ汚染を防ぎながら強化学習・ファインチューニング用データを自動生成",
+   "summary_ja": "評価だけでなく、モデルを強化するための学習データ作成パイプラインを提案しています。評価用ベンチマーク動画の混入（データ汚染）を動体フレーム比較で確実に排除し、評価と全く同一のコードで報酬ラベルを自動付与する仕組みを解説しています。",
+   "details_ja": "### データ汚染（Data Contamination）という深刻な課題\nベンチマークのスコアが高くても、実は訓練データにテスト動画が含まれていたという問題はしばしば起こります。特に Real-to-Sim 分野では、ネット上の公開動画を別々の研究者が再利用することが多く、リサイズや再エンコード、トリミングされて同じ現象の動画が複数のデータセットに紛れ込む危険が常にあります。\n\n### フレーム比較による厳密な重複チェック\nそこで Real2SimLab は、学習タスクを生成する際に評価タスクとの重複を自動検査する機構を備えました。動きがあるフレームを小さなサムネイル画像に縮小し、時間軸のオフセットをずらしながら全探索で比較します。解像度の変更や輝度変化、フレームレート低下、動画の一部分の切り出しであっても同一映像を検知可能です。テストでは、合成評価動画のコピー40件中36件を正確に検出し（検出漏れは極端に圧縮されたもののみ）、実際のデータでも PhysCodeGym が Physics-IQ から再利用していたクリップ27件をすべて自動検出して除外することに成功しました。\n\n### 報酬アノテーションと学習への活用\n重複のないクリーンな動画に対してエージェントにプログラムを書かせた後、評価時と全く同一の採点コードを使って「報酬（Reproduction skill スコア）」を自動算出します。コンテナ起動失敗などのインフラエラーは報酬0ではなく欠損値として扱われるため、アルゴリズムの失敗と環境の不具合を明確に区別できます。\n\nこうして生成された「動画、プログラム、報酬スコア、エージェントの思考ログ」のセットは、高報酬プログラムを用いた教師ありファインチューニングや、DPOのような選好学習に活用できます。さらに、プログラム全体に対して即座にスカラー報酬が返るため、GRPO や RLOO といった最新のオンライン強化学習の報酬モデルとしても直接利用可能です。訓練済みモデルを評価する際にも、学習時に使った動画のサムネイルが保持され、評価データと被っていないことが再確認されます。",
+   "figures": [
+    {
+     "key": "F6",
+     "caption_ja": "学習データ作成パイプラインの流れです。学習候補タスク（左）から、動きのあるフレームのサムネイル比較によって評価動画との重複を検出・除外します（中央）。残ったクリーンなタスクに対してプログラムを生成し、評価と同一のコードで報酬を付与してデータセット化します（右）。",
+     "caption": "Figure 6: The training data pipeline. (1) Training tasks come from recordings of users, from a released training split when a benchmark has one, or from our generator of synthetic scenes, and they use the format of evaluation tasks. (2) The overlap check removes every task that shows the recording of an evaluation task, by comparing thumbnails of the frames in which something moves, at every time offset. In the example, a PhysCodeGym clip, treated here as a candidate for training, contains the hidden test video of a Physics-IQ evaluation task, starting 3 s into the clip. (3) The dataset holds the tasks and the runs on them, and each run holds a program, its reward, and the log of the agent. …",
+     "image": "details/2611.34849/F6.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "オープンなReal-to-Simエコシステムの確立に向けて",
+   "summary_ja": "本研究の成果を振り返り、Real2SimLab がもたらす研究サイクルの加速と、コミュニティ「Real2SimHub」を通じた今後の発展への期待を述べています。",
+   "details_ja": "本論文では、現実の動画からシミュレーションを生成する Real-to-Sim 技術のための統合プラットフォーム「Real2SimLab」を提案しました。エージェントが生成するプログラムを共通インターフェースとして位置づけることで、接続コストを $N \\times M$ から $N + M$ に劇的に圧縮し、主要6ベンチマークと47種類のエージェントを単一コマンドで横断評価できる環境を整えました。\n\nさらに、動画の重複を検知してデータ汚染を防止するクリーンな訓練データ作成・報酬アノテーションパイプラインを確立し、将来のファインチューニングや強化学習研究の基盤を提供しました。また、約300本の関連研究を整理したリサーチマップ「Awesome-Real2Sim」も整備しています。\n\n著者らは、プラットフォームとリサーチマップの双方をオープンソース化し、オープンコミュニティ「Real2SimHub」を通じて、世界中の研究者が独自の手法やベンチマーク、新しい実機動画タスクを持ち寄って発展させていくことを呼びかけています。",
+   "figures": []
+  }
+ ],
+ "takeaways_ja": [
+  "動画からシミュレーションコードを自動生成するReal-to-Simの評価は、プログラムを共通インターフェースにすることで $N+M$ の手軽な接続で横断比較できるようになりました。",
+  "エージェントの作業コンテナと切り離し、固定された環境でプログラムを「凍結・オフライン再実行」することが、公平かつ再現性の高いスコアリングの鍵です。",
+  "公開動画データセットには別ベンチマークのテスト動画が混入しやすいため、サムネイル照合による厳密なデータ汚染チェックが必須となります。",
+  "同一の実行・採点コードを使って報酬付きデータを量産できるため、コーディングエージェントの強化学習（GRPOなど）の環境としても即座に活用可能です。"
+ ],
+ "limitations_ja": [
+  "本論文はプラットフォームの設計と検証に主眼を置いており、接続された47種類のエージェントの大規模な性能比較実験そのものは今後の課題とされています。",
+  "極端に圧縮された動画や激しい幾何変換が施された動画コピーの場合、データ汚染検知チェックをすり抜けてしまう可能性がわずかに残されています。",
+  "現時点で公式の学習用分割データを提供しているベンチマークが存在しないため、現状の学習データ生成は主に独自の合成シーンやユーザー自前の動画に依存しています。"
+ ],
+ "keywords": [
+  "Real-to-Simulation",
+  "Coding Agents",
+  "Benchmarking Platform",
+  "Data Contamination",
+  "Reinforcement Learning"
+ ],
+ "id": "2611.34849",
+ "title": "Real2SimLab: A Unified Platform for Real-to-Simulation Transfer",
+ "authors": [
+  "Yongchang Zhang",
+  "Jie Huang",
+  "Yunhe Ni",
+  "Ningyu Zhou",
+  "Guangyu Zhao",
+  "Ruixun Liu",
+  "Rui Huang",
+  "Yidi Wu",
+  "TianZe Zhang",
+  "Zixiang Jiang",
+  "Xiang Li",
+  "Kevin Shen",
+  "Yiwu Zhong"
+ ],
+ "date": "2026-11-26",
+ "group": "general",
+ "tags": [
+  "simulation",
+  "benchmark",
+  "llm-agent"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.CV"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.34849",
+ "pdf_url": "https://arxiv.org/pdf/2611.34849",
+ "summary_ja": "実世界の動画観察からシミュレーション環境を構築するReal-to-Sim研究の断片化を解決する統一プラットフォームの提案。コーディングエージェントが生成したシミュレーションプログラムを実行し、既存の複数ベンチマークのスコア算出を一括評価可能にする。入力形式や評価基準の違いを吸収し、Real-to-Sim手法の公正かつ体系的な比較検証を可能にした。",
+ "generated": "2026-11-26",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.34849"
+}
