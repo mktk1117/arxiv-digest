@@ -1,0 +1,153 @@
+{
+ "title_ja": "HoloBrain-0.5 技術レポート",
+ "tldr_ja": "ロボット記述（URDF）の座標系や関節軸を標準化し、1万時間以上のデータで学習することで、単腕から双腕・人型ロボットまで共通の3D関節グラフ上で高精度に制御できるVLAモデルを実現しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "HoloBrain-0.5のシステム全体像です。言語指示・画像・キャリブレーション情報に加え、標準化されたURDFから得た関節グラフを入力とし、連続値（Diffusion）または離散値（遅延自己回帰）のポリシーによってアクション軌道を生成します。",
+  "caption": "Figure 1 : Overview of HoloBrain-0.5. Shared multimodal features and standardized robot state condition either the continuous diffusion policy or the discrete delayed-autoregressive policy with residual-FSQ tokenizer decoding. Both produce action trajectories. Standardized robot state includes embodiment geometry. The illustrated joint frames use $+x$ along the child link and outward $+z$ as the rotation axis; circled dots denote axes pointing out of the page. Pretraining combines real-robot, simulation, and human-manipulation data, illustrated at right. Robot geometry, noise, trajectories, and the code grid are schematic.",
+  "image": "details/2611.34449/F1.jpg"
+ },
+ "overview_ja": "近年、視覚と言語からロボットの行動を直接生成するVLA（Vision-Language-Action）モデルが注目されています。しかし、既存のモデルを異なるロボットに適用しようとすると、関節の数やリンクの長さだけでなく、URDF（ロボットの設計記述ファイル）ごとに座標軸の取り方がバラバラであるという大きな壁にぶつかります。同じ動作をさせたいのに、あるロボットでは$z$軸が回転軸で、別のロボットでは$x$軸が回転軸になっていると、モデルから見ればまったく異なる行動に見えてしまうのです。\n\nそこで著者らは、URDFの関節軸やツール中心点（TCP）の定義をルール化して統一し、任意のキネマティクス構造を共通の「3D関節グラフ」として表現する枠組みを開発しました。この共通表現をもとに、連続的な軌道を生成する拡散モデル（Continuous）と、有限スカラー量子化（FSQ）を用いて高速に学習できる離散トークン予測モデル（Discrete）の2種類を提案しています。\n\nさらに、実機・シミュレーション・人間の手先動作を含む15種類のロボット形態、合計1万時間超の大規模マルチモーダルデータセットを構築しました。オープンデータセットに対してもカメラの外部パラメータを手動対応付けとバンドル調整で高精度に復元し、徹底的な幾何学的一貫性を持たせて事前学習を行っています。\n\nシミュレーション評価では離散モデルが極めて高速に収束し、実機評価では追加学習なしのゼロショットで高い進捗を達成しました。さらに実機ファインチューニングでは連続モデルが既存の最高水準モデル（$\\pi_{0.5}$）を大きく上回り、事前学習で見ていないUnitree G1人型ロボットに対してもわずかな実機データで見事に適応できることを実証しました。",
+ "contributions_ja": [
+  "ロボットのURDF記述（関節回転軸やTCPフレーム）を標準化し、任意の形態を共通に扱える幾何学的な3D関節グラフ表現を確立したこと",
+  "同じ幾何学的表現を共有しつつ、学習収束が速い離散化モデル（遅延自己回帰）と最終性能に優れる連続値拡散モデルの2つのポリシーを提案したこと",
+  "カメラの厳密なキャリブレーションと幾何学的統一を施した15種類の形態に及ぶ1万時間超の事前学習データセットを構築したこと",
+  "実機でのゼロショット転移や、人型ロボット（Unitree G1）・移動双腕・単腕ロボットへの少数デモによる優れた適応性能を実証したこと"
+ ],
+ "sections": [
+  {
+   "heading": "Introduction",
+   "heading_ja": "ロボットごとの「座標軸のバラつき」をどう揃えるか？",
+   "summary_ja": "従来のVLAモデルはロボット記述（URDF）における座標系の勝手な定義の違いに悩まされていました。HoloBrain-0.5はURDFを標準化して共通の3D関節グラフを構築し、連続と離散の2つのアプローチでこの課題を解決します。",
+   "details_ja": "汎用的なロボット操作を目指す上で、多様なロボットデータをまとめて学習するアプローチは非常に有望です。しかし現実には、ロボットごとに自由度やアームの構造が異なるだけでなく、データセットごとに座標系の決め方やアクションの解釈がバラバラであるという厄介な問題があります。たとえば、あるURDFでは関節の回転軸がローカル$z$軸になっているのに対し、別のURDFでは$y$軸になっている、といった差異です。これでは物理的に同じ動作でも、数値データとしてはまったく違うものになってしまいます。\n\n前作のHoloBrain-0では関節中心のアーキテクチャと順運動学（FK）特徴量を導入していましたが、HoloBrain-0.5ではこの考え方をさらに一歩進めました。\n\n- ロボット記述（URDF）の標準化を行い、すべての回転関節・直動関節の動作軸をローカル$z$軸の正方向に揃え、手先（TCP）も外向き$+z$に統一しました。\n- ポリシーとして、連続軌道を拡散モデルで生成する「Continuous」と、残差FSQ（有限スカラー量子化）と遅延自己回帰を用いた「Discrete」の2つのバリエーションを用意しました。\n- 15種類のロボット形態、1万時間以上の実機・シミュレーション・人間手先データを用いて事前学習を行いました。\n\n事前学習段階では離散モデルが高速に収束して高いゼロショット性能を示す一方、実機でのファインチューニング後には連続モデルが極めて高い成功率を叩き出すという、相補的な強みが明らかになりました。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "HoloBrain-0.5の全体アーキテクチャです。画像・テキスト・標準化されたロボット状態を受け取り、Continuous（拡散モデル）またはDiscrete（遅延自己回帰）のいずれかで制御軌道を生成します。",
+     "caption": "Figure 1 : Overview of HoloBrain-0.5. Shared multimodal features and standardized robot state condition either the continuous diffusion policy or the discrete delayed-autoregressive policy with residual-FSQ tokenizer decoding. Both produce action trajectories. Standardized robot state includes embodiment geometry. The illustrated joint frames use $+x$ along the child link and outward $+z$ as the rotation axis; circled dots denote axes pointing out of the page. Pretraining combines real-robot, simulation, and human-manipulation data, illustrated at right. Robot geometry, noise, trajectories, and the code grid are schematic.",
+     "image": "details/2611.34449/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Related Work",
+   "heading_ja": "VLAの潮流とアクション空間の設計アプローチ",
+   "summary_ja": "ウェブ規模の大規模モデルを活用したVLAの発展と、クロスエンボディメント学習におけるアクション空間の設計手法を整理し、本研究の独自の位置づけを解説します。",
+   "details_ja": "### Vision-Language-Action Models\nRT-1やRT-2、Open X-Embodimentの登場以降、異種ロボットデータを統合した学習が急速に進展してきました。最近では$\\pi_0$や$\\pi_{0.5}$、RDT-1B、GR00Tのように、大規模な視覚言語バックボーンに専用のアクション生成モジュールを組み合わせる構成が主流です。また、異なるロボット形態を扱うためにエンボディメントプロンプトを用いる研究や、3D空間でエンドエフェクタの軌道を揃える手法（CEIなど）も提案されています。これらに対しHoloBrain-0.5は、関節軸・座標系・エンドエフェクタの定義そのものをURDFレベルで標準化し、根本的に同一の関節グラフ表現を共有させる点がユニークです。\n\n### Action-Space Modeling\nアクション空間のモデル化には、大きく分けて連続表現と離散表現の2通りがあります。連続表現ではAction Chunkingや拡散モデル・Flow Matchingが多く使われます。一方、離散表現ではトークン化して自己回帰的に予測しますが、コードブック不要のFSQ（Finite Scalar Quantization）や残差ベクトル量子化（VQ-BeTなど）が注目されています。HoloBrain-0.5は、両方のバリエーションを同じ幾何学的関節グラフ上で直接比較・統合できるように設計されています。",
+   "figures": []
+  },
+  {
+   "heading": "Method",
+   "heading_ja": "URDF標準化から2つのアクションデコーダまで",
+   "summary_ja": "URDFの座標変換ルールを統一して幾何学的意味を揃え、並列マルチモーダルAttentionを備えた連続モデルと、仮想関節を用いた離散モデルを構築しました。",
+   "details_ja": "### 3.1 URDF Standardization（URDFの標準化）\nロボット記述（URDF）における勝手な座標系定義を排除するため、すべての駆動関節を標準化します。回転関節および直動関節の運動軸が常にローカルな$+z$軸を向くように回転行列 $S_j$ を求めて原点姿勢を補正し、そのぶん子リンクの視覚・衝突・後続関節フレームに逆回転 $\\widetilde{S}_j^{-1}$ を掛けて物理的な幾何形状の位置関係を完全に保ちます。さらに手先フレーム（TCP）も外向き$+z$に揃えます。これにより、モデルから見た関節の向きが統一され、記録された軌道の物理的意味を壊すことなく共通の3D関節グラフを構築できます。\n\n### 3.2 HoloBrain-0.5-Continuous（連続拡散モデル）\nバックボーンにはQwen3.5-2Bを採用し、アクションデコーダの層数を6から10へ、埋め込み次元を256から384へ拡張しました。前作では画像・テキスト・関節のAttentionを順番に計算していましたが、後ろにあるモダリティ（関節固有感覚）に過度に依存する傾向が見られたため、3つのAttentionを並列に計算してルーターで重み付け加算する「並列マルチモーダルAttention」を導入しました。また、双腕ロボットでは両腕の手先同士を結ぶエッジをグラフ距離計算に追加し、腕同士の連携を捉えやすくしています。\n\n### 3.3 HoloBrain-0.5-Discrete（離散化モデル）\n異なる関節数を持つロボットの軌道を統一的にトークン化するため、「仮想関節（Virtual joints）」をキネマティクスグラフ上に配置します。実関節からの最大距離を最小化するように配置された仮想関節に情報を集約し、残差FSQによって離散コードへ量子化します。生成時には、時間・仮想関節・残差ステージのインデックスの和が等しいセルを同時に予測する「遅延自己回帰（Delayed Autoregression）」を採用し、生成ステップ数を大幅に削減しながら因果関係を維持しています。\n\n### 3.4 Data Recipe（データセット構築）\n15種類のロボット形態にまたがる合計10,006.5時間（実機5,704.3時間、シミュレーション3,470.3時間、人間手先831.9時間）のデータを集めました。カメラパラメータが欠落しているオープンデータセットについては、手動で対応点をアノテーションした上でバンドル調整を行い、厳密な外部パラメータを復元して統一しています。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "4種類のロボット（単腕、双腕2種、人型）における標準化された3D関節グラフです。カメラ配置や関節数が異なっても、ロボット基準座標系における関節ポーズの幾何学的意味が一貫して揃っています。",
+     "caption": "Figure 3 : Canonical joint graphs on four robots. Each panel shows the physical nodes projected into the available camera views (left) and expressed in the robot-base frame (right).",
+     "image": "details/2611.34449/F3.jpg"
+    },
+    {
+     "key": "F4",
+     "caption_ja": "アクションデコーダに導入された並列マルチモーダルAttentionです。画像（3D絶対位置埋め込み）、テキスト（1D RoPE）、時間-関節（相対位置埋め込み）を並列処理し、ルーターで統合します。",
+     "caption": "Figure 4 : Parallel multimodal attention in the HoloBrain-0.5 action decoder. Image, text, and temporal-joint features are processed by independently parameterized attention branches and combined by a query- and head-dependent router through weighted summation.",
+     "image": "details/2611.34449/F4.jpg"
+    },
+    {
+     "key": "F5",
+     "caption_ja": "事前学習時に条件付けとして与えられるタスクのキーフレーム（参照画像）の例です。テキスト指示だけでは曖昧な作業手順や目標状態を画像で明確に伝えます。",
+     "caption": "Figure 5 : Reference images sampled from task-level key frames. (a, top) Preparing coffee: place the cup at the designated location, retrieve the milk-foam capsule, press the button, and wait for completion. (b, bottom left) Place all objects at their designated locations and finish. (c, bottom right) Brew tea: pour water, pick up a tea bag, and place it in the cup.",
+     "image": "details/2611.34449/F5.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "Experiments",
+   "heading_ja": "シミュレーション収束性と実機への適応・転移性能",
+   "summary_ja": "6つのシミュレーション環境で離散モデルが56.77%の成功率を達成し、高速な収束を示しました。実機 post-training では連続モデルが真価を発揮し、$\\pi_{0.5}$を上回る適応力を証明しました。",
+   "details_ja": "### 4.1 事前学習モデルの閉ループ性能\n3つのシミュレータにまたがる6つのベンチマーク（合計21,430エピソード）で評価を行いました。事前学習完了時点で、離散モデル（Discrete）の平均成功率は56.77%に達し、連続モデル（Continuous）の49.71%を大きく上回りました。離散モデルはわずか5万ステップ時点で47.34%に達するなど収束の早さが際立っています。また、離散モデルの重みで初期化した連続モデル（D-Init.）も通常の連続モデルより高い性能を示しました。実機7タスクのゼロショット（追加学習なし）評価でも、離散モデルは平均進捗スコア87.76%と高い基礎能力を示しています。\n\n### 4.2 事後学習（Post-Training）の性能\n実機データでファインチューニングを行うと、連続モデルが圧倒的な強さを発揮します。単一ロボットによる7タスク（各200デモ）の評価では、HoloBrain-0.5-Continuousが進捗スコア94.52%を達成し、$\\pi_{0.5}$の86.25%や前作HoloBrain-0の85.32%を大きく引き離しました。一方、離散モデルは69.74%へと低下し、現状の少数ショット適応には課題が残ることがわかりました。PiperとPiper-Xの2種類の双腕ロボットを用いた約300時間の大規模マルチタスク事後学習（11タスク評価）では、D-Init.初期化の連続モデルが79.07%を記録し、$\\pi_{0.5}$の69.41%を約10ポイント上回りました。\n\n### 4.3 ロボット間のゼロショットタスク転移\nPiperで学習した5つのタスクを、そのタスクのデモが一切存在しないPiper-Xへゼロショット転移させました。両者はセンサや入出力の次元が同一であるため、通常のモデルは形態の違いを認識できません。しかし、標準化されたURDF情報を明示的に受け取るHoloBrain-0.5は平均進捗スコア63.28%を達成し、形態差を幾何学的に吸収できることを示しました。\n\n### 4.4 異なるロボット形態への適応\nターゲットロボットの少数のデモを用いた適応実験では、単腕Franka Pandaで89.2%（$\\pi_{0.5}$は85.0%）、移動型双腕プラットフォームで92.94%（$\\pi_{0.5}$は73.83%）を達成しました。さらに、事前学習データに一切含まれていない人型ロボット「Unitree G1」に対しても、少量のデモを追加学習するだけで進捗スコア70.24%を達成しました（$\\pi_{0.5}$はわずか11.00%にとどまりました）。",
+   "figures": []
+  },
+  {
+   "heading": "Conclusion",
+   "heading_ja": "まとめ：形態を超えるロボット基盤モデルへ",
+   "summary_ja": "URDF標準化と3D関節グラフ、そして相補的な連続・離散ポリシーにより、異種ロボットデータを統合する強力な基盤モデルHoloBrain-0.5が完成しました。",
+   "details_ja": "HoloBrain-0.5は、ロボットの形態差を幾何学的な視点から根本的に解決するVLAモデルファミリーです。URDFの軸やフレームの標準化を行うことで、異なる関節配置やリンク構造を持つロボット同士でも共通のアクション空間で学習できるようになりました。\n\nまた、事前学習の収束が極めて速くゼロショット適応に強い「離散モデル」と、実機ファインチューニング後に高い操作精度を発揮する「連続モデル」という、2つの相補的なアプローチの有効性が示されました。1万時間を超える徹底的にキャリブレーションされたデータセットでの検証により、単腕から双腕、さらには人型ロボットに至るまで、単一の枠組みで高精度に適応できることが実証されました。",
+   "figures": []
+  },
+  {
+   "heading": "Future Work",
+   "heading_ja": "今後の展望：マルチタスク・記憶・触覚への拡張",
+   "summary_ja": "今後はVQAや3Dグラウンディングによる言語・空間理解の強化、人間データのさらなる活用、履歴を扱う記憶機構、力覚・触覚センサの統合を目指します。",
+   "details_ja": "著者は今後の発展の方向性として以下の4点を挙げています。\n\n- より広範なマルチタスク監督：視覚質問応答（VQA）や3Dグラウンディングなど、言語や空間推論を深めるタスクを共同学習に組み込みます。\n- 学習データのさらなる拡大：現在は探索的である一人称視点の人間の手先操作データの割合を増やし、よりバランスの取れたデータピラミッドを構築します。\n- 時間モデリングと記憶機構：現在は単一ステップの観測から行動を決定していますが、過去の観測履歴を保持・活用できる記憶メカニズムを導入します。\n- より豊かな物理モダリティの統合：視覚や関節情報だけでなく、触覚センサや関節トルク／力覚フィードバックを取り入れ、接触リッチな作業への適応を目指します。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：実装の詳細と評価プロトコル",
+   "summary_ja": "仮想関節の最適配置アルゴリズム、残差FSQの設計パラメータ、損失関数、および追加の関節グラフ例について補足します。",
+   "details_ja": "### 仮想関節の配置アルゴリズム\n仮想関節 $V$ 個の配置は、実関節から最も近い仮想関節への最大距離を最小化し、次に平均距離を最小化し、最後に仮想関節同士の距離を最大化するという辞書式順序の最適化によって決定されます。これにより、アーム全体を偏りなくカバーします。\n\n### 残差FSQと損失関数\nFSQの各ステージでは4次元の座標をレベル数 $(8, 5, 5, 5)$ で量子化し、合計1000個のインデックス（$K=1000$）にまとめます。損失関数には、関節角度や位置のSmooth-$L_1$誤差に加え、予測された関節角度から計算した順運動学（FK）の一貫性損失が含まれています。\n\n### 評価プロトコル\n実機評価はタスクごとに設定された観察可能なマイルストーンの達成度を合計した「進捗スコア（Progress score, 0〜100%）」を用いて厳密に採点されています。",
+   "figures": [
+    {
+     "key": "F13",
+     "caption_ja": "TCPのみのインターフェースや移動ベースを含む追加の関節グラフ例です。手先1点のみの制御から台車移動を含む全身制御まで、同じグラフ構造の拡張として柔軟に表現できます。",
+     "caption": "Figure 13 : Additional joint graphs. In each panel, camera views (left) and the 3D graph (right) show the same configuration. The TCP-only interface is represented by one node; the mobile platform also represents motion of the base.",
+     "image": "details/2611.34449/F13.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "ロボットのURDF記述（関節軸やTCP）を標準化して幾何学的意味を揃えることが、異種ロボット間でのデータ共有と転移において決定的な効果を持つ",
+  "事前学習の収束にはFSQを用いた離散モデルが優れており、その重みで初期化した連続拡散モデルを作ることでファインチューニング後の性能を最大化できる",
+  "カメラの厳密なキャリブレーション（外部パラメータの幾何的一貫性）を整えることで、1万時間規模の多様なデータセットを効果的な事前学習に昇華できる",
+  "事前学習に人型ロボットが含まれていなくても、標準化された幾何学表現があればわずかな実機デモで人型ロボット（Unitree G1など）へ適応可能である"
+ ],
+ "limitations_ja": [
+  "離散モデル（Discrete）は事前学習での収束やゼロショット性能には優れるものの、少数の実機データによるファインチューニングでは性能が低下してしまう課題がある",
+  "現行モデルは現時点の観測のみから行動を決定するリアクティブな制御器であり、過去の観測履歴を保持する時間的記憶機構を持っていない",
+  "触覚センサや力・トルクフィードバックなどの接触情報がまだ統合されておらず、繊細な力加減が求められる作業への対応は今後の課題である"
+ ],
+ "keywords": [
+  "Vision-Language-Action (VLA)",
+  "Cross-Embodiment Generalization",
+  "URDF Standardization",
+  "Finite Scalar Quantization (FSQ)",
+  "Diffusion Policy"
+ ],
+ "id": "2611.34449",
+ "title": "HoloBrain-0.5 Technical Report",
+ "authors": [
+  "Xuewu Lin",
+  "Jiahao Wang",
+  "Jiawei Li",
+  "Mengdi Li",
+  "Zhengmao Sun",
+  "Yiwei Jin",
+  "Hongyu Xie",
+  "Zhengyang Feng",
+  "Kun Wu",
+  "Zihao Chen",
+  "Lianzhou Zhang",
+  "Lichao Huang",
+  "Zhizhong Su"
+ ],
+ "date": "2026-11-26",
+ "group": "general",
+ "tags": [
+  "vision-language-action",
+  "manipulation",
+  "imitation-learning"
+ ],
+ "categories": [
+  "cs.RO"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.34449",
+ "pdf_url": "https://arxiv.org/pdf/2611.34449",
+ "summary_ja": "多様なロボット形態で動作可能なマニピュレーション向けVLAモデル「HoloBrain-0.5」の提案。URDFの関節軸や座標系を標準化し、キネマティクスグラフを統一3D表現としてエンコード。拡散ベースの連続制御版とFSQによる離散自己回帰版を開発し、15種以上のロボット形態にまたがる1万時間以上の実機・シミュレーション・人間動画で事前学習した。",
+ "generated": "2026-11-26",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.34449"
+}
