@@ -1,0 +1,148 @@
+{
+ "title_ja": "スペクトルターゲット設計によるRNDの過度な汎化の緩和",
+ "tldr_ja": "強化学習の新奇性検出で定番のRNDが未知領域を見落とす「過汎化」の原因をカーネル理論から解明し、ターゲットネットワークを帯域制御可能なランダムフーリエ特徴量（RFF）に置き換えることで、高精度な探索ボーナスと保守性を実現しました。",
+ "hero_figure": {
+  "key": "F1",
+  "caption_ja": "円環（$\\mathbb{S}^{1}$）データに対する標準的なRNDの失敗例です。(a)の中央にある空洞部分は学習データが全く存在しない未知領域なのに、RNDエネルギー（新奇性スコア）が低く落ち込んでいます。(b)のヒストグラムでも、既知領域（青）と未踏の空洞部分（赤）のスコアが重なってしまい、区別できていないことが分かります。",
+  "caption": "Figure 1: Coverage-based diagnostic for standard RND on $\\mathbb{S}^{1}$ data. (a) RND energy heatmap with contours defined by $\\rho_{\\mathcal{D}}(x)=\\min_{x_{i}\\in\\mathcal{D}}d_{\\mathcal{X}}(x,x_{i})$ . The blue dashed contour denotes $\\rho_{\\mathcal{D}}=r_{\\rm in}$ , and the red dash-dotted contour denotes $\\rho_{\\mathcal{D}}=r_{\\rm out}$ . The interior hole (“low $\\mathcal{E}$ (failure)”) lies beyond the coverage radius but receives low RND energy. (b) Energy distributions by region. …",
+  "image": "details/2611.33850/F1.jpg"
+ },
+ "overview_ja": "強化学習（RL）でエージェントに自発的な探索を促したり、オフラインRLで未踏の危険な行動を抑制したりする際、入力データの「珍しさ（新奇性）」を測るシグナルとしてRandom Network Distillation（RND）が広く使われています。仕組みはとてもシンプルで、ランダムに初期化して重みを固定した「ターゲットネットワーク」の出力を、学習可能な「予測器ネットワーク」に真似させるだけです。未訪問の状態では予測が外れて誤差（RNDエネルギー）が大きくなるはず、という直感に基づいています。\n\nしかし、このRNDには重大な弱点があります。学習データが存在しないはずの領域でも、予測器が勝手にターゲットの出力を綺麗に外挿（予測）してしまい、未知データなのに「知っている」と誤判定してしまう「過汎化（overgeneralization）」という現象です。これまでの研究でも複数のネットワークをアンサンブルするなどの対症療法はありましたが、なぜ過汎化が起きるのかという根本的な原因は分かっていませんでした。\n\nそこで著者らは、無限幅ニューラルネットワークの理論（ガウス過程GPとニューラルタンジェントカーネルNTK）を用いてRNDを数理的に分析しました。その結果、RNDの誤差シグナルは予測器単体やターゲット単体ではなく、「ターゲットの共分散カーネル」と「予測器のNTK」の相互作用によって決まる「クロスカーネル残差分散」であることを突き止めました。つまり、予測器が予測しにくい高周波成分をターゲットが十分に持っていないと、未踏領域で残差が消失してしまうのです。\n\nこの発見に基づき、著者らはブラックボックスなランダムMLPの代わりに、帯域幅（周波数スペクトル）を直接制御できる「ランダムフーリエ特徴量（RFF）」をターゲットに使う「RFF-RND」を提案しました。D4RLベンチマーク（オフラインRL）やAtari・ロボット操作Fetch（オンラインRL）で検証したところ、ハイパーパラメータ調整が容易になり、従来法を上回る探索効率と制御スコアを達成しました。",
+ "contributions_ja": [
+  "RNDの予測誤差をガウス過程（GP）とニューラルタンジェントカーネル（NTK）の枠組みで定式化し、過汎化が「スペクトルの励起不足」によって生じることを理論的に証明したこと",
+  "ターゲットの共分散構造を直接コントロールする「スペクトルターゲット設計」の原則を打ち立て、その具体策として帯域幅を制御できる「RFF-RND」を提案したこと",
+  "オフライン強化学習（D4RL）やオンライン強化学習（Atari、Fetchロボティクス操作タスク）において、探索効率および保守的ペナルティとしての性能向上を実証したこと",
+  "データ点の代表距離に基づく自動帯域幅スケーリングなど、実用的なハイパーパラメータ選定指針を提示したこと"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "なぜRNDは未知のデータを「見知った顔」と勘違いしてしまうのか？",
+   "summary_ja": "RNDは強化学習の探索や安全性のための標準ツールですが、データから離れた領域で新奇性スコアが低下する過汎化問題がありました。本論文はこの失敗メカニズムをカーネル理論の視点から解き明かし、根本的な解決策を提案します。",
+   "details_ja": "強化学習では、訪れたことのない状態を探索するための「内発的動機づけ（好奇心）」や、集めたデータセットの外にある危険な行動を避ける「保守性」が不可欠です。これを実現する軽量でスケーラブルな手法として、Burdaらが2019年に提案したRND（Random Network Distillation）が広く使われています。RNDの構造は明快で、固定されたランダムなMLP（多層パーセプトロン）であるターゲットに対し、もうひとつのMLP（予測器）がその出力を回帰学習します。すでに何度も見た状態なら誤差は小さくなり、初めて見る状態なら誤差が大きくなるはず、という理屈です。\n\nところが実際には、学習データから遠く離れた入力に対しても予測器の誤差がゼロに近づいてしまう「過汎化」が頻発します。この現象が起きると、オンラインRLでは新しい領域を探索しなくなり、オフラインRLでは未知の危険な行動を安全だと勘違いしてしまいます。先行研究ではアンサンブルを使ったりネットワーク構造を工夫したりしていましたが、幾何学的に「なぜ過汎化が起きるのか」は未解明のままでした。\n\n本研究では、この問題を「予測器とターゲットのカーネル相互作用」という新しいレンズで捉え直します。そして、ターゲット側の周波数スペクトルを明示的に設計することで、予測器が外挿しにくい領域を自在にコントロールできることを示します。",
+   "figures": []
+  },
+  {
+   "heading": "2 Problem Setup and Motivation",
+   "heading_ja": "データの「被覆半径」の外側を正しく新奇と判定できているか？",
+   "summary_ja": "2次元の円環トイデータを用いて、標準的なRNDがデータのカバー範囲外でどのように失敗するかを視覚化します。新奇性検出器が満たすべき「データ被覆に基づく残差分離」という評価基準を定義します。",
+   "details_ja": "### 2.1 RNDによる新奇性検出の基本\n観測データセット $\\mathcal{D} = \\{x_i\\}_{i=1}^n$ が与えられたとき、固定ターゲット $f_t(x)$ と学習予測器 $f_p(x; \\theta)$ の二乗誤差 $\\mathcal{E}(x) = \\frac{1}{m}\\|f_t(x) - f_p(x)\\|_{2}^{2}$ をRNDエネルギー（新奇性スコア）と呼びます。理想的には、データ点から離れるほどこのエネルギーが高くなるべきです。\n\n### 2.2 データ被覆に基づく分離基準\nしかし、単純な円環状の2次元データ $\\mathbb{S}^1$ で実験してみると、驚くべき失敗が観察されます。円環の外側ではエネルギーが高くなるものの、円環の内側にある「真ん中の穴」では、データが一切存在しないにもかかわらずエネルギーがほぼゼロに落ち込んでしまうのです。これでは未知領域を検知できません。そこで著者らは、データ点からの最短距離 $\\rho_{\\mathcal{D}}(x) = \\min_{x_i \\in \\mathcal{D}} d_{\\mathcal{X}}(x, x_i)$ を用いて、データ近傍（$r_{\\rm in}$ 以内）ではエネルギーが $\\epsilon$ 以下に低く、未踏領域（$r_{\\rm out}$ 以上）ではエネルギーが $\\gamma$ 以上に高くなるという「被覆に基づく残差分離（coverage-based residual separation）」基準を定義しました。\n\n### 2.3 既存のRND改良手法とカーネル幾何\n既存の改良手法であるConditional RNDは予測器側を変調し、Distributional RND（DRND）は複数のターゲットを用意してアンサンブル分散を見ます。しかし、どちらも「予測器がどう補間するか」と「ターゲットがどんなバリエーションを提供するか」という両者の噛み合わせ（クロスカーネル幾何）を直接扱えていませんでした。",
+   "figures": [
+    {
+     "key": "F1",
+     "caption_ja": "円環データにおける標準RNDの欠陥です。(a)データが存在しない中央の穴（interior hole）でRNDエネルギーが青く沈み込み、未踏領域であるにもかかわらず「既知」と誤認されています。(b)の分布を見ても、被覆領域（青）と中央の穴（赤）のエネルギーが重なってしまっています。",
+     "caption": "Figure 1: Coverage-based diagnostic for standard RND on $\\mathbb{S}^{1}$ data. (a) RND energy heatmap with contours defined by $\\rho_{\\mathcal{D}}(x)=\\min_{x_{i}\\in\\mathcal{D}}d_{\\mathcal{X}}(x,x_{i})$ . The blue dashed contour denotes $\\rho_{\\mathcal{D}}=r_{\\rm in}$ , and the red dash-dotted contour denotes $\\rho_{\\mathcal{D}}=r_{\\rm out}$ . The interior hole (“low $\\mathcal{E}$ (failure)”) lies beyond the coverage radius but receives low RND energy. (b) Energy distributions by region. …",
+     "image": "details/2611.33850/F1.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "3 RND Energy as a cross-kernel residual variance",
+   "heading_ja": "RNDの正体は「クロスカーネル残差分散」だった！理論的メカニズムの解明",
+   "summary_ja": "無限幅の仮定のもと、ターゲットをガウス過程（GP）、予測器をニューラルタンジェントカーネル（NTK）としてモデル化しました。RNDエネルギーの極限は、ターゲット共分散と予測器NTKの2つによって決まる閉形式の分散と一致することを証明しました。",
+   "details_ja": "なぜ予測器は未知領域でターゲットを外挿できてしまうのでしょうか？著者らはこの疑問に答えるため、近年の深層学習理論で標準的な2つの理想化モデルを導入しました。\n\n- **仮定3.1（ターゲットのGPモデル）**: ターゲットネットワーク $f_t$ の各出力座標を、カーネル $k_t$ を持つ独立なガウス過程（GP）とみなします。これはランダム初期化された無限幅MLPがガウス過程（NNGP）に収束するという古典的理論に基づいています。\n- **仮定3.2（予測器のNTKレジーム）**: 予測器 $f_p$ の学習を、固定カーネル $\\Theta_p$ に対するリッジ回帰（lazy-training極限）として扱います。RNDの予測器は意味のある表現学習を必要とせず、固定されたランダムターゲットにフィッティングするだけなので、この近似は非常に自然です。\n\nこの設定のもとで得られた決定的な結論が **定理3.4** です。ターゲットの出力次元 $m \\to \\infty$ の極限において、RNDエネルギー $\\mathcal{E}_\\infty(x)$ は次の「クロスカーネル残差分散 $\\sigma^2_{\\rm cross}$」に確率1で収束します：\n$$\\sigma^2_{\\rm cross}(x; k_t, \\Theta_p) = k_t(x, x) - 2 A_x k_t(X, x) + A_x K_t A_x^\\top$$\nここで $A_x = \\Theta_p(x, X)(\\Theta_p + \\lambda I)^{-1}$ は予測器の補間重みであり、$K_t$ はデータセット上のターゲット共分散行列です。\n\nこの式の意味を考えてみましょう。ターゲットカーネル $k_t$ はターゲットが持つ「変動の激しさ」を決め、予測器NTK $\\Theta_p$ はデータをどうつなぐかという「補間の仕方（重み $A_x$）」を決めます。つまり、RNDの新奇性スコアは予測器だけでもターゲットだけでもなく、両者のカーネルの相互作用によって決まるのです。",
+   "figures": []
+  },
+  {
+   "heading": "4 Spectral Target Design",
+   "heading_ja": "ランダムフーリエ特徴量（RFF）でターゲットの周波数スペクトルを操る",
+   "summary_ja": "残差が潰れる原因は、予測器が苦手とする固有モードにターゲットの電力が割り振られていない「スペクトル励起不足」だと判明しました。そこでターゲットを帯域制御可能なRFFに置き換える「RFF-RND」を提案します。",
+   "details_ja": "### 4.1 スペクトルの励起不足としての残差消失\n予測器NTKの固有値分解 $\\Theta_p = U_p \\Lambda_p U_p^\\top$ を考えると、訓練残差はモードごとに分解できます（補題4.1）。予測器が得意なモード（固有値 $\\lambda_{p,i} \\gg \\lambda$）では、残差フィルタ $\\left(\\frac{\\lambda}{\\lambda_{p,i} + \\lambda}\\right)^2$ がほぼゼロになり残差は消えます。一方、予測器が苦手なモード（$\\lambda_{p,i} \\ll \\lambda$）ではフィルタが残りますが、もしターゲット側がそのモードに変動（$u_i^\\top K_t u_i$）を持っていなければ、やはり残差はゼロになります。標準のRNDはターゲットと予測器に同じMLP構造を使うためスペクトル特性が似通っており、苦手なモードを刺激できずに過汎化を起こしていたのです。\n\n### 4.2 RFF-RNDの提案\n予測器の固有空間を直接いじるのは困難ですが、ターゲットなら自由に変更できます。そこで提案されたのが、ランダムフーリエ特徴量（Random Fourier Features: RFF）をターゲットにする **RFF-RND** です：\n$$f_t^{(j)}(x) = \\sqrt{2} \\cos(\\omega_j^\\top x + b_j), \\quad \\omega_j \\sim p_\\alpha, \\quad b_j \\sim \\mathrm{Unif}[0, 2\\pi]$$\nこのターゲットは、期待値としてガウスカーネルなどのシフト不変カーネル $k_t^\\alpha(x - x')$ を正確に再現します。帯域幅 $\\alpha$ を小さくする（高周波にする）ことで、ターゲットの電力を予測器が補間しにくいモードへと強制的に再配分し、未踏領域での残差を確実に残すことができます。\n\n### 4.3 周波数領域での直感的理解\n周期グリッド上の理想化設定では、この現象はフーリエ周波数 $\\omega$ の掛け算として極めて綺麗に表されます（命題4.5）：\n$$\\text{残差電力}(\\omega) = \\left( \\frac{\\lambda}{\\widehat{\\theta}_p(\\omega) + \\lambda} \\right)^2 \\times \\widehat{k}_t^\\alpha(\\omega)$$\n予測器の残差フィルタ（高周波を通過させるハイパスフィルタ）と、ターゲットのパワースペクトルが重なる周波数帯でのみ、しっかりとした新奇性シグナルが得られるというわけです。",
+   "figures": [
+    {
+     "key": "F3",
+     "caption_ja": "各種トイデータ（Multi Blob、Ring Gap、Spiral、Two Moons）における新奇性エネルギー景観の比較です。上段の標準RNDではデータ多様体の外側でも自信満々にエネルギーが低下する過汎化が見られますが、下段のRFF-RND（$\\alpha=0.75, m=64$）ではデータ近傍だけが低エネルギーとなり、境界がシャープに分離されています。",
+     "caption": "Figure 3: Energy landscapes ( $\\alpha=0.75$ , $m=64$ ). Top: standard RND exhibits overly confident off-manifold energy patterns. Bottom: RFF-RND produces more consistent landscapes with clearer separation between the data manifold and off-manifold regions.",
+     "image": "details/2611.33850/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "5 Experiments",
+   "heading_ja": "ロボット操作からD4RLまで：探索と保守性の両面で劇的な効果を確認",
+   "summary_ja": "トイデータでの幾何検証に加え、オンライン強化学習（Atari、Fetchロボティクス操作）とオフライン強化学習（D4RL）で評価しました。RFF-RNDは探索の加速と危険行動の抑制において、従来手法を凌駕する性能を示しました。",
+   "details_ja": "### 5.1 診断実験と理論の検証\nTwo Moonsデータセットを用いて、理論通り有限の出力次元 $m$ を増やすと理論値（クロスカーネル残差分散）に収束するかを検証しました。ピアソン相関係数は $m=4$ での約0.65から、$m=64$ で約0.97、$m=256$ で0.993まで上昇し、実用上は $m=64 \\sim 128$ 程度あれば理論通りの滑らかな新奇性幾何が得られることが確認されました。\n\n### 5.2 オンライン強化学習（探索ボーナス）\nPPOをベースアルゴリズムとし、疎報酬のAtariゲーム4種（Montezuma's Revengeなど）とFetchロボット操作タスク4種（Reach, Push, Slide, PickAndPlace）で検証しました。RNDエネルギーに対数スケールを適用して探索ボーナスとして加算しています。ロボットタスクでは、Pushにおいて学習予算内で唯一成功率80%に到達し、PickAndPlaceでも最高スコアを記録しました。Atariの難関探索ゲームMontezuma's Revengeでも、ベースラインが停滞する中でスコアを伸ばし続けました。\n\n### 5.3 オフライン強化学習（保守的ペナルティ）\nD4RLベンチマークのLocomotionタスク（HalfCheetah, Hopper, Walker2d）とAntMazeタスクにおいて、SACをベースに未踏状態・行動へのペナルティとして適用しました。アンサンブルを用いない手法の中で、SAC+RFF-RNDはLocomotionの18データセット平均で87.8点を記録し、17個のデータセットで1位または2位を獲得しました。特にデータ品質が混在するmedium-replayやmedium-expertなどで大きな伸びを見せており、未知の行動を適切に抑制して良質な軌跡を抽出できていることが裏付けられました。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "オンライン強化学習における学習曲線（平均リターン・成功率）です。下段のFetchロボット操作タスクにおいて、提案手法（赤）はReachを最速で解き、Pushでは唯一80%の成功率に達し、PickAndPlaceでも他手法（青：DRND、緑：標準RND、橙：PPO単体）を大きく引き離して最高性能を達成しています。",
+     "caption": "Figure 4: Mean episode return on online RL tasks. Top: Atari tasks ( MontezumaRevenge , Frogger , Freeway , Venture ); Bottom: Fetch Robotics tasks ( Reach , Push , Slide , PickAndPlace ). Results are averaged over 5 random seeds.",
+     "image": "details/2611.33850/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion and Future Direction",
+   "heading_ja": "まとめと今後の展望：マルチモーダルデータへの拡張に向けて",
+   "summary_ja": "RNDの過汎化をカーネル理論から「スペクトル励起不足」として位置づけ、RFFによるターゲット設計で解決しました。今後は画像やテキスト、時系列など多様な入力モダリティへの応用が期待されます。",
+   "details_ja": "本論文では、RNDにおける長年の課題であった過汎化現象を、ガウス過程とNTKを組み合わせた理論的枠組みから厳密に解析しました。その結果、過汎化の本質は「予測器が残差を残せる周波数帯をターゲットが刺激できていないこと（スペクトル励起不足）」にあると特定されました。そして、ターゲットをランダムなMLPから帯域制御可能なRFFへと置き換える「RFF-RND」により、明示的に幾何形状をコントロールできることを示しました。\n\nRFF-RNDの数理的定式化は特定の入力空間に縛られていないため、今後は画像特徴量や言語表現、時系列センサデータなど、ロボティクスで扱われる高次元・異種モダリティデータに対してどのような幾何学的特性が最適となるかを解析することが魅力的な研究課題となります。",
+   "figures": []
+  },
+  {
+   "heading": "7 Practical Considerations for Spectral Target Design",
+   "heading_ja": "現場で役立つ実践テクニック：データに応じた帯域幅の決め方とノイズ対策",
+   "summary_ja": "査読での議論をもとに、データ正規化に基づく帯域幅 $\\alpha$ の簡易な選定法（距離の中央値の利用）や、「うるさいテレビ問題」のような無意味な観測ノイズへの対処法（異方性カーネルの導入）をまとめました。",
+   "details_ja": "### データ正規化による帯域幅 $\\alpha$ の自動決定\n高次元空間では帯域幅 $\\alpha$ の絶対値を決めるのが難しいため、状態・行動を次元ごとに標準化した後、データ対の距離の中央値 $r_{\\rm med} = \\mathrm{median}_{i \\neq j} \\|x_i - x_j\\|_2$ を基準に $\\alpha = c \\cdot r_{\\rm med}$ と設定する方法を提案しています。ガウスカーネルでは距離 $r_{\\rm med}$ の2点間の類似度が $\\exp(-1/(2c^2))$ となるため、スケールパラメータ $c$ だけで直感的に減衰率を決められます。オフラインD4RLの17データセットで試したところ、わずか $c \\in \\{1/2, 1/3, 1/5\\}$ という3つの候補を用意するだけで全タスクの最適帯域を網羅できることが分かり、グリッドサーチの手間を大幅に削減できます。\n\n### 無意味な観測ノイズ（Noisy-TV問題）との付き合い方\n強化学習で有名な「砂嵐画面のテレビ（Noisy-TV）」のように、予測不可能だがタスクに無関係なノイズが存在する場合、ターゲットを高周波にしすぎるとそのノイズに過剰反応してしまいます。著者らは、タスクに重要な状態次元 $z$ と無関係なノイズ次元 $\\xi$ が切り分けられるなら、異方性カーネル $k_t(x, x') = \\exp(-\\|z-z'\\|^2/(2\\alpha_z^2)) \\exp(-\\|\\xi-\\xi'\\|^2/(2\\alpha_\\xi^2))$ を使い、ノイズ次元側だけ $\\alpha_\\xi$ を大きくして変動を平滑化すべきだと論じています。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：カーネルの種類やハイパーパラメータが新奇性マップに与える影響",
+   "summary_ja": "ガウスカーネル以外のシフト不変カーネル（ラプラスやマテルン）の比較や、RFF次元数 $m$、予測器幅 $h$、帯域幅 $\\alpha$ が新奇性境界に与える影響を詳細にアブレーション解析しています。",
+   "details_ja": "### カーネル関数の種類に関するアブレーション\nボホナーの定理（Bochner's theorem）に基づき、ガウス（RBF）カーネル以外にも、Laplace、Matérn-3/2、Matérn-5/2 カーネルを用いてRFFターゲットを構築し比較しました。その結果、どのカーネルを用いても標準RNDよりはるかにシャープな内外判定境界が得られ、性能に劇的な差はありませんでした。重要なのは特定の関数形ではなく、「距離に応じて局所的に減衰する」という共分散構造そのものです。\n\n### ハイパーパラメータの幾何学的役割\n- **帯域幅 $\\alpha$**: 新奇性エネルギーの空間スケールを直接左右します。小さすぎると境界がギザギザになり、大きすぎると平滑化されすぎて境界が曖昧になります。\n- **出力次元 $m$**: 理論的なカーネル分散への近似精度を保ち、エネルギー景観を安定化させます。$m \\geq 64$ で十分安定します。\n- **予測器の隠れ層幅 $h$**: 幅を広げると境界がやや滑らかになりますが、全体的な新奇性分離の構造には大きく影響しません。",
+   "figures": [
+    {
+     "key": "F8",
+     "caption_ja": "Two Moonsデータセットにおけるハイパーパラメータの影響です。上段：帯域幅 $\\alpha$ を大きくするとエネルギー景観が過度に平滑化され、境界がボケていく様子が分かります。下段：出力次元 $m$ を増やすことで、有限サンプルによるムラが消え、安定した境界が得られることが確認できます。",
+     "caption": "Figure 8: Energy landscapes of RFF-RND on the Two Moons dataset over varying $\\alpha$ and $m$ . (Top Row) Varying the RBF length-scale $\\alpha$ with $m=64$ fixed. (Bottom Row) Varying the RFF feature dimension $m$ with $\\alpha=1.0$ fixed. Overall, smaller $\\alpha$ yields more localized (but noisier) energy bands around the manifold, whereas larger $\\alpha$ over-smooths the landscape and blurs manifold boundaries. Increasing $m$ improves the kernel approximation and stabilizes the energy, producing smoother and more consistent manifold separation.",
+     "image": "details/2611.33850/F8.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "RNDが未知領域で新奇性を見落とす「過汎化」は、ターゲットが予測器の苦手な固有モードを十分に刺激できていない（スペクトル励起不足）ために発生する",
+  "ターゲットを固定MLPから帯域制御可能なランダムフーリエ特徴量（RFF）に替えるだけで、アルゴリズム本体を一切変えずに高精度な新奇性シグナルを作れる",
+  "ハイパーパラメータの帯域幅 $\\alpha$ は、データ点間の距離の中央値 $r_{\\rm med}$ を使って $\\alpha = c \\cdot r_{\\rm med}$（$c \\in \\{1/2, 1/3, 1/5\\}$）とスケーリングすると極めて実用的",
+  "オフライン強化学習での安全・保守的な行動制約や、疎報酬ロボティクス環境での探索ボーナスとして即座に活用できる"
+ ],
+ "limitations_ja": [
+  "解析が無限幅ニューラルネットワーク（GPおよびNTKレジーム）の理想化に基づいており、実際の有限幅ネットワークにおける特徴量学習のダイナミクスまでは完全には追いきれていない",
+  "画像などの高次元知覚入力に対して、等方的なガウスカーネルをそのまま適用すると次元の呪いを受けやすいため、表現学習との適切な組み合わせが必要になる",
+  "砂嵐画面のような予測不能な観測ノイズ（Noisy-TV問題）に対しては、単一の等方性帯域幅だけでは無駄な探索を誘発するリスクが残る"
+ ],
+ "keywords": [
+  "Reinforcement Learning",
+  "Random Network Distillation",
+  "Neural Tangent Kernel",
+  "Random Fourier Features",
+  "Novelty Detection",
+  "Exploration"
+ ],
+ "id": "2611.33850",
+ "title": "Mitigating Overgeneralization in RND via Spectral Target Design",
+ "authors": [
+  "Minseok Jeong",
+  "Yechan Lee",
+  "Hyewon Choi",
+  "Jeongyong Yang",
+  "SooJean Han"
+ ],
+ "date": "2026-11-27",
+ "group": "focus",
+ "tags": [
+  "reinforcement-learning",
+  "control"
+ ],
+ "categories": [
+  "cs.LG",
+  "cs.AI"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.33850",
+ "pdf_url": "https://arxiv.org/pdf/2611.33850",
+ "summary_ja": "強化学習の新規性探索手法RNDにおいて、予測器が未知領域で目標を補外して新規性スコアが崩壊する過度な汎化をカーネル理論から分析。原因がスペクトルの励起不足にあることを突き止め、目標ネットワークの共分散カーネルを最適化するスペクトル設計手法により探索性能を大幅に向上させた。",
+ "generated": "2026-11-27",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.33850"
+}
