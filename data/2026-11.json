@@ -1,6 +1,282 @@
 {
  "entries": [
   {
+   "date": "2026-11-27",
+   "rank": 0,
+   "id": "2611.33579",
+   "group": "focus",
+   "title": "DexEngine: Scaling Human Demonstrations into Physically Executable Whole-Robot Data",
+   "title_ja": "DexEngine: 人間の実演データを全身ロボットで物理実行可能な軌道へ拡張する",
+   "summary_ja": "手と物体の実演データを全身ロボットで実行可能な軌道へ変換するシミュレーション基盤を提案。アームの到達可能領域への配置と逆運動学による追従後、物理シミュレーション内の残差強化学習で接触を伴う動作を修正する。9つのデータセットから5,200件の高品質な全身軌道を自動生成した。",
+   "summary_en": "DexEngine is a simulation pipeline that converts human hand-object demonstrations into physically executable whole-robot trajectories. It places motions within kinematic reach, generates arm tracking, and applies residual RL in physics simulation to correct contact dynamics, producing about 5,200 training-ready clips across nine datasets.",
+   "authors": [
+    "Wongyun Yu",
+    "Honggeun Kim",
+    "Donguk Lee",
+    "Minchan Kim",
+    "Kyoung Whan Choe",
+    "Minsu Cho"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "manipulation",
+    "reinforcement-learning",
+    "simulation",
+    "dataset"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.33579",
+   "image": "figures/2026-11-27/2611.33579.jpg"
+  },
+  {
+   "date": "2026-11-27",
+   "rank": 1,
+   "id": "2611.33850",
+   "group": "focus",
+   "title": "Mitigating Overgeneralization in RND via Spectral Target Design",
+   "title_ja": "スペクトルターゲット設計によるRNDの過度な汎化の緩和",
+   "summary_ja": "強化学習の新規性探索手法RNDにおいて、予測器が未知領域で目標を補外して新規性スコアが崩壊する過度な汎化をカーネル理論から分析。原因がスペクトルの励起不足にあることを突き止め、目標ネットワークの共分散カーネルを最適化するスペクトル設計手法により探索性能を大幅に向上させた。",
+   "summary_en": "This paper analyzes the overgeneralization failure of Random Network Distillation (RND) in RL exploration through a kernel-theoretic lens. Identifying the collapse of novelty scores on unfamiliar states as spectral under-excitation, the authors formulate a spectral target design that significantly improves exploration efficiency.",
+   "authors": [
+    "Minseok Jeong",
+    "Yechan Lee",
+    "Hyewon Choi",
+    "Jeongyong Yang",
+    "SooJean Han"
+   ],
+   "categories": [
+    "cs.LG",
+    "cs.AI"
+   ],
+   "tags": [
+    "reinforcement-learning",
+    "control"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.33850",
+   "image": "figures/2026-11-27/2611.33850.jpg"
+  },
+  {
+   "date": "2026-11-27",
+   "rank": 2,
+   "id": "2611.34671",
+   "group": "focus",
+   "title": "DemoFoundry: Toward Scalable Photorealistic Robot Data with Coding Agents and Generative Rendering",
+   "title_ja": "DemoFoundry: コーディングエージェントと生成的レンダリングによるフォトリアルなロボットデータ生成",
+   "summary_ja": "シミュレーションと実世界の乖離を埋めるため、コード生成エージェントと生成的レンダリングを統合したロボット学習データ合成手法を提案。エージェントが物理シミュレータ上で動作プログラムを生成し、実写データで学習したレンダラで高精度に画像化することで、正確な行動ラベルを持つリアルなデモを大量生成する。",
+   "summary_en": "DemoFoundry combines coding agents and generative rendering to synthesize photorealistic, physically grounded robot demonstrations. Coding agents write executable interaction programs in simulation, while a generative renderer transforms proxy visuals into photorealistic observations with precise action labels.",
+   "authors": [
+    "Ruixiang Wang",
+    "Xinyue Yao",
+    "Xuanning Zhou",
+    "Yueci Deng",
+    "Yongyi Su",
+    "Kui Jia"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "simulation",
+    "dataset",
+    "sim-to-real",
+    "llm-agent"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.34671",
+   "image": "figures/2026-11-27/2611.34671.jpg"
+  },
+  {
+   "date": "2026-11-27",
+   "rank": 3,
+   "id": "2611.33925",
+   "group": "focus",
+   "title": "Beyond the Happy Path: Generalizing Robot World Models from Simulated Failures",
+   "title_ja": "成功軌道の先へ: シミュレーション内の失敗データによるロボットワールドモデルの汎化",
+   "summary_ja": "成功例ばかりで学習されたワールドモデルは把持のズレや滑りなどの失敗時に予測が崩壊する課題に対処。把持位置やタイミングに意図的な摂動を加えた6.2万件のシミュレーション失敗軌道データセットReforgeを構築し、失敗時の物理挙動を予測できるロバストなワールドモデルWorldReforgeを実現した。",
+   "summary_en": "WorldReforge addresses the brittleness of action-conditioned world models when handling manipulation failures. By perturbing successful grasps in simulation, the authors construct the 62k-trajectory Reforge dataset to train world models that accurately predict dynamics when interactions fail or slip off the happy path.",
+   "authors": [
+    "Zhiyue Zhao",
+    "Mingyu Liu",
+    "Bolin Zhang",
+    "Liyang Li",
+    "Guangyu Huang",
+    "Canyu Zhao",
+    "Jinchuan Shi",
+    "Haokai Zhang",
+    "Hao Chen",
+    "Chunhua Shen"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "world-model",
+    "simulation",
+    "manipulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.33925",
+   "image": "figures/2026-11-27/2611.33925.jpg"
+  },
+  {
+   "date": "2026-11-27",
+   "rank": 4,
+   "id": "2611.33390",
+   "group": "general",
+   "title": "RoboARC: Physical Puzzles for Robotic Manipulation under Spatial Constraints",
+   "title_ja": "RoboARC: 空間拘束下におけるロボットマニピュレーション物理パズルのベンチマーク",
+   "summary_ja": "狭い隙間の通過や噛み合った部品の分離など、幾何拘束の強い動作を検証するベンチマークを提案。剛体および柔軟体を含む6種の拘束タイプと90のタスクをMuJoCo上に構築し、物理ベースの厳密な判定器と再現可能な正解解を備える。最先端の模倣学習や方策が空間推論において苦戦することを示した。",
+   "summary_en": "RoboARC introduces a benchmark of 90 tasks across six spatial constraint categories in MuJoCo, evaluating whether robots can reason through tightly constrained physical puzzles involving rigid and soft materials. It includes physics-based graders and verified reference solutions, highlighting clear limits in current policies.",
+   "authors": [
+    "Qineng Wang",
+    "Jianwen Lyu",
+    "Pingyue Zhang",
+    "Reuben Tan",
+    "Xiaoyu Huang",
+    "Tonghe Zhang",
+    "Kangrui Wang",
+    "Yelong Shen",
+    "Jianfeng Gao",
+    "Guanya Shi",
+    "Ruohan Zhang",
+    "Manling Li"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "manipulation",
+    "benchmark",
+    "simulation",
+    "planning"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.33390",
+   "image": "figures/2026-11-27/2611.33390.jpg"
+  },
+  {
+   "date": "2026-11-27",
+   "rank": 5,
+   "id": "2611.33794",
+   "group": "general",
+   "title": "Keep or Roll Back? Out-of-Loop Judges for Self-Improving VLA and End-to-End Embodied Policies",
+   "title_ja": "採用かロールバックか？自己改善型VLAのためのループ外判定器SealedLoop",
+   "summary_ja": "自己改善型具現化ポリシーにおいて、ループ内で学習・選択された評価器が誤判定や報酬ハッキングを引き起こす問題に対処。改善ループから完全に遮断された外部判定器による逐次検定を導入し、劣ったモデルの誤採用確率を有界に抑えつつ堅牢にポリシーを改善するフレームワークを提案した。",
+   "summary_en": "SealedLoop addresses false gains in self-improving embodied policies caused by internal judge bias. By placing an independent, sealed judge outside the training loop and requiring sequential hypothesis testing, the framework bounds the probability of keeping suboptimal policies and ensures verifiable improvements.",
+   "authors": [
+    "Zilin Huang",
+    "Zhengyang Wan",
+    "Kangan Qian",
+    "Zihao Sheng",
+    "Sikai Chen"
+   ],
+   "categories": [
+    "cs.AI",
+    "cs.CV",
+    "cs.RO"
+   ],
+   "tags": [
+    "vision-language-action",
+    "benchmark",
+    "safety"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.33794",
+   "image": "figures/2026-11-27/2611.33794.jpg"
+  },
+  {
+   "date": "2026-11-27",
+   "rank": 6,
+   "id": "2611.33993",
+   "group": "general",
+   "title": "Aegis-VLA: Reliability-Gated Action Refinement via a Trajectory World Model for Dynamic Object Manipulation",
+   "title_ja": "Aegis-VLA: 動的物体操作のための軌道ワールドモデルによる信頼度ゲート付き行動補正",
+   "summary_ja": "推論中も動く物体を操作する際、予測誤差による不適切な補正を防ぐVLAフレームワークを提案。運動学的補外と残差ダイナミクスを組み合わせた軌道ワールドモデルで不確実性を推定し、補正が真に有益であるかを判定する信頼度ゲートにより不要な介入を抑えつつ俊敏な追従と把持を実現した。",
+   "summary_en": "Aegis-VLA achieves dynamic object manipulation by coupling a trajectory world model with reliability-gated action refinement. The world model predicts target motion with uncertainty estimates, and a gating mechanism determines whether and how strongly to apply action corrections, preventing harmful modifications during motion.",
+   "authors": [
+    "Lennox Wei",
+    "Jiaqi Yao",
+    "Shixin Sun",
+    "Yuanzheng Zhang",
+    "Jianhua Han",
+    "Meng Tian",
+    "Shaohui Liu",
+    "Wangmeng Zuo"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "manipulation",
+    "world-model",
+    "control",
+    "vision-language-action"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.33993",
+   "image": "figures/2026-11-27/2611.33993.jpg"
+  },
+  {
+   "date": "2026-11-27",
+   "rank": 7,
+   "id": "2611.34130",
+   "group": "general",
+   "title": "WorldPhy: Benchmarking Fine-Grained Physical Plausibility of World Models in Robotics",
+   "title_ja": "WorldPhy: ロボティクスにおけるワールドモデルの詳細な物理的妥当性ベンチマーク",
+   "summary_ja": "動画生成ベースのワールドモデルがロボットの接触や幾何学的制約を遵守しているかを詳細に測る300タスクからなる評価ベンチマークを構築。単なる見た目の自然さではなく、物体の貫通や不自然な滑りなどロボティクス特有の物理的整合性を多角的な指標で定量評価できるようにした。",
+   "summary_en": "WorldPhy is a benchmark designed to evaluate the fine-grained physical plausibility of robotics world models across 300 diverse tasks. Moving beyond generic visual fidelity, it provides rigorous metrics assessing robot kinematic constraints, penetration, and contact dynamics to test physical validity.",
+   "authors": [
+    "Ziyuan Chu",
+    "Mingzhi Zheng",
+    "Kaiyue Zhang",
+    "Jinan Zhang",
+    "Linchao Zhu"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI"
+   ],
+   "tags": [
+    "world-model",
+    "benchmark",
+    "simulation"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.34130",
+   "image": "figures/2026-11-27/2611.34130.jpg"
+  },
+  {
+   "date": "2026-11-27",
+   "rank": 8,
+   "id": "2611.33772",
+   "group": "general",
+   "title": "Triage Before Fine-Tuning: Feasibility-Gated Selection and Monitored Adaptation of Embodied Foundation Models for a Fixed Physical Platform",
+   "title_ja": "ファインチューニング前のトリアージ: 固定実機プラットフォームへの具現化基盤モデルの選定と適応",
+   "summary_ja": "公開された具現化モデルを固定の実機に導入する際、性能損失要因をセンシング・遅延・分布の3つのギャップに分解して診断するフレームワークTRIAGEを提案。微調整で修復不可能なセンシング欠落や制御遅延を実行前に除外することで、無駄な調整を防ぎ効率的な実機適応を可能にした。",
+   "summary_en": "TRIAGE presents a methodology to select and adapt embodied foundation models on fixed physical hardware by decomposing transfer gaps into sensing, latency, and distribution mismatches. By filtering out infeasible models before fine-tuning, practitioners can identify and resolve platform-specific bottlenecks effectively.",
+   "authors": [
+    "Zilin Huang",
+    "Zhengyang Wan",
+    "Zihao Sheng",
+    "Boyue Wang",
+    "Ruolin Yang",
+    "Yuhao Luo",
+    "Sikai Chen"
+   ],
+   "categories": [
+    "cs.RO",
+    "cs.AI",
+    "cs.CV"
+   ],
+   "tags": [
+    "benchmark",
+    "control",
+    "hardware"
+   ],
+   "abs_url": "https://arxiv.org/abs/2611.33772",
+   "image": "figures/2026-11-27/2611.33772.jpg"
+  },
+  {
    "date": "2026-11-26",
    "rank": 0,
    "id": "2611.34569",
