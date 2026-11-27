@@ -1,0 +1,157 @@
+{
+ "title_ja": "成功軌道の先へ: シミュレーション内の失敗データによるロボットワールドモデルの汎化",
+ "tldr_ja": "成功例ばかりで学習された既存のロボット世界モデルは、把持ミスなどで物体が倒れたり滑ったりする挙動を全く予測できません。本研究は、シミュレータ上で意図的な失敗を含む大規模データセットReforgeを構築し、物理的な接触領域と表面点の追跡を自己教師ありで学習する枠組み「WorldReforge」によって、推論コストを増やさずに接触・失敗時のダイナミクス予測精度を劇的に向上させました。",
+ "hero_figure": {
+  "key": "F3",
+  "caption_ja": "WorldReforgeの学習フレームワークの全体像です。拡散トランスフォーマー（DiT）ベースの世界モデルに対して、接触領域を重点的に再構成するInteraction Alignment（IA）と、物体の同一表面点の軌跡を特徴空間で照合するSurface Correspondence（SC）という2つの物理補助損失を導入しています。どちらも推論時には不要なため、計算コストを追加することなく物理予測性能を引き上げられます。",
+  "caption": "Figure 3 : WorldReforge augments an action-conditioned DiT with spatial and temporal supervision. The initial observation and future actions condition flow-matching prediction. Interaction Alignment weights reconstruction in interaction regions; Surface Correspondence uses physical GT to align the same surface points across frames through backbone features. RGB examples illustrate regions and tracks. Both auxiliary objectives share the backbone without adding inference-time parameters.",
+  "image": "details/2611.33925/F3.jpg"
+ },
+ "overview_ja": "ロボットが自律的に作業を計画したり方策を事前評価したりするために、ロボットのアクションを入力として未来の映像を予測する「行動条件付き世界モデル」が注目されています。しかし、既存モデルの学習データの大部分は人間やロボットが作業に成功した綺麗なデモ映像（いわゆるハッピーパス）です。そのため、指先が数ミリずれて物体を押してしまったり、閉じるタイミングが早すぎて物体が転がったり滑ったりしたときの「失敗の物理挙動」を全く予測できないという致命的なバイアスを抱えていました。実際、事前学習済みの主要モデルを評価すると、最初の画像をそのままコピーし続けるだけの静止ベースラインとほぼ変わらないか、むしろ劣る結果でした。\n\nそこで著者らは、シミュレータの強みを活かしてこの問題を克服するフレームワーク「WorldReforge」を提案しました。シミュレータ上で把持の目標位置・角度・タイミングに微小な摂動を加えることで、押す・倒す・滑るといった多様な失敗挙動を含む6.2万本の軌道データセット「Reforge」を作成しました。さらに、シミュレータから得られる正確な3D物体姿勢や表面の幾何情報を使い、推論時の計算負荷を一切増やさずに世界モデルのバックボーンを賢く鍛える2つの学習損失を設計しました。画面全体の中で小さくなりがちな接触領域を強調して再構成する「Interaction Alignment（IA）」と、物体の表面点が時間とともにどこへ動くかを特徴量レベルで対応付ける「Surface Correspondence（SC）」です。\n\n実験の結果、Cosmos3 Nanoにおいて物体の軌道予測誤差が全体で28.2%、未知の物体に対しては35.0%も削減されました。また、異なるアクションを取ったときに結果がどう分岐するかという応答の予測誤差も43.3%削減されています。さらに驚くべきことに、シミュレーションだけで追加学習したにもかかわらず、実ロボットのデータセット（DROID）や現実の失敗動画に対しても予測精度が向上しました。失敗データと成功データの役割を分析したところ、「失敗接触」は物体がどう反応するかを教え、「成功した把持維持」は掴んだ状態がどう持続するかを教えるという、互いに補完し合う重要な役割分担があることも明らかになりました。",
+ "contributions_ja": [
+  "既存の事前学習済み世界モデルが、接触失敗時において最初のフレームをコピーするだけの静止ベースラインと同等以下しか動かないという「ハッピーパス・バイアス」の深刻さを定量的に診断・実証しました。",
+  "位置・姿勢・把持タイミングを摂動させて失敗挙動と高精度な3D物理正解データを紐付けた6.2万本のシミュレーション軌道と、実機評価用の300本の実失敗軌道からなるReforgeデータセットを構築しました。",
+  "シミュレータの幾何的正解を活用し、推論コストを一切増やさずに接触領域の再構成を強調するIAと物体表面点の追跡を促すSCという2つの学習目的関数「WorldReforge」を提案しました。",
+  "未知の物体や実環境の動画（DROID等）に対しても物理予測と画質が大きく改善することを示し、失敗接触と成功把持がダイナミクス学習において相補的な役割を果たすことを解明しました。"
+ ],
+ "sections": [
+  {
+   "heading": "1 Introduction",
+   "heading_ja": "世界モデルは「失敗したときの世界」を知らない",
+   "summary_ja": "行動条件付き世界モデルはロボットの方策評価や計画に期待されていますが、既存モデルは成功デモばかりで学習されているため、把持に失敗したときの物理挙動を予測できません。本章では、主要な事前学習済みモデルが最初のフレームを静止コピーするベースラインと同等以下であるという深刻な現状を指摘し、シミュレーションの密な物理正解を活用して失敗ダイナミクスを教え込むWorldReforgeの狙いを説明します。",
+   "details_ja": "ロボットが賢く動くためには、「もし右に動かしたらどうなるか」「もし空振りしたらどうなるか」といった、異なるアクションがもたらす結果の違いを正確にシミュレーションできなければなりません。しかし、マニピュレーションにおいてこの要件を満たすのは極めて困難です。指先が1センチずれたり、グリッパーを閉じるのが少し早すぎたりしたとき、物体はただそこにあるのではなく、押し出されたり、傾いたり、指の間から滑り落ちたりします。ところが、既存のロボット訓練データは成功した綺麗なデモばかりであるため、世界モデルはこの「接触の物理」をほとんど学習できていません。\n\n著者らが3つの系統からなる5つの事前学習済み世界モデルを検証したところ、接触失敗時の物体運動予測誤差は、最初の画像をそのまま出力し続けるだけの「静止ベースライン」と比べて最大でも10.4%しか良くならず、2つのモデルに至っては静止ベースラインより悪いという衝撃的な事実が判明しました。物体が押されたり倒れたりしているのに、モデルの予測の中では物体が初期位置に張り付いたまま動かないのです。これでは、間違った方針を実行しても「失敗していない」と甘く評価してしまいます。\n\n現実のロボットで失敗データを集めるのは安全面やコストの制約がありますが、シミュレータなら安全かつ大量に、しかもミリ単位で制御された失敗を生成できます。さらに、シミュレータ内なら物体の正確な3D姿勢、接触状態、表面の幾何構造といった正解（Ground Truth）が手に入ります。WorldReforgeは、このシミュレータ正解を活用し、推論時の計算量を1ミリも増やすことなく世界モデルに失敗の物理を教え込む枠組みです。",
+   "figures": []
+  },
+  {
+   "heading": "2 Related Work",
+   "heading_ja": "世界モデルの進化と物理アライメントの課題",
+   "summary_ja": "行動条件付きビデオ予測や潜在ダイナミクスモデル、失敗データを用いたファインチューニングなどの先行研究を整理しています。既存手法は画像全体の再構成損失に頼るか、大雑把な成否シグナルしか与えられておらず、微小な接触領域で生じる詳細な物体運動を捉えきれていないという限界を明らかにします。",
+   "details_ja": "本章では、関連する研究を3つの系統に分けて整理しています。\n\n### 2.1 ロボット世界モデルの系譜\n初期のピクセル予測から始まり、潜在空間でダイナミクスを解くPlaNetやDreamerV3、テキスト指示を組み合わせたモデルや、UniSim、Cosmos3、DreamDojo、LingBot-VAといった近年の大規模な動画・行動生成基盤モデルまで、世界モデルは急速に発展してきました。しかし、これらは依然として接触主導の物体予測、特に失敗時のダイナミクス表現に課題を抱えています。\n\n### 2.2 物理アライメントのためのポストトレーニング\n失敗から学ぶ試みとして、FACTやCureWM、反実仮想や報酬信号を使うDreamTrueやHF-WMなどが提案されています。しかし、既存手法には2つの根本的な限界があります。第1に、接触ダイナミクスは画面全体のほんの小さな領域でしか起きないため、画像全体の再構成損失（Global Loss）を使うと重みが小さすぎて無視されてしまう点です。第2に、成否や報酬といったスカラーの信号だけでは、「物体が具体的にどう動いたか」という物理的軌跡を指導できない点です。WorldReforgeは、シミュレータの密な幾何正解を使ってこの2つの壁を突破します。\n\n### 2.3 ビデオとインタラクションの評価\n従来の動画生成評価（PSNRやSSIM、VBenchなど）は見た目の綺麗さに偏っており、行動に応じた物理的な正しさを測るには不十分です。本研究では、点追跡（CoTracker等）を応用して物体とグリッパーの運動誤差（ADE/FDE）を個別に評価し、さらに2つの異なるアクションによる分岐を測るプロトコルを導入しています。",
+   "figures": []
+  },
+  {
+   "heading": "3 Method",
+   "heading_ja": "シミュレーション正解から物理を叩き込む「WorldReforge」",
+   "summary_ja": "6.2万本の軌道からなるデータセット「Reforge」の構築方法と、WorldReforgeの中核となる2つの補助損失（IAとSC）を解説します。接触領域に特化して再構成を行うInteraction Alignmentと、物体の表面点が時間とともにどう動くかをバックボーンの特徴量で直接追跡させるSurface Correspondenceにより、追加の推論パラメータなしで物理整合性を獲得します。",
+   "details_ja": "本手法は、拡散モデルやFlow Matchingに基づく行動条件付きビデオ予測モデルを対象としています。初期画像 $I_0$ とロボットの行動列が与えられたとき、未来のフレームを生成するタスクです。\n\n### 3.2 Reforgeデータセットの構築\nロボットシミュレータ上で、まず成功する基準の把持動作をcuRoboなどを用いて作成します。そこからエンドエフェクタの位置（並進）、回転、グリッパーを閉じるタイミングに意図的なズレ（摂動）を加えます。これにより、空振り、押し出し、傾き、滑り落ちなど、多彩な結果を含む62,425本の軌道（96種類の物体アセット）を生成しました。そのうち失敗に関連する軌道は13,577本に上ります。さらに評価用として、実機のFranka Pandaアームを用いて収集した300本の実失敗軌道（Reforge-Real）も用意しました。\n\n### 3.3.1 Interaction Alignment（IA）：接触領域の集中学習\n画面全体に対する通常の再構成損失では、小さな物体や指先の接触部分の誤差が背景の広大なピクセルに埋もれてしまいます。そこでIAでは、物体の3Dバウンディングボックスを画面に投影したソフトマスク $M$ を作成します。予測されたクリーンな潜在変数 $\\hat{z}_0$ と正解の潜在変数 $z_0$ の差分をマスク領域内だけで計算し、さらにマスクの総面積で正規化します。これにより、物体が画面の隅で小さくしか映っていなくても、十分な強さの勾配をバックボーンに伝えることができます。\n\n### 3.3.2 Surface Correspondence（SC）：表面点の時間追跡\nIAが「空間的な見た目と位置」を正すのに対し、SCは「時間的な動きの連続性」を正します。シミュレータ内で物体の表面にある3D点を指定すると、カメラ行列と物体の運動変換行列から、その点が未来の各フレームで画面上のどこ（ピクセル座標）に移動するかが正確に計算できます。SCでは、DiTバックボーンの中間特徴量を取り出し、初期フレームの表面点の特徴が、未来フレームのどの位置の特徴と最もコサイン類似度が高いかをソフトマックスで計算して予測位置 $\\hat{p}_{it}$ を求めます。この予測位置とシミュレータ正解の投影位置とのユークリッド距離を損失としてバックボーンを直接学習させます。\n\nポイントは、IAもSCも学習時の損失関数としてのみ機能し、新しいネットワーク層や推論時の計算ステップを一切追加しない点です。既存の世界モデルの構造をそのまま保ったまま、物理センスだけを劇的に鍛え直すことができます。",
+   "figures": [
+    {
+     "key": "F2",
+     "caption_ja": "Reforgeデータセットの階層構造です。上段では並進・回転・把持タイミングという実行時の摂動の種類と軌道数を示し、下段ではそれによって引き起こされる接触の成否、物体の押し出しや傾き、最終的な把持の安定性といった観測結果の分類を示しています。単なる動画の集まりではなく、密な物理アノテーションが紐付いているのが特徴です。",
+     "caption": "Figure 2 : Overview of the Reforge dataset. Execution variations span translation, rotation, and closure timing; observed consequences include failed contact, object responses, and grasp outcomes. Consecutive RGB frames illustrate representative changes. Top counts cover the full dataset; bars summarize simulated trajectories, with overlapping output labels.",
+     "image": "details/2611.33925/F2.jpg"
+    },
+    {
+     "key": "F3",
+     "caption_ja": "WorldReforgeのアーキテクチャと学習パイプラインです。Flow Matchingの基本損失（$\\mathcal{L}_{\\mathrm{FM}}$）に加えて、幾何マスクを用いた領域重み付け再構成損失（IA）と、バックボーン特徴量による表面点追跡損失（SC）を同時適用してモデルを後学習（ポストトレーニング）します。",
+     "caption": "Figure 3 : WorldReforge augments an action-conditioned DiT with spatial and temporal supervision. The initial observation and future actions condition flow-matching prediction. Interaction Alignment weights reconstruction in interaction regions; Surface Correspondence uses physical GT to align the same surface points across frames through backbone features. RGB examples illustrate regions and tracks. Both auxiliary objectives share the backbone without adding inference-time parameters.",
+     "image": "details/2611.33925/F3.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "4 Experiments",
+   "heading_ja": "未知の物体も実世界動画も：物理予測精度の圧倒的向上",
+   "summary_ja": "Cosmos3、DreamDojo、LingBot-VAの3系統5モデルを用いて検証を行いました。WorldReforgeを適用することで、物体運動予測誤差が大幅に削減され、学習時に見たことのない物体に対しても高い汎化性を示しました。さらに、シミュレーションのみで学習したにもかかわらず、実機の失敗動画やDROIDデータセットの再構成画質も向上することを確認しました。",
+   "details_ja": "### 4.1 実験設定\n学習にはReforgeデータセットから2.56万本のインタラクション区間（約半数が失敗軌道）を使用し、NVIDIA H200 GPU 8基でポストトレーニングを行いました。評価には、シミュレーション評価セット（Reforge-Eval）、実ロボットの大規模データセット（DROID）、そして実機で収集した失敗セット（Reforge-Real）を用いました。評価指標としては、CoTrackerを用いた物体の平均軌道誤差（ADE）および最終フレーム誤差（FDE）、グリッパーのADE/FDE、動画再構成品質（PSNR, SSIM）、そしてMLLM（Qwen3.8-27B）による視覚品質合格率（Q）を計測しています。\n\n### 4.2 定量的評価\nベースモデル（Pretrained）、Reforgeデータで通常学習したモデル（Reforge）、そしてIAとSCを加えた提案手法（WorldReforge）を比較しました。\n- **物理応答の正確さ**: Cosmos3 Nanoにおいて、WorldReforgeはPretrainedと比べて物体のADEを28.2%削減しました。また、同じデータ量・計算予算で通常学習したReforgeと比較してもさらに4.4%削減され、最終フレーム位置誤差（FDE）も5.0%低下しました。\n- **複数モデルファミリーでの効果**: DreamDojoやLingBot-VAでも同様に大幅な改善が見られ、WorldReforgeの損失設計が特定のアーキテクチャに依存しない汎用的なものであることが証明されました。\n- **未知物体への汎化**: 学習に含まれていない未知の物体（Unseen assets）に対して、Cosmos3 Nanoの物体ADEは事前学習モデルから35.02%も削減され、PSNRは4.44 dB向上しました。特定の形状を暗記したのではなく、一般的な接触ダイナミクスを学習できていることがわかります。\n- **実世界動画への転移（Sim-to-Real）**: シミュレーションのデータだけでポストトレーニングしたにもかかわらず、実ロボット動画であるDROIDにおいてPSNRが1.04 dB、Reforge-Realにおいて0.68 dB向上しました。実世界の失敗予測でも破綻せず、視覚品質合格率は100%を達成しています。",
+   "figures": []
+  },
+  {
+   "heading": "5 Analysis",
+   "heading_ja": "なぜ効くのか？ 失敗データと物理指導のメカニズムを解剖する",
+   "summary_ja": "行動に応じた分岐の予測精度、実行バリエーションの影響、そして「成功把持」と「失敗接触」の役割分担を詳細に分析しました。特に、異なる行動を取った際の未来の差分を予測する誤差が43.3%も削減されたことや、失敗接触が物体反応を教え、成功把持が状態維持を教えるという相補的関係が明らかになりました。",
+   "details_ja": "### 5.1 実行バリエーションとカバレッジ\n並進、回転、把持タイミングのどれを学習させるのが最も効果的かを調べました。並進と回転の摂動を組み合わせると物体運動の予測精度（ADE 7.25 px）が最も高くなりました。一方で、グリッパー自体の動きを正確に予測するには、閉じるタイミングのバリエーションを含めることが不可欠でした。両方をバランスよく混ぜることが重要です。\n\n### 5.2 成功と失敗の役割分担（相補性）\n「失敗データだけ」あるいは「成功データだけ」で学習させるとどうなるかを検証しました。非常に興味深いことに、グリッパーを閉じたが掴めなかった「失敗接触」データを加えると、失敗接触時の物体ADEが12.78 pxから10.48 pxへと18.0%も劇的に改善しました。しかし、すでに掴んだ物体を安定して持ち上げ続ける「把持維持」の予測に関しては、成功データだけで学習させた方が最も良い精度を示しました。つまり、失敗接触は「触られた物体がどう動くか（変化）」を教え、成功把持は「一度掴まれた状態がどう維持されるか（持続）」を教えるという、明確な役割分担があるのです。\n\n### 5.3 行動に応じた分岐の感度（Action-Dependent Responses）\n世界モデルが計画に使えるかどうかは、「行動Aを取ったときと行動Bを取ったときで、予測される未来が正しく分かれるか」にかかっています。初期状態が同じで異なる行動を取った100組のペアについて、予測の差分と実際の差分の二乗誤差である応答差分誤差（RDE）を測定しました。WorldReforgeは事前学習モデルと比較してRDEを43.3%も削減しました。図F4にあるように、一方が滑り落ちて他方が持ち上がるような分岐において、接触領域の残差が大幅に小さくなっています。\n\n### 5.4 物理補助損失のアブレーション\nIA（領域再構成）とSC（表面点追跡）をそれぞれ単独で使った場合と、両方を併用した場合を比較しました。両方を組み合わせることで、物体ADEがさらに3.2%、グリッパーADEが6.3%削減されました。また、シミュレータ正解の代わりにCoTrackerで推定した疑似ラベルを用いてSCを計算したモデルと比較したところ、真の物理正解を用いた方が物体ADEを約4%低く抑えられました。正確な3D幾何情報で特徴量を直接ガイドすることの価値が裏付けられています。",
+   "figures": [
+    {
+     "key": "F4",
+     "caption_ja": "同じ初期フレームから異なる2つのアクション（A: 把持が滑る、B: 持ち上げに成功する）を実行したときの応答差分の比較です。下段は未来フレームにわたる残差のRMSマップで、暗いほど正解とのズレが小さいことを示します。WorldReforge（右）は、Pretrained（左）やReforge単体（中央）に比べて物体・接触周辺の誤差（RDE）が顕著に低く、アクションによる物理結果の分岐を鋭敏に捉えられています。",
+     "caption": "Figure 4 : Different actions produce different physical responses: the marker slips in execution A and is lifted in B. Top: shared Frame 0 and recorded Frame 16 outcomes. Bottom: wrist-view RMS maps of the RGB branch-difference residual over all future frames and channels; darker indicates lower error. RDE for this pair’s wrist view is displayed $\\times 10^{3}$ .",
+     "image": "details/2611.33925/F4.jpg"
+    }
+   ]
+  },
+  {
+   "heading": "6 Conclusion",
+   "heading_ja": "まとめと今後の展望",
+   "summary_ja": "WorldReforgeは、シミュレーションによる失敗経験と幾何的な物理指導を組み合わせることで、行動条件付き世界モデルの接触予測を大幅に改善しました。成功と失敗の双方が不可欠であることを示し、今後はより長期的なタスクや閉ループ制御への応用を目指します。",
+   "details_ja": "本研究は、成功例に偏っていたロボット世界モデルの学習パラダイムに一石を投じました。シミュレータで多様な失敗動作を生成したReforgeデータセットと、接触領域に着目するIA、表面点を追跡するSCという2つの物理補助損失からなるWorldReforgeによって、推論コストを増やすことなく接触主導の物体ダイナミクス予測を大幅に進化させました。\n\n得られた知見として特に重要なのは、失敗した接触経験が物体の動的応答を教え、成功した把持経験が状態の持続性を教えるという相補的な関係性です。今後は、さらに長いタイムホライズンを持つ複雑なマニピュレーションへの拡張や、高精度に予測された「失敗の予兆」を利用してロボットがリアルタイムに軌道を修正する閉ループ制御への統合が期待されます。",
+   "figures": []
+  },
+  {
+   "heading": "Appendix",
+   "heading_ja": "付録：実機検証セットアップと詳細な定性結果",
+   "summary_ja": "実機失敗データセットReforge-Realのハードウェア構成や、多様な物体における詳細な予測動画の比較結果をまとめています。シミュレーションと実世界の双方で、物体が押されたり傾いたりするダイナミクスが正確に再現されている様子が確認できます。",
+   "details_ja": "### A.5 Reforge-Realの取得環境\n実機評価用のReforge-Realデータセットは、7自由度のFranka Pandaロボットアームと純正電動グリッパーを用いて収集されました。手先に装着したStereolabs ZED-Mカメラ（手先視点）と、外部に固定配置した2台のIntel RealSenseカメラ（左右の肩越し視点）の計3視点から、640×544解像度で同期撮影を行っています。机の上に置かれた日常的な10種類の物体（ぬいぐるみ、果物、スプレー缶など）に対し、あえて失敗する把持操作をテレオペレーションで実行し、300本の失敗動画を記録しました。\n\n### E 定性的な予測結果の比較\nシミュレーションの既知物体（ソースボトルやマーカー）、未知物体（ルービックキューブや赤いマグカップ）、さらにはDROIDやReforge-Realの実機動画において、ベースラインとの予測比較を行っています。事前学習済みの世界モデルでは、ロボットの手先が物体にぶつかっても物体がその場に留まり続ける現象が頻発していました。それに対しWorldReforgeでは、指先が接触した瞬間に物体が回転したり、奥へ押し出されたり、把持に失敗して滑り落ちたりする様子が、3視点すべてにおいて高い幾何的整合性を保ちながら鮮明に生成されています。",
+   "figures": [
+    {
+     "key": "F5",
+     "caption_ja": "実機失敗データセット「Reforge-Real」の撮影セットアップです。7自由度Franka Pandaアームの手先カメラ（ZED-M）と2台の外部カメラ（RealSense）からなる3視点の同期映像を記録し、日常物体に対する様々な失敗把持動作を収録しています。",
+     "caption": "Fig. S1 : Reforge-Real capture setup and three-view observations. The right panel shows the wrist and two external views from the same recorded interaction with a marker.",
+     "image": "details/2611.33925/F5.jpg"
+    },
+    {
+     "key": "F7",
+     "caption_ja": "シミュレーション環境における3視点予測の比較結果です。上段2つは学習時に見せた物体、下段2つは未知の物体です。Pretrained（中段）は物体が初期位置からほとんど動かないのに対し、WorldReforge（下段）は正解GT（上段）と同様に、接触による物体の傾きや回転・変位を高精度に再現できています。",
+     "caption": "Fig. S4 : Three-view predictions of simulated interactions. The upper two examples show a sauce bottle and marker seen during post-training; the lower two show an unseen Rubik’s cube and red mug. Each example presents GT, Pretrained, and WorldReforge, with seven columns spanning frames 0–16. WorldReforge more accurately reproduces the displacement and rotation of these objects.",
+     "image": "details/2611.33925/F7.jpg"
+    },
+    {
+     "key": "F8",
+     "caption_ja": "実世界動画（DROIDおよびReforge-Real）における予測の比較結果です。シミュレーションのみで学習したWorldReforgeが、実環境のイチゴの押し出しやペットボトルの転倒といった接触ダイナミクスに対しても、破綻することなく正確に追従できていることが確認できます。",
+     "caption": "Fig. S5 : Three-view predictions of real-world interactions. The upper two examples show a funnel and orange from DROID; the lower two show contact-induced strawberry displacement and beverage-bottle rotation from Reforge-Real. Each example presents GT, Pretrained, and WorldReforge over seven columns spanning frames 0–16. WorldReforge better follows these objects’ changes in position and orientation.",
+     "image": "details/2611.33925/F8.jpg"
+    }
+   ]
+  }
+ ],
+ "takeaways_ja": [
+  "成功デモだけで学習した世界モデルは、失敗接触時に「最初のフレームをコピーするだけ」の静止予測に陥るため、ポリシー評価やシミュレーション用途で危険な過大評価を生む。",
+  "シミュレータの真価は、安全かつ無尽蔵に「微小な摂動を加えた失敗データ」と「完全な3D幾何正解」をペアで生成できる点にある。",
+  "画面全体に対する通常の再構成損失では局所的な接触ダイナミクスを学習できないため、接触領域に重みをつける正規化損失（IA）と特徴空間での表面点追跡（SC）が極めて有効である。",
+  "失敗データは万能薬ではなく、「失敗接触」が物体の応答を教え、「成功把持」が状態の維持を教えるため、両者を適切な比率で組み合わせることが不可欠である。"
+ ],
+ "limitations_ja": [
+  "検証されている予測期間が16フレーム（数秒程度）と比較的短く、より長時間の多段階マニピュレーションにおいて物理予測の整合性がどこまで維持されるかは未検証です。",
+  "シミュレーションから実世界への転移（Sim-to-Real）において動画再構成画質（PSNR等）の向上は確認されているものの、実機上での詳細な3D物体運動誤差までは定量評価できていません。",
+  "学習時にシミュレータ由来の正確な3Dバウンディングボックスとメッシュ表面点が必要となるため、完全な実世界データのみを用いたポストトレーニングにはそのまま適用できません。"
+ ],
+ "keywords": [
+  "Robot World Models",
+  "Action-Conditioned Video Prediction",
+  "Failure Dynamics",
+  "Post-Training",
+  "Diffusion Transformers"
+ ],
+ "id": "2611.33925",
+ "title": "Beyond the Happy Path: Generalizing Robot World Models from Simulated Failures",
+ "authors": [
+  "Zhiyue Zhao",
+  "Mingyu Liu",
+  "Bolin Zhang",
+  "Liyang Li",
+  "Guangyu Huang",
+  "Canyu Zhao",
+  "Jinchuan Shi",
+  "Haokai Zhang",
+  "Hao Chen",
+  "Chunhua Shen"
+ ],
+ "date": "2026-11-27",
+ "group": "focus",
+ "tags": [
+  "world-model",
+  "simulation",
+  "manipulation"
+ ],
+ "categories": [
+  "cs.RO",
+  "cs.AI"
+ ],
+ "abs_url": "https://arxiv.org/abs/2611.33925",
+ "pdf_url": "https://arxiv.org/pdf/2611.33925",
+ "summary_ja": "成功例ばかりで学習されたワールドモデルは把持のズレや滑りなどの失敗時に予測が崩壊する課題に対処。把持位置やタイミングに意図的な摂動を加えた6.2万件のシミュレーション失敗軌道データセットReforgeを構築し、失敗時の物理挙動を予測できるロバストなワールドモデルWorldReforgeを実現した。",
+ "generated": "2026-11-27",
+ "model": "gemini-3.8-flash",
+ "source": "html",
+ "html_url": "https://arxiv.org/html/2611.33925"
+}
